@@ -12,6 +12,7 @@ export const ROUTES = {
   notes: "/notes",
   blockers: "/blockers",
   support: "/support",
+  needsHelp: "/needs-help",
 } as const;
 
 export const PUBLIC_ROUTES: string[] = [ROUTES.login];

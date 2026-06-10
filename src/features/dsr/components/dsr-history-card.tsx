@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
@@ -139,28 +139,42 @@ export function DsrHistoryCard({
 
           {(entry.followUpsDone.length > 0 || entry.resolvedBlockers.length > 0) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {entry.followUpsDone.length > 0 && (
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Support Received
+              {entry.resolvedBlockers.length > 0 && (
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Blockers Resolved
                   </p>
-                  {entry.followUpsDone.map((f, i) => (
-                    <p key={f.id} className="text-xs leading-relaxed">
-                      {i + 1}) {f.text}
-                    </p>
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {entry.resolvedBlockers.map((b) => (
+                      <div key={b.id} className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 border-primary bg-primary text-primary-foreground">
+                          <Check size={9} strokeWidth={3} />
+                        </span>
+                        <span className="text-xs leading-relaxed line-through text-muted-foreground">
+                          {b.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              {entry.resolvedBlockers.length > 0 && (
-                <div className="rounded-lg border border-destructive/10 bg-destructive/5 p-3">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-destructive">
-                    Blockers Solved
+              {entry.followUpsDone.length > 0 && (
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Follow-ups Done
                   </p>
-                  {entry.resolvedBlockers.map((b, i) => (
-                    <p key={b.id} className="text-xs leading-relaxed text-destructive/80">
-                      {i + 1}) {b.text}
-                    </p>
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {entry.followUpsDone.map((f) => (
+                      <div key={f.id} className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 border-primary bg-primary text-primary-foreground">
+                          <Check size={9} strokeWidth={3} />
+                        </span>
+                        <span className="text-xs leading-relaxed line-through text-muted-foreground">
+                          {f.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

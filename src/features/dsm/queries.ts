@@ -93,20 +93,26 @@ export async function getTodayEntry(): Promise<EntryWithDetails | null> {
 }
 
 /**
- * Yesterday's TODAY tasks — shown as "What did you complete yesterday?" in the form.
- * Returns empty array if no entry exists for yesterday.
+ * Tasks from the most recent *submitted* entry before today.
+ * Shown as "What did you complete yesterday?" in the form.
+ * Uses findFirst (not findUnique on D-1) so Monday correctly shows Friday's work
+ * and any non-working day gap is bridged automatically.
  */
 export async function getYesterdayTasks(): Promise<string[]> {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const yesterday = toUtcDate();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const today = toUtcDate();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const entry = await (db as any).standupEntry.findUnique({
-    where: { userId_date: { userId: session.user.id, date: yesterday } },
+  const entry = await (db as any).standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: today },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
     include: { tasks: { where: { kind: "TODAY" }, orderBy: { order: "asc" } } },
+    orderBy: { date: "desc" },
   });
 
   return (entry?.tasks ?? []).map((t: EntryTask) => t.text);

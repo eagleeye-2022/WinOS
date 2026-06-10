@@ -94,7 +94,7 @@ export default async function DSMPage({ searchParams }: Props) {
       </div>
 
       {/* ── Workspace Notes right panel ───────────────────────────────────────── */}
-      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
+      <aside className="w-115 shrink-0 overflow-hidden border-l xl:w-135">
         <WorkspaceNotesPanel note={workspaceNote} canEdit={canEditNote} />
       </aside>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, MessageSquare, Star, TrendingDown, Clock3, CheckCheck } from "lucide-react";
+import { Zap, MessageSquare, TrendingDown, Clock3, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatEventTime } from "../utils";
 import type { DsrInsights, DsrEntryData } from "../queries";
@@ -149,17 +149,17 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-primary">
-              <Star size={12} />
+              <Zap size={13} className="fill-primary" />
               Breakthrough Days
             </div>
             <span className="text-sm font-bold text-primary">{breakthroughDays}</span>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <TrendingDown size={12} />
+              <TrendingDown size={13} />
               Breakdown Days
             </div>
-            <span className="text-sm font-bold">{breakdownDays}</span>
+            <span className="text-sm font-bold text-muted-foreground">{breakdownDays}</span>
           </div>
           {insightQuote && (
             <blockquote className="mt-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-xs italic text-muted-foreground leading-relaxed">

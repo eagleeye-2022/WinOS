@@ -1,7 +1,6 @@
 "use server";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
-import { db } from "@/lib/db";
 import {
   generateOtp,
   storeOtp,
@@ -14,6 +13,40 @@ import { fmtWait } from "@/lib/fmt";
 import { ROUTES } from "@/constants/routes";
 
 const COMPANY_DOMAIN = "eagleeyedigital.io";
+
+// ── Prisma error helpers ──────────────────────────────────────────────────────
+
+// Checks whether err is a Prisma infrastructure error (DB unreachable or
+// schema not pushed). These are expected setup failures, not app bugs.
+function isPrismaInfraError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: string; errorCode?: string };
+  const code = e.code ?? e.errorCode;
+  // P1001/ECONNREFUSED: can't reach DB  P1017: server closed connection
+  // P2021: table missing               P2022: column missing
+  return typeof code === "string" &&
+    ["P1001", "P1017", "P2021", "P2022", "ECONNREFUSED"].includes(code);
+}
+
+// Dev-only: logs Prisma error details with actionable hints to the server console.
+function devLogPrismaError(context: string, err: unknown): void {
+  if (process.env.NODE_ENV === "production") return;
+  const e = err as { code?: string; errorCode?: string; message?: string };
+  const code = e.code ?? e.errorCode ?? "unknown";
+  const hints: Record<string, string> = {
+    ECONNREFUSED: "DB is not running → run: npm run db:restart",
+    P1001: "DB is unreachable → run: npm run db:restart",
+    P1017: "DB closed the connection → run: npm run db:restart",
+    P2021: "Table does not exist → run: npx prisma db push",
+    P2022: "Column does not exist → run: npx prisma db push",
+  };
+  const hint = hints[code] ?? "Check DB connection and schema.";
+  console.error(`[auth:${context}] Prisma ${code}: ${hint}`);
+  console.error(`[auth:${context}] detail: ${e.message ?? String(err)}`);
+}
+
+const SERVICE_UNAVAILABLE =
+  "The login service is temporarily unavailable. Please try again shortly.";
 
 // ── Step 1 — Request OTP ──────────────────────────────────────────────────────
 
@@ -45,24 +78,17 @@ export async function requestOtpAction(
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = await (db as any).user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-  if (!user) {
-    return {
-      step: "email",
-      error:
-        "This email is not registered in WinOS. Contact your manager to get access.",
-    };
+  // Rate limit check — per-email cooldown + rolling hourly window.
+  let rateLimit: Awaited<ReturnType<typeof checkEmailRateLimit>>;
+  try {
+    rateLimit = await checkEmailRateLimit(email);
+  } catch (err) {
+    devLogPrismaError("checkEmailRateLimit", err);
+    return { step: "email", error: SERVICE_UNAVAILABLE };
   }
 
-  // Rate limit check — per-email cooldown + rolling hourly window.
-  const rateLimit = await checkEmailRateLimit(email);
   if (!rateLimit.allowed) {
     logOtp("otp.rate_limited", email, { waitSeconds: rateLimit.waitSeconds });
-    // If already on the OTP screen (resend attempt), keep the user there.
     const isAlreadyOnOtpStep = _prev.step === "otp" && _prev.email === email;
     return {
       step: isAlreadyOnOtpStep ? "otp" : "email",
@@ -73,7 +99,12 @@ export async function requestOtpAction(
   }
 
   const otp = generateOtp();
-  await storeOtp(email, otp);
+  try {
+    await storeOtp(email, otp);
+  } catch (err) {
+    devLogPrismaError("storeOtp", err);
+    return { step: "email", error: SERVICE_UNAVAILABLE };
+  }
   logOtp("otp.requested", email);
 
   try {
@@ -110,7 +141,14 @@ export async function verifyOtpAction(
 
   // Validate first — this gives us specific failure reasons and updates
   // attempt counters, without yet consuming the token.
-  const check = await validateOtp(email, otp);
+  let check: Awaited<ReturnType<typeof validateOtp>>;
+  try {
+    check = await validateOtp(email, otp);
+  } catch (err) {
+    devLogPrismaError("validateOtp", err);
+    return SERVICE_UNAVAILABLE.replace("shortly.", "shortly. Please request a new code.");
+  }
+
   if (!check.ok) {
     switch (check.reason) {
       case "not_found":
@@ -128,25 +166,20 @@ export async function verifyOtpAction(
     }
   }
 
-  // Look up role for the redirect destination.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userRecord = await (db as any).user.findUnique({
-    where: { email },
-    select: { role: true },
-  });
-  const redirectTo =
-    userRecord?.role === "MANAGER" ? ROUTES.dashboard : ROUTES.dsmMy;
-
   try {
     // signIn calls authorize → verifyAndConsumeOtp (final consumption).
-    await signIn("credentials", { email, otp, redirectTo });
+    // Redirect to home; page.tsx handles role-based routing (MANAGER → /dashboard, TEAM_MEMBER → /dsm/my).
+    await signIn("credentials", { email, otp, redirectTo: ROUTES.home });
   } catch (error) {
     if (error instanceof AuthError) {
       logOtp("otp.invalid", email, { stage: "signIn" });
       return "Sign-in failed. Please request a new code.";
     }
+    if (isPrismaInfraError(error)) {
+      devLogPrismaError("signIn/authorize", error);
+      return SERVICE_UNAVAILABLE.replace("shortly.", "shortly. Please request a new code.");
+    }
     // Re-throw Next.js redirects so they propagate correctly.
     throw error;
   }
 }
-

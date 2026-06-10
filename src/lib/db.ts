@@ -19,13 +19,16 @@ function dbLog(...args: unknown[]) {
 function dbError(operation: string, err: unknown) {
   if (!isDev) return;
   const e = err as Record<string, unknown>;
+  const code = (e?.code ?? e?.errorCode) as string | undefined;
   console.error("[db] error during", operation, {
-    code: e?.code,
+    code,
     message: e?.message ?? String(err),
     meta: e?.meta,
   });
-  if (e?.code === "P1017" || String(e?.message).includes("terminated")) {
-    console.error("[db] → stale pool connection detected. Run: npm run db:restart");
+  if (code === "ECONNREFUSED" || code === "P1001" || code === "P1017" || String(e?.message).includes("terminated")) {
+    console.error("[db] ↳ DB not running or connection dropped → run: npm run db:restart");
+  } else if (code === "P2021" || code === "P2022") {
+    console.error("[db] ↳ Schema not pushed to DB → run: npx prisma db push");
   }
 }
 
@@ -39,11 +42,19 @@ function createClient() {
   // Startup connectivity check — runs once per process in dev.
   if (isDev && !globalForPrisma.prismaReady) {
     globalForPrisma.prismaReady = true;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (client as any).user
-      .count()
-      .then((n: number) => dbLog("startup check: user.count =", n))
-      .catch((e: unknown) => dbError("startup user.count()", e));
+    void (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const n = await (client as any).user.count();
+        dbLog("startup OK — user.count =", n);
+        // Probe OtpToken specifically — missing if schema was never pushed.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (client as any).otpToken.count();
+        dbLog("startup OK — OtpToken table present");
+      } catch (e) {
+        dbError("startup check", e);
+      }
+    })();
   }
 
   return client;

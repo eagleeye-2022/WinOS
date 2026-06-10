@@ -1,8 +1,8 @@
-// Polls TCP port 51218 until the Prisma dev server is accepting connections.
-// Used by db:restart — runs after `prisma dev --detach` returns.
+// Polls a TCP port until the Prisma dev server is accepting connections.
+// Usage: node scripts/wait-db.mjs <port>   (defaults to 5432)
 import { createConnection } from "net";
 
-const PORT = 51218;
+const PORT = parseInt(process.argv[2] ?? "5432", 10);
 const HOST = "localhost";
 const TIMEOUT_MS = 10_000;
 const POLL_MS = 300;

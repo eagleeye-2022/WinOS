@@ -19,7 +19,7 @@ using the raw TCP address in `.env`.
 ```
 Next.js app
   └── src/lib/db.ts  (PrismaClient + PrismaPg adapter)
-        └── postgresql://localhost:51218/template1   ← DATABASE_URL in .env
+        └── postgresql://localhost:5432/template1   ← DATABASE_URL in .env
               └── Prisma Dev server (winos instance)
                     └── bundled local PostgreSQL
 ```
@@ -52,7 +52,10 @@ for this project** until upstream fixes land.
 
 ```bash
 npm run db:restart
-# Equivalent to: npx prisma dev stop winos && npx prisma dev --detach --name winos
+# Runs: node scripts/start-db.mjs 5432 5433
+# Removes any stale server record, then spawns a fresh one via Node.js
+# (prisma dev --detach does not work on Windows; start-db.mjs handles
+#  the daemonisation correctly using spawn({ detached: true })).
 ```
 
 Then verify:
@@ -62,8 +65,8 @@ npm run db:inspect
 # Should print counts + user/token/notification rows
 ```
 
-The ports (`51218`, `51217`, `51216`) persist across restarts as long as you
-use `--name winos`.
+The ports (`5432` main, `5433` shadow) are explicitly pinned via `--db-port` and
+`--shadow-db-port` flags, so they are stable across restarts.
 
 ---
 
@@ -74,7 +77,7 @@ Use these settings to connect directly:
 ```
 Type:     PostgreSQL
 Host:     localhost
-Port:     51218
+Port:     5432
 Database: template1
 Username: postgres
 Password: postgres
@@ -99,7 +102,7 @@ Response:
 {
   "ok": true,
   "databaseUrlHost": "localhost",
-  "databaseUrlPort": "51218",
+  "databaseUrlPort": "5432",
   "userCount": 17,
   "otpTokenCount": 1,
   "notificationCount": 2
@@ -115,7 +118,7 @@ Returns `404` in production — no action needed to secure it.
 `src/lib/db.ts` logs on every cold process start (dev only):
 
 ```
-[db] DATABASE_URL source: process.env, value: postgresql://postgres:***@localhost:51218/...
+[db] DATABASE_URL source: process.env, value: postgresql://postgres:***@localhost:5432/...
 [db] startup check: user.count = 17        ← healthy
 [db] startup check FAILED: <error>         ← DB is unreachable; run npm run db:restart
 ```

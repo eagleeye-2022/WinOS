@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, NotepadText, ClipboardList, BarChart2,
   AlertCircle, Users2, Clock, Archive, Settings, Quote,
-  LayoutGrid, User,
+  LayoutGrid, User, HeartHandshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -55,6 +55,7 @@ function ManagerDsmSidebar({ pathname }: { pathname: string }) {
     { label: "DSR", href: ROUTES.dsrManage, icon: BarChart2 },
     { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
     { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+    { label: "Needs My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
   ] as const;
 
   return (
@@ -116,6 +117,7 @@ function DsmSidebar({ pathname }: { pathname: string }) {
     { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
     { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
     { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+    { label: "Needs My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
   ] as const;
 
   return (
@@ -209,7 +211,7 @@ function GenericSidebar({ pathname }: { pathname: string }) {
 
 export function AppSidebar({ userRole }: { userRole?: string }) {
   const pathname = usePathname();
-  const isWorkspace = pathname.startsWith("/dsm") || pathname.startsWith("/dsr") || pathname.startsWith("/blockers") || pathname.startsWith("/support");
+  const isWorkspace = pathname.startsWith("/dsm") || pathname.startsWith("/dsr") || pathname.startsWith("/blockers") || pathname.startsWith("/support") || pathname.startsWith("/needs-help");
   if (!isWorkspace) return <GenericSidebar pathname={pathname} />;
   if (userRole === "MANAGER") return <ManagerDsmSidebar pathname={pathname} />;
   return <DsmSidebar pathname={pathname} />;

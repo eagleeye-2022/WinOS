@@ -8,16 +8,21 @@ frontend:
         - npm ci
         # Write all server-side env vars into .env.production before next build.
         # Amplify injects console env vars into the shell, so ${VAR} expands here.
-        # These vars are consumed server-side only — no NEXT_PUBLIC_ prefix needed.
         - |
-          printf 'DATABASE_URL=%s\n'  "$DATABASE_URL"  >  .env.production
+          printf 'DATABASE_URL=%s\n'    "$DATABASE_URL"    >  .env.production
           printf 'AUTH_SECRET=%s\n'   "$AUTH_SECRET"   >> .env.production
+          printf 'AUTH_URL=%s\n'      "$AUTH_URL"      >> .env.production
+          printf 'AUTH_TRUST_HOST=%s\n' "$AUTH_TRUST_HOST" >> .env.production
           printf 'SMTP_HOST=%s\n'     "$SMTP_HOST"     >> .env.production
           printf 'SMTP_PORT=%s\n'     "$SMTP_PORT"     >> .env.production
           printf 'SMTP_USER=%s\n'     "$SMTP_USER"     >> .env.production
           printf 'SMTP_PASS=%s\n'     "$SMTP_PASS"     >> .env.production
           printf 'SMTP_FROM=%s\n'     "$SMTP_FROM"     >> .env.production
         - npx prisma generate
+        # Apply committed migration files to the production DB before the app builds.
+        # Safe: only runs new files in prisma/migrations/, never drops anything,
+        # never touches a shadow DB, and does not require SHADOW_DATABASE_URL.
+        - npx prisma migrate deploy
     build:
       commands:
         - npm run build

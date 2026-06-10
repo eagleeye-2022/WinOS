@@ -1,76 +1,63 @@
 "use client";
-import { useActionState, useState } from "react";
+
+import { useActionState } from "react";
 import {
   requestOtpAction,
   verifyOtpAction,
   type RequestOtpState,
 } from "@/features/auth/actions/login";
 
-const INITIAL: RequestOtpState = { step: "email" };
+const INITIAL_STATE: RequestOtpState = { step: "email" };
 
-export function LoginForm() {
-  // When the user clicks "Use a different email" we force the email step
-  // without a server round-trip.
-  const [emailOverride, setEmailOverride] = useState(false);
+export function LoginForm({ error }: { error?: string }) {
+  const [otpState, requestOtp, otpPending] = useActionState(
+    requestOtpAction,
+    INITIAL_STATE,
+  );
+  const [verifyError, verifyOtp, verifyPending] = useActionState(
+    verifyOtpAction,
+    undefined,
+  );
 
-  const [requestState, requestAction, isRequestPending] = useActionState<
-    RequestOtpState,
-    FormData
-  >(requestOtpAction, INITIAL);
+  const isPending = otpPending || verifyPending;
 
-  const [verifyError, verifyAction, isVerifyPending] = useActionState<
-    string | undefined,
-    FormData
-  >(verifyOtpAction, undefined);
+  if (otpState.step === "otp" && otpState.email) {
+    // Hide verifyError after a successful resend so the "sent" confirmation
+    // isn't drowned out by a previous failed-attempt message.
+    const errorMsg = otpState.resent
+      ? otpState.error
+      : (verifyError ?? otpState.error);
 
-  // Derive step purely from server state + local override.
-  const isOtpStep =
-    requestState.step === "otp" && !!requestState.email && !emailOverride;
-
-  // ── Step 2: OTP verification ───────────────────────────────────────────────
-  if (isOtpStep) {
     return (
       <div className="flex flex-col gap-4">
-        {/* Resent confirmation banner */}
-        {requestState.resent && !requestState.error && (
-          <p className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
-            A new code was sent to{" "}
-            <span className="font-medium">{requestState.email}</span>.
+        <p className="text-sm text-muted-foreground">
+          Enter the 6-digit code sent to{" "}
+          <strong className="text-foreground">{otpState.email}</strong>.
+        </p>
+
+        {errorMsg && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {errorMsg}
           </p>
         )}
 
-        {/* Rate-limit or resend error on OTP screen */}
-        {requestState.error && (
-          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {requestState.error}
+        {otpState.resent && !errorMsg && (
+          <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+            A new code was sent.
           </p>
         )}
 
-        {/* Verification form */}
-        <form action={verifyAction} className="flex flex-col gap-4">
-          <input type="hidden" name="email" value={requestState.email} />
+        {otpState.devOtp && (
+          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            Dev — OTP: <strong>{otpState.devOtp}</strong>
+          </p>
+        )}
 
-          {!requestState.resent && !requestState.error && (
-            <p className="text-sm text-muted-foreground">
-              A 6-digit code was sent to{" "}
-              <span className="font-medium text-foreground">
-                {requestState.email}
-              </span>
-              . It expires in 10 minutes.
-            </p>
-          )}
-
-          {/* Dev-mode hint — only rendered when SMTP_HOST is absent and not prod */}
-          {requestState.devOtp && (
-            <p className="rounded-md border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Dev mode — code:{" "}
-              <strong className="tracking-widest">{requestState.devOtp}</strong>
-            </p>
-          )}
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="otp" className="text-sm font-medium">
-              One-time code
+        <form action={verifyOtp} className="flex flex-col gap-3">
+          <input type="hidden" name="email" value={otpState.email} />
+          <div>
+            <label htmlFor="otp" className="mb-1 block text-sm font-medium">
+              Verification code
             </label>
             <input
               id="otp"
@@ -79,94 +66,75 @@ export function LoginForm() {
               inputMode="numeric"
               pattern="[0-9]{6}"
               maxLength={6}
-              required
               autoComplete="one-time-code"
               placeholder="000000"
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm tracking-widest outline-none focus:ring-2 focus:ring-ring"
+              required
+              autoFocus
+              suppressHydrationWarning
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-
-          {verifyError && (
-            <p className="text-sm text-destructive" role="alert">
-              {verifyError}
-            </p>
-          )}
-
           <button
             type="submit"
-            disabled={isVerifyPending}
-            className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            disabled={isPending}
+            suppressHydrationWarning
+            className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isVerifyPending ? "Verifying…" : "Verify code"}
+            {verifyPending ? "Verifying…" : "Verify and sign in"}
           </button>
         </form>
 
-        {/* Resend / back — sibling forms, not nested */}
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <form
-            action={(fd: FormData) => {
-              requestAction(fd);
-            }}
-          >
-            <input type="hidden" name="email" value={requestState.email} />
-            <button
-              type="submit"
-              disabled={isRequestPending || !!requestState.rateLimitWaitSeconds}
-              className="underline underline-offset-2 disabled:opacity-50"
-            >
-              Resend code
-            </button>
-          </form>
-          <span aria-hidden>·</span>
+        <form action={requestOtp}>
+          <input type="hidden" name="email" value={otpState.email} />
           <button
-            type="button"
-            onClick={() => setEmailOverride(true)}
-            className="underline underline-offset-2"
+            type="submit"
+            disabled={isPending}
+            suppressHydrationWarning
+            className="w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
           >
-            Use a different email
+            {otpPending ? "Sending…" : "Resend code"}
           </button>
-        </div>
+        </form>
       </div>
     );
   }
 
-  // ── Step 1: Email entry ────────────────────────────────────────────────────
-  return (
-    <form
-      action={(fd: FormData) => {
-        setEmailOverride(false);
-        requestAction(fd);
-      }}
-      className="flex flex-col gap-4"
-    >
-      <div className="flex flex-col gap-1">
-        <label htmlFor="email" className="text-sm font-medium">
-          Company email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@eagleeyedigital.io"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
+  const externalError = error ? "Sign-in failed. Please try again." : null;
 
-      {requestState.error && (
-        <p className="text-sm text-destructive" role="alert">
-          {requestState.error}
+  return (
+    <div className="flex flex-col gap-4">
+      {(externalError ?? otpState.error) && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {externalError ?? otpState.error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isRequestPending}
-        className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-      >
-        {isRequestPending ? "Sending code…" : "Send code"}
-      </button>
-    </form>
+      <form action={requestOtp} className="flex flex-col gap-3">
+        <div>
+          <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            Work email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@eagleeyedigital.io"
+            required
+            autoFocus
+            suppressHydrationWarning
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isPending}
+          suppressHydrationWarning
+          className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          {otpPending ? "Sending code…" : "Send verification code"}
+        </button>
+      </form>
+    </div>
   );
 }
