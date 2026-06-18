@@ -9,7 +9,7 @@ import {
   getKpiStats,
   getTeamMembers,
 } from "@/features/dsm/queries";
-import { toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
+import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { TodaysFocusCard } from "@/features/dsm/components/today-focus-card";
 import { SubmitDsmForm } from "@/features/dsm/components/submit-dsm-form";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -44,7 +44,8 @@ export default async function DSMPage({ searchParams }: Props) {
   // Only the note owner can edit it; team members see the manager's note read-only
   const canEditNote = workspaceNote != null && workspaceNote.owner.id === session?.user?.id;
 
-  const todayDateStr = toIsoDateStr(toUtcDate());
+  const today = toUtcDate();
+  const todayDateStr = toIsoDateStr(today);
 
   // Show the submission form when today has no entry or only a draft
   const showForm = !todayEntry || todayEntry.status === "DRAFT";
@@ -67,7 +68,7 @@ export default async function DSMPage({ searchParams }: Props) {
                 DSM submitted successfully
               </p>
               <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                Your team focus has been updated for today.
+                Your team focus has been updated for {formatShortDate(today)}.
               </p>
             </div>
           </div>

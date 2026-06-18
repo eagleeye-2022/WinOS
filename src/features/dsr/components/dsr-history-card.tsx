@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
@@ -26,7 +26,6 @@ export function DsrHistoryCard({
   const dayLabel = relativeDayLabel(entry.date);
   const dateStr = formatShortDate(entry.date);
   const blockerCount = entry.resolvedBlockers.length;
-  const followUpCount = entry.followUpsDone.length;
   const completedCount = entry.completedTaskCount;
   const totalCount = entry.plannedTaskCount;
 
@@ -37,17 +36,21 @@ export function DsrHistoryCard({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-3 px-5 py-4 text-left"
       >
+        {/* Left: date + badges */}
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
-          {dayLabel && (
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              dayLabel === "Today" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"
-            )}>
-              {dayLabel}
+
+          {/* Day label — "Today" as badge, "Yesterday" as plain text */}
+          {dayLabel === "Today" && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              Today
             </span>
           )}
+          {dayLabel === "Yesterday" && (
+            <span className="text-[11px] text-muted-foreground">Yesterday</span>
+          )}
 
+          {/* Submission status badge */}
           {entry.status !== "MISSED" && entry.status !== "DRAFT" && (
             <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               Submitted
@@ -59,18 +62,16 @@ export function DsrHistoryCard({
             </span>
           )}
 
+          {/* Blocker count badge */}
           {blockerCount > 0 && (
-            <span className="rounded-full border border-amber-300/50 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded-full border border-sky-300/60 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
               {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} Resolved
             </span>
           )}
-          {followUpCount > 0 && (
-            <span className="rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary">
-              {followUpCount} Follow-up{followUpCount > 1 ? "s" : ""} Done
-            </span>
-          )}
-          {totalCount > 0 && completedCount > 0 && (
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+
+          {/* Task completion badge */}
+          {totalCount > 0 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               {completedCount}/{totalCount} Task Completed
             </span>
           )}
@@ -79,12 +80,18 @@ export function DsrHistoryCard({
         {/* Review status */}
         <div className="flex shrink-0 items-center gap-1.5 text-xs">
           {review.kind === "reviewed" && (
-            <span className="flex items-center gap-1 text-emerald-600">
-              <CheckCircle2 size={13} className="text-emerald-500" />
+            <span className="flex items-center gap-1 text-primary">
+              <CheckCircle2 size={13} className="text-primary" />
               {review.label}
             </span>
           )}
-          {(review.kind === "pending" || review.kind === "missed-deadline") && (
+          {review.kind === "pending" && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              {review.label}
+            </span>
+          )}
+          {review.kind === "missed-deadline" && (
             <span className="flex items-center gap-1 text-destructive">
               <span className="h-2 w-2 rounded-full bg-destructive" />
               {review.label}
@@ -98,30 +105,36 @@ export function DsrHistoryCard({
           )}
         </div>
 
-        {entry.status !== "MISSED" && (
-          entry.completionPercent > 0 ? (
-            <div className="hidden shrink-0 items-center gap-4 text-right sm:flex">
-              <div>
-                <p className="text-[10px] font-medium uppercase text-muted-foreground">Completion</p>
-                <p className="text-lg font-bold text-primary">{entry.completionPercent}%</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase text-muted-foreground">Tasks</p>
-                <p className="text-lg font-bold">{completedCount}/{totalCount}</p>
-              </div>
+        {/* Completion stats — only when meaningful */}
+        {entry.status !== "MISSED" && entry.completionPercent > 0 && (
+          <div className="hidden shrink-0 items-center gap-5 text-right sm:flex">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Completion
+              </p>
+              <p className="text-xl font-bold text-primary">{entry.completionPercent}%</p>
             </div>
-          ) : null
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Tasks
+              </p>
+              <p className="text-xl font-bold">{completedCount}/{totalCount}</p>
+            </div>
+          </div>
         )}
 
-        {open ? <ChevronUp size={15} className="ml-2 shrink-0 text-muted-foreground" /> : <ChevronDown size={15} className="ml-2 shrink-0 text-muted-foreground" />}
+        {open
+          ? <ChevronUp size={15} className="ml-2 shrink-0 text-muted-foreground" />
+          : <ChevronDown size={15} className="ml-2 shrink-0 text-muted-foreground" />}
       </button>
 
+      {/* Expanded content */}
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-5 pb-5 pt-4">
           {/* Completed tasks */}
           {entry.plannedTasks.filter((t) => t.completed).length > 0 && (
             <div className="mb-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task Completed
               </p>
               <div className="flex flex-col gap-1.5">
@@ -137,42 +150,33 @@ export function DsrHistoryCard({
             </div>
           )}
 
+          {/* Support received + Blockers solved */}
           {(entry.followUpsDone.length > 0 || entry.resolvedBlockers.length > 0) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {entry.resolvedBlockers.length > 0 && (
-                <div className="rounded-lg border bg-card p-3">
-                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Blockers Resolved
+              {entry.followUpsDone.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Support Received
                   </p>
-                  <div className="flex flex-col gap-2">
-                    {entry.resolvedBlockers.map((b) => (
-                      <div key={b.id} className="flex items-start gap-2">
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 border-primary bg-primary text-primary-foreground">
-                          <Check size={9} strokeWidth={3} />
-                        </span>
-                        <span className="text-xs leading-relaxed line-through text-muted-foreground">
-                          {b.text}
-                        </span>
-                      </div>
+                  <div className="flex flex-col gap-1.5">
+                    {entry.followUpsDone.map((f, i) => (
+                      <p key={f.id} className="text-xs leading-relaxed">
+                        {i + 1}) {f.text}
+                      </p>
                     ))}
                   </div>
                 </div>
               )}
-              {entry.followUpsDone.length > 0 && (
-                <div className="rounded-lg border bg-card p-3">
-                  <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Follow-ups Done
+              {entry.resolvedBlockers.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Blockers Solved
                   </p>
-                  <div className="flex flex-col gap-2">
-                    {entry.followUpsDone.map((f) => (
-                      <div key={f.id} className="flex items-start gap-2">
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 border-primary bg-primary text-primary-foreground">
-                          <Check size={9} strokeWidth={3} />
-                        </span>
-                        <span className="text-xs leading-relaxed line-through text-muted-foreground">
-                          {f.text}
-                        </span>
-                      </div>
+                  <div className="flex flex-col gap-1.5">
+                    {entry.resolvedBlockers.map((b, i) => (
+                      <p key={b.id} className="text-xs leading-relaxed">
+                        {i + 1}) {b.text}
+                      </p>
                     ))}
                   </div>
                 </div>

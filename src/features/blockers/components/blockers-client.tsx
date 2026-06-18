@@ -2,9 +2,9 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, X, ChevronLeft, ChevronRight, BellRing, CheckCircle2, Pencil } from "lucide-react";
+import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatShortDate } from "@/features/dsm/utils";
+import { formatFullDate } from "@/features/dsm/utils";
 import { daysOpen, filterBlockers, type BlockerStatusFilter, type BlockerPriorityFilter } from "../utils";
 import { markBlockerResolved, type MarkBlockerResolvedState } from "../actions/mark-resolved";
 import { createBlocker, type CreateBlockerState } from "../actions/create-blocker";
@@ -78,7 +78,7 @@ function DetailPanel({
     <aside className="flex h-full w-72 shrink-0 flex-col border-l bg-card xl:w-80">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-5 py-4">
-        <span className="text-sm font-semibold">Blocker Details</span>
+        <span className="text-base font-bold">Blocker Details</span>
         <button
           type="button"
           onClick={onClose}
@@ -89,12 +89,12 @@ function DetailPanel({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         <div>
-          <div className="mb-1 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
             <button type="button" className="text-muted-foreground hover:text-primary">
-              <Pencil size={12} />
+              <Pencil size={13} />
             </button>
           </div>
           <p className="text-sm leading-relaxed">{item.text}</p>
@@ -104,36 +104,16 @@ function DetailPanel({
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Days Open
           </p>
-          <p className={cn("text-sm font-semibold", days > 3 ? "text-destructive" : "text-foreground")}>
+          <p className={cn("text-sm font-semibold", days > 0 ? "text-destructive" : "text-foreground")}>
             {days === 0 ? "Today" : `${days} Day${days !== 1 ? "s" : ""}`}
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Priority</p>
-            <PriorityBadge priority={item.priority} />
-          </div>
-          <div className="flex-1">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
-            <StatusBadge resolved={isResolved} />
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Raised By
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-              {(item.raisedBy.name ?? item.raisedBy.email).slice(0, 2).toUpperCase()}
-            </span>
-            <span className="text-sm">{item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}</span>
-          </div>
-        </div>
-
         <div className="h-px bg-border" />
+      </div>
 
+      {/* Actions */}
+      <div className="flex flex-col gap-2 border-t px-5 py-4">
         {(resolveState.message && resolveState.message !== "resolved") && (
           <p className="text-xs text-destructive">{resolveState.message}</p>
         )}
@@ -146,18 +126,16 @@ function DetailPanel({
         {reminderState.message === "already_resolved" && (
           <p className="text-xs text-muted-foreground">This blocker is already resolved.</p>
         )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-col gap-2 border-t px-5 py-4">
         <form action={resolveAction}>
           <input type="hidden" name="blockerId" value={item.id} />
           <button
             type="submit"
             disabled={isResolved || resolvePending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            <CheckCircle2 size={15} />
+            <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+            </svg>
             {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
           </button>
         </form>
@@ -167,9 +145,9 @@ function DetailPanel({
           <button
             type="submit"
             disabled={isResolved || reminderPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
-            <BellRing size={15} />
+            <Play size={14} />
             {reminderPending ? "Sending…" : "Send Reminder"}
           </button>
         </form>
@@ -290,8 +268,8 @@ export function BlockersClient({ items }: Props) {
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">My Blockers</h1>
-              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
+              <h1 className="text-3xl font-bold">My Blockers</h1>
+              <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
                 {activeCount} Active
               </span>
             </div>
@@ -304,7 +282,7 @@ export function BlockersClient({ items }: Props) {
             onClick={() => setShowModal(true)}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
-            <Plus size={14} />
+            <PlusCircle size={16} />
             Raise New Blocker
           </button>
         </div>
@@ -321,7 +299,7 @@ export function BlockersClient({ items }: Props) {
               <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
             </select>
-            <ChevronRight size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-muted-foreground" />
+            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
           <div className="relative">
             <select
@@ -334,7 +312,7 @@ export function BlockersClient({ items }: Props) {
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
             </select>
-            <ChevronRight size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-muted-foreground" />
+            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
           <div className="flex flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2">
             <Search size={13} className="shrink-0 text-muted-foreground" />
@@ -403,7 +381,7 @@ export function BlockersClient({ items }: Props) {
                         <PriorityBadge priority={item.priority} />
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
-                        {formatShortDate(item.date)}
+                        {formatFullDate(item.date)}
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
@@ -426,9 +404,7 @@ export function BlockersClient({ items }: Props) {
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
-                Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
-                {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} blocker
-                {filtered.length !== 1 ? "s" : ""}
+                Showing {paginated.length} of {filtered.length} blocker{filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button

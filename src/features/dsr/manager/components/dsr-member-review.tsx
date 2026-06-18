@@ -27,15 +27,17 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
 
   return (
     <div className="flex items-center justify-between rounded-xl border bg-card px-5 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold">{dateStr}</span>
-        <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-          Today
-        </span>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold">{dateStr}</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            Today
+          </span>
+        </div>
         {(entry.status === "SUBMITTED" ||
           entry.status === "PENDING_REVIEW" ||
           entry.status === "REVIEWED") && (
-          <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+          <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
             Submitted
           </span>
         )}
@@ -45,13 +47,15 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
           "flex items-center gap-1.5 text-xs",
           review.kind === "reviewed" ? "text-emerald-600"
             : review.kind === "none" ? "text-muted-foreground"
-            : "text-destructive"
+            : review.kind === "missed-deadline" ? "text-destructive"
+            : "text-amber-600"
         )}>
           <span className={cn(
             "h-2 w-2 rounded-full",
             review.kind === "reviewed" ? "bg-emerald-500"
               : review.kind === "none" ? "bg-muted-foreground/40"
-              : "bg-destructive"
+              : review.kind === "missed-deadline" ? "bg-destructive"
+              : "bg-amber-500"
           )} />
           {review.label}
         </span>
@@ -68,7 +72,9 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-2.5 flex items-center gap-2">
-        <Star size={14} className="text-amber-500" />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
+          <Star size={11} className="fill-white text-white" />
+        </span>
         <h3 className="text-sm font-semibold">Result of the Day</h3>
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
@@ -134,7 +140,9 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
   return (
     <div className="rounded-xl border bg-card p-4">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <AlertCircle size={14} className="text-destructive" />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive">
+          <AlertCircle size={11} className="fill-white text-destructive" />
+        </span>
         Blockers &amp; Support
       </h3>
 
@@ -155,11 +163,18 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                     : "border-destructive/20 bg-destructive/5"
                 )}
               >
-                <span className={cn(
-                  "text-xs font-semibold leading-snug",
-                  b.resolved ? "text-emerald-700" : "text-destructive"
-                )}>
-                  {b.text}
+                <span className="flex items-start gap-1.5">
+                  {b.resolved ? (
+                    <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertCircle size={13} className="mt-0.5 shrink-0 text-destructive" />
+                  )}
+                  <span className={cn(
+                    "text-xs font-semibold leading-snug",
+                    b.resolved ? "text-emerald-700" : "text-destructive"
+                  )}>
+                    {b.text}
+                  </span>
                 </span>
                 <span className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -268,6 +283,11 @@ const TIMELINE_STEPS = [
 ] as const;
 
 function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
+  const lastCompletedIndex = TIMELINE_STEPS.reduce(
+    (lastIdx, step, i) => (events.find((e) => e.type === step.type) ? i : lastIdx),
+    -1
+  );
+
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-4 flex items-center gap-2">
@@ -279,6 +299,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
         {TIMELINE_STEPS.map((step, i) => {
           const event = events.find((e) => e.type === step.type);
           const isComplete = !!event;
+          const isCurrent = i === lastCompletedIndex;
           const isLast = i === TIMELINE_STEPS.length - 1;
 
           return (
@@ -287,7 +308,9 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
               <div className="flex flex-col items-center">
                 <span className={cn(
                   "mt-0.5 h-3 w-3 shrink-0 rounded-full",
-                  isComplete ? "bg-emerald-500" : "bg-muted"
+                  isCurrent ? "border-2 border-emerald-500 bg-card"
+                    : isComplete ? "bg-emerald-500"
+                    : "bg-muted"
                 )} />
                 {!isLast && (
                   <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: "16px" }} />
@@ -298,7 +321,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
               <div className={cn(!isLast && "pb-4")}>
                 <p className={cn(
                   "text-xs font-semibold leading-tight",
-                  !isComplete && "text-muted-foreground/50"
+                  !isComplete && "italic text-muted-foreground/50"
                 )}>
                   {isComplete ? step.label : "Awaiting Approval"}
                 </p>
@@ -406,18 +429,18 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
       {/* Member header */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-5">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
             {(user.name ?? user.email).slice(0, 2).toUpperCase()}
           </span>
           <div>
-            <h2 className="text-xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+            <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
             <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border bg-background px-1 py-1">
+        <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
           <Link
             href={`/dsr/member/${user.id}?w=${weekOffset - 1}`}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
           >
             <ChevronLeft size={16} />
           </Link>
@@ -425,7 +448,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
           <Link
             href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}` : `/dsr/member/${user.id}`}
             className={cn(
-              "rounded p-1 text-muted-foreground transition-colors hover:bg-accent",
+              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
               !canGoForward && "pointer-events-none opacity-30"
             )}
           >

@@ -73,6 +73,18 @@ async function main() {
     create: { email: "priya.sharma@eagleeyedigital.io", name: "Priya Sharma", role: "TEAM_MEMBER", title: "Frontend Developer" },
   });
 
+  const business = await db.user.upsert({
+    where: { email: "business@eagleeyedigital.io" },
+    update: { role: "MANAGER", name: "Business Manager", title: "Business Manager" },
+    create: { email: "business@eagleeyedigital.io", name: "Business Manager", role: "MANAGER", title: "Business Manager" },
+  });
+
+  const wp = await db.user.upsert({
+    where: { email: "wp@eagleeyedigital.io" },
+    update: { role: "MANAGER", name: "WP Manager", title: "WP Manager" },
+    create: { email: "wp@eagleeyedigital.io", name: "WP Manager", role: "MANAGER", title: "WP Manager" },
+  });
+
   console.log("Users ready.");
 
   // ── Teams ─────────────────────────────────────────────────────────────────
@@ -146,7 +158,7 @@ async function main() {
   // Create a blank workspace note for each manager if one doesn't exist yet.
   // Managers can edit content directly from the DSM page.
 
-  for (const mgr of [mohit, seo, sarah]) {
+  for (const mgr of [mohit, seo, sarah, business, wp]) {
     const existing = await db.dsmWorkspaceNote.findUnique({ where: { ownerId: mgr.id } });
     if (!existing) {
       await db.dsmWorkspaceNote.create({

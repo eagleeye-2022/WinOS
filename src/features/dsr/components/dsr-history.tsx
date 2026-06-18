@@ -19,10 +19,10 @@ export function DsrHistory({ entries, weekOffset }: Props) {
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
+          <h2 className="text-2xl font-bold">This Week&apos;s Standups</h2>
           <p className="text-sm text-muted-foreground">Review daily status updates and progress.</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 rounded-lg border bg-card px-1 py-1 shadow-sm">
+        <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm">
           <Link
             href={`/dsr?w=${weekOffset - 1}`}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"

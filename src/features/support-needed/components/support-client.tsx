@@ -2,9 +2,9 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, X, ChevronLeft, ChevronRight, BellRing, CheckCircle2, Pencil } from "lucide-react";
+import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatShortDate } from "@/features/dsm/utils";
+import { formatFullDate } from "@/features/dsm/utils";
 import { daysOpen, filterSupport, type SupportStatusFilter } from "../utils";
 import { markSupportResolved, type MarkSupportResolvedState } from "../actions/mark-resolved";
 import { createSupport, type CreateSupportState } from "../actions/create-support";
@@ -68,18 +68,20 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l bg-card xl:w-80">
       <div className="flex items-center justify-between border-b px-5 py-4">
-        <span className="text-sm font-semibold">Support Details</span>
+        <span className="text-base font-bold">Support Details</span>
         <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
           <X size={15} />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         <div>
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Description
+            </p>
             <button type="button" className="text-muted-foreground hover:text-primary">
-              <Pencil size={12} />
+              <Pencil size={13} />
             </button>
           </div>
           <p className="text-sm leading-relaxed">{item.text}</p>
@@ -89,30 +91,9 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Days Open
           </p>
-          <p className={cn("text-sm font-semibold", days > 3 ? "text-destructive" : "text-foreground")}>
+          <p className={cn("text-sm font-semibold", days > 0 ? "text-destructive" : "text-foreground")}>
             {days === 0 ? "Today" : `${days} Day${days !== 1 ? "s" : ""}`}
           </p>
-        </div>
-
-        <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
-          <StatusBadge resolved={isResolved} />
-        </div>
-
-        {item.supportFrom && (
-          <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Support From
-            </p>
-            <UserAvatar user={item.supportFrom} />
-          </div>
-        )}
-
-        <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Raised By
-          </p>
-          <UserAvatar user={item.raisedBy} />
         </div>
 
         <div className="h-px bg-border" />
@@ -124,7 +105,9 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
           <p className="text-xs text-emerald-600">Reminder sent.</p>
         )}
         {reminderState.message === "no_target" && (
-          <p className="text-xs text-muted-foreground">No one to notify — add a @mention when requesting support.</p>
+          <p className="text-xs text-muted-foreground">
+            No one to notify — add a @mention when requesting support.
+          </p>
         )}
         {reminderState.message === "already_resolved" && (
           <p className="text-xs text-muted-foreground">This item is already resolved.</p>
@@ -137,9 +120,11 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
           <button
             type="submit"
             disabled={isResolved || resolvePending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            <CheckCircle2 size={15} />
+            <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+            </svg>
             {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
           </button>
         </form>
@@ -148,9 +133,9 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
           <button
             type="submit"
             disabled={isResolved || reminderPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
           >
-            <BellRing size={15} />
+            <Play size={14} />
             {reminderPending ? "Sending…" : "Send Reminder"}
           </button>
         </form>
@@ -253,36 +238,56 @@ function RequestSupportModal({
 
 // ── Main client ───────────────────────────────────────────────────────────────
 
-type Props = { items: SupportNeedItem[]; teamMembers: TeamMember[] };
+type ViewMode = "mine" | "for-me";
 
-export function SupportClient({ items, teamMembers }: Props) {
+type Props = {
+  items: SupportNeedItem[];
+  itemsForMe: SupportNeedItem[];
+  teamMembers: TeamMember[];
+};
+
+export function SupportClient({ items, itemsForMe, teamMembers }: Props) {
+  const [viewMode, setViewMode] = useState<ViewMode>("mine");
   const [statusFilter, setStatusFilter] = useState<SupportStatusFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(() => items[0]?.id ?? null);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
 
+  const activeItems = viewMode === "mine" ? items : itemsForMe;
+
   const filtered = useMemo(
-    () => filterSupport(items, statusFilter, search),
-    [items, statusFilter, search]
+    () => filterSupport(activeItems, statusFilter, search),
+    [activeItems, statusFilter, search]
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const selected = items.find((s) => s.id === selectedId) ?? null;
+  const allItems = [...items, ...itemsForMe];
+  const selected = allItems.find((s) => s.id === selectedId) ?? null;
   const activeCount = items.filter((s) => !s.resolved).length;
+  const forMeActiveCount = itemsForMe.filter((s) => !s.resolved).length;
+
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    setPage(1);
+    setStatusFilter("all");
+    setSearch("");
+    const next = mode === "mine" ? items : itemsForMe;
+    setSelectedId(next[0]?.id ?? null);
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* ── Main area ─────────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-6">
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">Support Needed</h1>
-              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
+              <h1 className="text-3xl font-bold">Support Needed</h1>
+              <span className="rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
                 {activeCount} Active
               </span>
             </div>
@@ -295,8 +300,41 @@ export function SupportClient({ items, teamMembers }: Props) {
             onClick={() => setShowModal(true)}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
-            <Plus size={14} />
+            <PlusCircle size={16} />
             Request Support
+          </button>
+        </div>
+
+        {/* View tabs */}
+        <div className="mb-4 flex w-fit gap-0 rounded-xl border bg-muted/30 p-1">
+          <button
+            type="button"
+            onClick={() => handleViewChange("mine")}
+            className={cn(
+              "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "mine"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            My Requests
+          </button>
+          <button
+            type="button"
+            onClick={() => handleViewChange("for-me")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "for-me"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Requests For Me
+            {forMeActiveCount > 0 && (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                {forMeActiveCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -305,14 +343,23 @@ export function SupportClient({ items, teamMembers }: Props) {
           <div className="relative">
             <select
               value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1); }}
+              onChange={(e) => { setStatusFilter(e.target.value as SupportStatusFilter); setPage(1); }}
               className="appearance-none rounded-lg border bg-background py-2 pl-3 pr-8 text-sm outline-none focus:border-primary"
             >
               <option value="all">Status: All</option>
               <option value="in_progress">In Progress</option>
               <option value="resolved">Resolved</option>
             </select>
-            <ChevronRight size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-muted-foreground" />
+            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <div className="relative">
+            <select
+              className="appearance-none rounded-lg border bg-background py-2 pl-3 pr-8 text-sm outline-none focus:border-primary"
+              defaultValue=""
+            >
+              <option value="">Priority: All</option>
+            </select>
+            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           </div>
           <div className="flex flex-1 items-center gap-2 rounded-lg border bg-background px-3 py-2">
             <Search size={13} className="shrink-0 text-muted-foreground" />
@@ -341,7 +388,7 @@ export function SupportClient({ items, teamMembers }: Props) {
                   Date Raised
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Support From
+                  {viewMode === "mine" ? "Support From" : "Requested By"}
                 </th>
               </tr>
             </thead>
@@ -351,12 +398,15 @@ export function SupportClient({ items, teamMembers }: Props) {
                   <td colSpan={4} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {search || statusFilter !== "all"
                       ? "No items match your filters."
-                      : "No support requests yet. Add one from your DSM or use the button above."}
+                      : viewMode === "mine"
+                      ? "No support requests yet. Add one from your DSM or use the button above."
+                      : "No one has requested support from you yet."}
                   </td>
                 </tr>
               ) : (
                 paginated.map((item) => {
                   const isSelected = item.id === selectedId;
+                  const personToShow = viewMode === "mine" ? item.supportFrom : item.raisedBy;
                   return (
                     <tr
                       key={item.id}
@@ -375,10 +425,10 @@ export function SupportClient({ items, teamMembers }: Props) {
                         <StatusBadge resolved={item.resolved} />
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
-                        {formatShortDate(item.date)}
+                        {formatFullDate(item.date)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <UserAvatar user={item.supportFrom} />
+                        <UserAvatar user={personToShow} />
                       </td>
                     </tr>
                   );
@@ -390,9 +440,7 @@ export function SupportClient({ items, teamMembers }: Props) {
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
-                Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
-                {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} item
-                {filtered.length !== 1 ? "s" : ""}
+                Showing {paginated.length} of {filtered.length} item{filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button

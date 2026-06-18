@@ -2,7 +2,10 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, ChevronDown,
+  CheckCircle2, CheckCheck, AlertTriangle, Calendar, Handshake,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { reviewStandup, type ReviewStandupState } from "../actions/review-standup";
 import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-priority";
@@ -23,7 +26,7 @@ function PriorityDropdown({ taskId, current }: { taskId: string; current: Priori
   const [, action, pending] = useActionState<SetTaskPriorityState, FormData>(setTaskPriority, {});
 
   return (
-    <form action={action} className="flex items-center gap-1">
+    <form action={action} className="relative flex items-center">
       <input type="hidden" name="taskId" value={taskId} />
       <select
         name="priority"
@@ -38,8 +41,8 @@ function PriorityDropdown({ taskId, current }: { taskId: string; current: Priori
         }}
         disabled={pending}
         className={cn(
-          "rounded-md border px-2 py-1 text-xs outline-none transition-colors",
-          current ? PRIORITY_COLORS[current] : "text-muted-foreground"
+          "appearance-none rounded-lg border py-1.5 pl-3 pr-7 text-xs outline-none transition-colors",
+          current ? PRIORITY_COLORS[current] : "border-border bg-background text-muted-foreground"
         )}
       >
         <option value="">Select Priority</option>
@@ -47,6 +50,7 @@ function PriorityDropdown({ taskId, current }: { taskId: string; current: Priori
         <option value="P2">Priority 2 (P2)</option>
         <option value="P3">Priority 3 (P3)</option>
       </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2 text-current opacity-60" />
     </form>
   );
 }
@@ -58,7 +62,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
 
   if (state.message === "reviewed") {
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
         <CheckCheck size={16} /> Reviewed
       </div>
     );
@@ -70,7 +74,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         <CheckCheck size={16} />
         {pending ? "Reviewing…" : "Reviewed ✓"}
@@ -79,7 +83,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
   );
 }
 
-// ── Compact entry preview (default today view) ────────────────────────────────
+// ── Compact entry preview (collapsed state) ───────────────────────────────────
 
 function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
@@ -147,21 +151,21 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
 function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
   const yesterdayTasks = entry.tasks.filter((t) => t.kind === "YESTERDAY");
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
-  const isReviewable =
-    entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW";
+  const isReviewable = entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW";
 
   return (
     <div className="space-y-4">
+      {/* Yesterday completed */}
       {yesterdayTasks.length > 0 && (
         <div className="rounded-xl border bg-card p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
             <CheckCircle2 size={15} className="text-primary" />
-            What did you complete yesterday?
+            What did you completed yesterday?
           </h3>
           <div className="space-y-2">
             {yesterdayTasks.map((task) => (
               <div key={task.id} className="flex items-start gap-2.5">
-                <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-primary" />
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-primary" />
                 <span className="text-sm">{task.text}</span>
               </div>
             ))}
@@ -169,17 +173,18 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         </div>
       )}
 
+      {/* Today tasks + priority */}
       {todayTasks.length > 0 && (
         <div className="rounded-xl border bg-card p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-            <span className="text-sm">📋</span>
+            <Calendar size={15} className="text-primary" />
             What will you do today?
           </h3>
           <div className="space-y-2.5">
             {todayTasks.map((task, i) => (
               <div key={task.id} className="flex items-center gap-2.5">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
-                  T{i + 1}
+                <span className="w-7 shrink-0 text-xs font-semibold text-muted-foreground">
+                  T{i + 1}:
                 </span>
                 <span className="flex-1 text-sm">{task.text}</span>
                 <PriorityDropdown
@@ -192,10 +197,12 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         </div>
       )}
 
+      {/* Blockers */}
       {entry.blockers.length > 0 && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
-            <span>🚫</span> Blockers
+            <AlertTriangle size={15} className="text-destructive" />
+            Blockers
           </h3>
           <ol className="space-y-1 text-sm text-destructive/90">
             {entry.blockers.map((b, i) => (
@@ -205,10 +212,12 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         </div>
       )}
 
+      {/* Support needed */}
       {entry.supportNeeds.length > 0 && (
         <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-700">
-            <span>🤝</span> Support needed
+            <Handshake size={15} className="text-sky-700" />
+            Support needed
           </h3>
           <ol className="space-y-1 text-sm">
             {entry.supportNeeds.map((s, i) => (
@@ -226,6 +235,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         </div>
       )}
 
+      {/* Review action */}
       {isReviewable && (
         <div className="pt-1">
           <ReviewButton entryId={entry.id} />
@@ -233,7 +243,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
       )}
 
       {entry.status === "REVIEWED" && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
           <CheckCheck size={16} />
           Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name?.split(" ")[0] ?? "manager"}` : ""}
         </div>
@@ -242,7 +252,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
   );
 }
 
-// ── Today entry card — compact default (images 3 & 9), expands to full form (image 10) ──
+// ── Today entry card — expanded by default ────────────────────────────────────
 
 function TodayEntryCard({ entry }: { entry: MemberReviewEntry }) {
   const [expanded, setExpanded] = useState(false);
@@ -256,35 +266,36 @@ function TodayEntryCard({ entry }: { entry: MemberReviewEntry }) {
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
-      {/* Header — chevron toggles between compact (images 3 & 9) and full form (image 10) */}
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold">{dateStr}</span>
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-            Today
-          </span>
+        {/* Left: date + Today on row 1, Submitted on row 2 */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{dateStr}</span>
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+              Today
+            </span>
+          </div>
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               Submitted
             </span>
           )}
         </div>
+
         <div className="flex shrink-0 items-center gap-2">
           <span className={cn(
-            "flex items-center gap-1 text-xs",
-            review.kind === "reviewed"
-              ? "text-emerald-600"
-              : review.kind === "none"
-              ? "text-muted-foreground"
-              : "text-destructive"
+            "flex items-center gap-1.5 text-xs font-medium",
+            review.kind === "reviewed" ? "text-emerald-600"
+            : review.kind === "pending" ? "text-amber-600"
+            : review.kind === "none" ? "text-muted-foreground"
+            : "text-destructive"
           )}>
             <span className={cn(
               "h-2 w-2 rounded-full",
-              review.kind === "reviewed"
-                ? "bg-emerald-500"
-                : review.kind === "none"
-                ? "bg-muted-foreground/40"
-                : "bg-destructive"
+              review.kind === "reviewed" ? "bg-emerald-500"
+              : review.kind === "pending" ? "bg-amber-500"
+              : review.kind === "none" ? "bg-muted-foreground/40"
+              : "bg-destructive"
             )} />
             {review.label}
           </span>
@@ -292,7 +303,6 @@ function TodayEntryCard({ entry }: { entry: MemberReviewEntry }) {
             type="button"
             onClick={() => setExpanded((v) => !v)}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
-            aria-label={expanded ? "Collapse entry" : "Expand to review form"}
           >
             <ChevronDown
               size={15}
@@ -317,7 +327,7 @@ function TodayEntryCard({ entry }: { entry: MemberReviewEntry }) {
   );
 }
 
-// ── Day card collapsed ────────────────────────────────────────────────────────
+// ── Day card (non-today, collapsible) ─────────────────────────────────────────
 
 function DayCardCollapsed({ entry }: { entry: MemberReviewEntry }) {
   const [open, setOpen] = useState(false);
@@ -339,13 +349,8 @@ function DayCardCollapsed({ entry }: { entry: MemberReviewEntry }) {
       >
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
-          {dayLabel && (
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              dayLabel === "Today" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"
-            )}>
-              {dayLabel}
-            </span>
+          {dayLabel && dayLabel !== "Today" && (
+            <span className="text-[11px] text-muted-foreground">{dayLabel}</span>
           )}
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
             <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
@@ -376,12 +381,18 @@ function DayCardCollapsed({ entry }: { entry: MemberReviewEntry }) {
 
         <div className="flex shrink-0 items-center gap-1.5 text-xs">
           {review.kind === "reviewed" && (
-            <span className="flex items-center gap-1 text-emerald-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="flex items-center gap-1 text-primary">
+              <CheckCircle2 size={13} className="text-primary" />
               {review.label}
             </span>
           )}
-          {(review.kind === "pending" || review.kind === "missed-deadline") && (
+          {review.kind === "pending" && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              {review.label}
+            </span>
+          )}
+          {review.kind === "missed-deadline" && (
             <span className="flex items-center gap-1 text-destructive">
               <span className="h-2 w-2 rounded-full bg-destructive" />
               {review.label}
@@ -395,7 +406,10 @@ function DayCardCollapsed({ entry }: { entry: MemberReviewEntry }) {
           )}
         </div>
 
-        <ChevronRight size={15} className={cn("ml-2 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <ChevronDown
+          size={15}
+          className={cn("shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+        />
       </button>
 
       {open && entry.status !== "MISSED" && (
@@ -428,20 +442,20 @@ export function MemberReviewDetail({ review, weekOffset }: Props) {
       {/* Member header */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-5">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
             {(user.name ?? user.email).slice(0, 2).toUpperCase()}
           </span>
           <div>
-            <h2 className="text-xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+            <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
             <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
           </div>
         </div>
 
         {/* Week navigation */}
-        <div className="flex items-center gap-1 rounded-lg border bg-background px-1 py-1">
+        <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
           <Link
             href={`/dsm/member/${user.id}?w=${weekOffset - 1}`}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
           >
             <ChevronLeft size={16} />
           </Link>
@@ -449,7 +463,7 @@ export function MemberReviewDetail({ review, weekOffset }: Props) {
           <Link
             href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}` : `/dsm/member/${user.id}`}
             className={cn(
-              "rounded p-1 text-muted-foreground transition-colors hover:bg-accent",
+              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
               !canGoForward && "pointer-events-none opacity-30"
             )}
           >
@@ -458,10 +472,10 @@ export function MemberReviewDetail({ review, weekOffset }: Props) {
         </div>
       </div>
 
-      {/* Today entry — compact preview by default, expands to full form */}
+      {/* Today entry — expanded by default */}
       {todayEntry && <TodayEntryCard entry={todayEntry} />}
 
-      {/* Previous day cards */}
+      {/* Previous days — collapsed by default */}
       {otherEntries.map((entry) => (
         <DayCardCollapsed key={entry.id} entry={entry} />
       ))}

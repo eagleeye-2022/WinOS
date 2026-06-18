@@ -29,9 +29,9 @@ export function AllDsmStatsRow({ stats }: Props) {
         <div>
           <p className="text-xs text-muted-foreground">Pending</p>
           <p className="text-2xl font-bold">{pendingCount}</p>
-          <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
-            <Clock size={10} /> 10:10 AM CUTOFF
-          </p>
+          <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
+            <Clock size={8} /> 10:10 AM CUTOFF
+          </span>
         </div>
       </div>
 
@@ -43,9 +43,6 @@ export function AllDsmStatsRow({ stats }: Props) {
           <p className="text-xs text-muted-foreground">Blockers</p>
           <p className={cn("text-2xl font-bold", highPriorityBlockerCount > 0 && "text-destructive")}>
             {highPriorityBlockerCount}
-            {highPriorityBlockerCount > 0 && (
-              <span className="ml-1.5 text-sm font-semibold text-destructive">High Priority</span>
-            )}
           </p>
         </div>
       </div>

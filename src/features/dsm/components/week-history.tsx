@@ -8,9 +8,10 @@ import type { EntryWithDetails } from "../queries";
 type WeekHistoryProps = {
   entries: EntryWithDetails[];
   weekOffset: number;
+  basePath?: string;
 };
 
-export function WeekHistory({ entries, weekOffset }: WeekHistoryProps) {
+export function WeekHistory({ entries, weekOffset, basePath = "/dsm" }: WeekHistoryProps) {
   const { start } = getWeekRange(weekOffset);
   const weekLabel = `Week ${weekOfMonth(start)}`;
   const canGoForward = weekOffset < 0;
@@ -20,27 +21,27 @@ export function WeekHistory({ entries, weekOffset }: WeekHistoryProps) {
       {/* Heading row */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
+          <h2 className="text-2xl font-bold">This Week&apos;s Standups</h2>
           <p className="text-sm text-muted-foreground">
             Review daily status updates and progress.
           </p>
         </div>
 
         {/* Week nav */}
-        <div className="flex shrink-0 items-center gap-1 rounded-lg border bg-card px-1 py-1 shadow-sm">
+        <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1">
           <Link
-            href={`/dsm?w=${weekOffset - 1}`}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+            href={`${basePath}?w=${weekOffset - 1}`}
+            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
             aria-label="Previous week"
           >
             <ChevronLeft size={16} />
           </Link>
           <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
           <Link
-            href={canGoForward ? `/dsm?w=${weekOffset + 1}` : "/dsm"}
+            href={canGoForward ? `${basePath}?w=${weekOffset + 1}` : basePath}
             aria-label="Next week"
             className={cn(
-              "rounded p-1 text-muted-foreground transition-colors hover:bg-accent",
+              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
               !canGoForward && "pointer-events-none opacity-30"
             )}
             aria-disabled={!canGoForward}

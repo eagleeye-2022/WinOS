@@ -1,11 +1,12 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { HelpCircle, Search } from "lucide-react";
+import { HelpCircle, LogOut, Search } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { AppSidebar } from "@/components/shared/app-sidebar";
 import { ClockChip } from "@/components/shared/clock-chip";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
+import { logoutAction } from "@/features/auth/actions/logout";
 import {
   getUnreadCount,
   getNotifications,
@@ -89,9 +90,21 @@ export default async function DashboardLayout({
           >
             <HelpCircle size={16} />
           </button>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+          <span
+            title={userName}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+          >
             {initials || "U"}
           </span>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              title="Sign out"
+              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <LogOut size={16} />
+            </button>
+          </form>
         </div>
       </header>
 

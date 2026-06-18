@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useRef, useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import type { DsrEntryData, DsrStandupPrefill } from "../queries";
@@ -84,7 +84,7 @@ function CheckSection({
             onClick={add}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary"
           >
-            <Plus size={12} /> {addLabel ?? "Add item"}
+            <PlusCircle size={13} /> {addLabel ?? "Add item"}
           </button>
         )}
       </div>
@@ -94,11 +94,6 @@ function CheckSection({
 
 // ── Planned tasks section (with priority chips) ───────────────────────────────
 
-const PRIORITY_COLORS = {
-  P1: "bg-destructive/10 text-destructive",
-  P2: "bg-amber-100 text-amber-700",
-  P3: "bg-sky-50 text-sky-700",
-};
 
 function PlannedTasksSection({
   tasks,
@@ -115,7 +110,7 @@ function PlannedTasksSection({
     <div className="rounded-xl border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Today&apos;s Planned Tasks Completed</h3>
-        <span className="text-xs text-muted-foreground">{completed}/{tasks.length} TASKS COMPLETED</span>
+        <span className="text-xs text-muted-foreground">{completed}/{tasks.length} TASKS PLANNED</span>
       </div>
       <div className="flex flex-col gap-2.5">
         {tasks.map((task, i) => (
@@ -143,11 +138,8 @@ function PlannedTasksSection({
               T{i + 1}: {task.text}
             </span>
             {task.priority && (
-              <span className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] ?? "bg-muted text-muted-foreground"
-              )}>
-                {task.priority}
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold lowercase text-primary">
+                {task.priority.toLowerCase()}
               </span>
             )}
           </div>
@@ -185,9 +177,9 @@ function AdditionalWorkSection({
         <button
           type="button"
           onClick={add}
-          className="flex h-6 w-6 items-center justify-center rounded-full border text-muted-foreground hover:bg-accent hover:text-primary"
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-80"
         >
-          <Plus size={12} />
+          <PlusCircle size={16} />
         </button>
       </div>
       <div className="flex flex-col gap-3">
@@ -308,9 +300,10 @@ type Props = {
   prefill: DsrStandupPrefill;
   todayDateStr: string;
   onRegisterSubmit?: (fn: () => void) => void;
+  readOnly?: boolean;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOnly }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -435,24 +428,26 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit }: Prop
       )}
 
       {/* Mobile-only submit (desktop uses panel button) */}
-      <div className="flex items-center gap-3 xl:hidden">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => buildAndSubmit("draft")}
-          className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
-        >
-          Save Draft
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => buildAndSubmit("submit")}
-          className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? "Submitting…" : "Submit DSR"}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-3 xl:hidden">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => buildAndSubmit("draft")}
+            className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            Save Draft
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => buildAndSubmit("submit")}
+            className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {pending ? "Submitting…" : "Submit DSR"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

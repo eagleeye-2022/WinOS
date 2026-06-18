@@ -112,15 +112,13 @@ export function WorkspaceNotesPanel({ note, canEdit = false }: WorkspaceNotesPan
     <div className="flex h-full flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <span className="text-sm font-semibold">Workspace Notes</span>
-        {canEdit && (
-          <button
-            type="button"
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
-          >
-            <MoreVertical size={16} />
-          </button>
-        )}
+        <span className="text-base font-bold">Workspace Notes</span>
+        <button
+          type="button"
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
+        >
+          <MoreVertical size={16} />
+        </button>
       </div>
 
       {!note ? (
@@ -152,10 +150,10 @@ export function WorkspaceNotesPanel({ note, canEdit = false }: WorkspaceNotesPan
             </div>
 
             {/* Title */}
-            <h2 className="mb-3 text-xl font-bold leading-snug">{note.title}</h2>
+            <h2 className="mb-3 text-2xl font-bold leading-tight">{note.title}</h2>
 
             {/* Body */}
-            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{note.body}</p>
+            <p className="mb-5 text-sm leading-relaxed text-foreground">{note.body}</p>
 
             {/* Action items */}
             {note.actionItems.length > 0 && (

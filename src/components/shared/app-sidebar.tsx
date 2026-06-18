@@ -61,8 +61,8 @@ function ManagerDsmSidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="flex w-50 shrink-0 flex-col border-r bg-card">
       <div className="border-b px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Standup</p>
-        <p className="text-[11px] text-muted-foreground/70">Workspace</p>
+        <p className="text-sm font-semibold text-foreground">Standup</p>
+        <p className="text-[11px] text-muted-foreground">Workspace</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2 pt-3">
@@ -73,7 +73,7 @@ function ManagerDsmSidebar({ pathname }: { pathname: string }) {
             className={cn(
               "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
               "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              isManagerNavActive(pathname, href) && "bg-primary/10 font-medium text-primary"
+              isManagerNavActive(pathname, href) && "bg-primary font-medium text-primary-foreground"
             )}
           >
             <Icon size={15} strokeWidth={1.75} />
@@ -123,8 +123,8 @@ function DsmSidebar({ pathname }: { pathname: string }) {
   return (
     <aside className="flex w-50 shrink-0 flex-col border-r bg-card">
       <div className="border-b px-4 py-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Standup</p>
-        <p className="text-[11px] text-muted-foreground/70">Workspace</p>
+        <p className="text-sm font-semibold text-foreground">Standup</p>
+        <p className="text-[11px] text-muted-foreground">Workspace</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2 pt-3">
@@ -135,7 +135,7 @@ function DsmSidebar({ pathname }: { pathname: string }) {
             className={cn(
               "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
               "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              pathname === href && "bg-primary/10 font-medium text-primary"
+              pathname === href && "bg-primary font-medium text-primary-foreground"
             )}
           >
             <Icon size={15} strokeWidth={1.75} />

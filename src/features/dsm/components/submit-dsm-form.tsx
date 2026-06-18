@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, AlertCircle, ClipboardList, HandHelping } from "lucide-react";
+import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
@@ -13,12 +13,6 @@ const PRIORITY_LABELS: Record<Priority, string> = {
   LOW: "Low Priority",
   MEDIUM: "Medium Priority",
   HIGH: "High Priority",
-};
-
-const PRIORITY_COLORS: Record<Priority, string> = {
-  LOW: "text-muted-foreground",
-  MEDIUM: "text-amber-600",
-  HIGH: "text-destructive",
 };
 
 // ── Shared input classes ──────────────────────────────────────────────────────
@@ -47,7 +41,10 @@ function TaskRows({
     <div className="flex flex-col gap-2">
       {tasks.map((task, i) => (
         <div key={i} className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+          <span className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold",
+            task ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+          )}>
             T{i + 1}
           </span>
           <input
@@ -96,30 +93,49 @@ function BlockerRows({
     <div className="flex flex-col gap-2">
       {blockers.map((b, i) => (
         <div key={i} className="flex items-center gap-2">
-          <input
-            name="blockerText"
-            value={b.text}
-            onChange={(e) => update(i, "text", e.target.value)}
-            placeholder="Describe the blockers..."
-            className={cn(inputCls, "flex-1")}
-          />
-          <select
-            name="blockerPriority"
-            value={b.priority}
-            onChange={(e) => update(i, "priority", e.target.value)}
-            className={cn(
-              "shrink-0 rounded-md border bg-background px-2 py-2 text-xs outline-none transition-colors focus:border-ring",
-              b.priority ? PRIORITY_COLORS[b.priority as Priority] : "text-muted-foreground"
-            )}
-          >
-            <option value="">Select Priority</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-            ))}
-          </select>
-          <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-            <X size={14} />
-          </button>
+          <div className="flex flex-1 items-center overflow-hidden rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+            <input
+              name="blockerText"
+              value={b.text}
+              onChange={(e) => update(i, "text", e.target.value)}
+              placeholder="Describe the blockers..."
+              className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50"
+            />
+            <div className="flex shrink-0 items-center gap-2 border-l px-3 py-1.5">
+              <div className={cn(
+                "flex items-center gap-1 rounded-full px-2.5 py-0.5 transition-colors",
+                b.priority === "HIGH" && "bg-red-100 text-red-700",
+                b.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
+                b.priority === "LOW" && "bg-sky-100 text-sky-700",
+              )}>
+                <span className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider",
+                  b.priority ? "opacity-70" : "text-muted-foreground"
+                )}>
+                  PRIORITY:
+                </span>
+                <select
+                  name="blockerPriority"
+                  value={b.priority}
+                  onChange={(e) => update(i, "priority", e.target.value)}
+                  className={cn(
+                    "cursor-pointer bg-transparent text-xs outline-none",
+                    b.priority ? "font-medium" : "text-muted-foreground"
+                  )}
+                >
+                  <option value="">Select Priority</option>
+                  {PRIORITIES.map((p) => (
+                    <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          {blockers.length > 1 && (
+            <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
+              <X size={14} />
+            </button>
+          )}
         </div>
       ))}
       <button
@@ -194,7 +210,7 @@ function SupportRows({
                 </button>
 
                 {openDropdown === i && (
-                  <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border bg-card shadow-md">
+                  <div className="absolute right-0 bottom-full z-20 mb-1 w-52 rounded-lg border bg-card shadow-md">
                     <div className="p-1">
                       <button
                         type="button"
@@ -238,7 +254,7 @@ function SupportRows({
         onClick={add}
         className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} /> Add follow-up
+        <Plus size={13} /> Add support needed
       </button>
     </div>
   );
@@ -312,11 +328,11 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
         {/* Yesterday — read-only completed tasks */}
         <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What did you complete yesterday?">
           {yesterdayTasks.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {yesterdayTasks.map((task, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 size={14} className="shrink-0 text-primary" />
-                  {task}
+                <div key={i} className="flex items-center gap-2.5 text-sm">
+                  <CheckCircle2 size={18} className="shrink-0 text-primary" />
+                  <span>{task}</span>
                 </div>
               ))}
             </div>
@@ -338,7 +354,7 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
         </Section>
 
         {/* Blockers */}
-        <Section icon={<AlertCircle size={16} className="text-muted-foreground" />} title="Any blockers?">
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any blockers?">
           <BlockerRows blockers={blockers} onChange={setBlockers} />
         </Section>
 
@@ -349,7 +365,16 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t pt-4">
-          <div className="flex items-center gap-2">
+          <button
+            name="action"
+            value="draft"
+            type="submit"
+            disabled={pending}
+            className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            Save Draft
+          </button>
+          <div className="flex items-center gap-3">
             {state.message === "saved" && (
               <p className="text-xs text-muted-foreground">Draft saved.</p>
             )}
@@ -358,23 +383,12 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
                 {state.message === "Unauthorized" ? "Session expired. Please sign in again." : state.message}
               </p>
             )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              name="action"
-              value="draft"
-              type="submit"
-              disabled={pending}
-              className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
-            >
-              Save Draft
-            </button>
             <button
               name="action"
               value="submit"
               type="submit"
               disabled={pending}
-              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {pending ? "Submitting…" : "Submit DSM"}
               {!pending && <ChevronRight size={16} />}

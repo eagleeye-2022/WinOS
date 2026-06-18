@@ -9,6 +9,8 @@ const COMPANY_DOMAIN = "eagleeyedigital.io";
 const MANAGER_EMAILS = new Set([
   "mohit@eagleeyedigital.io",
   "seo@eagleeyedigital.io",
+  "business@eagleeyedigital.io",
+  "wp@eagleeyedigital.io",
 ]);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

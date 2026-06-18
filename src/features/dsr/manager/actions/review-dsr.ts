@@ -85,6 +85,4 @@ export async function createDsrOpenedEvent(entryId: string): Promise<void> {
       occurredAt: new Date(),
     },
   });
-
-  revalidatePath("/dsr");
 }

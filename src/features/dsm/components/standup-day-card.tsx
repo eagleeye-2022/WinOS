@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
@@ -44,14 +44,13 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
           {dayLabel && (
-            <span className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              dayLabel === "Today"
-                ? "bg-primary text-primary-foreground"
-                : "bg-accent text-accent-foreground"
-            )}>
-              {dayLabel}
-            </span>
+            dayLabel === "Today" ? (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {dayLabel}
+              </span>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">{dayLabel}</span>
+            )
           )}
 
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
@@ -85,12 +84,18 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
         {/* Review status */}
         <div className="flex shrink-0 items-center gap-1.5 text-xs">
           {review.kind === "reviewed" && (
-            <span className="flex items-center gap-1 text-emerald-600">
-              <CheckCircle2 size={13} className="text-emerald-500" />
+            <span className="flex items-center gap-1 text-primary">
+              <CheckCircle2 size={13} className="text-primary" />
               {review.label}
             </span>
           )}
-          {(review.kind === "pending" || review.kind === "missed-deadline") && (
+          {review.kind === "pending" && (
+            <span className="flex items-center gap-1 text-amber-600">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              {review.label}
+            </span>
+          )}
+          {review.kind === "missed-deadline" && (
             <span className="flex items-center gap-1 text-destructive">
               <span className="h-2 w-2 rounded-full bg-destructive" />
               {review.label}
@@ -104,7 +109,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
           )}
         </div>
 
-        {open ? <ChevronUp size={15} className="ml-2 shrink-0 text-muted-foreground" /> : <ChevronDown size={15} className="ml-2 shrink-0 text-muted-foreground" />}
+        <ChevronDown size={15} className={cn("ml-2 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
       </button>
 
       {/* Expanded content */}
@@ -149,7 +154,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
                 </div>
               )}
               {entry.blockers.length > 0 && (
-                <div className="rounded-md border bg-muted/30 p-3">
+                <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3">
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Blockers
                   </p>

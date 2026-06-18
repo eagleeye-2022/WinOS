@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SendRemindersButton } from "@/features/dsm/manager/components/send-reminders-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
+
+const DOT_COLORS = ["bg-primary", "bg-primary", "bg-emerald-500", "bg-amber-400"];
 
 // ── Submission time helper ────────────────────────────────────────────────────
 
@@ -24,7 +26,7 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
       className="block rounded-xl border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-center gap-2.5 mb-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary ring-2 ring-background ring-offset-1 ring-offset-primary/10">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary ring-2 ring-background ring-offset-1 ring-offset-primary/10">
           {(card.name ?? card.email).slice(0, 2).toUpperCase()}
         </span>
         <div className="flex-1 min-w-0">
@@ -71,7 +73,7 @@ function DsrPendingCard({ count, teamId }: { count: number; teamId: string }) {
 
 // ── Team column ───────────────────────────────────────────────────────────────
 
-export function DsrTeamColumn({ group }: { group: DsrTeamGroup }) {
+export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; colorIndex?: number }) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
   const submitted = group.members.filter(
     (m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED"
@@ -83,12 +85,15 @@ export function DsrTeamColumn({ group }: { group: DsrTeamGroup }) {
   return (
     <div className="flex w-64 shrink-0 flex-col gap-3">
       <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-primary" />
+        <span className={cn("h-2 w-2 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
           <div className="ml-auto flex items-center gap-1.5">
             <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
-              <CheckCircle2 size={12} /> All Submitted
+              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              </svg>
+              All Submitted
             </span>
             <span className="text-[10px] text-muted-foreground">
               {group.submittedCount}/{group.totalMembers}

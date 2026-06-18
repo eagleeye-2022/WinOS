@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, MessageSquare, TrendingDown, Clock3, CheckCheck } from "lucide-react";
+import { Zap, BarChart2, TrendingDown, Clock3, CheckCheck, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatEventTime } from "../utils";
 import type { DsrInsights, DsrEntryData } from "../queries";
@@ -20,11 +20,11 @@ function WeeklyTrendChart({
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageSquare size={14} className="text-primary" />
+          <BarChart2 size={14} className="text-primary" />
           <span className="text-sm font-semibold">Weekly Trend</span>
         </div>
         {streak > 0 && (
-          <span className="text-xs font-semibold text-primary">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
             {streak} DAY STREAK
           </span>
         )}
@@ -125,16 +125,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
           <span className="text-sm font-semibold">Day Summary</span>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">{daySummary}</p>
-        {completionPercent > 0 && (
-          <div className="mt-3 flex items-end gap-1">
-            <div className="h-0.5 flex-1 rounded-full bg-primary/20">
-              <div
-                className="h-0.5 rounded-full bg-primary transition-all"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-          </div>
-        )}
+        <div className="mt-3 h-0.5 rounded-full bg-primary" />
       </div>
 
       {/* Weekly trend */}
@@ -149,7 +140,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-primary">
-              <Zap size={13} className="fill-primary" />
+              <Star size={13} className="fill-primary" />
               Breakthrough Days
             </div>
             <span className="text-sm font-bold text-primary">{breakthroughDays}</span>

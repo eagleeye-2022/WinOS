@@ -16,6 +16,44 @@ export type SupportNeedItem = {
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
+ * Support-need items WHERE the current user is the mentionedUser (someone asks help FROM them).
+ */
+export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const rows = await d.standupSupportNeed.findMany({
+    where: { mentionedUserId: session.user.id },
+    include: {
+      entry: {
+        include: { user: { select: { id: true, name: true, email: true } } },
+      },
+      mentionedUser: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: [{ entry: { date: "desc" } }, { order: "asc" }],
+  });
+
+  return rows.map((s: {
+    id: string;
+    text: string;
+    resolved: boolean;
+    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
+    mentionedUser: { id: string; name: string | null; email: string } | null;
+  }) => ({
+    id: s.id,
+    text: s.text,
+    resolved: s.resolved,
+    date: s.entry.date,
+    entryId: s.entry.id,
+    raisedBy: s.entry.user,
+    supportFrom: s.mentionedUser,
+  }));
+}
+
+/**
  * All support-need items for the current user.
  * Team member: own entries. Manager: all entries.
  */
