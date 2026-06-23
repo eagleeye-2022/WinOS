@@ -37,6 +37,7 @@ export async function reviewStandup(
   });
 
   revalidatePath("/dsm");
+  revalidatePath("/dsm/my");
   revalidatePath("/dsm/all");
   revalidatePath(`/dsm/member/${entry.userId}`);
   return { message: "reviewed" };

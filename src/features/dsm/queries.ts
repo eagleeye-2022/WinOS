@@ -118,6 +118,54 @@ export async function getYesterdayTasks(): Promise<string[]> {
   return (entry?.tasks ?? []).map((t: EntryTask) => t.text);
 }
 
+/**
+ * Yesterday's TODAY tasks that were NOT marked complete.
+ * Completion state for a DSM task doesn't live on StandupTask itself — it's recorded
+ * on that same day's evening DsrEntry.plannedTasks (matched by text, no FK between them).
+ * If no DSR was ever filed for that day, nothing confirms completion, so every task
+ * from that day is treated as incomplete.
+ */
+export async function getYesterdayIncompleteTasks(): Promise<string[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const today = toUtcDate();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: today },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    include: { tasks: { where: { kind: "TODAY" }, orderBy: { order: "asc" } } },
+    orderBy: { date: "desc" },
+  });
+
+  if (!entry || entry.tasks.length === 0) return [];
+
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date: entry.date } },
+    include: { plannedTasks: { select: { text: true, completed: true } } },
+  });
+
+  if (!dsr) {
+    return entry.tasks.map((t: EntryTask) => t.text);
+  }
+
+  const completedTexts = new Set(
+    dsr.plannedTasks
+      .filter((p: { completed: boolean }) => p.completed)
+      .map((p: { text: string }) => p.text)
+  );
+
+  return entry.tasks
+    .filter((t: EntryTask) => !completedTexts.has(t.text))
+    .map((t: EntryTask) => t.text);
+}
+
 /** All entries in the given week offset for the current user (desc date order). */
 export async function getWeekEntries(weekOffset = 0): Promise<EntryWithDetails[]> {
   const session = await auth();

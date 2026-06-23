@@ -24,11 +24,15 @@ export async function setTaskPriority(
   if (!validPriorities.includes(priority ?? "")) return { message: "Invalid priority" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).standupTask.update({
+  const d = db as any;
+
+  const task = await d.standupTask.update({
     where: { id: taskId },
     data: { managerPriority: priority || null },
+    select: { entry: { select: { userId: true } } },
   });
 
   revalidatePath("/dsm");
+  revalidatePath(`/dsm/member/${task.entry.userId}`);
   return { message: "updated" };
 }

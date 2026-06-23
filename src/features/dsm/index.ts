@@ -11,6 +11,7 @@ export { WeekHistory } from "./components/week-history";
 export {
   getTodayEntry,
   getYesterdayTasks,
+  getYesterdayIncompleteTasks,
   getWeekEntries,
   getWorkspaceNote,
   getKpiStats,

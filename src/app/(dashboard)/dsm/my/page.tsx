@@ -1,34 +1,39 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { ROUTES } from "@/constants/routes";
 import {
   getTodayEntry,
   getYesterdayTasks,
+  getYesterdayIncompleteTasks,
   getWeekEntries,
   getWorkspaceNote,
   getKpiStats,
   getTeamMembers,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
-import { TodaysFocusCard } from "@/features/dsm/components/today-focus-card";
-import { SubmitDsmForm } from "@/features/dsm/components/submit-dsm-form";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
-import { KpiCards } from "@/features/dsm/components/kpi-cards";
-import { WeekHistory } from "@/features/dsm/components/week-history";
+import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
 type Props = {
   searchParams: Promise<{ submitted?: string; w?: string }>;
 };
 
 export default async function ManagerMyDsmPage({ searchParams }: Props) {
+  const session = await auth();
+  if (!session?.user?.id) redirect(ROUTES.login);
+  // Self-submission is for managers here; team members already have it at /dsm.
+  if (session.user.role !== "MANAGER") redirect(ROUTES.dsm);
+
   const sp = await searchParams;
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [session, todayEntry, yesterdayTasks, weekEntries, workspaceNote, kpiStats, teamMembers] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, weekEntries, workspaceNote, kpiStats, teamMembers] =
     await Promise.all([
-      auth(),
       getTodayEntry(),
       getYesterdayTasks(),
+      getYesterdayIncompleteTasks(),
       getWeekEntries(weekOffset),
       getWorkspaceNote(),
       getKpiStats(),
@@ -36,7 +41,6 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
-  const showForm = !todayEntry || todayEntry.status === "DRAFT";
   const canEditNote =
     session?.user?.role === "MANAGER" ||
     (workspaceNote != null && workspaceNote.owner.id === session?.user?.id);
@@ -58,22 +62,17 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           </div>
         )}
 
-        {showForm ? (
-          <>
-            <TodaysFocusCard entry={todayEntry} />
-            <SubmitDsmForm
-              entry={todayEntry}
-              yesterdayTasks={yesterdayTasks}
-              teamMembers={teamMembers}
-              todayDateStr={todayDateStr}
-            />
-          </>
-        ) : (
-          <>
-            <WeekHistory entries={weekEntries} weekOffset={weekOffset} basePath="/dsm/my" />
-            <KpiCards stats={kpiStats} />
-          </>
-        )}
+        <DsmSelfPanel
+          entry={todayEntry}
+          yesterdayTasks={yesterdayTasks}
+          yesterdayIncompleteTasks={yesterdayIncompleteTasks}
+          teamMembers={teamMembers}
+          todayDateStr={todayDateStr}
+          weekEntries={weekEntries}
+          weekOffset={weekOffset}
+          kpiStats={kpiStats}
+          basePath="/dsm/my"
+        />
       </div>
 
       <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">

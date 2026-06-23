@@ -91,6 +91,8 @@ model User {
   sentNotifications     Notification[]       @relation("SentNotifications")
   dsrEntries            DsrEntry[]           @relation("UserDsrEntries")
   reviewedDsrs          DsrEntry[]           @relation("DsrReviewedBy")
+  blockerComments       BlockerComment[]
+  supportNeedComments   SupportNeedComment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -183,8 +185,21 @@ model StandupBlocker {
   priority BlockerPriority @default(MEDIUM)
   resolved Boolean         @default(false)
 
+  comments BlockerComment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model BlockerComment {
+  id        String         @id @default(cuid())
+  blockerId String
+  blocker   StandupBlocker @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text      String
+
+  createdAt DateTime @default(now())
 }
 
 model StandupSupportNeed {
@@ -197,8 +212,21 @@ model StandupSupportNeed {
   order           Int          @default(0)
   resolved        Boolean      @default(false)
 
+  comments SupportNeedComment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SupportNeedComment {
+  id            String             @id @default(cuid())
+  supportNeedId String
+  supportNeed   StandupSupportNeed @relation(fields: [supportNeedId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  text          String
+
+  createdAt DateTime @default(now())
 }
 
 // Team workspace note — one per user (manager writes team-wide note visible to members).

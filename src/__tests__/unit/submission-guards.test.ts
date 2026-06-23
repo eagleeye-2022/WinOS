@@ -12,7 +12,7 @@ function canMemberResubmitDsr(status: DsrStatus): boolean {
 }
 
 function canMemberResubmitDsm(status: DsmStatus): boolean {
-  return status !== "SUBMITTED" && status !== "PENDING_REVIEW" && status !== "REVIEWED";
+  return status !== "REVIEWED";
 }
 
 function canManagerReviewDsr(status: DsrStatus): boolean {
@@ -55,12 +55,12 @@ describe("DSM member re-submission guard", () => {
     expect(canMemberResubmitDsm("DRAFT")).toBe(true);
   });
 
-  it("blocks re-submission of SUBMITTED entry", () => {
-    expect(canMemberResubmitDsm("SUBMITTED")).toBe(false);
+  it("allows the owner to edit a SUBMITTED entry (moves to PENDING_REVIEW)", () => {
+    expect(canMemberResubmitDsm("SUBMITTED")).toBe(true);
   });
 
-  it("blocks re-submission of PENDING_REVIEW entry", () => {
-    expect(canMemberResubmitDsm("PENDING_REVIEW")).toBe(false);
+  it("allows the owner to keep editing a PENDING_REVIEW entry", () => {
+    expect(canMemberResubmitDsm("PENDING_REVIEW")).toBe(true);
   });
 
   it("blocks re-submission of REVIEWED entry", () => {
@@ -69,6 +69,45 @@ describe("DSM member re-submission guard", () => {
 
   it("allows re-submission of MISSED entry (late filing)", () => {
     expect(canMemberResubmitDsm("MISSED")).toBe(true);
+  });
+});
+
+// ── DSR / DSM status transition after a self-edit save ────────────────────────
+// Mirrors the `finalStatus` logic in saveDsr/saveDsm: editing an already
+// submitted entry must land on PENDING_REVIEW (never silently fall back to
+// DRAFT, which would hide the entry from manager review), regardless of
+// whether the UI action was "draft" or "submit".
+
+type SaveAction = "draft" | "submit";
+
+function resultingStatusAfterSave(existingStatus: DsrStatus | null, action: SaveAction): DsrStatus {
+  const requestedStatus = action === "submit" ? "SUBMITTED" : "DRAFT";
+  const wasSubmitted = existingStatus === "SUBMITTED" || existingStatus === "PENDING_REVIEW";
+  return wasSubmitted ? "PENDING_REVIEW" : requestedStatus;
+}
+
+describe("DSR/DSM status transition on self-edit save", () => {
+  it("first submit on a DRAFT/null entry results in SUBMITTED", () => {
+    expect(resultingStatusAfterSave(null, "submit")).toBe("SUBMITTED");
+    expect(resultingStatusAfterSave("DRAFT", "submit")).toBe("SUBMITTED");
+  });
+
+  it("saving a draft on a DRAFT/null entry stays DRAFT", () => {
+    expect(resultingStatusAfterSave(null, "draft")).toBe("DRAFT");
+    expect(resultingStatusAfterSave("DRAFT", "draft")).toBe("DRAFT");
+  });
+
+  it("editing a SUBMITTED entry and re-submitting results in PENDING_REVIEW", () => {
+    expect(resultingStatusAfterSave("SUBMITTED", "submit")).toBe("PENDING_REVIEW");
+  });
+
+  it("editing a SUBMITTED entry via the draft action does NOT fall back to DRAFT", () => {
+    expect(resultingStatusAfterSave("SUBMITTED", "draft")).toBe("PENDING_REVIEW");
+  });
+
+  it("editing a PENDING_REVIEW entry stays PENDING_REVIEW", () => {
+    expect(resultingStatusAfterSave("PENDING_REVIEW", "submit")).toBe("PENDING_REVIEW");
+    expect(resultingStatusAfterSave("PENDING_REVIEW", "draft")).toBe("PENDING_REVIEW");
   });
 });
 

@@ -15,6 +15,7 @@ function blocker(overrides: Partial<BlockerItem> & { id: string }): BlockerItem 
     date: overrides.date ?? new Date("2026-05-28T00:00:00Z"),
     entryId: overrides.entryId ?? "entry-1",
     raisedBy: overrides.raisedBy ?? user,
+    comments: overrides.comments ?? [],
   };
 }
 

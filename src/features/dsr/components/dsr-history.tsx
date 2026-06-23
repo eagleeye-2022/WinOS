@@ -8,9 +8,10 @@ import type { DsrEntryData } from "../queries";
 type Props = {
   entries: DsrEntryData[];
   weekOffset: number;
+  basePath?: string;
 };
 
-export function DsrHistory({ entries, weekOffset }: Props) {
+export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
   const { start } = getWeekRange(weekOffset);
   const weekLabel = `Week ${weekOfMonth(start)}`;
   const canGoForward = weekOffset < 0;
@@ -24,14 +25,14 @@ export function DsrHistory({ entries, weekOffset }: Props) {
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm">
           <Link
-            href={`/dsr?w=${weekOffset - 1}`}
+            href={`${basePath}?w=${weekOffset - 1}`}
             className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
           >
             <ChevronLeft size={16} />
           </Link>
           <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
           <Link
-            href={canGoForward ? `/dsr?w=${weekOffset + 1}` : "/dsr"}
+            href={canGoForward ? `${basePath}?w=${weekOffset + 1}` : basePath}
             className={cn(
               "rounded p-1 text-muted-foreground transition-colors hover:bg-accent",
               !canGoForward && "pointer-events-none opacity-30"

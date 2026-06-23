@@ -16,6 +16,7 @@ function item(overrides: Partial<SupportNeedItem> & { id: string }): SupportNeed
     entryId: overrides.entryId ?? "entry-1",
     raisedBy: overrides.raisedBy ?? alice,
     supportFrom: overrides.supportFrom ?? null,
+    comments: overrides.comments ?? [],
   };
 }
 

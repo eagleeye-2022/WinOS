@@ -19,15 +19,15 @@ export async function markSupportResolved(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
+  // Resolving is a manager-only decision; the owner can describe progress via
+  // comments, but only a manager marks the support need as actually resolved.
+  if (session.user.role !== "MANAGER") return { message: "Unauthorized" };
+
   const need = await d.standupSupportNeed.findUnique({
     where: { id: supportId },
-    include: { entry: { select: { userId: true } } },
+    select: { id: true },
   });
   if (!need) return { message: "Not found" };
-
-  const isOwner = need.entry.userId === session.user.id;
-  const isManager = session.user.role === "MANAGER";
-  if (!isOwner && !isManager) return { message: "Unauthorized" };
 
   await d.standupSupportNeed.update({
     where: { id: supportId },

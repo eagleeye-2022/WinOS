@@ -12,7 +12,7 @@ export function DsmHeader({ entry }: DsmHeaderProps) {
   const followUpCount = entry?.supportNeeds.length ?? 0;
 
   return (
-    <div className="flex flex-wrap items-end gap-4">
+    <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p className="text-xs font-medium text-muted-foreground">{formatDayHeader(now)}</p>
         <h1 className="text-3xl font-bold tracking-tight">{formatFullDate(now)}</h1>

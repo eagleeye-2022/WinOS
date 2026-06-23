@@ -19,15 +19,15 @@ export async function markBlockerResolved(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
+  // Resolving is a manager-only decision; the owner can describe progress via
+  // comments, but only a manager marks the blocker as actually resolved.
+  if (session.user.role !== "MANAGER") return { message: "Unauthorized" };
+
   const blocker = await d.standupBlocker.findUnique({
     where: { id: blockerId },
-    include: { entry: { select: { userId: true } } },
+    select: { id: true },
   });
   if (!blocker) return { message: "Not found" };
-
-  const isOwner = blocker.entry.userId === session.user.id;
-  const isManager = session.user.role === "MANAGER";
-  if (!isOwner && !isManager) return { message: "Unauthorized" };
 
   await d.standupBlocker.update({
     where: { id: blockerId },

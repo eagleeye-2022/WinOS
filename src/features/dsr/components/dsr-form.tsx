@@ -301,11 +301,13 @@ type Props = {
   todayDateStr: string;
   onRegisterSubmit?: (fn: () => void) => void;
   readOnly?: boolean;
+  onCancel?: () => void;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOnly }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOnly, onCancel }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
   // Initialize state from existing entry or DSM prefill
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
@@ -382,6 +384,23 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
       <input type="hidden" name="reflection" value={reflection} />
       <input type="hidden" name="resultOfDay" value={resultOfDay} />
 
+      {(isEditMode || onCancel) && (
+        <div className="flex items-center justify-between rounded-xl border bg-card px-5 py-3">
+          <h2 className="text-sm font-semibold">
+            {isEditMode ? "Edit Today's DSR" : "Today's DSR"}
+          </h2>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
+
       <PlannedTasksSection tasks={tasks} onChange={setTasks} />
 
       <AdditionalWorkSection
@@ -430,21 +449,23 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
       {/* Mobile-only submit (desktop uses panel button) */}
       {!readOnly && (
         <div className="flex items-center gap-3 xl:hidden">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => buildAndSubmit("draft")}
-            className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
-          >
-            Save Draft
-          </button>
+          {!isEditMode && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => buildAndSubmit("draft")}
+              className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            >
+              Save Draft
+            </button>
+          )}
           <button
             type="button"
             disabled={pending}
             onClick={() => buildAndSubmit("submit")}
             className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {pending ? "Submitting…" : "Submit DSR"}
+            {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSR"}
           </button>
         </div>
       )}

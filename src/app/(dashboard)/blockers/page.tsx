@@ -10,5 +10,11 @@ export default async function BlockersPage() {
 
   const items = await getMyBlockers();
 
-  return <BlockersClient items={items} />;
+  return (
+    <BlockersClient
+      items={items}
+      currentUserId={session.user.id}
+      isManager={session.user.role === "MANAGER"}
+    />
+  );
 }

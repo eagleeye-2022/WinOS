@@ -113,6 +113,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
   const hasTimeline = (entry?.timelineEvents?.length ?? 0) > 0;
   const hasManagerComment = !!entry?.managerComment;
   const isReviewed = entry?.status === "REVIEWED";
+  const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
@@ -187,7 +188,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
           onClick={onSubmit}
           className="mt-auto w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Submit DSR
+          {isEditMode ? "Save Changes" : "Submit DSR"}
         </button>
       )}
 

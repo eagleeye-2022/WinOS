@@ -53,6 +53,7 @@ function ManagerDsmSidebar({ pathname }: { pathname: string }) {
     { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
     { label: "My DSM", href: ROUTES.dsmMy, icon: User },
     { label: "DSR", href: ROUTES.dsrManage, icon: BarChart2 },
+    { label: "My DSR", href: ROUTES.dsrMy, icon: User },
     { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
     { label: "Support Needed", href: ROUTES.support, icon: Users2 },
     { label: "Needs My Help", href: ROUTES.needsHelp, icon: HeartHandshake },

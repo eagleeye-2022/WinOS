@@ -15,5 +15,13 @@ export default async function SupportPage() {
     getTeamMembers(),
   ]);
 
-  return <SupportClient items={items} itemsForMe={itemsForMe} teamMembers={teamMembers} />;
+  return (
+    <SupportClient
+      items={items}
+      itemsForMe={itemsForMe}
+      teamMembers={teamMembers}
+      currentUserId={session.user.id}
+      isManager={session.user.role === "MANAGER"}
+    />
+  );
 }

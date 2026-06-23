@@ -2,12 +2,13 @@
 
 import { useActionState, useState, useEffect, useRef } from "react";
 import {
-  X, Search, Users, ChevronDown,
+  X, Search, Users, ChevronDown, Pencil, Check,
   Paintbrush, Code2, TrendingUp, Hash, Layers, ShoppingBag, HeartHandshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createTeam, type CreateTeamState } from "../actions/create-team";
 import { updateTeam, type UpdateTeamState } from "../actions/update-team";
+import { updateMemberName } from "../actions/update-member-name";
 import type { TeamWithMembers, AllUser } from "../queries";
 
 const DEPARTMENTS = ["Engineering", "Design", "Marketing", "Product", "Sales", "Support", "SMM", "Other"];
@@ -150,11 +151,44 @@ function LeadPicker({ allUsers, initialId }: { allUsers: AllUser[]; initialId?: 
 
 // ── Member multi-picker ───────────────────────────────────────────────────────
 
-function MemberPicker({ allUsers, initialIds = [] }: { allUsers: AllUser[]; initialIds?: string[] }) {
+function MemberPicker({
+  allUsers,
+  initialIds = [],
+  onNameSaved,
+}: {
+  allUsers: AllUser[];
+  initialIds?: string[];
+  onNameSaved: (userId: string, name: string) => void;
+}) {
   const [selected, setSelected] = useState<string[]>(initialIds);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const cancelingRef = useRef(false);
+
+  async function saveName(userId: string) {
+    if (cancelingRef.current) { cancelingRef.current = false; return; }
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      setNameError("Name cannot be empty");
+      return;
+    }
+    setSavingId(userId);
+    setNameError(null);
+    const result = await updateMemberName(userId, trimmed);
+    setSavingId(null);
+    if (result.ok) {
+      onNameSaved(userId, trimmed);
+      setEditingId(null);
+    } else {
+      setNameError(result.message ?? "Failed to save name");
+    }
+  }
 
   const filtered = allUsers.filter(
     (u) =>
@@ -183,7 +217,38 @@ function MemberPicker({ allUsers, initialIds = [] }: { allUsers: AllUser[]; init
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
               {(u.name ?? u.email).slice(0, 2).toUpperCase()}
             </span>
-            {u.name ?? u.email.split("@")[0]}
+
+            {editingId === u.id ? (
+              <input
+                autoFocus
+                value={editValue}
+                disabled={savingId === u.id}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); saveName(u.id); }
+                  if (e.key === "Escape") { e.preventDefault(); cancelingRef.current = true; setEditingId(null); setNameError(null); }
+                }}
+                onBlur={() => saveName(u.id)}
+                className="w-20 bg-transparent text-xs outline-none"
+              />
+            ) : (
+              <>
+                {u.name ?? u.email.split("@")[0]}
+                <button
+                  type="button"
+                  onClick={() => { setEditingId(u.id); setEditValue(u.name ?? ""); setNameError(null); }}
+                  className="text-muted-foreground hover:text-primary"
+                  title="Edit display name"
+                >
+                  <Pencil size={10} />
+                </button>
+              </>
+            )}
+
+            {editingId === u.id && savingId === u.id && (
+              <Check size={10} className="animate-pulse text-muted-foreground" />
+            )}
+
             <button
               type="button"
               onClick={() => setSelected((s) => s.filter((id) => id !== u.id))}
@@ -202,6 +267,8 @@ function MemberPicker({ allUsers, initialIds = [] }: { allUsers: AllUser[]; init
           className="min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
         />
       </div>
+
+      {nameError && <p className="mt-1 text-xs text-destructive">{nameError}</p>}
 
       {open && filtered.length > 0 && (
         <div className="absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border bg-card shadow-lg">
@@ -250,6 +317,14 @@ function TeamForm({
   const action = isEdit ? updateAction : createAction;
   const pending = isEdit ? updatePending : createPending;
 
+  // Local overrides so an edited display name shows immediately in both
+  // pickers without waiting for the page to revalidate/reload.
+  const [users, setUsers] = useState(allUsers);
+  useEffect(() => setUsers(allUsers), [allUsers]);
+  function handleNameSaved(userId: string, name: string) {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, name } : u)));
+  }
+
   useEffect(() => {
     if (state.message === "created" || state.message === "updated") {
       onSuccess();
@@ -293,14 +368,15 @@ function TeamForm({
 
         <div>
           <label className="mb-1.5 block text-sm font-medium">Team Lead</label>
-          <LeadPicker allUsers={allUsers} initialId={team?.leadId ?? undefined} />
+          <LeadPicker allUsers={users} initialId={team?.leadId ?? undefined} />
         </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium">Add Members</label>
           <MemberPicker
-            allUsers={allUsers}
+            allUsers={users}
             initialIds={team?.members.map((m) => m.userId) ?? []}
+            onNameSaved={handleNameSaved}
           />
         </div>
 

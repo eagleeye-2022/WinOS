@@ -3,6 +3,13 @@ import { db } from "@/lib/db";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type BlockerCommentItem = {
+  id: string;
+  text: string;
+  createdAt: Date;
+  author: { id: string; name: string | null; email: string };
+};
+
 export type BlockerItem = {
   id: string;
   text: string;
@@ -11,6 +18,7 @@ export type BlockerItem = {
   date: Date;
   entryId: string;
   raisedBy: { id: string; name: string | null; email: string };
+  comments: BlockerCommentItem[];
 };
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -37,6 +45,10 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
       entry: {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
+      comments: {
+        include: { author: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [{ entry: { date: "desc" } }, { priority: "asc" }],
   });
@@ -47,6 +59,12 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     priority: string;
     resolved: boolean;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
+    comments: {
+      id: string;
+      text: string;
+      createdAt: Date;
+      author: { id: string; name: string | null; email: string };
+    }[];
   }) => ({
     id: b.id,
     text: b.text,
@@ -55,5 +73,6 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     date: b.entry.date,
     entryId: b.entry.id,
     raisedBy: b.entry.user,
+    comments: b.comments,
   }));
 }

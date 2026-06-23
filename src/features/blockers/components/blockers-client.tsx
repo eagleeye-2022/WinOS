@@ -2,13 +2,15 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil } from "lucide-react";
+import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
+import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterBlockers, type BlockerStatusFilter, type BlockerPriorityFilter } from "../utils";
 import { markBlockerResolved, type MarkBlockerResolvedState } from "../actions/mark-resolved";
 import { createBlocker, type CreateBlockerState } from "../actions/create-blocker";
 import { sendBlockerReminder, type BlockerReminderState } from "../actions/send-reminder";
+import { addBlockerComment, type AddBlockerCommentState } from "../actions/add-blocker-comment";
 import type { BlockerItem } from "../queries";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -52,11 +54,76 @@ function PriorityBadge({ priority }: { priority: "LOW" | "MEDIUM" | "HIGH" }) {
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
+function CommentThread({ comments }: { comments: BlockerItem["comments"] }) {
+  if (comments.length === 0) {
+    return (
+      <p className="text-xs italic text-muted-foreground/60">No updates yet.</p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      {comments.map((c) => (
+        <div key={c.id} className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold">
+              {c.author.name?.split(" ")[0] ?? c.author.email.split("@")[0]}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{formatEventTime(c.createdAt)}</span>
+          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">{c.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommentForm({ blockerId }: { blockerId: string }) {
+  const [state, action, pending] = useActionState<AddBlockerCommentState, FormData>(
+    addBlockerComment, {}
+  );
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    if (state.message === "added") setText("");
+  }, [state.message]);
+
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="blockerId" value={blockerId} />
+      <textarea
+        name="text"
+        rows={3}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Share an update — solved or not, what's remaining, what support you still need..."
+        className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+      />
+      {state.errors?.text && <p className="text-xs text-destructive">{state.errors.text[0]}</p>}
+      {state.message === "added" && <p className="text-xs text-emerald-600">Update posted.</p>}
+      {state.message && state.message !== "added" && (
+        <p className="text-xs text-destructive">{state.message}</p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="flex items-center justify-center gap-2 self-end rounded-lg border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+      >
+        <MessageSquare size={12} />
+        {pending ? "Posting…" : "Post Update"}
+      </button>
+    </form>
+  );
+}
+
 function DetailPanel({
   item,
+  isManager,
+  canComment,
   onClose,
 }: {
   item: BlockerItem;
+  isManager: boolean;
+  canComment: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -110,6 +177,15 @@ function DetailPanel({
         </div>
 
         <div className="h-px bg-border" />
+
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Updates
+          </p>
+          <CommentThread comments={item.comments} />
+        </div>
+
+        {canComment && !isResolved && <CommentForm blockerId={item.id} />}
       </div>
 
       {/* Actions */}
@@ -126,19 +202,21 @@ function DetailPanel({
         {reminderState.message === "already_resolved" && (
           <p className="text-xs text-muted-foreground">This blocker is already resolved.</p>
         )}
-        <form action={resolveAction}>
-          <input type="hidden" name="blockerId" value={item.id} />
-          <button
-            type="submit"
-            disabled={isResolved || resolvePending}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-            </svg>
-            {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
-          </button>
-        </form>
+        {isManager && (
+          <form action={resolveAction}>
+            <input type="hidden" name="blockerId" value={item.id} />
+            <button
+              type="submit"
+              disabled={isResolved || resolvePending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              </svg>
+              {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
+            </button>
+          </form>
+        )}
 
         <form action={reminderAction}>
           <input type="hidden" name="blockerId" value={item.id} />
@@ -239,9 +317,9 @@ function RaiseBlockerModal({ onClose }: { onClose: () => void }) {
 
 // ── Main client ───────────────────────────────────────────────────────────────
 
-type Props = { items: BlockerItem[] };
+type Props = { items: BlockerItem[]; currentUserId: string; isManager: boolean };
 
-export function BlockersClient({ items }: Props) {
+export function BlockersClient({ items, currentUserId, isManager }: Props) {
   const [statusFilter, setStatusFilter] = useState<BlockerStatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<BlockerPriorityFilter>("all");
   const [search, setSearch] = useState("");
@@ -449,6 +527,8 @@ export function BlockersClient({ items }: Props) {
         <DetailPanel
           key={selected.id}
           item={selected}
+          isManager={isManager}
+          canComment={isManager || selected.raisedBy.id === currentUserId}
           onClose={() => setSelectedId(null)}
         />
       )}

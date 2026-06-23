@@ -22,20 +22,22 @@ const inputCls =
 
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
+type Task = { text: string; carried: boolean };
+
 function TaskRows({
   tasks,
   onChange,
 }: {
-  tasks: string[];
-  onChange: (t: string[]) => void;
+  tasks: Task[];
+  onChange: (t: Task[]) => void;
 }) {
   const update = (i: number, v: string) => {
     const n = [...tasks];
-    n[i] = v;
+    n[i] = { ...n[i], text: v };
     onChange(n);
   };
   const remove = (i: number) => onChange(tasks.filter((_, j) => j !== i));
-  const add = () => onChange([...tasks, ""]);
+  const add = () => onChange([...tasks, { text: "", carried: false }]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -43,18 +45,23 @@ function TaskRows({
         <div key={i} className="flex items-center gap-2">
           <span className={cn(
             "flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold",
-            task ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+            task.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
           )}>
             T{i + 1}
           </span>
           <input
             name="taskText"
-            value={task}
+            value={task.text}
             onChange={(e) => update(i, e.target.value)}
             placeholder="Add task details..."
             className={inputCls}
           />
-          {tasks.length > 1 && (
+          {task.carried && (
+            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              Carried over
+            </span>
+          )}
+          {(tasks.length > 1 || task.carried) && (
             <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
               <X size={14} />
             </button>
@@ -171,6 +178,7 @@ function SupportRows({
   const add = () => onChange([...supports, { text: "", mentionedUserId: "" }]);
 
   const memberById = (id: string) => teamMembers.find((m) => m.id === id);
+  const mentionLabel = (m: TeamMember) => m.name?.split(" ")[0] ?? m.email.split("@")[0];
 
   return (
     <div className="flex flex-col gap-2">
@@ -183,7 +191,7 @@ function SupportRows({
               <div className="relative flex-1">
                 {mentioned && (
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary">
-                    @{mentioned.name?.split(" ")[0].toLowerCase() ?? "user"}&nbsp;
+                    @{mentionLabel(mentioned).toLowerCase()}&nbsp;
                   </span>
                 )}
                 <input
@@ -203,7 +211,7 @@ function SupportRows({
                   className="flex items-center gap-1 rounded-md border px-2 py-2 text-xs text-muted-foreground hover:bg-accent"
                 >
                   {mentioned ? (
-                    <span className="text-primary">{mentioned.name?.split(" ")[0]}</span>
+                    <span className="text-primary">{mentionLabel(mentioned)}</span>
                   ) : (
                     "@mention"
                   )}
@@ -229,9 +237,9 @@ function SupportRows({
                           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                             {(m.name ?? m.email).slice(0, 2).toUpperCase()}
                           </span>
-                          <div>
-                            <p className="font-medium">{m.name ?? m.email}</p>
-                            <p className="text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{m.name ?? m.email}</p>
+                            <p className="truncate text-muted-foreground">
                               {m.title ?? (m.role === "MANAGER" ? "Manager" : "Team Member")}
                             </p>
                           </div>
@@ -287,18 +295,28 @@ function Section({ icon, title, required, children }: {
 type SubmitDsmFormProps = {
   entry: EntryWithDetails | null;
   yesterdayTasks: string[];
+  yesterdayIncompleteTasks: string[];
   teamMembers: TeamMember[];
   todayDateStr: string; // "YYYY-MM-DD"
+  onCancel?: () => void;
 };
 
 const initialState: SaveDsmState = {};
 
-export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr }: SubmitDsmFormProps) {
+export function SubmitDsmForm({ entry, yesterdayTasks, yesterdayIncompleteTasks, teamMembers, todayDateStr, onCancel }: SubmitDsmFormProps) {
   const [state, action, pending] = useActionState(saveDsm, initialState);
+  const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
-  const [tasks, setTasks] = useState<string[]>(() =>
-    entry?.tasks.filter((t) => t.kind === "TODAY").map((t) => t.text) ?? ["", ""]
-  );
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
+    if (existingToday.length > 0) {
+      return existingToday.map((t) => ({ text: t.text, carried: false }));
+    }
+    if (yesterdayIncompleteTasks.length > 0) {
+      return yesterdayIncompleteTasks.map((text) => ({ text, carried: true }));
+    }
+    return [{ text: "", carried: false }, { text: "", carried: false }];
+  });
   const [blockers, setBlockers] = useState<{ text: string; priority: string }[]>(() =>
     entry?.blockers.map((b) => ({ text: b.text, priority: b.priority })) ?? [{ text: "", priority: "" }]
   );
@@ -318,8 +336,19 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
 
   return (
     <div className="rounded-xl border bg-card">
-      <div className="border-b px-5 py-4">
-        <h2 className="text-base font-semibold">Submit Today&apos;s Standup</h2>
+      <div className="flex items-center justify-between border-b px-5 py-4">
+        <h2 className="text-base font-semibold">
+          {isEditMode ? "Edit Today's Standup" : "Submit Today's Standup"}
+        </h2>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
       <form action={action} className="flex flex-col gap-6 px-5 py-5">
@@ -364,16 +393,18 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
         </Section>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t pt-4">
-          <button
-            name="action"
-            value="draft"
-            type="submit"
-            disabled={pending}
-            className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
-          >
-            Save Draft
-          </button>
+        <div className={cn("flex items-center border-t pt-4", isEditMode ? "justify-end" : "justify-between")}>
+          {!isEditMode && (
+            <button
+              name="action"
+              value="draft"
+              type="submit"
+              disabled={pending}
+              className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+            >
+              Save Draft
+            </button>
+          )}
           <div className="flex items-center gap-3">
             {state.message === "saved" && (
               <p className="text-xs text-muted-foreground">Draft saved.</p>
@@ -390,7 +421,7 @@ export function SubmitDsmForm({ entry, yesterdayTasks, teamMembers, todayDateStr
               disabled={pending}
               className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {pending ? "Submitting…" : "Submit DSM"}
+              {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSM"}
               {!pending && <ChevronRight size={16} />}
             </button>
           </div>

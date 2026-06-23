@@ -7,6 +7,7 @@ export const ROUTES = {
   dsmAll: "/dsm/all",
   dsmMember: (userId: string) => `/dsm/member/${userId}` as const,
   dsr: "/dsr",
+  dsrMy: "/dsr/my",
   dsrManage: "/dsr/manage",
   dsrMember: (userId: string) => `/dsr/member/${userId}` as const,
   notes: "/notes",

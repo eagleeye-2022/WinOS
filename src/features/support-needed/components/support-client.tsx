@@ -2,13 +2,15 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil } from "lucide-react";
+import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
+import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterSupport, type SupportStatusFilter } from "../utils";
 import { markSupportResolved, type MarkSupportResolvedState } from "../actions/mark-resolved";
 import { createSupport, type CreateSupportState } from "../actions/create-support";
 import { sendSupportReminder, type SupportReminderState } from "../actions/send-reminder";
+import { addSupportComment, type AddSupportCommentState } from "../actions/add-support-comment";
 import type { SupportNeedItem } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 
@@ -48,9 +50,82 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
   );
 }
 
+// ── Comments ──────────────────────────────────────────────────────────────────
+
+function CommentThread({ comments }: { comments: SupportNeedItem["comments"] }) {
+  if (comments.length === 0) {
+    return (
+      <p className="text-xs italic text-muted-foreground/60">No updates yet.</p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      {comments.map((c) => (
+        <div key={c.id} className="rounded-lg border bg-background px-3 py-2.5">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold">
+              {c.author.name?.split(" ")[0] ?? c.author.email.split("@")[0]}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{formatEventTime(c.createdAt)}</span>
+          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">{c.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommentForm({ supportId }: { supportId: string }) {
+  const [state, action, pending] = useActionState<AddSupportCommentState, FormData>(
+    addSupportComment, {}
+  );
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    if (state.message === "added") setText("");
+  }, [state.message]);
+
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="supportId" value={supportId} />
+      <textarea
+        name="text"
+        rows={3}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Share an update — solved or not, what's remaining, what support you still need..."
+        className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+      />
+      {state.errors?.text && <p className="text-xs text-destructive">{state.errors.text[0]}</p>}
+      {state.message === "added" && <p className="text-xs text-emerald-600">Update posted.</p>}
+      {state.message && state.message !== "added" && (
+        <p className="text-xs text-destructive">{state.message}</p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="flex items-center justify-center gap-2 self-end rounded-lg border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+      >
+        <MessageSquare size={12} />
+        {pending ? "Posting…" : "Post Update"}
+      </button>
+    </form>
+  );
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => void }) {
+function DetailPanel({
+  item,
+  isManager,
+  canComment,
+  onClose,
+}: {
+  item: SupportNeedItem;
+  isManager: boolean;
+  canComment: boolean;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [resolveState, resolveAction, resolvePending] = useActionState<MarkSupportResolvedState, FormData>(
     markSupportResolved, {}
@@ -98,6 +173,15 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
 
         <div className="h-px bg-border" />
 
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Updates
+          </p>
+          <CommentThread comments={item.comments} />
+        </div>
+
+        {canComment && !isResolved && <CommentForm supportId={item.id} />}
+
         {resolveState.message && resolveState.message !== "resolved" && (
           <p className="text-xs text-destructive">{resolveState.message}</p>
         )}
@@ -115,19 +199,21 @@ function DetailPanel({ item, onClose }: { item: SupportNeedItem; onClose: () => 
       </div>
 
       <div className="flex flex-col gap-2 border-t px-5 py-4">
-        <form action={resolveAction}>
-          <input type="hidden" name="supportId" value={item.id} />
-          <button
-            type="submit"
-            disabled={isResolved || resolvePending}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-            </svg>
-            {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
-          </button>
-        </form>
+        {isManager && (
+          <form action={resolveAction}>
+            <input type="hidden" name="supportId" value={item.id} />
+            <button
+              type="submit"
+              disabled={isResolved || resolvePending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              <svg className="h-3.75 w-3.75" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              </svg>
+              {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
+            </button>
+          </form>
+        )}
         <form action={reminderAction}>
           <input type="hidden" name="supportId" value={item.id} />
           <button
@@ -244,9 +330,11 @@ type Props = {
   items: SupportNeedItem[];
   itemsForMe: SupportNeedItem[];
   teamMembers: TeamMember[];
+  currentUserId: string;
+  isManager: boolean;
 };
 
-export function SupportClient({ items, itemsForMe, teamMembers }: Props) {
+export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, isManager }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("mine");
   const [statusFilter, setStatusFilter] = useState<SupportStatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -485,6 +573,8 @@ export function SupportClient({ items, itemsForMe, teamMembers }: Props) {
         <DetailPanel
           key={selected.id}
           item={selected}
+          isManager={isManager}
+          canComment={isManager || selected.raisedBy.id === currentUserId}
           onClose={() => setSelectedId(null)}
         />
       )}

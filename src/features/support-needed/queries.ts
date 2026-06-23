@@ -3,6 +3,13 @@ import { db } from "@/lib/db";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type SupportCommentItem = {
+  id: string;
+  text: string;
+  createdAt: Date;
+  author: { id: string; name: string | null; email: string };
+};
+
 export type SupportNeedItem = {
   id: string;
   text: string;
@@ -11,6 +18,7 @@ export type SupportNeedItem = {
   entryId: string;
   raisedBy: { id: string; name: string | null; email: string };
   supportFrom: { id: string; name: string | null; email: string } | null;
+  comments: SupportCommentItem[];
 };
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -32,6 +40,10 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
       mentionedUser: { select: { id: true, name: true, email: true } },
+      comments: {
+        include: { author: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [{ entry: { date: "desc" } }, { order: "asc" }],
   });
@@ -42,6 +54,12 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
     resolved: boolean;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
+    comments: {
+      id: string;
+      text: string;
+      createdAt: Date;
+      author: { id: string; name: string | null; email: string };
+    }[];
   }) => ({
     id: s.id,
     text: s.text,
@@ -50,6 +68,7 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
     entryId: s.entry.id,
     raisedBy: s.entry.user,
     supportFrom: s.mentionedUser,
+    comments: s.comments,
   }));
 }
 
@@ -74,6 +93,10 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
       mentionedUser: { select: { id: true, name: true, email: true } },
+      comments: {
+        include: { author: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [{ entry: { date: "desc" } }, { order: "asc" }],
   });
@@ -84,6 +107,12 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
     resolved: boolean;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
+    comments: {
+      id: string;
+      text: string;
+      createdAt: Date;
+      author: { id: string; name: string | null; email: string };
+    }[];
   }) => ({
     id: s.id,
     text: s.text,
@@ -92,5 +121,6 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
     entryId: s.entry.id,
     raisedBy: s.entry.user,
     supportFrom: s.mentionedUser,
+    comments: s.comments,
   }));
 }

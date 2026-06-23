@@ -20,6 +20,10 @@ export async function saveDsr(
   const session = await auth();
   if (!session?.user?.id) return { message: "Unauthorized" };
 
+  // Managers have their own self-DSR page; redirect/revalidate must match
+  // whichever route they're submitting from, same as team members on /dsr.
+  const selfPath = session.user.role === "MANAGER" ? "/dsr/my" : "/dsr";
+
   const action = formData.get("action") as "draft" | "submit";
   const dateStr = formData.get("date") as string;
   const date = new Date(dateStr + "T00:00:00.000Z");
@@ -49,38 +53,44 @@ export async function saveDsr(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Guard: a REVIEWED entry cannot be re-submitted by the member
+  // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },
-    select: { status: true },
+    select: { status: true, submittedAt: true },
   });
   if (existing?.status === "REVIEWED") {
     return { message: "This entry has already been reviewed and cannot be changed." };
   }
+
+  // Editing an already-submitted entry keeps it visible to the manager — it
+  // must never silently fall back to DRAFT (which is hidden from review).
+  const wasSubmitted = existing?.status === "SUBMITTED" || existing?.status === "PENDING_REVIEW";
+  const finalStatus = wasSubmitted ? "PENDING_REVIEW" : status;
+  const submittedAt = finalStatus === "DRAFT" ? null : existing?.submittedAt ?? new Date();
 
   const entry = await d.dsrEntry.upsert({
     where: { userId_date: { userId: session.user.id, date } },
     create: {
       userId: session.user.id,
       date,
-      status,
+      status: finalStatus,
       completionPercent,
       plannedTaskCount: totalCount,
       completedTaskCount: completedCount,
       sentiment: sentiment || null,
       reflection,
       resultOfDay,
-      submittedAt: status === "SUBMITTED" ? new Date() : null,
+      submittedAt,
     },
     update: {
-      status,
+      status: finalStatus,
       completionPercent,
       plannedTaskCount: totalCount,
       completedTaskCount: completedCount,
       sentiment: sentiment || null,
       reflection,
       resultOfDay,
-      submittedAt: status === "SUBMITTED" ? new Date() : null,
+      submittedAt,
     },
   });
 
@@ -145,10 +155,10 @@ export async function saveDsr(
     }
   }
 
-  revalidatePath("/dsr");
+  revalidatePath(selfPath);
 
   if (action === "submit") {
-    redirect("/dsr?submitted=1");
+    redirect(`${selfPath}?submitted=1`);
   }
 
   return { message: "saved" };

@@ -37,6 +37,10 @@ export async function saveDsm(
     return { message: "Your session is no longer valid. Please sign out and sign back in." };
   }
 
+  // Managers have their own self-DSM page; redirect/revalidate must match
+  // whichever route they're submitting from, same as team members on /dsm.
+  const selfPath = session.user.role === "MANAGER" ? "/dsm/my" : "/dsm";
+
   const action = getStr(formData, "action"); // "draft" | "submit"
   const dateStr = getStr(formData, "date");  // "YYYY-MM-DD"
   const status = action === "submit" ? "SUBMITTED" : "DRAFT";
@@ -55,18 +59,20 @@ export async function saveDsm(
     return { errors: { tasks: ["At least one task is required to submit"] } };
   }
 
-  // Guard: already-submitted/reviewed entries cannot be changed by the member
+  // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.standupEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },
-    select: { status: true },
+    select: { status: true, submittedAt: true },
   });
-  if (
-    existing?.status === "SUBMITTED" ||
-    existing?.status === "PENDING_REVIEW" ||
-    existing?.status === "REVIEWED"
-  ) {
-    return { message: "This entry has already been submitted and cannot be changed." };
+  if (existing?.status === "REVIEWED") {
+    return { message: "This entry has already been reviewed and cannot be changed." };
   }
+
+  // Editing an already-submitted entry keeps it visible to the manager — it
+  // must never silently fall back to DRAFT (which is hidden from review).
+  const wasSubmitted = existing?.status === "SUBMITTED" || existing?.status === "PENDING_REVIEW";
+  const finalStatus = wasSubmitted ? "PENDING_REVIEW" : status;
+  const submittedAt = finalStatus === "DRAFT" ? null : existing?.submittedAt ?? new Date();
 
   let entry: { id: string };
   try {
@@ -76,12 +82,12 @@ export async function saveDsm(
       create: {
         userId: session.user.id,
         date,
-        status,
-        submittedAt: status === "SUBMITTED" ? new Date() : null,
+        status: finalStatus,
+        submittedAt,
       },
       update: {
-        status,
-        submittedAt: status === "SUBMITTED" ? new Date() : null,
+        status: finalStatus,
+        submittedAt,
       },
     });
 
@@ -127,10 +133,10 @@ export async function saveDsm(
     return { message: "Failed to save — please try again." };
   }
 
-  revalidatePath("/dsm");
+  revalidatePath(selfPath);
 
   if (action === "submit") {
-    redirect("/dsm?submitted=1");
+    redirect(`${selfPath}?submitted=1`);
   }
 
   return { message: "saved" };

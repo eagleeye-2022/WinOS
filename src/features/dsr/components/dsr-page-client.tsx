@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Pencil } from "lucide-react";
 import { DsrForm } from "./dsr-form";
 import { InsightsPanel } from "./insights-panel";
 import { DsrHistory } from "./dsr-history";
@@ -15,6 +16,7 @@ type Props = {
   todayDateStr: string;
   weekOffset: number;
   justSubmitted: boolean;
+  basePath?: string;
 };
 
 export function DsrPageClient({
@@ -25,13 +27,17 @@ export function DsrPageClient({
   todayDateStr,
   weekOffset,
   justSubmitted,
+  basePath = "/dsr",
 }: Props) {
   const submitFnRef = useRef<() => void>(() => {});
   const [, forceRender] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Show form when no entry, when it's a draft, or right after submission (so user sees submitted data)
   const canSubmit = !entry || entry.status === "DRAFT";
-  const showForm = canSubmit || justSubmitted;
+  const canEditExisting = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
+  const editable = canSubmit || isEditing;
+  const showForm = editable || justSubmitted;
   const now = toUtcDate();
   const cp = insights.completionPercent;
   const ct = insights.completedTaskCount;
@@ -100,11 +106,26 @@ export function DsrPageClient({
             entry={entry}
             prefill={prefill}
             todayDateStr={todayDateStr}
-            onRegisterSubmit={canSubmit ? handleRegisterSubmit : undefined}
-            readOnly={!canSubmit}
+            onRegisterSubmit={editable ? handleRegisterSubmit : undefined}
+            readOnly={!editable}
+            onCancel={isEditing ? () => setIsEditing(false) : undefined}
           />
         ) : (
-          <DsrHistory entries={weeklyEntries} weekOffset={weekOffset} />
+          <>
+            {canEditExisting && (
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Pencil size={13} />
+                  Edit today&apos;s DSR
+                </button>
+              </div>
+            )}
+            <DsrHistory entries={weeklyEntries} weekOffset={weekOffset} basePath={basePath} />
+          </>
         )}
       </div>
 
@@ -113,8 +134,8 @@ export function DsrPageClient({
         <InsightsPanel
           insights={insights}
           entry={entry ?? (weeklyEntries[0] ?? null)}
-          showSubmitButton={canSubmit}
-          onSubmit={canSubmit ? handlePanelSubmit : undefined}
+          showSubmitButton={editable}
+          onSubmit={editable ? handlePanelSubmit : undefined}
         />
       </aside>
     </div>
