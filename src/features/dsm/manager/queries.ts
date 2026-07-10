@@ -114,10 +114,7 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
   console.log("totalentrins", todayEntries)
   console.log("||||||||||")
 
-  const submittedEntries = todayEntries.filter(
-    (e: { status: string }) =>
-      e.status === "SUBMITTED" || e.status === "PENDING_REVIEW" || e.status === "REVIEWED"
-  );
+
 
 
 
