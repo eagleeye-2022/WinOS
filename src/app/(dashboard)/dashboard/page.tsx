@@ -116,8 +116,8 @@ function ManagerDashboard({
                   {dsmStats.pendingCount === 0
                     ? "All members submitted"
                     : `${dsmStats.pendingCount} member${dsmStats.pendingCount !== 1 ? "s" : ""} yet to submit`}
-                  {dsmStats.highPriorityBlockerCount > 0 &&
-                    ` · ${dsmStats.highPriorityBlockerCount} high-priority blocker${dsmStats.highPriorityBlockerCount !== 1 ? "s" : ""}`}
+                  {dsmStats.blockerCount > 0 &&
+                    ` · ${dsmStats.blockerCount} active blocker${dsmStats.blockerCount !== 1 ? "s" : ""}`}
                 </p>
               </>
             ) : (

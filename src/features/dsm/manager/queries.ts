@@ -30,7 +30,7 @@ export type AllDsmStats = {
   totalSubmitted: number;
   totalExpected: number;
   pendingCount: number;
-  highPriorityBlockerCount: number;
+  blockerCount: number;
   projectStatus: "On Track" | "At Risk" | "Needs Attention";
 };
 
@@ -109,25 +109,39 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
     select: { status: true, blockers: { select: { resolved: true, priority: true } } },
   });
 
+  console.log("||||||||||")
+
+  console.log("totalentrins", todayEntries)
+  console.log("||||||||||")
+
   const submittedEntries = todayEntries.filter(
     (e: { status: string }) =>
       e.status === "SUBMITTED" || e.status === "PENDING_REVIEW" || e.status === "REVIEWED"
   );
-  const totalSubmitted = submittedEntries.length;
+
+
+
+  const totalSubmitted = todayEntries.length;
+
+  console.log("before is is submittedentries")
+
+  console.log("this is totalSubmitted")
+
+
   const pendingCount = totalExpected - totalSubmitted;
-  const highPriorityBlockerCount = todayEntries.reduce(
+  const blockerCount = todayEntries.reduce(
     (sum: number, e: { blockers: { resolved: boolean; priority: string }[] }) =>
-      sum + e.blockers.filter((b) => !b.resolved && b.priority === "HIGH").length,
+      sum + e.blockers.filter((b) => !b.resolved).length,
     0
   );
 
   const projectStatus: AllDsmStats["projectStatus"] =
-    highPriorityBlockerCount > 1 ? "Needs Attention"
-    : highPriorityBlockerCount === 1 ? "At Risk"
-    : pendingCount > 0 ? "At Risk"
-    : "On Track";
+    blockerCount > 1 ? "Needs Attention"
+      : blockerCount === 1 ? "At Risk"
+        : pendingCount > 0 ? "At Risk"
+          : "On Track";
 
-  return { totalSubmitted, totalExpected, pendingCount, highPriorityBlockerCount, projectStatus };
+  return { totalSubmitted, totalExpected, pendingCount, blockerCount, projectStatus };
 }
 
 /** Team-grouped DSM submissions for today. */
@@ -160,13 +174,13 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
 
     const entries = memberUserIds.length > 0
       ? await d.standupEntry.findMany({
-          where: { userId: { in: memberUserIds }, date: targetDate },
-          include: {
-            tasks: { where: { kind: "TODAY" }, orderBy: { order: "asc" } },
-            blockers: true,
-            supportNeeds: true,
-          },
-        })
+        where: { userId: { in: memberUserIds }, date: targetDate },
+        include: {
+          tasks: { where: { kind: "TODAY" }, orderBy: { order: "asc" } },
+          blockers: true,
+          supportNeeds: true,
+        },
+      })
       : [];
 
     const entryByUserId = new Map(

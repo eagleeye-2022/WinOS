@@ -5,7 +5,7 @@ import type { AllDsmStats } from "../queries";
 type Props = { stats: AllDsmStats };
 
 export function AllDsmStatsRow({ stats }: Props) {
-  const { totalSubmitted, totalExpected, pendingCount, highPriorityBlockerCount, projectStatus } = stats;
+  const { totalSubmitted, totalExpected, pendingCount, blockerCount, projectStatus } = stats;
 
   return (
     <div className="grid grid-cols-4 gap-4">
@@ -41,8 +41,8 @@ export function AllDsmStatsRow({ stats }: Props) {
         </span>
         <div>
           <p className="text-xs text-muted-foreground">Blockers</p>
-          <p className={cn("text-2xl font-bold", highPriorityBlockerCount > 0 && "text-destructive")}>
-            {highPriorityBlockerCount}
+          <p className={cn("text-2xl font-bold", blockerCount > 0 && "text-destructive")}>
+            {blockerCount}
           </p>
         </div>
       </div>

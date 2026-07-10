@@ -20,7 +20,7 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
       minute: "2-digit",
     });
     const cutoff = new Date(card.submittedAt);
-    cutoff.setUTCHours(10, 10, 0, 0);
+    cutoff.setHours(10, 10, 0, 0);
     isOnTime = new Date(card.submittedAt) <= cutoff;
   }
 
@@ -117,7 +117,7 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
         <span className={cn("h-2 w-2 rounded-full", dotColor)} />
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
-          <span className="ml-auto flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
             <CheckCircle2 size={11} /> All Submitted
           </span>
         ) : (
