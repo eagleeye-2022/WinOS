@@ -320,7 +320,11 @@ function TeamForm({
   // Local overrides so an edited display name shows immediately in both
   // pickers without waiting for the page to revalidate/reload.
   const [users, setUsers] = useState(allUsers);
-  useEffect(() => setUsers(allUsers), [allUsers]);
+  const [prevAllUsers, setPrevAllUsers] = useState(allUsers);
+  if (allUsers !== prevAllUsers) {
+    setUsers(allUsers);
+    setPrevAllUsers(allUsers);
+  }
   function handleNameSaved(userId: string, name: string) {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, name } : u)));
   }

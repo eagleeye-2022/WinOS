@@ -82,6 +82,7 @@ function CommentForm({ supportId }: { supportId: string }) {
   const [text, setText] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (state.message === "added") setText("");
   }, [state.message]);
 
