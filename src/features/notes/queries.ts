@@ -66,3 +66,122 @@ export async function getNotebooks(): Promise<NotebookData[]> {
 
   return notebooks as NotebookData[];
 }
+
+export async function getBoards(targetUserId?: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const userId = targetUserId || session.user.id;
+  const d = db as any;
+
+  return await d.board.findMany({
+    where: {
+      OR: [
+        { ownerId: userId },
+        {
+          threads: {
+            some: {
+              OR: [
+                { authorId: userId },
+                { shares: { some: { userId } } },
+                { notes: { some: { shares: { some: { userId } } } } }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getThreads(boardId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const d = db as any;
+
+  const whereClause = {
+    boardId,
+    OR: [
+      { authorId: session.user.id },
+      { shares: { some: { userId: session.user.id } } },
+      { notes: { some: { shares: { some: { userId: session.user.id } } } } }
+    ]
+  };
+
+  return await d.thread.findMany({
+    where: whereClause,
+    include: {
+      author: { select: { id: true, name: true, email: true, image: true } },
+      shares: { select: { userId: true } },
+      notes: {
+        where: {
+          OR: [
+            { authorId: session.user.id },
+            { shares: { some: { userId: session.user.id } } },
+            { thread: { shares: { some: { userId: session.user.id } } } }
+          ]
+        },
+        include: {
+          author: { select: { id: true, name: true, email: true, image: true } },
+          shares: { select: { userId: true } },
+          checklistItems: { orderBy: { position: "asc" } },
+        },
+        orderBy: { createdAt: "asc" },
+      }
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getHistory(targetUserId?: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const userId = targetUserId || session.user.id;
+  const d = db as any;
+
+  let whereClause;
+  if (userId === session.user.id) {
+    whereClause = {
+      OR: [
+        { authorId: userId },
+        { shares: { some: { userId } } },
+        { thread: { shares: { some: { userId } } } }
+      ]
+    };
+  } else {
+    whereClause = {
+      authorId: userId,
+      OR: [
+        { shares: { some: { userId: session.user.id } } },
+        { thread: { shares: { some: { userId: session.user.id } } } }
+      ]
+    };
+  }
+
+  return await d.boardNote.findMany({
+    where: whereClause,
+    include: {
+      thread: { select: { id: true, title: true, boardId: true } },
+      author: { select: { id: true, name: true, email: true, image: true } },
+      shares: { select: { userId: true } },
+      checklistItems: { orderBy: { position: "asc" } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 10,
+  });
+}
+
+export async function getWorkspaceUsers() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const d = db as any;
+  return await d.user.findMany({
+    select: { id: true, name: true, email: true, image: true, title: true },
+    orderBy: { name: "asc" },
+  });
+}
+

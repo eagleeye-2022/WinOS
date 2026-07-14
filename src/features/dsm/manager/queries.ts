@@ -61,7 +61,7 @@ export type MemberReviewEntry = {
   reviewedBy: { name: string | null; email: string } | null;
   reviewComment: string | null;
   tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; managerPriority: "P1" | "P2" | "P3" | null }[];
-  blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean }[];
+  blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUser?: { name: string | null; email: string } | null }[];
   supportNeeds: { id: string; text: string; mentionedUser: { name: string | null; email: string } | null; order: number }[];
 };
 
@@ -256,15 +256,17 @@ export async function getMemberReview(
 
   const entries = await d.standupEntry.findMany({
     where: { userId: memberId, date: { gte: start, lte: end } },
-    include: {
-      tasks: { orderBy: { order: "asc" } },
-      blockers: true,
-      supportNeeds: {
-        orderBy: { order: "asc" },
-        include: { mentionedUser: { select: { name: true, email: true } } },
+      include: {
+        tasks: { orderBy: { order: "asc" } },
+        blockers: {
+          include: { mentionedUser: { select: { name: true, email: true } } }
+        },
+        supportNeeds: {
+          orderBy: { order: "asc" },
+          include: { mentionedUser: { select: { name: true, email: true } } },
+        },
+        reviewedBy: { select: { name: true, email: true } },
       },
-      reviewedBy: { select: { name: true, email: true } },
-    },
     orderBy: { date: "desc" },
   });
 

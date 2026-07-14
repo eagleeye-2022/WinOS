@@ -5,6 +5,7 @@ import {
   getTodayEntry,
   getYesterdayTasks,
   getYesterdayIncompleteTasks,
+  getYesterdayBlockers,
   getWeekEntries,
   getWorkspaceNote,
   getKpiStats,
@@ -29,11 +30,12 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, weekEntries, workspaceNote, kpiStats, teamMembers] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, workspaceNote, kpiStats, teamMembers] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
       getYesterdayIncompleteTasks(),
+      getYesterdayBlockers(),
       getWeekEntries(weekOffset),
       getWorkspaceNote(),
       getKpiStats(),
@@ -66,6 +68,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           entry={todayEntry}
           yesterdayTasks={yesterdayTasks}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
+          yesterdayBlockers={yesterdayBlockers}
           teamMembers={teamMembers}
           todayDateStr={todayDateStr}
           weekEntries={weekEntries}

@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
@@ -423,7 +424,7 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                   Date Raised
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Blocked By
+                  Team Member
                 </th>
               </tr>
             </thead>
@@ -463,14 +464,23 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                         {formatFullDate(item.date)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                        <Link
+                          href={`/dsm/member/${item.raisedBy.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="group/member flex items-center gap-2.5 hover:opacity-90"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary group-hover/member:bg-primary/20">
                             {(item.raisedBy.name ?? item.raisedBy.email).slice(0, 2).toUpperCase()}
                           </span>
-                          <span className="text-sm">
-                            {item.raisedBy.name?.split(" ")[0] ?? item.raisedBy.email.split("@")[0]}
-                          </span>
-                        </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium leading-none text-foreground group-hover/member:underline">
+                              {item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}
+                            </span>
+                            <span className="mt-1 text-[10px] text-muted-foreground leading-none">
+                              {item.raisedBy.title ?? (item.raisedBy.role === "MANAGER" ? "Manager" : "Team Member")}
+                            </span>
+                          </div>
+                        </Link>
                       </td>
                     </tr>
                   );

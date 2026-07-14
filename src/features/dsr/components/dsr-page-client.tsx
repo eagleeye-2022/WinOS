@@ -29,7 +29,7 @@ export function DsrPageClient({
   justSubmitted,
   basePath = "/dsr",
 }: Props) {
-  const submitFnRef = useRef<() => void>(() => {});
+  const submitFnRef = useRef<() => void>(() => { });
   const [, forceRender] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
 

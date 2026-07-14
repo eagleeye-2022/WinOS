@@ -160,7 +160,13 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
                   </p>
                   {entry.blockers.map((b, i) => (
                     <p key={b.id} className={cn("text-xs leading-relaxed", PRIORITY_COLORS[b.priority])}>
-                      {i + 1}) {b.text}
+                      {i + 1}){" "}
+                      {b.mentionedUser && (
+                        <span className="font-semibold underline">
+                          @{b.mentionedUser.name?.split(" ")[0]?.toLowerCase() ?? b.mentionedUser.email.split("@")[0]}&nbsp;
+                        </span>
+                      )}
+                      {b.text}
                     </p>
                   ))}
                 </div>

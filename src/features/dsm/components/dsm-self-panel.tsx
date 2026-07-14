@@ -12,6 +12,7 @@ type DsmSelfPanelProps = {
   entry: EntryWithDetails | null;
   yesterdayTasks: string[];
   yesterdayIncompleteTasks: string[];
+  yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
   teamMembers: TeamMember[];
   todayDateStr: string;
   weekEntries: EntryWithDetails[];
@@ -24,6 +25,7 @@ export function DsmSelfPanel({
   entry,
   yesterdayTasks,
   yesterdayIncompleteTasks,
+  yesterdayBlockers,
   teamMembers,
   todayDateStr,
   weekEntries,
@@ -43,6 +45,7 @@ export function DsmSelfPanel({
           entry={entry}
           yesterdayTasks={yesterdayTasks}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
+          yesterdayBlockers={yesterdayBlockers}
           teamMembers={teamMembers}
           todayDateStr={todayDateStr}
           onCancel={isEditing ? () => setIsEditing(false) : undefined}

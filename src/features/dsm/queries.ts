@@ -16,6 +16,8 @@ export type EntryBlocker = {
   text: string;
   priority: "LOW" | "MEDIUM" | "HIGH";
   resolved: boolean;
+  mentionedUserId?: string | null;
+  mentionedUser?: { id: string; name: string | null; email: string } | null;
 };
 
 export type EntrySupportNeed = {
@@ -66,7 +68,9 @@ export type TeamMember = {
 
 const entryInclude = {
   tasks: { orderBy: { order: "asc" } },
-  blockers: true,
+  blockers: {
+    include: { mentionedUser: { select: { id: true, name: true, email: true } } }
+  },
   supportNeeds: {
     orderBy: { order: "asc" },
     include: { mentionedUser: { select: { id: true, name: true, email: true } } },
@@ -314,6 +318,35 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   return users as TeamMember[];
 }
 
+/**
+ * Unresolved blockers from the most recent *submitted* entry before today.
+ * Carrying these forward helps members keep track of ongoing blocker status.
+ */
+export async function getYesterdayBlockers(): Promise<{ text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const today = toUtcDate();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: today },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    include: { blockers: { where: { resolved: false } } },
+    orderBy: { date: "desc" },
+  });
+
+  return (entry?.blockers ?? []).map((b: any) => ({
+    text: b.text,
+    priority: b.priority as "LOW" | "MEDIUM" | "HIGH",
+    mentionedUserId: b.mentionedUserId,
+  }));
+}
+
 // ── Internal helper ───────────────────────────────────────────────────────────
 
 function countWeekdays(start: Date, end: Date): number {
@@ -325,4 +358,106 @@ function countWeekdays(start: Date, end: Date): number {
     cur.setDate(cur.getDate() + 1);
   }
   return count;
+}
+
+export type SharedNoteData = {
+  id: string;
+  content: string;
+  color: string | null;
+  deadline: Date | null;
+  createdAt: Date;
+  threadTitle: string;
+  authorName: string;
+  authorRole: string;
+  checklistItems: { id: string; text: string; checked: boolean }[];
+};
+
+export type SharedThreadData = {
+  id: string;
+  title: string;
+  authorName: string;
+  notes: {
+    id: string;
+    content: string;
+    color: string | null;
+    deadline: Date | null;
+    createdAt: Date;
+    authorName: string;
+    checklistItems: { id: string; text: string; checked: boolean }[];
+  }[];
+};
+
+export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData[]; threads: SharedThreadData[] }> {
+  const session = await auth();
+  if (!session?.user?.id) return { notes: [], threads: [] };
+
+  const d = db as any;
+
+  // 1. Fetch Board Notes shared with the user
+  const sharedNotesRaw = await d.boardNote.findMany({
+    where: {
+      shares: { some: { userId: session.user.id } }
+    },
+    include: {
+      thread: { select: { title: true } },
+      author: { select: { name: true, email: true, role: true } },
+      checklistItems: { orderBy: { position: "asc" } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const notes: SharedNoteData[] = sharedNotesRaw.map((n: any) => ({
+    id: n.id,
+    content: n.content,
+    color: n.color,
+    deadline: n.deadline,
+    createdAt: n.createdAt,
+    threadTitle: n.thread?.title || "General",
+    authorName: n.author.name || n.author.email.split("@")[0],
+    authorRole: n.author.role,
+    checklistItems: n.checklistItems.map((c: any) => ({
+      id: c.id,
+      text: c.text,
+      checked: c.checked,
+    })),
+  }));
+
+  // 2. Fetch Threads shared with the user
+  const sharedThreadsRaw = await d.thread.findMany({
+    where: {
+      shares: { some: { userId: session.user.id } }
+    },
+    include: {
+      author: { select: { name: true, email: true } },
+      notes: {
+        include: {
+          author: { select: { name: true, email: true } },
+          checklistItems: { orderBy: { position: "asc" } },
+        },
+        orderBy: { createdAt: "asc" },
+      }
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const threads: SharedThreadData[] = sharedThreadsRaw.map((t: any) => ({
+    id: t.id,
+    title: t.title,
+    authorName: t.author.name || t.author.email.split("@")[0],
+    notes: t.notes.map((n: any) => ({
+      id: n.id,
+      content: n.content,
+      color: n.color,
+      deadline: n.deadline,
+      createdAt: n.createdAt,
+      authorName: n.author.name || n.author.email.split("@")[0],
+      checklistItems: n.checklistItems.map((c: any) => ({
+        id: c.id,
+        text: c.text,
+        checked: c.checked,
+      })),
+    })),
+  }));
+
+  return { notes, threads };
 }

@@ -51,6 +51,7 @@ export async function saveDsm(
   const taskTexts = (formData.getAll("taskText") as string[]).map((t) => t.trim()).filter(Boolean);
   const blockerTexts = (formData.getAll("blockerText") as string[]).map((t) => t.trim());
   const blockerPriorities = formData.getAll("blockerPriority") as string[];
+  const blockerUserIds = formData.getAll("blockerUserId") as string[];
   const supportTexts = (formData.getAll("supportText") as string[]).map((t) => t.trim());
   const supportUserIds = formData.getAll("supportUserId") as string[];
 
@@ -102,10 +103,17 @@ export async function saveDsm(
     // Sync blockers (replace)
     await d.standupBlocker.deleteMany({ where: { entryId: entry.id } });
     const validBlockers = blockerTexts
-      .map((text: string, i: number) => ({ text, priority: blockerPriorities[i] || "MEDIUM", resolved: false }))
+      .map((text: string, i: number) => ({
+        text,
+        priority: blockerPriorities[i] || "MEDIUM",
+        resolved: false,
+        mentionedUserId: blockerUserIds[i] || null,
+      }))
       .filter((b: { text: string }) => b.text);
     if (validBlockers.length > 0) {
-      await d.standupBlocker.createMany({ data: validBlockers.map((b: { text: string; priority: string; resolved: boolean }) => ({ ...b, entryId: entry.id })) });
+      await d.standupBlocker.createMany({
+        data: validBlockers.map((b: any) => ({ ...b, entryId: entry.id })),
+      });
     }
 
     // Sync support needs (replace)

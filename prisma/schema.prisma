@@ -80,10 +80,17 @@ model User {
   notebooks     Notebook[]
   tags          Tag[]
 
+  boards          Board[]
+  authoredThreads Thread[]
+  threadShares    ThreadShare[]
+  boardNotes      BoardNote[]
+  noteShares      BoardNoteShare[]
+
   // DSM relations
   standupEntries   StandupEntry[]       @relation("UserStandups")
   reviewedStandups StandupEntry[]       @relation("ReviewedStandups")
   supportMentions  StandupSupportNeed[] @relation("SupportMentions")
+  blockerMentions  StandupBlocker[]     @relation("BlockerMentions")
   workspaceNote    DsmWorkspaceNote?    @relation("WorkspaceNotes")
   ledTeams              Team[]               @relation("TeamLead")
   teamMemberships       TeamMember[]
@@ -178,12 +185,14 @@ model StandupTask {
 }
 
 model StandupBlocker {
-  id       String          @id @default(cuid())
-  entryId  String
-  entry    StandupEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  text     String
-  priority BlockerPriority @default(MEDIUM)
-  resolved Boolean         @default(false)
+  id              String          @id @default(cuid())
+  entryId         String
+  entry           StandupEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  text            String
+  priority        BlockerPriority @default(MEDIUM)
+  resolved        Boolean         @default(false)
+  mentionedUserId String?
+  mentionedUser   User?           @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
 
   comments BlockerComment[]
 
@@ -496,4 +505,76 @@ model OtpToken {
   createdAt      DateTime  @default(now())
 
   @@index([email])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  threads   Thread[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, ownerId])
+}
+
+model Thread {
+  id        String        @id @default(cuid())
+  title     String
+  boardId   String
+  board     Board         @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  notes     BoardNote[]
+  shares    ThreadShare[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ThreadShare {
+  threadId  String
+  userId    String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([threadId, userId])
+}
+
+model BoardNote {
+  id             String                   @id @default(cuid())
+  title          String?
+  content        String
+  color          String?                  @default("#ffffff")
+  deadline       DateTime?
+  threadId       String
+  thread         Thread                   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  shares         BoardNoteShare[]
+  checklistItems BoardNoteChecklistItem[]
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+}
+
+model BoardNoteShare {
+  noteId    String
+  userId    String
+  note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([noteId, userId])
+}
+
+model BoardNoteChecklistItem {
+  id        String    @id @default(cuid())
+  text      String
+  checked   Boolean   @default(false)
+  position  Int       @default(0)
+  noteId    String
+  note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

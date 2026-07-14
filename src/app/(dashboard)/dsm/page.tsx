@@ -5,10 +5,11 @@ import {
   getTodayEntry,
   getYesterdayTasks,
   getYesterdayIncompleteTasks,
+  getYesterdayBlockers,
   getWeekEntries,
-  getWorkspaceNote,
   getKpiStats,
   getTeamMembers,
+  getSharedWorkspaceNotes,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -29,19 +30,17 @@ export default async function DSMPage({ searchParams }: Props) {
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
   if (session?.user?.role === "MANAGER") redirect("/dsm/all");
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, weekEntries, workspaceNote, kpiStats, teamMembers] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, kpiStats, teamMembers, sharedItems] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
       getYesterdayIncompleteTasks(),
+      getYesterdayBlockers(),
       getWeekEntries(weekOffset),
-      getWorkspaceNote(),
       getKpiStats(),
       getTeamMembers(),
+      getSharedWorkspaceNotes(),
     ]);
-
-  // Only the note owner can edit it; team members see the manager's note read-only
-  const canEditNote = workspaceNote != null && workspaceNote.owner.id === session?.user?.id;
 
   const today = toUtcDate();
   const todayDateStr = toIsoDateStr(today);
@@ -74,6 +73,7 @@ export default async function DSMPage({ searchParams }: Props) {
           entry={todayEntry}
           yesterdayTasks={yesterdayTasks}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
+          yesterdayBlockers={yesterdayBlockers}
           teamMembers={teamMembers}
           todayDateStr={todayDateStr}
           weekEntries={weekEntries}
@@ -85,7 +85,10 @@ export default async function DSMPage({ searchParams }: Props) {
 
       {/* ── Workspace Notes right panel ───────────────────────────────────────── */}
       <aside className="w-115 shrink-0 overflow-hidden border-l xl:w-135">
-        <WorkspaceNotesPanel note={workspaceNote} canEdit={canEditNote} />
+        <WorkspaceNotesPanel
+          sharedNotes={sharedItems?.notes || []}
+          userRole={session?.user?.role}
+        />
       </aside>
     </div>
   );

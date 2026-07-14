@@ -3,25 +3,30 @@ import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { getBoards, getHistory, getWorkspaceUsers, NotesWorkspace } from "@/features/notes";
 
-export default async function NotesPage() {
+type Props = {
+  params: Promise<{ userId: string }>;
+};
+
+export default async function MemberNotesPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
 
+  const { userId } = await params;
+
   const [boards, history, users] = await Promise.all([
-    getBoards(),
-    getHistory(),
+    getBoards(userId),
+    getHistory(userId),
     getWorkspaceUsers(),
   ]);
 
   const isManager = session.user.role === "MANAGER";
-  const userId = session.user.id;
 
   return (
     <NotesWorkspace
       initialBoards={boards}
       historyNotes={history}
       allUsers={users}
-      userId={userId}
+      userId={session.user.id}
       isManager={isManager}
       pageOwnerId={userId}
     />
