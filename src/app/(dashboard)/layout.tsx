@@ -110,7 +110,7 @@ export default async function DashboardLayout({
 
       {/* ── Sidebar + content row ───────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <AppSidebar userRole={userRole} />
+        <AppSidebar userRole={userRole} userId={session?.user?.id} />
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>

@@ -1,90 +1,108 @@
 "use client";
 
-import { useActionState } from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
-  MoreVertical,
-  Bold,
-  Italic,
-  Underline,
-  List,
+  Share2,
+  Calendar,
   CheckSquare,
-  Type,
-  Lightbulb,
-  Link2,
-  Paperclip,
+  Square,
+  Sparkles,
 } from "lucide-react";
-import { toggleActionItem, type ToggleActionItemState } from "../actions/toggle-action-item";
-import type { WorkspaceNoteData } from "../queries";
+import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-item";
+import type { SharedNoteData } from "../queries";
 
-// ── Action item row ───────────────────────────────────────────────────────────
+// ── Shared Note Card ──────────────────────────────────────────────────────────
 
-function ActionItemRow({ id, checked, text }: { id: string; checked: boolean; text: string }) {
-  const [, action, pending] = useActionState<ToggleActionItemState, FormData>(
-    toggleActionItem,
-    {}
-  );
+function SharedNoteCard({
+  note,
+  userRole,
+}: {
+  note: {
+    id: string;
+    content: string;
+    color: string | null;
+    deadline: Date | null;
+    createdAt: Date;
+    authorName?: string;
+    authorRole?: string;
+    checklistItems: { id: string; text: string; checked: boolean }[];
+  };
+  userRole?: string;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const isReadOnly = userRole === "TEAM_MEMBER" && note.authorRole === "MANAGER";
+
+  const handleToggle = async (itemId: string) => {
+    if (isReadOnly) return;
+    const formData = new FormData();
+    formData.append("itemId", itemId);
+    startTransition(async () => {
+      await toggleBoardNoteItem({}, formData);
+      router.refresh();
+    });
+  };
 
   return (
-    <form action={action} className="flex items-start gap-2.5">
-      <input type="hidden" name="itemId" value={id} />
-      <button
-        type="submit"
-        disabled={pending}
-        aria-label={checked ? "Mark incomplete" : "Mark complete"}
-        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors disabled:opacity-60 ${
-          checked
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background hover:border-primary/60"
-        }`}
-      >
-        {checked && (
-          <svg
-            viewBox="0 0 8 8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="h-2.5 w-2.5"
-          >
-            <polyline points="1,4 3,6 7,2" />
-          </svg>
-        )}
-      </button>
-      <span
-        className={`text-sm leading-relaxed ${
-          checked ? "text-muted-foreground line-through" : "text-foreground"
-        }`}
-      >
-        {text}
-      </span>
-    </form>
-  );
-}
+    <div
+      className="rounded-lg border p-3 flex flex-col gap-2 relative shadow-2xs text-left"
+      style={{
+        backgroundColor: note.color ? `${note.color}d9` : "rgba(255, 255, 255, 0.75)",
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      {/* Content */}
+      {note.content && (
+        <div
+          className="text-xs text-foreground leading-relaxed html-content"
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
+      )}
 
-// ── Toolbar button ────────────────────────────────────────────────────────────
-
-const TOOLBAR_ICONS = [
-  [Bold, Italic, Underline],
-  [List, CheckSquare],
-  [Type, Lightbulb, Link2, Paperclip],
-] as const;
-
-function Toolbar() {
-  return (
-    <div className="flex items-center gap-0.5 border-b px-3 py-2">
-      {TOOLBAR_ICONS.map((group, gi) => (
-        <div key={gi} className="flex items-center">
-          {gi > 0 && <div className="mx-1 h-4 w-px bg-border" />}
-          {group.map((Icon, ii) => (
+      {/* Checklist items */}
+      {note.checklistItems.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-1 border-t pt-2 border-black/5">
+          {note.checklistItems.map((item) => (
             <button
-              key={ii}
+              key={item.id}
               type="button"
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+              disabled={isPending || isReadOnly}
+              onClick={() => handleToggle(item.id)}
+              className={`flex items-start gap-2 rounded p-0.5 w-full text-left transition-colors ${
+                isReadOnly ? "cursor-default opacity-85" : "hover:bg-black/5 cursor-pointer"
+              }`}
             >
-              <Icon size={14} />
+              <span className="mt-0.5 shrink-0">
+                {item.checked ? (
+                  <CheckSquare size={12} className="text-primary" />
+                ) : (
+                  <Square size={12} className="text-muted-foreground/60" />
+                )}
+              </span>
+              <span
+                className={`text-[10px] leading-tight select-none ${
+                  item.checked ? "text-muted-foreground line-through" : "text-foreground font-medium"
+                }`}
+              >
+                {item.text}
+              </span>
             </button>
           ))}
         </div>
-      ))}
+      )}
+
+      {/* Footer Info */}
+      <div className="flex items-center justify-between mt-1 text-[8px] text-muted-foreground/80 border-t pt-1.5 border-black/5">
+        <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+        {note.deadline && (
+          <span className="flex items-center gap-0.5 text-amber-700 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full">
+            <Calendar size={8} />
+            Due {new Date(note.deadline).toLocaleDateString()}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -92,117 +110,61 @@ function Toolbar() {
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 type WorkspaceNotesPanelProps = {
-  note: WorkspaceNoteData | null;
+  sharedNotes?: SharedNoteData[];
+  userRole?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  note?: any;
   canEdit?: boolean;
 };
 
-function timeAgo(date: Date): string {
-  const ms = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(ms / 60_000);
-  if (mins < 1) return "Just updated";
-  if (mins < 60) return `Edited ${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `Edited ${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `Edited ${days}d ago`;
-}
-
-export function WorkspaceNotesPanel({ note, canEdit = false }: WorkspaceNotesPanelProps) {
+export function WorkspaceNotesPanel({
+  sharedNotes = [],
+  userRole,
+}: WorkspaceNotesPanelProps) {
   return (
     <div className="flex h-full flex-col bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <span className="text-base font-bold">Workspace Notes</span>
-        <button
-          type="button"
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
-        >
-          <MoreVertical size={16} />
-        </button>
+      <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
+        <span className="text-base font-bold text-foreground">Workspace Notes</span>
+        {sharedNotes.length > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+            {sharedNotes.length}
+          </span>
+        )}
       </div>
 
-      {!note ? (
-        <>
-          {canEdit && <Toolbar />}
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
-            No workspace note yet.
-            <br />
-            Your manager will add team focus here.
+      {/* Scrollable shared items list */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+        {sharedNotes.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground my-auto">
+            <Share2 size={32} className="text-muted-foreground/40 mb-3" />
+            <p className="font-medium text-foreground">No shared notes</p>
+            <p className="text-xs text-muted-foreground/75 mt-1 max-w-xs">
+              When team members share notes with you, they will appear here.
+            </p>
           </div>
-        </>
-      ) : (
-        <>
-          <Toolbar />
-
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            {/* Author */}
-            <div className="mb-4 flex items-center gap-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {(note.owner.name ?? note.owner.email).slice(0, 2).toUpperCase()}
-              </span>
-              <div>
-                <p className="text-sm font-medium leading-tight">
-                  {note.owner.name ?? note.owner.email.split("@")[0]}
-                </p>
-                <p className="text-xs text-muted-foreground">{timeAgo(note.updatedAt)}</p>
-              </div>
-            </div>
-
-            {/* Title */}
-            <h2 className="mb-3 text-2xl font-bold leading-tight">{note.title}</h2>
-
-            {/* Body */}
-            <p className="mb-5 text-sm leading-relaxed text-foreground">{note.body}</p>
-
-            {/* Action items */}
-            {note.actionItems.length > 0 && (
-              <div className="mb-5">
-                <h3 className="mb-3 text-sm font-semibold text-primary">Action Items</h3>
-                <div className="flex flex-col gap-2.5">
-                  {note.actionItems.map((item) =>
-                    canEdit ? (
-                      <ActionItemRow
-                        key={item.id}
-                        id={item.id}
-                        checked={item.checked}
-                        text={item.text}
-                      />
-                    ) : (
-                      <div key={item.id} className="flex items-start gap-2.5">
-                        <span
-                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                            item.checked
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background"
-                          }`}
-                        >
-                          {item.checked && (
-                            <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-2.5 w-2.5">
-                              <polyline points="1,4 3,6 7,2" />
-                            </svg>
-                          )}
-                        </span>
-                        <span className={`text-sm leading-relaxed ${item.checked ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                          {item.text}
-                        </span>
-                      </div>
-                    )
-                  )}
+        ) : (
+          /* Shared Notes Section */
+          <div className="flex flex-col gap-3">
+            {sharedNotes.map((note) => (
+              <div
+                key={note.id}
+                className="border border-border/80 bg-accent/5 rounded-xl p-3 flex flex-col gap-2.5 shadow-xs"
+              >
+                <div className="flex items-center justify-between border-b pb-1.5 border-border/30">
+                  <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
+                    <Sparkles size={10} /> In {note.threadTitle}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">
+                    by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
+                  </span>
                 </div>
+                <SharedNoteCard note={note} userRole={userRole} />
               </div>
-            )}
-
-            {/* Key note callout */}
-            {note.keyNote && (
-              <div className="rounded-md border-l-4 border-primary/50 bg-primary/5 px-4 py-3">
-                <p className="mb-1 text-xs font-semibold text-primary">Key Note:</p>
-                <p className="text-sm leading-relaxed">{note.keyNote}</p>
-              </div>
-            )}
+            ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

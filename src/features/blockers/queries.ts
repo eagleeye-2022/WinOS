@@ -17,7 +17,7 @@ export type BlockerItem = {
   resolved: boolean;
   date: Date;
   entryId: string;
-  raisedBy: { id: string; name: string | null; email: string };
+  raisedBy: { id: string; name: string | null; email: string; role: string; title: string | null };
   comments: BlockerCommentItem[];
 };
 
@@ -43,7 +43,7 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     where,
     include: {
       entry: {
-        include: { user: { select: { id: true, name: true, email: true } } },
+        include: { user: { select: { id: true, name: true, email: true, role: true, title: true } } },
       },
       comments: {
         include: { author: { select: { id: true, name: true, email: true } } },
@@ -58,7 +58,7 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     text: string;
     priority: string;
     resolved: boolean;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
+    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
     comments: {
       id: string;
       text: string;

@@ -134,7 +134,13 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
               <ol className="space-y-0.5">
                 {entry.blockers.slice(0, 2).map((b, i) => (
                   <li key={b.id} className="text-xs leading-snug text-destructive/70">
-                    {i + 1}) {b.text}
+                    {i + 1}){" "}
+                    {b.mentionedUser && (
+                      <span className="font-semibold text-destructive">
+                        @{b.mentionedUser.name?.split(" ")[0]?.toLowerCase() ?? b.mentionedUser.email.split("@")[0]}&nbsp;
+                      </span>
+                    )}
+                    {b.text}
                   </li>
                 ))}
               </ol>
@@ -206,7 +212,15 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
           </h3>
           <ol className="space-y-1 text-sm text-destructive/90">
             {entry.blockers.map((b, i) => (
-              <li key={b.id}>{i + 1}. {b.text}</li>
+              <li key={b.id}>
+                {i + 1}.{" "}
+                {b.mentionedUser && (
+                  <span className="font-semibold text-primary">
+                    @{b.mentionedUser.name?.split(" ")[0]?.toLowerCase() ?? b.mentionedUser.email.split("@")[0]}&nbsp;
+                  </span>
+                )}
+                {b.text}
+              </li>
             ))}
           </ol>
         </div>

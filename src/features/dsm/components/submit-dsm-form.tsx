@@ -83,68 +83,134 @@ function TaskRows({
 
 function BlockerRows({
   blockers,
+  teamMembers,
   onChange,
 }: {
-  blockers: { text: string; priority: string }[];
-  onChange: (b: { text: string; priority: string }[]) => void;
+  blockers: { text: string; priority: string; mentionedUserId: string }[];
+  teamMembers: TeamMember[];
+  onChange: (b: { text: string; priority: string; mentionedUserId: string }[]) => void;
 }) {
-  const update = (i: number, field: "text" | "priority", v: string) => {
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+
+  const update = (i: number, field: "text" | "priority" | "mentionedUserId", v: string) => {
     const n = [...blockers];
     n[i] = { ...n[i], [field]: v };
     onChange(n);
   };
   const remove = (i: number) => onChange(blockers.filter((_, j) => j !== i));
-  const add = () => onChange([...blockers, { text: "", priority: "" }]);
+  const add = () => onChange([...blockers, { text: "", priority: "", mentionedUserId: "" }]);
+
+  const memberById = (id: string) => teamMembers.find((m) => m.id === id);
+  const mentionLabel = (m: TeamMember) => m.name?.split(" ")[0] ?? m.email.split("@")[0];
 
   return (
     <div className="flex flex-col gap-2">
-      {blockers.map((b, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div className="flex flex-1 items-center overflow-hidden rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-            <input
-              name="blockerText"
-              value={b.text}
-              onChange={(e) => update(i, "text", e.target.value)}
-              placeholder="Describe the blockers..."
-              className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/50"
-            />
-            <div className="flex shrink-0 items-center gap-2 border-l px-3 py-1.5">
-              <div className={cn(
-                "flex items-center gap-1 rounded-full px-2.5 py-0.5 transition-colors",
-                b.priority === "HIGH" && "bg-red-100 text-red-700",
-                b.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
-                b.priority === "LOW" && "bg-sky-100 text-sky-700",
-              )}>
-                <span className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wider",
-                  b.priority ? "opacity-70" : "text-muted-foreground"
-                )}>
-                  PRIORITY:
-                </span>
-                <select
-                  name="blockerPriority"
-                  value={b.priority}
-                  onChange={(e) => update(i, "priority", e.target.value)}
-                  className={cn(
-                    "cursor-pointer bg-transparent text-xs outline-none",
-                    b.priority ? "font-medium" : "text-muted-foreground"
-                  )}
-                >
-                  <option value="">Select Priority</option>
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-                  ))}
-                </select>
+      {blockers.map((b, i) => {
+        const mentioned = b.mentionedUserId ? memberById(b.mentionedUserId) : null;
+        return (
+          <div key={i} className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <input type="hidden" name="blockerUserId" value={b.mentionedUserId} />
+              <div className="relative flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+                {mentioned && (
+                  <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
+                    @{mentionLabel(mentioned).toLowerCase()}
+                  </span>
+                )}
+                <input
+                  name="blockerText"
+                  value={b.text}
+                  onChange={(e) => update(i, "text", e.target.value)}
+                  placeholder="Describe the blockers..."
+                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
+                />
+                <div className="flex shrink-0 items-center gap-2 border-l pl-3 py-1.5 ml-2">
+                  <div className={cn(
+                    "flex items-center gap-1 rounded-full px-2.5 py-0.5 transition-colors",
+                    b.priority === "HIGH" && "bg-red-100 text-red-700",
+                    b.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
+                    b.priority === "LOW" && "bg-sky-100 text-sky-700",
+                  )}>
+                    <span className={cn(
+                      "text-[10px] font-semibold uppercase tracking-wider",
+                      b.priority ? "opacity-70" : "text-muted-foreground"
+                    )}>
+                      PRIORITY:
+                    </span>
+                    <select
+                      name="blockerPriority"
+                      value={b.priority}
+                      onChange={(e) => update(i, "priority", e.target.value)}
+                      className={cn(
+                        "cursor-pointer bg-transparent text-xs outline-none",
+                        b.priority ? "font-medium" : "text-muted-foreground"
+                      )}
+                    >
+                      <option value="">Select Priority</option>
+                      {PRIORITIES.map((p) => (
+                        <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
+
+              {/* Team member assignment picker */}
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
+                  className="flex items-center gap-1 rounded-md border px-2 py-2 text-xs text-muted-foreground hover:bg-accent h-[38px] min-w-[75px] justify-center"
+                >
+                  {mentioned ? (
+                    <span className="text-primary truncate max-w-[65px]">{mentionLabel(mentioned)}</span>
+                  ) : (
+                    "@mention"
+                  )}
+                </button>
+
+                {openDropdown === i && (
+                  <div className="absolute right-0 bottom-full z-20 mb-1 w-52 rounded-lg border bg-card shadow-md">
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => { update(i, "mentionedUserId", ""); setOpenDropdown(null); }}
+                        className="w-full rounded-md px-3 py-2 text-left text-xs text-muted-foreground hover:bg-accent"
+                      >
+                        No assignment
+                      </button>
+                      {teamMembers.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => { update(i, "mentionedUserId", m.id); setOpenDropdown(null); }}
+                          className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs hover:bg-accent"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                            {(m.name ?? m.email).slice(0, 2).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{m.name ?? m.email}</p>
+                            <p className="truncate text-muted-foreground">
+                              {m.title ?? (m.role === "MANAGER" ? "Manager" : "Team Member")}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {blockers.length > 1 && (
+                <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
-          {blockers.length > 1 && (
-            <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      ))}
+        );
+      })}
       <button
         type="button"
         onClick={add}
@@ -188,10 +254,10 @@ function SupportRows({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-start gap-2">
               <input type="hidden" name="supportUserId" value={s.mentionedUserId} />
-              <div className="relative flex-1">
+              <div className="flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring h-[38px]">
                 {mentioned && (
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary">
-                    @{mentionLabel(mentioned).toLowerCase()}&nbsp;
+                  <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
+                    @{mentionLabel(mentioned).toLowerCase()}
                   </span>
                 )}
                 <input
@@ -199,7 +265,7 @@ function SupportRows({
                   value={s.text}
                   onChange={(e) => update(i, "text", e.target.value)}
                   placeholder="Add support details..."
-                  className={cn(inputCls, mentioned && "pl-16")}
+                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
                 />
               </div>
 
@@ -296,6 +362,7 @@ type SubmitDsmFormProps = {
   entry: EntryWithDetails | null;
   yesterdayTasks: string[];
   yesterdayIncompleteTasks: string[];
+  yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
   teamMembers: TeamMember[];
   todayDateStr: string; // "YYYY-MM-DD"
   onCancel?: () => void;
@@ -303,7 +370,15 @@ type SubmitDsmFormProps = {
 
 const initialState: SaveDsmState = {};
 
-export function SubmitDsmForm({ entry, yesterdayTasks, yesterdayIncompleteTasks, teamMembers, todayDateStr, onCancel }: SubmitDsmFormProps) {
+export function SubmitDsmForm({
+  entry,
+  yesterdayTasks,
+  yesterdayIncompleteTasks,
+  yesterdayBlockers,
+  teamMembers,
+  todayDateStr,
+  onCancel,
+}: SubmitDsmFormProps) {
   const [state, action, pending] = useActionState(saveDsm, initialState);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
@@ -317,9 +392,16 @@ export function SubmitDsmForm({ entry, yesterdayTasks, yesterdayIncompleteTasks,
     }
     return [{ text: "", carried: false }, { text: "", carried: false }];
   });
-  const [blockers, setBlockers] = useState<{ text: string; priority: string }[]>(() =>
-    entry?.blockers.map((b) => ({ text: b.text, priority: b.priority })) ?? [{ text: "", priority: "" }]
-  );
+
+  const [blockers, setBlockers] = useState<{ text: string; priority: string; mentionedUserId: string }[]>(() => {
+    if (entry?.blockers && entry.blockers.length > 0) {
+      return entry.blockers.map((b) => ({ text: b.text, priority: b.priority, mentionedUserId: b.mentionedUserId ?? "" }));
+    }
+    if (yesterdayBlockers && yesterdayBlockers.length > 0) {
+      return yesterdayBlockers.map((b) => ({ text: b.text, priority: b.priority, mentionedUserId: b.mentionedUserId ?? "" }));
+    }
+    return [{ text: "", priority: "", mentionedUserId: "" }];
+  });
   const [supports, setSupports] = useState<{ text: string; mentionedUserId: string }[]>(() =>
     entry?.supportNeeds.map((s) => ({
       text: s.text,
@@ -384,7 +466,7 @@ export function SubmitDsmForm({ entry, yesterdayTasks, yesterdayIncompleteTasks,
 
         {/* Blockers */}
         <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any blockers?">
-          <BlockerRows blockers={blockers} onChange={setBlockers} />
+          <BlockerRows blockers={blockers} teamMembers={teamMembers} onChange={setBlockers} />
         </Section>
 
         {/* Support needed */}

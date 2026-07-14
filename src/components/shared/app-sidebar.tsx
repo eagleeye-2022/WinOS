@@ -110,16 +110,17 @@ function ManagerDsmSidebar({ pathname }: { pathname: string }) {
 
 // ── Team-member DSM sidebar ───────────────────────────────────────────────────
 
-function DsmSidebar({ pathname }: { pathname: string }) {
+function DsmSidebar({ pathname, userId }: { pathname: string; userId?: string }) {
   const quote = getDayQuote();
 
   const dsmNav = [
     { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
     { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
     { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+    ...(userId ? [{ label: "i-Notes", href: `/notes/member/${userId}`, icon: NotepadText }] : []),
     { label: "Support Needed", href: ROUTES.support, icon: Users2 },
     { label: "Needs My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
-  ] as const;
+  ];
 
   return (
     <aside className="flex w-50 shrink-0 flex-col border-r bg-card">
@@ -185,24 +186,27 @@ function DsmSidebar({ pathname }: { pathname: string }) {
 
 // ── Generic sidebar ───────────────────────────────────────────────────────────
 
-function GenericSidebar({ pathname }: { pathname: string }) {
+function GenericSidebar({ pathname, userId }: { pathname: string; userId?: string }) {
   return (
     <aside className="flex w-50 shrink-0 flex-col border-r bg-card">
       <nav className="flex flex-1 flex-col gap-0.5 p-2 pt-3">
-        {appNavItems.map(({ label, href, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
-              "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              pathname === href && "bg-primary/10 font-medium text-primary"
-            )}
-          >
-            <Icon size={15} strokeWidth={1.75} />
-            {label}
-          </Link>
-        ))}
+        {appNavItems.map(({ label, href, icon: Icon }) => {
+          const targetHref = label === "Notes" && userId ? `/notes/member/${userId}` : href;
+          return (
+            <Link
+              key={href}
+              href={targetHref}
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                pathname === targetHref && "bg-primary/10 font-medium text-primary"
+              )}
+            >
+              <Icon size={15} strokeWidth={1.75} />
+              {label}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );
@@ -210,10 +214,10 @@ function GenericSidebar({ pathname }: { pathname: string }) {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
-export function AppSidebar({ userRole }: { userRole?: string }) {
+export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: string }) {
   const pathname = usePathname();
   const isWorkspace = pathname.startsWith("/dsm") || pathname.startsWith("/dsr") || pathname.startsWith("/blockers") || pathname.startsWith("/support") || pathname.startsWith("/needs-help");
-  if (!isWorkspace) return <GenericSidebar pathname={pathname} />;
+  if (!isWorkspace) return <GenericSidebar pathname={pathname} userId={userId} />;
   if (userRole === "MANAGER") return <ManagerDsmSidebar pathname={pathname} />;
-  return <DsmSidebar pathname={pathname} />;
+  return <DsmSidebar pathname={pathname} userId={userId} />;
 }

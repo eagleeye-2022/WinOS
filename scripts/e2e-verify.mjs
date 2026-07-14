@@ -44,7 +44,7 @@ async function loginAs(page, email) {
   await page.fill('input[name="otp"]', otp);
 
   // Click and wait for navigation away from /login
-  const [response] = await Promise.all([
+  await Promise.all([
     page.waitForURL(url => !url.href.includes("/login"), { timeout: 30000 }),
     page.click('button[type="submit"]'),
   ]);
