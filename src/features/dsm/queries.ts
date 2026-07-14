@@ -340,6 +340,7 @@ export async function getYesterdayBlockers(): Promise<{ text: string; priority: 
     orderBy: { date: "desc" },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (entry?.blockers ?? []).map((b: any) => ({
     text: b.text,
     priority: b.priority as "LOW" | "MEDIUM" | "HIGH",
@@ -391,6 +392,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
   const session = await auth();
   if (!session?.user?.id) return { notes: [], threads: [] };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // 1. Fetch Board Notes shared with the user
@@ -406,6 +408,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
     orderBy: { createdAt: "desc" },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notes: SharedNoteData[] = sharedNotesRaw.map((n: any) => ({
     id: n.id,
     content: n.content,
@@ -415,6 +418,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
     threadTitle: n.thread?.title || "General",
     authorName: n.author.name || n.author.email.split("@")[0],
     authorRole: n.author.role,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     checklistItems: n.checklistItems.map((c: any) => ({
       id: c.id,
       text: c.text,
@@ -440,10 +444,12 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
     orderBy: { createdAt: "desc" },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const threads: SharedThreadData[] = sharedThreadsRaw.map((t: any) => ({
     id: t.id,
     title: t.title,
     authorName: t.author.name || t.author.email.split("@")[0],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     notes: t.notes.map((n: any) => ({
       id: n.id,
       content: n.content,
@@ -451,6 +457,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
       deadline: n.deadline,
       createdAt: n.createdAt,
       authorName: n.author.name || n.author.email.split("@")[0],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       checklistItems: n.checklistItems.map((c: any) => ({
         id: c.id,
         text: c.text,

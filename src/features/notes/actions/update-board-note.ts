@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 
 export type UpdateBoardNoteState = { message?: string };
@@ -16,13 +15,13 @@ export async function updateBoardNote(
 
   const id = getStr(formData, "id");
   const content = getStr(formData, "content") || "";
-  const noteType = getStr(formData, "noteType") || "TEXT";
   const color = getStr(formData, "color") || "#ffffff";
   const deadlineStr = getStr(formData, "deadline");
   const deadline = deadlineStr ? new Date(deadlineStr) : null;
 
   if (!id) return { message: "Missing note ID" };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // Verify ownership / authorization

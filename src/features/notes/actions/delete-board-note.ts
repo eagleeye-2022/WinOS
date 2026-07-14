@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 
 export type DeleteBoardNoteState = { message?: string };
@@ -17,6 +16,7 @@ export async function deleteBoardNote(
   const id = getStr(formData, "id");
   if (!id) return { message: "Missing note ID" };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // Verify ownership / authorization

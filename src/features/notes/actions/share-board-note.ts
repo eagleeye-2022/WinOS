@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 
 export type ShareBoardNoteState = { message?: string };
@@ -19,6 +18,7 @@ export async function shareBoardNote(
 
   if (!noteId) return { message: "Missing note ID" };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // Verify ownership / authorization

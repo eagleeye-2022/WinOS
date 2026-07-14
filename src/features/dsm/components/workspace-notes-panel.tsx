@@ -112,6 +112,7 @@ function SharedNoteCard({
 type WorkspaceNotesPanelProps = {
   sharedNotes?: SharedNoteData[];
   userRole?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   note?: any;
   canEdit?: boolean;
 };

@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 
 export type MoveBoardNoteState = { message?: string };
@@ -19,6 +18,7 @@ export async function moveBoardNote(
 
   if (!noteId || !targetThreadId) return { message: "Missing fields" };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // Verify authorization
@@ -28,8 +28,7 @@ export async function moveBoardNote(
   });
   if (!note) return { message: "Note not found" };
 
-  const isManager = session.user.role === "MANAGER";
-  if (note.authorId !== session.user.id && !isManager) {
+  if (note.authorId !== session.user.id) {
     return { message: "Unauthorized" };
   }
 

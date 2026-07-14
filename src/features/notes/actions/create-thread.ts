@@ -2,7 +2,6 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 
 export type CreateThreadState = { errors?: { title?: string[] }; message?: string };
@@ -28,6 +27,7 @@ export async function createThread(
   const titleError = validateText("Thread title", title, 120);
   if (titleError) return { errors: { title: titleError } };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   // 1. Create the thread

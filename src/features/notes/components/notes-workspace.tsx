@@ -7,19 +7,9 @@ import {
   Share2,
   Calendar,
   X,
-  Bold,
-  Italic,
-  Underline,
-  List,
   CheckSquare,
   Square,
-  Type,
-  Lightbulb,
-  Link2,
-  Paperclip,
-  Check,
   ChevronRight,
-  Edit2,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,7 +22,6 @@ import { updateBoardNote } from "../actions/update-board-note";
 import { deleteBoardNote } from "../actions/delete-board-note";
 import { shareBoardNote } from "../actions/share-board-note";
 import { toggleBoardNoteItem } from "../actions/toggle-board-note-item";
-import { getBoardThreads } from "../actions/get-board-threads";
 import { moveBoardNote } from "../actions/move-board-note";
 
 
@@ -87,9 +76,17 @@ type BoardData = {
   updatedAt: Date;
 };
 
+type HistoryNoteData = BoardNoteData & {
+  thread: {
+    id: string;
+    title: string;
+    boardId: string;
+  };
+};
+
 type NotesWorkspaceProps = {
   initialBoards: BoardData[];
-  historyNotes: any[];
+  historyNotes: HistoryNoteData[];
   allUsers: UserBasic[];
   userId: string;
   isManager: boolean;
@@ -121,11 +118,23 @@ export function NotesWorkspace({
   );
   const [threads, setThreads] = useState<ThreadData[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
-  const [historyList, setHistoryList] = useState<any[]>(historyNotes);
 
-  useEffect(() => {
+  // Sync props to state during render
+  const [prevHistoryNotes, setPrevHistoryNotes] = useState(historyNotes);
+  const [historyList, setHistoryList] = useState<HistoryNoteData[]>(historyNotes);
+  if (historyNotes !== prevHistoryNotes) {
+    setPrevHistoryNotes(historyNotes);
     setHistoryList(historyNotes);
-  }, [historyNotes]);
+  }
+
+  const [prevInitialBoards, setPrevInitialBoards] = useState(initialBoards);
+  if (initialBoards !== prevInitialBoards) {
+    setPrevInitialBoards(initialBoards);
+    setBoards(initialBoards);
+    if (initialBoards.length > 0 && !activeBoardId) {
+      setActiveBoardId(initialBoards[0].id);
+    }
+  }
 
   // Pointer drag-to-scroll logic for board container
   const boardRef = useRef<HTMLDivElement>(null);
@@ -138,32 +147,41 @@ export function NotesWorkspace({
     // Do not initiate drag-scroll if clicking interactive elements or draggable threads/notes
     if (
       target.closest("button") ||
+      target.closest("a") ||
       target.closest("input") ||
       target.closest("textarea") ||
-      target.closest("a") ||
+      target.closest("select") ||
       target.closest("[draggable]")
     ) {
       return;
     }
-
     isDragging.current = true;
-    startX.current = e.pageX - (boardRef.current?.offsetLeft || 0);
-    scrollLeft.current = boardRef.current?.scrollLeft || 0;
+    if (boardRef.current) {
+      boardRef.current.style.cursor = "grabbing";
+      startX.current = e.pageX - boardRef.current.offsetLeft;
+      scrollLeft.current = boardRef.current.scrollLeft;
+    }
   };
 
   const handleMouseLeave = () => {
     isDragging.current = false;
+    if (boardRef.current) {
+      boardRef.current.style.cursor = "grab";
+    }
   };
 
   const handleMouseUp = () => {
     isDragging.current = false;
+    if (boardRef.current) {
+      boardRef.current.style.cursor = "grab";
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDragging.current || !boardRef.current) return;
     e.preventDefault();
     const x = e.pageX - boardRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // scrolling speed factor
+    const walk = (x - startX.current) * 1.5; // multiplier controls speed
     boardRef.current.scrollLeft = scrollLeft.current - walk;
   };
 
@@ -185,8 +203,8 @@ export function NotesWorkspace({
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [threadTitle, setThreadTitle] = useState("");
-  const [threadContent, setThreadContent] = useState("");
   const [threadNoteType, setThreadNoteType] = useState<"TEXT" | "CHECKLIST">("TEXT");
+  const [threadContent, setThreadContent] = useState("");
   const [threadChecklist, setThreadChecklist] = useState<string[]>([""]);
   const [threadDeadline, setThreadDeadline] = useState("");
   const [threadColor, setThreadColor] = useState("#ffffff");
@@ -210,14 +228,12 @@ export function NotesWorkspace({
 
   const [isPending, startTransition] = useTransition();
 
-  // Populate share selection with existing shares when dialog opens
-  useEffect(() => {
-    if (sharingItem) {
-      setShareSelection(sharingItem.existingShares);
-    } else {
-      setShareSelection([]);
-    }
-  }, [sharingItem]);
+  // Sync sharingItem selection during render
+  const [prevSharingItem, setPrevSharingItem] = useState(sharingItem);
+  if (sharingItem !== prevSharingItem) {
+    setPrevSharingItem(sharingItem);
+    setShareSelection(sharingItem ? sharingItem.existingShares : []);
+  }
 
   const refreshThreads = async () => {
     if (!activeBoardId) return;
@@ -232,13 +248,20 @@ export function NotesWorkspace({
     }
   };
 
-  // Load threads when active board changes
-  useEffect(() => {
+  // Adjust state during render when activeBoardId changes
+  const [prevActiveBoardId, setPrevActiveBoardId] = useState(activeBoardId);
+  if (activeBoardId !== prevActiveBoardId) {
+    setPrevActiveBoardId(activeBoardId);
     if (!activeBoardId) {
       setThreads([]);
-      return;
+    } else {
+      setLoadingThreads(true);
     }
-    setLoadingThreads(true);
+  }
+
+  // Load threads when active board changes
+  useEffect(() => {
+    if (!activeBoardId) return;
     fetch(`/api/boards/${activeBoardId}/threads`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
@@ -249,14 +272,6 @@ export function NotesWorkspace({
         setLoadingThreads(false);
       });
   }, [activeBoardId]);
-
-  // Sync local boards list and active board selection when prop changes (e.g., shared boards dynamically loaded)
-  useEffect(() => {
-    setBoards(initialBoards);
-    if (initialBoards.length > 0 && !activeBoardId) {
-      setActiveBoardId(initialBoards[0].id);
-    }
-  }, [initialBoards]);
 
   // ── Drag and Drop Handlers ──────────────────────────────────────────────────
 
@@ -661,7 +676,7 @@ export function NotesWorkspace({
                   </p>
                   <p className="text-[10px] text-muted-foreground line-clamp-2">
                     {note.checklistItems?.length > 0
-                      ? note.checklistItems.map((c: any) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
+                      ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
                       : (note.content || "").replace(/<[^>]*>/g, "")}
                   </p>
                   <span className="text-[9px] text-muted-foreground/60">

@@ -2,7 +2,6 @@
 
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import {
-    ClassicEditor,
     Essentials,
     Paragraph,
     Bold,
@@ -15,7 +14,6 @@ import {
     TodoList,
     Link,
     Font,
-    BalloonEditor,
     InlineEditor,
     BlockQuote,
     Table,

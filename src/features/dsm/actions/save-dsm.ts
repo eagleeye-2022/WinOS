@@ -112,7 +112,7 @@ export async function saveDsm(
       .filter((b: { text: string }) => b.text);
     if (validBlockers.length > 0) {
       await d.standupBlocker.createMany({
-        data: validBlockers.map((b: any) => ({ ...b, entryId: entry.id })),
+        data: validBlockers.map((b: { text: string; priority: string; resolved: boolean; mentionedUserId: string | null }) => ({ ...b, entryId: entry.id })),
       });
     }
 

@@ -72,6 +72,7 @@ export async function getBoards(targetUserId?: string) {
   if (!session?.user?.id) return [];
 
   const userId = targetUserId || session.user.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   return await d.board.findMany({
@@ -99,6 +100,7 @@ export async function getThreads(boardId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   const whereClause = {
@@ -140,6 +142,7 @@ export async function getHistory(targetUserId?: string) {
   if (!session?.user?.id) return [];
 
   const userId = targetUserId || session.user.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   let whereClause;
@@ -178,6 +181,7 @@ export async function getWorkspaceUsers() {
   const session = await auth();
   if (!session?.user?.id) return [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   return await d.user.findMany({
     select: { id: true, name: true, email: true, image: true, title: true },

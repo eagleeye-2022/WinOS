@@ -253,8 +253,6 @@ try {
     if (body.includes("PrismaClientKnownRequestError")) throw new Error("Runtime error on member detail");
     pass("member review detail page loads");
 
-    // Try expanding the today card if a chevron toggle exists
-    const expandToggle = pageMgr.locator("button").filter({ has: pageMgr.locator("svg") }).first();
     // Look specifically for the today card's chevron (it's within the first bordered card)
     const todayCardChevron = pageMgr.locator("div.rounded-xl.border.bg-card button").first();
     if (await todayCardChevron.isVisible().catch(() => false)) {
