@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, NotepadText, ClipboardList, BarChart2,
   AlertCircle, Users2, Clock, Archive, Settings, Quote,
-  LayoutGrid, User, HeartHandshake,
+  LayoutGrid, User, HeartHandshake, FileText, Activity, Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -212,10 +212,92 @@ function GenericSidebar({ pathname, userId }: { pathname: string; userId?: strin
   );
 }
 
+// ── People workspace sidebar ──────────────────────────────────────────────────
+
+function PeopleSidebar({ pathname, userId }: { pathname: string; userId?: string }) {
+  const quote = {
+    text: "Great things in business are never done by one person. They're done by a team of people.",
+    author: "Steve Jobs"
+  };
+
+  const nav = [
+    { label: "RTD", href: "/people", icon: FileText },
+    { label: "ICA", href: "/people/ica", icon: Brain },
+    ...(userId ? [{ label: "My Notes", href: `/notes/member/${userId}`, icon: NotepadText }] : []),
+    { label: "My activities", href: "/people/activities", icon: Activity },
+    { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+    { label: "Needs My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+  ];
+
+  return (
+    <aside className="flex w-50 shrink-0 flex-col border-r bg-card animate-in fade-in duration-150">
+      <div className="border-b px-4 py-4">
+        <p className="text-sm font-semibold text-foreground">People</p>
+        <p className="text-[11px] text-muted-foreground">Workspace</p>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5 p-2 pt-3">
+        {nav.map(({ label, href, icon: Icon }) => (
+          <Link
+            key={label}
+            href={href}
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+              "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              pathname === href && "bg-primary font-medium text-primary-foreground"
+            )}
+          >
+            <Icon size={15} strokeWidth={1.75} />
+            {label}
+          </Link>
+        ))}
+
+        <div className="mt-4 px-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Quick Links
+          </p>
+          <Link
+            href={ROUTES.dsm}
+            className="flex items-center gap-2 rounded-md py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Clock size={12} />
+            Yesterday&apos;s DSM
+          </Link>
+        </div>
+      </nav>
+
+      <div className="mx-3 mb-4 rounded-md border-l-2 border-primary/40 bg-muted/40 px-3 py-3">
+        <Quote size={12} className="mb-1 text-primary/50" />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">&quot;{quote.text}&quot;</p>
+        <p className="mt-1 text-[10px] text-muted-foreground/60">— {quote.author}</p>
+      </div>
+
+      <div className="border-t p-2">
+        {[
+          { label: "Archive", icon: Archive },
+          { label: "Settings", icon: Settings },
+        ].map(({ label, icon: Icon }) => (
+          <span
+            key={label}
+            title="Coming soon"
+            className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground/40 select-none"
+          >
+            <Icon size={15} strokeWidth={1.75} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: string }) {
   const pathname = usePathname();
+  if (pathname.startsWith("/people")) {
+    return <PeopleSidebar pathname={pathname} userId={userId} />;
+  }
   const isWorkspace = pathname.startsWith("/dsm") || pathname.startsWith("/dsr") || pathname.startsWith("/blockers") || pathname.startsWith("/support") || pathname.startsWith("/needs-help");
   if (!isWorkspace) return <GenericSidebar pathname={pathname} userId={userId} />;
   if (userRole === "MANAGER") return <ManagerDsmSidebar pathname={pathname} />;

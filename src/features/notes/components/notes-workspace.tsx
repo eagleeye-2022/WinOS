@@ -122,13 +122,17 @@ export function NotesWorkspace({
   // Sync props to state during render
   const [prevHistoryNotes, setPrevHistoryNotes] = useState(historyNotes);
   const [historyList, setHistoryList] = useState<HistoryNoteData[]>(historyNotes);
-  if (historyNotes !== prevHistoryNotes) {
+  const historyIds = historyNotes.map((n) => n.id).join(",");
+  const prevHistoryIds = prevHistoryNotes.map((n) => n.id).join(",");
+  if (historyIds !== prevHistoryIds) {
     setPrevHistoryNotes(historyNotes);
     setHistoryList(historyNotes);
   }
 
   const [prevInitialBoards, setPrevInitialBoards] = useState(initialBoards);
-  if (initialBoards !== prevInitialBoards) {
+  const boardIds = initialBoards.map((b) => b.id).join(",");
+  const prevBoardIds = prevInitialBoards.map((b) => b.id).join(",");
+  if (boardIds !== prevBoardIds) {
     setPrevInitialBoards(initialBoards);
     setBoards(initialBoards);
     if (initialBoards.length > 0 && !activeBoardId) {

@@ -11,6 +11,7 @@ import {
   getUnreadCount,
   getNotifications,
 } from "@/features/notifications/queries";
+import { ModuleSwitcher } from "@/components/shared/module-switcher";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -61,9 +62,10 @@ export default async function DashboardLayout({
           <WinOSBrand />
         </div>
 
-        {/* Clock */}
-        <div className="px-4">
+        {/* Clock & Switcher */}
+        <div className="flex items-center gap-3 px-4 shrink-0">
           <ClockChip />
+          <ModuleSwitcher />
         </div>
 
         {/* Search — centered in remaining space */}

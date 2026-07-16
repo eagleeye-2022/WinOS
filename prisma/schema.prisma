@@ -1,90 +1,4 @@
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
-
-datasource db {
-  provider = "postgresql"
-}
-
-// ─── Enums ───────────────────────────────────────────────────────────────────
-
-enum UserRole {
-  TEAM_MEMBER
-  MANAGER
-}
-
-enum NoteType {
-  TEXT
-  CHECKLIST
-}
-
-enum StandupStatus {
-  DRAFT
-  SUBMITTED
-  PENDING_REVIEW
-  REVIEWED
-  MISSED
-}
-
-enum TaskKind {
-  YESTERDAY
-  TODAY
-}
-
-enum BlockerPriority {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum TaskPriority {
-  P1
-  P2
-  P3
-}
-
-enum NotificationType {
-  DSM_REMINDER
-}
-
-enum DsrStatus {
-  DRAFT
-  SUBMITTED
-  PENDING_REVIEW
-  REVIEWED
-  MISSED
-}
-
-enum DsrSentiment {
-  BREAKTHROUGH
-  BREAKDOWN
-}
-
-// ─── Auth.js adapter models ───────────────────────────────────────────────────
-// Field names are mandated by @auth/prisma-adapter — do not rename them.
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole  @default(TEAM_MEMBER)
-  title         String?   // Job title shown in @mention dropdowns
-
-  accounts      Account[]
-  sessions      Session[]
-  notes         Note[]
-  notebooks     Notebook[]
-  tags          Tag[]
-
-  boards          Board[]
-  authoredThreads Thread[]
-  threadShares    ThreadShare[]
-  boardNotes      BoardNote[]
-  noteShares      BoardNoteShare[]
+  roleTaskDocuments    RoleTaskDocument[]
 
   // DSM relations
   standupEntries   StandupEntry[]       @relation("UserStandups")
@@ -577,4 +491,59 @@ model BoardNoteChecklistItem {
   note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+enum CompetencyCategory {
+  SKILL
+  KNOWLEDGE
+  SELF_IMAGE
+  TRAIT
+  MOTIVE
+}
+
+enum CompetencyStatus {
+  MATCHED
+  EXTRA
+  MISSING
+}
+
+model CompetencyAttribute {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  CompetencyCategory
+  name      String
+  status    CompetencyStatus   @default(MATCHED)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@unique([userId, category, name])
+}
+
+model IcebergProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coachingNotes String?
+  fileName      String?
+  fileUrl       String?
+  uploadedOn    DateTime?
+  comment       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model RoleTaskDocument {
+  id           String   @id @default(cuid())
+  taskName     String
+  fileName     String
+  fileUrl      String
+  fileType     String
+  uploadedOn   DateTime @default(now())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment      String?
+  managerNotes String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
