@@ -1,22 +1,49 @@
-  roleTaskDocuments    RoleTaskDocument[]
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
 
-  // DSM relations
-  standupEntries   StandupEntry[]       @relation("UserStandups")
-  reviewedStandups StandupEntry[]       @relation("ReviewedStandups")
-  supportMentions  StandupSupportNeed[] @relation("SupportMentions")
-  blockerMentions  StandupBlocker[]     @relation("BlockerMentions")
-  workspaceNote    DsmWorkspaceNote?    @relation("WorkspaceNotes")
-  ledTeams              Team[]               @relation("TeamLead")
-  teamMemberships       TeamMember[]
-  receivedNotifications Notification[]       @relation("ReceivedNotifications")
-  sentNotifications     Notification[]       @relation("SentNotifications")
-  dsrEntries            DsrEntry[]           @relation("UserDsrEntries")
-  reviewedDsrs          DsrEntry[]           @relation("DsrReviewedBy")
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id                    String                @id @default(cuid())
+  name                  String?
+  email                 String                @unique
+  emailVerified         DateTime?
+  image                 String?
+  password              String?
+  role                  UserRole              @default(TEAM_MEMBER)
+  title                 String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  accounts              Account[]
   blockerComments       BlockerComment[]
+  boards                Board[]
+  boardNotes            BoardNote[]
+  noteShares            BoardNoteShare[]
+  competencyAttributes  CompetencyAttribute[]
+  workspaceNote         DsmWorkspaceNote?     @relation("WorkspaceNotes")
+  reviewedDsrs          DsrEntry[]            @relation("DsrReviewedBy")
+  dsrEntries            DsrEntry[]            @relation("UserDsrEntries")
+  icebergProfile        IcebergProfile?
+  notes                 Note[]
+  notebooks             Notebook[]
+  sentNotifications     Notification[]        @relation("SentNotifications")
+  receivedNotifications Notification[]        @relation("ReceivedNotifications")
+  roleTaskDocuments     RoleTaskDocument[]
+  sessions              Session[]
+  blockerMentions       StandupBlocker[]      @relation("BlockerMentions")
+  reviewedStandups      StandupEntry[]        @relation("ReviewedStandups")
+  standupEntries        StandupEntry[]        @relation("UserStandups")
+  supportMentions       StandupSupportNeed[]  @relation("SupportMentions")
   supportNeedComments   SupportNeedComment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  tags                  Tag[]
+  ledTeams              Team[]                @relation("TeamLead")
+  teamMemberships       TeamMember[]
+  authoredThreads       Thread[]
+  threadShares          ThreadShare[]
 }
 
 model Account {
@@ -31,11 +58,9 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
 }
@@ -44,11 +69,9 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -59,28 +82,22 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
-// ─── DSM — Structured standup models ─────────────────────────────────────────
-
-// One entry per user per working day. Unique enforced at DB level.
 model StandupEntry {
-  id           String        @id @default(cuid())
-  date         DateTime      // UTC midnight of the standup day
-  status        StandupStatus @default(DRAFT)
+  id            String               @id @default(cuid())
+  date          DateTime
+  status        StandupStatus        @default(DRAFT)
   submittedAt   DateTime?
   reviewedAt    DateTime?
   reviewedById  String?
-  reviewedBy    User?         @relation("ReviewedStandups", fields: [reviewedById], references: [id])
   reviewComment String?
-
-  userId String
-  user   User   @relation("UserStandups", fields: [userId], references: [id], onDelete: Cascade)
-
-  tasks        StandupTask[]
-  blockers     StandupBlocker[]
-  supportNeeds StandupSupportNeed[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId        String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  blockers      StandupBlocker[]
+  reviewedBy    User?                @relation("ReviewedStandups", fields: [reviewedById], references: [id])
+  user          User                 @relation("UserStandups", fields: [userId], references: [id], onDelete: Cascade)
+  supportNeeds  StandupSupportNeed[]
+  tasks         StandupTask[]
 
   @@unique([userId, date])
 }
@@ -88,185 +105,152 @@ model StandupEntry {
 model StandupTask {
   id              String        @id @default(cuid())
   entryId         String
-  entry           StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
   kind            TaskKind
   text            String
   order           Int           @default(0)
   managerPriority TaskPriority?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  entry           StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
 model StandupBlocker {
-  id              String          @id @default(cuid())
+  id              String           @id @default(cuid())
   entryId         String
-  entry           StandupEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
   text            String
-  priority        BlockerPriority @default(MEDIUM)
-  resolved        Boolean         @default(false)
+  priority        BlockerPriority  @default(MEDIUM)
+  resolved        Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   mentionedUserId String?
-  mentionedUser   User?           @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
-
-  comments BlockerComment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  comments        BlockerComment[]
+  entry           StandupEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  mentionedUser   User?            @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
 }
 
 model BlockerComment {
   id        String         @id @default(cuid())
   blockerId String
-  blocker   StandupBlocker @relation(fields: [blockerId], references: [id], onDelete: Cascade)
   authorId  String
-  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   text      String
-
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  blocker   StandupBlocker @relation(fields: [blockerId], references: [id], onDelete: Cascade)
 }
 
 model StandupSupportNeed {
-  id              String       @id @default(cuid())
+  id              String               @id @default(cuid())
   entryId         String
-  entry           StandupEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   text            String
   mentionedUserId String?
-  mentionedUser   User?        @relation("SupportMentions", fields: [mentionedUserId], references: [id])
-  order           Int          @default(0)
-  resolved        Boolean      @default(false)
-
-  comments SupportNeedComment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  order           Int                  @default(0)
+  resolved        Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  entry           StandupEntry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  mentionedUser   User?                @relation("SupportMentions", fields: [mentionedUserId], references: [id])
+  comments        SupportNeedComment[]
 }
 
 model SupportNeedComment {
   id            String             @id @default(cuid())
   supportNeedId String
-  supportNeed   StandupSupportNeed @relation(fields: [supportNeedId], references: [id], onDelete: Cascade)
   authorId      String
-  author        User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
   text          String
-
-  createdAt DateTime @default(now())
+  createdAt     DateTime           @default(now())
+  author        User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  supportNeed   StandupSupportNeed @relation(fields: [supportNeedId], references: [id], onDelete: Cascade)
 }
 
-// Team workspace note — one per user (manager writes team-wide note visible to members).
 model DsmWorkspaceNote {
-  id      String  @id @default(cuid())
-  title   String
-  body    String
-  keyNote String?
-
-  ownerId String @unique
-  owner   User   @relation("WorkspaceNotes", fields: [ownerId], references: [id], onDelete: Cascade)
-
+  id          String          @id @default(cuid())
+  title       String
+  body        String
+  keyNote     String?
+  ownerId     String          @unique
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   actionItems DsmActionItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  owner       User            @relation("WorkspaceNotes", fields: [ownerId], references: [id], onDelete: Cascade)
 }
 
 model DsmActionItem {
-  id      String           @id @default(cuid())
-  noteId  String
-  note    DsmWorkspaceNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  text    String
-  checked Boolean          @default(false)
-  order   Int              @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String           @id @default(cuid())
+  noteId    String
+  text      String
+  checked   Boolean          @default(false)
+  order     Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  note      DsmWorkspaceNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
 }
-
-// ─── Notifications ────────────────────────────────────────────────────────────
 
 model Notification {
-  id      String           @id @default(cuid())
-  type    NotificationType
-  title   String
-  message String
-
-  userId    String
-  user      User   @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
-
-  createdById String
-  createdBy   User   @relation("SentNotifications", fields: [createdById], references: [id])
-
-  readAt DateTime?
-
-  // Optional context links
+  id             String           @id @default(cuid())
+  type           NotificationType
+  title          String
+  message        String
+  userId         String
+  createdById    String
+  readAt         DateTime?
   relatedEntryId String?
   teamId         String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  createdBy      User             @relation("SentNotifications", fields: [createdById], references: [id])
+  user           User             @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ─── Teams ────────────────────────────────────────────────────────────────────
-
 model Team {
-  id              String  @id @default(cuid())
+  id              String       @id @default(cuid())
   name            String
   department      String?
   description     String?
-  requireApproval Boolean @default(false)
-  notifyMembers   Boolean @default(true)
-  allowEdits      Boolean @default(false)
-
-  leadId String?
-  lead   User?   @relation("TeamLead", fields: [leadId], references: [id])
-
-  members TeamMember[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  requireApproval Boolean      @default(false)
+  notifyMembers   Boolean      @default(true)
+  allowEdits      Boolean      @default(false)
+  leadId          String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  lead            User?        @relation("TeamLead", fields: [leadId], references: [id])
+  members         TeamMember[]
 }
 
 model TeamMember {
-  id     String @id @default(cuid())
-  teamId String
-  userId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
   createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
 }
 
-// ─── DSR — Daily Status Review (Evening Review) ──────────────────────────────
-
 model DsrEntry {
-  id                 String       @id @default(cuid())
+  id                 String               @id @default(cuid())
   userId             String
-  user               User         @relation("UserDsrEntries", fields: [userId], references: [id], onDelete: Cascade)
   date               DateTime
-  status             DsrStatus    @default(DRAFT)
-
-  completionPercent  Int          @default(0)
-  plannedTaskCount   Int          @default(0)
-  completedTaskCount Int          @default(0)
-
+  status             DsrStatus            @default(DRAFT)
+  completionPercent  Int                  @default(0)
+  plannedTaskCount   Int                  @default(0)
+  completedTaskCount Int                  @default(0)
   sentiment          DsrSentiment?
   resultOfDay        String?
   reflection         String?
-
   managerComment     String?
   submittedAt        DateTime?
   reviewedAt         DateTime?
   reviewedById       String?
-  reviewedBy         User?        @relation("DsrReviewedBy", fields: [reviewedById], references: [id])
-
-  plannedTasks     DsrPlannedTask[]
-  additionalWorks  DsrAdditionalWork[]
-  resolvedBlockers DsrResolvedBlocker[]
-  followUpsDone    DsrFollowUpDone[]
-  timelineEvents   DsrTimelineEvent[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  additionalWorks    DsrAdditionalWork[]
+  reviewedBy         User?                @relation("DsrReviewedBy", fields: [reviewedById], references: [id])
+  user               User                 @relation("UserDsrEntries", fields: [userId], references: [id], onDelete: Cascade)
+  followUpsDone      DsrFollowUpDone[]
+  plannedTasks       DsrPlannedTask[]
+  resolvedBlockers   DsrResolvedBlocker[]
+  timelineEvents     DsrTimelineEvent[]
 
   @@unique([userId, date])
 }
@@ -274,90 +258,77 @@ model DsrEntry {
 model DsrPlannedTask {
   id         String        @id @default(cuid())
   dsrEntryId String
-  dsrEntry   DsrEntry      @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
   text       String
   priority   TaskPriority?
   completed  Boolean       @default(false)
   order      Int           @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  dsrEntry   DsrEntry      @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
 model DsrAdditionalWork {
   id         String   @id @default(cuid())
   dsrEntryId String
-  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
   text       String
   order      Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
 model DsrResolvedBlocker {
   id         String   @id @default(cuid())
   dsrEntryId String
-  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
   text       String
   resolved   Boolean  @default(true)
   order      Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
 model DsrFollowUpDone {
   id         String   @id @default(cuid())
   dsrEntryId String
-  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
   text       String
   completed  Boolean  @default(true)
   order      Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
 model DsrTimelineEvent {
   id         String   @id @default(cuid())
   dsrEntryId String
-  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
-  type       String   // SUBMITTED | OPENED | REVIEWED | APPROVED
+  type       String
   label      String
   occurredAt DateTime
-
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
-// ─── Notes organisation ───────────────────────────────────────────────────────
-
 model Notebook {
-  id    String  @id @default(cuid())
-  name  String
-  color String?
-
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  notes Note[]
-
+  id        String   @id @default(cuid())
+  name      String
+  color     String?
+  ownerId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  notes     Note[]
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([name, ownerId])
 }
 
 model Tag {
-  id   String @id @default(cuid())
-  name String
-
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  notes NoteTag[]
-
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime  @default(now())
+  notes     NoteTag[]
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([name, ownerId])
 }
@@ -365,49 +336,40 @@ model Tag {
 model NoteTag {
   noteId String
   tagId  String
-
-  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([noteId, tagId])
 }
 
 model ChecklistItem {
-  id       String  @id @default(cuid())
-  text     String
-  checked  Boolean @default(false)
-  position Int     @default(0)
-
-  noteId String
-  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
+  id        String   @id @default(cuid())
+  text      String
+  checked   Boolean  @default(false)
+  position  Int      @default(0)
+  noteId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
 }
 
 model Note {
-  id         String    @id @default(cuid())
-  title      String
-  content    String
-  type       NoteType  @default(TEXT)
-  color      String?
-  isPinned   Boolean   @default(false)
-  reminderAt DateTime?
-
-  notebookId String?
-  notebook   Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
-
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  tags           NoteTag[]
+  id             String          @id @default(cuid())
+  title          String
+  content        String
+  type           NoteType        @default(TEXT)
+  color          String?
+  isPinned       Boolean         @default(false)
+  reminderAt     DateTime?
+  notebookId     String?
+  authorId       String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   checklistItems ChecklistItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  author         User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  notebook       Notebook?       @relation(fields: [notebookId], references: [id])
+  tags           NoteTag[]
 }
-
-// ─── OTP authentication ───────────────────────────────────────────────────────
 
 model OtpToken {
   id             String    @id @default(cuid())
@@ -425,10 +387,10 @@ model Board {
   id        String   @id @default(cuid())
   name      String
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  threads   Thread[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  threads   Thread[]
 
   @@unique([name, ownerId])
 }
@@ -437,21 +399,21 @@ model Thread {
   id        String        @id @default(cuid())
   title     String
   boardId   String
-  board     Board         @relation(fields: [boardId], references: [id], onDelete: Cascade)
   authorId  String
-  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  notes     BoardNote[]
-  shares    ThreadShare[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  notes     BoardNote[]
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  board     Board         @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  shares    ThreadShare[]
 }
 
 model ThreadShare {
   threadId  String
   userId    String
+  createdAt DateTime @default(now())
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
 
   @@id([threadId, userId])
 }
@@ -463,21 +425,21 @@ model BoardNote {
   color          String?                  @default("#ffffff")
   deadline       DateTime?
   threadId       String
-  thread         Thread                   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   authorId       String
-  author         User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  shares         BoardNoteShare[]
-  checklistItems BoardNoteChecklistItem[]
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
+  author         User                     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  thread         Thread                   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  checklistItems BoardNoteChecklistItem[]
+  shares         BoardNoteShare[]
 }
 
 model BoardNoteShare {
   noteId    String
   userId    String
+  createdAt DateTime  @default(now())
   note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
 
   @@id([noteId, userId])
 }
@@ -488,9 +450,102 @@ model BoardNoteChecklistItem {
   checked   Boolean   @default(false)
   position  Int       @default(0)
   noteId    String
-  note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+}
+
+model CompetencyAttribute {
+  id        String             @id @default(cuid())
+  userId    String
+  category  CompetencyCategory
+  name      String
+  status    CompetencyStatus   @default(MATCHED)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, name])
+}
+
+model IcebergProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  coachingNotes String?
+  fileName      String?
+  fileUrl       String?
+  uploadedOn    DateTime?
+  comment       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RoleTaskDocument {
+  id           String   @id @default(cuid())
+  taskName     String
+  fileName     String
+  fileUrl      String
+  fileType     String
+  uploadedOn   DateTime @default(now())
+  userId       String
+  comment      String?
+  managerNotes String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  TEAM_MEMBER
+  MANAGER
+}
+
+enum NoteType {
+  TEXT
+  CHECKLIST
+}
+
+enum StandupStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_REVIEW
+  REVIEWED
+  MISSED
+}
+
+enum TaskKind {
+  YESTERDAY
+  TODAY
+}
+
+enum BlockerPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskPriority {
+  P1
+  P2
+  P3
+}
+
+enum NotificationType {
+  DSM_REMINDER
+}
+
+enum DsrStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_REVIEW
+  REVIEWED
+  MISSED
+}
+
+enum DsrSentiment {
+  BREAKTHROUGH
+  BREAKDOWN
 }
 
 enum CompetencyCategory {
@@ -505,45 +560,4 @@ enum CompetencyStatus {
   MATCHED
   EXTRA
   MISSING
-}
-
-model CompetencyAttribute {
-  id        String             @id @default(cuid())
-  userId    String
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category  CompetencyCategory
-  name      String
-  status    CompetencyStatus   @default(MATCHED)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-
-  @@unique([userId, category, name])
-}
-
-model IcebergProfile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  coachingNotes String?
-  fileName      String?
-  fileUrl       String?
-  uploadedOn    DateTime?
-  comment       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model RoleTaskDocument {
-  id           String   @id @default(cuid())
-  taskName     String
-  fileName     String
-  fileUrl      String
-  fileType     String
-  uploadedOn   DateTime @default(now())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  comment      String?
-  managerNotes String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
