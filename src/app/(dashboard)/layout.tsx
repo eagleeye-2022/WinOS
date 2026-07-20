@@ -11,6 +11,7 @@ import {
   getUnreadCount,
   getNotifications,
 } from "@/features/notifications/queries";
+import { ModuleSwitcher } from "@/components/shared/module-switcher";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -53,17 +54,18 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen min-w-screen flex-col">
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
-      <header className="flex h-14 shrink-0 items-center border-b bg-card">
+      <header className="flex h-14 shrink-0 items-center border-b bg-card sticky top-0 z-10 mb-2">
         {/* Brand — same visual width as the sidebar */}
-        <div className="flex h-full w-50 shrink-0 items-center border-r px-4">
+        <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
           <WinOSBrand />
         </div>
 
-        {/* Clock */}
-        <div className="px-4">
+        {/* Clock & Switcher */}
+        <div className="flex items-center gap-3 px-4 shrink-0">
           <ClockChip />
+          <ModuleSwitcher />
         </div>
 
         {/* Search — centered in remaining space */}
@@ -109,10 +111,15 @@ export default async function DashboardLayout({
       </header>
 
       {/* ── Sidebar + content row ───────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <AppSidebar userRole={userRole} userId={session?.user?.id} />
-        <main className="flex-1 overflow-auto">{children}</main>
+      <div className="flex justify-start w-full">
+        <div className=" sticky top-14  h-full w-56">
+          <AppSidebar userRole={userRole} userId={session?.user?.id} />
+        </div>
+
+        <main className="w-full overflow-auto">{children}</main>
+
       </div>
+
     </div>
   );
 }

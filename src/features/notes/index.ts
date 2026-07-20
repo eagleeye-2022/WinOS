@@ -2,7 +2,7 @@ export { NoteCard } from "./components/note-card";
 export { NewNoteForm } from "./components/new-note-form";
 export { NotesList } from "./components/notes-list";
 export { NotesWorkspace } from "./components/notes-workspace";
-export { getNotes, getNotebooks, getBoards, getHistory, getWorkspaceUsers } from "./queries";
+export { getNotes, getNotebooks, getBoards, getHistory, getSharedWithMeNotes, getSharedByMeNotes, getWorkspaceUsers } from "./queries";
 export { createNote } from "./actions/create-note";
 export { updateNote } from "./actions/update-note";
 export { deleteNote } from "./actions/delete-note";

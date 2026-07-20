@@ -395,13 +395,23 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // 1. Fetch Board Notes shared with the user
+  // 1. Fetch Board Notes belonging exclusively to DSM boards (type = 'DSM')
   const sharedNotesRaw = await d.boardNote.findMany({
     where: {
-      shares: { some: { userId: session.user.id } }
+      thread: {
+        board: {
+          type: "DSM",
+        },
+      },
+      OR: [
+        { authorId: session.user.id },
+        { shares: { some: { userId: session.user.id } } },
+        { thread: { shares: { some: { userId: session.user.id } } } },
+        { thread: { board: { ownerId: session.user.id } } },
+      ],
     },
     include: {
-      thread: { select: { title: true } },
+      thread: { select: { title: true, board: { select: { name: true } } } },
       author: { select: { name: true, email: true, role: true } },
       checklistItems: { orderBy: { position: "asc" } },
     },
@@ -415,7 +425,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
     color: n.color,
     deadline: n.deadline,
     createdAt: n.createdAt,
-    threadTitle: n.thread?.title || "General",
+    threadTitle: n.thread?.title ? `${n.thread.title} (${n.thread.board?.name || 'DSM Board'})` : "DSM Workspace",
     authorName: n.author.name || n.author.email.split("@")[0],
     authorRole: n.author.role,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

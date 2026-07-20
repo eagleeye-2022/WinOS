@@ -4,7 +4,7 @@ import type { BlockerItem } from "@/features/blockers/queries";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const user = { id: "u1", name: "Alice", email: "alice@test.com" };
+const user = { id: "u1", name: "Alice", email: "alice@test.com", role: "TEAM_MEMBER", title: "Developer" };
 
 function blocker(overrides: Partial<BlockerItem> & { id: string }): BlockerItem {
   return {
