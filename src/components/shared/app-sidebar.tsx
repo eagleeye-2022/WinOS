@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  NotepadText,
   ClipboardList,
   LayoutGrid,
   User,
@@ -43,12 +42,6 @@ function getDayQuote() {
 }
 
 // ── Active route helpers ──────────────────────────────────────────────────────
-
-function isTopItemActive(pathname: string, href: string): boolean {
-  if (href === ROUTES.dashboard) return pathname === ROUTES.dashboard;
-  if (href === ROUTES.notes) return pathname === ROUTES.notes;
-  return pathname === href;
-}
 
 function isDsmHeaderActive(pathname: string, parentHref: string): boolean {
   return pathname === parentHref;

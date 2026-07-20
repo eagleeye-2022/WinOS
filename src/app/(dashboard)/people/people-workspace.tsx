@@ -35,15 +35,6 @@ function FileIcon({ fileName, size = 16 }: { fileName: string; size?: number }) 
   return <FileCode size={size} className="text-blue-500" />;
 }
 
-// Extract initials helper
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 interface PeopleWorkspaceProps {
   currentUser: {

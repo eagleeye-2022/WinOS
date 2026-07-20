@@ -10,7 +10,6 @@ import {
   Calendar,
   Sparkles,
   CheckSquare,
-  FileText,
   User,
   Clock,
   ExternalLink,

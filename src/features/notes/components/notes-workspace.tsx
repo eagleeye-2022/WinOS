@@ -87,8 +87,6 @@ type HistoryNoteData = BoardNoteData & {
 type NotesWorkspaceProps = {
   initialBoards: BoardData[];
   historyNotes: HistoryNoteData[];
-  initialSharedNotes?: HistoryNoteData[];
-  initialSharedByMeNotes?: HistoryNoteData[];
   allUsers: UserBasic[];
   userId: string;
   isManager: boolean;
@@ -109,8 +107,6 @@ const PASTEL_COLORS = [
 export function NotesWorkspace({
   initialBoards,
   historyNotes,
-  initialSharedNotes = [],
-  initialSharedByMeNotes = [],
   allUsers,
   userId,
   isManager,
@@ -133,8 +129,6 @@ export function NotesWorkspace({
     setHistoryList(historyNotes);
   }
 
-  const [sharedNotesList, setSharedNotesList] = useState<HistoryNoteData[]>(initialSharedNotes);
-  const [sharedByMeList, setSharedByMeList] = useState<HistoryNoteData[]>(initialSharedByMeNotes);
 
   const [prevInitialBoards, setPrevInitialBoards] = useState(initialBoards);
   const boardIds = initialBoards.map((b) => b.id).join(",");
@@ -220,29 +214,6 @@ export function NotesWorkspace({
     }
   };
 
-  const refreshSharedNotes = async () => {
-    try {
-      const res = await fetch("/api/notes/shared");
-      if (res.ok) {
-        const data = await res.json();
-        setSharedNotesList(data);
-      }
-    } catch (err) {
-      console.error("Failed to refresh shared notes:", err);
-    }
-  };
-
-  const refreshSharedByMeNotes = async () => {
-    try {
-      const res = await fetch("/api/notes/shared-by-me");
-      if (res.ok) {
-        const data = await res.json();
-        setSharedByMeList(data);
-      }
-    } catch (err) {
-      console.error("Failed to refresh shared by me notes:", err);
-    }
-  };
 
   // Overlays & Form States
   const [showAddBoard, setShowAddBoard] = useState(false);
@@ -565,7 +536,7 @@ export function NotesWorkspace({
       }
       setSharingItem(null);
       setShareSelection([]);
-      await Promise.all([refreshThreads(), refreshSharedNotes(), refreshSharedByMeNotes()]);
+      await refreshThreads();
     });
   };
 

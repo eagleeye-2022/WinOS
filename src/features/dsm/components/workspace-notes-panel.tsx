@@ -95,11 +95,11 @@ function SharedNoteCard({
 
       {/* Footer Info */}
       <div className="flex items-center justify-between mt-1 text-[8px] text-muted-foreground/80 border-t pt-1.5 border-black/5">
-        <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+        <span>{new Date(note.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
         {note.deadline && (
           <span className="flex items-center gap-0.5 text-amber-700 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full">
             <Calendar size={8} />
-            Due {new Date(note.deadline).toLocaleDateString()}
+            Due {new Date(note.deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
           </span>
         )}
       </div>

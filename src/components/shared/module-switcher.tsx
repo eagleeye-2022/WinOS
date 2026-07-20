@@ -1,12 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import {
-  ClipboardList,
-  Users,
-  Briefcase,
-  TrendingUp,
-} from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MODULES = [
