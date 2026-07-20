@@ -177,6 +177,81 @@ export async function getHistory(targetUserId?: string) {
   });
 }
 
+export async function getSharedWithMeNotes(targetUserId?: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const userId = targetUserId || session.user.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  return await d.boardNote.findMany({
+    where: {
+      authorId: { not: userId },
+      OR: [
+        { shares: { some: { userId } } },
+        { thread: { shares: { some: { userId } } } }
+      ]
+    },
+    include: {
+      thread: {
+        select: {
+          id: true,
+          title: true,
+          boardId: true,
+          board: { select: { id: true, name: true, type: true } }
+        }
+      },
+      author: { select: { id: true, name: true, email: true, image: true, role: true } },
+      shares: { select: { userId: true } },
+      checklistItems: { orderBy: { position: "asc" } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+export async function getSharedByMeNotes(targetUserId?: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const userId = targetUserId || session.user.id;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  return await d.boardNote.findMany({
+    where: {
+      authorId: userId,
+      OR: [
+        { shares: { some: {} } },
+        { thread: { shares: { some: {} } } }
+      ]
+    },
+    include: {
+      thread: {
+        select: {
+          id: true,
+          title: true,
+          boardId: true,
+          board: { select: { id: true, name: true, type: true } },
+          shares: {
+            include: {
+              user: { select: { id: true, name: true, email: true } }
+            }
+          }
+        }
+      },
+      author: { select: { id: true, name: true, email: true, image: true, role: true } },
+      shares: {
+        include: {
+          user: { select: { id: true, name: true, email: true } }
+        }
+      },
+      checklistItems: { orderBy: { position: "asc" } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
 export async function getWorkspaceUsers() {
   const session = await auth();
   if (!session?.user?.id) return [];

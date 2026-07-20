@@ -16,24 +16,24 @@ const MODULES = [
     href: "/dashboard",
     icon: ClipboardList,
   },
-  {
-    id: "people",
-    label: "People",
-    href: "/people",
-    icon: Users,
-  },
-  {
-    id: "projects",
-    label: "Projects",
-    href: "/projects",
-    icon: Briefcase,
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    href: "/sales",
-    icon: TrendingUp,
-  },
+  // {
+  //   id: "people",
+  //   label: "People",
+  //   href: "/people",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "projects",
+  //   label: "Projects",
+  //   href: "/projects",
+  //   icon: Briefcase,
+  // },
+  // {
+  //   id: "sales",
+  //   label: "Sales",
+  //   href: "/sales",
+  //   icon: TrendingUp,
+  // },
 ] as const;
 
 export function ModuleSwitcher() {

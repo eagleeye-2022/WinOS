@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
-import { getBoards, getHistory, getWorkspaceUsers, NotesWorkspace } from "@/features/notes";
+import { getBoards, getHistory, getSharedWithMeNotes, getSharedByMeNotes, getWorkspaceUsers, NotesWorkspace } from "@/features/notes";
 
 type Props = {
   params: Promise<{ userId: string }>;
@@ -13,9 +13,11 @@ export default async function MemberNotesPage({ params }: Props) {
 
   const { userId } = await params;
 
-  const [boards, history, users] = await Promise.all([
+  const [boards, history, sharedNotes, sharedByMeNotes, users] = await Promise.all([
     getBoards(userId),
     getHistory(userId),
+    getSharedWithMeNotes(userId),
+    getSharedByMeNotes(userId),
     getWorkspaceUsers(),
   ]);
 
@@ -25,6 +27,8 @@ export default async function MemberNotesPage({ params }: Props) {
     <NotesWorkspace
       initialBoards={boards}
       historyNotes={history}
+      initialSharedNotes={sharedNotes}
+      initialSharedByMeNotes={sharedByMeNotes}
       allUsers={users}
       userId={session.user.id}
       isManager={isManager}

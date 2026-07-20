@@ -87,6 +87,8 @@ type HistoryNoteData = BoardNoteData & {
 type NotesWorkspaceProps = {
   initialBoards: BoardData[];
   historyNotes: HistoryNoteData[];
+  initialSharedNotes?: HistoryNoteData[];
+  initialSharedByMeNotes?: HistoryNoteData[];
   allUsers: UserBasic[];
   userId: string;
   isManager: boolean;
@@ -107,6 +109,8 @@ const PASTEL_COLORS = [
 export function NotesWorkspace({
   initialBoards,
   historyNotes,
+  initialSharedNotes = [],
+  initialSharedByMeNotes = [],
   allUsers,
   userId,
   isManager,
@@ -129,6 +133,9 @@ export function NotesWorkspace({
     setHistoryList(historyNotes);
   }
 
+  const [sharedNotesList, setSharedNotesList] = useState<HistoryNoteData[]>(initialSharedNotes);
+  const [sharedByMeList, setSharedByMeList] = useState<HistoryNoteData[]>(initialSharedByMeNotes);
+
   const [prevInitialBoards, setPrevInitialBoards] = useState(initialBoards);
   const boardIds = initialBoards.map((b) => b.id).join(",");
   const prevBoardIds = prevInitialBoards.map((b) => b.id).join(",");
@@ -139,6 +146,18 @@ export function NotesWorkspace({
       setActiveBoardId(initialBoards[0].id);
     }
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    if (view === "shared-by-me") {
+      const el = document.getElementById("shared-by-me-section");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    } else if (view === "shared-with-me") {
+      const el = document.getElementById("shared-with-me-section");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
 
   // Pointer drag-to-scroll logic for board container
   const boardRef = useRef<HTMLDivElement>(null);
@@ -198,6 +217,30 @@ export function NotesWorkspace({
       }
     } catch (err) {
       console.error("Failed to refresh history:", err);
+    }
+  };
+
+  const refreshSharedNotes = async () => {
+    try {
+      const res = await fetch("/api/notes/shared");
+      if (res.ok) {
+        const data = await res.json();
+        setSharedNotesList(data);
+      }
+    } catch (err) {
+      console.error("Failed to refresh shared notes:", err);
+    }
+  };
+
+  const refreshSharedByMeNotes = async () => {
+    try {
+      const res = await fetch("/api/notes/shared-by-me");
+      if (res.ok) {
+        const data = await res.json();
+        setSharedByMeList(data);
+      }
+    } catch (err) {
+      console.error("Failed to refresh shared by me notes:", err);
     }
   };
 
@@ -522,7 +565,7 @@ export function NotesWorkspace({
       }
       setSharingItem(null);
       setShareSelection([]);
-      await refreshThreads();
+      await Promise.all([refreshThreads(), refreshSharedNotes(), refreshSharedByMeNotes()]);
     });
   };
 
@@ -624,7 +667,7 @@ export function NotesWorkspace({
             </form>
           )}
 
-          <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto max-h-48">
+          <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-48">
             {boards.length === 0 ? (
               <p className="text-xs text-muted-foreground/60 italic p-2">No boards created.</p>
             ) : (
@@ -648,12 +691,134 @@ export function NotesWorkspace({
           </div>
         </div>
 
+        {/* Shared With Me Section */}
+        {/* <div id="shared-with-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Share2 size={13} className="text-primary" />
+              Shared With Me
+            </span>
+            {sharedNotesList.length > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                {sharedNotesList.length}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex flex-col gap-1.5 pr-0.5">
+            {sharedNotesList.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 italic p-1">No shared notes.</p>
+            ) : (
+              sharedNotesList.map((note) => (
+                <div
+                  key={note.id}
+                  onClick={() => {
+                    setActiveBoardId(note.thread.boardId);
+                    setEditingNote({
+                      ...note,
+                      checklistItems: note.checklistItems || [],
+                      shares: note.shares || [],
+                    });
+                  }}
+                  className="group rounded-md border p-2 bg-background hover:bg-accent/40 cursor-pointer transition-colors text-left flex flex-col gap-1 border-l-4 text-foreground relative"
+                  style={{
+                    backgroundColor: note.color || undefined,
+                    borderLeftColor: note.color ? "rgba(0,0,0,0.15)" : "#3b82f6",
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-xs font-semibold line-clamp-1 group-hover:text-primary">
+                      {note.thread?.title || "Shared Note"}
+                    </p>
+                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
+                      {note.author?.name ? note.author.name.split(" ")[0] : note.author?.email?.split("@")[0]}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                    {note.checklistItems?.length > 0
+                      ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
+                      : (note.content || "").replace(/<[^>]*>/g, "")}
+                  </p>
+                  <span className="text-[9px] text-muted-foreground/60">
+                    Shared on {formatDate(note.createdAt)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div> */}
+
+        {/* Shared By Me Section */}
+        {/* <div id="shared-by-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Users size={13} className="text-emerald-500" />
+              Shared By Me
+            </span>
+            {sharedByMeList.length > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
+                {sharedByMeList.length}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex flex-col gap-1.5 pr-0.5">
+            {sharedByMeList.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 italic p-1">No notes shared by you.</p>
+            ) : (
+              sharedByMeList.map((note) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const recipients = Array.from(new Set([
+                  ...((note.shares || []).map((s: any) => s.user?.name || s.user?.email?.split("@")[0])),
+                  ...(((note.thread as any)?.shares || []).map((s: any) => s.user?.name || s.user?.email?.split("@")[0]))
+                ])).filter(Boolean);
+
+                return (
+                  <div
+                    key={note.id}
+                    onClick={() => {
+                      setActiveBoardId(note.thread.boardId);
+                      setEditingNote({
+                        ...note,
+                        checklistItems: note.checklistItems || [],
+                        shares: note.shares || [],
+                      });
+                    }}
+                    className="group rounded-md border p-2 bg-background hover:bg-accent/40 cursor-pointer transition-colors text-left flex flex-col gap-1 border-l-4 text-foreground relative"
+                    style={{
+                      backgroundColor: note.color || undefined,
+                      borderLeftColor: note.color ? "rgba(0,0,0,0.15)" : "#10b981",
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-xs font-semibold line-clamp-1 group-hover:text-primary">
+                        {note.thread?.title || "Shared Note"}
+                      </p>
+                      {recipients.length > 0 && (
+                        <span className="text-[9px] font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">
+                          {recipients.slice(0, 2).join(", ")}{recipients.length > 2 ? ` +${recipients.length - 2}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">
+                      {note.checklistItems?.length > 0
+                        ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
+                        : (note.content || "").replace(/<[^>]*>/g, "")}
+                    </p>
+                    <span className="text-[9px] text-muted-foreground/60">
+                      {formatDate(note.updatedAt)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div> */}
+
         {/* History Section */}
         <div className="flex-1 flex flex-col p-4 overflow-hidden">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
             Note History
           </span>
-          <div className="flex-1 overflow-y-auto flex flex-col gap-2">
+          <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex flex-col gap-2">
             {historyList.length === 0 ? (
               <p className="text-xs text-muted-foreground/60 italic">No notes found.</p>
             ) : (
