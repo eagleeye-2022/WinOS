@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,9 +15,6 @@ import {
   Quote,
   Archive,
   Settings,
-  ChevronDown,
-  Share2,
-  Users,
   UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,16 +55,7 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
     return pathname === ROUTES.dsr || pathname === ROUTES.dsrMy;
   }
   if (label === "I-Notes" || label === "My Notes") {
-    return pathname.startsWith("/notes") && pathname !== "/notes/shared-by-me" && pathname !== "/notes/shared-with-me";
-  }
-  if (label === "Shared By Me") {
-    return pathname === "/notes/shared-by-me";
-  }
-  if (label === "Shared With Me") {
-    return pathname === "/notes/shared-with-me";
-  }
-  if (label === "Member Notes") {
-    return pathname.startsWith("/notes/member");
+    return pathname.startsWith("/notes");
   }
   if (label === "My Blockers") {
     return pathname.startsWith(ROUTES.blockers);
@@ -99,19 +86,11 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
 export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: string }) {
   const pathname = usePathname();
   const quote = getDayQuote();
-  const [isNotesExpanded, setIsNotesExpanded] = useState(() => pathname.startsWith("/notes"));
-
-  useEffect(() => {
-    if (pathname.startsWith("/notes")) {
-      setIsNotesExpanded(true);
-    }
-  }, [pathname]);
 
   const isManager = userRole === "MANAGER";
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
-  const memberNotesHref = userId ? `/notes/member/${userId}` : "/notes/member";
 
-  // Determine active module based on path
+  // Determine active module title based on path
   let activeModuleTitle = "Standup";
   if (pathname.startsWith("/people")) {
     activeModuleTitle = "People";
@@ -120,7 +99,6 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   } else if (pathname.startsWith("/sales")) {
     activeModuleTitle = "Sales";
   }
-
 
   // Dynamic items based on active module & user role
   let navItems: Array<{ label: string; href: string; icon: React.ElementType }> = [];
@@ -138,35 +116,27 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = [
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
     ];
-    // } else if (activeModuleTitle === "Notes") {
-    //   navItems = [
-    //     { label: "My Notes", href: iNotesHref, icon: FileText },
-    //     { label: "Shared By Me", href: "/notes/shared-by-me", icon: Users },
-    //     { label: "Shared With Me", href: "/notes/shared-with-me", icon: Share2 },
-    //     ...(isManager ? [{ label: "Member Notes", href: memberNotesHref, icon: UserCheck }] : []),
-    //   ];
   } else {
     // Standup Module
     navItems = isManager
       ? [
-        { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
-        { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
-        { label: "My DSM", href: ROUTES.dsmMy, icon: User },
-        { label: "DSR Management", href: ROUTES.dsrManage, icon: BarChart2 },
-        { label: "I-Notes", href: iNotesHref, icon: FileText },
-        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
-        { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
-      ]
+          { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
+          { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
+          { label: "My DSM", href: ROUTES.dsmMy, icon: User },
+          { label: "DSR Management", href: ROUTES.dsrManage, icon: BarChart2 },
+          { label: "I-Notes", href: iNotesHref, icon: FileText },
+          { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+          { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+          { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+        ]
       : [
-        { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
-        { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
-        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-        { label: "I-Notes", href: iNotesHref, icon: FileText },
-        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
-        { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
-
-      ];
+          { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
+          { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
+          { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+          { label: "I-Notes", href: iNotesHref, icon: FileText },
+          { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+          { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+        ];
   }
 
   return (
@@ -174,10 +144,10 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       <div>
         {/* Top Header matching exact screenshot design */}
         <div className="px-5 pt-6 pb-4">
-          <h2 className="text-lg font-semibold  tracking-tight text-foreground">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
             {activeModuleTitle}
           </h2>
-          <p className="text-sm font-medium text-muted-foreground/80 ">
+          <p className="text-sm font-medium text-muted-foreground/80">
             Workspace
           </p>
         </div>
@@ -187,83 +157,13 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           {navItems.map((item) => {
             const active = isSubItemActive(pathname, item.href, item.label);
             const Icon = item.icon;
-            // const isINotes = item.label === "I-Notes";
-
-            // if (isINotes) {
-            //   return (
-            //     <div key={item.label} className="flex flex-col gap-1">
-            //       <div className="flex items-center justify-between min-w-0">
-            //         <Link
-            //           href={item.href}
-            //           className={cn(
-            //             "flex flex-1 items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
-            //             active
-            //               ? "bg-primary/10 text-primary font-semibold shadow-2xs border-l-4 border-primary"
-            //               : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-            //           )}
-            //         >
-            //           <Icon size={18} strokeWidth={2} className="shrink-0" />
-            //           <span className="truncate">{item.label}</span>
-            //         </Link>
-
-            //         <button
-            //           type="button"
-            //           onClick={(e) => {
-            //             e.preventDefault();
-            //             e.stopPropagation();
-            //             setIsNotesExpanded((prev) => !prev);
-            //           }}
-            //           className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-1"
-            //           title={isNotesExpanded ? "Hide sub-links" : "Show sub-links"}
-            //         >
-            //           <ChevronDown
-            //             size={15}
-            //             className={cn(
-            //               "transition-transform duration-200",
-            //               isNotesExpanded ? "rotate-180" : "rotate-0"
-            //             )}
-            //           />
-            //         </button>
-            //       </div>
-
-            //       {isNotesExpanded && (
-            //         <div className="ml-5 pl-2.5 border-l-2 border-border/50 flex flex-col gap-1 my-1">
-            //           {[
-            //             { label: "Shared By Me", href: "/notes/shared-by-me", icon: Users },
-            //             { label: "Shared With Me", href: "/notes/shared-with-me", icon: Share2 },
-            //             ...(isManager ? [{ label: "Member Notes", href: memberNotesHref, icon: UserCheck }] : []),
-            //           ].map((sub) => {
-            //             const isSubActive = pathname === sub.href;
-            //             const SubIcon = sub.icon;
-
-            //             return (
-            //               <Link
-            //                 key={sub.label}
-            //                 href={sub.href}
-            //                 className={cn(
-            //                   "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors truncate",
-            //                   isSubActive
-            //                     ? "bg-primary/10 text-primary font-semibold"
-            //                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            //                 )}
-            //               >
-            //                 <SubIcon size={14} className="shrink-0" />
-            //                 <span className="truncate">{sub.label}</span>
-            //               </Link>
-            //             );
-            //           })}
-            //         </div>
-            //       )}
-            //     </div>
-            //   );
-            // }
 
             return (
               <Link
                 key={item.label}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-1 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
                   active
                     ? "bg-primary/10 text-primary font-semibold shadow-2xs border-l-4 border-primary"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
