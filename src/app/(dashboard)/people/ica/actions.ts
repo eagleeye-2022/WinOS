@@ -12,6 +12,15 @@ export interface IcaItem {
   status: "Matched" | "Extra" | "Missing";
 }
 
+export interface IcaDocumentData {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType?: string;
+  comment?: string;
+  uploadedOn: string;
+}
+
 export interface IcaProfileData {
   userId: string;
   userName: string;
@@ -28,6 +37,7 @@ export interface IcaProfileData {
   fileName: string;
   fileUrl: string;
   uploadedOn: string;
+  documents: IcaDocumentData[];
 }
 
 // Convert DB status to frontend status casing
@@ -75,6 +85,9 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
     include: {
       icebergProfile: true,
       competencyAttributes: true,
+      icaDocuments: {
+        orderBy: { uploadedOn: "desc" },
+      },
     },
   });
 
@@ -149,6 +162,29 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
     else if (attr.category === CompetencyCategory.MOTIVE) motives.push(item);
   }
 
+  // Format documents array
+  const documents: IcaDocumentData[] = (user.icaDocuments || []).map((doc) => ({
+    id: doc.id,
+    fileName: doc.fileName,
+    fileUrl: doc.fileUrl,
+    fileType: doc.fileType ?? undefined,
+    comment: doc.comment ?? undefined,
+    uploadedOn: new Date(doc.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(doc.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  }));
+
+  // Fallback for legacy single-file on profile if present and not in documents list
+  if (profile?.fileName && profile?.fileUrl && !documents.some(d => d.fileUrl === profile.fileUrl)) {
+    documents.unshift({
+      id: "legacy-1",
+      fileName: profile.fileName,
+      fileUrl: profile.fileUrl,
+      comment: profile.comment ?? undefined,
+      uploadedOn: profile.uploadedOn 
+        ? new Date(profile.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(profile.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) 
+        : "Initial Upload",
+    });
+  }
+
   return {
     userId: user.id,
     userName: user.name ?? user.email,
@@ -164,11 +200,12 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
     motives,
     managerNotes: profile.coachingNotes ?? "",
     comment: profile.comment ?? "",
-    fileName: profile.fileName ?? "",
-    fileUrl: profile.fileUrl ?? "",
+    fileName: profile.fileName ?? (documents[0]?.fileName || ""),
+    fileUrl: profile.fileUrl ?? (documents[0]?.fileUrl || ""),
     uploadedOn: profile.uploadedOn 
       ? new Date(profile.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(profile.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) 
-      : ""
+      : (documents[0]?.uploadedOn || ""),
+    documents,
   };
 }
 
@@ -186,6 +223,16 @@ export async function saveIcaFile(
   fileUrl: string, 
   comment?: string
 ): Promise<void> {
+  await db.icaDocument.create({
+    data: {
+      userId,
+      fileName,
+      fileUrl,
+      comment,
+      uploadedOn: new Date(),
+    },
+  });
+
   await db.icebergProfile.upsert({
     where: { userId },
     update: { 
@@ -227,6 +274,18 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
   const protocol = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https";
   const fileUrl = `${protocol}://${host}/uploads/${uniqueFileName}`;
 
+  // Store in IcaDocument table to support multiple files
+  await db.icaDocument.create({
+    data: {
+      userId,
+      fileName: file.name,
+      fileUrl,
+      fileType: fileExtension,
+      comment,
+      uploadedOn: new Date(),
+    },
+  });
+
   await db.icebergProfile.upsert({
     where: { userId },
     update: { 
@@ -242,6 +301,13 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
       comment, 
       uploadedOn: new Date() 
     }
+  });
+}
+
+export async function deleteIcaFileAction(documentId: string): Promise<void> {
+  if (documentId.startsWith("legacy-")) return;
+  await db.icaDocument.delete({
+    where: { id: documentId },
   });
 }
 

@@ -28,6 +28,7 @@ model User {
   reviewedDsrs          DsrEntry[]            @relation("DsrReviewedBy")
   dsrEntries            DsrEntry[]            @relation("UserDsrEntries")
   icebergProfile        IcebergProfile?
+  icaDocuments          IcaDocument[]
   notes                 Note[]
   notebooks             Notebook[]
   sentNotifications     Notification[]        @relation("SentNotifications")
@@ -500,6 +501,19 @@ model RoleTaskDocument {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model IcaDocument {
+  id         String   @id @default(cuid())
+  userId     String
+  fileName   String
+  fileUrl    String
+  fileType   String?
+  comment    String?
+  uploadedOn DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {
