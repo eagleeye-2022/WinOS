@@ -12,6 +12,28 @@ import {
 import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-item";
 import type { SharedNoteData } from "../queries";
 
+// Pastel color palette matching Note History cards
+const COLOR_PALETTE = [
+  "#fef9c3", // Yellow
+  "#dcfce7", // Green
+  "#dbeafe", // Blue
+  "#fce7f3", // Pink
+  "#f3e8ff", // Purple
+  "#ffedd5", // Orange
+];
+
+function getCardColor(color: string | null | undefined, id: string) {
+  if (color && color !== "#ffffff" && color !== "transparent") {
+    return color;
+  }
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % COLOR_PALETTE.length;
+  return COLOR_PALETTE[index];
+}
+
 // ── Shared Note Card ──────────────────────────────────────────────────────────
 
 function SharedNoteCard({
@@ -46,44 +68,38 @@ function SharedNoteCard({
   };
 
   return (
-    <div
-      className="rounded-lg border p-3 flex flex-col gap-2 relative shadow-2xs text-left"
-      style={{
-        backgroundColor: note.color ? `${note.color}d9` : "rgba(255, 255, 255, 0.75)",
-        backdropFilter: "blur(2px)",
-      }}
-    >
+    <div className="flex flex-col gap-2 text-left">
       {/* Content */}
       {note.content && (
         <div
-          className="text-xs text-foreground leading-relaxed html-content"
+          className="text-xs text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
       )}
 
       {/* Checklist items */}
       {note.checklistItems.length > 0 && (
-        <div className="flex flex-col gap-1.5 mt-1 border-t pt-2 border-black/5">
+        <div className="flex flex-col gap-1.5 mt-1 border-t pt-2 border-black/10">
           {note.checklistItems.map((item) => (
             <button
               key={item.id}
               type="button"
               disabled={isPending || isReadOnly}
               onClick={() => handleToggle(item.id)}
-              className={`flex items-start gap-2 rounded p-0.5 w-full text-left transition-colors ${
+              className={`flex items-start gap-2 rounded p-1 w-full text-left transition-colors ${
                 isReadOnly ? "cursor-default opacity-85" : "hover:bg-black/5 cursor-pointer"
               }`}
             >
               <span className="mt-0.5 shrink-0">
                 {item.checked ? (
-                  <CheckSquare size={12} className="text-primary" />
+                  <CheckSquare size={13} className="text-primary" />
                 ) : (
-                  <Square size={12} className="text-muted-foreground/60" />
+                  <Square size={13} className="text-slate-500" />
                 )}
               </span>
               <span
-                className={`text-[10px] leading-tight select-none ${
-                  item.checked ? "text-muted-foreground line-through" : "text-foreground font-medium"
+                className={`text-xs leading-tight select-none ${
+                  item.checked ? "text-slate-500 line-through" : "text-slate-800 dark:text-slate-900 font-medium"
                 }`}
               >
                 {item.text}
@@ -94,11 +110,11 @@ function SharedNoteCard({
       )}
 
       {/* Footer Info */}
-      <div className="flex items-center justify-between mt-1 text-[8px] text-muted-foreground/80 border-t pt-1.5 border-black/5">
+      <div className="flex items-center justify-between mt-1 text-[9px] text-slate-600 dark:text-slate-700 border-t pt-1.5 border-black/10 font-medium">
         <span>{new Date(note.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
         {note.deadline && (
-          <span className="flex items-center gap-0.5 text-amber-700 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full">
-            <Calendar size={8} />
+          <span className="flex items-center gap-0.5 text-amber-900 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full">
+            <Calendar size={9} />
             Due {new Date(note.deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
           </span>
         )}
@@ -134,7 +150,7 @@ export function WorkspaceNotesPanel({
       </div>
 
       {/* Scrollable shared items list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground my-auto">
             <Share2 size={32} className="text-muted-foreground/40 mb-3" />
@@ -146,22 +162,29 @@ export function WorkspaceNotesPanel({
         ) : (
           /* Shared Notes Section */
           <div className="flex flex-col gap-3">
-            {sharedNotes.map((note) => (
-              <div
-                key={note.id}
-                className="border border-border/80 bg-accent/5 rounded-xl p-3 flex flex-col gap-2.5 shadow-xs"
-              >
-                <div className="flex items-center justify-between border-b pb-1.5 border-border/30">
-                  <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
-                    <Sparkles size={10} /> In {note.threadTitle}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground">
-                    by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
-                  </span>
+            {sharedNotes.map((note) => {
+              const bg = getCardColor(note.color, note.id);
+              return (
+                <div
+                  key={note.id}
+                  className="rounded-xl border p-3 flex flex-col gap-2.5 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md"
+                  style={{
+                    backgroundColor: bg,
+                    borderLeftColor: "rgba(0, 0, 0, 0.25)",
+                  }}
+                >
+                  <div className="flex items-center justify-between border-b pb-1.5 border-black/10">
+                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-900 flex items-center gap-1">
+                      <Sparkles size={11} className="text-primary" /> In {note.threadTitle}
+                    </span>
+                    <span className="text-[9px] font-semibold text-slate-700 dark:text-slate-800">
+                      by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
+                    </span>
+                  </div>
+                  <SharedNoteCard note={note} userRole={userRole} />
                 </div>
-                <SharedNoteCard note={note} userRole={userRole} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

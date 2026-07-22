@@ -2,8 +2,8 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { headers } from "next/headers";
 
 export interface RTDDocument {
   id: string;
@@ -90,11 +90,19 @@ export async function getRtdDocumentsAction(currentUserId: string, isManager: bo
       minute: "2-digit",
     });
 
+    let normalizedUrl = doc.fileUrl || undefined;
+    if (normalizedUrl) {
+      if (normalizedUrl.includes("/uploads/")) {
+        const parts = normalizedUrl.split("/uploads/");
+        normalizedUrl = `/api/uploads/${parts[parts.length - 1]}`;
+      }
+    }
+
     return {
       id: doc.id,
       taskName: doc.taskName,
       fileName: doc.fileName,
-      fileUrl: doc.fileUrl || undefined,
+      fileUrl: normalizedUrl,
       fileType: doc.fileType,
       uploadedOn,
       submittedBy: {
@@ -115,26 +123,25 @@ export async function uploadRtdFileAction(userId: string, formData: FormData): P
   const taskName = formData.get("taskName") as string || "Untitled Task Document";
   const comment = formData.get("comment") as string || undefined;
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // Ensure public/uploads directory exists
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  // Generate safe unique filename
   const fileExtension = path.extname(file.name);
   const baseName = path.basename(file.name, fileExtension).replace(/[^a-zA-Z0-9]/g, "_");
   const uniqueFileName = `${Date.now()}-${baseName}${fileExtension}`;
-  const filePath = path.join(uploadDir, uniqueFileName);
 
-  // Write file to disk
+  // Save to local storage and generate URL dynamically
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filePath = path.join(uploadDir, uniqueFileName);
   await fs.writeFile(filePath, buffer);
 
-  // Return static absolute url
-  const host = (await headers()).get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https";
-  const fileUrl = `${protocol}://${host}/uploads/${uniqueFileName}`;
+  const headersList = await headers();
+  const host = headersList.get("host") || "localhost:3000";
+  const protocol = headersList.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+  const siteUrl = `${protocol}://${host}`;
+
+  const fileUrl = `${siteUrl}/api/uploads/${uniqueFileName}`;
 
   // Save document directly to database
   await db.roleTaskDocument.create({

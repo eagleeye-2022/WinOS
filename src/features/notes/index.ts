@@ -2,6 +2,7 @@ export { NoteCard } from "./components/note-card";
 export { NewNoteForm } from "./components/new-note-form";
 export { NotesList } from "./components/notes-list";
 export { NotesWorkspace } from "./components/notes-workspace";
+export { NotesTopNav } from "./components/notes-top-nav";
 export { getNotes, getNotebooks, getBoards, getHistory, getSharedWithMeNotes, getSharedByMeNotes, getWorkspaceUsers } from "./queries";
 export { createNote } from "./actions/create-note";
 export { updateNote } from "./actions/update-note";
@@ -29,4 +30,3 @@ export type { TogglePinState } from "./actions/toggle-pin";
 export type { CreateNotebookState } from "./actions/create-notebook";
 export type { ToggleItemState } from "./actions/toggle-checklist-item";
 export type { MoveBoardNoteState } from "./actions/move-board-note";
-

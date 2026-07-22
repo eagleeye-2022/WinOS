@@ -8,19 +8,14 @@ export default async function IcaPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
 
-  // Fetch all team members plus the current manager from the database to populate the selector dropdown
+  // Fetch all team members plus managers from the database to populate the selector dropdown
   const allUsers = await db.user.findMany({
-    where: {
-      OR: [
-        { role: "TEAM_MEMBER" },
-        { id: session.user.id }
-      ]
-    },
     select: {
       id: true,
       name: true,
       email: true,
       title: true,
+      role: true,
     },
     orderBy: {
       name: "asc",
@@ -32,7 +27,8 @@ export default async function IcaPage() {
     id: u.id,
     name: u.name ?? u.email,
     email: u.email,
-    title: u.title ?? "Team Member"
+    title: u.title ?? (u.role === "MANAGER" ? "Manager" : "Team Member"),
+    role: u.role,
   }));
 
   return (

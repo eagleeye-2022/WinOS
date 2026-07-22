@@ -16,7 +16,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Image as ImageIcon,
-  ClipboardSignature
+  ClipboardSignature,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -419,11 +420,26 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     />
                   </div>
                 ) : activeDoc.fileUrl && activeDoc.fileName.toLowerCase().endsWith(".pdf") ? (
-                  /* PDF IFRAME PREVIEW MODE */
-                  <div className="w-full h-full min-h-[480px] rounded-2xl overflow-hidden border shadow-xs bg-background">
+                  /* PDF IFRAME PREVIEW MODE WITH APP THEMED TOOLBAR */
+                  <div className="w-full h-full min-h-[520px] rounded-2xl overflow-hidden border border-border/80 shadow-xs bg-card flex flex-col">
+                    <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-xs font-semibold text-foreground select-none">
+                      <div className="flex items-center gap-2 truncate max-w-[70%]">
+                        <FileIcon fileName={activeDoc.fileName} size={16} />
+                        <span className="truncate font-bold text-foreground">{activeDoc.fileName}</span>
+                      </div>
+                      <a
+                        href={activeDoc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                      >
+                        <span>Open / Print</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
                     <iframe 
-                      src={activeDoc.fileUrl} 
-                      className="w-full h-full min-h-[480px] border-none animate-in fade-in duration-300"
+                      src={`${activeDoc.fileUrl}#toolbar=0`} 
+                      className="w-full flex-1 border-none bg-background animate-in fade-in duration-300"
                     />
                   </div>
                 ) : (

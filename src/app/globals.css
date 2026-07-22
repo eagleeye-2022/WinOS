@@ -29,64 +29,64 @@
 
 :root {
   /* WinOS brand blue — matches Figma primary (~#1976D2 / Material Blue 700) */
-  --primary:            oklch(0.546 0.200 260);
+  --primary: oklch(0.546 0.200 260);
   --primary-foreground: oklch(0.985 0 0);
 
-  --background:         oklch(1 0 0);
-  --foreground:         oklch(0.145 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
 
-  --card:               oklch(1 0 0);
-  --card-foreground:    oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
 
-  --popover:            oklch(1 0 0);
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
 
-  --secondary:          oklch(0.97 0 0);
+  --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
 
-  --muted:              oklch(0.97 0 0);
-  --muted-foreground:   oklch(0.556 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
 
   /* accent = very light blue tint — used for hover & active backgrounds */
-  --accent:             oklch(0.96 0.025 257);
-  --accent-foreground:  oklch(0.456 0.185 257);
+  --accent: oklch(0.96 0.025 257);
+  --accent-foreground: oklch(0.456 0.185 257);
 
-  --destructive:        oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.577 0.245 27.325);
 
-  --border:             oklch(0.922 0 0);
-  --input:              oklch(0.922 0 0);
-  --ring:               oklch(0.456 0.185 257);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.456 0.185 257);
 
   --radius: 0.625rem;
 }
 
 .dark {
-  --primary:            oklch(0.72 0.15 257);
+  --primary: oklch(0.72 0.15 257);
   --primary-foreground: oklch(0.145 0 0);
 
-  --background:         oklch(0.145 0 0);
-  --foreground:         oklch(0.985 0 0);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
 
-  --card:               oklch(0.205 0 0);
-  --card-foreground:    oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
 
-  --popover:            oklch(0.205 0 0);
+  --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
 
-  --secondary:          oklch(0.269 0 0);
+  --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
 
-  --muted:              oklch(0.269 0 0);
-  --muted-foreground:   oklch(0.708 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
 
-  --accent:             oklch(0.269 0.03 257);
-  --accent-foreground:  oklch(0.72 0.15 257);
+  --accent: oklch(0.269 0.03 257);
+  --accent-foreground: oklch(0.72 0.15 257);
 
-  --destructive:        oklch(0.704 0.191 22.216);
+  --destructive: oklch(0.704 0.191 22.216);
 
-  --border:             oklch(1 0 0 / 10%);
-  --input:              oklch(1 0 0 / 15%);
-  --ring:               oklch(0.72 0.15 257);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.72 0.15 257);
 }
 
 * {
@@ -102,40 +102,50 @@ body {
 .html-content {
   text-align: left;
 }
+
 .html-content p {
   margin-bottom: 0.5rem;
 }
+
 .html-content p:last-child {
   margin-bottom: 0;
 }
+
 .html-content ul {
   list-style-type: disc;
   padding-left: 1.25rem !important;
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+
 .html-content ol {
   list-style-type: decimal;
   padding-left: 1.25rem !important;
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+
 .html-content li {
   margin-bottom: 0.125rem;
   list-style-position: outside;
 }
+
 .html-content strong {
   font-weight: bold;
 }
+
 .html-content em {
   font-style: italic;
 }
+
 .html-content u {
   text-decoration: underline;
 }
+
 .html-content s {
   text-decoration: line-through;
 }
+
 .html-content a {
   text-decoration: underline;
   color: var(--primary);
@@ -146,4 +156,41 @@ body {
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
+}
+
+/* Globally hide all scrollbars across all elements while keeping scroll functionality */
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Custom scrollbar utility to show scrollbars specifically for DSM columns */
+.dsm-columns-scrollbar {
+  scrollbar-width: auto !important;
+  -ms-overflow-style: auto !important;
+}
+
+.dsm-columns-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.dsm-columns-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.dsm-columns-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border) !important;
+  border-radius: 9999px !important;
+}
+
+.dsm-columns-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground) !important;
 }

@@ -2,23 +2,24 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
-  Plus,
   FileText,
   UploadCloud,
   X,
   MessageSquare,
-  Brain,
-  Layers,
-  TrendingUp,
-  Compass,
-  ClipboardSignature,
-  Check
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Trash2,
+  ExternalLink,
+  Sparkles,
+  ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getIcaProfile,
   saveCoachingNotes,
   uploadIcaFileAction,
+  deleteIcaFileAction,
   createAttribute,
   updateAttributeStatus,
   deleteAttribute,
@@ -30,11 +31,11 @@ type MatchStatus = "Matched" | "Extra" | "Missing";
 
 function AttributeStatusIcon({ status }: { status: MatchStatus }) {
   if (status === "Matched") {
-    return <Check size={11} strokeWidth={3} className="text-emerald-600 shrink-0 animate-in zoom-in-50 duration-200" />;
+    return <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />;
   }
   return (
     <span className={cn(
-      "h-1 w-1 rounded-full shrink-0",
+      "h-1.5 w-1.5 rounded-full shrink-0 ml-0.5 mr-0.5",
       status === "Extra" ? "bg-neutral-400" : "bg-rose-500"
     )} />
   );
@@ -52,6 +53,7 @@ interface DbUser {
   name: string;
   email: string;
   title: string;
+  role?: string;
 }
 
 interface IcaWorkspaceProps {
@@ -64,13 +66,161 @@ interface IcaWorkspaceProps {
   dbUsers: DbUser[];
 }
 
+// ── Iceberg Graphic Illustration ─────────────────────────────────────────────
+
+interface IcebergGraphicProps {
+  profile: IcaProfileData;
+  counts: {
+    skills: number;
+    knowledge: number;
+    selfImage: number;
+    traits: number;
+    motives: number;
+  };
+}
+
+function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
+  const renderTooltipItems = (items: IcaItem[], categoryName: string) => {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 font-bold text-slate-900 uppercase tracking-wider text-[9px]">
+          <span>{categoryName}</span>
+          <span className="text-sky-600 font-semibold">{items.length} total</span>
+        </div>
+        {items.length === 0 ? (
+          <span className="text-[10px] text-slate-400 italic py-1 block">No attributes added yet</span>
+        ) : (
+          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center gap-1.5 text-[10px] text-slate-700">
+                <span className={cn(
+                  "h-1.5 w-1.5 rounded-full shrink-0",
+                  item.status === "Matched" ? "bg-emerald-500" :
+                    item.status === "Extra" ? "bg-slate-400" : "bg-rose-500"
+                )} />
+                <span className="truncate flex-1" title={item.name}>{item.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative w-full aspect-square rounded-2xl shadow-sm border border-sky-100/50 bg-sky-950/5 select-none overflow-visible mx-auto">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/competency-iceberg.png"
+        alt="Competency Iceberg"
+        className="w-full h-full object-cover rounded-2xl"
+      />
+
+      {/* Visual Connectors & Pulsing Dots Overlay */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100">
+        {/* Above Waterline - Skills */}
+        <line x1="25" y1="17" x2="48" y2="24" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="48" cy="24" r="1.2" fill="#0ea5e9" />
+        <circle cx="48" cy="24" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
+
+        {/* Above Waterline - Knowledge */}
+        <line x1="75" y1="22" x2="52" y2="24" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="52" cy="24" r="1.2" fill="#0ea5e9" />
+        <circle cx="52" cy="24" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
+
+        {/* Below Waterline - Traits */}
+        <line x1="25" y1="50" x2="44" y2="58" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="44" cy="58" r="1.2" fill="#0ea5e9" />
+        <circle cx="44" cy="58" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
+
+        {/* Below Waterline - Self-Image */}
+        <line x1="75" y1="62" x2="54" y2="70" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="54" cy="70" r="1.2" fill="#0ea5e9" />
+        <circle cx="54" cy="70" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
+
+        {/* Below Waterline - Motives */}
+        <line x1="28" y1="82" x2="50" y2="85" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="50" cy="85" r="1.2" fill="#0ea5e9" />
+        <circle cx="50" cy="85" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
+      </svg>
+
+      {/* 1. Skills Badge */}
+      <div className="absolute top-[14%] left-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Skills</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] text-emerald-700 font-bold">
+            {counts.skills}
+          </span>
+        </div>
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.skills, "Skills")}
+        </div>
+      </div>
+
+      {/* 2. Knowledge Badge */}
+      <div className="absolute top-[19%] right-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Knowledge</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 px-1 text-[10px] text-cyan-700 font-bold">
+            {counts.knowledge}
+          </span>
+        </div>
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.knowledge, "Knowledge")}
+        </div>
+      </div>
+
+      {/* 3. Traits Badge */}
+      <div className="absolute top-[47%] left-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Traits</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 px-1 text-[10px] text-sky-700 font-bold">
+            {counts.traits}
+          </span>
+        </div>
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.traits, "Traits")}
+        </div>
+      </div>
+
+      {/* 4. Self-Image Badge */}
+      <div className="absolute top-[59%] right-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Self-Image</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 text-[10px] text-indigo-700 font-bold">
+            {counts.selfImage}
+          </span>
+        </div>
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.selfImage, "Self-Image")}
+        </div>
+      </div>
+
+      {/* 5. Motives Badge */}
+      <div className="absolute top-[79%] left-[9%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Motives</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 px-1 text-[10px] text-fuchsia-700 font-bold">
+            {counts.motives}
+          </span>
+        </div>
+        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.motives, "Motives")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Workspace ────────────────────────────────────────────────────────────
+
 export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps) {
   const isManager = currentUser.role === "MANAGER";
 
   // Active selected user ID state
   const [selectedUserId, setSelectedUserId] = useState(() => {
     if (isManager) {
-      return dbUsers[0]?.id ?? "";
+      return dbUsers.find((u) => u.id === currentUser.id)?.id || dbUsers[0]?.id || currentUser.id;
     }
     return currentUser.id;
   });
@@ -78,6 +228,10 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   // DB Profile and loading states
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<IcaProfileData | null>(null);
+
+  // Selected document ID & in-page detail viewer state (matching RTD module)
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [isViewingDoc, setIsViewingDoc] = useState(false);
 
   // Upload modal states
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -103,6 +257,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
       .then((data) => {
         setProfile(data);
         setEditingNotes(data.managerNotes || "");
+        setSelectedDocId(data.documents[0]?.id || null);
         setLoading(false);
       })
       .catch((err) => {
@@ -116,6 +271,15 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
     setLoading(true);
     setSelectedUserId(userId);
   };
+
+  // Active Document calculation
+  const activeDoc = useMemo(() => {
+    if (!profile?.documents || profile.documents.length === 0) return null;
+    if (selectedDocId) {
+      return profile.documents.find((d) => d.id === selectedDocId) || profile.documents[0];
+    }
+    return profile.documents[0];
+  }, [profile, selectedDocId]);
 
   // Save Notes handler
   const handleSaveNotes = async () => {
@@ -144,12 +308,10 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   const toggleAttributeStatus = async (category: "skills" | "knowledge" | "selfImage" | "traits" | "motives", item: IcaItem) => {
     if (!profile) return;
 
-    // Cycle Match Status: Matched -> Extra -> Missing -> Matched
     let nextStatus: MatchStatus = "Matched";
     if (item.status === "Matched") nextStatus = "Extra";
     else if (item.status === "Extra") nextStatus = "Missing";
 
-    // Optimistically update UI state
     setProfile((prev) => {
       if (!prev) return null;
       const updateList = (list: IcaItem[]) =>
@@ -169,7 +331,6 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
       await updateAttributeStatus(item.id, nextStatus);
     } catch (err) {
       console.error("[ICA] Failed to update attribute status", err);
-      // Revert in case of backend failure
       const data = await getIcaProfile(selectedUserId);
       setProfile(data);
     }
@@ -179,7 +340,6 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   const deleteAttributeHandler = async (category: "skills" | "knowledge" | "selfImage" | "traits" | "motives", item: IcaItem) => {
     if (!profile) return;
 
-    // Optimistically update UI state
     setProfile((prev) => {
       if (!prev) return null;
       const filterList = (list: IcaItem[]) => list.filter((i) => i.id !== item.id);
@@ -197,7 +357,6 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
       await deleteAttribute(item.id);
     } catch (err) {
       console.error("[ICA] Failed to delete attribute", err);
-      // Revert in case of failure
       const data = await getIcaProfile(selectedUserId);
       setProfile(data);
     }
@@ -230,7 +389,6 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
     }
   };
 
-  // Inline inputs keyboard listeners
   const handleAddSkill = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       addAttributeHandler("skills", newSkillInput);
@@ -266,29 +424,16 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
     }
   };
 
-  // Dynamic stats calculator
+  // Dynamic counts
   const counts = useMemo(() => {
-    if (!profile) return { skills: "0/0", knowledge: "0/0", selfImage: "0/0", traits: "0/0", motives: "0/0", overall: 0 };
-
-    const skillsTotal = profile.skills.length;
-    const knowledgeTotal = profile.knowledge.length;
-    const selfImageTotal = profile.selfImage.length;
-    const traitsTotal = profile.traits.length;
-    const motivesTotal = profile.motives.length;
-
-    const skillsMatched = profile.skills.filter((i) => i.status === "Matched").length;
-    const knowledgeMatched = profile.knowledge.filter((i) => i.status === "Matched").length;
-    const selfImageMatched = profile.selfImage.filter((i) => i.status === "Matched").length;
-    const traitsMatched = profile.traits.filter((i) => i.status === "Matched").length;
-    const motivesMatched = profile.motives.filter((i) => i.status === "Matched").length;
-
+    if (!profile) return { skills: 0, knowledge: 0, selfImage: 0, traits: 0, motives: 0, overall: 0 };
     return {
-      skills: `${skillsMatched}/${skillsTotal}`,
-      knowledge: `${knowledgeMatched}/${knowledgeTotal}`,
-      selfImage: `${selfImageMatched}/${selfImageTotal}`,
-      traits: `${traitsMatched}/${traitsTotal}`,
-      motives: `${motivesMatched}/${motivesTotal}`,
-      overall: skillsMatched + knowledgeMatched + selfImageMatched + traitsMatched + motivesMatched,
+      skills: profile.skills.length,
+      knowledge: profile.knowledge.length,
+      selfImage: profile.selfImage.length,
+      traits: profile.traits.length,
+      motives: profile.motives.length,
+      overall: profile.skills.length + profile.knowledge.length + profile.selfImage.length + profile.traits.length + profile.motives.length,
     };
   }, [profile]);
 
@@ -321,6 +466,9 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
       // Refresh user profile details
       const data = await getIcaProfile(selectedUserId);
       setProfile(data);
+      if (data.documents.length > 0) {
+        setSelectedDocId(data.documents[0].id);
+      }
       setShowUploadModal(false);
       setNewComment("");
       setUploadedFile(null);
@@ -331,10 +479,212 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
   if (loading || !profile) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
+      <div className="flex-1 flex items-center justify-center bg-background min-h-[500px]">
         <div className="flex flex-col items-center gap-2 select-none">
-          <Brain size={32} className="text-primary animate-pulse" />
+          <Sparkles size={32} className="text-primary animate-pulse" />
           <p className="text-xs text-muted-foreground font-semibold">Loading Competency Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── IN-PAGE DETAIL VIEWER (EXACT RTD MODULE LAYOUT) ────────────────────────
+  if (isViewingDoc && activeDoc) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-background p-6 animate-in fade-in duration-200">
+        {/* Top Control Bar */}
+        <div className="flex items-center justify-between border-b pb-5 mb-6 select-none">
+          <button
+            type="button"
+            onClick={() => setIsViewingDoc(false)}
+            className="flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+          >
+            <ChevronLeft size={14} />
+            Back to Documents
+          </button>
+          <h2 className="text-sm font-bold text-foreground uppercase tracking-widest bg-muted/60 px-3 py-1 rounded-md">
+            ICA DETAIL VIEWER
+          </h2>
+        </div>
+
+        {/* Main Split Layout */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+          {/* Left Column (8 Cols) - Document Preview */}
+          <div className="xl:col-span-8 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <FileText size={15} className="text-primary" /> Document Preview
+            </div>
+
+            <div className="bg-card border border-border/80 rounded-2xl p-6 shadow-3xs min-h-[550px] flex flex-col items-center justify-center relative overflow-hidden">
+              {activeDoc.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                <div className="w-full h-full min-h-[480px] flex items-center justify-center bg-muted/10 rounded-xl overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeDoc.fileUrl}
+                    alt={activeDoc.fileName}
+                    className="max-w-full max-h-[500px] object-contain rounded-lg shadow-sm"
+                  />
+                </div>
+              ) : activeDoc.fileName.toLowerCase().endsWith(".pdf") ? (
+                <div className="w-full h-[580px] rounded-xl overflow-hidden border border-border/80 bg-card shadow-3xs flex flex-col">
+                  {/* Custom App Theme Toolbar for PDF */}
+                  <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-xs font-semibold text-foreground select-none">
+                    <div className="flex items-center gap-2 truncate max-w-[70%]">
+                      <FileText size={15} className="text-rose-500 shrink-0" />
+                      <span className="truncate font-bold text-foreground">{activeDoc.fileName}</span>
+                    </div>
+                    <a
+                      href={activeDoc.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                    >
+                      <span>Open / Print</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  <iframe
+                    src={`${activeDoc.fileUrl}#toolbar=0`}
+                    className="w-full flex-1 border-none bg-background"
+                    title={activeDoc.fileName}
+                  />
+                </div>
+              ) : (
+                <div className="p-8 flex flex-col items-center justify-center text-center gap-3 max-w-sm">
+                  <FileText size={48} className="text-rose-500 animate-bounce" />
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">{activeDoc.fileName}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">This document file can be downloaded or opened directly in a new tab.</p>
+                  </div>
+                  <a
+                    href={activeDoc.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/95 transition-all cursor-pointer"
+                  >
+                    Open Document ↗
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column (4 Cols) - Details & Manager Notes */}
+          <div className="xl:col-span-4 flex flex-col gap-5">
+
+            {/* Submission Summary Card */}
+            <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2">
+                SUBMISSION SUMMARY
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">TASK NAME</label>
+                  <p className="text-sm font-bold text-foreground mt-0.5">ICA Alignment</p>
+                </div>
+
+                {/* Document Selector for preview */}
+                {profile.documents && profile.documents.length > 0 && (
+                  <div className="flex flex-col gap-1 border-t border-border/40 pt-3">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">SELECT PREVIEW FILE</label>
+                    <select
+                      value={activeDoc?.id || ""}
+                      onChange={(e) => setSelectedDocId(e.target.value)}
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/20 transition-colors shadow-2xs"
+                    >
+                      {profile.documents.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.fileName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="border-t border-border/40 pt-3">
+                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">UPLOADED FILE</label>
+                  <a
+                    href={activeDoc.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 bg-accent/20 hover:bg-accent/40 border rounded-xl p-2.5 transition-colors cursor-pointer"
+                  >
+                    <FileText size={18} className="text-rose-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold truncate text-foreground" title={activeDoc.fileName}>
+                        {activeDoc.fileName}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground uppercase mt-0.5">
+                        {activeDoc.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? "IMAGE ASSET" : "DOCUMENT FILE"}
+                      </p>
+                    </div>
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
+                  <div>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">UPLOADED ON</label>
+                    <p className="text-xs font-semibold text-foreground mt-0.5">{activeDoc.uploadedOn}</p>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">SUBMITTED BY</label>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary shrink-0">
+                        {getInitials(profile.userName)}
+                      </div>
+                      <span className="text-xs font-semibold text-foreground truncate">{profile.userName}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Submitter Comment Card */}
+            <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-3">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2 flex items-center gap-1.5">
+                <MessageSquare size={13} /> SUBMITTER COMMENT
+              </h3>
+              <div className="bg-muted/30 border p-3 rounded-xl text-xs text-muted-foreground leading-relaxed italic min-h-[50px]">
+                {activeDoc.comment || profile.comment || "No commentary was submitted with this file."}
+              </div>
+            </div>
+
+            {/* Manager Notes Card */}
+            <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-3">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <MessageSquare size={13} /> MANAGER NOTES
+                </h3>
+                {isManager && (
+                  <button
+                    type="button"
+                    onClick={handleSaveNotes}
+                    disabled={isSavingNotes}
+                    className="rounded-lg bg-primary px-3 py-1 text-[10px] font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
+                  >
+                    {isSavingNotes ? "Saving..." : "Save Notes"}
+                  </button>
+                )}
+              </div>
+
+              {isManager ? (
+                <textarea
+                  value={editingNotes}
+                  onChange={(e) => setEditingNotes(e.target.value)}
+                  placeholder="Add assessment notes, requested changes, or approval remarks..."
+                  className="w-full rounded-xl border bg-background p-3 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 min-h-[100px] resize-none text-foreground leading-relaxed"
+                />
+              ) : (
+                <div className="bg-muted/20 border p-3 rounded-xl text-xs text-muted-foreground italic leading-relaxed">
+                  {profile.managerNotes || "No manager notes recorded yet."}
+                </div>
+              )}
+            </div>
+
+          </div>
+
         </div>
       </div>
     );
@@ -343,594 +693,495 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   return (
     <div className="flex-1 overflow-y-auto bg-background p-6">
 
-      {/* ── Main Top Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Iceberg Competency Attributes</h1>
-          {isManager ? (
-            /* Manager User Selector */
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-muted-foreground font-semibold">Select Member:</span>
-              <select
-                value={selectedUserId}
-                onChange={(e) => handleUserChange(e.target.value)}
-                className="rounded-lg border bg-background px-3 py-1 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/40 transition-colors"
-              >
-                {dbUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.title})
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            /* Team Member Sub-Info */
-            <p className="text-xs text-muted-foreground mt-1">
-              {profile.userName} &bull; {profile.title} &bull; Submitted {profile.submittedDate}
-            </p>
-          )}
-        </div>
+      {/* ── Main Top Header ── */}
+      {/* <div className="flex flex-wrap items-start justify-between gap-4 pb-5 mb-5 border-b border-border/40">
 
-        {/* Legend status indicators */}
-        <div className="flex items-center gap-3.5 bg-card/60 border rounded-full px-4 py-1.5 text-[10px] font-bold select-none text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Matched
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
-            Extra
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            Missing
-          </span>
-        </div>
-      </div>
+
+       
+
+      </div> */}
 
       {/* ── Split Layout Workspace ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
-        {/* Left Side (8 Columns) - Attribute Grid and notes */}
-        <div className="xl:col-span-8 flex flex-col gap-6">
-
-          {/* Stats Bar */}
-          <div className="bg-card border rounded-2xl p-4 shadow-3xs grid grid-cols-5 gap-2 text-center transition-all duration-300 hover:shadow-2xs">
-            <div className="border-r border-border/40 py-1">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Overall</p>
-              <p className="text-lg font-extrabold text-primary mt-1">{counts.overall}</p>
-              <p className="text-[8px] text-muted-foreground/60 font-semibold mt-0.5">Attributes</p>
+      <div className="flex flex-col xl:flex-row gap-6">
+        <div>
+          <div className=" flex justify-between pb-2.5">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Iceberg Competency Attributes</h1>
+              {isManager ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground font-semibold">Member Profile:</span>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => handleUserChange(e.target.value)}
+                    className="rounded-lg border bg-card px-3 py-1 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/40 transition-colors shadow-2xs"
+                  >
+                    {dbUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} · {u.title} {u.id === currentUser.id ? " (You)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {profile.userName} &bull; {profile.title} &bull; Submitted {profile.submittedDate}
+                </p>
+              )}
             </div>
-            <div className="border-r border-border/40 py-1">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Skills</p>
-              <p className="text-lg font-extrabold text-foreground mt-1">{counts.skills}</p>
-              <p className="text-[8px] text-muted-foreground/60 font-semibold mt-0.5">Matched</p>
-            </div>
-            <div className="border-r border-border/40 py-1">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Knowledge</p>
-              <p className="text-lg font-extrabold text-foreground mt-1">{counts.knowledge}</p>
-              <p className="text-[8px] text-muted-foreground/60 font-semibold mt-0.5">Matched</p>
-            </div>
-            <div className="border-r border-border/40 py-1">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Self-Image</p>
-              <p className="text-lg font-extrabold text-foreground mt-1">{counts.selfImage}</p>
-              <p className="text-[8px] text-muted-foreground/60 font-semibold mt-0.5">Matched</p>
-            </div>
-            <div className="py-1">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Traits/Motives</p>
-              <p className="text-lg font-extrabold text-foreground mt-1">
-                {profile.traits.filter(i => i.status === "Matched").length + profile.motives.filter(i => i.status === "Matched").length}
-              </p>
-              <p className="text-[8px] text-muted-foreground/60 font-semibold mt-0.5">Matched</p>
+            <div className="flex items-center gap-4 text-xs font-medium select-none text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Matched
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                Extra
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                Missing
+              </span>
             </div>
           </div>
 
-          {/* Iceberg Category Cards */}
-          <div className="bg-card/40 border rounded-3xl p-5 shadow-3xs flex flex-col gap-6">
+          {/* Left Main Column (Flex-1) */}
+          <div className="flex-1 flex flex-col gap-6">
 
-            {/* ABOVE THE WATERLINE */}
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary flex items-center gap-1.5 mb-3 px-1 select-none">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                Above the Waterline
-              </p>
+            {/* Stats Bar */}
+            <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-3xs flex items-center justify-between">
+              <div className="border-l-4 border-primary pl-3 py-0.5">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">OVERALL</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">Attributes</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SKILLS</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.skills}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">KNOWLEDGE</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.knowledge}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SELF-IMAGE</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.selfImage}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">TRAITS</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.traits}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">MOTIVES</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.motives}</p>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Skills Card */}
-                <div className="bg-background border rounded-2xl p-4 shadow-3xs border-border/80 hover:border-border hover:shadow-2xs transition-all duration-300">
-                  <h3 className="text-xs font-bold text-foreground mb-3 flex items-center justify-between border-b pb-2">
-                    <span>Skills</span>
-                    <span className="text-[10px] text-muted-foreground">Practical Abilities</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 min-h-[60px] content-start">
-                    {profile.skills.map((skill) => (
-                      <span
-                        key={skill.name}
-                        onClick={() => toggleAttributeStatus("skills", skill)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border cursor-pointer select-none transition-all group relative",
-                          skill.status === "Matched" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/15",
-                          skill.status === "Extra" && "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200/50",
-                          skill.status === "Missing" && "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/15"
-                        )}
-                        title="Click to cycle status"
-                      >
-                        <AttributeStatusIcon status={skill.status} />
-                        <span>{skill.name}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("skills", skill); }}
-                          className="ml-0.5 opacity-40 hover:opacity-100 shrink-0 select-none cursor-pointer"
+            {/* ABOVE THE WATERLINE Card */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider">
+                <Eye size={15} /> ABOVE THE WATERLINE
+              </div>
+
+              <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Skills */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.skills.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("skills", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
                         >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("skills", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {/* Inline Add input */}
-                  <div className="mt-4 flex items-center gap-1.5 border-t border-dashed pt-3">
-                    <Plus size={12} className="text-muted-foreground/60 shrink-0" />
+                  <div className="mt-4 pt-2 border-t border-border/40">
                     <input
                       type="text"
-                      placeholder="Add another skill... (Enter)"
+                      placeholder="+ Add another skill..."
                       value={newSkillInput}
                       onChange={(e) => setNewSkillInput(e.target.value)}
                       onKeyDown={handleAddSkill}
-                      className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50 text-foreground"
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
                     />
                   </div>
                 </div>
 
-                {/* Knowledge Card */}
-                <div className="bg-background border rounded-2xl p-4 shadow-3xs border-border/80 hover:border-border hover:shadow-2xs transition-all duration-300">
-                  <h3 className="text-xs font-bold text-foreground mb-3 flex items-center justify-between border-b pb-2">
-                    <span>Knowledge</span>
-                    <span className="text-[10px] text-muted-foreground">Understanding</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 min-h-[60px] content-start">
-                    {profile.knowledge.map((item) => (
-                      <span
-                        key={item.name}
-                        onClick={() => toggleAttributeStatus("knowledge", item)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border cursor-pointer select-none transition-all group relative",
-                          item.status === "Matched" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/15",
-                          item.status === "Extra" && "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200/50",
-                          item.status === "Missing" && "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/15"
-                        )}
-                        title="Click to cycle status"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("knowledge", item); }}
-                          className="ml-0.5 opacity-40 hover:opacity-100 shrink-0 cursor-pointer"
+                {/* Knowledge */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Knowledge</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.knowledge.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("knowledge", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
                         >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("knowledge", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  {/* Inline Add input */}
-                  <div className="mt-4 flex items-center gap-1.5 border-t border-dashed pt-3">
-                    <Plus size={12} className="text-muted-foreground/60 shrink-0" />
+                  <div className="mt-4 pt-2 border-t border-border/40">
                     <input
                       type="text"
-                      placeholder="Add another knowledge... (Enter)"
+                      placeholder="+ Add another knowledge..."
                       value={newKnowledgeInput}
                       onChange={(e) => setNewKnowledgeInput(e.target.value)}
                       onKeyDown={handleAddKnowledge}
-                      className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50 text-foreground"
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* WATERLINE DIVIDER */}
-            <div className="relative py-2 select-none">
-              <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                <div className="w-full border-t border-dashed border-sky-400/40" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-sky-500 text-white rounded-full px-4 py-0.5 text-[8px] font-extrabold uppercase tracking-widest shadow-xs">
-                  Waterline
-                </span>
-              </div>
+            {/* Waterline Divider */}
+            <div className="relative flex items-center justify-center my-1 select-none">
+              <div className="w-full border-t-2 border-dashed border-primary/40" />
+              <span className="absolute bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full shadow-xs">
+                WATERLINE
+              </span>
             </div>
 
-            {/* BELOW THE WATERLINE */}
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-sky-600 flex items-center gap-1.5 mb-3 px-1 select-none">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                Below the Waterline
-              </p>
+            {/* BELOW THE WATERLINE Card */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <EyeOff size={15} /> BELOW THE WATERLINE
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-                {/* Self-Image Card */}
-                <div className="bg-background border rounded-2xl p-4 shadow-3xs border-border/80 hover:border-border hover:shadow-2xs transition-all duration-300">
-                  <h3 className="text-xs font-bold text-foreground mb-3 flex items-center justify-between border-b pb-2">
-                    <span>Self-Image</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 min-h-[50px] content-start">
-                    {profile.selfImage.map((item) => (
-                      <span
-                        key={item.name}
-                        onClick={() => toggleAttributeStatus("selfImage", item)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border cursor-pointer select-none transition-all group relative",
-                          item.status === "Matched" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/15",
-                          item.status === "Extra" && "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200/50",
-                          item.status === "Missing" && "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/15"
-                        )}
-                        title="Click to cycle status"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("selfImage", item); }}
-                          className="ml-0.5 opacity-40 hover:opacity-100 shrink-0 cursor-pointer"
+              <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Self-image */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Self-image</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.selfImage.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("selfImage", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
                         >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("selfImage", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-1.5 border-t border-dashed pt-3">
-                    <Plus size={12} className="text-muted-foreground/60 shrink-0" />
+                  <div className="mt-4 pt-2 border-t border-border/40">
                     <input
                       type="text"
-                      placeholder="Add self-image... (Enter)"
+                      placeholder="+ Add another self-image..."
                       value={newSelfImageInput}
                       onChange={(e) => setNewSelfImageInput(e.target.value)}
                       onKeyDown={handleAddSelfImage}
-                      className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50 text-foreground"
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
                     />
                   </div>
                 </div>
 
-                {/* Traits Card */}
-                <div className="bg-background border rounded-2xl p-4 shadow-3xs border-border/80 hover:border-border hover:shadow-2xs transition-all duration-300">
-                  <h3 className="text-xs font-bold text-foreground mb-3 flex items-center justify-between border-b pb-2">
-                    <span>Traits</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 min-h-[50px] content-start">
-                    {profile.traits.map((item) => (
-                      <span
-                        key={item.name}
-                        onClick={() => toggleAttributeStatus("traits", item)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border cursor-pointer select-none transition-all group relative",
-                          item.status === "Matched" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/15",
-                          item.status === "Extra" && "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200/50",
-                          item.status === "Missing" && "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/15"
-                        )}
-                        title="Click to cycle status"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("traits", item); }}
-                          className="ml-0.5 opacity-40 hover:opacity-100 shrink-0 cursor-pointer"
+                {/* Traits */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Traits</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.traits.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("traits", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
                         >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("traits", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-1.5 border-t border-dashed pt-3">
-                    <Plus size={12} className="text-muted-foreground/60 shrink-0" />
+                  <div className="mt-4 pt-2 border-t border-border/40">
                     <input
                       type="text"
-                      placeholder="Add trait... (Enter)"
+                      placeholder="+ Add another trait..."
                       value={newTraitInput}
                       onChange={(e) => setNewTraitInput(e.target.value)}
                       onKeyDown={handleAddTrait}
-                      className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50 text-foreground"
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
                     />
                   </div>
                 </div>
 
-                {/* Motives Card */}
-                <div className="bg-background border rounded-2xl p-4 shadow-3xs border-border/80 hover:border-border hover:shadow-2xs transition-all duration-300">
-                  <h3 className="text-xs font-bold text-foreground mb-3 flex items-center justify-between border-b pb-2">
-                    <span>Motives</span>
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 min-h-[50px] content-start">
-                    {profile.motives.map((item) => (
-                      <span
-                        key={item.name}
-                        onClick={() => toggleAttributeStatus("motives", item)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold border cursor-pointer select-none transition-all group relative",
-                          item.status === "Matched" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/15",
-                          item.status === "Extra" && "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200/50",
-                          item.status === "Missing" && "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/15"
-                        )}
-                        title="Click to cycle status"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("motives", item); }}
-                          className="ml-0.5 opacity-40 hover:opacity-100 shrink-0 cursor-pointer"
+                {/* Motives */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Motives</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.motives.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("motives", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
                         >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("motives", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-1.5 border-t border-dashed pt-3">
-                    <Plus size={12} className="text-muted-foreground/60 shrink-0" />
+                  <div className="mt-4 pt-2 border-t border-border/40">
                     <input
                       type="text"
-                      placeholder="Add motive... (Enter)"
+                      placeholder="+ Add another motive..."
                       value={newMotiveInput}
                       onChange={(e) => setNewMotiveInput(e.target.value)}
                       onKeyDown={handleAddMotive}
-                      className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50 text-foreground"
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
                     />
                   </div>
                 </div>
-
               </div>
             </div>
 
-          </div>
+            {/* Manager Notes Card */}
+            <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <MessageSquare size={16} className="text-primary" /> Manager notes
+                </h3>
+              </div>
 
-          {/* Manager Notes Card */}
-          <div className="bg-card border rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-widest text-muted-foreground/75 flex items-center gap-1.5">
-                <ClipboardSignature size={13} />
-                Manager notes
-              </h3>
-              {isManager && (
-                <button
-                  type="button"
-                  onClick={handleSaveNotes}
-                  disabled={isSavingNotes || editingNotes === (profile.managerNotes || "")}
-                  className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-3xs"
-                >
-                  {isSavingNotes ? "Saving..." : "Save note"}
-                </button>
-              )}
-            </div>
-
-            {/* Existing Note Box */}
-            <div className="bg-muted/30 border p-3 rounded-xl text-xs text-muted-foreground leading-relaxed">
-              {profile.managerNotes ? (
-                <div>
-                  <p className="font-semibold text-foreground/80 mb-1">Coaching tips & observations:</p>
-                  <p>{profile.managerNotes}</p>
+              {profile.managerNotes && (
+                <div className="bg-muted/20 border border-border/60 rounded-xl p-4 text-xs text-muted-foreground leading-relaxed italic relative">
+                  &quot;{profile.managerNotes}&quot;
+                  <span className="block text-[10px] font-semibold text-right text-muted-foreground/80 mt-2 not-italic">
+                    -Reporting Manager
+                  </span>
                 </div>
-              ) : (
-                <p className="italic">No coaching feedback or notes have been left for this profile yet.</p>
               )}
-              <span className="block text-[8px] font-bold uppercase tracking-wider text-muted-foreground/50 text-right mt-1.5">-Reporting Manager</span>
+
+              {isManager && (
+                <div className="flex flex-col gap-3">
+                  <textarea
+                    value={editingNotes}
+                    onChange={(e) => setEditingNotes(e.target.value)}
+                    placeholder={`Share coaching tips or observations for ${profile.userName.split(" ")[0]}'s next 1-on-1...`}
+                    className="w-full rounded-xl border bg-background p-3.5 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 min-h-[90px] text-foreground"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground italic">Writing as Admin</span>
+                    <button
+                      type="button"
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer"
+                    >
+                      {isSavingNotes ? "Saving..." : "Save note"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Editable input (Manager only) */}
-            {isManager && (
-              <div className="flex flex-col gap-1.5 mt-2">
-                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Update observations for {profile.userName}
-                </label>
-                <textarea
-                  placeholder="Share coaching tips or observations for next 1-on-1 sessions..."
-                  value={editingNotes}
-                  onChange={(e) => setEditingNotes(e.target.value)}
-                  className="w-full rounded-xl border bg-background px-3 py-2 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 h-20 resize-none text-foreground leading-relaxed"
-                />
-                <span className="text-[9px] text-muted-foreground/60 italic">Writing as Admin</span>
-              </div>
-            )}
           </div>
-
         </div>
 
-        {/* Right Side (4 Columns) - Iceberg Illustration and Info panels */}
-        <div className="xl:col-span-4 flex flex-col gap-6">
+        {/* Right Sidebar Column (Fixed width on desktop) */}
+        <div className="w-full xl:w-[400px] shrink-0 flex flex-col gap-6">
 
-          {/* Visual Iceberg Graphic Card */}
-          <div className="bg-card border rounded-2xl overflow-hidden shadow-xs">
-            <div className="relative w-full aspect-video md:aspect-[1.5/1] xl:aspect-[1.3/1] bg-sky-950 flex items-center justify-center overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/competency-iceberg.png"
-                alt="Iceberg Diagram"
-                className="w-full h-full object-cover opacity-80"
-              />
+          {/* Iceberg Graphic Illustration Card */}
+          <IcebergGraphic profile={profile} counts={counts} />
 
-              {/* Overlay Waterline divider label */}
-              <div className="absolute inset-x-0 top-[35%] border-t border-sky-400/40 select-none pointer-events-none" />
-
-              {/* Absolute coordinates Overlay Markers */}
-              {/* Above Waterline */}
-              <div className="absolute top-[8%] left-[20%] pointer-events-none">
-                <span className="flex items-center gap-1 bg-emerald-500/90 text-white rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest shadow-md">
-                  <Layers size={8} /> Skills
-                </span>
-              </div>
-              <div className="absolute top-[12%] right-[15%] pointer-events-none">
-                <span className="flex items-center gap-1 bg-emerald-500/90 text-white rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest shadow-md">
-                  <Brain size={8} /> Knowledge
-                </span>
-              </div>
-
-              {/* Below Waterline */}
-              <div className="absolute top-[48%] left-[12%] pointer-events-none">
-                <span className="flex items-center gap-1 bg-sky-600/90 text-white rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest shadow-md">
-                  <Compass size={8} /> Self-Image
-                </span>
-              </div>
-              <div className="absolute top-[68%] right-[14%] pointer-events-none">
-                <span className="flex items-center gap-1 bg-sky-600/90 text-white rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest shadow-md">
-                  <TrendingUp size={8} /> Motives
-                </span>
-              </div>
-              <div className="absolute top-[80%] left-[22%] pointer-events-none">
-                <span className="flex items-center gap-1 bg-sky-600/90 text-white rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-widest shadow-md">
-                  <Layers size={8} /> Traits
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Definition explanation panel */}
-          <div className="bg-card border rounded-2xl p-5 shadow-3xs">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-widest text-muted-foreground/75 mb-3 flex items-center gap-1.5">
-              <Brain size={14} className="text-primary" />
-              What is Iceberg Competency Attributes?
+          {/* Explanation Card */}
+          <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-3">
+            <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
+              <span className="text-muted-foreground">≡</span> What is Iceberg Competency Attributes?
             </h3>
-
-            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-              Balanced competencies unlock exceptional career growth. The model segments organizational capacity into visible attributes (above water) and behavioral drivers (below water).
-            </p>
-
-            <div className="space-y-3 font-sans text-xs">
-              <div className="border-l-2 border-primary/40 pl-3">
-                <span className="font-bold text-foreground block">Skills</span>
-                <span className="text-muted-foreground text-[11px] leading-relaxed">Practical abilities applied during everyday work (e.g. Visual Design, Prototyping).</span>
-              </div>
-              <div className="border-l-2 border-primary/40 pl-3">
-                <span className="font-bold text-foreground block">Knowledge</span>
-                <span className="text-muted-foreground text-[11px] leading-relaxed">Cognitive understanding required to perform effectively (e.g. UX principles, Engineering theory).</span>
-              </div>
-              <div className="border-l-2 border-sky-500/40 pl-3">
-                <span className="font-bold text-foreground block">Self-Image</span>
-                <span className="text-muted-foreground text-[11px] leading-relaxed">How individuals perceive their professional identity and values (e.g. Problem solver, Mentor).</span>
-              </div>
-              <div className="border-l-2 border-sky-500/40 pl-3">
-                <span className="font-bold text-foreground block">Traits</span>
-                <span className="text-muted-foreground text-[11px] leading-relaxed">Consistent behaviors shaping work performance and teamwork (e.g. Empathetic, Detail-oriented).</span>
-              </div>
-              <div className="border-l-2 border-sky-500/40 pl-3">
-                <span className="font-bold text-foreground block">Motives</span>
-                <span className="text-muted-foreground text-[11px] leading-relaxed">Internal drivers and deep motivations influencing decisions (e.g. Craftsmanship, Innovation).</span>
-              </div>
+            <div className="bg-muted/20 border border-border/50 rounded-xl p-4 space-y-3 text-xs text-muted-foreground leading-relaxed">
+              <p className="italic font-medium text-muted-foreground/90">
+                Balanced competencies unlock exceptional career growth.
+              </p>
+              <ul className="space-y-2 list-disc pl-4">
+                <li><strong className="text-foreground font-semibold">Skills:</strong> Practical abilities applied during everyday work.</li>
+                <li><strong className="text-foreground font-semibold">Knowledge:</strong> Understanding required to perform effectively.</li>
+                <li><strong className="text-foreground font-semibold">Self-image:</strong> How individuals perceive their professional identity.</li>
+                <li><strong className="text-foreground font-semibold">Traits:</strong> Consistent behaviors shaping daily performance.</li>
+                <li><strong className="text-foreground font-semibold">Motives:</strong> Internal drivers influencing actions and decisions.</li>
+              </ul>
             </div>
           </div>
 
-          {/* Submission Summary file details */}
-          <div className="bg-card border rounded-2xl p-5 shadow-3xs">
-            <div className="flex items-center justify-between border-b pb-2.5 mb-4">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-widest text-muted-foreground/75">
+          {/* Submission Summary Card */}
+          <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-sm font-bold text-foreground">
                 Submission Summary
               </h3>
-              {!profile.fileName && (
+              {activeDoc ? (
+                <button
+                  type="button"
+                  onClick={() => setIsViewingDoc(true)}
+                  className="text-xs font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 flex items-center gap-1.5 cursor-pointer transition-all shadow-3xs"
+                >
+                  <Eye size={14} /> View Document
+                </button>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(true)}
-                  className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+                  className="text-xs font-bold text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 flex items-center gap-1.5 cursor-pointer transition-all shadow-3xs"
                 >
-                  <UploadCloud size={12} /> Upload file
+                  <UploadCloud size={14} /> Upload file
                 </button>
               )}
             </div>
 
-            {profile.fileName ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Task Name</label>
-                    <p className="text-xs font-bold text-foreground mt-0.5">ICA Alignment</p>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Submitted File</label>
-                    <a
-                      href={profile.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 mt-0.5 bg-accent/20 hover:bg-accent/40 px-2 py-1.5 border rounded-lg max-w-[170px] truncate transition-colors cursor-pointer"
-                    >
-                      <FileText size={13} className="text-rose-500 shrink-0" />
-                      <span className="text-[11px] font-semibold truncate text-foreground" title={profile.fileName}>
-                        {profile.fileName}
-                      </span>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
-                  <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Uploaded On</label>
-                    <p className="text-[10px] font-semibold text-foreground mt-0.5">{profile.uploadedOn}</p>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Submitted By</label>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-[8px] font-bold text-primary">
-                        {getInitials(profile.userName)}
-                      </div>
-                      <span className="text-[11px] font-semibold text-foreground truncate">{profile.userName}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {profile.comment && (
-                  <div className="border-t border-border/40 pt-3">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                      <MessageSquare size={10} /> Submitter Comment
-                    </label>
-                    <div className="bg-muted/30 p-2.5 rounded-lg border text-[11px] text-muted-foreground mt-1 leading-relaxed italic">
-                      &quot;{profile.comment}&quot;
-                    </div>
-                  </div>
-                )}
-
-                {/* File Preview */}
-                {profile.fileUrl && (
-                  <div className="border-t border-border/40 pt-3">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">Document Preview</label>
-                    {profile.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                      <div className="relative aspect-video w-full bg-muted/10 border rounded-xl overflow-hidden shadow-2xs flex items-center justify-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={profile.fileUrl}
-                          alt="Submitted Document"
-                          className="max-w-full max-h-[140px] object-contain rounded-md"
-                        />
-                      </div>
-                    ) : profile.fileName.toLowerCase().endsWith(".pdf") ? (
-                      <div className="relative w-full h-[280px] bg-background border rounded-xl overflow-hidden shadow-2xs">
-                        <iframe
-                          src={profile.fileUrl}
-                          className="w-full h-full border-none animate-in fade-in duration-300"
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-muted/20 border border-neutral-300 shadow-xs rounded-xl p-4 flex flex-col items-center justify-center text-center gap-1.5 min-h-[120px] select-none">
-                        <FileText size={24} className="text-rose-500" />
-                        <div>
-                          <p className="text-[11px] font-bold text-foreground truncate max-w-[200px]">{profile.fileName}</p>
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Uploaded Alignment Sheet</p>
-                        </div>
-                        <a
-                          href={profile.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 inline-flex items-center gap-1 bg-primary/10 px-2.5 py-1 text-[9px] font-bold text-primary rounded-md hover:bg-primary/20 transition-all cursor-pointer"
-                        >
-                          View Full Document ↗
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="py-6 text-center border-2 border-dashed border-border rounded-xl text-xs text-muted-foreground leading-normal">
-                <p>No alignment file has been uploaded for this profile yet.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(true)}
-                  className="mt-2.5 inline-flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-[10px] font-bold text-primary hover:bg-primary/20 transition-all cursor-pointer"
+            {/* Document Selector if multiple documents exist */}
+            {profile.documents && profile.documents.length > 1 && (
+              <div className="flex items-center justify-between bg-muted/30 px-3 py-2 rounded-xl border border-border/60">
+                <span className="text-[11px] font-semibold text-muted-foreground">Select File ({profile.documents.length}):</span>
+                <select
+                  value={activeDoc?.id || ""}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  className="rounded-lg border bg-background px-2.5 py-1 text-xs font-bold text-foreground outline-none cursor-pointer"
                 >
-                  <UploadCloud size={12} /> Submit RTD File
-                </button>
+                  {profile.documents.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.fileName}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
+
+            {/* Fields Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">TASK NAME</label>
+                <p className="text-xs font-bold text-foreground mt-0.5">ICA</p>
+              </div>
+              <div>
+                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">FILE</label>
+                {activeDoc ? (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsViewingDoc(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline truncate max-w-[140px] cursor-pointer"
+                      title="Click to view detail preview"
+                    >
+                      <FileText size={14} className="text-rose-500 shrink-0" />
+                      <span className="truncate">{activeDoc.fileName}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Delete "${activeDoc.fileName}"?`)) {
+                          await deleteIcaFileAction(activeDoc.id);
+                          const data = await getIcaProfile(selectedUserId);
+                          setProfile(data);
+                        }
+                      }}
+                      className="text-muted-foreground hover:text-rose-600 transition-colors p-0.5 cursor-pointer"
+                      title="Delete document"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowUploadModal(true)}
+                    className="flex items-center gap-1.5 mt-0.5 text-xs font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    <FileText size={14} className="text-rose-500 shrink-0" />
+                    <span>Upload file</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
+              <div>
+                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">UPLOADED ON</label>
+                <p className="text-xs font-bold text-foreground mt-0.5">
+                  {activeDoc ? activeDoc.uploadedOn : profile.uploadedOn || "Not uploaded"}
+                </p>
+              </div>
+              <div>
+                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">SUBMITTED BY</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary shrink-0">
+                    {getInitials(profile.userName)}
+                  </div>
+                  <span className="text-xs font-bold text-foreground truncate">{profile.userName}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Comment Box */}
+            {activeDoc?.comment ? (
+              <div className="bg-muted/30 border border-border/60 rounded-xl p-3.5 text-xs text-muted-foreground leading-relaxed italic mt-1">
+                <span className="font-bold text-foreground/90 uppercase tracking-wider text-[9px] not-italic block mb-1">
+                  {profile.userName.split(" ")[0].toUpperCase()}&apos;s comment:
+                </span>
+                &quot;{activeDoc.comment}&quot;
+              </div>
+            ) : profile.comment ? (
+              <div className="bg-muted/30 border border-border/60 rounded-xl p-3.5 text-xs text-muted-foreground leading-relaxed italic mt-1">
+                <span className="font-bold text-foreground/90 uppercase tracking-wider text-[9px] not-italic block mb-1">
+                  {profile.userName.split(" ")[0].toUpperCase()}&apos;s comment:
+                </span>
+                &quot;{profile.comment}&quot;
+              </div>
+            ) : null}
+
+            {/* Add Document Action button */}
+            <button
+              type="button"
+              onClick={() => setShowUploadModal(true)}
+              className="mt-1 w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 py-2 text-xs font-bold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+            >
+              <UploadCloud size={14} /> + Upload Additional Document
+            </button>
           </div>
 
         </div>
@@ -945,7 +1196,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/20">
               <div>
                 <h2 className="text-sm font-bold text-foreground">Submit Competency Alignment File</h2>
-                <p className="text-[11px] text-muted-foreground">Upload the supporting document outlining your core competencies</p>
+                <p className="text-[11px] text-muted-foreground">Upload supporting document for {profile.userName}</p>
               </div>
               <button
                 onClick={() => { setShowUploadModal(false); setUploadedFile(null); }}
@@ -968,7 +1219,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     className="hidden"
-                    accept=".pdf,.docx,.xlsx"
+                    accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg"
                   />
                   <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                     <UploadCloud size={20} />
@@ -978,7 +1229,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       Drag & drop your file here or <span className="text-primary hover:underline">click to browse</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      Supported formats: PDF, DOCX, XLSX (Max size: 10MB)
+                      Supported formats: PDF, DOCX, XLSX, PNG, JPG (Max size: 10MB)
                     </p>
                   </div>
                 </div>
@@ -1008,7 +1259,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
               {/* Comment text area */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Comment</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Comment / Remarks</label>
                 <textarea
                   placeholder="Provide supporting remarks regarding this competency alignment sheet..."
                   value={newComment}
@@ -1031,7 +1282,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                   disabled={!uploadedFile}
                   className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
                 >
-                  Submit
+                  Upload File
                 </button>
               </div>
             </form>

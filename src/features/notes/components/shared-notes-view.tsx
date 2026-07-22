@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotesTopNav } from "./notes-top-nav";
 
 export type SharedNoteItem = {
   id: string;
@@ -90,41 +91,46 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
   return (
     <div className="flex h-full flex-col bg-background p-6 overflow-y-auto">
       {/* ── Top Header Bar ── */}
-      <div className="flex flex-col gap-4 border-b pb-5 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/notes"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
-            title="Back to Workspace Notes"
-          >
-            <ArrowLeft size={16} />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              {type === "with-me" ? (
-                <Share2 size={20} className="text-primary" />
-              ) : (
-                <Users size={20} className="text-emerald-500" />
-              )}
-              <h1 className="text-xl font-bold tracking-tight text-foreground">{title}</h1>
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                {notes.length} {notes.length === 1 ? "card" : "cards"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-          </div>
+      <div className="flex flex-col gap-4 border-b pb-5">
+        <div className="flex items-center justify-between">
+          <NotesTopNav />
         </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/notes"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+              title="Back to Workspace Notes"
+            >
+              <ArrowLeft size={16} />
+            </Link>
+            <div>
+              <div className="flex items-center gap-2">
+                {type === "with-me" ? (
+                  <Share2 size={20} className="text-primary" />
+                ) : (
+                  <Users size={20} className="text-emerald-500" />
+                )}
+                <h1 className="text-xl font-bold tracking-tight text-foreground">{title}</h1>
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                  {notes.length} {notes.length === 1 ? "card" : "cards"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+            </div>
+          </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search shared cards..."
-            className="w-full rounded-lg border bg-card pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-          />
+          {/* Search Input */}
+          <div className="relative w-full md:w-72">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search shared cards..."
+              className="w-full rounded-lg border bg-card pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            />
+          </div>
         </div>
       </div>
 
