@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -90,13 +91,25 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   const isManager = userRole === "MANAGER";
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
 
+  const [activeModule, setActiveModule] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mod = params.get("module");
+    if (mod) {
+      setActiveModule(mod);
+    } else {
+      setActiveModule(null);
+    }
+  }, [pathname]);
+
   // Determine active module title based on path
   let activeModuleTitle = "Standup";
-  if (pathname.startsWith("/people")) {
+  if (pathname.startsWith("/people") || activeModule === "people") {
     activeModuleTitle = "People";
-  } else if (pathname.startsWith("/projects")) {
+  } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleTitle = "Projects";
-  } else if (pathname.startsWith("/sales")) {
+  } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleTitle = "Sales";
   }
 
@@ -107,6 +120,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = [
       { label: "RTD Documents", href: "/people", icon: FileText },
       { label: "ICA Agreements", href: "/people/ica", icon: UserCheck },
+      { label: "I-Notes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
     ];
   } else if (activeModuleTitle === "Projects") {
     navItems = [

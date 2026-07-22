@@ -68,73 +68,146 @@ interface IcaWorkspaceProps {
 
 // ── Iceberg Graphic Illustration ─────────────────────────────────────────────
 
-function IcebergGraphic() {
+interface IcebergGraphicProps {
+  profile: IcaProfileData;
+  counts: {
+    skills: number;
+    knowledge: number;
+    selfImage: number;
+    traits: number;
+    motives: number;
+  };
+}
+
+function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
+  const renderTooltipItems = (items: IcaItem[], categoryName: string) => {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 font-bold text-slate-900 uppercase tracking-wider text-[9px]">
+          <span>{categoryName}</span>
+          <span className="text-sky-600 font-semibold">{items.length} total</span>
+        </div>
+        {items.length === 0 ? (
+          <span className="text-[10px] text-slate-400 italic py-1 block">No attributes added yet</span>
+        ) : (
+          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center gap-1.5 text-[10px] text-slate-700">
+                <span className={cn(
+                  "h-1.5 w-1.5 rounded-full shrink-0",
+                  item.status === "Matched" ? "bg-emerald-500" :
+                    item.status === "Extra" ? "bg-slate-400" : "bg-rose-500"
+                )} />
+                <span className="truncate flex-1" title={item.name}>{item.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="relative w-full aspect-16/9 rounded-2xl overflow-hidden shadow-sm border border-sky-200/50 bg-gradient-to-b from-sky-400 via-sky-600 to-slate-900 select-none">
-      <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#bae6fd" />
-            <stop offset="100%" stopColor="#38bdf8" />
-          </linearGradient>
-          <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0284c7" stopOpacity="0.9" />
-            <stop offset="50%" stopColor="#0369a1" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#0f172a" />
-          </linearGradient>
-          <linearGradient id="iceGradAbove" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#e0f2fe" />
-          </linearGradient>
-          <linearGradient id="iceGradBelow" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.3" />
-          </linearGradient>
-        </defs>
+    <div className="relative w-full aspect-square rounded-2xl shadow-sm border border-sky-100/50 bg-sky-950/5 select-none overflow-visible mx-auto">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/competency-iceberg.png"
+        alt="Competency Iceberg"
+        className="w-full h-full object-cover rounded-2xl"
+      />
 
-        {/* Sky Background */}
-        <rect x="0" y="0" width="400" height="50" fill="url(#skyGrad)" />
+      {/* Visual Connectors & Pulsing Dots Overlay */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100">
+        {/* Above Waterline - Skills */}
+        <line x1="25" y1="17" x2="48" y2="24" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="48" cy="24" r="1.2" fill="#0ea5e9" />
+        <circle cx="48" cy="24" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
 
-        {/* Water Background */}
-        <rect x="0" y="50" width="400" height="150" fill="url(#waterGrad)" />
+        {/* Above Waterline - Knowledge */}
+        <line x1="75" y1="22" x2="52" y2="24" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="52" cy="24" r="1.2" fill="#0ea5e9" />
+        <circle cx="52" cy="24" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
 
-        {/* Waterline */}
-        <line x1="0" y1="50" x2="400" y2="50" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.7" />
+        {/* Below Waterline - Traits */}
+        <line x1="25" y1="50" x2="44" y2="58" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="44" cy="58" r="1.2" fill="#0ea5e9" />
+        <circle cx="44" cy="58" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
 
-        {/* Underwater Iceberg Body */}
-        <polygon points="170,50 120,90 135,160 210,185 275,150 280,85 230,50" fill="url(#iceGradBelow)" stroke="#e0f2fe" strokeWidth="1" strokeOpacity="0.4" />
-        <polygon points="170,50 200,100 210,185 240,110 230,50" fill="#38bdf8" opacity="0.2" />
+        {/* Below Waterline - Self-Image */}
+        <line x1="75" y1="62" x2="54" y2="70" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="54" cy="70" r="1.2" fill="#0ea5e9" />
+        <circle cx="54" cy="70" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
 
-        {/* Above Water Iceberg Peak */}
-        <polygon points="170,50 190,20 215,15 230,50" fill="url(#iceGradAbove)" />
-        <polygon points="190,20 215,15 205,50" fill="#e0f2fe" opacity="0.8" />
-
-        {/* Callout Lines & Dots */}
-        {/* Skills */}
-        <line x1="180" y1="30" x2="110" y2="30" stroke="#ffffff" strokeWidth="1" />
-        <circle cx="180" cy="30" r="2.5" fill="#ffffff" />
-        <text x="70" y="33" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">Skills</text>
-
-        {/* Knowledge */}
-        <line x1="215" y1="25" x2="285" y2="25" stroke="#ffffff" strokeWidth="1" />
-        <circle cx="215" cy="25" r="2.5" fill="#ffffff" />
-        <text x="290" y="28" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">Knowledge</text>
-
-        {/* Traits */}
-        <line x1="145" y1="100" x2="95" y2="100" stroke="#ffffff" strokeWidth="1" />
-        <circle cx="145" cy="100" r="2.5" fill="#ffffff" />
-        <text x="60" y="103" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">Traits</text>
-
-        {/* Motives */}
-        <line x1="265" y1="120" x2="315" y2="120" stroke="#ffffff" strokeWidth="1" />
-        <circle cx="265" cy="120" r="2.5" fill="#ffffff" />
-        <text x="320" y="123" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">Motives</text>
-
-        {/* Self-image */}
-        <line x1="175" y1="160" x2="115" y2="160" stroke="#ffffff" strokeWidth="1" />
-        <circle cx="175" cy="160" r="2.5" fill="#ffffff" />
-        <text x="50" y="163" fill="#ffffff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">Self-image</text>
+        {/* Below Waterline - Motives */}
+        <line x1="28" y1="82" x2="50" y2="85" stroke="#0ea5e9" strokeWidth="0.4" strokeDasharray="1 1" strokeOpacity="0.6" />
+        <circle cx="50" cy="85" r="1.2" fill="#0ea5e9" />
+        <circle cx="50" cy="85" r="2.5" fill="#0ea5e9" opacity="0.4" className="animate-pulse" />
       </svg>
+
+      {/* 1. Skills Badge */}
+      <div className="absolute top-[14%] left-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Skills</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] text-emerald-700 font-bold">
+            {counts.skills}
+          </span>
+        </div>
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.skills, "Skills")}
+        </div>
+      </div>
+
+      {/* 2. Knowledge Badge */}
+      <div className="absolute top-[19%] right-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Knowledge</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 px-1 text-[10px] text-cyan-700 font-bold">
+            {counts.knowledge}
+          </span>
+        </div>
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.knowledge, "Knowledge")}
+        </div>
+      </div>
+
+      {/* 3. Traits Badge */}
+      <div className="absolute top-[47%] left-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Traits</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 px-1 text-[10px] text-sky-700 font-bold">
+            {counts.traits}
+          </span>
+        </div>
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.traits, "Traits")}
+        </div>
+      </div>
+
+      {/* 4. Self-Image Badge */}
+      <div className="absolute top-[59%] right-[6%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Self-Image</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 text-[10px] text-indigo-700 font-bold">
+            {counts.selfImage}
+          </span>
+        </div>
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.selfImage, "Self-Image")}
+        </div>
+      </div>
+
+      {/* 5. Motives Badge */}
+      <div className="absolute top-[79%] left-[9%] z-20 group/badge select-none">
+        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+          <span>Motives</span>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 px-1 text-[10px] text-fuchsia-700 font-bold">
+            {counts.motives}
+          </span>
+        </div>
+        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+          {renderTooltipItems(profile.motives, "Motives")}
+        </div>
+      </div>
     </div>
   );
 }
@@ -512,6 +585,24 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                   <p className="text-sm font-bold text-foreground mt-0.5">ICA Alignment</p>
                 </div>
 
+                {/* Document Selector for preview */}
+                {profile.documents && profile.documents.length > 0 && (
+                  <div className="flex flex-col gap-1 border-t border-border/40 pt-3">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">SELECT PREVIEW FILE</label>
+                    <select
+                      value={activeDoc?.id || ""}
+                      onChange={(e) => setSelectedDocId(e.target.value)}
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/20 transition-colors shadow-2xs"
+                    >
+                      {profile.documents.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.fileName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="border-t border-border/40 pt-3">
                   <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">UPLOADED FILE</label>
                   <a
@@ -603,335 +694,341 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
     <div className="flex-1 overflow-y-auto bg-background p-6">
 
       {/* ── Main Top Header ── */}
-      <div className="flex flex-wrap items-start justify-between gap-4 pb-5 mb-5 border-b border-border/40">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Iceberg Competency Attributes</h1>
-          {isManager ? (
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-muted-foreground font-semibold">Member Profile:</span>
-              <select
-                value={selectedUserId}
-                onChange={(e) => handleUserChange(e.target.value)}
-                className="rounded-lg border bg-card px-3 py-1 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/40 transition-colors shadow-2xs"
-              >
-                {dbUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} · {u.title} {u.id === currentUser.id ? " (You)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-1">
-              {profile.userName} &bull; {profile.title} &bull; Submitted {profile.submittedDate}
-            </p>
-          )}
-        </div>
+      {/* <div className="flex flex-wrap items-start justify-between gap-4 pb-5 mb-5 border-b border-border/40">
 
-        {/* Legend status indicators */}
-        <div className="flex items-center gap-4 text-xs font-medium select-none text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Matched
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-neutral-400" />
-            Extra
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-rose-500" />
-            Missing
-          </span>
-        </div>
-      </div>
+
+       
+
+      </div> */}
 
       {/* ── Split Layout Workspace ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
-        {/* Left Main Column (8 Columns) */}
-        <div className="xl:col-span-8 flex flex-col gap-6">
-
-          {/* Stats Bar */}
-          <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-3xs flex items-center justify-between">
-            <div className="border-l-4 border-primary pl-3 py-0.5">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">OVERALL</p>
-              <p className="text-xl font-bold text-foreground mt-0.5">Attributes</p>
-            </div>
-            <div className="text-center px-4">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SKILLS</p>
-              <p className="text-lg font-bold text-foreground mt-1">{counts.skills}</p>
-            </div>
-            <div className="text-center px-4">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">KNOWLEDGE</p>
-              <p className="text-lg font-bold text-foreground mt-1">{counts.knowledge}</p>
-            </div>
-            <div className="text-center px-4">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SELF-IMAGE</p>
-              <p className="text-lg font-bold text-foreground mt-1">{counts.selfImage}</p>
-            </div>
-            <div className="text-center px-4">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">TRAITS</p>
-              <p className="text-lg font-bold text-foreground mt-1">{counts.traits}</p>
-            </div>
-            <div className="text-center px-4">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">MOTIVES</p>
-              <p className="text-lg font-bold text-foreground mt-1">{counts.motives}</p>
-            </div>
-          </div>
-
-          {/* ABOVE THE WATERLINE Card */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider">
-              <Eye size={15} /> ABOVE THE WATERLINE
-            </div>
-
-            <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Skills */}
-              <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
-                <div>
-                  <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Skills</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.skills.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleAttributeStatus("skills", item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("skills", item); }}
-                          className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-2 border-t border-border/40">
-                  <input
-                    type="text"
-                    placeholder="+ Add another skill..."
-                    value={newSkillInput}
-                    onChange={(e) => setNewSkillInput(e.target.value)}
-                    onKeyDown={handleAddSkill}
-                    className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
-                  />
-                </div>
-              </div>
-
-              {/* Knowledge */}
-              <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
-                <div>
-                  <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Knowledge</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.knowledge.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleAttributeStatus("knowledge", item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("knowledge", item); }}
-                          className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-2 border-t border-border/40">
-                  <input
-                    type="text"
-                    placeholder="+ Add another knowledge..."
-                    value={newKnowledgeInput}
-                    onChange={(e) => setNewKnowledgeInput(e.target.value)}
-                    onKeyDown={handleAddKnowledge}
-                    className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Waterline Divider */}
-          <div className="relative flex items-center justify-center my-1 select-none">
-            <div className="w-full border-t-2 border-dashed border-primary/40" />
-            <span className="absolute bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full shadow-xs">
-              WATERLINE
-            </span>
-          </div>
-
-          {/* BELOW THE WATERLINE Card */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              <EyeOff size={15} /> BELOW THE WATERLINE
-            </div>
-
-            <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Self-image */}
-              <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
-                <div>
-                  <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Self-image</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.selfImage.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleAttributeStatus("selfImage", item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("selfImage", item); }}
-                          className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-2 border-t border-border/40">
-                  <input
-                    type="text"
-                    placeholder="+ Add another self-image..."
-                    value={newSelfImageInput}
-                    onChange={(e) => setNewSelfImageInput(e.target.value)}
-                    onKeyDown={handleAddSelfImage}
-                    className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
-                  />
-                </div>
-              </div>
-
-              {/* Traits */}
-              <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
-                <div>
-                  <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Traits</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.traits.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleAttributeStatus("traits", item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("traits", item); }}
-                          className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-2 border-t border-border/40">
-                  <input
-                    type="text"
-                    placeholder="+ Add another trait..."
-                    value={newTraitInput}
-                    onChange={(e) => setNewTraitInput(e.target.value)}
-                    onKeyDown={handleAddTrait}
-                    className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
-                  />
-                </div>
-              </div>
-
-              {/* Motives */}
-              <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
-                <div>
-                  <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Motives</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.motives.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => toggleAttributeStatus("motives", item)}
-                        className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
-                      >
-                        <AttributeStatusIcon status={item.status} />
-                        <span>{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("motives", item); }}
-                          className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-2 border-t border-border/40">
-                  <input
-                    type="text"
-                    placeholder="+ Add another motive..."
-                    value={newMotiveInput}
-                    onChange={(e) => setNewMotiveInput(e.target.value)}
-                    onKeyDown={handleAddMotive}
-                    className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Manager Notes Card */}
-          <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <MessageSquare size={16} className="text-primary" /> Manager notes
-              </h3>
-            </div>
-
-            {profile.managerNotes && (
-              <div className="bg-muted/20 border border-border/60 rounded-xl p-4 text-xs text-muted-foreground leading-relaxed italic relative">
-                &quot;{profile.managerNotes}&quot;
-                <span className="block text-[10px] font-semibold text-right text-muted-foreground/80 mt-2 not-italic">
-                  -Reporting Manager
-                </span>
-              </div>
-            )}
-
-            {isManager && (
-              <div className="flex flex-col gap-3">
-                <textarea
-                  value={editingNotes}
-                  onChange={(e) => setEditingNotes(e.target.value)}
-                  placeholder={`Share coaching tips or observations for ${profile.userName.split(" ")[0]}'s next 1-on-1...`}
-                  className="w-full rounded-xl border bg-background p-3.5 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 min-h-[90px] text-foreground"
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground italic">Writing as Admin</span>
-                  <button
-                    type="button"
-                    onClick={handleSaveNotes}
-                    disabled={isSavingNotes}
-                    className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer"
+      <div className="flex flex-col xl:flex-row gap-6">
+        <div>
+          <div className=" flex justify-between pb-2.5">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Iceberg Competency Attributes</h1>
+              {isManager ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground font-semibold">Member Profile:</span>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => handleUserChange(e.target.value)}
+                    className="rounded-lg border bg-card px-3 py-1 text-xs font-bold text-foreground outline-none cursor-pointer hover:bg-accent/40 transition-colors shadow-2xs"
                   >
-                    {isSavingNotes ? "Saving..." : "Save note"}
-                  </button>
+                    {dbUsers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} · {u.title} {u.id === currentUser.id ? " (You)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {profile.userName} &bull; {profile.title} &bull; Submitted {profile.submittedDate}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-xs font-medium select-none text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Matched
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                Extra
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                Missing
+              </span>
+            </div>
           </div>
 
+          {/* Left Main Column (Flex-1) */}
+          <div className="flex-1 flex flex-col gap-6">
+
+            {/* Stats Bar */}
+            <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-3xs flex items-center justify-between">
+              <div className="border-l-4 border-primary pl-3 py-0.5">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">OVERALL</p>
+                <p className="text-xl font-bold text-foreground mt-0.5">Attributes</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SKILLS</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.skills}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">KNOWLEDGE</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.knowledge}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SELF-IMAGE</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.selfImage}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">TRAITS</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.traits}</p>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">MOTIVES</p>
+                <p className="text-lg font-bold text-foreground mt-1">{counts.motives}</p>
+              </div>
+            </div>
+
+            {/* ABOVE THE WATERLINE Card */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider">
+                <Eye size={15} /> ABOVE THE WATERLINE
+              </div>
+
+              <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Skills */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.skills.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("skills", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                        >
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("skills", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-2 border-t border-border/40">
+                    <input
+                      type="text"
+                      placeholder="+ Add another skill..."
+                      value={newSkillInput}
+                      onChange={(e) => setNewSkillInput(e.target.value)}
+                      onKeyDown={handleAddSkill}
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
+                    />
+                  </div>
+                </div>
+
+                {/* Knowledge */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Knowledge</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.knowledge.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("knowledge", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                        >
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("knowledge", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-2 border-t border-border/40">
+                    <input
+                      type="text"
+                      placeholder="+ Add another knowledge..."
+                      value={newKnowledgeInput}
+                      onChange={(e) => setNewKnowledgeInput(e.target.value)}
+                      onKeyDown={handleAddKnowledge}
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Waterline Divider */}
+            <div className="relative flex items-center justify-center my-1 select-none">
+              <div className="w-full border-t-2 border-dashed border-primary/40" />
+              <span className="absolute bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full shadow-xs">
+                WATERLINE
+              </span>
+            </div>
+
+            {/* BELOW THE WATERLINE Card */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <EyeOff size={15} /> BELOW THE WATERLINE
+              </div>
+
+              <div className="bg-muted/15 border border-border/70 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Self-image */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Self-image</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.selfImage.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("selfImage", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                        >
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("selfImage", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-2 border-t border-border/40">
+                    <input
+                      type="text"
+                      placeholder="+ Add another self-image..."
+                      value={newSelfImageInput}
+                      onChange={(e) => setNewSelfImageInput(e.target.value)}
+                      onKeyDown={handleAddSelfImage}
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
+                    />
+                  </div>
+                </div>
+
+                {/* Traits */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Traits</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.traits.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("traits", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                        >
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("traits", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-2 border-t border-border/40">
+                    <input
+                      type="text"
+                      placeholder="+ Add another trait..."
+                      value={newTraitInput}
+                      onChange={(e) => setNewTraitInput(e.target.value)}
+                      onKeyDown={handleAddTrait}
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
+                    />
+                  </div>
+                </div>
+
+                {/* Motives */}
+                <div className="bg-card border border-border/60 rounded-xl p-4 flex flex-col justify-between min-h-[160px] shadow-3xs">
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground text-center border-b pb-2 mb-3">Motives</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.motives.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleAttributeStatus("motives", item)}
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                        >
+                          <AttributeStatusIcon status={item.status} />
+                          <span>{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("motives", item); }}
+                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-2 border-t border-border/40">
+                    <input
+                      type="text"
+                      placeholder="+ Add another motive..."
+                      value={newMotiveInput}
+                      onChange={(e) => setNewMotiveInput(e.target.value)}
+                      onKeyDown={handleAddMotive}
+                      className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/60 text-foreground italic"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Manager Notes Card */}
+            <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <MessageSquare size={16} className="text-primary" /> Manager notes
+                </h3>
+              </div>
+
+              {profile.managerNotes && (
+                <div className="bg-muted/20 border border-border/60 rounded-xl p-4 text-xs text-muted-foreground leading-relaxed italic relative">
+                  &quot;{profile.managerNotes}&quot;
+                  <span className="block text-[10px] font-semibold text-right text-muted-foreground/80 mt-2 not-italic">
+                    -Reporting Manager
+                  </span>
+                </div>
+              )}
+
+              {isManager && (
+                <div className="flex flex-col gap-3">
+                  <textarea
+                    value={editingNotes}
+                    onChange={(e) => setEditingNotes(e.target.value)}
+                    placeholder={`Share coaching tips or observations for ${profile.userName.split(" ")[0]}'s next 1-on-1...`}
+                    className="w-full rounded-xl border bg-background p-3.5 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 min-h-[90px] text-foreground"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground italic">Writing as Admin</span>
+                    <button
+                      type="button"
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer"
+                    >
+                      {isSavingNotes ? "Saving..." : "Save note"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
 
-        {/* Right Sidebar Column (4 Columns) */}
-        <div className="xl:col-span-4 flex flex-col gap-6">
+        {/* Right Sidebar Column (Fixed width on desktop) */}
+        <div className="w-full xl:w-[400px] shrink-0 flex flex-col gap-6">
 
           {/* Iceberg Graphic Illustration Card */}
-          <IcebergGraphic />
+          <IcebergGraphic profile={profile} counts={counts} />
 
           {/* Explanation Card */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-3xs flex flex-col gap-3">

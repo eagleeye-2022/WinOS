@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { CompetencyCategory, CompetencyStatus } from "../../../../../generated/prisma/client";
 import fs from "fs/promises";
 import path from "path";
-import { headers } from "next/headers";
 
 export interface IcaItem {
   id: string;
@@ -162,22 +161,32 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
     else if (attr.category === CompetencyCategory.MOTIVE) motives.push(item);
   }
 
+  // Helper to normalize file URL
+  const normalizeUrl = (url?: string | null) => {
+    if (!url) return "";
+    if (url.includes("/uploads/")) {
+      const parts = url.split("/uploads/");
+      return `/api/uploads/${parts[parts.length - 1]}`;
+    }
+    return url;
+  };
+
   // Format documents array
   const documents: IcaDocumentData[] = (user.icaDocuments || []).map((doc) => ({
     id: doc.id,
     fileName: doc.fileName,
-    fileUrl: doc.fileUrl,
+    fileUrl: normalizeUrl(doc.fileUrl),
     fileType: doc.fileType ?? undefined,
     comment: doc.comment ?? undefined,
     uploadedOn: new Date(doc.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(doc.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   }));
 
   // Fallback for legacy single-file on profile if present and not in documents list
-  if (profile?.fileName && profile?.fileUrl && !documents.some(d => d.fileUrl === profile.fileUrl)) {
+  if (profile?.fileName && profile?.fileUrl && !documents.some(d => d.fileUrl === normalizeUrl(profile.fileUrl))) {
     documents.unshift({
       id: "legacy-1",
       fileName: profile.fileName,
-      fileUrl: profile.fileUrl,
+      fileUrl: normalizeUrl(profile.fileUrl),
       comment: profile.comment ?? undefined,
       uploadedOn: profile.uploadedOn 
         ? new Date(profile.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(profile.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) 
@@ -201,7 +210,7 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
     managerNotes: profile.coachingNotes ?? "",
     comment: profile.comment ?? "",
     fileName: profile.fileName ?? (documents[0]?.fileName || ""),
-    fileUrl: profile.fileUrl ?? (documents[0]?.fileUrl || ""),
+    fileUrl: normalizeUrl(profile.fileUrl) || (documents[0]?.fileUrl || ""),
     uploadedOn: profile.uploadedOn 
       ? new Date(profile.uploadedOn).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " - " + new Date(profile.uploadedOn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) 
       : (documents[0]?.uploadedOn || ""),
@@ -257,22 +266,48 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
 
   const comment = formData.get("comment") as string || undefined;
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-
   const fileExtension = path.extname(file.name);
   const baseName = path.basename(file.name, fileExtension).replace(/[^a-zA-Z0-9]/g, "_");
   const uniqueFileName = `${Date.now()}-${baseName}${fileExtension}`;
-  const filePath = path.join(uploadDir, uniqueFileName);
 
-  await fs.writeFile(filePath, buffer);
+  let fileUrl = "";
 
-  const host = (await headers()).get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https";
-  const fileUrl = `${protocol}://${host}/uploads/${uniqueFileName}`;
+  // Attempt remote upload if REMOTE_UPLOAD_URL is defined
+  const remoteUploadEndpoint = process.env.REMOTE_UPLOAD_URL;
+  if (remoteUploadEndpoint) {
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+      const res = await fetch(remoteUploadEndpoint, {
+        method: "POST",
+        body: uploadData,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.fileUrl) {
+          fileUrl = json.fileUrl;
+        }
+      }
+    } catch (e) {
+      console.warn("[ICA Upload] Remote upload endpoint unreachable, saving to local disk:", e);
+    }
+  }
+
+  // Local storage fallback if remote upload was not used or failed
+  if (!fileUrl) {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, uniqueFileName);
+    await fs.writeFile(filePath, buffer);
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    fileUrl = siteUrl
+      ? `${siteUrl.replace(/\/$/, "")}/api/uploads/${uniqueFileName}`
+      : `/api/uploads/${uniqueFileName}`;
+  }
 
   // Store in IcaDocument table to support multiple files
   await db.icaDocument.create({

@@ -2,7 +2,6 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { headers } from "next/headers";
 import { db } from "@/lib/db";
 
 export interface RTDDocument {
@@ -90,11 +89,19 @@ export async function getRtdDocumentsAction(currentUserId: string, isManager: bo
       minute: "2-digit",
     });
 
+    let normalizedUrl = doc.fileUrl || undefined;
+    if (normalizedUrl) {
+      if (normalizedUrl.includes("/uploads/")) {
+        const parts = normalizedUrl.split("/uploads/");
+        normalizedUrl = `/api/uploads/${parts[parts.length - 1]}`;
+      }
+    }
+
     return {
       id: doc.id,
       taskName: doc.taskName,
       fileName: doc.fileName,
-      fileUrl: doc.fileUrl || undefined,
+      fileUrl: normalizedUrl,
       fileType: doc.fileType,
       uploadedOn,
       submittedBy: {
@@ -115,26 +122,48 @@ export async function uploadRtdFileAction(userId: string, formData: FormData): P
   const taskName = formData.get("taskName") as string || "Untitled Task Document";
   const comment = formData.get("comment") as string || undefined;
 
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  // Ensure public/uploads directory exists
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  // Generate safe unique filename
   const fileExtension = path.extname(file.name);
   const baseName = path.basename(file.name, fileExtension).replace(/[^a-zA-Z0-9]/g, "_");
   const uniqueFileName = `${Date.now()}-${baseName}${fileExtension}`;
-  const filePath = path.join(uploadDir, uniqueFileName);
 
-  // Write file to disk
-  await fs.writeFile(filePath, buffer);
+  let fileUrl = "";
 
-  // Return static absolute url
-  const host = (await headers()).get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https";
-  const fileUrl = `${protocol}://${host}/uploads/${uniqueFileName}`;
+  // Attempt remote upload if REMOTE_UPLOAD_URL is defined
+  const remoteUploadEndpoint = process.env.REMOTE_UPLOAD_URL;
+  if (remoteUploadEndpoint) {
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+      const res = await fetch(remoteUploadEndpoint, {
+        method: "POST",
+        body: uploadData,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.fileUrl) {
+          fileUrl = json.fileUrl;
+        }
+      }
+    } catch (e) {
+      console.warn("[RTD Upload] Remote upload endpoint unreachable, saving to local disk:", e);
+    }
+  }
+
+  // Local storage fallback if remote upload was not used or failed
+  if (!fileUrl) {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, uniqueFileName);
+    await fs.writeFile(filePath, buffer);
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    fileUrl = siteUrl
+      ? `${siteUrl.replace(/\/$/, "")}/api/uploads/${uniqueFileName}`
+      : `/api/uploads/${uniqueFileName}`;
+  }
 
   // Save document directly to database
   await db.roleTaskDocument.create({

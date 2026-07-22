@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Users, Briefcase, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,13 +36,25 @@ export function ModuleSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Determine active module based on path (Standup includes /notes, /dsm, /dsr, /blockers, etc.)
+  const [activeModule, setActiveModule] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mod = params.get("module");
+    if (mod) {
+      setActiveModule(mod);
+    } else {
+      setActiveModule(null);
+    }
+  }, [pathname]);
+
+  // Determine active module based on path or query parameter (Standup includes /notes, /dsm, /dsr, /blockers, etc.)
   let activeModuleId = "standup"; // default to standup
-  if (pathname.startsWith("/people")) {
+  if (pathname.startsWith("/people") || activeModule === "people") {
     activeModuleId = "people";
-  } else if (pathname.startsWith("/projects")) {
+  } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleId = "projects";
-  } else if (pathname.startsWith("/sales")) {
+  } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleId = "sales";
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus, FileText, Share2, Users } from "lucide-react";
@@ -12,12 +13,28 @@ type NotesTopNavProps = {
 export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
   const pathname = usePathname();
 
+  const [activeModule, setActiveModule] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mod = params.get("module");
+    if (mod) {
+      setActiveModule(mod);
+    } else {
+      setActiveModule(null);
+    }
+  }, [pathname]);
+
   const isSharedWithMeActive = pathname === "/notes/shared-with-me";
   const isSharedByMeActive = pathname === "/notes/shared-by-me";
   const isMyNotesActive =
     (pathname === "/notes" || pathname.startsWith("/notes/member")) &&
     !isSharedWithMeActive &&
     !isSharedByMeActive;
+
+  const getHref = (basePath: string) => {
+    return activeModule ? `${basePath}?module=${activeModule}` : basePath;
+  };
 
   return (
     <nav className="flex items-center  gap-1 bg-muted/65 p-1 rounded-sm border shadow-2xs backdrop-blur-xs select-none">
@@ -32,7 +49,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
         </button>
       ) : (
         <Link
-          href="/notes"
+          href={getHref("/notes")}
           className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-background/40"
         >
           <Plus size={13} className="text-primary" />
@@ -41,7 +58,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
       )}
 
       <Link
-        href="/notes"
+        href={getHref("/notes")}
         className={cn(
           "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer select-none",
           isMyNotesActive
@@ -57,7 +74,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
       </Link>
 
       <Link
-        href="/notes/shared-with-me"
+        href={getHref("/notes/shared-with-me")}
         className={cn(
           "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer select-none",
           isSharedWithMeActive
@@ -73,7 +90,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
       </Link>
 
       <Link
-        href="/notes/shared-by-me"
+        href={getHref("/notes/shared-by-me")}
         className={cn(
           "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer select-none",
           isSharedByMeActive
