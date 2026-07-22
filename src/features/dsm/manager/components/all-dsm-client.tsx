@@ -21,11 +21,12 @@ type Props = {
 export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }: Props) {
   const router = useRouter();
   const dateInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
+  const [sortBy, setSortBy] = useState<"submissions-desc" | "submissions-asc" | "name">("submissions-desc");
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -62,9 +63,9 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     return Array.from(depts).sort();
   }, [groups]);
 
-  // Filter groups by search query and department
+  // Filter and sort groups by search query, department, and sort selection
   const filteredGroups = useMemo(() => {
-    return groups.filter((group) => {
+    const filtered = groups.filter((group) => {
       if (selectedDept !== "all" && group.department !== selectedDept) {
         return false;
       }
@@ -80,7 +81,18 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       }
       return true;
     });
-  }, [groups, selectedDept, searchQuery]);
+
+    if (sortBy === "submissions-desc") {
+      return [...filtered].sort((a, b) => b.submittedCount - a.submittedCount);
+    }
+    if (sortBy === "submissions-asc") {
+      return [...filtered].sort((a, b) => a.submittedCount - b.submittedCount);
+    }
+    if (sortBy === "name") {
+      return [...filtered].sort((a, b) => a.teamName.localeCompare(b.teamName));
+    }
+    return filtered;
+  }, [groups, selectedDept, searchQuery, sortBy]);
 
   return (
     <div className="relative flex h-full flex-col gap-6 overflow-y-auto p-6">
@@ -207,6 +219,18 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
             </select>
           </div>
 
+          <div className="w-48">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "submissions-desc" | "submissions-asc" | "name")}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
+            >
+              <option value="submissions-desc">Sort by: Submissions (High to Low)</option>
+              <option value="submissions-asc">Sort by: Submissions (Low to High)</option>
+              <option value="name">Sort by: Team Name</option>
+            </select>
+          </div>
+
           {(searchQuery || selectedDept !== "all") && (
             <button
               type="button"
@@ -226,7 +250,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       {stats && <AllDsmStatsRow stats={stats} />}
 
       {/* Team columns */}
-      <div className="flex gap-5 overflow-x-auto pb-4">
+      <div className="flex  gap-5 overflow-x-auto cursor-grab pb-4 dsm-columns-scrollbar">
         {filteredGroups.map((group, index) => (
           <TeamColumn key={group.teamId} group={group} colorIndex={index} />
         ))}

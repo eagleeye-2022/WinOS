@@ -96,11 +96,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mod = params.get("module");
-    if (mod) {
+    setTimeout(() => {
       setActiveModule(mod);
-    } else {
-      setActiveModule(null);
-    }
+    }, 0);
   }, [pathname]);
 
   // Determine active module title based on path

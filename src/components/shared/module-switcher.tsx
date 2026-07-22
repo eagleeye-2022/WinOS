@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, Users, Briefcase, TrendingUp } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MODULES = [
@@ -12,25 +12,25 @@ const MODULES = [
     href: "/dashboard",
     icon: ClipboardList,
   },
-  {
-    id: "people",
-    label: "People",
-    href: "/people",
-    icon: Users,
-  },
-  {
-    id: "projects",
-    label: "Projects",
-    href: "/projects",
-    icon: Briefcase,
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    href: "/sales",
-    icon: TrendingUp,
-  },
-] as const;
+  // {
+  //   id: "people",
+  //   label: "People",
+  //   href: "/people",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "projects",
+  //   label: "Projects",
+  //   href: "/projects",
+  //   icon: Briefcase,
+  // },
+  // {
+  //   id: "sales",
+  //   label: "Sales",
+  //   href: "/sales",
+  //   icon: TrendingUp,
+  // },
+ ] as const;
 
 export function ModuleSwitcher() {
   const pathname = usePathname();
@@ -41,11 +41,9 @@ export function ModuleSwitcher() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mod = params.get("module");
-    if (mod) {
+    setTimeout(() => {
       setActiveModule(mod);
-    } else {
-      setActiveModule(null);
-    }
+    }, 0);
   }, [pathname]);
 
   // Determine active module based on path or query parameter (Standup includes /notes, /dsm, /dsr, /blockers, etc.)

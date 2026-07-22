@@ -129,6 +129,7 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
 
       {/* Submitted member cards */}
       {submitted.map((card) => (
+
         <SubmittedCard key={card.userId} card={card} />
       ))}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Calendar, Filter } from "lucide-react";
 import { AllDsrStatsRow } from "./all-dsr-stats";
 import { DsrTeamColumn } from "./dsr-team-column";
@@ -11,6 +12,10 @@ type Props = {
 };
 
 export function AllDsrClient({ stats, groups }: Props) {
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => b.submittedCount - a.submittedCount);
+  }, [groups]);
+
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
       <div className="flex items-start justify-between gap-4">
@@ -33,8 +38,8 @@ export function AllDsrClient({ stats, groups }: Props) {
 
       {stats && <AllDsrStatsRow stats={stats} />}
 
-      <div className="flex gap-5 overflow-x-auto pb-4">
-        {groups.map((group, index) => (
+      <div className="flex gap-5 overflow-x-auto cursor-grab pb-4 dsm-columns-scrollbar">
+        {sortedGroups.map((group, index) => (
           <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} />
         ))}
       </div>

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { CompetencyCategory, CompetencyStatus } from "../../../../../generated/prisma/client";
 import fs from "fs/promises";
 import path from "path";
+import { headers } from "next/headers";
 
 export interface IcaItem {
   id: string;
@@ -270,44 +271,21 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
   const baseName = path.basename(file.name, fileExtension).replace(/[^a-zA-Z0-9]/g, "_");
   const uniqueFileName = `${Date.now()}-${baseName}${fileExtension}`;
 
-  let fileUrl = "";
+  // Save to local storage and generate URL dynamically
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
 
-  // Attempt remote upload if REMOTE_UPLOAD_URL is defined
-  const remoteUploadEndpoint = process.env.REMOTE_UPLOAD_URL;
-  if (remoteUploadEndpoint) {
-    try {
-      const uploadData = new FormData();
-      uploadData.append("file", file);
-      const res = await fetch(remoteUploadEndpoint, {
-        method: "POST",
-        body: uploadData,
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.fileUrl) {
-          fileUrl = json.fileUrl;
-        }
-      }
-    } catch (e) {
-      console.warn("[ICA Upload] Remote upload endpoint unreachable, saving to local disk:", e);
-    }
-  }
+  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  await fs.mkdir(uploadDir, { recursive: true });
+  const filePath = path.join(uploadDir, uniqueFileName);
+  await fs.writeFile(filePath, buffer);
 
-  // Local storage fallback if remote upload was not used or failed
-  if (!fileUrl) {
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+  const headersList = await headers();
+  const host = headersList.get("host") || "localhost:3000";
+  const protocol = headersList.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+  const siteUrl = `${protocol}://${host}`;
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
-    const filePath = path.join(uploadDir, uniqueFileName);
-    await fs.writeFile(filePath, buffer);
-
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    fileUrl = siteUrl
-      ? `${siteUrl.replace(/\/$/, "")}/api/uploads/${uniqueFileName}`
-      : `/api/uploads/${uniqueFileName}`;
-  }
+  const fileUrl = `${siteUrl}/api/uploads/${uniqueFileName}`;
 
   // Store in IcaDocument table to support multiple files
   await db.icaDocument.create({

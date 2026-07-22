@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Determine host protocol and domain
     const host = request.headers.get("host") || "localhost:3000";
     const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
+    const siteUrl = `${protocol}://${host}`;
 
     const fileUrl = `${siteUrl.replace(/\/$/, "")}/api/uploads/${uniqueFileName}`;
 
