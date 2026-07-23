@@ -24,20 +24,41 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
     isOnTime = new Date(card.submittedAt) <= cutoff;
   }
 
+  const displayName = card.name
+    ? card.name
+    : card.email
+      .split("@")[0]
+      .split(".")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+  const initials = (() => {
+    const parts = displayName.split(" ");
+    if (parts.length >= 2 && parts[0] && parts[1]) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return displayName.slice(0, 2).toUpperCase();
+  })();
+
   return (
     <Link
       href={ROUTES.dsmMember(card.userId)}
       className="block rounded-xl border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
     >
-      {/* Top row: avatar + name (left) | status badge (right) */}
-      <div className="mb-1 flex items-center justify-between gap-2">
+      {/* Top row: avatar + name & time (left) | status badge (right) */}
+      <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-            {(card.name ?? card.email).slice(0, 2).toUpperCase()}
-          </span>
-          <p className="truncate text-sm font-semibold leading-tight">
-            {card.name ?? card.email.split("@")[0]}
-          </p>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+            {initials}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground">
+              {displayName}
+            </p>
+            {timeStr && (
+              <span className="mt-0.5 text-[10px] text-muted-foreground">{timeStr}</span>
+            )}
+          </div>
         </div>
         {timeStr && (
           <span
@@ -51,13 +72,8 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
         )}
       </div>
 
-      {/* Submission time — indented to align under name */}
-      {timeStr && (
-        <p className="mb-3 pl-11.5 text-xs text-muted-foreground">{timeStr}</p>
-      )}
-
       {card.todayTasks.length > 0 && (
-        <div>
+        <div className="mt-3.5 pt-3 border-t border-border/50">
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Today&apos;s Task
           </p>
