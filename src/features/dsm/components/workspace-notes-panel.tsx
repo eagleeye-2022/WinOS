@@ -154,9 +154,9 @@ export function WorkspaceNotesPanel({
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground my-auto">
             <Share2 size={32} className="text-muted-foreground/40 mb-3" />
-            <p className="font-medium text-foreground">No shared notes</p>
+            <p className="font-medium text-foreground">No Shared Notes</p>
             <p className="text-xs text-muted-foreground/75 mt-1 max-w-xs">
-              When team members share notes with you, they will appear here.
+              When Team Members Share Notes with You, They Will Appear Here.
             </p>
           </div>
         ) : (

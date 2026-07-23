@@ -93,9 +93,9 @@ export function DsrPageClient({
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">DSR submitted successfully</p>
+              <p className="text-sm font-semibold text-foreground">DSR Submitted Successfully</p>
               <p className="text-sm text-muted-foreground">
-                Your team focus has been updated for {formatShortDate(now)}.
+                Your Team Focus Has Been Updated for {formatShortDate(now)}.
               </p>
             </div>
           </div>
@@ -120,7 +120,7 @@ export function DsrPageClient({
                   className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <Pencil size={13} />
-                  Edit today&apos;s DSR
+                  Edit Today&apos;s DSR
                 </button>
               </div>
             )}

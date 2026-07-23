@@ -121,7 +121,7 @@ function BlockerRows({
                   name="blockerText"
                   value={b.text}
                   onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Describe the blockers..."
+                  placeholder="Describe the Blockers..."
                   className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
                 />
                 <div className="flex shrink-0 items-center gap-2 border-l pl-3 py-1.5 ml-2">
@@ -216,7 +216,7 @@ function BlockerRows({
         onClick={add}
         className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive"
       >
-        <Plus size={13} /> Add blocker
+        <Plus size={13} /> Add Blocker
       </button>
     </div>
   );
@@ -264,7 +264,7 @@ function SupportRows({
                   name="supportText"
                   value={s.text}
                   onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Add support details..."
+                  placeholder="Add Support Details..."
                   className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
                 />
               </div>
@@ -291,7 +291,7 @@ function SupportRows({
                         onClick={() => { update(i, "mentionedUserId", ""); setOpenDropdown(null); }}
                         className="w-full rounded-md px-3 py-2 text-left text-xs text-muted-foreground hover:bg-accent"
                       >
-                        No assignment
+                        No Assignment
                       </button>
                       {teamMembers.map((m) => (
                         <button
@@ -328,7 +328,7 @@ function SupportRows({
         onClick={add}
         className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} /> Add support needed
+        <Plus size={13} /> Add Support Needed
       </button>
     </div>
   );
@@ -437,7 +437,7 @@ export function SubmitDsmForm({
         <input type="hidden" name="date" value={todayDateStr} />
 
         {/* Yesterday — read-only completed tasks */}
-        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What did you complete yesterday?">
+        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What Did You Complete Yesterday?">
           {yesterdayTasks.length > 0 ? (
             <div className="flex flex-col gap-2">
               {yesterdayTasks.map((task, i) => (
@@ -448,14 +448,14 @@ export function SubmitDsmForm({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground/60">No entries for yesterday.</p>
+            <p className="text-sm text-muted-foreground/60">No Entries for Yesterday.</p>
           )}
         </Section>
 
         {/* Today's tasks */}
         <Section
           icon={<ClipboardList size={16} className="text-primary" />}
-          title="What will you do today?"
+          title="What Will You Do Today?"
           required
         >
           <TaskRows tasks={tasks} onChange={setTasks} />
@@ -465,12 +465,12 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any blockers?">
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers (Data Needed)?">
           <BlockerRows blockers={blockers} teamMembers={teamMembers} onChange={setBlockers} />
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support needed?">
+        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed (Meeting)?">
           <SupportRows supports={supports} teamMembers={teamMembers} onChange={setSupports} />
         </Section>
 
@@ -489,11 +489,11 @@ export function SubmitDsmForm({
           )}
           <div className="flex items-center gap-3">
             {state.message === "saved" && (
-              <p className="text-xs text-muted-foreground">Draft saved.</p>
+              <p className="text-xs text-muted-foreground">Draft Saved.</p>
             )}
             {state.message && state.message !== "saved" && (
               <p className="text-xs text-destructive">
-                {state.message === "Unauthorized" ? "Session expired. Please sign in again." : state.message}
+                {state.message === "Unauthorized" ? "Session Expired. Please Sign In Again." : state.message}
               </p>
             )}
             <button

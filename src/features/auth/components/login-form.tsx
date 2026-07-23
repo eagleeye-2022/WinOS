@@ -31,7 +31,7 @@ export function LoginForm({ error }: { error?: string }) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          Enter the 6-digit code sent to{" "}
+          Enter the 6-Digit Code Sent to{" "}
           <strong className="text-foreground">{otpState.email}</strong>.
         </p>
 
@@ -43,7 +43,7 @@ export function LoginForm({ error }: { error?: string }) {
 
         {otpState.resent && !errorMsg && (
           <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
-            A new code was sent.
+            A New Code Was Sent.
           </p>
         )}
 
@@ -57,7 +57,7 @@ export function LoginForm({ error }: { error?: string }) {
           <input type="hidden" name="email" value={otpState.email} />
           <div>
             <label htmlFor="otp" className="mb-1 block text-sm font-medium">
-              Verification code
+              Verification Code
             </label>
             <input
               id="otp"
@@ -80,7 +80,7 @@ export function LoginForm({ error }: { error?: string }) {
             suppressHydrationWarning
             className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {verifyPending ? "Verifying…" : "Verify and sign in"}
+            {verifyPending ? "Verifying…" : "Verify and Sign In"}
           </button>
         </form>
 
@@ -92,14 +92,14 @@ export function LoginForm({ error }: { error?: string }) {
             suppressHydrationWarning
             className="w-full text-center text-sm text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
           >
-            {otpPending ? "Sending…" : "Resend code"}
+            {otpPending ? "Sending…" : "Resend Code"}
           </button>
         </form>
       </div>
     );
   }
 
-  const externalError = error ? "Sign-in failed. Please try again." : null;
+  const externalError = error ? "Sign-In Failed. Please Try Again." : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -112,7 +112,7 @@ export function LoginForm({ error }: { error?: string }) {
       <form action={requestOtp} className="flex flex-col gap-3">
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
-            Work email
+            Work Email
           </label>
           <input
             id="email"
@@ -132,7 +132,7 @@ export function LoginForm({ error }: { error?: string }) {
           suppressHydrationWarning
           className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {otpPending ? "Sending code…" : "Send verification code"}
+          {otpPending ? "Sending Code…" : "Send Verification Code"}
         </button>
       </form>
     </div>

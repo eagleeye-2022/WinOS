@@ -25,7 +25,7 @@ export function SendRemindersButton({ teamId, pendingCount }: Props) {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
         <CheckCircle2 size={12} />
-        {state.sent} reminder{state.sent !== 1 ? "s" : ""} sent
+        {state.sent} Reminder{state.sent !== 1 ? "s" : ""} Sent
       </span>
     );
   }
@@ -33,7 +33,7 @@ export function SendRemindersButton({ teamId, pendingCount }: Props) {
   if (wasSkipped) {
     return (
       <span className="text-xs text-muted-foreground">
-        Already reminded today
+        Already Reminded Today
       </span>
     );
   }

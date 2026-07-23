@@ -78,7 +78,7 @@ export function StandupCard({ entry, showAuthor }: StandupCardProps) {
       {confirmingDelete && (
         <div className="mt-3">
           <DeleteConfirmBar
-            message="Delete this standup entry?"
+            message="Delete This Standup Entry?"
             action={deleteAction}
             id={entry.id}
             pending={deletePending}
@@ -90,8 +90,8 @@ export function StandupCard({ entry, showAuthor }: StandupCardProps) {
       {deleteState.message && deleteState.message !== "deleted" && (
         <p className="mt-2 text-xs text-destructive">
           {deleteState.message === "Not found"
-            ? "Entry not found or you don't have permission to delete it."
-            : "Something went wrong. Please try again."}
+            ? "Entry Not Found or You Don't Have Permission to Delete It."
+            : "Something Went Wrong. Please Try Again."}
         </p>
       )}
     </article>

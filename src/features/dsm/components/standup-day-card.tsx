@@ -76,7 +76,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
           )}
           {supportCount > 0 && (
             <span className="rounded-full border border-sky-400/30 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-              {supportCount} Support needed
+              {supportCount} Support Needed
             </span>
           )}
         </div>
@@ -138,14 +138,14 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
               {entry.supportNeeds.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-3">
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Support Needed
+                    Support Needed (Meeting)
                   </p>
                   {entry.supportNeeds.map((s, i) => (
                     <p key={s.id} className="text-xs leading-relaxed">
                       {i + 1}){" "}
                       {s.mentionedUser && (
                         <span className="font-medium text-primary">
-                          @{s.mentionedUser.name?.split(" ")[0].toLowerCase() ?? "user"}&nbsp;
+                          @{s.mentionedUser.name?.split(" ")[0]?.toLowerCase() ?? s.mentionedUser.email.split("@")[0]}&nbsp;
                         </span>
                       )}
                       {s.text}
@@ -156,7 +156,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
               {entry.blockers.length > 0 && (
                 <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3">
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Blockers
+                    Blockers (Data Needed)
                   </p>
                   {entry.blockers.map((b, i) => (
                     <p key={b.id} className={cn("text-xs leading-relaxed", PRIORITY_COLORS[b.priority])}>

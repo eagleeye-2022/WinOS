@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useRef, useEffect } from "react";
+import { useActionState, useState, useRef, useEffect, startTransition } from "react";
 import { PlusCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
@@ -146,7 +146,7 @@ function PlannedTasksSection({
         ))}
         {tasks.length === 0 && (
           <p className="text-sm text-muted-foreground/60">
-            No planned tasks from today&apos;s DSM. Add tasks in the blockers section or submit anyway.
+            No Planned Tasks from Today&apos;s DSM. Add Tasks in the Blockers Section or Submit Anyway.
           </p>
         )}
       </div>
@@ -193,7 +193,7 @@ function AdditionalWorkSection({
                 type="text"
                 value={item.text}
                 onChange={(e) => update(i, e.target.value)}
-                placeholder={`Additional work for T${i + 1}...`}
+                placeholder={`Additional Work for T${i + 1}...`}
                 className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
               />
               <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
@@ -204,7 +204,7 @@ function AdditionalWorkSection({
         ))}
         {items.length === 0 && (
           <p className="text-sm text-muted-foreground/50 italic">
-            Click + to add any extra work completed outside the planned tasks.
+            Click + to Add Any Extra Work Completed Outside the Planned Tasks.
           </p>
         )}
       </div>
@@ -268,7 +268,7 @@ function DayReflection({
           <textarea
             value={resultOfDay}
             onChange={(e) => onResultOfDay(e.target.value)}
-            placeholder="What was the singular most important outcome of today?"
+            placeholder="What Was the Singular Most Important Outcome of Today?"
             rows={3}
             className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
           />
@@ -276,13 +276,13 @@ function DayReflection({
 
         <div>
           <label className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            What did you learn?
+            What Did You Learn?
             <span className="text-destructive">*</span>
           </label>
           <textarea
             value={reflection}
             onChange={(e) => onReflection(e.target.value)}
-            placeholder="Documenting new learnings..."
+            placeholder="Documenting New Learnings..."
             rows={3}
             className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
           />
@@ -358,7 +358,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
     fd.set("sentiment", sentiment);
     fd.set("reflection", reflection);
     fd.set("resultOfDay", resultOfDay);
-    action(fd);
+    startTransition(() => {
+      action(fd);
+    });
   }
 
   // Keep a ref to buildAndSubmit so the panel's registered callback always uses fresh state
@@ -415,16 +417,16 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         items={blockers}
         onChange={setBlockers}
         allowAdd
-        addLabel="Add resolved blocker"
+        addLabel="Add Resolved Blocker"
       />
 
       <CheckSection
-        title="Follow-ups Done"
+        title="Follow-Ups Done"
         badge={`${followUps.filter((f) => f.completed).length}/${followUps.length} FOLLOW-UPS COMPLETED`}
         items={followUps}
         onChange={setFollowUps}
         allowAdd
-        addLabel="Add follow-up"
+        addLabel="Add Follow-Up"
       />
 
       <DayReflection
@@ -438,11 +440,11 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
       />
 
       {state.message === "saved" && (
-        <p className="text-xs text-muted-foreground">Draft saved.</p>
+        <p className="text-xs text-muted-foreground">Draft Saved.</p>
       )}
       {state.message && state.message !== "saved" && (
         <p className="text-xs text-destructive">
-          {state.message === "Unauthorized" ? "Session expired. Please sign in again." : state.message}
+          {state.message === "Unauthorized" ? "Session Expired. Please Sign In Again." : state.message}
         </p>
       )}
 

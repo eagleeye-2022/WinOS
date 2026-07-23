@@ -139,7 +139,7 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
       {/* Empty team */}
       {group.totalMembers === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6 text-center">
-          <p className="text-xs text-muted-foreground">No members yet</p>
+          <p className="text-xs text-muted-foreground">No Members Yet</p>
         </div>
       )}
     </div>

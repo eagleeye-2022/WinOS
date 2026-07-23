@@ -13,7 +13,11 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import RichTextEditor from "@/components/RichTextEditor";
+import dynamic from "next/dynamic";
+
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
+  ssr: false,
+});
 import { NotesTopNav } from "./notes-top-nav";
 import { createBoard } from "../actions/create-board";
 import { createThread } from "../actions/create-thread";

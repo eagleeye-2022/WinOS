@@ -116,7 +116,7 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
 
       {group.totalMembers === 0 && (
         <div className="flex items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6">
-          <p className="text-xs text-muted-foreground">No members yet</p>
+          <p className="text-xs text-muted-foreground">No Members Yet</p>
         </div>
       )}
     </div>

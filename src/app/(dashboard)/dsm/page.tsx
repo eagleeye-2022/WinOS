@@ -60,10 +60,10 @@ export default async function DSMPage({ searchParams }: Props) {
             />
             <div>
               <p className="text-sm font-semibold text-emerald-800">
-                DSM submitted successfully
+                DSM Submitted Successfully
               </p>
               <p className="text-xs text-emerald-700">
-                Your team focus has been updated for {formatShortDate(today)}.
+                Your Team Focus Has Been Updated for {formatShortDate(today)}.
               </p>
             </div>
           </div>

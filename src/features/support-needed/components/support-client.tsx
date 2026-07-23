@@ -55,7 +55,7 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
 function CommentThread({ comments }: { comments: SupportNeedItem["comments"] }) {
   if (comments.length === 0) {
     return (
-      <p className="text-xs italic text-muted-foreground/60">No updates yet.</p>
+      <p className="text-xs italic text-muted-foreground/60">No Updates Yet.</p>
     );
   }
   return (
@@ -94,11 +94,11 @@ function CommentForm({ supportId }: { supportId: string }) {
         rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Share an update — solved or not, what's remaining, what support you still need..."
+        placeholder="Share an Update — Solved or Not, What's Remaining, What Support You Still Need..."
         className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
       />
       {state.errors?.text && <p className="text-xs text-destructive">{state.errors.text[0]}</p>}
-      {state.message === "added" && <p className="text-xs text-emerald-600">Update posted.</p>}
+      {state.message === "added" && <p className="text-xs text-emerald-600">Update Posted.</p>}
       {state.message && state.message !== "added" && (
         <p className="text-xs text-destructive">{state.message}</p>
       )}
@@ -187,15 +187,15 @@ function DetailPanel({
           <p className="text-xs text-destructive">{resolveState.message}</p>
         )}
         {reminderState.message === "sent" && (
-          <p className="text-xs text-emerald-600">Reminder sent.</p>
+          <p className="text-xs text-emerald-600">Reminder Sent.</p>
         )}
         {reminderState.message === "no_target" && (
           <p className="text-xs text-muted-foreground">
-            No one to notify — add a @mention when requesting support.
+            No One to Notify — Add a @mention When Requesting Support.
           </p>
         )}
         {reminderState.message === "already_resolved" && (
-          <p className="text-xs text-muted-foreground">This item is already resolved.</p>
+          <p className="text-xs text-muted-foreground">This Item Is Already Resolved.</p>
         )}
       </div>
 
@@ -249,7 +249,7 @@ function RequestSupportModal({
         <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-2 text-emerald-700">
             <CheckCircle2 size={18} />
-            <span className="font-semibold">Support request raised.</span>
+            <span className="font-semibold">Support Request Raised.</span>
           </div>
           <button
             type="button"
@@ -280,7 +280,7 @@ function RequestSupportModal({
             <textarea
               name="text"
               rows={4}
-              placeholder="What support do you need?"
+              placeholder="What Support Do You Need?"
               className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
             />
             {state.errors?.text && <p className="mt-1 text-xs text-destructive">{state.errors.text[0]}</p>}
@@ -294,7 +294,7 @@ function RequestSupportModal({
               defaultValue=""
               className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             >
-              <option value="">No one specific</option>
+              <option value="">No One Specific</option>
               {teamMembers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name ?? m.email.split("@")[0]}{m.title ? ` — ${m.title}` : ""}
@@ -381,7 +381,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Identify challenges early and collaborate to keep work moving.
+              Identify Challenges Early and Collaborate to Keep Work Moving.
             </p>
           </div>
           <button
@@ -418,7 +418,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Requests For Me
+            Requests for Me
             {forMeActiveCount > 0 && (
               <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                 {forMeActiveCount}
@@ -456,7 +456,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search by title or description..."
+              placeholder="Search by Title or Description..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
           </div>
@@ -486,10 +486,10 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
                 <tr>
                   <td colSpan={4} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {search || statusFilter !== "all"
-                      ? "No items match your filters."
+                      ? "No Items Match Your Filters."
                       : viewMode === "mine"
-                      ? "No support requests yet. Add one from your DSM or use the button above."
-                      : "No one has requested support from you yet."}
+                      ? "No Support Requests Yet. Add One from Your DSM or Use the Button Above."
+                      : "No One Has Requested Support from You Yet."}
                   </td>
                 </tr>
               ) : (
@@ -529,7 +529,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
-                Showing {paginated.length} of {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+                Showing {paginated.length} of {filtered.length} Item{filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button

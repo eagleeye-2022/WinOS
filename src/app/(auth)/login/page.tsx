@@ -11,12 +11,12 @@ export default async function LoginPage({
   return (
     <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
       <h1 className="mb-1 text-xl font-semibold">{APP_CONFIG.name}</h1>
-      <p className="mb-1 text-sm font-medium text-foreground">
-        Sign in with your Eagle Eye Digital account
+      <p className="mb-1 text-sm font-medium text-foreground pb-2.5">
+        Sign In with Your Eagle Eye Digital Account
       </p>
-      <p className="mb-6 text-xs text-muted-foreground">
-        Enter your @eagleeyedigital.io email to receive a sign-in code
-      </p>
+      {/* <p className="mb-6 text-xs text-muted-foreground">
+        Enter Your @eagleeyedigital.io Email to Receive a Sign-In Code
+      </p> */}
       <LoginForm error={error} />
     </div>
   );

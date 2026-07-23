@@ -69,8 +69,7 @@ export default function RichTextEditor({
                     "|",
                     "bulletedList",
                     "numberedList",
-
-
+                    "todoList",
                     "|",
                     "link",
                     "|",

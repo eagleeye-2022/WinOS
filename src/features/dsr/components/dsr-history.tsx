@@ -21,7 +21,7 @@ export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold">This Week&apos;s Standups</h2>
-          <p className="text-sm text-muted-foreground">Review daily status updates and progress.</p>
+          <p className="text-sm text-muted-foreground">Review Daily Status Updates and Progress.</p>
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm">
           <Link
@@ -46,7 +46,7 @@ export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
 
       {entries.length === 0 ? (
         <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-          No DSR entries recorded for this week.
+          No DSR Entries Recorded for This Week.
         </div>
       ) : (
         <div className="flex flex-col gap-2">

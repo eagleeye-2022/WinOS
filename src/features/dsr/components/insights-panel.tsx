@@ -175,7 +175,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
           </div>
           <div className="min-h-16 rounded-md border bg-background px-3 py-2.5 text-sm text-muted-foreground">
             {entry?.managerComment || (
-              <span className="italic text-muted-foreground/50">No comments yet.</span>
+              <span className="italic text-muted-foreground/50">No Comments Yet.</span>
             )}
           </div>
         </div>

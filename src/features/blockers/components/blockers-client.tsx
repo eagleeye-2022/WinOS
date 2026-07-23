@@ -58,7 +58,7 @@ function PriorityBadge({ priority }: { priority: "LOW" | "MEDIUM" | "HIGH" }) {
 function CommentThread({ comments }: { comments: BlockerItem["comments"] }) {
   if (comments.length === 0) {
     return (
-      <p className="text-xs italic text-muted-foreground/60">No updates yet.</p>
+      <p className="text-xs italic text-muted-foreground/60">No Updates Yet.</p>
     );
   }
   return (
@@ -97,11 +97,11 @@ function CommentForm({ blockerId }: { blockerId: string }) {
         rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Share an update — solved or not, what's remaining, what support you still need..."
+        placeholder="Share an Update — Solved or Not, What's Remaining, What Support You Still Need..."
         className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
       />
       {state.errors?.text && <p className="text-xs text-destructive">{state.errors.text[0]}</p>}
-      {state.message === "added" && <p className="text-xs text-emerald-600">Update posted.</p>}
+      {state.message === "added" && <p className="text-xs text-emerald-600">Update Posted.</p>}
       {state.message && state.message !== "added" && (
         <p className="text-xs text-destructive">{state.message}</p>
       )}
@@ -196,13 +196,13 @@ function DetailPanel({
           <p className="text-xs text-destructive">{resolveState.message}</p>
         )}
         {reminderState.message === "sent" && (
-          <p className="text-xs text-emerald-600">Reminder sent.</p>
+          <p className="text-xs text-emerald-600">Reminder Sent.</p>
         )}
         {reminderState.message === "no_target" && (
-          <p className="text-xs text-muted-foreground">No manager found to notify.</p>
+          <p className="text-xs text-muted-foreground">No Manager Found to Notify.</p>
         )}
         {reminderState.message === "already_resolved" && (
-          <p className="text-xs text-muted-foreground">This blocker is already resolved.</p>
+          <p className="text-xs text-muted-foreground">This Blocker Is Already Resolved.</p>
         )}
         {isManager && (
           <form action={resolveAction}>
@@ -248,7 +248,7 @@ function RaiseBlockerModal({ onClose }: { onClose: () => void }) {
         <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
           <div className="mb-4 flex items-center gap-2 text-emerald-700">
             <CheckCircle2 size={18} />
-            <span className="font-semibold">Blocker raised successfully.</span>
+            <span className="font-semibold">Blocker Raised Successfully.</span>
           </div>
           <button
             type="button"
@@ -279,7 +279,7 @@ function RaiseBlockerModal({ onClose }: { onClose: () => void }) {
             <textarea
               name="text"
               rows={4}
-              placeholder="Describe what is blocking you..."
+              placeholder="Describe What Is Blocking You..."
               className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
             />
             {state.errors?.text && <p className="mt-1 text-xs text-destructive">{state.errors.text[0]}</p>}
@@ -354,7 +354,7 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage and resolve dependencies hindering your workflow.
+              Manage and Resolve Dependencies Hindering Your Workflow.
             </p>
           </div>
           <button
@@ -400,7 +400,7 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search by title or description..."
+              placeholder="Search by Title or Description..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
           </div>
@@ -433,8 +433,8 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                 <tr>
                   <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {search || statusFilter !== "all" || priorityFilter !== "all"
-                      ? "No blockers match your filters."
-                      : "No blockers recorded yet. Raise one from your DSM or use the button above."}
+                      ? "No Blockers Match Your Filters."
+                      : "No Blockers Recorded Yet. Raise One from Your DSM or Use the Button Above."}
                   </td>
                 </tr>
               ) : (
@@ -493,7 +493,7 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
-                Showing {paginated.length} of {filtered.length} blocker{filtered.length !== 1 ? "s" : ""}
+                Showing {paginated.length} of {filtered.length} Blocker{filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button

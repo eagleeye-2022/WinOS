@@ -115,7 +115,7 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
           {hasFollowUps && (
             <div className="rounded-lg bg-accent/60 p-2.5">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Follow-ups
+                Follow-Ups
               </p>
               <ol className="space-y-0.5">
                 {entry.supportNeeds.slice(0, 2).map((s, i) => (
@@ -166,7 +166,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         <div className="rounded-xl border bg-card p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
             <CheckCircle2 size={15} className="text-primary" />
-            What did you completed yesterday?
+            What Did You Complete Yesterday?
           </h3>
           <div className="space-y-2">
             {yesterdayTasks.map((task) => (
@@ -184,7 +184,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         <div className="rounded-xl border bg-card p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
             <Calendar size={15} className="text-primary" />
-            What will you do today?
+            What Will You Do Today?
           </h3>
           <div className="space-y-2.5">
             {todayTasks.map((task, i) => (
@@ -208,7 +208,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-destructive">
             <AlertTriangle size={15} className="text-destructive" />
-            Blockers
+            Blockers (Data Needed)
           </h3>
           <ol className="space-y-1 text-sm text-destructive/90">
             {entry.blockers.map((b, i) => (
@@ -231,7 +231,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
         <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-700">
             <Handshake size={15} className="text-sky-700" />
-            Support needed
+            Support Needed (Meeting)
           </h3>
           <ol className="space-y-1 text-sm">
             {entry.supportNeeds.map((s, i) => (
@@ -239,7 +239,7 @@ function EntryExpanded({ entry }: { entry: MemberReviewEntry }) {
                 {i + 1}.{" "}
                 {s.mentionedUser && (
                   <span className="font-medium text-primary">
-                    @{s.mentionedUser.name?.split(" ")[0] ?? "user"}&nbsp;
+                    @{s.mentionedUser.name?.split(" ")[0]?.toLowerCase() ?? s.mentionedUser.email.split("@")[0]}&nbsp;
                   </span>
                 )}
                 {s.text}
@@ -388,7 +388,7 @@ function DayCardCollapsed({ entry }: { entry: MemberReviewEntry }) {
           )}
           {entry.supportNeeds.length > 0 && (
             <span className="rounded-full border border-sky-300/50 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-              {entry.supportNeeds.length} Follow-up{entry.supportNeeds.length > 1 ? "s" : ""}
+              {entry.supportNeeds.length} Follow-Up{entry.supportNeeds.length > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -496,7 +496,7 @@ export function MemberReviewDetail({ review, weekOffset }: Props) {
 
       {entries.length === 0 && (
         <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-          No standups recorded for this week.
+          No Standups Recorded for This Week.
         </div>
       )}
     </div>
