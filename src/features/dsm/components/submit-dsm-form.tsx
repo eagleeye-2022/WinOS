@@ -5,6 +5,7 @@ import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping } 
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
+import { MentionInput } from "@/components/shared/mention-input";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -26,9 +27,11 @@ type Task = { text: string; carried: boolean };
 
 function TaskRows({
   tasks,
+  teamMembers,
   onChange,
 }: {
   tasks: Task[];
+  teamMembers: TeamMember[];
   onChange: (t: Task[]) => void;
 }) {
   const update = (i: number, v: string) => {
@@ -49,12 +52,12 @@ function TaskRows({
           )}>
             T{i + 1}
           </span>
-          <input
+          <MentionInput
             name="taskText"
             value={task.text}
-            onChange={(e) => update(i, e.target.value)}
-            placeholder="Add task details..."
-            className={inputCls}
+            onChange={(v) => update(i, v)}
+            placeholder="Add task details... (Type @ for people, @file: for files)"
+            teamMembers={teamMembers}
           />
           {task.carried && (
             <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -111,18 +114,20 @@ function BlockerRows({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <input type="hidden" name="blockerUserId" value={b.mentionedUserId} />
-              <div className="relative flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+              <div className="relative flex-1 flex items-center rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
                 {mentioned && (
                   <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
                     @{mentionLabel(mentioned).toLowerCase()}
                   </span>
                 )}
-                <input
+                <MentionInput
                   name="blockerText"
                   value={b.text}
-                  onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Describe the Blockers..."
-                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
+                  onChange={(v) => update(i, "text", v)}
+                  placeholder="Describe the blockers... (Type @ for people, @file: for files)"
+                  teamMembers={teamMembers}
+                  onSelectMention={(mId) => update(i, "mentionedUserId", mId)}
+                  className="border-0 bg-transparent px-0 py-2 focus:ring-0 focus:border-transparent min-w-0"
                 />
                 <div className="flex shrink-0 items-center gap-2 border-l pl-3 py-1.5 ml-2">
                   <div className={cn(
@@ -156,7 +161,7 @@ function BlockerRows({
               </div>
 
               {/* Team member assignment picker */}
-              <div className="relative shrink-0">
+              {/* <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
@@ -200,7 +205,7 @@ function BlockerRows({
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {blockers.length > 1 && (
                 <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
@@ -254,23 +259,25 @@ function SupportRows({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-start gap-2">
               <input type="hidden" name="supportUserId" value={s.mentionedUserId} />
-              <div className="flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring h-[38px]">
+              <div className="relative flex-1 flex items-center rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
                 {mentioned && (
                   <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
                     @{mentionLabel(mentioned).toLowerCase()}
                   </span>
                 )}
-                <input
+                <MentionInput
                   name="supportText"
                   value={s.text}
-                  onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Add Support Details..."
-                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
+                  onChange={(v) => update(i, "text", v)}
+                  placeholder="Add support details... (Type @ for people, @file: for files)"
+                  teamMembers={teamMembers}
+                  onSelectMention={(mId) => update(i, "mentionedUserId", mId)}
+                  className="border-0 bg-transparent px-0 py-2 focus:ring-0 focus:border-transparent min-w-0"
                 />
               </div>
 
               {/* Team member picker */}
-              <div className="relative shrink-0">
+              {/* <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
@@ -314,7 +321,7 @@ function SupportRows({
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               <button type="button" onClick={() => remove(i)} className="mt-2 shrink-0 text-muted-foreground hover:text-destructive">
                 <X size={14} />
@@ -458,7 +465,7 @@ export function SubmitDsmForm({
           title="What Will You Do Today?"
           required
         >
-          <TaskRows tasks={tasks} onChange={setTasks} />
+          <TaskRows tasks={tasks} teamMembers={teamMembers} onChange={setTasks} />
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}

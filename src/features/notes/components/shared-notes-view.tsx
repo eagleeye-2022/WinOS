@@ -190,16 +190,16 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                     </div>
 
                     {/* List/Thread Title */}
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                    <h4 className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                       {note.thread?.title || "Untitled Card"}
                     </h4>
 
                     {/* Content Body / Checklist */}
                     {totalItems > 0 ? (
                       <div className="flex flex-col gap-1 my-1">
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
                           <span className="flex items-center gap-1">
-                            <CheckSquare size={11} /> Checklist
+                            <CheckSquare size={12} /> Checklist
                           </span>
                           <span>
                             {checkedItems}/{totalItems}
@@ -213,20 +213,20 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                         </div>
                         <div className="mt-1 flex flex-col gap-0.5">
                           {note.checklistItems?.slice(0, 3).map((item) => (
-                            <div key={item.id} className="flex items-center gap-1.5 text-[11px] text-foreground/80 line-clamp-1">
-                              <span className={cn("text-[10px]", item.checked ? "text-emerald-600 font-bold" : "text-muted-foreground")}>
+                            <div key={item.id} className="flex items-center gap-1.5 text-xs text-foreground/80 line-clamp-1">
+                              <span className={cn("text-xs", item.checked ? "text-emerald-600 font-bold" : "text-muted-foreground")}>
                                 {item.checked ? "☑" : "☐"}
                               </span>
                               <span className={cn(item.checked && "line-through text-muted-foreground")}>{item.text}</span>
                             </div>
                           ))}
                           {totalItems > 3 && (
-                            <span className="text-[9px] text-muted-foreground italic">+ {totalItems - 3} more items</span>
+                            <span className="text-xs text-muted-foreground italic">+ {totalItems - 3} more items</span>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                         {(note.content || "").replace(/<[^>]*>/g, "")}
                       </p>
                     )}
@@ -304,7 +304,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                   </span>
                   <div className="flex flex-col gap-1.5 rounded-lg border p-3 bg-background/60 max-h-60 overflow-y-auto">
                     {selectedNote.checklistItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 text-xs">
+                      <div key={item.id} className="flex items-center gap-2 text-sm">
                         <span className={item.checked ? "text-emerald-600 font-bold" : "text-muted-foreground"}>
                           {item.checked ? "☑" : "☐"}
                         </span>
@@ -314,7 +314,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border p-3 bg-background/60 whitespace-pre-wrap leading-relaxed text-xs">
+                <div className="rounded-lg border p-3.5 bg-background/60 whitespace-pre-wrap leading-relaxed text-sm">
                   {selectedNote.content}
                 </div>
               )}

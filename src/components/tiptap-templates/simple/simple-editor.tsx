@@ -233,11 +233,13 @@ export function SimpleEditor() {
 
   const rect = useCursorVisibility({
     editor,
+    // eslint-disable-next-line react-hooks/refs
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
 
   useEffect(() => {
     if (!isMobile && mobileView !== "main") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMobileView("main")
     }
   }, [isMobile, mobileView])

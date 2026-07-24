@@ -105,6 +105,7 @@ export function useElementRect({
 
   useEffect(() => {
     if (!enabled || !isClientSide()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRect(initialRect)
       return
     }

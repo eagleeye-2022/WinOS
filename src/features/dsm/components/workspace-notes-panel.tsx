@@ -42,6 +42,7 @@ function SharedNoteCard({
 }: {
   note: {
     id: string;
+    title?: string | null;
     content: string;
     color: string | null;
     deadline: Date | null;
@@ -69,10 +70,17 @@ function SharedNoteCard({
 
   return (
     <div className="flex flex-col gap-2 text-left">
+      {/* Title */}
+      {note.title && (
+        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          {note.title}
+        </h4>
+      )}
+
       {/* Content */}
       {note.content && (
         <div
-          className="text-xs text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
+          className="text-sm text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
       )}

@@ -183,6 +183,7 @@ export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
 
       return cloneElement(
         children,
+        // eslint-disable-next-line react-hooks/refs
         context.getReferenceProps({
           ref,
           ...props,

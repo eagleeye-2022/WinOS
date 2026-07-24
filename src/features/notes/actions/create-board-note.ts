@@ -14,6 +14,7 @@ export async function createBoardNote(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const threadId = getStr(formData, "threadId");
+  const title = getStr(formData, "title") || null;
   const content = getStr(formData, "content") || "";
   const color = getStr(formData, "color") || "#ffffff";
   const deadlineStr = getStr(formData, "deadline");
@@ -31,6 +32,7 @@ export async function createBoardNote(
   // Create note
   const note = await d.boardNote.create({
     data: {
+      title,
       content,
       color,
       deadline,

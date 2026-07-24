@@ -8,6 +8,7 @@ import { useRef, useEffect } from "react"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useUnmount = (callback: (...args: Array<any>) => any) => {
   const ref = useRef(callback)
+  // eslint-disable-next-line react-hooks/refs
   ref.current = callback
 
   useEffect(

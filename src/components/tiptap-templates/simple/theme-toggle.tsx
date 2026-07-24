@@ -22,6 +22,7 @@ export function ThemeToggle() {
     const initialDarkMode =
       !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
       window.matchMedia("(prefers-color-scheme: dark)").matches
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDarkMode(initialDarkMode)
   }, [])
 

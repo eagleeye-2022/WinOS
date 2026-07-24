@@ -167,7 +167,7 @@ export async function getHistory(targetUserId?: string) {
   return await d.boardNote.findMany({
     where: whereClause,
     include: {
-      thread: { select: { id: true, title: true, boardId: true } },
+      thread: { select: { id: true, title: true, boardId: true, board: { select: { name: true } } } },
       author: { select: { id: true, name: true, email: true, image: true } },
       shares: { select: { userId: true } },
       checklistItems: { orderBy: { position: "asc" } },

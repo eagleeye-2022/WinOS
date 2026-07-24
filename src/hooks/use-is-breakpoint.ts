@@ -26,6 +26,7 @@ export function useIsBreakpoint(
     const onChange = (e: MediaQueryListEvent) => setMatches(e.matches)
 
     // Set initial value
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMatches(mql.matches)
 
     // Add listener

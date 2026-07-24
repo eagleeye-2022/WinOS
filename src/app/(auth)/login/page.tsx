@@ -12,7 +12,7 @@ export default async function LoginPage({
     <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
       <h1 className="mb-1 text-xl font-semibold">{APP_CONFIG.name}</h1>
       <p className="mb-1 text-sm font-medium text-foreground pb-2.5">
-        Sign In with Your Eagle Eye Digital Account
+        Sign In with Your Eagleeye Digital Account
       </p>
       {/* <p className="mb-6 text-xs text-muted-foreground">
         Enter Your @eagleeyedigital.io Email to Receive a Sign-In Code

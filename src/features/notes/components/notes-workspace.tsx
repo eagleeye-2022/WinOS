@@ -11,8 +11,9 @@ import {
   Square,
   ChevronRight,
   Users,
+  GripVertical,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
@@ -118,9 +119,16 @@ export function NotesWorkspace({
   pageOwnerId,
 }: NotesWorkspaceProps) {
   const [boards, setBoards] = useState<BoardData[]>(initialBoards);
-  const [activeBoardId, setActiveBoardId] = useState<string | null>(
-    initialBoards[0]?.id || null
-  );
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const bId = params.get("boardId") || localStorage.getItem("winos_active_board_id");
+      if (bId && initialBoards.some((b) => b.id === bId)) {
+        return bId;
+      }
+    }
+    return initialBoards[0]?.id || null;
+  });
   const [threads, setThreads] = useState<ThreadData[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
 
@@ -141,13 +149,26 @@ export function NotesWorkspace({
   if (boardIds !== prevBoardIds) {
     setPrevInitialBoards(initialBoards);
     setBoards(initialBoards);
-    if (initialBoards.length > 0 && !activeBoardId) {
-      setActiveBoardId(initialBoards[0].id);
+    if (initialBoards.length > 0) {
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("winos_active_board_id") : null;
+      if (storedId && initialBoards.some((b) => b.id === storedId)) {
+        setActiveBoardId(storedId);
+      } else if (!activeBoardId || !initialBoards.some((b) => b.id === activeBoardId)) {
+        setActiveBoardId(initialBoards[0].id);
+      }
     }
   }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const bId = params.get("boardId") || localStorage.getItem("winos_active_board_id");
+    if (bId) {
+      const exists = initialBoards.some((b) => b.id === bId);
+      if (exists) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setActiveBoardId(bId);
+      }
+    }
     const view = params.get("view");
     if (view === "shared-by-me") {
       const el = document.getElementById("shared-by-me-section");
@@ -156,7 +177,7 @@ export function NotesWorkspace({
       const el = document.getElementById("shared-with-me-section");
       if (el) el.scrollIntoView({ behavior: "smooth" });
     }
-  }, []);
+  }, [initialBoards]);
 
   // Pointer drag-to-scroll logic for board container
   const boardRef = useRef<HTMLDivElement>(null);
@@ -226,6 +247,7 @@ export function NotesWorkspace({
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [threadTitle, setThreadTitle] = useState("");
+  const [threadNoteTitle, setThreadNoteTitle] = useState("");
   const [threadNoteType, setThreadNoteType] = useState<"TEXT" | "CHECKLIST">("TEXT");
   const [threadContent, setThreadContent] = useState("");
   const [threadChecklist, setThreadChecklist] = useState<string[]>([""]);
@@ -234,6 +256,7 @@ export function NotesWorkspace({
   const [threadSharedUsers, setThreadSharedUsers] = useState<string[]>([]);
 
   const [activeThreadForNote, setActiveThreadForNote] = useState<string | null>(null);
+  const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteNoteType, setNoteNoteType] = useState<"TEXT" | "CHECKLIST">("TEXT");
   const [noteChecklist, setNoteChecklist] = useState<string[]>([""]);
@@ -400,7 +423,12 @@ export function NotesWorkspace({
       if (res.message === "created") {
         setNewBoardName("");
         setShowAddBoard(false);
-        window.location.reload();
+        if (res.boardId) {
+          localStorage.setItem("winos_active_board_id", res.boardId);
+          window.location.href = `/notes?boardId=${res.boardId}`;
+        } else {
+          window.location.reload();
+        }
       } else if (res.errors?.name) {
         alert(res.errors.name[0]);
       }
@@ -415,6 +443,7 @@ export function NotesWorkspace({
     const formData = new FormData();
     formData.append("boardId", activeBoardId);
     formData.append("title", threadTitle);
+    if (threadNoteTitle.trim()) formData.append("noteTitle", threadNoteTitle);
     formData.append("noteType", threadNoteType);
     formData.append("color", threadColor);
     if (threadDeadline) formData.append("deadline", threadDeadline);
@@ -434,6 +463,7 @@ export function NotesWorkspace({
       const res = await createThread({}, formData);
       if (res.message === "created") {
         setThreadTitle("");
+        setThreadNoteTitle("");
         setThreadContent("");
         setThreadChecklist([""]);
         setThreadDeadline("");
@@ -452,6 +482,7 @@ export function NotesWorkspace({
 
     const formData = new FormData();
     formData.append("threadId", activeThreadForNote);
+    if (noteTitle.trim()) formData.append("title", noteTitle);
     formData.append("noteType", noteNoteType);
     formData.append("color", noteColor);
     if (noteDeadline) formData.append("deadline", noteDeadline);
@@ -468,6 +499,7 @@ export function NotesWorkspace({
       const res = await createBoardNote({}, formData);
       if (res.message === "created") {
         console.log("Client: Note created successfully in thread:", activeThreadForNote, "with content:", noteContent, "and items:", noteChecklist);
+        setNoteTitle("");
         setNoteContent("");
         setNoteChecklist([""]);
         setNoteDeadline("");
@@ -485,6 +517,7 @@ export function NotesWorkspace({
 
     const formData = new FormData();
     formData.append("id", editingNote.id);
+    if (editingNote.title !== undefined) formData.append("title", editingNote.title || "");
     formData.append("color", editingNote.color || "#ffffff");
     if (editingNote.deadline) {
       formData.append("deadline", new Date(editingNote.deadline).toISOString().slice(0, 16));
@@ -569,16 +602,22 @@ export function NotesWorkspace({
     });
   };
 
+  const formatFallbackName = (email: string) => {
+    const prefix = email.split("@")[0];
+    return prefix
+      .split(".")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   const getInitials = (user: UserBasic) => {
-    if (user.name) {
-      return user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-    }
-    return user.email.slice(0, 2).toUpperCase();
+    const displayName = user.name || formatFallbackName(user.email);
+    return displayName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
   };
 
   const formatDate = (date: Date) => {
@@ -593,14 +632,14 @@ export function NotesWorkspace({
   const activeBoard = boards.find((b) => b.id === activeBoardId);
 
   return (
-    <div>
-      <div className="p-3 border-b overflow-x-auto">
+    <div className="flex flex-col h-[calc(100vh-4.5rem)] w-full overflow-hidden">
+      <div className="p-3 border-b shrink-0 overflow-x-auto">
         <NotesTopNav onNewBoardClick={() => setShowAddBoard((prev) => !prev)} />
       </div>
-      <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-background">
+      <div className="flex flex-1 w-full overflow-hidden bg-background">
         {/* ── Sub-sidebar for note boards & history ── */}
 
-        <aside className="w-60 border-r bg-card flex flex-col h-full shrink-0 select-none text-foreground">
+        <aside className="w-60 bg-card flex flex-col shrink-0 select-none text-foreground my-4 ml-4 rounded-2xl border shadow-xs overflow-hidden">
           {/* Navigation Tabs (New Board, My Notes, Shared with Me, Shared by Me) */}
 
 
@@ -608,7 +647,7 @@ export function NotesWorkspace({
           {/* Boards Section */}
           <div className="flex flex-col gap-2 p-4 border-b">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 Note Board
               </span>
               {(isManager || !pageOwnerId || pageOwnerId === userId) && (
@@ -617,7 +656,7 @@ export function NotesWorkspace({
                   onClick={() => setShowAddBoard((prev) => !prev)}
                   className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground"
                 >
-                  <Plus size={14} />
+                  <Plus size={16} />
                 </button>
               )}
             </div>
@@ -628,8 +667,8 @@ export function NotesWorkspace({
                   type="text"
                   value={newBoardName}
                   onChange={(e) => setNewBoardName(e.target.value)}
-                  placeholder="Board name..."
-                  className="w-full rounded border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
+                  placeholder="Board Name..."
+                  className="w-full rounded border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
                   maxLength={60}
                   required
                 />
@@ -637,14 +676,14 @@ export function NotesWorkspace({
                   <button
                     type="button"
                     onClick={() => setShowAddBoard(false)}
-                    className="rounded px-2 py-1 text-[10px] border hover:bg-accent"
+                    className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="rounded bg-primary text-primary-foreground px-2.5 py-1 text-[10px] font-medium"
+                    className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
                   >
                     Create
                   </button>
@@ -654,22 +693,28 @@ export function NotesWorkspace({
 
             <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-48">
               {boards.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic p-2">No boards created.</p>
+                <p className="text-sm text-muted-foreground/60 italic p-2">No Boards Created.</p>
               ) : (
                 boards.map((b) => (
                   <button
                     key={b.id}
                     type="button"
-                    onClick={() => setActiveBoardId(b.id)}
+                    onClick={() => {
+                      setActiveBoardId(b.id);
+                      localStorage.setItem("winos_active_board_id", b.id);
+                      if (typeof window !== "undefined") {
+                        window.history.pushState(null, "", `/notes?boardId=${b.id}`);
+                      }
+                    }}
                     className={cn(
-                      "flex items-center justify-between rounded-md px-2.5 py-2 text-xs font-medium transition-colors text-left w-full",
+                      "flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors text-left w-full",
                       activeBoardId === b.id
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/10 text-primary font-bold shadow-2xs"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
-                    <span>{b.name}</span>
-                    {activeBoardId === b.id && <ChevronRight size={12} />}
+                    <span>{toTitleCase(b.name)}</span>
+                    {activeBoardId === b.id && <ChevronRight size={14} />}
                   </button>
                 ))
               )}
@@ -799,13 +844,13 @@ export function NotesWorkspace({
         </div> */}
 
           {/* History Section */}
-          <div className="flex-1 flex flex-col p-4 overflow-hidden">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
+          {/* <div className="flex-1 flex flex-col p-4 overflow-hidden">
+            <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 block">
               Note History
             </span>
             <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex flex-col gap-2">
               {historyList.length === 0 ? (
-                <p className="text-xs text-muted-foreground/60 italic">No notes found.</p>
+                <p className="text-sm text-muted-foreground/60 italic">No notes found.</p>
               ) : (
                 historyList.map((note) => (
                   <div
@@ -819,33 +864,58 @@ export function NotesWorkspace({
                         shares: note.shares || [],
                       });
                     }}
-                    className="group rounded-md border p-2.5 bg-background hover:bg-accent/40 cursor-pointer transition-colors text-left flex flex-col gap-1 border-l-4 text-foreground"
+                    className="group rounded-md border p-2.5 bg-background hover:bg-accent/40 cursor-pointer transition-colors text-left flex flex-col justify-between h-28 shrink-0 border-l-4 text-foreground overflow-hidden"
                     style={{
                       backgroundColor: note.color || undefined,
                       borderLeftColor: note.color ? "rgba(0,0,0,0.15)" : "#e2e8f0",
                     }}
                   >
-                    <p className="text-xs font-semibold line-clamp-1 group-hover:text-primary">
-                      {note.thread?.title || "Untitled Note"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground line-clamp-2">
-                      {note.checklistItems?.length > 0
-                        ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
-                        : (note.content || "").replace(/<[^>]*>/g, "")}
-                    </p>
-                    <span className="text-[9px] text-muted-foreground/60">
+                    <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-0.5">
+                      {note.thread?.board?.name && (
+                        <p className="text-xs font-bold uppercase tracking-wider text-primary/80 line-clamp-1 shrink-0">
+                          {toTitleCase(note.thread.board.name)}
+                        </p>
+                      )}
+                      <p className="text-sm font-bold line-clamp-1 group-hover:text-primary shrink-0">
+                        {toTitleCase(note.title || note.thread?.title || "Untitled Note")}
+                      </p>
+                      {note.checklistItems && note.checklistItems.length > 0 ? (
+                        <div className="flex flex-col gap-0.5 my-0.5 overflow-hidden">
+                          {note.checklistItems.slice(0, 2).map((item: { id?: string; checked: boolean; text: string }, idx: number) => (
+                            <div key={item.id || idx} className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                              <span className={cn("text-xs shrink-0", item.checked ? "text-primary font-bold" : "text-muted-foreground/60")}>
+                                {item.checked ? "☑" : "☐"}
+                              </span>
+                              <span className={cn("truncate leading-tight", item.checked && "line-through text-muted-foreground/60")}>
+                                {toTitleCase(item.text)}
+                              </span>
+                            </div>
+                          ))}
+                          {note.checklistItems.length > 2 && (
+                            <span className="text-xs text-muted-foreground/60 italic pl-0.5 shrink-0">
+                              +{note.checklistItems.length - 2} more items
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-tight">
+                          {(note.content || "").replace(/<[^>]*>/g, "")}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground/60 shrink-0 mt-auto">
                       {formatDate(note.updatedAt)}
                     </span>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          </div> */}
         </aside>
 
         {/* ── Main Board Workspace ── */}
         <main
-          className="flex-1 flex flex-col h-[calc(100vh-5.5rem)] overflow-hidden m-4 rounded-2xl border shadow-md relative"
+          className="flex-1 flex flex-col overflow-hidden m-4 rounded-2xl border shadow-md relative"
           style={{
             backgroundImage: "url('https://thephotoargus.com/wp-content/uploads/2019/09/SunsetHtin.jpg')",
             backgroundSize: "cover",
@@ -856,7 +926,7 @@ export function NotesWorkspace({
           <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0 bg-black/35 backdrop-blur-sm text-white rounded-t-2xl">
             <div>
               <h1 className="text-base font-bold text-white">
-                {activeBoard ? activeBoard.name : "Standup Workspace"}
+                {activeBoard ? toTitleCase(activeBoard.name) : "Standup Workspace"}
               </h1>
               <p className="text-xs text-white/70 mt-0.5">
                 Notes you write here are visible only to the people or departments you assign them to.
@@ -876,45 +946,20 @@ export function NotesWorkspace({
           {/* Content columns */}
           {loadingThreads ? (
             <div className="flex-1 flex items-center text-white justify-center text-sm text-muted-foreground">
-              Loading workspace threads...
+              Loading Workspace Lists...
             </div>
           ) : threads.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-transparent backdrop-blur-xl">
-              <div className="relative mb-4 flex items-center justify-center h-24 w-24 rounded-full bg-accent/30 text-muted-foreground">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className="h-10 w-10"
-                >
-                  <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                </svg>
-                {activeBoardId && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowNewThread(true);
-                    }}
-                    className="absolute bg-primary -top-1 -right-1 z-10 cursor-pointer flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
               <h2 className="text-sm font-semibold text-foreground text-white">
-                Your board is a fresh start
+                Your Board Is A Fresh Start
               </h2>
-              <p className="mt-1 max-w-xs text-xs text-muted-foreground text-white/75">
-                Every great product starts with a single thought. Capture yours here—notes, sketches, or checklists.
-              </p>
               {activeBoardId && (
                 <button
                   onClick={() => setShowNewThread(true)}
                   className="mt-4 flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground shadow hover:opacity-95"
                 >
-                  Create First Thread
+                  <Plus size={14} />
+                  New List
                 </button>
               )}
             </div>
@@ -949,19 +994,19 @@ export function NotesWorkspace({
                   {/* Thread Header */}
                   <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/10 bg-white/5 shrink-0 text-white">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-white">
-                        {thread.title}
+                      <span className="text-sm font-bold text-white">
+                        {toTitleCase(thread.title)}
                       </span>
-                      <span className="text-[9px] text-white/75">
-                        by {thread.author.name || thread.author.email.split("@")[0]}
+                      <span className="text-xs text-white/75">
+                        by {thread.author.name || formatFallbackName(thread.author.email)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       {thread.authorId === userId && (
                         <>
-                          <button
+                          {/* <button
                             type="button"
-                            title="Share Thread"
+                            title="Share List"
                             onClick={() =>
                               setSharingItem({
                                 type: "thread",
@@ -972,7 +1017,7 @@ export function NotesWorkspace({
                             className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white"
                           >
                             <Share2 size={12} />
-                          </button>
+                          </button> */}
                           <button
                             type="button"
                             title="Add Note"
@@ -990,7 +1035,7 @@ export function NotesWorkspace({
                   <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-3.5 min-h-[100px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {thread.notes.length === 0 ? (
                       <div className="text-center py-6 text-[11px] text-muted-foreground/60 border border-dashed rounded-lg">
-                        No cards. Click + to add.
+                        No Cards. Click + To Add.
                       </div>
                     ) : (
                       thread.notes.map((note) => (
@@ -998,6 +1043,11 @@ export function NotesWorkspace({
                           key={note.id}
                           draggable
                           onDragStart={(e) => handleDragCardStart(e, note.id, thread.id)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => handleDrop(e, thread.id)}
                           onClick={() =>
                             setEditingNote({
                               ...note,
@@ -1005,27 +1055,17 @@ export function NotesWorkspace({
                               shares: note.shares || [],
                             })
                           }
-                          className="rounded-xl border border-white/15 dark:border-white/5 p-4 shadow-sm relative flex flex-col gap-2.5 cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-xs transition-all duration-200 hover:-translate-y-0.5 group border-l-4"
+                          className="rounded-xl border border-white/15 dark:border-white/5 p-4 shadow-sm relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-xs transition-all duration-200 hover:-translate-y-0.5 group border-l-4 h-48 shrink-0 overflow-hidden"
                           style={{
                             backgroundColor: note.color ? `${note.color}cc` : "rgba(255, 255, 255, 0.75)",
                             borderLeftColor: note.color ? "rgba(0,0,0,0.15)" : "#e2e8f0",
                           }}
                         >
                           {/* Note Card Header */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
-                                {getInitials(note.author)}
-                              </span>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-foreground leading-none">
-                                  {note.author.name || note.author.email.split("@")[0]}
-                                </span>
-                                <span className="text-[8px] text-muted-foreground mt-0.5">
-                                  {formatDate(note.createdAt)}
-                                </span>
-                              </div>
-                            </div>
+                          <div className="flex items-center justify-between shrink-0 mb-1.5">
+                            <span className="text-xs font-medium text-muted-foreground/75">
+                              {formatDate(note.createdAt)}
+                            </span>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               {note.authorId === userId && (
                                 <>
@@ -1040,9 +1080,9 @@ export function NotesWorkspace({
                                         existingShares: note.shares.map((s) => s.userId),
                                       });
                                     }}
-                                    className="rounded p-0.5 hover:bg-black/5 text-muted-foreground"
+                                    className="rounded p-0.5 hover:bg-black/10 text-muted-foreground"
                                   >
-                                    <Share2 size={11} />
+                                    <Share2 size={12} />
                                   </button>
                                   <button
                                     type="button"
@@ -1051,62 +1091,76 @@ export function NotesWorkspace({
                                       e.stopPropagation();
                                       handleDeleteNote(note.id);
                                     }}
-                                    className="rounded p-0.5 hover:bg-black/5 text-destructive"
+                                    className="rounded p-0.5 hover:bg-black/10 text-destructive"
                                   >
-                                    <Trash2 size={11} />
+                                    <Trash2 size={12} />
                                   </button>
                                 </>
                               )}
                             </div>
                           </div>
 
-                          {/* Note Body */}
-                          <div
-                            className="text-[11px] text-foreground leading-relaxed html-content"
-                            dangerouslySetInnerHTML={{ __html: note.content || "" }}
-                          />
+                          {/* Note Content Container (Fixed Overflow Height) */}
+                          <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-1.5">
+                            {note.title && (
+                              <h4 className="text-sm font-bold text-foreground line-clamp-1 truncate leading-snug">
+                                {toTitleCase(note.title)}
+                              </h4>
+                            )}
+                            {note.content && (
+                              <div
+                                className="text-xs text-foreground leading-relaxed html-content line-clamp-3 overflow-hidden"
+                                dangerouslySetInnerHTML={{ __html: note.content || "" }}
+                              />
+                            )}
 
-                          {/* Checklist items */}
-                          {note.checklistItems.length > 0 && (
-                            <div className="flex flex-col gap-1.5 mt-1 border-t pt-2 border-black/5">
-                              {note.checklistItems.map((item) => (
-                                <div
-                                  key={item.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (note.authorId === userId) {
-                                      handleToggleChecklistItem(item.id);
-                                    }
-                                  }}
-                                  className={cn(
-                                    "flex items-start gap-2 rounded p-0.5",
-                                    note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
-                                  )}
-                                >
-                                  <button type="button" className="mt-0.5 shrink-0">
-                                    {item.checked ? (
-                                      <CheckSquare size={12} className="text-primary" />
-                                    ) : (
-                                      <Square size={12} className="text-muted-foreground/60" />
-                                    )}
-                                  </button>
-                                  <span
+                            {/* Checklist items */}
+                            {note.checklistItems.length > 0 && (
+                              <div className="flex flex-col gap-1 mt-0.5 border-t pt-1.5 border-black/5 overflow-hidden">
+                                {note.checklistItems.slice(0, 3).map((item) => (
+                                  <div
+                                    key={item.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (note.authorId === userId) {
+                                        handleToggleChecklistItem(item.id);
+                                      }
+                                    }}
                                     className={cn(
-                                      "text-[10px] leading-tight select-none",
-                                      item.checked && "text-muted-foreground line-through"
+                                      "flex items-center gap-1.5 rounded p-0.5",
+                                      note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
                                     )}
                                   >
-                                    {item.text}
+                                    <button type="button" className="shrink-0">
+                                      {item.checked ? (
+                                        <CheckSquare size={13} className="text-primary" />
+                                      ) : (
+                                        <Square size={13} className="text-muted-foreground/60" />
+                                      )}
+                                    </button>
+                                    <span
+                                      className={cn(
+                                        "text-xs leading-tight select-none truncate",
+                                        item.checked && "text-muted-foreground line-through"
+                                      )}
+                                    >
+                                      {toTitleCase(item.text)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {note.checklistItems.length > 3 && (
+                                  <span className="text-xs text-muted-foreground/70 font-medium pl-0.5">
+                                    +{note.checklistItems.length - 3} more items
                                   </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Deadline Indicator */}
                           {note.deadline && (
-                            <div className="flex items-center gap-1 text-[9px] text-amber-700/80 mt-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full w-fit">
-                              <Calendar size={9} />
+                            <div className="flex items-center gap-1 text-xs text-amber-700/80 mt-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full w-fit shrink-0">
+                              <Calendar size={11} />
                               <span>Due {new Date(note.deadline).toLocaleDateString()}</span>
                             </div>
                           )}
@@ -1129,7 +1183,7 @@ export function NotesWorkspace({
               <div className="flex items-center justify-between border-b pb-2">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Users size={14} />
-                  Share {sharingItem.type === "thread" ? "Thread" : "Note"}
+                  Share {sharingItem.type === "thread" ? "List" : "Note"}
                 </span>
                 <button
                   type="button"
@@ -1166,7 +1220,7 @@ export function NotesWorkspace({
                           className="flex items-center justify-between text-left py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
                         >
                           <div className="flex flex-col">
-                            <span>{u.name || u.email.split("@")[0]}</span>
+                            <span>{u.name || formatFallbackName(u.email)}</span>
                             <span className="text-[9px] text-muted-foreground/60 font-normal leading-none mt-0.5">
                               {u.title || u.role}
                             </span>
@@ -1214,7 +1268,7 @@ export function NotesWorkspace({
               className="w-full max-w-xl rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
             >
               <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                <span className="text-sm font-bold text-foreground">New Thread</span>
+                <span className="text-sm font-bold text-foreground">New List</span>
                 <button
                   type="button"
                   onClick={() => setShowNewThread(false)}
@@ -1226,28 +1280,28 @@ export function NotesWorkspace({
 
               <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[75vh] pr-1">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Title of Thread
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Title Of List
                   </label>
                   <input
                     type="text"
                     value={threadTitle}
                     onChange={(e) => setThreadTitle(e.target.value)}
-                    placeholder="Enter text here..."
+                    placeholder="Enter Text Here..."
                     className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
                     maxLength={120}
                     required
                   />
                 </div>
 
-                <div className="flex flex-col gap-1">
+                {/* <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Share this note/thread with
+                    Share This Note/List With
                   </label>
                   <div className="flex flex-wrap gap-1 border rounded-md p-2 bg-background/50">
                     {threadSharedUsers.length === 0 ? (
                       <span className="text-[11px] text-muted-foreground/60 italic p-1">
-                        No one selected (Draft / Personal)
+                        No One Selected (Draft / Personal)
                       </span>
                     ) : (
                       threadSharedUsers.map((id) => {
@@ -1257,7 +1311,7 @@ export function NotesWorkspace({
                             key={id}
                             className="flex items-center gap-1 bg-accent rounded-full pl-2 pr-1.5 py-0.5 text-xs text-accent-foreground font-medium"
                           >
-                            <span>{userObj?.name || userObj?.email.split("@")[0]}</span>
+                            <span>{userObj?.name || formatFallbackName(userObj?.email || "")}</span>
                             <button
                               type="button"
                               onClick={() =>
@@ -1283,26 +1337,39 @@ export function NotesWorkspace({
                       defaultValue=""
                     >
                       <option value="" disabled>
-                        + Add people
+                        + Add People
                       </option>
                       {allUsers
                         .filter((u) => u.id !== userId)
                         .map((u) => (
                           <option key={u.id} value={u.id}>
-                            {u.name || u.email.split("@")[0]}
+                            {u.name || formatFallbackName(u.email)}
                           </option>
                         ))}
                     </select>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Initial Note Workspace */}
                 <div
                   className="border rounded-lg p-4 flex flex-col gap-2.5"
                   style={{ backgroundColor: threadColor }}
                 >
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                      Card Title
+                    </label>
+                    <input
+                      type="text"
+                      value={threadNoteTitle}
+                      onChange={(e) => setThreadNoteTitle(e.target.value)}
+                      placeholder="Enter card title..."
+                      className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
+                      maxLength={120}
+                    />
+                  </div>
                   {/* Note Type Selector */}
-                  <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
+                  {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
                     <button
                       type="button"
                       onClick={() => setThreadNoteType("TEXT")}
@@ -1327,7 +1394,7 @@ export function NotesWorkspace({
                     >
                       Checklist
                     </button>
-                  </div>
+                  </div> */}
 
                   {threadNoteType === "TEXT" ? (
                     <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
@@ -1349,7 +1416,7 @@ export function NotesWorkspace({
                               newChecklist[idx] = e.target.value;
                               setThreadChecklist(newChecklist);
                             }}
-                            placeholder={`Checklist item ${idx + 1}`}
+                            placeholder={`Checklist Item ${idx + 1}`}
                             className="flex-1 bg-transparent border-none outline-none text-xs"
                           />
                           {threadChecklist.length > 1 && (
@@ -1370,15 +1437,15 @@ export function NotesWorkspace({
                         onClick={() => setThreadChecklist([...threadChecklist, ""])}
                         className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
                       >
-                        <Plus size={11} /> Add item
+                        <Plus size={11} /> Add Item
                       </button>
                     </div>
                   )}
 
                   {/* Deadline */}
-                  <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase">
-                      Deadline (optional)
+                      Deadline (Optional)
                     </label>
                     <input
                       type="datetime-local"
@@ -1386,11 +1453,11 @@ export function NotesWorkspace({
                       onChange={(e) => setThreadDeadline(e.target.value)}
                       className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px]"
                     />
-                  </div>
+                  </div> */}
 
                   {/* Color Picker */}
                   <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
                       Card Color
                     </label>
                     <div className="flex items-center gap-1.5 mt-1">
@@ -1439,7 +1506,7 @@ export function NotesWorkspace({
               className="w-full max-w-lg rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
             >
               <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                <span className="text-sm font-bold text-foreground">Add Card to Column</span>
+                <span className="text-sm font-bold text-foreground">Add Card To Column</span>
                 <button
                   type="button"
                   onClick={() => setActiveThreadForNote(null)}
@@ -1454,8 +1521,21 @@ export function NotesWorkspace({
                   className="border rounded-lg p-4 flex flex-col gap-2.5"
                   style={{ backgroundColor: noteColor }}
                 >
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                      Card Title
+                    </label>
+                    <input
+                      type="text"
+                      value={noteTitle}
+                      onChange={(e) => setNoteTitle(e.target.value)}
+                      placeholder="Enter card title..."
+                      className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
+                      maxLength={120}
+                    />
+                  </div>
                   {/* Note Type Selector */}
-                  <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
+                  {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
                     <button
                       type="button"
                       onClick={() => setNoteNoteType("TEXT")}
@@ -1480,7 +1560,7 @@ export function NotesWorkspace({
                     >
                       Checklist
                     </button>
-                  </div>
+                  </div> */}
 
                   {noteNoteType === "TEXT" ? (
                     <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
@@ -1502,7 +1582,7 @@ export function NotesWorkspace({
                               newChecklist[idx] = e.target.value;
                               setNoteChecklist(newChecklist);
                             }}
-                            placeholder={`Checklist item ${idx + 1}`}
+                            placeholder={`Checklist Item ${idx + 1}`}
                             className="flex-1 bg-transparent border-none outline-none text-xs"
                           />
                           {noteChecklist.length > 1 && (
@@ -1523,15 +1603,15 @@ export function NotesWorkspace({
                         onClick={() => setNoteChecklist([...noteChecklist, ""])}
                         className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
                       >
-                        <Plus size={11} /> Add item
+                        <Plus size={11} /> Add Item
                       </button>
                     </div>
                   )}
 
                   {/* Deadline */}
-                  <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase">
-                      Deadline (optional)
+                      Deadline (Optional)
                     </label>
                     <input
                       type="datetime-local"
@@ -1539,11 +1619,11 @@ export function NotesWorkspace({
                       onChange={(e) => setNoteDeadline(e.target.value)}
                       className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px]"
                     />
-                  </div>
+                  </div> */}
 
                   {/* Color Picker */}
                   <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
                       Card Color
                     </label>
                     <div className="flex items-center gap-1.5 mt-1">
@@ -1610,14 +1690,34 @@ export function NotesWorkspace({
                     className="border rounded-lg p-4 flex flex-col gap-2.5"
                     style={{ backgroundColor: editingNote.color || "#ffffff" }}
                   >
+                    {/* Card Title */}
+                    {isEditingReadOnly ? (
+                      editingNote.title && (
+                        <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(editingNote.title)}</h3>
+                      )
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          Card Title
+                        </label>
+                        <input
+                          type="text"
+                          value={editingNote.title || ""}
+                          onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
+                          placeholder="Enter card title..."
+                          className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
+                          maxLength={120}
+                        />
+                      </div>
+                    )}
                     {/* Text Content */}
                     {isEditingReadOnly ? (
                       <div
-                        className="text-xs text-foreground bg-background rounded border p-3 leading-relaxed html-content text-left"
+                        className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
                         dangerouslySetInnerHTML={{ __html: editingNote.content || "" }}
                       />
                     ) : (
-                      <div className="bg-background px-3 text-foreground rounded border text-sm max-w-full overflow-hidden">
+                      <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
                         <RichTextEditor
                           value={editingNote.content || ""}
                           onChange={(val) =>
@@ -1628,18 +1728,52 @@ export function NotesWorkspace({
                     )}
 
                     {/* Checklist Section */}
-                    <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
+                    {/* <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
                       <label className="text-[9px] font-bold text-muted-foreground uppercase">
                         Checklist
                       </label>
                       {editingNote.checklistItems.length > 0 && (
                         <div className="flex flex-col gap-2">
                           {editingNote.checklistItems.map((item, idx) => (
-                            <div key={item.id} className="flex items-start gap-2">
+                            <div
+                              key={item.id || idx}
+                              draggable={!isEditingReadOnly}
+                              onDragStart={(e) => {
+                                e.stopPropagation();
+                                e.dataTransfer.setData("text/plain", JSON.stringify({ type: "todo", index: idx }));
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                try {
+                                  const raw = e.dataTransfer.getData("text/plain");
+                                  if (!raw) return;
+                                  const data = JSON.parse(raw);
+                                  if (data.type === "todo" && typeof data.index === "number" && data.index !== idx) {
+                                    const newItems = [...editingNote.checklistItems];
+                                    const [dragged] = newItems.splice(data.index, 1);
+                                    newItems.splice(idx, 0, dragged);
+                                    setEditingNote({ ...editingNote, checklistItems: newItems });
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }}
+                              className="flex items-center gap-2 p-1 rounded hover:bg-black/5 cursor-grab active:cursor-grabbing group/todo"
+                            >
+                              {!isEditingReadOnly && (
+                                <div className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground shrink-0 flex items-center">
+                                  <GripVertical size={12} />
+                                </div>
+                              )}
                               {item.checked ? (
-                                <CheckSquare size={13} className="text-primary mt-0.5 shrink-0" />
+                                <CheckSquare size={13} className="text-primary shrink-0" />
                               ) : (
-                                <Square size={13} className="text-muted-foreground/40 mt-0.5 shrink-0" />
+                                <Square size={13} className="text-muted-foreground/40 shrink-0" />
                               )}
                               {isEditingReadOnly ? (
                                 <span className={cn(
@@ -1658,7 +1792,7 @@ export function NotesWorkspace({
                                       newItems[idx].text = e.target.value;
                                       setEditingNote({ ...editingNote, checklistItems: newItems });
                                     }}
-                                    placeholder={`Checklist item ${idx + 1}`}
+                                    placeholder={`Checklist Item ${idx + 1}`}
                                     className="flex-1 bg-transparent border-none outline-none text-xs"
                                   />
                                   <button
@@ -1696,15 +1830,15 @@ export function NotesWorkspace({
                           }}
                           className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
                         >
-                          <Plus size={11} /> Add checklist item
+                          <Plus size={11} /> Add Checklist Item
                         </button>
                       )}
-                    </div>
+                    </div> */}
 
                     {/* Deadline */}
-                    <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                    {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                       <label className="text-[9px] font-bold text-muted-foreground uppercase">
-                        Deadline (optional)
+                        Deadline (Optional)
                       </label>
                       <input
                         type="datetime-local"
@@ -1722,7 +1856,7 @@ export function NotesWorkspace({
                         }
                         className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px] disabled:opacity-75"
                       />
-                    </div>
+                    </div> */}
 
                     {/* Color Picker */}
                     <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">

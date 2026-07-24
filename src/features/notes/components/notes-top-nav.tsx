@@ -84,7 +84,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
           size={13}
           className={isSharedWithMeActive ? "text-primary animate-pulse" : "text-muted-foreground/60"}
         />
-        <span>Shared with Me</span>
+        <span>Shared With Me</span>
       </Link>
 
       <Link
@@ -100,7 +100,7 @@ export function NotesTopNav({ onNewBoardClick }: NotesTopNavProps) {
           size={13}
           className={isSharedByMeActive ? "text-primary animate-pulse" : "text-muted-foreground/60"}
         />
-        <span>Shared by Me</span>
+        <span>Shared By Me</span>
       </Link>
     </nav>
   );

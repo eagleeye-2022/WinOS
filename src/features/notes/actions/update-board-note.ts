@@ -14,6 +14,7 @@ export async function updateBoardNote(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const id = getStr(formData, "id");
+  const title = getStr(formData, "title") ?? undefined;
   const content = getStr(formData, "content") || "";
   const color = getStr(formData, "color") || "#ffffff";
   const deadlineStr = getStr(formData, "deadline");
@@ -38,6 +39,7 @@ export async function updateBoardNote(
   await d.boardNote.update({
     where: { id },
     data: {
+      ...(title !== undefined ? { title: title || null } : {}),
       content,
       color,
       deadline,

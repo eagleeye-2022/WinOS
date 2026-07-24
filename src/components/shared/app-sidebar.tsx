@@ -136,10 +136,11 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
           { label: "My DSM", href: ROUTES.dsmMy, icon: User },
           { label: "DSR Management", href: ROUTES.dsrManage, icon: BarChart2 },
+          { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
           { label: "i-Notes", href: iNotesHref, icon: FileText },
           { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
           { label: "Support Needed", href: ROUTES.support, icon: Users2 },
-          { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+          // { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
         ]
       : [
           { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
