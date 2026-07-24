@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, AlertCircle, BarChart2, ClipboardList, Users2 } from "lucide-react";
+import { ArrowRight, AlertCircle, BarChart2, ClipboardList, Users2, User } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
@@ -11,17 +11,13 @@ import { getAllDsmStats } from "@/features/dsm/manager/queries";
 import { getAllDsrStats } from "@/features/dsr/manager/queries";
 import type { AllDsmStats } from "@/features/dsm/manager/queries";
 import type { AllDsrStats } from "@/features/dsr/manager/queries";
+import { DashboardGreeting } from "@/components/shared/dashboard-greeting";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 type EntryStatus = "DRAFT" | "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "MISSED" | null;
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
+
 
 function firstName(nameOrEmail: string) {
   return nameOrEmail.split(" ")[0].split("@")[0];
@@ -37,7 +33,7 @@ function StatusBadge({ status }: { status: EntryStatus }) {
   if (!status) {
     return (
       <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-        Not started
+        Not Started
       </span>
     );
   }
@@ -60,6 +56,7 @@ function StatusBadge({ status }: { status: EntryStatus }) {
 }
 
 function ProjectBadge({ status }: { status: "On Track" | "At Risk" | "Needs Attention" }) {
+  if (status === "At Risk") return null;
   const styles = {
     "On Track":        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
     "At Risk":         "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
@@ -86,7 +83,7 @@ function ManagerDashboard({
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold">{greeting()}, {firstName(name)}</h1>
+        <DashboardGreeting name={firstName(name)} />
         <p className="mt-0.5 text-sm text-muted-foreground">{todayLabel()}</p>
       </div>
 
@@ -114,14 +111,14 @@ function ManagerDashboard({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {dsmStats.pendingCount === 0
-                    ? "All members submitted"
-                    : `${dsmStats.pendingCount} member${dsmStats.pendingCount !== 1 ? "s" : ""} yet to submit`}
+                    ? "All Members Submitted"
+                    : `${dsmStats.pendingCount} Member${dsmStats.pendingCount !== 1 ? "s" : ""} Yet to Submit`}
                   {dsmStats.blockerCount > 0 &&
-                    ` · ${dsmStats.blockerCount} active blocker${dsmStats.blockerCount !== 1 ? "s" : ""}`}
+                    ` · ${dsmStats.blockerCount} Active Blocker${dsmStats.blockerCount !== 1 ? "s" : ""}`}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No data</p>
+              <p className="text-sm text-muted-foreground">No Data</p>
             )}
           </div>
           <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
@@ -151,18 +148,18 @@ function ManagerDashboard({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {dsrStats.pendingCount === 0
-                    ? "All members submitted"
-                    : `${dsrStats.pendingCount} pending submission${dsrStats.pendingCount !== 1 ? "s" : ""}`}
+                    ? "All Members Submitted"
+                    : `${dsrStats.pendingCount} Pending Submission${dsrStats.pendingCount !== 1 ? "s" : ""}`}
                   {dsrStats.highPriorityBlockers > 0 &&
-                    ` · ${dsrStats.highPriorityBlockers} high-priority blocker${dsrStats.highPriorityBlockers !== 1 ? "s" : ""}`}
+                    ` · ${dsrStats.highPriorityBlockers} High-Priority Blocker${dsrStats.highPriorityBlockers !== 1 ? "s" : ""}`}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No data</p>
+              <p className="text-sm text-muted-foreground">No Data</p>
             )}
           </div>
           <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            Review DSR submissions <ArrowRight size={12} />
+            Review DSR Submissions <ArrowRight size={12} />
           </div>
         </Link>
       </div>
@@ -170,15 +167,16 @@ function ManagerDashboard({
       {/* Quick-action links */}
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Quick actions
+          Quick Actions
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {(
             [
-              { label: "All DSM",        desc: "Team standup overview",    icon: ClipboardList, href: ROUTES.dsmAll },
-              { label: "DSR Reviews",    desc: "Evening review queue",     icon: BarChart2,     href: ROUTES.dsrManage },
-              { label: "Blockers",       desc: "Team blockers & issues",   icon: AlertCircle,   href: ROUTES.blockers },
-              { label: "Support Needed", desc: "Pending support requests", icon: Users2,        href: ROUTES.support },
+              { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
+              { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
+              { label: "DSR Reviews",    desc: "Evening Review Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
+              { label: "Blockers",       desc: "Team Blockers & Issues",   icon: AlertCircle,   href: ROUTES.blockers },
+              { label: "Support Needed", desc: "Pending Support Requests", icon: Users2,        href: ROUTES.support },
             ] as const
           ).map(({ label, desc, icon: Icon, href }) => (
             <Link
@@ -222,7 +220,7 @@ function MemberDashboard({
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold">{greeting()}, {firstName(name)}</h1>
+        <DashboardGreeting name={firstName(name)} />
         <p className="mt-0.5 text-sm text-muted-foreground">{todayLabel()}</p>
       </div>
 
@@ -241,10 +239,10 @@ function MemberDashboard({
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             {dsmStatus === "DRAFT"
-              ? "You have a saved draft — continue and submit."
+              ? "You Have a Saved Draft — Continue and Submit."
               : dsmNeedsAction
-              ? "You haven't submitted your standup yet."
-              : "Standup submitted for today."}
+              ? "You Haven't Submitted Your Standup Yet."
+              : "Standup Submitted for Today."}
           </p>
           <div
             className={cn(
@@ -255,10 +253,10 @@ function MemberDashboard({
             )}
           >
             {dsmStatus === "DRAFT"
-              ? "Continue draft"
+              ? "Continue Draft"
               : dsmNeedsAction
-              ? "Submit now"
-              : "View standup"}
+              ? "Submit Now"
+              : "View Standup"}
             <ArrowRight size={12} />
           </div>
         </Link>
@@ -276,10 +274,10 @@ function MemberDashboard({
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             {dsrStatus === "DRAFT"
-              ? "Evening review is in draft — complete and submit."
+              ? "Evening Review Is in Draft — Complete and Submit."
               : dsrNeedsAction
-              ? "Complete your evening status review."
-              : "Evening review submitted."}
+              ? "Complete Your Evening Status Review."
+              : "Evening Review Submitted."}
           </p>
           <div
             className={cn(
@@ -290,10 +288,10 @@ function MemberDashboard({
             )}
           >
             {dsrStatus === "DRAFT"
-              ? "Complete review"
+              ? "Complete Review"
               : dsrNeedsAction
-              ? "Start review"
-              : "View review"}
+              ? "Start Review"
+              : "View Review"}
             <ArrowRight size={12} />
           </div>
         </Link>
@@ -316,7 +314,7 @@ function MemberDashboard({
             <div>
               <p className="text-sm font-medium">My Blockers</p>
               <p className="text-xs text-muted-foreground">
-                {unresolvedBlockers === 0 ? "No open blockers" : `${unresolvedBlockers} unresolved`}
+                {unresolvedBlockers === 0 ? "No Open Blockers" : `${unresolvedBlockers} Unresolved`}
               </p>
             </div>
           </div>
@@ -342,8 +340,8 @@ function MemberDashboard({
               <p className="text-sm font-medium">Support Needed</p>
               <p className="text-xs text-muted-foreground">
                 {pendingSupports === 0
-                  ? "No open requests"
-                  : `${pendingSupports} open request${pendingSupports !== 1 ? "s" : ""}`}
+                  ? "No Open Requests"
+                  : `${pendingSupports} Open Request${pendingSupports !== 1 ? "s" : ""}`}
               </p>
             </div>
           </div>

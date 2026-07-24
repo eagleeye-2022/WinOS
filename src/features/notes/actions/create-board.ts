@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 
-export type CreateBoardState = { errors?: { name?: string[] }; message?: string };
+export type CreateBoardState = { errors?: { name?: string[] }; message?: string; boardId?: string };
 
 export async function createBoard(
   _prevState: CreateBoardState,
@@ -25,10 +25,10 @@ export async function createBoard(
   if (existing) return { errors: { name: ["A board with that name already exists"] } };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (db as any).board.create({
+  const board = await (db as any).board.create({
     data: { name, ownerId: session.user.id },
   });
 
   revalidatePath("/notes");
-  return { message: "created" };
+  return { message: "created", boardId: board.id };
 }

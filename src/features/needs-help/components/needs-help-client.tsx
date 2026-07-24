@@ -154,7 +154,7 @@ export function NeedsHelpClient({ items }: Props) {
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Support requests where teammates have tagged you for help.
+              Support Requests Where Teammates Have Tagged You for Help.
             </p>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function NeedsHelpClient({ items }: Props) {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search by description or requester..."
+              placeholder="Search by Description or Requester..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             />
           </div>
@@ -209,8 +209,8 @@ export function NeedsHelpClient({ items }: Props) {
                 <tr>
                   <td colSpan={4} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {search || statusFilter !== "all"
-                      ? "No items match your filters."
-                      : "No one has tagged you for support yet."}
+                      ? "No Items Match Your Filters."
+                      : "No One Has Tagged You for Support Yet."}
                   </td>
                 </tr>
               ) : (
@@ -250,7 +250,7 @@ export function NeedsHelpClient({ items }: Props) {
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
                 Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
-                {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} item
+                {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} Item
                 {filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">

@@ -5,6 +5,7 @@ import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping } 
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
+import { MentionInput } from "@/components/shared/mention-input";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -26,9 +27,11 @@ type Task = { text: string; carried: boolean };
 
 function TaskRows({
   tasks,
+  teamMembers,
   onChange,
 }: {
   tasks: Task[];
+  teamMembers: TeamMember[];
   onChange: (t: Task[]) => void;
 }) {
   const update = (i: number, v: string) => {
@@ -49,12 +52,12 @@ function TaskRows({
           )}>
             T{i + 1}
           </span>
-          <input
+          <MentionInput
             name="taskText"
             value={task.text}
-            onChange={(e) => update(i, e.target.value)}
-            placeholder="Add task details..."
-            className={inputCls}
+            onChange={(v) => update(i, v)}
+            placeholder="Add task details... (Type @ for people, @file: for files)"
+            teamMembers={teamMembers}
           />
           {task.carried && (
             <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -111,18 +114,20 @@ function BlockerRows({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <input type="hidden" name="blockerUserId" value={b.mentionedUserId} />
-              <div className="relative flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+              <div className="relative flex-1 flex items-center rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
                 {mentioned && (
                   <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
                     @{mentionLabel(mentioned).toLowerCase()}
                   </span>
                 )}
-                <input
+                <MentionInput
                   name="blockerText"
                   value={b.text}
-                  onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Describe the blockers..."
-                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
+                  onChange={(v) => update(i, "text", v)}
+                  placeholder="Describe the blockers... (Type @ for people, @file: for files)"
+                  teamMembers={teamMembers}
+                  onSelectMention={(mId) => update(i, "mentionedUserId", mId)}
+                  className="border-0 bg-transparent px-0 py-2 focus:ring-0 focus:border-transparent min-w-0"
                 />
                 <div className="flex shrink-0 items-center gap-2 border-l pl-3 py-1.5 ml-2">
                   <div className={cn(
@@ -156,7 +161,7 @@ function BlockerRows({
               </div>
 
               {/* Team member assignment picker */}
-              <div className="relative shrink-0">
+              {/* <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
@@ -200,7 +205,7 @@ function BlockerRows({
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {blockers.length > 1 && (
                 <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
@@ -216,7 +221,7 @@ function BlockerRows({
         onClick={add}
         className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive"
       >
-        <Plus size={13} /> Add blocker
+        <Plus size={13} /> Add Blocker
       </button>
     </div>
   );
@@ -254,23 +259,25 @@ function SupportRows({
           <div key={i} className="flex flex-col gap-1">
             <div className="flex items-start gap-2">
               <input type="hidden" name="supportUserId" value={s.mentionedUserId} />
-              <div className="flex-1 flex items-center overflow-hidden rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring h-[38px]">
+              <div className="relative flex-1 flex items-center rounded-md border bg-background px-3 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
                 {mentioned && (
                   <span className="mr-2 shrink-0 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary select-none">
                     @{mentionLabel(mentioned).toLowerCase()}
                   </span>
                 )}
-                <input
+                <MentionInput
                   name="supportText"
                   value={s.text}
-                  onChange={(e) => update(i, "text", e.target.value)}
-                  placeholder="Add support details..."
-                  className="flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground/50 min-w-0"
+                  onChange={(v) => update(i, "text", v)}
+                  placeholder="Add support details... (Type @ for people, @file: for files)"
+                  teamMembers={teamMembers}
+                  onSelectMention={(mId) => update(i, "mentionedUserId", mId)}
+                  className="border-0 bg-transparent px-0 py-2 focus:ring-0 focus:border-transparent min-w-0"
                 />
               </div>
 
               {/* Team member picker */}
-              <div className="relative shrink-0">
+              {/* <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setOpenDropdown(openDropdown === i ? null : i)}
@@ -291,7 +298,7 @@ function SupportRows({
                         onClick={() => { update(i, "mentionedUserId", ""); setOpenDropdown(null); }}
                         className="w-full rounded-md px-3 py-2 text-left text-xs text-muted-foreground hover:bg-accent"
                       >
-                        No assignment
+                        No Assignment
                       </button>
                       {teamMembers.map((m) => (
                         <button
@@ -314,7 +321,7 @@ function SupportRows({
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               <button type="button" onClick={() => remove(i)} className="mt-2 shrink-0 text-muted-foreground hover:text-destructive">
                 <X size={14} />
@@ -328,7 +335,7 @@ function SupportRows({
         onClick={add}
         className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} /> Add support needed
+        <Plus size={13} /> Add Support Needed
       </button>
     </div>
   );
@@ -437,7 +444,7 @@ export function SubmitDsmForm({
         <input type="hidden" name="date" value={todayDateStr} />
 
         {/* Yesterday — read-only completed tasks */}
-        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What did you complete yesterday?">
+        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What Did You Complete Yesterday?">
           {yesterdayTasks.length > 0 ? (
             <div className="flex flex-col gap-2">
               {yesterdayTasks.map((task, i) => (
@@ -448,29 +455,29 @@ export function SubmitDsmForm({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground/60">No entries for yesterday.</p>
+            <p className="text-sm text-muted-foreground/60">No Entries for Yesterday.</p>
           )}
         </Section>
 
         {/* Today's tasks */}
         <Section
           icon={<ClipboardList size={16} className="text-primary" />}
-          title="What will you do today?"
+          title="What Will You Do Today?"
           required
         >
-          <TaskRows tasks={tasks} onChange={setTasks} />
+          <TaskRows tasks={tasks} teamMembers={teamMembers} onChange={setTasks} />
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any blockers?">
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers (Data Needed)?">
           <BlockerRows blockers={blockers} teamMembers={teamMembers} onChange={setBlockers} />
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support needed?">
+        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed (Meeting)?">
           <SupportRows supports={supports} teamMembers={teamMembers} onChange={setSupports} />
         </Section>
 
@@ -489,11 +496,11 @@ export function SubmitDsmForm({
           )}
           <div className="flex items-center gap-3">
             {state.message === "saved" && (
-              <p className="text-xs text-muted-foreground">Draft saved.</p>
+              <p className="text-xs text-muted-foreground">Draft Saved.</p>
             )}
             {state.message && state.message !== "saved" && (
               <p className="text-xs text-destructive">
-                {state.message === "Unauthorized" ? "Session expired. Please sign in again." : state.message}
+                {state.message === "Unauthorized" ? "Session Expired. Please Sign In Again." : state.message}
               </p>
             )}
             <button

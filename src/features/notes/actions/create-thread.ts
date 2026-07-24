@@ -52,14 +52,16 @@ export async function createThread(
   }
 
   // 3. Create the initial note if there is content or checklist items
+  const noteTitle = getStr(formData, "noteTitle") || null;
   const hasContent = content.trim().length > 0;
   const items = formData.getAll("item") as string[];
   const validItems = items.map((t) => t.trim()).filter(Boolean);
   const hasChecklist = noteType === "CHECKLIST" && validItems.length > 0;
 
-  if (hasContent || hasChecklist) {
+  if (hasContent || hasChecklist || noteTitle) {
     const note = await d.boardNote.create({
       data: {
+        title: noteTitle,
         content: noteType === "CHECKLIST" ? "" : content,
         color,
         deadline,

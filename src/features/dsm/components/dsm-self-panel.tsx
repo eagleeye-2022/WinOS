@@ -64,7 +64,7 @@ export function DsmSelfPanel({
             className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Pencil size={13} />
-            Edit today&apos;s DSM
+            Edit Today&apos;s DSM
           </button>
         </div>
       )}

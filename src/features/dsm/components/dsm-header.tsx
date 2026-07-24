@@ -38,7 +38,7 @@ export function DsmHeader({ entry }: DsmHeaderProps) {
           </div>
           <div className="flex flex-col items-center text-center">
             <span className="text-base font-bold leading-none">{followUpCount}</span>
-            <span className="mt-0.5 text-[10px] text-muted-foreground">Follow-ups</span>
+            <span className="mt-0.5 text-[10px] text-muted-foreground">Follow-Ups</span>
           </div>
         </div>
       </div>

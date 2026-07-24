@@ -101,7 +101,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
         <div>
           <h1 className="text-3xl font-bold tracking-tight">All Team DSM Submission</h1>
           <p className="text-sm text-muted-foreground">
-            Daily Status Management for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
+            Daily Status Management for All Departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -188,7 +188,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search teams or members..."
+              placeholder="Search Teams or Members..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-lg border bg-background pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
@@ -256,7 +256,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
         ))}
         {filteredGroups.length === 0 && (
           <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">
-            <p className="text-sm text-muted-foreground">No teams match the active filters.</p>
+            <p className="text-sm text-muted-foreground">No Teams Match the Active Filters.</p>
           </div>
         )}
       </div>

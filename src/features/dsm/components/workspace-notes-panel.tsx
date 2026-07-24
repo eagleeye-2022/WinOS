@@ -42,6 +42,7 @@ function SharedNoteCard({
 }: {
   note: {
     id: string;
+    title?: string | null;
     content: string;
     color: string | null;
     deadline: Date | null;
@@ -69,10 +70,17 @@ function SharedNoteCard({
 
   return (
     <div className="flex flex-col gap-2 text-left">
+      {/* Title */}
+      {note.title && (
+        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          {note.title}
+        </h4>
+      )}
+
       {/* Content */}
       {note.content && (
         <div
-          className="text-xs text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
+          className="text-sm text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
       )}
@@ -154,9 +162,9 @@ export function WorkspaceNotesPanel({
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground my-auto">
             <Share2 size={32} className="text-muted-foreground/40 mb-3" />
-            <p className="font-medium text-foreground">No shared notes</p>
+            <p className="font-medium text-foreground">No Shared Notes</p>
             <p className="text-xs text-muted-foreground/75 mt-1 max-w-xs">
-              When team members share notes with you, they will appear here.
+              When Team Members Share Notes with You, They Will Appear Here.
             </p>
           </div>
         ) : (

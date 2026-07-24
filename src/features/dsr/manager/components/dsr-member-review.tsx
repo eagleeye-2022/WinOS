@@ -225,7 +225,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
       )}
 
       {resolvedBlockers.length === 0 && followUpsDone.length === 0 && (
-        <p className="text-xs text-muted-foreground/60">No blockers or support items recorded.</p>
+        <p className="text-xs text-muted-foreground/60">No Blockers or Support Items Recorded.</p>
       )}
     </div>
   );
@@ -380,7 +380,7 @@ function ReviewerActionsCard({
             name="managerComment"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={`Add feedback or notes for ${memberName}...`}
+            placeholder={`Add Feedback or Notes for ${memberName}...`}
             rows={4}
             className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
           />
@@ -490,12 +490,12 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
           <div className="mb-2">
             <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
             <p className="text-sm text-muted-foreground">
-              Review daily status updates for {user.name ?? user.email.split("@")[0]}.
+              Review Daily Status Updates for {user.name ?? user.email.split("@")[0]}.
             </p>
           </div>
           {weekEntries.length === 0 ? (
             <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-              No DSR entries for this week.
+              No DSR Entries for This Week.
             </div>
           ) : (
             weekEntries.map((entry) => (

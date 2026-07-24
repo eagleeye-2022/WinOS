@@ -363,6 +363,7 @@ function countWeekdays(start: Date, end: Date): number {
 
 export type SharedNoteData = {
   id: string;
+  title?: string | null;
   content: string;
   color: string | null;
   deadline: Date | null;
@@ -379,6 +380,7 @@ export type SharedThreadData = {
   authorName: string;
   notes: {
     id: string;
+    title?: string | null;
     content: string;
     color: string | null;
     deadline: Date | null;
@@ -421,6 +423,7 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const notes: SharedNoteData[] = sharedNotesRaw.map((n: any) => ({
     id: n.id,
+    title: n.title,
     content: n.content,
     color: n.color,
     deadline: n.deadline,

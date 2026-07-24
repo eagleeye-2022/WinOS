@@ -58,8 +58,8 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
             <div>
-              <p className="text-sm font-semibold text-emerald-800">DSM submitted for {formatShortDate(toUtcDate())}</p>
-              <p className="text-xs text-emerald-700">Your team focus has been updated for today.</p>
+              <p className="text-sm font-semibold text-emerald-800">DSM Submitted for {formatShortDate(toUtcDate())}</p>
+              <p className="text-xs text-emerald-700">Your Team Focus Has Been Updated for Today.</p>
             </div>
           </div>
         )}

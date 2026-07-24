@@ -7,6 +7,7 @@ import {
   getWeeklyDsrHistory,
   getDsrInsights,
 } from "@/features/dsr/queries";
+import { getSharedWorkspaceNotes } from "@/features/dsm/queries";
 import { toUtcDate } from "@/features/dsr/utils";
 import { toIsoDateStr } from "@/features/dsm/utils";
 import { DsrPageClient } from "@/features/dsr/components/dsr-page-client";
@@ -24,10 +25,11 @@ export default async function DsrPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [entry, prefill, weeklyEntries] = await Promise.all([
+  const [entry, prefill, weeklyEntries, sharedItems] = await Promise.all([
     getCurrentDsrEntry(),
     getDsrStandupPrefill(),
     getWeeklyDsrHistory(weekOffset),
+    getSharedWorkspaceNotes(),
   ]);
 
   const insights = await getDsrInsights(entry);
@@ -42,6 +44,8 @@ export default async function DsrPage({ searchParams }: Props) {
       todayDateStr={todayDateStr}
       weekOffset={weekOffset}
       justSubmitted={justSubmitted}
+      sharedNotes={sharedItems?.notes || []}
+      userRole={session.user.role}
     />
   );
 }

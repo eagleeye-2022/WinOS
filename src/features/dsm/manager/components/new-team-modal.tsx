@@ -114,7 +114,7 @@ function LeadPicker({ allUsers, initialId }: { allUsers: AllUser[]; initialId?: 
         ) : (
           <input
             type="text"
-            placeholder="Search for a leader..."
+            placeholder="Search for a Leader..."
             value={query}
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
@@ -175,7 +175,7 @@ function MemberPicker({
     if (cancelingRef.current) { cancelingRef.current = false; return; }
     const trimmed = editValue.trim();
     if (!trimmed) {
-      setNameError("Name cannot be empty");
+      setNameError("Name Cannot Be Empty");
       return;
     }
     setSavingId(userId);
@@ -186,7 +186,7 @@ function MemberPicker({
       onNameSaved(userId, trimmed);
       setEditingId(null);
     } else {
-      setNameError(result.message ?? "Failed to save name");
+      setNameError(result.message ?? "Failed to Save Name");
     }
   }
 
@@ -238,7 +238,7 @@ function MemberPicker({
                   type="button"
                   onClick={() => { setEditingId(u.id); setEditValue(u.name ?? ""); setNameError(null); }}
                   className="text-muted-foreground hover:text-primary"
-                  title="Edit display name"
+                  title="Edit Display Name"
                 >
                   <Pencil size={10} />
                 </button>
@@ -260,7 +260,7 @@ function MemberPicker({
         ))}
         <input
           type="text"
-          placeholder={selected.length === 0 ? "Search users..." : ""}
+          placeholder={selected.length === 0 ? "Search Users..." : ""}
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -360,7 +360,7 @@ function TeamForm({
                 defaultValue={team?.department ?? ""}
                 className="w-full appearance-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
               >
-                <option value="">Select department...</option>
+                <option value="">Select Department...</option>
                 {DEPARTMENTS.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
@@ -389,16 +389,16 @@ function TeamForm({
           <textarea
             name="description"
             defaultValue={team?.description ?? ""}
-            placeholder="What will this team focus on?"
+            placeholder="What Will This Team Focus On?"
             rows={4}
             className="w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-6">
-          <Toggle name="requireApproval" label="Require approval" defaultChecked={team?.requireApproval ?? false} />
-          <Toggle name="notifyMembers" label="Notify members" defaultChecked={team?.notifyMembers ?? true} />
-          <Toggle name="allowEdits" label="Allow edits" defaultChecked={team?.allowEdits ?? false} />
+          <Toggle name="requireApproval" label="Require Approval" defaultChecked={team?.requireApproval ?? false} />
+          <Toggle name="notifyMembers" label="Notify Members" defaultChecked={team?.notifyMembers ?? true} />
+          <Toggle name="allowEdits" label="Allow Edits" defaultChecked={team?.allowEdits ?? false} />
         </div>
 
         {state.message && state.message !== "created" && state.message !== "updated" && (
@@ -448,7 +448,7 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
           <div className="p-6 pb-4">
             <h2 className="text-xl font-bold">Existing Teams</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage and view your current organizational structures.
+              Manage and View Your Current Organizational Structures.
             </p>
           </div>
 
@@ -457,7 +457,7 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
               <Search size={14} className="shrink-0 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Filter teams..."
+                placeholder="Filter Teams..."
                 value={teamSearch}
                 onChange={(e) => setTeamSearch(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
@@ -482,7 +482,7 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
                     <p className="text-sm font-semibold leading-snug">{t.name}</p>
                   </div>
                   <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
-                    {t.members.length} members
+                    {t.members.length} Members
                   </span>
                 </div>
 
@@ -537,8 +537,8 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
                 </h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {selectedTeam
-                    ? "Update team parameters and members."
-                    : "Define your team parameters and invite initial members."}
+                    ? "Update Team Parameters and Members."
+                    : "Define Your Team Parameters and Invite Initial Members."}
                 </p>
               </div>
               <button

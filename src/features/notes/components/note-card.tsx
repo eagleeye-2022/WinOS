@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useActionState } from "react";
 import { Pin, PinOff, Pencil, Trash2, X, Check, Bell, Square, CheckSquare, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ColorPicker } from "@/components/shared/color-picker";
 import { DeleteConfirmBar } from "@/components/shared/delete-confirm-bar";
 import type { NoteWithDetails } from "../queries";
@@ -102,7 +102,7 @@ function ChecklistItemRow({ item }: { item: NoteWithDetails["checklistItems"][nu
         </button>
       </form>
       <span className={cn("text-sm leading-snug", item.checked && "text-muted-foreground line-through")}>
-        {item.text}
+        {toTitleCase(item.text)}
       </span>
     </div>
   );
@@ -234,13 +234,13 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="text-sm font-semibold leading-snug">{note.title}</h3>
+          <h3 className="text-sm font-semibold leading-snug">{toTitleCase(note.title)}</h3>
           {note.notebook && (
             <span
               className="self-start rounded px-1.5 py-0.5 text-[10px] font-medium"
               style={{ backgroundColor: note.notebook.color ?? "#e5e7eb", color: "#374151" }}
             >
-              {note.notebook.name}
+              {toTitleCase(note.notebook.name)}
             </span>
           )}
         </div>
