@@ -14,7 +14,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WinOS",
-  description: "Internal operations platform",
+  description: "winos",
+  icons: {
+    icon: "/winos-favicon.png",
+    shortcut: "/winos-favicon.png",
+    apple: "/winos-favicon.png",
+  },
 };
 
 export default function RootLayout({
