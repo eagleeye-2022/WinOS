@@ -64,7 +64,7 @@ export function StandupCard({ entry, showAuthor }: StandupCardProps) {
 
       {todayTasks.length > 0 && (
         <div className="flex flex-col gap-1">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Today
           </dt>
           {todayTasks.map((t) => (

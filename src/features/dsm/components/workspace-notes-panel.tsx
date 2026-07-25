@@ -4,7 +4,6 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Share2,
-  Calendar,
   CheckSquare,
   Square,
   Sparkles,
@@ -69,10 +68,10 @@ function SharedNoteCard({
   };
 
   return (
-    <div className="flex flex-col gap-2 text-left">
+    <div className="flex flex-col gap-2.5 text-left">
       {/* Title */}
       {note.title && (
-        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+        <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
           {note.title}
         </h4>
       )}
@@ -80,33 +79,33 @@ function SharedNoteCard({
       {/* Content */}
       {note.content && (
         <div
-          className="text-sm text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
+          className="text-base text-slate-800 dark:text-slate-900 leading-relaxed html-content font-medium"
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
       )}
 
       {/* Checklist items */}
       {note.checklistItems.length > 0 && (
-        <div className="flex flex-col gap-1.5 mt-1 border-t pt-2 border-black/10">
+        <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
           {note.checklistItems.map((item) => (
             <button
               key={item.id}
               type="button"
               disabled={isPending || isReadOnly}
               onClick={() => handleToggle(item.id)}
-              className={`flex items-start gap-2 rounded p-1 w-full text-left transition-colors ${
+              className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
                 isReadOnly ? "cursor-default opacity-85" : "hover:bg-black/5 cursor-pointer"
               }`}
             >
               <span className="mt-0.5 shrink-0">
                 {item.checked ? (
-                  <CheckSquare size={13} className="text-primary" />
+                  <CheckSquare size={15} className="text-primary" />
                 ) : (
-                  <Square size={13} className="text-slate-500" />
+                  <Square size={15} className="text-slate-500" />
                 )}
               </span>
               <span
-                className={`text-xs leading-tight select-none ${
+                className={`text-sm leading-snug select-none ${
                   item.checked ? "text-slate-500 line-through" : "text-slate-800 dark:text-slate-900 font-medium"
                 }`}
               >
@@ -118,14 +117,8 @@ function SharedNoteCard({
       )}
 
       {/* Footer Info */}
-      <div className="flex items-center justify-between mt-1 text-[9px] text-slate-600 dark:text-slate-700 border-t pt-1.5 border-black/10 font-medium">
+      <div className="flex items-center justify-between mt-1 text-xs text-slate-600 dark:text-slate-700 border-t pt-2 border-black/10 font-medium">
         <span>{new Date(note.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
-        {note.deadline && (
-          <span className="flex items-center gap-0.5 text-amber-900 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full">
-            <Calendar size={9} />
-            Due {new Date(note.deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -149,43 +142,43 @@ export function WorkspaceNotesPanel({
     <div className="flex h-full flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
-        <span className="text-base font-bold text-foreground">Workspace Notes</span>
+        <span className="text-lg font-bold text-foreground">Workspace Notes</span>
         {sharedNotes.length > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground">
             {sharedNotes.length}
           </span>
         )}
       </div>
 
       {/* Scrollable shared items list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3.5">
         {sharedNotes.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground my-auto">
-            <Share2 size={32} className="text-muted-foreground/40 mb-3" />
-            <p className="font-medium text-foreground">No Shared Notes</p>
-            <p className="text-xs text-muted-foreground/75 mt-1 max-w-xs">
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-muted-foreground my-auto">
+            <Share2 size={36} className="text-muted-foreground/40 mb-3" />
+            <p className="font-semibold text-foreground text-lg">No Shared Notes</p>
+            <p className="text-sm text-muted-foreground/75 mt-1 max-w-xs">
               When Team Members Share Notes with You, They Will Appear Here.
             </p>
           </div>
         ) : (
           /* Shared Notes Section */
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3.5">
             {sharedNotes.map((note) => {
               const bg = getCardColor(note.color, note.id);
               return (
                 <div
                   key={note.id}
-                  className="rounded-xl border p-3 flex flex-col gap-2.5 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md"
+                  className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md"
                   style={{
                     backgroundColor: bg,
                     borderLeftColor: "rgba(0, 0, 0, 0.25)",
                   }}
                 >
-                  <div className="flex items-center justify-between border-b pb-1.5 border-black/10">
-                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-900 flex items-center gap-1">
-                      <Sparkles size={11} className="text-primary" /> In {note.threadTitle}
+                  <div className="flex items-center justify-between border-b pb-2 border-black/10">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-900 flex items-center gap-1">
+                      <Sparkles size={13} className="text-primary" /> In {note.threadTitle}
                     </span>
-                    <span className="text-[9px] font-semibold text-slate-700 dark:text-slate-800">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-800">
                       by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
                     </span>
                   </div>

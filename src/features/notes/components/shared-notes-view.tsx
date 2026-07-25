@@ -164,26 +164,28 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
 
               const checkedItems = note.checklistItems?.filter((c) => c.checked).length || 0;
               const totalItems = note.checklistItems?.length || 0;
+              const authorName = note.author?.name || note.author?.email?.split("@")[0] || "User";
+              const authorInitial = authorName.charAt(0).toUpperCase();
 
               return (
                 <div
                   key={note.id}
                   onClick={() => setSelectedNote(note)}
-                  className="group relative flex flex-col justify-between rounded-xl border bg-card p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden border-l-4"
+                  className="group relative flex flex-col justify-between rounded-xl border bg-card/90 backdrop-blur-sm p-4 transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden border-l-4"
                   style={{
                     backgroundColor: note.color || undefined,
-                    borderLeftColor: note.color ? "rgba(0,0,0,0.2)" : type === "with-me" ? "#3b82f6" : "#10b981",
+                    borderLeftColor: note.color ? "rgba(0,0,0,0.25)" : type === "with-me" ? "#3b82f6" : "#10b981",
                   }}
                 >
                   <div className="flex flex-col gap-2.5">
                     {/* Header Badges */}
                     <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-primary truncate">
-                        <Sparkles size={11} className="shrink-0" />
-                        {note.thread?.board?.name ? `${note.thread.board.name}` : "Workspace Board"}
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-primary truncate">
+                        <Sparkles size={12} className="shrink-0 text-primary" />
+                        <span className="truncate">{note.thread?.board?.name ? `${note.thread.board.name}` : "Workspace Board"}</span>
                       </span>
                       {note.thread?.board?.type && (
-                        <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-muted-foreground uppercase shrink-0">
+                        <span className="rounded-md bg-accent/80 border border-border/50 px-1.5 py-0.5 text-xs font-bold tracking-wider text-muted-foreground uppercase shrink-0">
                           {note.thread.board.type}
                         </span>
                       )}
@@ -196,37 +198,37 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
 
                     {/* Content Body / Checklist */}
                     {totalItems > 0 ? (
-                      <div className="flex flex-col gap-1 my-1">
+                      <div className="flex flex-col gap-1.5 my-1">
                         <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-                          <span className="flex items-center gap-1">
-                            <CheckSquare size={12} /> Checklist
+                          <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground/80">
+                            <CheckSquare size={13} className="text-primary" /> Checklist
                           </span>
-                          <span>
+                          <span className="text-xs font-bold text-muted-foreground">
                             {checkedItems}/{totalItems}
                           </span>
                         </div>
-                        <div className="h-1.5 w-full rounded-full bg-accent overflow-hidden">
+                        <div className="h-1.5 w-full rounded-full bg-accent/70 overflow-hidden">
                           <div
-                            className="h-full bg-primary transition-all duration-300"
+                            className="h-full bg-primary transition-all duration-300 rounded-full"
                             style={{ width: `${(checkedItems / totalItems) * 100}%` }}
                           />
                         </div>
-                        <div className="mt-1 flex flex-col gap-0.5">
+                        <div className="mt-1 flex flex-col gap-1">
                           {note.checklistItems?.slice(0, 3).map((item) => (
-                            <div key={item.id} className="flex items-center gap-1.5 text-xs text-foreground/80 line-clamp-1">
-                              <span className={cn("text-xs", item.checked ? "text-emerald-600 font-bold" : "text-muted-foreground")}>
-                                {item.checked ? "☑" : "☐"}
+                            <div key={item.id} className="flex items-center gap-2 text-xs text-foreground/80 line-clamp-1">
+                              <span className={cn("text-xs font-semibold shrink-0", item.checked ? "text-emerald-500" : "text-muted-foreground/60")}>
+                                {item.checked ? "✓" : "○"}
                               </span>
-                              <span className={cn(item.checked && "line-through text-muted-foreground")}>{item.text}</span>
+                              <span className={cn("truncate", item.checked && "line-through text-muted-foreground/60")}>{item.text}</span>
                             </div>
                           ))}
                           {totalItems > 3 && (
-                            <span className="text-xs text-muted-foreground italic">+ {totalItems - 3} more items</span>
+                            <span className="text-xs text-muted-foreground/70 italic">+ {totalItems - 3} more items</span>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                      <p className="text-xs text-muted-foreground/90 line-clamp-3 leading-relaxed">
                         {(note.content || "").replace(/<[^>]*>/g, "")}
                       </p>
                     )}
@@ -234,27 +236,29 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
 
                   {/* Card Footer Info */}
                   <div className="mt-4 border-t border-border/40 pt-2.5 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <div className="flex items-center justify-between text-xs">
                       {type === "with-me" ? (
-                        <span className="flex items-center gap-1 font-medium text-foreground">
-                          <User size={11} className="text-primary" />
-                          By {note.author?.name || note.author?.email?.split("@")[0]}
-                        </span>
+                        <div className="flex items-center gap-1.5 font-medium text-foreground">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
+                            {authorInitial}
+                          </div>
+                          <span className="truncate text-xs font-semibold">{authorName}</span>
+                        </div>
                       ) : (
-                        <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
-                          <Users size={10} />
-                          {recipients.length > 0 ? recipients.join(", ") : "Shared"}
-                        </span>
+                        <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs">
+                          <Users size={11} />
+                          <span className="truncate">{recipients.length > 0 ? recipients.join(", ") : "Shared"}</span>
+                        </div>
                       )}
 
-                      <span className="flex items-center gap-1 text-[9px]">
-                        <Clock size={10} />
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                        <Clock size={11} />
                         {formatDate(note.createdAt)}
                       </span>
                     </div>
 
                     {note.deadline && (
-                      <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md self-start">
                         <Calendar size={11} />
                         Due: {new Date(note.deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
                       </div>
@@ -270,58 +274,63 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
       {/* ── Card Detail Modal ── */}
       {selectedNote && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
           onClick={() => setSelectedNote(null)}
         >
           <div
-            className="flex w-full max-w-lg flex-col gap-4 rounded-xl border bg-card p-6 shadow-xl"
+            className="flex w-full max-w-3xl max-h-[85vh] overflow-y-auto flex-col gap-4 rounded-2xl border bg-card p-6 shadow-2xl transition-all"
             onClick={(e) => e.stopPropagation()}
             style={{ backgroundColor: selectedNote.color || undefined }}
           >
             <div className="flex items-start justify-between border-b pb-3 border-border/50">
               <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+                  <Sparkles size={11} />
                   In {selectedNote.thread?.title || "Board Card"} ({selectedNote.thread?.board?.name || "Workspace"})
                 </span>
-                <h3 className="text-base font-bold text-foreground mt-0.5">
+                <h3 className="text-lg font-bold text-foreground mt-0.5">
                   {selectedNote.title || selectedNote.thread?.title || "Card Details"}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedNote(null)}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="flex flex-col gap-3 py-2 text-sm text-foreground">
+            <div className="flex flex-col gap-4 py-2 text-sm text-foreground">
               {selectedNote.checklistItems && selectedNote.checklistItems.length > 0 ? (
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                    <CheckSquare size={13} /> Checklist Items:
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <CheckSquare size={14} className="text-primary" /> Checklist Items:
                   </span>
-                  <div className="flex flex-col gap-1.5 rounded-lg border p-3 bg-background/60 max-h-60 overflow-y-auto">
+                  <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4 bg-background/60 backdrop-blur-xs max-h-60 overflow-y-auto">
                     {selectedNote.checklistItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 text-sm">
-                        <span className={item.checked ? "text-emerald-600 font-bold" : "text-muted-foreground"}>
-                          {item.checked ? "☑" : "☐"}
+                      <div key={item.id} className="flex items-center gap-2.5 text-sm">
+                        <span className={cn("font-bold text-sm shrink-0", item.checked ? "text-emerald-500" : "text-muted-foreground/60")}>
+                          {item.checked ? "✓" : "○"}
                         </span>
-                        <span className={cn(item.checked && "line-through text-muted-foreground")}>{item.text}</span>
+                        <span className={cn("text-foreground", item.checked && "line-through text-muted-foreground/70")}>{item.text}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border p-3.5 bg-background/60 whitespace-pre-wrap leading-relaxed text-sm">
-                  {selectedNote.content}
-                </div>
+                <div
+                  className="rounded-xl border border-border/60 p-4 bg-background/60 leading-relaxed text-sm html-content overflow-y-auto max-h-96"
+                  dangerouslySetInnerHTML={{ __html: selectedNote.content || "" }}
+                />
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 border-border/50 text-xs text-muted-foreground">
-                <div>
-                  <span className="font-semibold text-foreground">Author:</span> {selectedNote.author?.name || selectedNote.author?.email}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3 border-border/50 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">Author:</span>
+                  <span className="rounded-md bg-accent/80 px-2 py-0.5 font-medium text-foreground">
+                    {selectedNote.author?.name || selectedNote.author?.email}
+                  </span>
                 </div>
                 <div>
                   <span className="font-semibold text-foreground">Created:</span> {formatDate(selectedNote.createdAt)}
@@ -330,19 +339,10 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
             </div>
 
             <div className="flex justify-end gap-2 border-t pt-3 border-border/50">
-              {selectedNote.thread?.boardId && (
-                <Link
-                  href={`/notes?board=${selectedNote.thread.boardId}`}
-                  className="flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-semibold hover:bg-primary/90 transition-colors"
-                >
-                  <ExternalLink size={13} />
-                  Open in Workspace Board
-                </Link>
-              )}
               <button
                 type="button"
                 onClick={() => setSelectedNote(null)}
-                className="rounded-lg border px-3.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+                className="rounded-lg border bg-background px-4 py-2 text-xs font-semibold hover:bg-accent transition-colors cursor-pointer"
               >
                 Close
               </button>

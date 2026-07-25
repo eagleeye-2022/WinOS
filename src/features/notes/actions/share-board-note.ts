@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { revalidatePath } from "next/cache";
 
 export type ShareBoardNoteState = { message?: string };
 
@@ -46,5 +47,12 @@ export async function shareBoardNote(
     });
   }
 
+  revalidatePath("/notes");
+  revalidatePath("/dsm");
+  revalidatePath("/dsr");
+  revalidatePath("/dsm/my");
+  revalidatePath("/dsr/my");
+  revalidatePath("/dsm/all");
+  revalidatePath("/dsr/manage");
   return { message: "shared" };
 }

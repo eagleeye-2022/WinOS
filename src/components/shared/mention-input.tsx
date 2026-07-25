@@ -269,7 +269,7 @@ export function MentionInput({
       {isOpen && (
         <div className="absolute left-0 top-full z-[9999] mt-1.5 w-72 rounded-xl border bg-card p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100">
           {/* Header */}
-          <div className="flex items-center justify-between border-b px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+          <div className="flex items-center justify-between border-b px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
             <span className="flex items-center gap-1">
               {mode === "people" ? (
                 <>
@@ -281,7 +281,7 @@ export function MentionInput({
                 </>
               )}
             </span>
-            <span className="text-[9px] font-normal text-muted-foreground/60">
+            <span className="text-xs font-normal text-muted-foreground/60">
               {mode === "people" ? "Type @file: for files" : "Type @ for members"}
             </span>
           </div>
@@ -307,14 +307,14 @@ export function MentionInput({
                         : "hover:bg-accent text-foreground"
                     )}
                   >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                       {(m.name ?? m.email).slice(0, 2).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-foreground">
                         {m.name ?? m.email}
                       </p>
-                      <p className="truncate text-[10px] text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         {m.title || m.role || m.email}
                       </p>
                     </div>
@@ -348,7 +348,7 @@ export function MentionInput({
                     <p className="truncate font-semibold text-foreground">
                       {f.title}
                     </p>
-                    <p className="truncate text-[10px] text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {f.subtitle}
                     </p>
                   </div>

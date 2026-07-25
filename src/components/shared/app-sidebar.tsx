@@ -49,13 +49,13 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Daily DSM" || label === "DSM") {
     return pathname === ROUTES.dsm || pathname === "/dashboard";
   }
-  if (label === "DSR Management") {
-    return pathname === ROUTES.dsrManage;
+  if (label === "DSR Management" || label === "All DSR") {
+    return pathname.startsWith(ROUTES.dsrManage) || pathname.startsWith("/dsr/member");
   }
   if (label === "My DSR" || label === "DSR") {
     return pathname === ROUTES.dsr || pathname === ROUTES.dsrMy;
   }
-  if (label === "i-Notes" || label === "My Notes") {
+  if (label === "iNotes" || label === "i-Notes" || label === "My Notes") {
     return pathname.startsWith("/notes");
   }
   if (label === "My Blockers") {
@@ -118,7 +118,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = [
       { label: "RTD Documents", href: "/people", icon: FileText },
       { label: "ICA Agreements", href: "/people/ica", icon: UserCheck },
-      { label: "i-Notes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
+      { label: "iNotes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
     ];
   } else if (activeModuleTitle === "Projects") {
     navItems = [
@@ -132,24 +132,25 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     // Standup Module
     navItems = isManager
       ? [
-          { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
-          { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
-          { label: "My DSM", href: ROUTES.dsmMy, icon: User },
-          { label: "DSR Management", href: ROUTES.dsrManage, icon: BarChart2 },
-          { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
-          { label: "i-Notes", href: iNotesHref, icon: FileText },
-          { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-          { label: "Support Needed", href: ROUTES.support, icon: Users2 },
-          // { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
-        ]
+        { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
+        { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
+        { label: "My DSM", href: ROUTES.dsmMy, icon: User },
+        { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
+        { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
+        { label: "iNotes", href: iNotesHref, icon: FileText },
+        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+        // { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+      ]
       : [
-          { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
-          { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
-          { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-          { label: "i-Notes", href: iNotesHref, icon: FileText },
-          { label: "Support Needed", href: ROUTES.support, icon: Users2 },
-          { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
-        ];
+        { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
+        { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
+        { label: "iNotes", href: iNotesHref, icon: FileText },
+        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+
+        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+        { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
+      ];
   }
 
   return (
@@ -194,8 +195,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         {/* Quote Card */}
         <div className="mx-3 mb-3 rounded-xl border-l-2 border-primary/40 bg-muted/30 p-3">
           <Quote size={12} className="mb-1 text-primary/60" />
-          <p className="text-[11px] leading-relaxed text-muted-foreground italic">&quot;{quote.text}&quot;</p>
-          <p className="mt-1 text-[10px] font-medium text-muted-foreground/70">— {quote.author}</p>
+          <p className="text-[13px] leading-relaxed text-muted-foreground italic">&quot;{quote.text}&quot;</p>
+          <p className="mt-1 text-[12px] font-medium text-muted-foreground/70">— {quote.author}</p>
         </div>
 
         {/* Footer / Secondary navigation */}

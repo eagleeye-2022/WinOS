@@ -34,7 +34,7 @@ const PRIORITY_STYLES = {
 function StatusBadge({ resolved }: { resolved: boolean }) {
   return (
     <span className={cn(
-      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
       resolved ? STATUS_STYLES.resolved : STATUS_STYLES.in_progress
     )}>
       {resolved ? "Resolved" : "In Progress"}
@@ -45,7 +45,7 @@ function StatusBadge({ resolved }: { resolved: boolean }) {
 function PriorityBadge({ priority }: { priority: "LOW" | "MEDIUM" | "HIGH" }) {
   return (
     <span className={cn(
-      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
       PRIORITY_STYLES[priority]
     )}>
       {priority}
@@ -69,7 +69,7 @@ function CommentThread({ comments }: { comments: BlockerItem["comments"] }) {
             <span className="text-xs font-semibold">
               {c.author.name?.split(" ")[0] ?? c.author.email.split("@")[0]}
             </span>
-            <span className="text-[10px] text-muted-foreground">{formatEventTime(c.createdAt)}</span>
+            <span className="text-xs text-muted-foreground">{formatEventTime(c.createdAt)}</span>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">{c.text}</p>
         </div>
@@ -161,7 +161,7 @@ function DetailPanel({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
             <button type="button" className="text-muted-foreground hover:text-primary">
               <Pencil size={13} />
             </button>
@@ -170,7 +170,7 @@ function DetailPanel({
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Days Open
           </p>
           <p className={cn("text-sm font-semibold", days > 0 ? "text-destructive" : "text-foreground")}>
@@ -181,7 +181,7 @@ function DetailPanel({
         <div className="h-px bg-border" />
 
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Updates
           </p>
           <CommentThread comments={item.comments} />
@@ -411,19 +411,19 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Blocker Detail
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Priority
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Date Raised
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Team Member
                 </th>
               </tr>
@@ -469,14 +469,14 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                           onClick={(e) => e.stopPropagation()}
                           className="group/member flex items-center gap-2.5 hover:opacity-90"
                         >
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary group-hover/member:bg-primary/20">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary group-hover/member:bg-primary/20">
                             {(item.raisedBy.name ?? item.raisedBy.email).slice(0, 2).toUpperCase()}
                           </span>
                           <div className="flex flex-col">
                             <span className="text-sm font-medium leading-none text-foreground group-hover/member:underline">
                               {item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}
                             </span>
-                            <span className="mt-1 text-[10px] text-muted-foreground leading-none">
+                            <span className="mt-1 text-xs text-muted-foreground leading-none">
                               {item.raisedBy.title ?? (item.raisedBy.role === "MANAGER" ? "Manager" : "Team Member")}
                             </span>
                           </div>

@@ -56,14 +56,14 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
               {displayName}
             </p>
             {timeStr && (
-              <span className="mt-0.5 text-[10px] text-muted-foreground">{timeStr}</span>
+              <span className="mt-0.5 text-xs text-muted-foreground">{timeStr}</span>
             )}
           </div>
         </div>
         {timeStr && (
           <span
             className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
               isOnTime ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
             )}
           >
@@ -74,7 +74,7 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
 
       {card.todayTasks.length > 0 && (
         <div className="mt-3.5 pt-3 border-t border-border/50">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Today&apos;s Task
           </p>
           <ul className="space-y-1">
@@ -101,7 +101,7 @@ function PendingCard({ count, teamId }: { count: number; teamId: string }) {
           <span key={i} className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
         ))}
       </div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {count} Pending Submission{count !== 1 ? "s" : ""}
       </p>
       <div className="mt-2">
@@ -133,11 +133,11 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
         <span className={cn("h-2 w-2 rounded-full", dotColor)} />
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
-          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
             <CheckCircle2 size={11} /> All Submitted
           </span>
         ) : (
-          <span className="ml-auto text-[10px] text-muted-foreground">
+          <span className="ml-auto text-xs text-muted-foreground">
             {group.submittedCount}/{group.totalMembers}
           </span>
         )}

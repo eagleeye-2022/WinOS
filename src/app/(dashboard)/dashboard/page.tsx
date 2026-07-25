@@ -188,8 +188,8 @@ function ManagerDashboard({
                 <Icon size={15} strokeWidth={1.75} className="text-muted-foreground" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium">{label}</p>
-                <p className="truncate text-xs text-muted-foreground">{desc}</p>
+                <p className="text-base font-semibold">{label}</p>
+                <p className="truncate text-sm text-muted-foreground">{desc}</p>
               </div>
             </Link>
           ))}

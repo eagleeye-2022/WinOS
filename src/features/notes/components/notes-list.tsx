@@ -142,7 +142,7 @@ export function NotesList({ notes, notebooks, isManager, userId }: NotesListProp
                 type="button"
                 onClick={() => setTagId(tagId === id ? "" : id)}
                 className={cn(
-                  "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
                   tagId === id
                     ? "bg-primary text-primary-foreground"
                     : "bg-accent text-accent-foreground hover:bg-accent/80"

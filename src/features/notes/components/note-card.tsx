@@ -42,7 +42,7 @@ function isOverdue(date: Date) {
 
 function TagChip({ name }: { name: string }) {
   return (
-    <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">
+    <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
       #{name}
     </span>
   );
@@ -237,10 +237,10 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
           <h3 className="text-sm font-semibold leading-snug">{toTitleCase(note.title)}</h3>
           {note.notebook && (
             <span
-              className="self-start rounded px-1.5 py-0.5 text-[10px] font-medium"
+              className="self-start rounded px-1.5 py-0.5 text-xs font-medium"
               style={{ backgroundColor: note.notebook.color ?? "#e5e7eb", color: "#374151" }}
             >
-              {toTitleCase(note.notebook.name)}
+              {note.notebook.name}
             </span>
           )}
         </div>
@@ -263,7 +263,7 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
 
       {/* Pinned badge */}
       {note.isPinned && (
-        <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+        <span className="self-start rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-primary">
           Pinned
         </span>
       )}
@@ -316,10 +316,11 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
       )}
 
       {/* Footer */}
-      <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
-        {showAuthor ? <span>{note.author.name ?? note.author.email}</span> : <span />}
-        <span>{formatDate(note.updatedAt)}</span>
-      </div>
+      {showAuthor && (
+        <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
+          <span>{note.author.name ?? note.author.email}</span>
+        </div>
+      )}
     </article>
   );
 }

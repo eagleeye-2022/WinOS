@@ -55,7 +55,7 @@ function NotifRow({
         <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
           {notif.message}
         </p>
-        <p className="mt-1 text-[10px] text-muted-foreground/60">
+        <p className="mt-1 text-xs text-muted-foreground/60">
           {timeAgo(notif.createdAt)} · from {notif.createdBy.name?.split(" ")[0] ?? "Manager"}
         </p>
       </div>
@@ -158,7 +158,7 @@ export function NotificationBell({ initialUnread, initialNotifications }: Props)
       >
         <Bell size={16} />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -171,7 +171,7 @@ export function NotificationBell({ initialUnread, initialNotifications }: Props)
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold">Notifications</span>
               {unread > 0 && (
-                <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground">
+                <span className="rounded-full bg-destructive px-1.5 py-0.5 text-xs font-bold text-destructive-foreground">
                   {unread}
                 </span>
               )}

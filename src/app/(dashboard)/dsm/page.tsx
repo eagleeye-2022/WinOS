@@ -84,7 +84,7 @@ export default async function DSMPage({ searchParams }: Props) {
       </div>
 
       {/* ── Workspace Notes right panel ───────────────────────────────────────── */}
-      <aside className="w-115 shrink-0 overflow-hidden border-l xl:w-135">
+      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
         <WorkspaceNotesPanel
           sharedNotes={sharedItems?.notes || []}
           userRole={session?.user?.role}

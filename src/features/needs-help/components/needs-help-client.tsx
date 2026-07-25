@@ -21,7 +21,7 @@ const STATUS_STYLES = {
 function StatusBadge({ resolved }: { resolved: boolean }) {
   return (
     <span className={cn(
-      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
       resolved ? STATUS_STYLES.resolved : STATUS_STYLES.in_progress
     )}>
       {resolved ? "Resolved" : "In Progress"}
@@ -35,7 +35,7 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
   if (!user) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
         {(user.name ?? user.email).slice(0, 2).toUpperCase()}
       </span>
       <span className="text-sm">
@@ -70,12 +70,12 @@ function DetailPanel({ item, onClose }: { item: HelpRequestItem; onClose: () => 
 
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
           <p className="text-sm leading-relaxed">{item.text}</p>
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Days Open
           </p>
           <p className={cn("text-sm font-semibold", days > 3 ? "text-destructive" : "text-foreground")}>
@@ -84,12 +84,12 @@ function DetailPanel({ item, onClose }: { item: HelpRequestItem; onClose: () => 
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
           <StatusBadge resolved={isResolved} />
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Requested By
           </p>
           <UserAvatar user={item.raisedBy} />
@@ -190,16 +190,16 @@ export function NeedsHelpClient({ items }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Description
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Date Raised
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Raised By
                 </th>
               </tr>

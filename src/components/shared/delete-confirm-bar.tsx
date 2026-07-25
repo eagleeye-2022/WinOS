@@ -29,7 +29,7 @@ export function DeleteConfirmBar({
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-destructive px-2 py-1 text-[11px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="rounded bg-destructive px-2 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {pending ? "Deleting…" : "Delete"}
         </button>
@@ -37,7 +37,7 @@ export function DeleteConfirmBar({
       <button
         type="button"
         onClick={onCancel}
-        className="rounded border px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent"
+        className="rounded border px-2 py-1 text-xs font-medium transition-colors hover:bg-accent"
       >
         Cancel
       </button>

@@ -29,7 +29,7 @@ function TagPreview({ raw }: { raw: string }) {
   return (
     <div className="flex flex-wrap gap-1 pt-0.5">
       {tags.map((t) => (
-        <span key={t} className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-foreground">
+        <span key={t} className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
           #{t}
         </span>
       ))}
