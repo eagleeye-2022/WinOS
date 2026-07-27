@@ -94,12 +94,23 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  const allMembers = await d.user.findMany({
-    where: { role: "TEAM_MEMBER" },
-    select: { id: true },
+  const teamMemberships = await d.teamMember.findMany({
+    select: { userId: true },
   });
-  const memberIds = allMembers.map((u: { id: string }) => u.id);
+  const memberIds = Array.from(
+    new Set(teamMemberships.map((m: { userId: string }) => m.userId))
+  );
   const totalExpected = memberIds.length;
+
+  if (memberIds.length === 0) {
+    return {
+      totalSubmitted: 0,
+      totalExpected: 0,
+      pendingCount: 0,
+      blockerCount: 0,
+      projectStatus: "On Track",
+    };
+  }
 
   const todayEntries = await d.standupEntry.findMany({
     where: {
@@ -109,23 +120,15 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
     select: { status: true, blockers: { select: { resolved: true, priority: true } } },
   });
 
-  console.log("||||||||||")
+  const submittedEntries = todayEntries.filter(
+    (e: { status: string }) =>
+      e.status === "SUBMITTED" ||
+      e.status === "PENDING_REVIEW" ||
+      e.status === "REVIEWED"
+  );
 
-  console.log("totalentrins", todayEntries)
-  console.log("||||||||||")
-
-
-
-
-
-  const totalSubmitted = todayEntries.length;
-
-  console.log("before is is submittedentries")
-
-  console.log("this is totalSubmitted")
-
-
-  const pendingCount = totalExpected - totalSubmitted;
+  const totalSubmitted = submittedEntries.length;
+  const pendingCount = Math.max(0, totalExpected - totalSubmitted);
   const blockerCount = todayEntries.reduce(
     (sum: number, e: { blockers: { resolved: boolean; priority: string }[] }) =>
       sum + e.blockers.filter((b) => !b.resolved).length,
