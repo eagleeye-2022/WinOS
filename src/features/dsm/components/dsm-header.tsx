@@ -26,19 +26,19 @@ export function DsmHeader({ entry }: DsmHeaderProps) {
         <div className="flex items-center gap-5">
           <div className="flex flex-col items-center text-center">
             <span className="text-base font-bold leading-none">{taskCount}</span>
-            <span className="mt-0.5 text-[10px] text-muted-foreground">Tasks</span>
+            <span className="mt-0.5 text-xs text-muted-foreground">Tasks</span>
           </div>
           <div className="flex flex-col items-center text-center">
             <span className={`text-base font-bold leading-none ${blockerCount > 0 ? "text-destructive" : ""}`}>
               {blockerCount}
             </span>
-            <span className={`mt-0.5 text-[10px] ${blockerCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            <span className={`mt-0.5 text-xs ${blockerCount > 0 ? "text-destructive" : "text-muted-foreground"}`}>
               Blockers
             </span>
           </div>
           <div className="flex flex-col items-center text-center">
             <span className="text-base font-bold leading-none">{followUpCount}</span>
-            <span className="mt-0.5 text-[10px] text-muted-foreground">Follow-Ups</span>
+            <span className="mt-0.5 text-xs text-muted-foreground">Follow-Ups</span>
           </div>
         </div>
       </div>

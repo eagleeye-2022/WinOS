@@ -68,7 +68,7 @@ export function DsrPageClient({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs text-muted-foreground">{formatDayHeader(now)}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Evening Review
             </p>
             <h1 className="mt-1 text-4xl font-bold tracking-tight">{formatFullDate(now)}</h1>
@@ -77,13 +77,13 @@ export function DsrPageClient({
           {(cp > 0 || !canSubmit) && (
             <div className="flex items-center divide-x divide-border rounded-lg border bg-card shadow-sm">
               <div className="flex flex-col items-center px-5 py-3 text-center">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Completion
                 </span>
                 <span className="text-2xl font-bold text-primary">{cp}%</span>
               </div>
               <div className="flex flex-col items-center px-5 py-3 text-center">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Tasks
                 </span>
                 <span className="text-2xl font-bold">{ct}/{pt}</span>
@@ -165,7 +165,7 @@ export function DsrPageClient({
           >
             <span>Workspace Notes</span>
             {sharedNotes.length > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
                 {sharedNotes.length}
               </span>
             )}

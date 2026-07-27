@@ -26,7 +26,7 @@ const STATUS_STYLES = {
 function StatusBadge({ resolved }: { resolved: boolean }) {
   return (
     <span className={cn(
-      "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
       resolved ? STATUS_STYLES.resolved : STATUS_STYLES.in_progress
     )}>
       {resolved ? "Resolved" : "In Progress"}
@@ -40,7 +40,7 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
   if (!user) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
         {(user.name ?? user.email).slice(0, 2).toUpperCase()}
       </span>
       <span className="text-sm">
@@ -66,7 +66,7 @@ function CommentThread({ comments }: { comments: SupportNeedItem["comments"] }) 
             <span className="text-xs font-semibold">
               {c.author.name?.split(" ")[0] ?? c.author.email.split("@")[0]}
             </span>
-            <span className="text-[10px] text-muted-foreground">{formatEventTime(c.createdAt)}</span>
+            <span className="text-xs text-muted-foreground">{formatEventTime(c.createdAt)}</span>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">{c.text}</p>
         </div>
@@ -153,7 +153,7 @@ function DetailPanel({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Description
             </p>
             <button type="button" className="text-muted-foreground hover:text-primary">
@@ -164,7 +164,7 @@ function DetailPanel({
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Days Open
           </p>
           <p className={cn("text-sm font-semibold", days > 0 ? "text-destructive" : "text-foreground")}>
@@ -175,7 +175,7 @@ function DetailPanel({
         <div className="h-px bg-border" />
 
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Updates
           </p>
           <CommentThread comments={item.comments} />
@@ -420,7 +420,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
           >
             Requests for Me
             {forMeActiveCount > 0 && (
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
                 {forMeActiveCount}
               </span>
             )}
@@ -467,16 +467,16 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
-                <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Description
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Date Raised
                 </th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   {viewMode === "mine" ? "Support From" : "Requested By"}
                 </th>
               </tr>

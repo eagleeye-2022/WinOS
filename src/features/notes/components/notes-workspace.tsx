@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useTransition, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Plus,
   Trash2,
@@ -10,8 +12,13 @@ import {
   CheckSquare,
   Square,
   ChevronRight,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   Users,
   GripVertical,
+  Pencil,
+  FileText,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -22,6 +29,11 @@ const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
 import { NotesTopNav } from "./notes-top-nav";
 import { createBoard } from "../actions/create-board";
 import { createThread } from "../actions/create-thread";
+import { updateBoard } from "../actions/update-board";
+import { updateThread } from "../actions/update-thread";
+import { shareBoard } from "../actions/share-board";
+import { deleteBoard } from "../actions/delete-board";
+import { deleteThread } from "../actions/delete-thread";
 import { shareThread } from "../actions/share-thread";
 import { createBoardNote } from "../actions/create-board-note";
 import { updateBoardNote } from "../actions/update-board-note";
@@ -118,6 +130,7 @@ export function NotesWorkspace({
   isManager,
   pageOwnerId,
 }: NotesWorkspaceProps) {
+  const router = useRouter();
   const [boards, setBoards] = useState<BoardData[]>(initialBoards);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
@@ -131,6 +144,8 @@ export function NotesWorkspace({
   });
   const [threads, setThreads] = useState<ThreadData[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isBoardSectionOpen, setIsBoardSectionOpen] = useState(true);
 
   // Sync props to state during render
   const [prevHistoryNotes, setPrevHistoryNotes] = useState(historyNotes);
@@ -263,9 +278,11 @@ export function NotesWorkspace({
   const [noteDeadline, setNoteDeadline] = useState("");
   const [noteColor, setNoteColor] = useState("#ffffff");
 
+  const [editingBoard, setEditingBoard] = useState<{ id: string; name: string } | null>(null);
+  const [editingThread, setEditingThread] = useState<{ id: string; title: string } | null>(null);
   const [editingNote, setEditingNote] = useState<BoardNoteData | null>(null);
   const [sharingItem, setSharingItem] = useState<{
-    type: "thread" | "note";
+    type: "board" | "thread" | "note";
     id: string;
     existingShares: string[];
   } | null>(null);
@@ -435,6 +452,47 @@ export function NotesWorkspace({
     });
   };
 
+  // Handle Board Update (Rename)
+  const handleUpdateBoard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBoard || !editingBoard.name.trim()) return;
+
+    const formData = new FormData();
+    formData.append("boardId", editingBoard.id);
+    formData.append("name", editingBoard.name.trim());
+
+    startTransition(async () => {
+      const res = await updateBoard({}, formData);
+      if (res.message === "updated") {
+        setEditingBoard(null);
+        window.location.reload();
+      } else if (res.errors?.name) {
+        alert(res.errors.name[0]);
+      }
+    });
+  };
+
+  // Handle Thread Update (Rename List)
+  const handleUpdateThread = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingThread || !editingThread.title.trim()) return;
+
+    const formData = new FormData();
+    formData.append("threadId", editingThread.id);
+    formData.append("title", editingThread.title.trim());
+
+    startTransition(async () => {
+      const res = await updateThread({}, formData);
+      if (res.message === "updated") {
+        setEditingThread(null);
+        refreshThreads();
+        router.refresh();
+      } else if (res.errors?.title) {
+        alert(res.errors.title[0]);
+      }
+    });
+  };
+
   // Handle Thread Creation
   const handleCreateThread = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -558,6 +616,42 @@ export function NotesWorkspace({
     });
   };
 
+  // Handle Delete Board
+  const handleDeleteBoard = async (boardId: string) => {
+    if (!confirm("Are you sure you want to delete this board and all its lists?")) return;
+
+    const formData = new FormData();
+    formData.append("boardId", boardId);
+    startTransition(async () => {
+      await deleteBoard({}, formData);
+      const updatedBoards = boards.filter((b) => b.id !== boardId);
+      setBoards(updatedBoards);
+      if (activeBoardId === boardId) {
+        const nextBoardId = updatedBoards[0]?.id || null;
+        setActiveBoardId(nextBoardId);
+        if (nextBoardId) {
+          localStorage.setItem("winos_active_board_id", nextBoardId);
+        } else {
+          localStorage.removeItem("winos_active_board_id");
+        }
+      }
+    });
+  };
+
+  // Handle Delete List / Thread
+  const handleDeleteThread = async (threadId: string) => {
+    if (!confirm("Are you sure you want to delete this list and all its notes?")) return;
+
+    setThreads((prev) => prev.filter((t) => t.id !== threadId));
+
+    const formData = new FormData();
+    formData.append("threadId", threadId);
+    startTransition(async () => {
+      await deleteThread({}, formData);
+      await refreshThreads();
+    });
+  };
+
   // Handle Share Submit
   const handleShareSubmit = async () => {
     if (!sharingItem) return;
@@ -565,7 +659,10 @@ export function NotesWorkspace({
     formData.append("shareUserIds", shareSelection.join(","));
 
     startTransition(async () => {
-      if (sharingItem.type === "thread") {
+      if (sharingItem.type === "board") {
+        formData.append("boardId", sharingItem.id);
+        await shareBoard({}, formData);
+      } else if (sharingItem.type === "thread") {
         formData.append("threadId", sharingItem.id);
         await shareThread({}, formData);
       } else {
@@ -632,104 +729,177 @@ export function NotesWorkspace({
   const activeBoard = boards.find((b) => b.id === activeBoardId);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4.5rem)] w-full overflow-hidden">
-      <div className="p-3 border-b shrink-0 overflow-x-auto">
-        <NotesTopNav onNewBoardClick={() => setShowAddBoard((prev) => !prev)} />
-      </div>
-      <div className="flex flex-1 w-full overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-4.5rem)] w-full overflow-hidden bg-background">
         {/* ── Sub-sidebar for note boards & history ── */}
-
-        <aside className="w-60 bg-card flex flex-col shrink-0 select-none text-foreground my-4 ml-4 rounded-2xl border shadow-xs overflow-hidden">
-          {/* Navigation Tabs (New Board, My Notes, Shared with Me, Shared by Me) */}
-
-
-
-          {/* Boards Section */}
-          <div className="flex flex-col gap-2 p-4 border-b">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                Note Board
+        {isSidebarOpen && (
+          <aside className="w-60 bg-card flex flex-col shrink-0 select-none text-foreground my-4 ml-4 rounded-2xl border shadow-xs overflow-hidden transition-all duration-300">
+            {/* Sidebar Navigation Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Notes Navigation
               </span>
-              {(isManager || !pageOwnerId || pageOwnerId === userId) && (
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(false)}
+                className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Close Navigation"
+              >
+                <PanelLeftClose size={16} />
+              </button>
+            </div>
+
+            {/* Quick Links Navigation */}
+            <div className="flex flex-col gap-1 p-3 border-b">
+              <Link
+                href="/notes"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary transition-colors"
+              >
+                <FileText size={14} className="text-primary" />
+                <span>My Notes</span>
+              </Link>
+              <Link
+                href="/notes/shared-with-me"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Share2 size={14} />
+                <span>Shared With Me</span>
+              </Link>
+              <Link
+                href="/notes/shared-by-me"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Users size={14} />
+                <span>Shared By Me</span>
+              </Link>
+            </div>
+
+            {/* Boards Section */}
+            <div className="flex flex-col gap-2 p-4 border-b">
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setShowAddBoard((prev) => !prev)}
-                  className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsBoardSectionOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
-                  <Plus size={16} />
+                  {isBoardSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <span>Note Board</span>
                 </button>
-              )}
-            </div>
-
-            {showAddBoard && (
-              <form onSubmit={handleCreateBoard} className="flex flex-col gap-2 mt-2">
-                <input
-                  type="text"
-                  value={newBoardName}
-                  onChange={(e) => setNewBoardName(e.target.value)}
-                  placeholder="Board Name..."
-                  className="w-full rounded border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
-                  maxLength={60}
-                  required
-                />
-                <div className="flex justify-end gap-1.5">
+                {(isManager || !pageOwnerId || pageOwnerId === userId) && (
                   <button
                     type="button"
-                    onClick={() => setShowAddBoard(false)}
-                    className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
+                    onClick={() => setShowAddBoard((prev) => !prev)}
+                    className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Add Board"
                   >
-                    Cancel
+                    <Plus size={16} />
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
-                  >
-                    Create
-                  </button>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
 
-            <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-48">
-              {boards.length === 0 ? (
-                <p className="text-sm text-muted-foreground/60 italic p-2">No Boards Created.</p>
-              ) : (
-                boards.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveBoardId(b.id);
-                      localStorage.setItem("winos_active_board_id", b.id);
-                      if (typeof window !== "undefined") {
-                        window.history.pushState(null, "", `/notes?boardId=${b.id}`);
-                      }
-                    }}
-                    className={cn(
-                      "flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors text-left w-full",
-                      activeBoardId === b.id
-                        ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              {isBoardSectionOpen && (
+                <>
+                  {showAddBoard && (
+                    <form onSubmit={handleCreateBoard} className="flex flex-col gap-2 mt-2">
+                      <input
+                        type="text"
+                        value={newBoardName}
+                        onChange={(e) => setNewBoardName(e.target.value)}
+                        placeholder="Board Name..."
+                        className="w-full rounded border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
+                        maxLength={60}
+                        required
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddBoard(false)}
+                          className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isPending}
+                          className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
+                        >
+                          Create
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-60">
+                    {boards.length === 0 ? (
+                      <p className="text-sm text-muted-foreground/60 italic p-2">No Boards Created.</p>
+                    ) : (
+                      boards.map((b) => (
+                        <div
+                          key={b.id}
+                          onClick={() => {
+                            setActiveBoardId(b.id);
+                            localStorage.setItem("winos_active_board_id", b.id);
+                            if (typeof window !== "undefined") {
+                              window.history.pushState(null, "", `/notes?boardId=${b.id}`);
+                            }
+                          }}
+                          className={cn(
+                            "group flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors text-left w-full cursor-pointer",
+                            activeBoardId === b.id
+                              ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                          )}
+                        >
+                          <span className="truncate pr-1">{b.name}</span>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            {(b.ownerId === userId || isManager) && (
+                              <>
+                                <button
+                                  type="button"
+                                  title="Share Board"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSharingItem({
+                                      type: "board",
+                                      id: b.id,
+                                      existingShares: [],
+                                    });
+                                  }}
+                                  className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                  <Share2 size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Delete Board"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteBoard(b.id);
+                                  }}
+                                  className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
+                            )}
+                            {activeBoardId === b.id && <ChevronRight size={14} className="ml-0.5 text-primary" />}
+                          </div>
+                        </div>
+                      ))
                     )}
-                  >
-                    <span>{toTitleCase(b.name)}</span>
-                    {activeBoardId === b.id && <ChevronRight size={14} />}
-                  </button>
-                ))
+                  </div>
+                </>
               )}
             </div>
-          </div>
 
-          {/* Shared With Me Section */}
-          {/* <div id="shared-with-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+            {/* Shared With Me Section */}
+            {/* <div id="shared-with-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Share2 size={13} className="text-primary" />
               Shared With Me
             </span>
             {sharedNotesList.length > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
                 {sharedNotesList.length}
               </span>
             )}
@@ -759,16 +929,16 @@ export function NotesWorkspace({
                     <p className="text-xs font-semibold line-clamp-1 group-hover:text-primary">
                       {note.thread?.title || "Shared Note"}
                     </p>
-                    <span className="text-[9px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
+                    <span className="text-xs font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
                       {note.author?.name ? note.author.name.split(" ")[0] : note.author?.email?.split("@")[0]}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {note.checklistItems?.length > 0
                       ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
                       : (note.content || "").replace(/<[^>]*>/g, "")}
                   </p>
-                  <span className="text-[9px] text-muted-foreground/60">
+                  <span className="text-xs text-muted-foreground/60">
                     Shared on {formatDate(note.createdAt)}
                   </span>
                 </div>
@@ -777,15 +947,15 @@ export function NotesWorkspace({
           </div>
         </div> */}
 
-          {/* Shared By Me Section */}
-          {/* <div id="shared-by-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+            {/* Shared By Me Section */}
+            {/* <div id="shared-by-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Users size={13} className="text-emerald-500" />
               Shared By Me
             </span>
             {sharedByMeList.length > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-white">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-xs font-bold text-white">
                 {sharedByMeList.length}
               </span>
             )}
@@ -823,17 +993,17 @@ export function NotesWorkspace({
                         {note.thread?.title || "Shared Note"}
                       </p>
                       {recipients.length > 0 && (
-                        <span className="text-[9px] font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">
+                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">
                           {recipients.slice(0, 2).join(", ")}{recipients.length > 2 ? ` +${recipients.length - 2}` : ''}
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2">
                       {note.checklistItems?.length > 0
                         ? note.checklistItems.map((c: { checked: boolean; text: string }) => (c.checked ? "☑ " : "☐ ") + c.text).join(", ")
                         : (note.content || "").replace(/<[^>]*>/g, "")}
                     </p>
-                    <span className="text-[9px] text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground/60">
                       {formatDate(note.updatedAt)}
                     </span>
                   </div>
@@ -843,8 +1013,8 @@ export function NotesWorkspace({
           </div>
         </div> */}
 
-          {/* History Section */}
-          {/* <div className="flex-1 flex flex-col p-4 overflow-hidden">
+            {/* History Section */}
+            {/* <div className="flex-1 flex flex-col p-4 overflow-hidden">
             <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 block">
               Note History
             </span>
@@ -873,7 +1043,7 @@ export function NotesWorkspace({
                     <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-0.5">
                       {note.thread?.board?.name && (
                         <p className="text-xs font-bold uppercase tracking-wider text-primary/80 line-clamp-1 shrink-0">
-                          {toTitleCase(note.thread.board.name)}
+                          {note.thread.board.name}
                         </p>
                       )}
                       <p className="text-sm font-bold line-clamp-1 group-hover:text-primary shrink-0">
@@ -911,7 +1081,8 @@ export function NotesWorkspace({
               )}
             </div>
           </div> */}
-        </aside>
+          </aside>
+        )}
 
         {/* ── Main Board Workspace ── */}
         <main
@@ -924,22 +1095,65 @@ export function NotesWorkspace({
         >
           {/* Header */}
           <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0 bg-black/35 backdrop-blur-sm text-white rounded-t-2xl">
-            <div>
+            <div className="flex items-center gap-3">
+              {!isSidebarOpen && (
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+                  title="Open Navigation"
+                >
+                  <PanelLeftOpen size={15} />
+                  {/* <span>Open Navigation</span> */}
+                </button>
+              )}
               <h1 className="text-base font-bold text-white">
-                {activeBoard ? toTitleCase(activeBoard.name) : "Standup Workspace"}
+                {activeBoard ? activeBoard.name : "iNotes"}
               </h1>
-              <p className="text-xs text-white/70 mt-0.5">
-                Notes you write here are visible only to the people or departments you assign them to.
-              </p>
             </div>
-            {activeBoardId && activeBoard && activeBoard.ownerId === userId && (
-              <button
-                onClick={() => setShowNewThread(true)}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity"
-              >
-                <Plus size={14} />
-                New List
-              </button>
+            {activeBoardId && activeBoard && (activeBoard.ownerId === userId || isManager) && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  title="Edit Board"
+                  onClick={() => setEditingBoard({ id: activeBoard.id, name: activeBoard.name })}
+                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+                >
+                  <Pencil size={13} />
+                  Edit Board
+                </button>
+                <button
+                  type="button"
+                  title="Share Board"
+                  onClick={() =>
+                    setSharingItem({
+                      type: "board",
+                      id: activeBoard.id,
+                      existingShares: [],
+                    })
+                  }
+                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+                >
+                  <Share2 size={13} />
+                  Share Board
+                </button>
+                <button
+                  type="button"
+                  title="Delete Board"
+                  onClick={() => handleDeleteBoard(activeBoard.id)}
+                  className="flex items-center gap-1.5 rounded-md bg-red-500/20 text-red-100 border border-red-400/30 px-3 py-1.5 text-xs font-semibold shadow hover:bg-red-500/30 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  Delete Board
+                </button>
+                <button
+                  onClick={() => setShowNewThread(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity cursor-pointer"
+                >
+                  <Plus size={14} />
+                  New List
+                </button>
+              </div>
             )}
           </div>
 
@@ -951,7 +1165,7 @@ export function NotesWorkspace({
           ) : threads.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-transparent backdrop-blur-xl">
               <h2 className="text-sm font-semibold text-foreground text-white">
-                Your Board Is A Fresh Start
+                Your Board is a Fresh Start
               </h2>
               {activeBoardId && (
                 <button
@@ -970,7 +1184,7 @@ export function NotesWorkspace({
               onMouseLeave={handleMouseLeave}
               onMouseUp={handleMouseUp}
               onMouseMove={handleMouseMove}
-              className="flex-1 flex gap-5 bg-transparent backdrop-blur-[2px] p-6 overflow-x-auto items-start h-full scrollbar-thin select-none cursor-grab active:cursor-grabbing"
+              className="flex-1 flex items-start gap-5 overflow-x-auto p-6 cursor-grab active:cursor-grabbing select-none [scrollbar-width:thin]"
             >
               {threads.map((thread) => (
                 <div
@@ -979,32 +1193,27 @@ export function NotesWorkspace({
                   onDragStart={(e) => handleDragThreadStart(e, thread.id)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDrop(e, thread.id)}
-                  className="w-72 shrink-0 flex flex-col max-h-full overflow-hidden shadow-md cursor-grab active:cursor-grabbing"
-                  style={{
-                    background: "rgba(255, 255, 255, 0.11)",
-                    borderRadius: "16px",
-                    boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    border: "1px solid rgba(255, 255, 255, 1)",
-                    transform: "translateZ(0)",
-                    WebkitTransform: "translateZ(0)",
-                  }}
+                  className="w-80 shrink-0 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md shadow-lg flex flex-col max-h-full"
                 >
                   {/* Thread Header */}
-                  <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/10 bg-white/5 shrink-0 text-white">
+                  <div className="flex items-center justify-between p-3.5 border-b border-white/10 shrink-0">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-bold text-white">
                         {toTitleCase(thread.title)}
                       </span>
-                      <span className="text-xs text-white/75">
-                        by {thread.author.name || formatFallbackName(thread.author.email)}
-                      </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {thread.authorId === userId && (
+                      {(thread.authorId === userId || isManager) && (
                         <>
-                          {/* <button
+                          <button
+                            type="button"
+                            title="Edit List"
+                            onClick={() => setEditingThread({ id: thread.id, title: thread.title })}
+                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
                             type="button"
                             title="Share List"
                             onClick={() =>
@@ -1014,15 +1223,23 @@ export function NotesWorkspace({
                                 existingShares: thread.shares.map((s) => s.userId),
                               })
                             }
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white"
+                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
                           >
                             <Share2 size={12} />
-                          </button> */}
+                          </button>
+                          <button
+                            type="button"
+                            title="Delete List"
+                            onClick={() => handleDeleteThread(thread.id)}
+                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-red-300 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                           <button
                             type="button"
                             title="Add Note"
                             onClick={() => setActiveThreadForNote(thread.id)}
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white"
+                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
                           >
                             <Plus size={13} />
                           </button>
@@ -1034,7 +1251,7 @@ export function NotesWorkspace({
                   {/* Notes Container */}
                   <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-3.5 min-h-[100px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {thread.notes.length === 0 ? (
-                      <div className="text-center py-6 text-[11px] text-muted-foreground/60 border border-dashed rounded-lg">
+                      <div className="text-center py-6 text-xs text-white/90 font-medium border border-dashed border-white/20 rounded-lg">
                         No Cards. Click + To Add.
                       </div>
                     ) : (
@@ -1055,68 +1272,60 @@ export function NotesWorkspace({
                               shares: note.shares || [],
                             })
                           }
-                          className="rounded-xl border border-white/15 dark:border-white/5 p-4 shadow-sm relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-xs transition-all duration-200 hover:-translate-y-0.5 group border-l-4 h-48 shrink-0 overflow-hidden"
+                          className="rounded-xl border border-white/20 dark:border-white/10 p-3.5 shadow-xs relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 group border-l-4 min-h-[100px] max-h-[220px] shrink-0 overflow-hidden"
                           style={{
-                            backgroundColor: note.color ? `${note.color}cc` : "rgba(255, 255, 255, 0.75)",
-                            borderLeftColor: note.color ? "rgba(0,0,0,0.15)" : "#e2e8f0",
+                            backgroundColor: note.color ? `${note.color}e6` : "rgba(255, 255, 255, 0.88)",
+                            borderLeftColor: note.color ? "rgba(0,0,0,0.2)" : "#3b82f6",
                           }}
                         >
-                          {/* Note Card Header */}
-                          <div className="flex items-center justify-between shrink-0 mb-1.5">
-                            <span className="text-xs font-medium text-muted-foreground/75">
-                              {formatDate(note.createdAt)}
-                            </span>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {note.authorId === userId && (
-                                <>
-                                  <button
-                                    type="button"
-                                    title="Share Note"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSharingItem({
-                                        type: "note",
-                                        id: note.id,
-                                        existingShares: note.shares.map((s) => s.userId),
-                                      });
-                                    }}
-                                    className="rounded p-0.5 hover:bg-black/10 text-muted-foreground"
-                                  >
-                                    <Share2 size={12} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    title="Delete Note"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteNote(note.id);
-                                    }}
-                                    className="rounded p-0.5 hover:bg-black/10 text-destructive"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
+                          {/* Note Card Top Header (Title + Actions Pill) */}
+                          <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
+                            <h4 className="text-sm font-bold text-foreground line-clamp-2 leading-snug tracking-tight pr-1">
+                              {note.title ? toTitleCase(note.title) : "Untitled Note"}
+                            </h4>
+                            {note.authorId === userId && (
+                              <div className="flex items-center gap-1.5 bg-white/90 dark:bg-card/90 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-border/40 shrink-0">
+                                <button
+                                  type="button"
+                                  title="Share Note"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSharingItem({
+                                      type: "note",
+                                      id: note.id,
+                                      existingShares: note.shares.map((s) => s.userId),
+                                    });
+                                  }}
+                                  className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                  <Share2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Delete Note"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteNote(note.id);
+                                  }}
+                                  className="rounded p-0.5 hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
                           </div>
 
-                          {/* Note Content Container (Fixed Overflow Height) */}
-                          <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-1.5">
-                            {note.title && (
-                              <h4 className="text-sm font-bold text-foreground line-clamp-1 truncate leading-snug">
-                                {toTitleCase(note.title)}
-                              </h4>
-                            )}
+                          {/* Note Content (Text preview) */}
+                          <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
                             {note.content && (
-                              <div
-                                className="text-xs text-foreground leading-relaxed html-content line-clamp-3 overflow-hidden"
-                                dangerouslySetInnerHTML={{ __html: note.content || "" }}
-                              />
+                              <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none">
+                                {note.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                              </p>
                             )}
 
-                            {/* Checklist items */}
+                            {/* Checklist items list matching exact screenshot design */}
                             {note.checklistItems.length > 0 && (
-                              <div className="flex flex-col gap-1 mt-0.5 border-t pt-1.5 border-black/5 overflow-hidden">
+                              <div className="flex flex-col gap-1.5 mt-1 border-t border-foreground/10 pt-2 overflow-hidden">
                                 {note.checklistItems.slice(0, 3).map((item) => (
                                   <div
                                     key={item.id}
@@ -1127,21 +1336,21 @@ export function NotesWorkspace({
                                       }
                                     }}
                                     className={cn(
-                                      "flex items-center gap-1.5 rounded p-0.5",
+                                      "flex items-center gap-2 rounded px-1 py-0.5",
                                       note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
                                     )}
                                   >
                                     <button type="button" className="shrink-0">
                                       {item.checked ? (
-                                        <CheckSquare size={13} className="text-primary" />
+                                        <CheckSquare size={14} className="text-primary" />
                                       ) : (
-                                        <Square size={13} className="text-muted-foreground/60" />
+                                        <Square size={14} className="text-muted-foreground/60" />
                                       )}
                                     </button>
                                     <span
                                       className={cn(
-                                        "text-xs leading-tight select-none truncate",
-                                        item.checked && "text-muted-foreground line-through"
+                                        "text-xs text-foreground leading-tight select-none truncate font-medium",
+                                        item.checked && "text-muted-foreground line-through font-normal"
                                       )}
                                     >
                                       {toTitleCase(item.text)}
@@ -1149,7 +1358,7 @@ export function NotesWorkspace({
                                   </div>
                                 ))}
                                 {note.checklistItems.length > 3 && (
-                                  <span className="text-xs text-muted-foreground/70 font-medium pl-0.5">
+                                  <span className="text-xs text-muted-foreground/60 font-medium pl-1 pt-0.5">
                                     +{note.checklistItems.length - 3} more items
                                   </span>
                                 )}
@@ -1183,7 +1392,7 @@ export function NotesWorkspace({
               <div className="flex items-center justify-between border-b pb-2">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Users size={14} />
-                  Share {sharingItem.type === "thread" ? "List" : "Note"}
+                  Share {sharingItem.type === "board" ? "Board" : sharingItem.type === "thread" ? "List" : "Note"}
                 </span>
                 <button
                   type="button"
@@ -1198,7 +1407,7 @@ export function NotesWorkspace({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Select Members
                 </label>
                 <div className="flex flex-col gap-1 max-h-48 overflow-y-auto border rounded p-2">
@@ -1221,7 +1430,7 @@ export function NotesWorkspace({
                         >
                           <div className="flex flex-col">
                             <span>{u.name || formatFallbackName(u.email)}</span>
-                            <span className="text-[9px] text-muted-foreground/60 font-normal leading-none mt-0.5">
+                            <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
                               {u.title || u.role}
                             </span>
                           </div>
@@ -1295,12 +1504,12 @@ export function NotesWorkspace({
                 </div>
 
                 {/* <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Share This Note/List With
                   </label>
                   <div className="flex flex-wrap gap-1 border rounded-md p-2 bg-background/50">
                     {threadSharedUsers.length === 0 ? (
-                      <span className="text-[11px] text-muted-foreground/60 italic p-1">
+                      <span className="text-xs text-muted-foreground/60 italic p-1">
                         No One Selected (Draft / Personal)
                       </span>
                     ) : (
@@ -1374,7 +1583,7 @@ export function NotesWorkspace({
                       type="button"
                       onClick={() => setThreadNoteType("TEXT")}
                       className={cn(
-                        "px-3 py-1 text-[10px] font-semibold rounded transition-colors",
+                        "px-3 py-1 text-xs font-semibold rounded transition-colors",
                         threadNoteType === "TEXT"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1386,7 +1595,7 @@ export function NotesWorkspace({
                       type="button"
                       onClick={() => setThreadNoteType("CHECKLIST")}
                       className={cn(
-                        "px-3 py-1 text-[10px] font-semibold rounded transition-colors",
+                        "px-3 py-1 text-xs font-semibold rounded transition-colors",
                         threadNoteType === "CHECKLIST"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1435,7 +1644,7 @@ export function NotesWorkspace({
                       <button
                         type="button"
                         onClick={() => setThreadChecklist([...threadChecklist, ""])}
-                        className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
+                        className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
                       >
                         <Plus size={11} /> Add Item
                       </button>
@@ -1444,14 +1653,14 @@ export function NotesWorkspace({
 
                   {/* Deadline */}
                   {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">
                       Deadline (Optional)
                     </label>
                     <input
                       type="datetime-local"
                       value={threadDeadline}
                       onChange={(e) => setThreadDeadline(e.target.value)}
-                      className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px]"
+                      className="bg-transparent border rounded p-1 text-xs outline-none max-w-[180px]"
                     />
                   </div> */}
 
@@ -1503,7 +1712,7 @@ export function NotesWorkspace({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
             <form
               onSubmit={handleCreateNote}
-              className="w-full max-w-lg rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+              className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
             >
               <div className="flex items-center justify-between border-b pb-3 shrink-0">
                 <span className="text-sm font-bold text-foreground">Add Card To Column</span>
@@ -1516,7 +1725,7 @@ export function NotesWorkspace({
                 </button>
               </div>
 
-              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[70vh] pr-1">
+              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
                 <div
                   className="border rounded-lg p-4 flex flex-col gap-2.5"
                   style={{ backgroundColor: noteColor }}
@@ -1540,7 +1749,7 @@ export function NotesWorkspace({
                       type="button"
                       onClick={() => setNoteNoteType("TEXT")}
                       className={cn(
-                        "px-3 py-1 text-[10px] font-semibold rounded transition-colors",
+                        "px-3 py-1 text-xs font-semibold rounded transition-colors",
                         noteNoteType === "TEXT"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1552,7 +1761,7 @@ export function NotesWorkspace({
                       type="button"
                       onClick={() => setNoteNoteType("CHECKLIST")}
                       className={cn(
-                        "px-3 py-1 text-[10px] font-semibold rounded transition-colors",
+                        "px-3 py-1 text-xs font-semibold rounded transition-colors",
                         noteNoteType === "CHECKLIST"
                           ? "bg-background text-foreground shadow-xs"
                           : "text-muted-foreground hover:text-foreground"
@@ -1601,7 +1810,7 @@ export function NotesWorkspace({
                       <button
                         type="button"
                         onClick={() => setNoteChecklist([...noteChecklist, ""])}
-                        className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
+                        className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
                       >
                         <Plus size={11} /> Add Item
                       </button>
@@ -1610,14 +1819,14 @@ export function NotesWorkspace({
 
                   {/* Deadline */}
                   {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">
                       Deadline (Optional)
                     </label>
                     <input
                       type="datetime-local"
                       value={noteDeadline}
                       onChange={(e) => setNoteDeadline(e.target.value)}
-                      className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px]"
+                      className="bg-transparent border rounded p-1 text-xs outline-none max-w-[180px]"
                     />
                   </div> */}
 
@@ -1670,7 +1879,7 @@ export function NotesWorkspace({
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
               <form
                 onSubmit={handleUpdateNote}
-                className="w-full max-w-lg rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+                className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
               >
                 <div className="flex items-center justify-between border-b pb-3 shrink-0">
                   <span className="text-sm font-bold text-foreground">
@@ -1685,7 +1894,7 @@ export function NotesWorkspace({
                   </button>
                 </div>
 
-                <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[70vh] pr-1">
+                <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
                   <div
                     className="border rounded-lg p-4 flex flex-col gap-2.5"
                     style={{ backgroundColor: editingNote.color || "#ffffff" }}
@@ -1729,7 +1938,7 @@ export function NotesWorkspace({
 
                     {/* Checklist Section */}
                     {/* <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">
                         Checklist
                       </label>
                       {editingNote.checklistItems.length > 0 && (
@@ -1828,7 +2037,7 @@ export function NotesWorkspace({
                             ];
                             setEditingNote({ ...editingNote, checklistItems: newItems });
                           }}
-                          className="flex items-center gap-1 text-[10px] font-semibold text-primary self-start mt-1"
+                          className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
                         >
                           <Plus size={11} /> Add Checklist Item
                         </button>
@@ -1837,7 +2046,7 @@ export function NotesWorkspace({
 
                     {/* Deadline */}
                     {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">
                         Deadline (Optional)
                       </label>
                       <input
@@ -1854,13 +2063,13 @@ export function NotesWorkspace({
                             deadline: e.target.value ? new Date(e.target.value) : null,
                           })
                         }
-                        className="bg-transparent border rounded p-1 text-[11px] outline-none max-w-[180px] disabled:opacity-75"
+                        className="bg-transparent border rounded p-1 text-xs outline-none max-w-[180px] disabled:opacity-75"
                       />
                     </div> */}
 
                     {/* Color Picker */}
                     <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                      <label className="text-[9px] font-bold text-muted-foreground uppercase">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">
                         Card Color
                       </label>
                       <div className="flex items-center gap-1.5 mt-1">
@@ -1914,7 +2123,112 @@ export function NotesWorkspace({
             </div>
           );
         })()}
+
+        {/* 5. Edit Board Dialog Overlay */}
+        {editingBoard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+            <form
+              onSubmit={handleUpdateBoard}
+              className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="flex items-center justify-between border-b pb-3">
+                <span className="text-sm font-bold text-foreground">Edit Board</span>
+                <button
+                  type="button"
+                  onClick={() => setEditingBoard(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Board Name
+                </label>
+                <input
+                  type="text"
+                  value={editingBoard.name}
+                  onChange={(e) => setEditingBoard({ ...editingBoard, name: e.target.value })}
+                  placeholder="Enter board name..."
+                  className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                  maxLength={60}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingBoard(null)}
+                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 6. Edit List (Thread) Dialog Overlay */}
+        {editingThread && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+            <form
+              onSubmit={handleUpdateThread}
+              className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="flex items-center justify-between border-b pb-3">
+                <span className="text-sm font-bold text-foreground">Edit List</span>
+                <button
+                  type="button"
+                  onClick={() => setEditingThread(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  List Title
+                </label>
+                <input
+                  type="text"
+                  value={editingThread.title}
+                  onChange={(e) => setEditingThread({ ...editingThread, title: e.target.value })}
+                  placeholder="Enter list title..."
+                  className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                  maxLength={120}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingThread(null)}
+                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
-    </div>
   );
 }

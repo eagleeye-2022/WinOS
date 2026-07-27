@@ -397,14 +397,9 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // 1. Fetch Board Notes belonging exclusively to DSM boards (type = 'DSM')
+  // 1. Fetch Board Notes shared with or authored by the user
   const sharedNotesRaw = await d.boardNote.findMany({
     where: {
-      thread: {
-        board: {
-          type: "DSM",
-        },
-      },
       OR: [
         { authorId: session.user.id },
         { shares: { some: { userId: session.user.id } } },

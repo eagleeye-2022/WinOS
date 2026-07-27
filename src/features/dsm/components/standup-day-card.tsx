@@ -45,37 +45,37 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
           <span className="text-sm font-semibold">{dateStr}</span>
           {dayLabel && (
             dayLabel === "Today" ? (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 {dayLabel}
               </span>
             ) : (
-              <span className="text-[11px] text-muted-foreground">{dayLabel}</span>
+              <span className="text-xs text-muted-foreground">{dayLabel}</span>
             )
           )}
 
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
               Submitted
             </span>
           )}
           {entry.status === "MISSED" && (
-            <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
               Missed
             </span>
           )}
           {entry.status === "DRAFT" && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <span className="rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
               Draft
             </span>
           )}
 
           {blockerCount > 0 && (
-            <span className="rounded-full border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            <span className="rounded-full border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
               {blockerCount} Blocker{blockerCount > 1 ? "s" : ""}
             </span>
           )}
           {supportCount > 0 && (
-            <span className="rounded-full border border-sky-400/30 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+            <span className="rounded-full border border-sky-400/30 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
               {supportCount} Support Needed
             </span>
           )}
@@ -117,13 +117,13 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
         <div className="border-t px-4 pb-4 pt-3">
           {todayTasks.length > 0 && (
             <div className="mb-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task
               </p>
               <div className="flex flex-col gap-1.5">
                 {todayTasks.map((task, i) => (
                   <div key={task.id} className="flex items-start gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
                       T{i + 1}
                     </span>
                     <span>{task.text}</span>
@@ -137,7 +137,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {entry.supportNeeds.length > 0 && (
                 <div className="rounded-md border bg-muted/30 p-3">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Support Needed (Meeting)
                   </p>
                   {entry.supportNeeds.map((s, i) => (
@@ -155,7 +155,7 @@ export function StandupDayCard({ entry, defaultOpen = false }: StandupDayCardPro
               )}
               {entry.blockers.length > 0 && (
                 <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3">
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Blockers (Data Needed)
                   </p>
                   {entry.blockers.map((b, i) => (

@@ -173,7 +173,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
           >
             <Filter size={13} /> Filters
             {(searchQuery || selectedDept !== "all") && (
-              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                 {Number(!!searchQuery) + Number(selectedDept !== "all")}
               </span>
             )}
@@ -225,9 +225,9 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
               onChange={(e) => setSortBy(e.target.value as "submissions-desc" | "submissions-asc" | "name")}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
             >
-              <option value="submissions-desc">Sort by: Submissions (High to Low)</option>
-              <option value="submissions-asc">Sort by: Submissions (Low to High)</option>
-              <option value="name">Sort by: Team Name</option>
+              <option value="submissions-desc">Submissions (High to Low)</option>
+              <option value="submissions-asc">Submissions (Low to High)</option>
+              <option value="name">Team Name</option>
             </select>
           </div>
 

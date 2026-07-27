@@ -41,36 +41,36 @@ export function DsrHistoryCard({
 
           {/* Day label — "Today" as badge, "Yesterday" as plain text */}
           {dayLabel === "Today" && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
               Today
             </span>
           )}
           {dayLabel === "Yesterday" && (
-            <span className="text-[11px] text-muted-foreground">Yesterday</span>
+            <span className="text-xs text-muted-foreground">Yesterday</span>
           )}
 
           {/* Submission status badge */}
           {entry.status !== "MISSED" && entry.status !== "DRAFT" && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
               Submitted
             </span>
           )}
           {entry.status === "MISSED" && (
-            <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
               Missed
             </span>
           )}
 
           {/* Blocker count badge */}
           {blockerCount > 0 && (
-            <span className="rounded-full border border-sky-300/60 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+            <span className="rounded-full border border-sky-300/60 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
               {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} Resolved
             </span>
           )}
 
           {/* Task completion badge */}
           {totalCount > 0 && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
               {completedCount}/{totalCount} Task Completed
             </span>
           )}
@@ -108,13 +108,13 @@ export function DsrHistoryCard({
         {entry.status !== "MISSED" && entry.completionPercent > 0 && (
           <div className="hidden shrink-0 items-center gap-5 text-right sm:flex">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Completion
               </p>
               <p className="text-xl font-bold text-primary">{entry.completionPercent}%</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Tasks
               </p>
               <p className="text-xl font-bold">{completedCount}/{totalCount}</p>
@@ -133,13 +133,13 @@ export function DsrHistoryCard({
           {/* Completed tasks */}
           {entry.plannedTasks.filter((t) => t.completed).length > 0 && (
             <div className="mb-4">
-              <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task Completed
               </p>
               <div className="flex flex-col gap-1.5">
                 {entry.plannedTasks.filter((t) => t.completed).map((task, i) => (
                   <div key={task.id} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
                       T{i + 1}
                     </span>
                     <span>{task.text}</span>
@@ -154,7 +154,7 @@ export function DsrHistoryCard({
             <div className="grid gap-3 sm:grid-cols-2">
               {entry.followUpsDone.length > 0 && (
                 <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Support Received
                   </p>
                   <div className="flex flex-col gap-1.5">
@@ -168,7 +168,7 @@ export function DsrHistoryCard({
               )}
               {entry.resolvedBlockers.length > 0 && (
                 <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Blockers Solved
                   </p>
                   <div className="flex flex-col gap-1.5">

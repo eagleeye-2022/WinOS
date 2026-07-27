@@ -138,7 +138,7 @@ function PlannedTasksSection({
               T{i + 1}: {task.text}
             </span>
             {task.priority && (
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold lowercase text-primary">
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold lowercase text-primary">
                 {task.priority.toLowerCase()}
               </span>
             )}
@@ -237,7 +237,7 @@ function DayReflection({
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Sentiment
           </label>
           <div className="flex gap-2">
@@ -262,8 +262,8 @@ function DayReflection({
         </div>
 
         <div>
-          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Result of the Day
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Outcome of the Day
           </label>
           <textarea
             value={resultOfDay}
@@ -275,7 +275,7 @@ function DayReflection({
         </div>
 
         <div>
-          <label className="mb-2 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <label className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             What Did You Learn?
             <span className="text-destructive">*</span>
           </label>

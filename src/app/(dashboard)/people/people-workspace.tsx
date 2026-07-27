@@ -259,7 +259,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
           <div className="mt-4 overflow-hidden rounded-xl border bg-card shadow-3xs">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b bg-muted/40 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75">
+                <tr className="border-b bg-muted/40 text-xs font-bold uppercase tracking-wider text-muted-foreground/75">
                   <th className="px-6 py-3.5">Task & File</th>
                   <th className="px-6 py-3.5">Uploaded On</th>
                   <th className="px-6 py-3.5">Submitted By</th>
@@ -298,7 +298,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                             >
                               {doc.taskName}
                             </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{doc.fileName}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{doc.fileName}</p>
                           </div>
                         </div>
                       </td>
@@ -311,12 +311,12 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       {/* Submitted By */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                             {doc.submittedBy.initials}
                           </div>
                           <div>
                             <span className="font-medium text-foreground">{doc.submittedBy.name}</span>
-                            <span className="block text-[9px] text-muted-foreground leading-none mt-0.5">{doc.submittedBy.email}</span>
+                            <span className="block text-xs text-muted-foreground leading-none mt-0.5">{doc.submittedBy.email}</span>
                           </div>
                         </div>
                       </td>
@@ -326,7 +326,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                         <button
                           type="button"
                           onClick={() => handleSelectDoc(doc.id)}
-                          className="rounded-lg border px-3 py-1.5 text-[11px] font-bold hover:bg-accent hover:text-accent-foreground transition-all cursor-pointer"
+                          className="rounded-lg border px-3 py-1.5 text-xs font-bold hover:bg-accent hover:text-accent-foreground transition-all cursor-pointer"
                         >
                           View Document
                         </button>
@@ -431,7 +431,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                         href={activeDoc.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                        className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
                       >
                         <span>Open / Print</span>
                         <ExternalLink size={12} />
@@ -448,40 +448,40 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     {/* Header */}
                     <div className="flex items-center justify-between border-b border-neutral-300 pb-3 mb-5">
                       <div className="flex items-center gap-1.5">
-                        <div className="h-6 w-6 rounded bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white font-sans">
+                        <div className="h-6 w-6 rounded bg-neutral-800 flex items-center justify-center text-xs font-bold text-white font-sans">
                           W
                         </div>
-                        <span className="text-[10px] font-bold tracking-wider text-neutral-900 font-sans uppercase">WinOS Team</span>
+                        <span className="text-xs font-bold tracking-wider text-neutral-900 font-sans uppercase">WinOS Team</span>
                       </div>
-                      <span className="text-[9px] text-neutral-500 font-sans">{activeDoc.uploadedOn.split(" ")[0]}</span>
+                      <span className="text-xs text-neutral-500 font-sans">{activeDoc.uploadedOn.split(" ")[0]}</span>
                     </div>
 
                     {/* Content */}
                     <h3 className="text-base font-bold text-neutral-900 leading-snug font-sans tracking-tight mb-2 border-l-2 border-neutral-900 pl-2">
                       {activeDoc.taskName}
                     </h3>
-                    <p className="text-[9px] text-neutral-500 mb-6 font-sans">
+                    <p className="text-xs text-neutral-500 mb-6 font-sans">
                       Document Ref: RTD-{activeDoc.id.toUpperCase()} &bull; Submitted by: {activeDoc.submittedBy.name}
                     </p>
 
-                    <div className="text-[11px] space-y-3.5 text-neutral-600 flex-1">
+                    <div className="text-xs space-y-3.5 text-neutral-600 flex-1">
                       <p className="font-bold text-neutral-900 font-sans text-xs">Roles & Responsibilities Overview</p>
                       
                       <p>
                         This documentation establishes the operational alignment and metrics mapping associated with the corresponding standup objectives and dashboard delivery.
                       </p>
 
-                      <div className="bg-neutral-50 border-l border-neutral-400 p-2.5 rounded my-2 font-sans text-[10px]">
+                      <div className="bg-neutral-50 border-l border-neutral-400 p-2.5 rounded my-2 font-sans text-xs">
                         <p className="font-bold text-neutral-800 mb-0.5">Submitter Comment / Focus Summary:</p>
                         <p className="italic text-neutral-600">
                           &quot;{activeDoc.comment || "No comment was submitted with this file."}&quot;
                         </p>
                       </div>
 
-                      <p className="font-bold text-neutral-900 font-sans text-[10px] uppercase tracking-wider pt-2 border-t border-neutral-100">
+                      <p className="font-bold text-neutral-900 font-sans text-xs uppercase tracking-wider pt-2 border-t border-neutral-100">
                         Operational Directives:
                       </p>
-                      <ul className="list-disc pl-4 space-y-1 text-neutral-600 font-sans text-[10px]">
+                      <ul className="list-disc pl-4 space-y-1 text-neutral-600 font-sans text-xs">
                         <li>Coordinate daily standup (DSM) deliverables and align task priority tags.</li>
                         <li>Address customer feedback reports and check-in blockers.</li>
                         <li>Manage engineering resources and optimize local db connectivity.</li>
@@ -489,18 +489,18 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     </div>
 
                     {/* Signature Block */}
-                    <div className="border-t border-neutral-200 pt-5 mt-4 grid grid-cols-2 gap-4 text-[9px] font-sans">
+                    <div className="border-t border-neutral-200 pt-5 mt-4 grid grid-cols-2 gap-4 text-xs font-sans">
                       <div>
                         <div className="h-6 flex items-end border-b border-neutral-300 font-sans italic text-neutral-700">
                           {activeDoc.submittedBy.name}
                         </div>
-                        <p className="text-[8px] text-neutral-400 mt-1 uppercase tracking-wider">Submitted By</p>
+                        <p className="text-xs text-neutral-400 mt-1 uppercase tracking-wider">Submitted By</p>
                       </div>
                       <div>
                         <div className="h-6 flex items-end border-b border-neutral-300 font-sans italic text-neutral-400">
                           {activeDoc.managerNotes ? "Sarah Jenkins (EED)" : "(Awaiting Review)"}
                         </div>
-                        <p className="text-[8px] text-neutral-400 mt-1 uppercase tracking-wider">Reviewing Manager</p>
+                        <p className="text-xs text-neutral-400 mt-1 uppercase tracking-wider">Reviewing Manager</p>
                       </div>
                     </div>
                   </div>
@@ -519,12 +519,12 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Task Name</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Task Name</label>
                     <p className="text-sm font-bold text-foreground mt-0.5">{activeDoc.taskName}</p>
                   </div>
 
                   <div className="border-t border-border/40 pt-3">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Uploaded File</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">Uploaded File</label>
                     {activeDoc.fileUrl ? (
                       <a 
                         href={activeDoc.fileUrl} 
@@ -535,7 +535,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                         <FileIcon fileName={activeDoc.fileName} size={18} />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold truncate text-foreground">{activeDoc.fileName}</p>
-                          <p className="text-[9px] text-muted-foreground uppercase mt-0.5">
+                          <p className="text-xs text-muted-foreground uppercase mt-0.5">
                             {activeDoc.fileType === "image" ? "Image Asset" : "Document File"}
                           </p>
                         </div>
@@ -545,7 +545,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                         <FileIcon fileName={activeDoc.fileName} size={18} />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold truncate text-foreground">{activeDoc.fileName}</p>
-                          <p className="text-[9px] text-muted-foreground uppercase mt-0.5">
+                          <p className="text-xs text-muted-foreground uppercase mt-0.5">
                             {activeDoc.fileType === "image" ? "Image Asset" : "Document File"}
                           </p>
                         </div>
@@ -555,13 +555,13 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
 
                   <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
                     <div>
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Uploaded On</label>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Uploaded On</label>
                       <p className="text-xs font-semibold mt-0.5 text-foreground">{activeDoc.uploadedOn}</p>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Submitted By</label>
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Submitted By</label>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                           {activeDoc.submittedBy.initials}
                         </div>
                         <span className="text-xs font-semibold text-foreground truncate">{activeDoc.submittedBy.name}</span>
@@ -594,7 +594,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       type="button"
                       onClick={handleSaveManagerNotes}
                       disabled={isSavingNotes || editingManagerNotes === (activeDoc.managerNotes || "")}
-                      className="rounded-lg bg-primary px-3 py-1 text-[10px] font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
+                      className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-2xs"
                     >
                       {isSavingNotes ? "Saving..." : "Save Notes"}
                     </button>
@@ -640,7 +640,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
             <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/20">
               <div>
                 <h2 className="text-sm font-bold text-foreground">Upload Role Task Document</h2>
-                <p className="text-[11px] text-muted-foreground">Submit a required document for task alignment or record reviews</p>
+                <p className="text-xs text-muted-foreground">Submit a required document for task alignment or record reviews</p>
               </div>
               <button 
                 onClick={() => { setShowUploadModal(false); setUploadedFile(null); }} 
@@ -654,7 +654,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
               
               {/* Task Title Input */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Task Title</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Task Title</label>
                 <input
                   type="text"
                   required
@@ -672,11 +672,11 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     <User size={15} />
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground leading-none">Submitting As</p>
+                    <p className="text-xs text-muted-foreground leading-none">Submitting As</p>
                     <p className="text-xs font-bold mt-1">{currentUser.name} ({currentUser.role})</p>
                   </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground font-semibold px-2 py-0.5 bg-muted/65 border rounded">
+                <span className="text-xs text-muted-foreground font-semibold px-2 py-0.5 bg-muted/65 border rounded">
                   {currentUser.email}
                 </span>
               </div>
@@ -701,7 +701,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     <p className="text-xs font-bold text-foreground">
                       Drag & drop your file here or <span className="text-primary hover:underline">click to browse</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Supported formats: PDF, DOCX, XLSX, PNG, JPG, WEBP (Max size: 10MB)
                     </p>
                   </div>
@@ -714,7 +714,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       <FileIcon fileName={uploadedFile.name} size={18} />
                       <div>
                         <p className="text-xs font-bold">{uploadedFile.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{uploadedFile.size} &bull; {uploadedFile.type === "image" ? "Image" : "Document"}</p>
+                        <p className="text-xs text-muted-foreground">{uploadedFile.size} &bull; {uploadedFile.type === "image" ? "Image" : "Document"}</p>
                       </div>
                     </div>
                     <button 
@@ -734,7 +734,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
 
               {/* Comment text area */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Add a comment (optional)</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Add a comment (optional)</label>
                 <textarea
                   placeholder="Describe details regarding this submission..."
                   value={newComment}
@@ -773,7 +773,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
           </div>
           <div>
             <h4 className="text-xs font-bold text-foreground">Document Submitted Successfully</h4>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Your task document has been added to the register.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Your task document has been added to the register.</p>
           </div>
           <button onClick={() => setShowSuccessToast(false)} className="text-muted-foreground hover:text-foreground ml-2 shrink-0 cursor-pointer">
             <X size={14} />

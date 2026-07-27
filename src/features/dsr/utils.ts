@@ -39,12 +39,13 @@ export function dsrReviewStatus(entry: DsrStatusInput): DsrReviewStatus {
 }
 
 export function formatEventTime(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("en-IN", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "UTC",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
   }).format(new Date(date));
 }

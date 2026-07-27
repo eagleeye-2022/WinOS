@@ -83,16 +83,16 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
   const renderTooltipItems = (items: IcaItem[], categoryName: string) => {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 font-bold text-slate-900 uppercase tracking-wider text-[9px]">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 font-bold text-slate-900 uppercase tracking-wider text-xs">
           <span>{categoryName}</span>
           <span className="text-sky-600 font-semibold">{items.length} total</span>
         </div>
         {items.length === 0 ? (
-          <span className="text-[10px] text-slate-400 italic py-1 block">No attributes added yet</span>
+          <span className="text-xs text-slate-400 italic py-1 block">No attributes added yet</span>
         ) : (
           <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-1.5 text-[10px] text-slate-700">
+              <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-700">
                 <span className={cn(
                   "h-1.5 w-1.5 rounded-full shrink-0",
                   item.status === "Matched" ? "bg-emerald-500" :
@@ -148,7 +148,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
       <div className="absolute top-[14%] left-[6%] z-20 group/badge select-none">
         <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Skills</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] text-emerald-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-xs text-emerald-700 font-bold">
             {counts.skills}
           </span>
         </div>
@@ -161,7 +161,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
       <div className="absolute top-[19%] right-[6%] z-20 group/badge select-none">
         <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Knowledge</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 px-1 text-[10px] text-cyan-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 px-1 text-xs text-cyan-700 font-bold">
             {counts.knowledge}
           </span>
         </div>
@@ -174,7 +174,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
       <div className="absolute top-[47%] left-[6%] z-20 group/badge select-none">
         <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Traits</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 px-1 text-[10px] text-sky-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 px-1 text-xs text-sky-700 font-bold">
             {counts.traits}
           </span>
         </div>
@@ -187,7 +187,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
       <div className="absolute top-[59%] right-[6%] z-20 group/badge select-none">
         <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Self-Image</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 text-[10px] text-indigo-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 text-xs text-indigo-700 font-bold">
             {counts.selfImage}
           </span>
         </div>
@@ -200,7 +200,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
       <div className="absolute top-[79%] left-[9%] z-20 group/badge select-none">
         <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Motives</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 px-1 text-[10px] text-fuchsia-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 px-1 text-xs text-fuchsia-700 font-bold">
             {counts.motives}
           </span>
         </div>
@@ -538,7 +538,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       href={activeDoc.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                      className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
                     >
                       <span>Open / Print</span>
                       <ExternalLink size={12} />
@@ -581,14 +581,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">TASK NAME</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">TASK NAME</label>
                   <p className="text-sm font-bold text-foreground mt-0.5">ICA Alignment</p>
                 </div>
 
                 {/* Document Selector for preview */}
                 {profile.documents && profile.documents.length > 0 && (
                   <div className="flex flex-col gap-1 border-t border-border/40 pt-3">
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">SELECT PREVIEW FILE</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">SELECT PREVIEW FILE</label>
                     <select
                       value={activeDoc?.id || ""}
                       onChange={(e) => setSelectedDocId(e.target.value)}
@@ -604,7 +604,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                 )}
 
                 <div className="border-t border-border/40 pt-3">
-                  <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">UPLOADED FILE</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">UPLOADED FILE</label>
                   <a
                     href={activeDoc.fileUrl}
                     target="_blank"
@@ -616,7 +616,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       <p className="text-xs font-semibold truncate text-foreground" title={activeDoc.fileName}>
                         {activeDoc.fileName}
                       </p>
-                      <p className="text-[9px] text-muted-foreground uppercase mt-0.5">
+                      <p className="text-xs text-muted-foreground uppercase mt-0.5">
                         {activeDoc.fileName.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? "IMAGE ASSET" : "DOCUMENT FILE"}
                       </p>
                     </div>
@@ -625,13 +625,13 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
                 <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
                   <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">UPLOADED ON</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">UPLOADED ON</label>
                     <p className="text-xs font-semibold text-foreground mt-0.5">{activeDoc.uploadedOn}</p>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">SUBMITTED BY</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">SUBMITTED BY</label>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary shrink-0">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
                         {getInitials(profile.userName)}
                       </div>
                       <span className="text-xs font-semibold text-foreground truncate">{profile.userName}</span>
@@ -662,7 +662,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     type="button"
                     onClick={handleSaveNotes}
                     disabled={isSavingNotes}
-                    className="rounded-lg bg-primary px-3 py-1 text-[10px] font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
+                    className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/95 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
                   >
                     {isSavingNotes ? "Saving..." : "Save Notes"}
                   </button>
@@ -750,27 +750,27 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             {/* Stats Bar */}
             <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-3xs flex items-center justify-between">
               <div className="border-l-4 border-primary pl-3 py-0.5">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">OVERALL</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">OVERALL</p>
                 <p className="text-xl font-bold text-foreground mt-0.5">Attributes</p>
               </div>
               <div className="text-center px-4">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SKILLS</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">SKILLS</p>
                 <p className="text-lg font-bold text-foreground mt-1">{counts.skills}</p>
               </div>
               <div className="text-center px-4">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">KNOWLEDGE</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">KNOWLEDGE</p>
                 <p className="text-lg font-bold text-foreground mt-1">{counts.knowledge}</p>
               </div>
               <div className="text-center px-4">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">SELF-IMAGE</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">SELF-IMAGE</p>
                 <p className="text-lg font-bold text-foreground mt-1">{counts.selfImage}</p>
               </div>
               <div className="text-center px-4">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">TRAITS</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">TRAITS</p>
                 <p className="text-lg font-bold text-foreground mt-1">{counts.traits}</p>
               </div>
               <div className="text-center px-4">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">MOTIVES</p>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">MOTIVES</p>
                 <p className="text-lg font-bold text-foreground mt-1">{counts.motives}</p>
               </div>
             </div>
@@ -859,7 +859,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             {/* Waterline Divider */}
             <div className="relative flex items-center justify-center my-1 select-none">
               <div className="w-full border-t-2 border-dashed border-primary/40" />
-              <span className="absolute bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full shadow-xs">
+              <span className="absolute bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest px-4 py-1 rounded-full shadow-xs">
                 WATERLINE
               </span>
             </div>
@@ -992,7 +992,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
               {profile.managerNotes && (
                 <div className="bg-muted/20 border border-border/60 rounded-xl p-4 text-xs text-muted-foreground leading-relaxed italic relative">
                   &quot;{profile.managerNotes}&quot;
-                  <span className="block text-[10px] font-semibold text-right text-muted-foreground/80 mt-2 not-italic">
+                  <span className="block text-xs font-semibold text-right text-muted-foreground/80 mt-2 not-italic">
                     -Reporting Manager
                   </span>
                 </div>
@@ -1007,7 +1007,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     className="w-full rounded-xl border bg-background p-3.5 text-xs outline-none focus:border-primary placeholder:text-muted-foreground/50 min-h-[90px] text-foreground"
                   />
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground italic">Writing as Admin</span>
+                    <span className="text-xs text-muted-foreground italic">Writing as Admin</span>
                     <button
                       type="button"
                       onClick={handleSaveNotes}
@@ -1077,7 +1077,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             {/* Document Selector if multiple documents exist */}
             {profile.documents && profile.documents.length > 1 && (
               <div className="flex items-center justify-between bg-muted/30 px-3 py-2 rounded-xl border border-border/60">
-                <span className="text-[11px] font-semibold text-muted-foreground">Select File ({profile.documents.length}):</span>
+                <span className="text-xs font-semibold text-muted-foreground">Select File ({profile.documents.length}):</span>
                 <select
                   value={activeDoc?.id || ""}
                   onChange={(e) => setSelectedDocId(e.target.value)}
@@ -1095,11 +1095,11 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             {/* Fields Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">TASK NAME</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">TASK NAME</label>
                 <p className="text-xs font-bold text-foreground mt-0.5">ICA</p>
               </div>
               <div>
-                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">FILE</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">FILE</label>
                 {activeDoc ? (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <button
@@ -1141,15 +1141,15 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
             <div className="grid grid-cols-2 gap-4 border-t border-border/40 pt-3">
               <div>
-                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">UPLOADED ON</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">UPLOADED ON</label>
                 <p className="text-xs font-bold text-foreground mt-0.5">
                   {activeDoc ? activeDoc.uploadedOn : profile.uploadedOn || "Not uploaded"}
                 </p>
               </div>
               <div>
-                <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">SUBMITTED BY</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SUBMITTED BY</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary shrink-0">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
                     {getInitials(profile.userName)}
                   </div>
                   <span className="text-xs font-bold text-foreground truncate">{profile.userName}</span>
@@ -1160,14 +1160,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             {/* Comment Box */}
             {activeDoc?.comment ? (
               <div className="bg-muted/30 border border-border/60 rounded-xl p-3.5 text-xs text-muted-foreground leading-relaxed italic mt-1">
-                <span className="font-bold text-foreground/90 uppercase tracking-wider text-[9px] not-italic block mb-1">
+                <span className="font-bold text-foreground/90 uppercase tracking-wider text-xs not-italic block mb-1">
                   {profile.userName.split(" ")[0].toUpperCase()}&apos;s comment:
                 </span>
                 &quot;{activeDoc.comment}&quot;
               </div>
             ) : profile.comment ? (
               <div className="bg-muted/30 border border-border/60 rounded-xl p-3.5 text-xs text-muted-foreground leading-relaxed italic mt-1">
-                <span className="font-bold text-foreground/90 uppercase tracking-wider text-[9px] not-italic block mb-1">
+                <span className="font-bold text-foreground/90 uppercase tracking-wider text-xs not-italic block mb-1">
                   {profile.userName.split(" ")[0].toUpperCase()}&apos;s comment:
                 </span>
                 &quot;{profile.comment}&quot;
@@ -1196,7 +1196,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/20">
               <div>
                 <h2 className="text-sm font-bold text-foreground">Submit Competency Alignment File</h2>
-                <p className="text-[11px] text-muted-foreground">Upload supporting document for {profile.userName}</p>
+                <p className="text-xs text-muted-foreground">Upload supporting document for {profile.userName}</p>
               </div>
               <button
                 onClick={() => { setShowUploadModal(false); setUploadedFile(null); }}
@@ -1228,7 +1228,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     <p className="text-xs font-bold text-foreground">
                       Drag & drop your file here or <span className="text-primary hover:underline">click to browse</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Supported formats: PDF, DOCX, XLSX, PNG, JPG (Max size: 10MB)
                     </p>
                   </div>
@@ -1240,7 +1240,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       <FileText size={18} className="text-rose-500" />
                       <div>
                         <p className="text-xs font-bold">{uploadedFile.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{uploadedFile.size}</p>
+                        <p className="text-xs text-muted-foreground">{uploadedFile.size}</p>
                       </div>
                     </div>
                     <button
@@ -1259,7 +1259,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
               {/* Comment text area */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Comment / Remarks</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Comment / Remarks</label>
                 <textarea
                   placeholder="Provide supporting remarks regarding this competency alignment sheet..."
                   value={newComment}

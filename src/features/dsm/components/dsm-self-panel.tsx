@@ -40,7 +40,7 @@ export function DsmSelfPanel({
   if (showForm) {
     return (
       <>
-        <TodaysFocusCard entry={entry} />
+        {/* <TodaysFocusCard entry={entry} /> */}
         <SubmitDsmForm
           entry={entry}
           yesterdayTasks={yesterdayTasks}

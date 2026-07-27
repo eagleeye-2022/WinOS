@@ -24,7 +24,7 @@ function WeeklyTrendChart({
           <span className="text-sm font-semibold">Weekly Trend</span>
         </div>
         {streak > 0 && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
             {streak} DAY STREAK
           </span>
         )}
@@ -42,7 +42,7 @@ function WeeklyTrendChart({
               />
             </div>
             <span className={cn(
-              "text-[9px] font-medium",
+              "text-xs font-medium",
               isToday ? "text-primary" : "text-muted-foreground/60"
             )}>
               {isToday ? "TODAY" : day}
@@ -78,7 +78,7 @@ function ReportTimeline({ events }: { events: DsrEntryData["timelineEvents"] }) 
               </div>
               <div className={cn(!isLast && "pb-3")}>
                 <p className="text-xs font-semibold">{event.label}</p>
-                <p className="text-[10px] text-muted-foreground">{formatEventTime(event.occurredAt)}</p>
+                <p className="text-xs text-muted-foreground">{formatEventTime(event.occurredAt)}</p>
               </div>
             </div>
           );

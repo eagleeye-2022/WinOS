@@ -10,10 +10,11 @@ const DOT_COLORS = ["bg-primary", "bg-primary", "bg-emerald-500", "bg-amber-400"
 // ── Submission time helper ────────────────────────────────────────────────────
 
 function formatTime(date: Date): string {
-  return new Date(date).toLocaleTimeString("en-US", {
+  return new Date(date).toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Asia/Kolkata",
   });
 }
 
@@ -39,8 +40,8 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
 
       {card.resultOfDay && (
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Result of the Day
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Outcome of the Day
           </p>
           <p className="text-xs leading-relaxed text-foreground/80 line-clamp-3">
             {card.resultOfDay}
@@ -61,7 +62,7 @@ function DsrPendingCard({ count, teamId }: { count: number; teamId: string }) {
           <span key={i} className="h-2 w-2 rounded-full bg-muted-foreground/25" />
         ))}
       </div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {count} Pending Submission{count !== 1 ? "s" : ""}
       </p>
       <div className="mt-2">
@@ -89,18 +90,18 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
           <div className="ml-auto flex items-center gap-1.5">
-            <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
               <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
               </svg>
               All Submitted
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {group.submittedCount}/{group.totalMembers}
             </span>
           </div>
         ) : (
-          <span className="ml-auto text-[10px] text-muted-foreground">
+          <span className="ml-auto text-xs text-muted-foreground">
             {group.submittedCount}/{group.totalMembers}
           </span>
         )}

@@ -1,13 +1,16 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, AlertCircle, Zap,
+  Star, Clock3, AlertCircle, Zap, ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
+import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
 import { relativeDayLabel, weekOfMonth, getWeekRange, formatShortDate } from "@/features/dsm/utils";
 import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
@@ -30,14 +33,14 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             Today
           </span>
         </div>
         {(entry.status === "SUBMITTED" ||
           entry.status === "PENDING_REVIEW" ||
           entry.status === "REVIEWED") && (
-          <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+          <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
             Submitted
           </span>
         )}
@@ -65,7 +68,7 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
   );
 }
 
-// ── Result of the Day card ────────────────────────────────────────────────────
+// ── Outcome of the Day card ───────────────────────────────────────────────────
 
 function ResultCard({ entry }: { entry: DsrEntryData }) {
   if (!entry.resultOfDay) return null;
@@ -75,7 +78,7 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
           <Star size={11} className="fill-white text-white" />
         </span>
-        <h3 className="text-sm font-semibold">Result of the Day</h3>
+        <h3 className="text-sm font-semibold">Outcome of the Day</h3>
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
         &ldquo;{entry.resultOfDay}&rdquo;
@@ -85,6 +88,40 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
 }
 
 // ── Task progress card ────────────────────────────────────────────────────────
+
+function TaskItemRow({ task }: { task: DsrEntryData["plannedTasks"][number] }) {
+  const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
+  const [, startTransition] = useTransition();
+
+  return (
+    <form
+      action={(fd) => {
+        startTransition(() => action(fd));
+      }}
+      className="flex items-center gap-2.5"
+    >
+      <input type="hidden" name="taskId" value={task.id} />
+      <button
+        type="submit"
+        disabled={pending}
+        title={task.completed ? "Mark as uncompleted" : "Mark as completed"}
+        className={cn(
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
+          task.completed ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-muted border border-border hover:border-emerald-500"
+        )}
+      >
+        {task.completed && (
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+            <polyline points="1,4 3,6 7,2" />
+          </svg>
+        )}
+      </button>
+      <span className={cn("text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+        {task.text}
+      </span>
+    </form>
+  );
+}
 
 function TaskProgressCard({ entry }: { entry: DsrEntryData }) {
   const { completedTaskCount, plannedTaskCount, plannedTasks } = entry;
@@ -109,23 +146,9 @@ function TaskProgressCard({ entry }: { entry: DsrEntryData }) {
           style={{ width: `${percent}%` }}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {plannedTasks.map((task) => (
-          <div key={task.id} className="flex items-center gap-2.5">
-            <span className={cn(
-              "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-              task.completed ? "bg-emerald-500 text-white" : "bg-muted"
-            )}>
-              {task.completed && (
-                <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-                  <polyline points="1,4 3,6 7,2" />
-                </svg>
-              )}
-            </span>
-            <span className={cn("text-sm", !task.completed && "text-muted-foreground")}>
-              {task.text}
-            </span>
-          </div>
+          <TaskItemRow key={task.id} task={task} />
         ))}
       </div>
     </div>
@@ -148,7 +171,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
 
       {resolvedBlockers.length > 0 && (
         <div className="mb-3">
-          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <span className="inline-block h-3 w-0.5 rounded-full bg-destructive" />
             Blockers
           </p>
@@ -177,7 +200,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                   </span>
                 </span>
                 <span className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                  "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                   b.resolved
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-destructive/10 text-destructive"
@@ -192,7 +215,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
 
       {followUpsDone.length > 0 && (
         <div>
-          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <span className="inline-block h-3 w-0.5 rounded-full bg-muted-foreground/50" />
             Support
           </p>
@@ -211,7 +234,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                   <span className="text-xs">{f.text}</span>
                 </div>
                 <span className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                  "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                   f.completed
                     ? "bg-emerald-100 text-emerald-700"
                     : "bg-amber-100 text-amber-700"
@@ -253,18 +276,18 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
         </h3>
         {sentiment && (
           <span className={cn(
-            "ml-auto rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase",
+            "ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase",
             isBreakthrough
               ? "bg-emerald-100 text-emerald-700"
               : "bg-destructive/10 text-destructive"
           )}>
-            {isBreakthrough ? "Positive" : "Negative"}
+            {isBreakthrough ? "Breakthrough" : "Breakdown"}
           </span>
         )}
       </div>
       {reflection && (
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Key Learnings
           </p>
           <p className="text-sm leading-relaxed text-foreground/80">{reflection}</p>
@@ -326,7 +349,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
                   {isComplete ? step.label : "Awaiting Approval"}
                 </p>
                 {isComplete && event && (
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {formatEventTime(event.occurredAt)}
                   </p>
                 )}
@@ -410,7 +433,20 @@ type Props = {
 };
 
 export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
+  const router = useRouter();
   const { user, todayEntry, weekEntries } = review;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 6000);
+    const handleFocus = () => router.refresh();
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [router]);
   const { start } = getWeekRange(weekOffset);
   const weekLabel = `Week ${weekOfMonth(start)}`;
   const canGoForward = weekOffset < 0;
@@ -426,6 +462,17 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Back Button */}
+      <div>
+        <Link
+          href={ROUTES.dsrManage}
+          className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ArrowLeft size={14} />
+          Back to All DSR
+        </Link>
+      </div>
+
       {/* Member header */}
       <div className="flex items-center justify-between rounded-xl border bg-card p-5">
         <div className="flex items-center gap-4">

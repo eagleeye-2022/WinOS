@@ -132,7 +132,7 @@ function LeadPicker({ allUsers, initialId }: { allUsers: AllUser[]; initialId?: 
               onClick={() => { setSelectedId(u.id); setQuery(""); setOpen(false); }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                 {(u.name ?? u.email).slice(0, 2).toUpperCase()}
               </span>
               <div>
@@ -214,7 +214,7 @@ function MemberPicker({
             key={u.id}
             className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium"
           >
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
               {(u.name ?? u.email).slice(0, 2).toUpperCase()}
             </span>
 
@@ -279,7 +279,7 @@ function MemberPicker({
               onClick={() => { setSelected((s) => [...s, u.id]); setQuery(""); }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent"
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                 {(u.name ?? u.email).slice(0, 2).toUpperCase()}
               </span>
               <div>
@@ -481,7 +481,7 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
                     <DeptIcon department={t.department} />
                     <p className="text-sm font-semibold leading-snug">{t.name}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
                     {t.members.length} Members
                   </span>
                 </div>
@@ -499,13 +499,13 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
                       <span
                         key={m.id}
                         title={m.user.name ?? m.user.email}
-                        className="-ml-1.5 first:ml-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary/20 text-[9px] font-bold text-primary"
+                        className="-ml-1.5 first:ml-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary/20 text-xs font-bold text-primary"
                       >
                         {(m.user.name ?? m.user.email).slice(0, 2).toUpperCase()}
                       </span>
                     ))}
                     {t.members.length > 3 && (
-                      <span className="-ml-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary text-[9px] font-bold text-primary-foreground">
+                      <span className="-ml-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary text-xs font-bold text-primary-foreground">
                         +{t.members.length - 3}
                       </span>
                     )}
