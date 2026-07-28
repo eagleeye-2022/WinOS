@@ -27,11 +27,19 @@ export async function toggleDsrTask(
       id: true,
       completed: true,
       dsrEntryId: true,
-      dsrEntry: { select: { id: true, userId: true, status: true } },
+      dsrEntry: { select: { id: true, userId: true, status: true, date: true } },
     },
   });
 
   if (!task) return { message: "Task not found" };
+
+  const standup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: task.dsrEntry.userId, date: task.dsrEntry.date } },
+    select: { status: true },
+  });
+  if (standup?.status !== "REVIEWED") {
+    return { message: "This member's DSM must be reviewed before the DSR can be edited." };
+  }
 
   // Toggle completion
   const newCompleted = !task.completed;

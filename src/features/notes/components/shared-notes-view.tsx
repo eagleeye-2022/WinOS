@@ -228,9 +228,10 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground/90 line-clamp-3 leading-relaxed">
-                        {(note.content || "").replace(/<[^>]*>/g, "")}
-                      </p>
+                      <div
+                        className="html-content text-xs text-muted-foreground/90 line-clamp-3 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: note.content || "" }}
+                      />
                     )}
                   </div>
 

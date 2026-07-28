@@ -18,8 +18,42 @@ export type BlockerItem = {
   date: Date;
   entryId: string;
   raisedBy: { id: string; name: string | null; email: string; role: string; title: string | null };
+  mentionedUserId?: string | null;
+  mentionedUserIds?: string | null;
+  mentionedUsers?: { id: string; name: string | null; email: string }[];
   comments: BlockerCommentItem[];
 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function attachMentionedUsers<T extends { mentionedUserId?: string | null; mentionedUserIds?: string | null }>(items: T[]): Promise<(T & { mentionedUsers: { id: string; name: string | null; email: string }[] })[]> {
+  const idsToMention = (item: { mentionedUserId?: string | null; mentionedUserIds?: string | null }) =>
+    item.mentionedUserIds
+      ? item.mentionedUserIds.split(",").filter(Boolean)
+      : item.mentionedUserId
+        ? [item.mentionedUserId]
+        : [];
+
+  const allIds = new Set<string>();
+  for (const item of items) {
+    idsToMention(item).forEach((id) => allIds.add(id));
+  }
+  if (allIds.size === 0) return items.map((item) => ({ ...item, mentionedUsers: [] }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const users = await (db as any).user.findMany({
+    where: { id: { in: Array.from(allIds) } },
+    select: { id: true, name: true, email: true },
+  });
+  const userMap = new Map(users.map((u: { id: string }) => [u.id, u]));
+
+  return items.map((item) => ({
+    ...item,
+    mentionedUsers: idsToMention(item)
+      .map((id) => userMap.get(id))
+      .filter((u): u is { id: string; name: string | null; email: string } => Boolean(u)),
+  }));
+}
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +71,13 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
 
   const where = isManager
     ? {} // managers see all blockers
-    : { entry: { userId: session.user.id } };
+    : {
+      OR: [
+        { entry: { userId: session.user.id } },
+        { mentionedUserId: session.user.id },
+        { mentionedUserIds: { contains: session.user.id } },
+      ],
+    };
 
   const rows = await d.standupBlocker.findMany({
     where,
@@ -53,11 +93,13 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     orderBy: [{ entry: { date: "desc" } }, { priority: "asc" }],
   });
 
-  return rows.map((b: {
+  const items = rows.map((b: {
     id: string;
     text: string;
     priority: string;
     resolved: boolean;
+    mentionedUserId?: string | null;
+    mentionedUserIds?: string | null;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
     comments: {
       id: string;
@@ -73,6 +115,10 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     date: b.entry.date,
     entryId: b.entry.id,
     raisedBy: b.entry.user,
+    mentionedUserId: b.mentionedUserId,
+    mentionedUserIds: b.mentionedUserIds,
     comments: b.comments,
   }));
+
+  return attachMentionedUsers(items);
 }

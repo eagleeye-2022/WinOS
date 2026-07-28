@@ -11,6 +11,7 @@ import { markSupportResolved, type MarkSupportResolvedState } from "../actions/m
 import { createSupport, type CreateSupportState } from "../actions/create-support";
 import { sendSupportReminder, type SupportReminderState } from "../actions/send-reminder";
 import { addSupportComment, type AddSupportCommentState } from "../actions/add-support-comment";
+import { editSupport, type EditSupportState } from "../actions/edit-support";
 import type { SupportNeedItem } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 
@@ -137,9 +138,14 @@ function DetailPanel({
   const days = daysOpen(item.date);
   const isResolved = item.resolved || resolveState.message === "resolved";
 
+  const [editingText, setEditingText] = useState(false);
+  const [editState, editAction, editPending] = useActionState<EditSupportState, FormData>(editSupport, {});
+
   useEffect(() => {
-    if (resolveState.message === "resolved") router.refresh();
-  }, [resolveState.message, router]);
+    if (resolveState.message === "resolved" || editState.message === "updated") {
+      router.refresh();
+    }
+  }, [resolveState.message, editState.message, router]);
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l bg-card xl:w-80">
@@ -156,11 +162,55 @@ function DetailPanel({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Description
             </p>
-            <button type="button" className="text-muted-foreground hover:text-primary">
-              <Pencil size={13} />
-            </button>
+            {(isManager || canComment) && !isResolved && (
+              <button
+                type="button"
+                onClick={() => setEditingText((v) => !v)}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                title="Edit description"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
           </div>
-          <p className="text-sm leading-relaxed">{item.text}</p>
+          {editingText ? (
+            <form
+              action={async (fd) => {
+                await editAction(fd);
+                setEditingText(false);
+              }}
+              className="flex flex-col gap-2"
+            >
+              <input type="hidden" name="supportId" value={item.id} />
+              <textarea
+                name="text"
+                rows={3}
+                defaultValue={item.text}
+                className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+              />
+              {editState.message && editState.message !== "updated" && (
+                <p className="text-xs text-destructive">{editState.message}</p>
+              )}
+              <div className="flex items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingText(false)}
+                  className="rounded border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editPending}
+                  className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {editPending ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-sm leading-relaxed">{item.text}</p>
+          )}
         </div>
 
         <div>

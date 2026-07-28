@@ -18,6 +18,8 @@ export async function createBoard(
   const nameError = validateText("Board name", name, 60);
   if (nameError) return { errors: { name: nameError } };
 
+  const isDsm = getStr(formData, "isDsm") === "true";
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = await (db as any).board.findUnique({
     where: { name_ownerId: { name, ownerId: session.user.id } },
@@ -26,9 +28,10 @@ export async function createBoard(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const board = await (db as any).board.create({
-    data: { name, ownerId: session.user.id },
+    data: { name, ownerId: session.user.id, type: isDsm ? "DSM" : "NORMAL" },
   });
 
   revalidatePath("/notes");
+  if (isDsm) revalidatePath("/dsm");
   return { message: "created", boardId: board.id };
 }

@@ -21,9 +21,18 @@ const PRIORITY_LABELS: Record<Priority, string> = {
 const inputCls =
   "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50";
 
+// ── Mention helpers ───────────────────────────────────────────────────────────
+
+/** Strips the "@Name " text MentionInput just inserted, since the mention is tracked as a chip instead */
+function stripMentionInsertion(value: string, member: { name: string | null; email: string }): string {
+  const label = member.name || member.email.split("@")[0];
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(new RegExp(`@${escaped}\\s?`), "").replace(/\s{2,}/g, " ");
+}
+
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-type Task = { text: string; carried: boolean };
+type Task = { text: string; priority: string; carried: boolean };
 
 function TaskRows({
   tasks,
@@ -34,43 +43,81 @@ function TaskRows({
   teamMembers: TeamMember[];
   onChange: (t: Task[]) => void;
 }) {
-  const update = (i: number, v: string) => {
+  const updateField = (i: number, field: "text" | "priority", v: string) => {
     const n = [...tasks];
-    n[i] = { ...n[i], text: v };
+    n[i] = { ...n[i], [field]: v };
     onChange(n);
   };
   const remove = (i: number) => onChange(tasks.filter((_, j) => j !== i));
-  const add = () => onChange([...tasks, { text: "", carried: false }]);
+  const add = () => onChange([...tasks, { text: "", priority: "", carried: false }]);
+
+  const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
 
   return (
     <div className="flex flex-col gap-2">
-      {tasks.map((task, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
-            task.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-          )}>
-            T{i + 1}
-          </span>
-          <MentionInput
-            name="taskText"
-            value={task.text}
-            onChange={(v) => update(i, v)}
-            placeholder="Add task details... (Type @ for people, @file: for files)"
-            teamMembers={teamMembers}
-          />
-          {task.carried && (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-              Carried over
-            </span>
-          )}
-          {(tasks.length > 1 || task.carried) && (
-            <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      ))}
+      {tasks.map((task, i) => {
+        const takenPriorities = tasks
+          .filter((_, idx) => idx !== i && _.priority)
+          .map((_) => _.priority);
+        const availableLevels = levels.filter(
+          (p) => !takenPriorities.includes(p) || p === task.priority
+        );
+
+        return (
+          <div key={i} className="flex flex-col gap-1.5 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
+                task.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              )}>
+                T{i + 1}
+              </span>
+              <MentionInput
+                name="taskText"
+                value={task.text}
+                onChange={(v) => updateField(i, "text", v)}
+                placeholder="Add task details... (Type @ for people, @file: for files)"
+                teamMembers={teamMembers}
+                onSelectMention={(mId, updatedText) => {
+                  if (updatedText !== undefined) updateField(i, "text", updatedText);
+                }}
+              />
+              {task.carried && (
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  Carried over
+                </span>
+              )}
+              {(tasks.length > 1 || task.carried) && (
+                <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {/* Dynamic Priority Selection (P1..PN matching task count, unique per task) */}
+            <div className="flex items-center gap-2 border-t pt-1.5 px-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Priority:
+              </span>
+              <select
+                name="taskPriority"
+                value={task.priority}
+                onChange={(e) => updateField(i, "priority", e.target.value)}
+                className={cn(
+                  "cursor-pointer bg-transparent text-xs outline-none rounded px-1.5 py-0.5 border font-semibold transition-colors",
+                  task.priority ? "border-primary/40 bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground font-normal"
+                )}
+              >
+                <option value="">Select priority</option>
+                {availableLevels.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        );
+      })}
       <button
         type="button"
         onClick={add}
@@ -98,13 +145,15 @@ function BlockerRows({
     n[i] = { ...n[i], [field]: v };
     onChange(n);
   };
-  const addMention = (i: number, mId: string) => {
+  const addMention = (i: number, mId: string, updatedText?: string) => {
     const n = [...blockers];
     const existing = n[i].mentionedUserIds;
-    if (!existing.includes(mId)) {
-      n[i] = { ...n[i], mentionedUserIds: [...existing, mId] };
-      onChange(n);
-    }
+    n[i] = {
+      ...n[i],
+      mentionedUserIds: existing.includes(mId) ? existing : [...existing, mId],
+      text: updatedText !== undefined ? updatedText : n[i].text,
+    };
+    onChange(n);
   };
   const removeMention = (i: number, mId: string) => {
     const n = [...blockers];
@@ -151,7 +200,7 @@ function BlockerRows({
                   onChange={(v) => updateField(i, "text", v)}
                   placeholder={mentionedMembers.length > 0 ? "Add description..." : "Describe the blocker... (@ to mention people)"}
                   teamMembers={teamMembers}
-                  onSelectMention={(mId) => addMention(i, mId)}
+                  onSelectMention={(mId, updatedText) => addMention(i, mId, updatedText)}
                   className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm"
                 />
               </div>
@@ -221,13 +270,15 @@ function SupportRows({
     n[i] = { ...n[i], text: v };
     onChange(n);
   };
-  const addMention = (i: number, mId: string) => {
+  const addMention = (i: number, mId: string, updatedText?: string) => {
     const n = [...supports];
     const existing = n[i].mentionedUserIds;
-    if (!existing.includes(mId)) {
-      n[i] = { ...n[i], mentionedUserIds: [...existing, mId] };
-      onChange(n);
-    }
+    n[i] = {
+      ...n[i],
+      mentionedUserIds: existing.includes(mId) ? existing : [...existing, mId],
+      text: updatedText !== undefined ? updatedText : n[i].text,
+    };
+    onChange(n);
   };
   const removeMention = (i: number, mId: string) => {
     const n = [...supports];
@@ -274,7 +325,7 @@ function SupportRows({
                   onChange={(v) => updateText(i, v)}
                   placeholder={mentionedMembers.length > 0 ? "Add details..." : "Add support details... (@ to mention people)"}
                   teamMembers={teamMembers}
-                  onSelectMention={(mId) => addMention(i, mId)}
+                  onSelectMention={(mId, updatedText) => addMention(i, mId, updatedText)}
                   className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm"
                 />
               </div>
@@ -353,12 +404,12 @@ export function SubmitDsmForm({
   const [tasks, setTasks] = useState<Task[]>(() => {
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
-      return existingToday.map((t) => ({ text: t.text, carried: false }));
+      return existingToday.map((t) => ({ text: t.text, priority: t.priority ?? "", carried: false }));
     }
     if (yesterdayIncompleteTasks.length > 0) {
-      return yesterdayIncompleteTasks.map((text) => ({ text, carried: true }));
+      return yesterdayIncompleteTasks.map((text) => ({ text, priority: "", carried: true }));
     }
-    return [{ text: "", carried: false }, { text: "", carried: false }];
+    return [{ text: "", priority: "", carried: false }, { text: "", priority: "", carried: false }];
   });
 
   const [blockers, setBlockers] = useState<{ text: string; priority: string; mentionedUserIds: string[] }[]>(() => {
@@ -366,7 +417,11 @@ export function SubmitDsmForm({
       return entry.blockers.map((b) => ({
         text: b.text,
         priority: b.priority,
-        mentionedUserIds: b.mentionedUserId ? [b.mentionedUserId] : [],
+        mentionedUserIds: b.mentionedUserIds
+          ? b.mentionedUserIds.split(",").filter(Boolean)
+          : b.mentionedUserId
+            ? [b.mentionedUserId]
+            : [],
       }));
     }
     if (yesterdayBlockers && yesterdayBlockers.length > 0) {
@@ -381,7 +436,11 @@ export function SubmitDsmForm({
   const [supports, setSupports] = useState<{ text: string; mentionedUserIds: string[] }[]>(() =>
     entry?.supportNeeds.map((s) => ({
       text: s.text,
-      mentionedUserIds: s.mentionedUser?.id ? [s.mentionedUser.id] : [],
+      mentionedUserIds: s.mentionedUserIds
+        ? s.mentionedUserIds.split(",").filter(Boolean)
+        : s.mentionedUser?.id
+          ? [s.mentionedUser.id]
+          : [],
     })) ?? [{ text: "", mentionedUserIds: [] }]
   );
 

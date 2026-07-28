@@ -14,6 +14,7 @@ export async function markBlockerResolved(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const blockerId = formData.get("blockerId") as string;
+  const resolvedVal = formData.get("resolved") as string | null;
   if (!blockerId) return { message: "Missing id" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,15 +26,21 @@ export async function markBlockerResolved(
 
   const blocker = await d.standupBlocker.findUnique({
     where: { id: blockerId },
-    select: { id: true },
+    select: { id: true, resolved: true, entry: { select: { userId: true } } },
   });
   if (!blocker) return { message: "Not found" };
 
+  const newResolved = resolvedVal !== null ? resolvedVal === "true" : !blocker.resolved;
+
   await d.standupBlocker.update({
     where: { id: blockerId },
-    data: { resolved: true },
+    data: { resolved: newResolved },
   });
 
   revalidatePath("/blockers");
-  return { message: "resolved" };
+  revalidatePath("/dsm");
+  revalidatePath(`/dsm/member/${blocker.entry.userId}`);
+  revalidatePath("/dsm/all");
+  revalidatePath("/dsm/my");
+  return { message: newResolved ? "resolved" : "unresolved" };
 }

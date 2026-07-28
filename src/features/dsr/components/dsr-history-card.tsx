@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
@@ -143,6 +144,17 @@ export function DsrHistoryCard({
                       T{i + 1}
                     </span>
                     <span>{task.text}</span>
+                    {task.priority && (
+                      <span className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                        task.priority.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
+                        task.priority.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
+                        task.priority.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+                        !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+                      )}>
+                        {task.priority.toUpperCase()}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -180,6 +192,17 @@ export function DsrHistoryCard({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {entry.managerComment && (
+            <div className="mt-3 rounded-lg border border-emerald-200/80 bg-emerald-50/60 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-emerald-800">
+                Manager Feedback
+              </p>
+              <p className="text-xs leading-relaxed text-emerald-900 whitespace-pre-wrap">
+                {entry.managerComment}
+              </p>
             </div>
           )}
         </div>

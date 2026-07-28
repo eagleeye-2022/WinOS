@@ -78,12 +78,22 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
             Today&apos;s Task
           </p>
           <ul className="space-y-1">
-            {card.todayTasks.slice(0, 3).map((task, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-xs text-foreground/80">
-                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60" />
-                <span className="line-clamp-1 leading-snug">{task}</span>
-              </li>
-            ))}
+            {card.todayTasks.slice(0, 3).map((task, i) => {
+              const p = task.managerPriority ?? task.priority;
+              return (
+                <li key={i} className="flex items-center justify-between gap-1.5 text-xs text-foreground/80">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60" />
+                    <span className="line-clamp-1 leading-snug">{task.text}</span>
+                  </div>
+                  {p && (
+                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                      {p}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

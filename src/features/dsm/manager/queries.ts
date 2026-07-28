@@ -12,7 +12,7 @@ export type MemberSubmissionCard = {
   entryId: string | null;
   status: "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "DRAFT" | "MISSED" | null;
   submittedAt: Date | null;
-  todayTasks: string[];
+  todayTasks: { text: string; priority: string | null; managerPriority: string | null }[];
   blockerCount: number;
   supportCount: number;
 };
@@ -60,9 +60,9 @@ export type MemberReviewEntry = {
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
   reviewComment: string | null;
-  tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; managerPriority: "P1" | "P2" | "P3" | null }[];
-  blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUser?: { name: string | null; email: string } | null }[];
-  supportNeeds: { id: string; text: string; mentionedUser: { name: string | null; email: string } | null; order: number }[];
+  tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null }[];
+  blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser?: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null }[];
+  supportNeeds: { id: string; text: string; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null; order: number; resolved?: boolean }[];
 };
 
 export type AllUser = {
@@ -80,6 +80,48 @@ async function requireManager() {
   if (!session?.user?.id) return null;
   if (session.user.role !== "MANAGER") return null;
   return session.user.id;
+}
+
+async function attachMentionedUsers<
+  T extends {
+    blockers: { mentionedUserId?: string | null; mentionedUserIds?: string | null }[];
+    supportNeeds: { mentionedUserId?: string | null; mentionedUserIds?: string | null }[];
+  }
+>(entries: T[]): Promise<T[]> {
+  const idsToMention = (item: { mentionedUserId?: string | null; mentionedUserIds?: string | null }) =>
+    item.mentionedUserIds
+      ? item.mentionedUserIds.split(",").filter(Boolean)
+      : item.mentionedUserId
+        ? [item.mentionedUserId]
+        : [];
+
+  const allIds = new Set<string>();
+  for (const entry of entries) {
+    for (const item of [...entry.blockers, ...entry.supportNeeds]) {
+      idsToMention(item).forEach((id) => allIds.add(id));
+    }
+  }
+  if (allIds.size === 0) return entries;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const users = await (db as any).user.findMany({
+    where: { id: { in: Array.from(allIds) } },
+    select: { id: true, name: true, email: true },
+  });
+  const userMap = new Map(users.map((u: { id: string }) => [u.id, u]));
+
+  const attach = <I extends { mentionedUserId?: string | null; mentionedUserIds?: string | null }>(item: I) => ({
+    ...item,
+    mentionedUsers: idsToMention(item)
+      .map((id) => userMap.get(id))
+      .filter((u): u is { id: string; name: string | null; email: string } => Boolean(u)),
+  });
+
+  return entries.map((entry) => ({
+    ...entry,
+    blockers: entry.blockers.map(attach),
+    supportNeeds: entry.supportNeeds.map(attach),
+  }));
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -193,7 +235,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
           id: string;
           status: string;
           submittedAt: Date | null;
-          tasks: { text: string }[];
+          tasks: { text: string; priority: string | null; managerPriority: string | null }[];
           blockers: unknown[];
           supportNeeds: unknown[];
         } | undefined;
@@ -211,7 +253,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
           entryId: entry?.id ?? null,
           status: (entry?.status as MemberSubmissionCard["status"]) ?? null,
           submittedAt: entry?.submittedAt ?? null,
-          todayTasks: isSubmitted ? entry!.tasks.map((t) => t.text) : [],
+          todayTasks: isSubmitted ? entry!.tasks.map((t) => ({ text: t.text, priority: t.priority, managerPriority: t.managerPriority })) : [],
           blockerCount: isSubmitted ? (entry!.blockers as unknown[]).length : 0,
           supportCount: isSubmitted ? (entry!.supportNeeds as unknown[]).length : 0,
         };
@@ -257,21 +299,29 @@ export async function getMemberReview(
 
   const { start, end } = getWeekRange(weekOffset);
 
-  const entries = await d.standupEntry.findMany({
+  const entriesRaw = await d.standupEntry.findMany({
     where: { userId: memberId, date: { gte: start, lte: end } },
       include: {
         tasks: { orderBy: { order: "asc" } },
         blockers: {
-          include: { mentionedUser: { select: { name: true, email: true } } }
+          include: {
+            mentionedUser: { select: { id: true, name: true, email: true } },
+            editedBy: { select: { id: true, name: true, email: true } },
+          }
         },
         supportNeeds: {
           orderBy: { order: "asc" },
-          include: { mentionedUser: { select: { name: true, email: true } } },
+          include: {
+            mentionedUser: { select: { id: true, name: true, email: true } },
+            editedBy: { select: { id: true, name: true, email: true } },
+          },
         },
         reviewedBy: { select: { name: true, email: true } },
       },
     orderBy: { date: "desc" },
   });
+
+  const entries = await attachMentionedUsers(entriesRaw);
 
   return { user, entries: entries as MemberReviewEntry[] };
 }

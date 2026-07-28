@@ -16,6 +16,7 @@
  */
 import { spawn, execSync } from "child_process";
 import { createConnection } from "net";
+import "dotenv/config";
 
 const args = process.argv.slice(2);
 const ifNotRunning = args.includes("--if-not-running");
@@ -50,6 +51,12 @@ async function waitForPort(port, timeoutMs) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  if (dbUrl && !dbUrl.includes("localhost") && !dbUrl.includes("127.0.0.1")) {
+    console.log("[start-db] Remote DATABASE_URL detected — skipping local DB start.");
+    return;
+  }
+
   // Fast-path: DB already up and --if-not-running was passed (used by npm run dev).
   if (ifNotRunning && (await probePort(DB_PORT))) {
     console.log(`[start-db] DB already running on port ${DB_PORT} — skipping start.`);

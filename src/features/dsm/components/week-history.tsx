@@ -9,9 +9,10 @@ type WeekHistoryProps = {
   entries: EntryWithDetails[];
   weekOffset: number;
   basePath?: string;
+  headerAction?: React.ReactNode;
 };
 
-export function WeekHistory({ entries, weekOffset, basePath = "/dsm" }: WeekHistoryProps) {
+export function WeekHistory({ entries, weekOffset, basePath = "/dsm", headerAction }: WeekHistoryProps) {
   const { start } = getWeekRange(weekOffset);
   const weekLabel = `Week ${weekOfMonth(start)}`;
   const canGoForward = weekOffset < 0;
@@ -27,27 +28,30 @@ export function WeekHistory({ entries, weekOffset, basePath = "/dsm" }: WeekHist
           </p>
         </div>
 
-        {/* Week nav */}
-        <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1">
-          <Link
-            href={`${basePath}?w=${weekOffset - 1}`}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
-            aria-label="Previous week"
-          >
-            <ChevronLeft size={16} />
-          </Link>
-          <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
-          <Link
-            href={canGoForward ? `${basePath}?w=${weekOffset + 1}` : basePath}
-            aria-label="Next week"
-            className={cn(
-              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
-              !canGoForward && "pointer-events-none opacity-30"
-            )}
-            aria-disabled={!canGoForward}
-          >
-            <ChevronRight size={16} />
-          </Link>
+        {/* Week nav + optional header action, same size */}
+        <div className="flex shrink-0 items-center gap-2">
+          {headerAction}
+          <div className="flex shrink-0 items-center gap-1 rounded-full border bg-card px-1 py-1">
+            <Link
+              href={`${basePath}?w=${weekOffset - 1}`}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
+              aria-label="Previous week"
+            >
+              <ChevronLeft size={16} />
+            </Link>
+            <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
+            <Link
+              href={canGoForward ? `${basePath}?w=${weekOffset + 1}` : basePath}
+              aria-label="Next week"
+              className={cn(
+                "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
+                !canGoForward && "pointer-events-none opacity-30"
+              )}
+              aria-disabled={!canGoForward}
+            >
+              <ChevronRight size={16} />
+            </Link>
+          </div>
         </div>
       </div>
 

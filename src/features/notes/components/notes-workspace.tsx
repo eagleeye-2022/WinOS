@@ -90,6 +90,7 @@ type BoardData = {
   id: string;
   name: string;
   ownerId: string;
+  type: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -259,6 +260,7 @@ export function NotesWorkspace({
   // Overlays & Form States
   const [showAddBoard, setShowAddBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
+  const [newBoardIsDsm, setNewBoardIsDsm] = useState(false);
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [threadTitle, setThreadTitle] = useState("");
@@ -434,11 +436,13 @@ export function NotesWorkspace({
 
     const formData = new FormData();
     formData.append("name", newBoardName);
+    formData.append("isDsm", newBoardIsDsm ? "true" : "false");
 
     startTransition(async () => {
       const res = await createBoard({}, formData);
       if (res.message === "created") {
         setNewBoardName("");
+        setNewBoardIsDsm(false);
         setShowAddBoard(false);
         if (res.boardId) {
           localStorage.setItem("winos_active_board_id", res.boardId);
@@ -809,10 +813,22 @@ export function NotesWorkspace({
                         maxLength={60}
                         required
                       />
+                      <label className="flex items-center gap-1.5 px-0.5 text-xs text-muted-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newBoardIsDsm}
+                          onChange={(e) => setNewBoardIsDsm(e.target.checked)}
+                          className="cursor-pointer"
+                        />
+                        Mark as DSM board (notes shared from here show in /dsm Workspace Notes)
+                      </label>
                       <div className="flex justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setShowAddBoard(false)}
+                          onClick={() => {
+                            setShowAddBoard(false);
+                            setNewBoardIsDsm(false);
+                          }}
                           className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
                         >
                           Cancel
@@ -849,7 +865,14 @@ export function NotesWorkspace({
                               : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
                         >
-                          <span className="truncate pr-1">{b.name}</span>
+                          <span className="flex items-center gap-1.5 truncate pr-1">
+                            <span className="truncate">{b.name}</span>
+                            {b.type === "DSM" && (
+                              <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                                DSM
+                              </span>
+                            )}
+                          </span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             {(b.ownerId === userId || isManager) && (
                               <>
@@ -1318,9 +1341,10 @@ export function NotesWorkspace({
                           {/* Note Content (Text preview) */}
                           <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
                             {note.content && (
-                              <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none">
-                                {note.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
-                              </p>
+                              <div
+                                className="html-content text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none"
+                                dangerouslySetInnerHTML={{ __html: note.content }}
+                              />
                             )}
 
                             {/* Checklist items list matching exact screenshot design */}

@@ -34,7 +34,12 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
   const d = db as any;
 
   const rows = await d.standupSupportNeed.findMany({
-    where: { mentionedUserId: session.user.id },
+    where: {
+      OR: [
+        { mentionedUserId: session.user.id },
+        { mentionedUserIds: { contains: session.user.id } },
+      ],
+    },
     include: {
       entry: {
         include: { user: { select: { id: true, name: true, email: true } } },
@@ -84,7 +89,15 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
   const d = db as any;
   const isManager = session.user.role === "MANAGER";
 
-  const where = isManager ? {} : { entry: { userId: session.user.id } };
+  const where = isManager
+    ? {}
+    : {
+        OR: [
+          { entry: { userId: session.user.id } },
+          { mentionedUserId: session.user.id },
+          { mentionedUserIds: { contains: session.user.id } },
+        ],
+      };
 
   const rows = await d.standupSupportNeed.findMany({
     where,

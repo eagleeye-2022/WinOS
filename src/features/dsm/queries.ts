@@ -9,6 +9,7 @@ export type EntryTask = {
   kind: "YESTERDAY" | "TODAY";
   text: string;
   order: number;
+  priority?: string | null;
 };
 
 export type EntryBlocker = {
@@ -17,13 +18,18 @@ export type EntryBlocker = {
   priority: "LOW" | "MEDIUM" | "HIGH";
   resolved: boolean;
   mentionedUserId?: string | null;
+  mentionedUserIds?: string | null;
   mentionedUser?: { id: string; name: string | null; email: string } | null;
+  mentionedUsers?: { id: string; name: string | null; email: string }[];
 };
 
 export type EntrySupportNeed = {
   id: string;
   text: string;
+  mentionedUserId?: string | null;
+  mentionedUserIds?: string | null;
   mentionedUser: { id: string; name: string | null; email: string } | null;
+  mentionedUsers?: { id: string; name: string | null; email: string }[];
   order: number;
 };
 
@@ -78,6 +84,55 @@ const entryInclude = {
   reviewedBy: { select: { name: true, email: true } },
 };
 
+/**
+ * Resolves the "@mention" chips shown on blockers/support-needed rows.
+ * `mentionedUserId` only ever holds the first tagged user (legacy single-mention
+ * column); the full set lives in `mentionedUserIds` as a comma-separated list.
+ * This fetches all tagged users in one query and attaches them as `mentionedUsers`
+ * so every tagged person renders, not just the first.
+ */
+async function attachMentionedUsers<
+  T extends {
+    blockers: { mentionedUserId?: string | null; mentionedUserIds?: string | null }[];
+    supportNeeds: { mentionedUserId?: string | null; mentionedUserIds?: string | null }[];
+  }
+>(entries: T[]): Promise<T[]> {
+  const idsToMention = (item: { mentionedUserId?: string | null; mentionedUserIds?: string | null }) =>
+    item.mentionedUserIds
+      ? item.mentionedUserIds.split(",").filter(Boolean)
+      : item.mentionedUserId
+        ? [item.mentionedUserId]
+        : [];
+
+  const allIds = new Set<string>();
+  for (const entry of entries) {
+    for (const item of [...entry.blockers, ...entry.supportNeeds]) {
+      idsToMention(item).forEach((id) => allIds.add(id));
+    }
+  }
+  if (allIds.size === 0) return entries;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const users = await (db as any).user.findMany({
+    where: { id: { in: Array.from(allIds) } },
+    select: { id: true, name: true, email: true },
+  });
+  const userMap = new Map(users.map((u: { id: string }) => [u.id, u]));
+
+  const attach = <I extends { mentionedUserId?: string | null; mentionedUserIds?: string | null }>(item: I) => ({
+    ...item,
+    mentionedUsers: idsToMention(item)
+      .map((id) => userMap.get(id))
+      .filter((u): u is { id: string; name: string | null; email: string } => Boolean(u)),
+  });
+
+  return entries.map((entry) => ({
+    ...entry,
+    blockers: entry.blockers.map(attach),
+    supportNeeds: entry.supportNeeds.map(attach),
+  }));
+}
+
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /** Today's entry (DRAFT or submitted) for the current user. */
@@ -92,8 +147,10 @@ export async function getTodayEntry(): Promise<EntryWithDetails | null> {
     where: { userId_date: { userId: session.user.id, date: today } },
     include: entryInclude,
   });
+  if (!entry) return null;
 
-  return entry as EntryWithDetails | null;
+  const [resolved] = await attachMentionedUsers([entry]);
+  return resolved as EntryWithDetails;
 }
 
 /**
@@ -184,7 +241,8 @@ export async function getWeekEntries(weekOffset = 0): Promise<EntryWithDetails[]
     orderBy: { date: "desc" },
   });
 
-  return entries as EntryWithDetails[];
+  const resolved = await attachMentionedUsers(entries);
+  return resolved as EntryWithDetails[];
 }
 
 /**
@@ -303,14 +361,13 @@ export async function getMemberWorkspaceNote(userId: string): Promise<WorkspaceN
   return note as WorkspaceNoteData | null;
 }
 
-/** All users (excluding the session user) for @mention support. */
+/** All users for @mention support. */
 export async function getTeamMembers(): Promise<TeamMember[]> {
   const session = await auth();
   if (!session?.user?.id) return [];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const users = await (db as any).user.findMany({
-    where: { id: { not: session.user.id } },
     select: { id: true, name: true, email: true, title: true, role: true },
     orderBy: { name: "asc" },
   });
@@ -390,21 +447,31 @@ export type SharedThreadData = {
   }[];
 };
 
-export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData[]; threads: SharedThreadData[] }> {
+export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ notes: SharedNoteData[]; threads: SharedThreadData[] }> {
   const session = await auth();
   if (!session?.user?.id) return { notes: [], threads: [] };
+
+  const activeUserId = targetUserId || session.user.id;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // 1. Fetch Board Notes shared with or authored by the user
+  // 1. Fetch Board Notes shared with or authored by the user — DSM boards only,
+  // AND only notes cards that have actually been sent/shared.
   const sharedNotesRaw = await d.boardNote.findMany({
     where: {
+      thread: { board: { type: "DSM" } },
       OR: [
-        { authorId: session.user.id },
-        { shares: { some: { userId: session.user.id } } },
-        { thread: { shares: { some: { userId: session.user.id } } } },
-        { thread: { board: { ownerId: session.user.id } } },
+        { shares: { some: { userId: activeUserId } } },
+        { thread: { shares: { some: { userId: activeUserId } } } },
+        {
+          authorId: activeUserId,
+          OR: [{ shares: { some: {} } }, { thread: { shares: { some: {} } } }],
+        },
+        {
+          thread: { board: { ownerId: activeUserId } },
+          OR: [{ shares: { some: {} } }, { thread: { shares: { some: {} } } }],
+        },
       ],
     },
     include: {
@@ -434,10 +501,11 @@ export async function getSharedWorkspaceNotes(): Promise<{ notes: SharedNoteData
     })),
   }));
 
-  // 2. Fetch Threads shared with the user
+  // 2. Fetch Threads shared with the user — DSM boards only
   const sharedThreadsRaw = await d.thread.findMany({
     where: {
-      shares: { some: { userId: session.user.id } }
+      board: { type: "DSM" },
+      shares: { some: { userId: activeUserId } }
     },
     include: {
       author: { select: { name: true, email: true } },

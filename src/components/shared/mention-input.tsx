@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, KeyboardEvent, ChangeEvent } from "react";
-import { User, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type MentionMember = {
@@ -25,7 +25,7 @@ type MentionInputProps = {
   placeholder?: string;
   className?: string;
   teamMembers?: MentionMember[];
-  onSelectMention?: (memberId: string) => void;
+  onSelectMention?: (memberId: string, newValue?: string) => void;
   required?: boolean;
 };
 
@@ -174,8 +174,11 @@ export function MentionInput({
     mode === "people" ? filteredMembers.length : filteredFiles.length;
 
   const selectMember = (member: MentionMember) => {
+    // When the caller tracks the mention separately (onSelectMention, e.g. a chip),
+    // just remove the typed "@query" — don't also leave "@Name" behind in the text.
+    // Otherwise (no separate tracking) fall back to inserting "@Name " as the record.
     const nameStr = member.name || member.email.split("@")[0];
-    const mentionText = `@${nameStr} `;
+    const mentionText = onSelectMention ? "" : `@${nameStr} `;
 
     const cursorPos = inputRef.current?.selectionStart || value.length;
     const textBeforeCursor = value.slice(0, cursorPos);
@@ -187,7 +190,7 @@ export function MentionInput({
     const newCursorPos = newTextBefore.length;
 
     onChange(newValue);
-    if (onSelectMention) onSelectMention(member.id);
+    if (onSelectMention) onSelectMention(member.id, newValue);
     setIsOpen(false);
 
     setTimeout(() => {
@@ -268,24 +271,6 @@ export function MentionInput({
       {/* Mention Autocomplete Dropdown */}
       {isOpen && (
         <div className="absolute left-0 top-full z-[9999] mt-1.5 w-72 rounded-xl border bg-card p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            <span className="flex items-center gap-1">
-              {mode === "people" ? (
-                <>
-                  <User size={12} className="text-primary" /> Mention Member
-                </>
-              ) : (
-                <>
-                  <FileText size={12} className="text-emerald-500" /> Mention File / Note
-                </>
-              )}
-            </span>
-            <span className="text-xs font-normal text-muted-foreground/60">
-              {mode === "people" ? "Type @file: for files" : "Type @ for members"}
-            </span>
-          </div>
-
           {/* Body List */}
           <div className="max-h-48 overflow-y-auto py-1">
             {mode === "people" ? (

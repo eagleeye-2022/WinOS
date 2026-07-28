@@ -35,10 +35,14 @@ model User {
   receivedNotifications Notification[]        @relation("ReceivedNotifications")
   roleTaskDocuments     RoleTaskDocument[]
   sessions              Session[]
-  blockerMentions       StandupBlocker[]      @relation("BlockerMentions")
-  reviewedStandups      StandupEntry[]        @relation("ReviewedStandups")
-  standupEntries        StandupEntry[]        @relation("UserStandups")
-  supportMentions       StandupSupportNeed[]  @relation("SupportMentions")
+  blockerMentions       StandupBlocker[]            @relation("BlockerMentions")
+  blockerEdits          StandupBlocker[]            @relation("BlockerEditedBy")
+  blockerMultiMentions  StandupBlockerMention[]     @relation("BlockerMultiMentions")
+  reviewedStandups      StandupEntry[]              @relation("ReviewedStandups")
+  standupEntries        StandupEntry[]              @relation("UserStandups")
+  supportMentions       StandupSupportNeed[]        @relation("SupportMentions")
+  supportEdits          StandupSupportNeed[]        @relation("SupportEditedBy")
+  supportMultiMentions  StandupSupportNeedMention[]   @relation("SupportMultiMentions")
   supportNeedComments   SupportNeedComment[]
   tags                  Tag[]
   ledTeams              Team[]                @relation("TeamLead")
@@ -109,24 +113,40 @@ model StandupTask {
   kind            TaskKind
   text            String
   order           Int           @default(0)
-  managerPriority TaskPriority?
+  priority        String?
+  managerPriority String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   entry           StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
 model StandupBlocker {
-  id              String           @id @default(cuid())
+  id              String                  @id @default(cuid())
   entryId         String
   text            String
-  priority        BlockerPriority  @default(MEDIUM)
-  resolved        Boolean          @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  priority        BlockerPriority         @default(MEDIUM)
+  resolved        Boolean                 @default(false)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
   mentionedUserId String?
+  mentionedUserIds String?
+  editedById      String?
   comments        BlockerComment[]
-  entry           StandupEntry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  mentionedUser   User?            @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
+  mentions        StandupBlockerMention[]
+  entry           StandupEntry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  mentionedUser   User?                   @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
+  editedBy        User?                   @relation("BlockerEditedBy", fields: [editedById], references: [id])
+}
+
+model StandupBlockerMention {
+  id        String         @id @default(cuid())
+  blockerId String
+  userId    String
+  createdAt DateTime       @default(now())
+  blocker   StandupBlocker @relation(fields: [blockerId], references: [id], onDelete: Cascade)
+  user      User           @relation("BlockerMultiMentions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, userId])
 }
 
 model BlockerComment {
@@ -140,17 +160,32 @@ model BlockerComment {
 }
 
 model StandupSupportNeed {
-  id              String               @id @default(cuid())
+  id              String                      @id @default(cuid())
   entryId         String
   text            String
   mentionedUserId String?
-  order           Int                  @default(0)
-  resolved        Boolean              @default(false)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  entry           StandupEntry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  mentionedUser   User?                @relation("SupportMentions", fields: [mentionedUserId], references: [id])
+  mentionedUserIds String?
+  editedById      String?
+  order           Int                         @default(0)
+  resolved        Boolean                     @default(false)
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  mentions        StandupSupportNeedMention[]
+  entry           StandupEntry                @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  mentionedUser   User?                       @relation("SupportMentions", fields: [mentionedUserId], references: [id])
+  editedBy        User?                       @relation("SupportEditedBy", fields: [editedById], references: [id])
   comments        SupportNeedComment[]
+}
+
+model StandupSupportNeedMention {
+  id            String             @id @default(cuid())
+  supportNeedId String
+  userId        String
+  createdAt     DateTime           @default(now())
+  supportNeed   StandupSupportNeed @relation(fields: [supportNeedId], references: [id], onDelete: Cascade)
+  user          User               @relation("SupportMultiMentions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([supportNeedId, userId])
 }
 
 model SupportNeedComment {
