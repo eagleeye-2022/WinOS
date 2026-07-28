@@ -188,6 +188,7 @@ export async function getSharedWithMeNotes(targetUserId?: string) {
   return await d.boardNote.findMany({
     where: {
       authorId: { not: userId },
+      thread: { board: { type: { not: "DSM" } } },
       OR: [
         { shares: { some: { userId } } },
         { thread: { shares: { some: { userId } } } }
@@ -221,6 +222,7 @@ export async function getSharedByMeNotes(targetUserId?: string) {
   return await d.boardNote.findMany({
     where: {
       authorId: userId,
+      thread: { board: { type: { not: "DSM" } } },
       OR: [
         { shares: { some: {} } },
         { thread: { shares: { some: {} } } }

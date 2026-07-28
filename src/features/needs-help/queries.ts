@@ -25,7 +25,12 @@ export async function getHelpRequests(): Promise<HelpRequestItem[]> {
   const d = db as any;
 
   const rows = await d.standupSupportNeed.findMany({
-    where: { mentionedUserId: session.user.id },
+    where: {
+      OR: [
+        { mentionedUserId: session.user.id },
+        { mentionedUserIds: { contains: session.user.id } },
+      ],
+    },
     include: {
       entry: {
         include: { user: { select: { id: true, name: true, email: true } } },

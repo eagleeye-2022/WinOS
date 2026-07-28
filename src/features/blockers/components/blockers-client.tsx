@@ -12,6 +12,7 @@ import { markBlockerResolved, type MarkBlockerResolvedState } from "../actions/m
 import { createBlocker, type CreateBlockerState } from "../actions/create-blocker";
 import { sendBlockerReminder, type BlockerReminderState } from "../actions/send-reminder";
 import { addBlockerComment, type AddBlockerCommentState } from "../actions/add-blocker-comment";
+import { editBlocker, type EditBlockerState } from "../actions/edit-blocker";
 import type { BlockerItem } from "../queries";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -138,10 +139,15 @@ function DetailPanel({
   const days = daysOpen(item.date);
   const isResolved = item.resolved || resolveState.message === "resolved";
 
-  // Refresh page data when resolve succeeds so the table row stays in sync
+  const [editingText, setEditingText] = useState(false);
+  const [editState, editAction, editPending] = useActionState<EditBlockerState, FormData>(editBlocker, {});
+
+  // Refresh page data when resolve or edit succeeds
   useEffect(() => {
-    if (resolveState.message === "resolved") router.refresh();
-  }, [resolveState.message, router]);
+    if (resolveState.message === "resolved" || editState.message === "updated") {
+      router.refresh();
+    }
+  }, [resolveState.message, editState.message, router]);
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l bg-card xl:w-80">
@@ -162,11 +168,67 @@ function DetailPanel({
         <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Description</p>
-            <button type="button" className="text-muted-foreground hover:text-primary">
-              <Pencil size={13} />
-            </button>
+            {(isManager || canComment) && !isResolved && (
+              <button
+                type="button"
+                onClick={() => setEditingText((v) => !v)}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                title="Edit description"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
           </div>
-          <p className="text-sm leading-relaxed">{item.text}</p>
+          {editingText ? (
+            <form
+              action={async (fd) => {
+                await editAction(fd);
+                setEditingText(false);
+              }}
+              className="flex flex-col gap-2"
+            >
+              <input type="hidden" name="blockerId" value={item.id} />
+              <textarea
+                name="text"
+                rows={3}
+                defaultValue={item.text}
+                className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+              />
+              {editState.message && editState.message !== "updated" && (
+                <p className="text-xs text-destructive">{editState.message}</p>
+              )}
+              <div className="flex items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingText(false)}
+                  className="rounded border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editPending}
+                  className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {editPending ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm leading-relaxed">{item.text}</p>
+              {item.mentionedUsers && item.mentionedUsers.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-xs font-medium text-muted-foreground">Mentioned:</span>
+                  {item.mentionedUsers.map((m) => (
+                    <span key={m.id} className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

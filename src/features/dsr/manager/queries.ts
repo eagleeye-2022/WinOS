@@ -184,6 +184,7 @@ export type MemberDsrReview = {
   user: { id: string; name: string | null; email: string; title: string | null };
   todayEntry: DsrEntryData | null;
   weekEntries: DsrEntryData[];
+  todayDsmReviewed: boolean;
 };
 
 export async function getMemberDsrReview(
@@ -216,5 +217,15 @@ export async function getMemberDsrReview(
     orderBy: { date: "desc" },
   });
 
-  return { user, todayEntry: todayEntry as DsrEntryData | null, weekEntries: weekEntries as DsrEntryData[] };
+  const todayStandup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: memberId, date: today } },
+    select: { status: true },
+  });
+
+  return {
+    user,
+    todayEntry: todayEntry as DsrEntryData | null,
+    weekEntries: weekEntries as DsrEntryData[],
+    todayDsmReviewed: todayStandup?.status === "REVIEWED",
+  };
 }

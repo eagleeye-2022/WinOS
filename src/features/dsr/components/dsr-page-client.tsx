@@ -22,6 +22,7 @@ type Props = {
   basePath?: string;
   sharedNotes?: SharedNoteData[];
   userRole?: string;
+  dsmReviewed?: boolean;
 };
 
 export function DsrPageClient({
@@ -35,6 +36,7 @@ export function DsrPageClient({
   basePath = "/dsr",
   sharedNotes = [],
   userRole,
+  dsmReviewed = true,
 }: Props) {
   const submitFnRef = useRef<() => void>(() => { });
   const [, forceRender] = useState(0);
@@ -44,7 +46,7 @@ export function DsrPageClient({
   // Show form when no entry, when it's a draft, or right after submission (so user sees submitted data)
   const canSubmit = !entry || entry.status === "DRAFT";
   const canEditExisting = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
-  const editable = canSubmit || isEditing;
+  const editable = (canSubmit || isEditing) && dsmReviewed;
   const showForm = editable || justSubmitted;
   const now = toUtcDate();
   const cp = insights.completionPercent;
@@ -92,6 +94,24 @@ export function DsrPageClient({
           )}
         </div>
 
+        {/* DSM-not-reviewed lock banner */}
+        {!dsmReviewed && (
+          <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500">
+              <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" className="h-4 w-4">
+                <circle cx="5" cy="5" r="4" />
+                <path d="M5 3v2.5M5 6.7v.01" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">DSR Locked</p>
+              <p className="text-sm text-muted-foreground">
+                Your DSM for today must be reviewed by your manager before you can fill out or submit your DSR.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Success banner */}
         {justSubmitted && (
           <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5">
@@ -120,7 +140,7 @@ export function DsrPageClient({
           />
         ) : (
           <>
-            {canEditExisting && (
+            {canEditExisting && dsmReviewed && (
               <div className="flex items-center justify-end">
                 <button
                   type="button"

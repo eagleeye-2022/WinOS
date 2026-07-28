@@ -89,7 +89,7 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
 
 // ── Task progress card ────────────────────────────────────────────────────────
 
-function TaskItemRow({ task }: { task: DsrEntryData["plannedTasks"][number] }) {
+function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][number]; locked?: boolean }) {
   const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
   const [, startTransition] = useTransition();
 
@@ -103,8 +103,8 @@ function TaskItemRow({ task }: { task: DsrEntryData["plannedTasks"][number] }) {
       <input type="hidden" name="taskId" value={task.id} />
       <button
         type="submit"
-        disabled={pending}
-        title={task.completed ? "Mark as uncompleted" : "Mark as completed"}
+        disabled={pending || locked}
+        title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
         className={cn(
           "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
           task.completed ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-muted border border-border hover:border-emerald-500"
@@ -116,14 +116,25 @@ function TaskItemRow({ task }: { task: DsrEntryData["plannedTasks"][number] }) {
           </svg>
         )}
       </button>
-      <span className={cn("text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+      <span className={cn("flex-1 text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
         {task.text}
       </span>
+      {task.priority && (
+        <span className={cn(
+          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+          task.priority.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
+          task.priority.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
+          task.priority.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+          !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+        )}>
+          {task.priority.toUpperCase()}
+        </span>
+      )}
     </form>
   );
 }
 
-function TaskProgressCard({ entry }: { entry: DsrEntryData }) {
+function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
   const { completedTaskCount, plannedTaskCount, plannedTasks } = entry;
   const percent = plannedTaskCount > 0
     ? Math.round((completedTaskCount / plannedTaskCount) * 100)
@@ -148,7 +159,7 @@ function TaskProgressCard({ entry }: { entry: DsrEntryData }) {
       </div>
       <div className="flex flex-col gap-2">
         {plannedTasks.map((task) => (
-          <TaskItemRow key={task.id} task={task} />
+          <TaskItemRow key={task.id} task={task} locked={locked} />
         ))}
       </div>
     </div>
@@ -369,22 +380,45 @@ function ReviewerActionsCard({
   userId,
   memberName,
   isReviewed,
+  dsmReviewed,
+  managerComment,
 }: {
   entryId: string;
   userId: string;
   memberName: string;
   isReviewed: boolean;
+  dsmReviewed: boolean;
+  managerComment?: string | null;
 }) {
   const [state, action, pending] = useActionState<ReviewDsrState, FormData>(reviewDsr, {});
   const [comment, setComment] = useState("");
 
   if (isReviewed) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
           <CheckCheck size={16} />
           DSR Reviewed
         </div>
+        {managerComment && (
+          <div className="rounded-lg bg-emerald-100/60 p-3 text-xs text-emerald-900 border border-emerald-200">
+            <p className="font-semibold uppercase tracking-wider text-[10px] text-emerald-700 mb-1">
+              Manager Comment:
+            </p>
+            <p className="whitespace-pre-wrap leading-relaxed">{managerComment}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!dsmReviewed) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="text-sm font-semibold text-amber-700">Waiting on DSM Review</div>
+        <p className="mt-1 text-xs text-amber-700/80">
+          This member&apos;s DSM must be reviewed before their DSR can be reviewed.
+        </p>
       </div>
     );
   }
@@ -434,7 +468,7 @@ type Props = {
 
 export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
   const router = useRouter();
-  const { user, todayEntry, weekEntries } = review;
+  const { user, todayEntry, weekEntries, todayDsmReviewed } = review;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -514,7 +548,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
             {/* Left: content cards */}
             <div className="flex flex-col gap-4">
               <ResultCard entry={todayEntry} />
-              <TaskProgressCard entry={todayEntry} />
+              <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
               <BlockersSupportCard entry={todayEntry} />
               <SentimentCard entry={todayEntry} />
             </div>
@@ -526,6 +560,8 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
                 userId={user.id}
                 memberName={memberFirstName}
                 isReviewed={isReviewed}
+                dsmReviewed={todayDsmReviewed}
+                managerComment={todayEntry.managerComment}
               />
               <TimelineCard events={todayEntry.timelineEvents} />
             </div>

@@ -49,15 +49,16 @@ export async function saveDsm(
   const date = new Date(dateStr + "T00:00:00.000Z");
 
   const taskTexts = (formData.getAll("taskText") as string[]).map((t) => t.trim()).filter(Boolean);
+  const taskPriorities = formData.getAll("taskPriority") as string[];
   const blockerTexts = (formData.getAll("blockerText") as string[]).map((t) => t.trim());
   const blockerPriorities = formData.getAll("blockerPriority") as string[];
-  // Each blockerUserId value is a comma-separated list of mentioned user IDs; take the first for DB storage
+  // Each blockerUserId value is a comma-separated list of mentioned user IDs
   const blockerUserIdRaw = formData.getAll("blockerUserId") as string[];
-  const blockerUserIds = blockerUserIdRaw.map((v) => v.split(",").filter(Boolean)[0] ?? null);
+  const blockerUserIds = blockerUserIdRaw.map((v) => v.trim() || null);
   const supportTexts = (formData.getAll("supportText") as string[]).map((t) => t.trim());
-  // Each supportUserId value is a comma-separated list of mentioned user IDs; take the first for DB storage
+  // Each supportUserId value is a comma-separated list of mentioned user IDs
   const supportUserIdRaw = formData.getAll("supportUserId") as string[];
-  const supportUserIds = supportUserIdRaw.map((v) => v.split(",").filter(Boolean)[0] ?? null);
+  const supportUserIds = supportUserIdRaw.map((v) => v.trim() || null);
 
   // Validate on submit only
   if (action === "submit" && taskTexts.length === 0) {
@@ -100,39 +101,60 @@ export async function saveDsm(
     await d.standupTask.deleteMany({ where: { entryId: entry.id, kind: "TODAY" } });
     if (taskTexts.length > 0) {
       await d.standupTask.createMany({
-        data: taskTexts.map((text: string, i: number) => ({ text, kind: "TODAY", order: i, entryId: entry.id })),
+        data: taskTexts.map((text: string, i: number) => ({
+          text,
+          kind: "TODAY",
+          order: i,
+          priority: taskPriorities[i] || null,
+          entryId: entry.id,
+        })),
       });
     }
 
     // Sync blockers (replace)
     await d.standupBlocker.deleteMany({ where: { entryId: entry.id } });
-    const validBlockers = blockerTexts
-      .map((text: string, i: number) => ({
-        text,
-        priority: blockerPriorities[i] || "MEDIUM",
-        resolved: false,
-        mentionedUserId: blockerUserIds[i] || null,
-      }))
-      .filter((b: { text: string }) => b.text);
-    if (validBlockers.length > 0) {
-      await d.standupBlocker.createMany({
-        data: validBlockers.map((b: { text: string; priority: string; resolved: boolean; mentionedUserId: string | null }) => ({ ...b, entryId: entry.id })),
+    for (let i = 0; i < blockerTexts.length; i++) {
+      const text = blockerTexts[i];
+      if (!text) continue;
+      const rawIds = blockerUserIdRaw[i] ? blockerUserIdRaw[i].split(",").filter(Boolean) : [];
+      const blocker = await d.standupBlocker.create({
+        data: {
+          entryId: entry.id,
+          text,
+          priority: blockerPriorities[i] || "MEDIUM",
+          resolved: false,
+          mentionedUserId: rawIds[0] ?? null,
+          mentionedUserIds: rawIds.length > 0 ? rawIds.join(",") : null,
+        },
       });
+      if (rawIds.length > 0 && d.standupBlockerMention) {
+        await d.standupBlockerMention.createMany({
+          data: rawIds.map((userId: string) => ({ blockerId: blocker.id, userId })),
+        });
+      }
     }
 
     // Sync support needs (replace)
     await d.standupSupportNeed.deleteMany({ where: { entryId: entry.id } });
-    const validSupport = supportTexts
-      .map((text: string, i: number) => ({
-        text,
-        mentionedUserId: supportUserIds[i] || null,
-        order: i,
-      }))
-      .filter((s: { text: string }) => s.text);
-    if (validSupport.length > 0) {
-      await d.standupSupportNeed.createMany({
-        data: validSupport.map((s: { text: string; mentionedUserId: string | null; order: number }) => ({ ...s, entryId: entry.id })),
+    for (let i = 0; i < supportTexts.length; i++) {
+      const text = supportTexts[i];
+      if (!text) continue;
+      const rawIds = supportUserIdRaw[i] ? supportUserIdRaw[i].split(",").filter(Boolean) : [];
+      const support = await d.standupSupportNeed.create({
+        data: {
+          entryId: entry.id,
+          text,
+          order: i,
+          resolved: false,
+          mentionedUserId: rawIds[0] ?? null,
+          mentionedUserIds: rawIds.length > 0 ? rawIds.join(",") : null,
+        },
       });
+      if (rawIds.length > 0 && d.standupSupportNeedMention) {
+        await d.standupSupportNeedMention.createMany({
+          data: rawIds.map((userId: string) => ({ supportNeedId: support.id, userId })),
+        });
+      }
     }
   } catch (err) {
     const e = err as Record<string, unknown>;

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 export type SetTaskPriorityState = { message?: string };
 
-// Validate format: empty string (clear) or "P" followed by a positive integer (P1, P2, P3, P4, ...)
+// Validate format: empty string (clear) or "P" followed by a positive integer (P1, P2, ..., unbounded)
 function isValidPriority(p: string): boolean {
   if (p === "") return true;
   return /^P[1-9]\d*$/.test(p);

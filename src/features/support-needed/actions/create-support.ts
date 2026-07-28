@@ -15,7 +15,6 @@ export async function createSupport(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const text = (formData.get("text") as string)?.trim();
-  const mentionedUserId = (formData.get("mentionedUserId") as string) || null;
 
   if (!text) return { errors: { text: ["Description is required"] } };
 
@@ -33,17 +32,28 @@ export async function createSupport(
     return { message: "Today's standup is already reviewed." };
   }
 
+  const rawMention = (formData.get("mentionedUserId") as string) || null;
+  const rawIds = rawMention ? rawMention.split(",").filter(Boolean) : [];
+  const primaryUserId = rawIds[0] ?? null;
+  const allUserIdsStr = rawIds.length > 0 ? rawIds.join(",") : null;
+
   const order = await d.standupSupportNeed.count({ where: { entryId: entry.id } });
 
-  await d.standupSupportNeed.create({
+  const support = await d.standupSupportNeed.create({
     data: {
       text,
-      mentionedUserId: mentionedUserId || null,
+      mentionedUserId: primaryUserId,
+      mentionedUserIds: allUserIdsStr,
       resolved: false,
       order,
       entryId: entry.id,
     },
   });
+  if (rawIds.length > 0 && d.standupSupportNeedMention) {
+    await d.standupSupportNeedMention.createMany({
+      data: rawIds.map((userId: string) => ({ supportNeedId: support.id, userId })),
+    });
+  }
 
   revalidatePath("/support");
   revalidatePath("/dsm");

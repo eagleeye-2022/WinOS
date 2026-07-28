@@ -94,6 +94,28 @@ export async function getCurrentDsrEntry(): Promise<DsrEntryData | null> {
   return entry as DsrEntryData | null;
 }
 
+/** Today's DSM (StandupEntry) status for the given user (defaults to current session user). */
+export async function getTodayDsmStatus(
+  userId?: string
+): Promise<"DRAFT" | "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "MISSED" | "NONE"> {
+  let targetUserId = userId;
+  if (!targetUserId) {
+    const session = await auth();
+    if (!session?.user?.id) return "NONE";
+    targetUserId = session.user.id;
+  }
+
+  const today = toUtcDate();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const standup = await (db as any).standupEntry.findUnique({
+    where: { userId_date: { userId: targetUserId, date: today } },
+    select: { status: true },
+  });
+
+  return standup?.status ?? "NONE";
+}
+
 /** Prefill data from today's StandupEntry for first-time DSR creation. */
 export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
   const session = await auth();

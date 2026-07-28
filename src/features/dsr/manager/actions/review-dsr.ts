@@ -34,6 +34,14 @@ export async function reviewDsr(
     return { message: "Entry is not reviewable" };
   }
 
+  const standup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: entry.userId, date: entry.date } },
+    select: { status: true },
+  });
+  if (standup?.status !== "REVIEWED") {
+    return { message: "This member's DSM must be reviewed before the DSR can be reviewed." };
+  }
+
   await d.dsrEntry.update({
     where: { id: entryId },
     data: {

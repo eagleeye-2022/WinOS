@@ -53,6 +53,15 @@ export async function saveDsr(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
+  // Guard: the DSR cannot be touched until that day's DSM has been reviewed
+  const standup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date } },
+    select: { status: true },
+  });
+  if (standup?.status !== "REVIEWED") {
+    return { message: "Your DSM for this day must be reviewed before you can fill out your DSR." };
+  }
+
   // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },

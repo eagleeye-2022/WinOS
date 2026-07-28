@@ -56,19 +56,24 @@ export function DsmSelfPanel({
 
   return (
     <>
-      {canEdit && (
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Pencil size={13} />
-            Edit Today&apos;s DSM
-          </button>
-        </div>
-      )}
-      <WeekHistory entries={weekEntries} weekOffset={weekOffset} basePath={basePath} />
+      <WeekHistory
+        entries={weekEntries}
+        weekOffset={weekOffset}
+        basePath={basePath}
+        headerAction={
+          canEdit ? (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              title="Edit Today's DSM"
+              aria-label="Edit Today's DSM"
+              className="rounded-full border bg-card p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Pencil size={16} />
+            </button>
+          ) : undefined
+        }
+      />
       <KpiCards stats={kpiStats} />
     </>
   );

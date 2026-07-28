@@ -14,6 +14,7 @@ export async function markSupportResolved(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const supportId = formData.get("supportId") as string;
+  const resolvedVal = formData.get("resolved") as string | null;
   if (!supportId) return { message: "Missing id" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,15 +26,21 @@ export async function markSupportResolved(
 
   const need = await d.standupSupportNeed.findUnique({
     where: { id: supportId },
-    select: { id: true },
+    select: { id: true, resolved: true, entry: { select: { userId: true } } },
   });
   if (!need) return { message: "Not found" };
 
+  const newResolved = resolvedVal !== null ? resolvedVal === "true" : !need.resolved;
+
   await d.standupSupportNeed.update({
     where: { id: supportId },
-    data: { resolved: true },
+    data: { resolved: newResolved },
   });
 
   revalidatePath("/support");
-  return { message: "resolved" };
+  revalidatePath("/dsm");
+  revalidatePath(`/dsm/member/${need.entry.userId}`);
+  revalidatePath("/dsm/all");
+  revalidatePath("/dsm/my");
+  return { message: newResolved ? "resolved" : "unresolved" };
 }
