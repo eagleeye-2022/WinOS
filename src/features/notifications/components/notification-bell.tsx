@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Clock3 } from "lucide-react";
+import { Bell, Check, CheckCheck, Clock3, CalendarDays } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { markNotificationRead, markAllNotificationsRead, type MarkReadState } from "../actions/mark-read";
 import type { NotificationItem } from "../queries";
 
@@ -43,15 +44,32 @@ function NotifRow({
       }`}
     >
       {/* Icon */}
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100">
-        <Clock3 size={13} className="text-amber-600" />
-      </span>
+      {notif.type === "CALENDAR_INVITE" ? (
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100">
+          <CalendarDays size={13} className="text-blue-600" />
+        </span>
+      ) : (
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100">
+          <Clock3 size={13} className="text-amber-600" />
+        </span>
+      )}
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
-          {notif.title}
-        </p>
+        {notif.type === "CALENDAR_INVITE" && notif.relatedEntryId ? (
+          <Link
+            href={`/calendar?event=${encodeURIComponent(notif.relatedEntryId)}`}
+            className="block hover:underline"
+          >
+            <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
+              {notif.title}
+            </p>
+          </Link>
+        ) : (
+          <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
+            {notif.title}
+          </p>
+        )}
         <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
           {notif.message}
         </p>

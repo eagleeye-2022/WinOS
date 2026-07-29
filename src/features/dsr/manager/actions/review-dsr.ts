@@ -42,12 +42,14 @@ export async function reviewDsr(
     return { message: "This member's DSM must be reviewed before the DSR can be reviewed." };
   }
 
+  const dbUser = await d.user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+
   await d.dsrEntry.update({
     where: { id: entryId },
     data: {
       status: "REVIEWED",
       reviewedAt: new Date(),
-      reviewedById: session.user.id,
+      reviewedById: dbUser ? dbUser.id : null,
       managerComment,
     },
   });

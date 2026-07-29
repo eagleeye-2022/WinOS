@@ -217,6 +217,11 @@ function DetailPanel({
           ) : (
             <div className="space-y-2">
               <p className="text-sm leading-relaxed">{item.text}</p>
+              {item.editedBy && (
+                <span className="text-[10px] text-muted-foreground/70 block font-normal">
+                  (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
+                </span>
+              )}
               {item.mentionedUsers && item.mentionedUsers.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   <span className="text-xs font-medium text-muted-foreground">Mentioned:</span>
@@ -515,6 +520,11 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                     >
                       <td className="max-w-xs px-5 py-3.5">
                         <p className="line-clamp-2 text-sm font-medium leading-snug">{item.text}</p>
+                        {item.editedBy && (
+                          <span className="text-[10px] text-muted-foreground/70 block mt-0.5 font-normal">
+                            (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge resolved={item.resolved} />

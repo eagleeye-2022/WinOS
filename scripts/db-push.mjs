@@ -39,7 +39,8 @@ async function main() {
   await deallocateAll();
   console.log("[db-push] Cleared stale prepared statements");
 
-  const output = execSync("npx prisma db push", { encoding: "utf8", stdio: "pipe" });
+  const extraArgs = process.argv.slice(2).join(" ");
+  const output = execSync(`npx prisma db push ${extraArgs}`.trim(), { encoding: "utf8", stdio: "pipe" });
   // prisma db push writes to stderr for progress, stdout for final status
   process.stdout.write(output);
 }

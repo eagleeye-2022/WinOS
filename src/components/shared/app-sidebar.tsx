@@ -17,6 +17,7 @@ import {
   Archive,
   Settings,
   UserCheck,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -58,6 +59,9 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "iNotes" || label === "i-Notes" || label === "My Notes") {
     return pathname.startsWith("/notes");
   }
+  // if (label === "Calendar") {
+  //   return pathname.startsWith(ROUTES.calendar);
+  // }
   if (label === "My Blockers") {
     return pathname.startsWith(ROUTES.blockers);
   }
@@ -119,14 +123,17 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       { label: "RTD Documents", href: "/people", icon: FileText },
       { label: "ICA Agreements", href: "/people/ica", icon: UserCheck },
       { label: "iNotes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
+      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
   } else if (activeModuleTitle === "Projects") {
     navItems = [
       { label: "Projects Dashboard", href: "/projects", icon: LayoutDashboard },
+      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
+      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
   } else {
     // Standup Module
@@ -138,6 +145,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
         { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
         { label: "iNotes", href: iNotesHref, icon: FileText },
+        { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
         { label: "Support Needed", href: ROUTES.support, icon: Users2 },
         // { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
@@ -146,6 +154,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
         { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
         { label: "iNotes", href: iNotesHref, icon: FileText },
+        { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
 
         { label: "Support Needed", href: ROUTES.support, icon: Users2 },

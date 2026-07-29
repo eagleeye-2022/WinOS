@@ -106,15 +106,36 @@ export async function saveDsr(
   // Replace child records
   await d.dsrPlannedTask.deleteMany({ where: { dsrEntryId: entry.id } });
   if (plannedTasks.length > 0) {
-    await d.dsrPlannedTask.createMany({
-      data: plannedTasks.map((t, i) => ({
-        dsrEntryId: entry.id,
-        text: t.text,
-        priority: t.priority || null,
-        completed: t.completed,
-        order: i,
-      })),
-    });
+    try {
+      await d.dsrPlannedTask.createMany({
+        data: plannedTasks.map((t, i) => ({
+          dsrEntryId: entry.id,
+          text: t.text,
+          priority: t.priority?.trim() || null,
+          completed: t.completed,
+          order: i,
+        })),
+      });
+    } catch (err: unknown) {
+      const msg = String(err);
+      if (msg.includes("TaskPriority") || msg.includes("Invalid value for argument priority")) {
+        const VALID_ENUM_PRIORITIES = new Set(["P1", "P2", "P3"]);
+        await d.dsrPlannedTask.createMany({
+          data: plannedTasks.map((t, i) => {
+            const trimmed = t.priority?.trim().toUpperCase();
+            return {
+              dsrEntryId: entry.id,
+              text: t.text,
+              priority: trimmed && VALID_ENUM_PRIORITIES.has(trimmed) ? trimmed : null,
+              completed: t.completed,
+              order: i,
+            };
+          }),
+        });
+      } else {
+        throw err;
+      }
+    }
   }
 
   await d.dsrAdditionalWork.deleteMany({ where: { dsrEntryId: entry.id } });

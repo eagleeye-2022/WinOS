@@ -7,7 +7,7 @@ import { toUtcDate, getWeekRange } from "./utils";
 export type DsrPlannedTaskData = {
   id: string;
   text: string;
-  priority: "P1" | "P2" | "P3" | null;
+  priority: string | null;
   completed: boolean;
   order: number;
 };
@@ -39,7 +39,7 @@ export type DsrEntryData = {
 };
 
 export type DsrStandupPrefill = {
-  plannedTasks: { text: string; priority: "P1" | "P2" | "P3" | null }[];
+  plannedTasks: { text: string; priority: string | null }[];
   blockers: { text: string }[];
   followUps: { text: string }[];
 };
@@ -138,7 +138,7 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
   return {
     plannedTasks: standup.tasks.map((t: { text: string; managerPriority: string | null }) => ({
       text: t.text,
-      priority: (t.managerPriority as "P1" | "P2" | "P3" | null) ?? null,
+      priority: t.managerPriority ?? null,
     })),
     blockers: standup.blockers.map((b: { text: string }) => ({ text: b.text })),
     followUps: standup.supportNeeds.map((s: { text: string }) => ({ text: s.text })),

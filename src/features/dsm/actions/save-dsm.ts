@@ -25,17 +25,23 @@ export async function saveDsm(
   // JWT sessions are cookie-based and not re-validated against the DB on each
   // request. After a local DB reset, the cookie holds a CUID that no longer
   // exists, causing FK violations on every write.
-  const sessionUser = await d.user.findUnique({
-    where: { id: session.user.id },
+  const sessionUser = await d.user.findFirst({
+    where: {
+      OR: [
+        { id: session.user.id },
+        ...(session.user.email ? [{ email: session.user.email }] : []),
+      ],
+    },
     select: { id: true },
   });
   if (!sessionUser) {
     console.error(
-      "[saveDsm] session.user.id not found in User table — stale JWT.",
-      { sessionUserId: session.user.id }
+      "[saveDsm] session.user not found in User table.",
+      { sessionUserId: session.user.id, sessionEmail: session.user.email }
     );
     return { message: "Your session is no longer valid. Please sign out and sign back in." };
   }
+  const userId = sessionUser.id;
 
   // Managers have their own self-DSM page; redirect/revalidate must match
   // whichever route they're submitting from, same as team members on /dsm.
@@ -67,7 +73,7 @@ export async function saveDsm(
 
   // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.standupEntry.findUnique({
-    where: { userId_date: { userId: session.user.id, date } },
+    where: { userId_date: { userId, date } },
     select: { status: true, submittedAt: true },
   });
   if (existing?.status === "REVIEWED") {
@@ -84,9 +90,9 @@ export async function saveDsm(
   try {
     // Upsert entry by (userId, date)
     entry = await d.standupEntry.upsert({
-      where: { userId_date: { userId: session.user.id, date } },
+      where: { userId_date: { userId, date } },
       create: {
-        userId: session.user.id,
+        userId,
         date,
         status: finalStatus,
         submittedAt,

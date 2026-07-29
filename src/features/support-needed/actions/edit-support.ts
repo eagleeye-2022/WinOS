@@ -42,7 +42,19 @@ export async function editSupport(
     return { message: "This entry has already been reviewed and cannot be changed." };
   }
 
-  const updateData: { text: string; mentionedUserId?: string | null; mentionedUserIds?: string | null; editedById: string } = { text, editedById: session.user.id };
+  const dbUser = await d.user.findFirst({
+    where: {
+      OR: [
+        { id: session.user.id },
+        ...(session.user.email ? [{ email: session.user.email }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  const updateData: { text: string; mentionedUserId?: string | null; mentionedUserIds?: string | null; editedById?: string | null } = {
+    text,
+    editedById: dbUser ? dbUser.id : null,
+  };
   if (mentionedUserIdRaw !== null) {
     const rawMention = (mentionedUserIdRaw as string) || "";
     const rawIds = rawMention ? rawMention.split(",").filter(Boolean) : [];

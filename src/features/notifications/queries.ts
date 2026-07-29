@@ -3,13 +3,14 @@ import { db } from "@/lib/db";
 
 export type NotificationItem = {
   id: string;
-  type: "DSM_REMINDER";
+  type: "DSM_REMINDER" | "CALENDAR_INVITE";
   title: string;
   message: string;
   readAt: Date | null;
   createdAt: Date;
   createdBy: { name: string | null; email: string };
   teamId: string | null;
+  relatedEntryId: string | null;
 };
 
 // ── Queries ───────────────────────────────────────────────────────────────────

@@ -854,18 +854,18 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
       {(hasFollowUps || hasBlockers) && (
         <div className={cn("grid gap-2", hasFollowUps && hasBlockers ? "grid-cols-2" : "grid-cols-1")}>
           {hasFollowUps && (
-            <div className="rounded-lg bg-accent/60 p-2.5">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Follow-Ups
+            <div className="rounded-lg bg-sky-50/50 border border-sky-100 p-2.5">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700">
+                Support Needed (Meeting)
               </p>
               <ol className="space-y-0.5">
-                {entry.supportNeeds.slice(0, 2).map((s, i) => {
+                {entry.supportNeeds.map((s, i) => {
                   const mentioned = s.mentionedUsers && s.mentionedUsers.length > 0
                     ? s.mentionedUsers
                     : (s.mentionedUser ? [s.mentionedUser] : []);
 
                   return (
-                    <li key={s.id} className="text-xs leading-snug text-foreground/70">
+                    <li key={s.id} className="text-xs leading-snug text-foreground/80">
                       {i + 1}){" "}
                       {mentioned.map((m) => (
                         <span key={m.id} className="font-semibold text-primary">
@@ -873,6 +873,11 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
                         </span>
                       ))}
                       {s.text}
+                      {s.editedBy && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                          (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -880,18 +885,18 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
             </div>
           )}
           {hasBlockers && (
-            <div className="rounded-lg bg-destructive/5 p-2.5">
+            <div className="rounded-lg bg-destructive/5 border border-destructive/10 p-2.5">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-destructive">
-                Blockers
+                Blockers (Data Needed)
               </p>
               <ol className="space-y-0.5">
-                {entry.blockers.slice(0, 2).map((b, i) => {
+                {entry.blockers.map((b, i) => {
                   const mentioned = b.mentionedUsers && b.mentionedUsers.length > 0
                     ? b.mentionedUsers
                     : (b.mentionedUser ? [b.mentionedUser] : []);
 
                   return (
-                    <li key={b.id} className="text-xs leading-snug text-destructive/70">
+                    <li key={b.id} className="text-xs leading-snug text-destructive/90">
                       {i + 1}){" "}
                       {mentioned.map((m) => (
                         <span key={m.id} className="font-semibold text-destructive">
@@ -899,6 +904,11 @@ function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
                         </span>
                       ))}
                       {b.text}
+                      {b.editedBy && (
+                        <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                          (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -1193,7 +1203,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
 // ── Today entry card — expanded by default ────────────────────────────────────
 
 function TodayEntryCard({ entry, teamMembers = [] }: { entry: MemberReviewEntry; teamMembers?: TeamMember[] }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const review = reviewStatus({
     status: entry.status,
     date: entry.date,
