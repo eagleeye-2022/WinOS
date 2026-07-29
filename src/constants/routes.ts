@@ -11,6 +11,7 @@ export const ROUTES = {
   dsrManage: "/dsr/manage",
   dsrMember: (userId: string) => `/dsr/member/${userId}` as const,
   notes: "/notes",
+  calendar: "/calendar",
   blockers: "/blockers",
   support: "/support",
   needsHelp: "/needs-help",

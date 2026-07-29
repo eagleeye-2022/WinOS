@@ -31,6 +31,7 @@ model User {
   icaDocuments          IcaDocument[]
   notes                 Note[]
   notebooks             Notebook[]
+  zohoAccount           ZohoAccount?
   sentNotifications     Notification[]        @relation("SentNotifications")
   receivedNotifications Notification[]        @relation("ReceivedNotifications")
   roleTaskDocuments     RoleTaskDocument[]
@@ -292,11 +293,11 @@ model DsrEntry {
 }
 
 model DsrPlannedTask {
-  id         String        @id @default(cuid())
+  id         String   @id @default(cuid())
   dsrEntryId String
   text       String
-  priority   TaskPriority?
-  completed  Boolean       @default(false)
+  priority   String?
+  completed  Boolean  @default(false)
   order      Int           @default(0)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
@@ -551,6 +552,21 @@ model IcaDocument {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model ZohoAccount {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  accessToken        String
+  refreshToken       String
+  expiresAt          DateTime
+  apiDomain          String
+  accountsDomain     String
+  zohoEmail          String?
+  primaryCalendarUid String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 enum UserRole {
   TEAM_MEMBER
   MANAGER
@@ -588,6 +604,7 @@ enum TaskPriority {
 
 enum NotificationType {
   DSM_REMINDER
+  CALENDAR_INVITE
 }
 
 enum DsrStatus {

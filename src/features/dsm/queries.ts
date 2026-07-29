@@ -10,6 +10,7 @@ export type EntryTask = {
   text: string;
   order: number;
   priority?: string | null;
+  managerPriority?: string | null;
 };
 
 export type EntryBlocker = {
@@ -21,6 +22,8 @@ export type EntryBlocker = {
   mentionedUserIds?: string | null;
   mentionedUser?: { id: string; name: string | null; email: string } | null;
   mentionedUsers?: { id: string; name: string | null; email: string }[];
+  editedById?: string | null;
+  editedBy?: { id: string; name: string | null; email: string } | null;
 };
 
 export type EntrySupportNeed = {
@@ -31,6 +34,8 @@ export type EntrySupportNeed = {
   mentionedUser: { id: string; name: string | null; email: string } | null;
   mentionedUsers?: { id: string; name: string | null; email: string }[];
   order: number;
+  editedById?: string | null;
+  editedBy?: { id: string; name: string | null; email: string } | null;
 };
 
 export type EntryWithDetails = {
@@ -75,11 +80,17 @@ export type TeamMember = {
 const entryInclude = {
   tasks: { orderBy: { order: "asc" } },
   blockers: {
-    include: { mentionedUser: { select: { id: true, name: true, email: true } } }
+    include: {
+      mentionedUser: { select: { id: true, name: true, email: true } },
+      editedBy: { select: { id: true, name: true, email: true } },
+    },
   },
   supportNeeds: {
     orderBy: { order: "asc" },
-    include: { mentionedUser: { select: { id: true, name: true, email: true } } },
+    include: {
+      mentionedUser: { select: { id: true, name: true, email: true } },
+      editedBy: { select: { id: true, name: true, email: true } },
+    },
   },
   reviewedBy: { select: { name: true, email: true } },
 };

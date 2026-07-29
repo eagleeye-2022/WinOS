@@ -19,6 +19,7 @@ export type SupportNeedItem = {
   raisedBy: { id: string; name: string | null; email: string };
   supportFrom: { id: string; name: string | null; email: string } | null;
   comments: SupportCommentItem[];
+  editedBy?: { id: string; name: string | null; email: string } | null;
 };
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
       mentionedUser: { select: { id: true, name: true, email: true } },
+      editedBy: { select: { id: true, name: true, email: true } },
       comments: {
         include: { author: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "asc" },
@@ -59,6 +61,7 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
     resolved: boolean;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
+    editedBy?: { id: string; name: string | null; email: string } | null;
     comments: {
       id: string;
       text: string;
@@ -73,6 +76,7 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
     entryId: s.entry.id,
     raisedBy: s.entry.user,
     supportFrom: s.mentionedUser,
+    editedBy: s.editedBy,
     comments: s.comments,
   }));
 }
@@ -106,6 +110,7 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
         include: { user: { select: { id: true, name: true, email: true } } },
       },
       mentionedUser: { select: { id: true, name: true, email: true } },
+      editedBy: { select: { id: true, name: true, email: true } },
       comments: {
         include: { author: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "asc" },
@@ -120,6 +125,7 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
     resolved: boolean;
     entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
+    editedBy?: { id: string; name: string | null; email: string } | null;
     comments: {
       id: string;
       text: string;
@@ -134,6 +140,7 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
     entryId: s.entry.id,
     raisedBy: s.entry.user,
     supportFrom: s.mentionedUser,
+    editedBy: s.editedBy,
     comments: s.comments,
   }));
 }

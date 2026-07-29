@@ -46,3 +46,6 @@ test-results/
 
 .vercel
 .env*
+
+# leaked-credential guard
+calendar-api-settings.json

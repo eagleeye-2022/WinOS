@@ -22,6 +22,7 @@ export type BlockerItem = {
   mentionedUserIds?: string | null;
   mentionedUsers?: { id: string; name: string | null; email: string }[];
   comments: BlockerCommentItem[];
+  editedBy?: { id: string; name: string | null; email: string } | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
       entry: {
         include: { user: { select: { id: true, name: true, email: true, role: true, title: true } } },
       },
+      editedBy: { select: { id: true, name: true, email: true } },
       comments: {
         include: { author: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "asc" },
@@ -96,27 +98,24 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
   const items = rows.map((b: {
     id: string;
     text: string;
-    priority: string;
+    priority: "LOW" | "MEDIUM" | "HIGH";
     resolved: boolean;
+    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
     mentionedUserId?: string | null;
     mentionedUserIds?: string | null;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
-    comments: {
-      id: string;
-      text: string;
-      createdAt: Date;
-      author: { id: string; name: string | null; email: string };
-    }[];
+    editedBy?: { id: string; name: string | null; email: string } | null;
+    comments: BlockerCommentItem[];
   }) => ({
     id: b.id,
     text: b.text,
-    priority: b.priority as "LOW" | "MEDIUM" | "HIGH",
+    priority: b.priority,
     resolved: b.resolved,
     date: b.entry.date,
     entryId: b.entry.id,
     raisedBy: b.entry.user,
     mentionedUserId: b.mentionedUserId,
     mentionedUserIds: b.mentionedUserIds,
+    editedBy: b.editedBy,
     comments: b.comments,
   }));
 

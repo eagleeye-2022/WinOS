@@ -43,11 +43,11 @@ export function DsrPageClient({
   const [isEditing, setIsEditing] = useState(false);
   const [rightTab, setRightTab] = useState<"insights" | "notes">("insights");
 
-  // Show form when no entry, when it's a draft, or right after submission (so user sees submitted data)
+  const isReviewed = entry?.status === "REVIEWED";
   const canSubmit = !entry || entry.status === "DRAFT";
-  const canEditExisting = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
-  const editable = (canSubmit || isEditing) && dsmReviewed;
-  const showForm = editable || justSubmitted;
+  const canEditExisting = (entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW") && !isReviewed;
+  const editable = (canSubmit || isEditing) && dsmReviewed && !isReviewed;
+  const showForm = editable || justSubmitted || isReviewed;
   const now = toUtcDate();
   const cp = insights.completionPercent;
   const ct = insights.completedTaskCount;
@@ -112,8 +112,23 @@ export function DsrPageClient({
           </div>
         )}
 
+        {/* Reviewed lock banner */}
+        {isReviewed && (
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-sm">
+              ✓
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">DSR Reviewed by Manager</p>
+              <p className="text-sm text-muted-foreground">
+                This DSR has been reviewed and locked. All fields are in read-only preview mode.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Success banner */}
-        {justSubmitted && (
+        {justSubmitted && !isReviewed && (
           <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
               <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" className="h-4 w-4">

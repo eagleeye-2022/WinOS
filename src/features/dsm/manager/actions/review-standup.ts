@@ -26,12 +26,14 @@ export async function reviewStandup(
   const entry = await d.standupEntry.findUnique({ where: { id: entryId } });
   if (!entry) return { message: "Not found" };
 
+  const dbUser = await d.user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+
   await d.standupEntry.update({
     where: { id: entryId },
     data: {
       status: "REVIEWED",
       reviewedAt: new Date(),
-      reviewedById: session.user.id,
+      reviewedById: dbUser ? dbUser.id : null,
       reviewComment: reviewComment || null,
     },
   });

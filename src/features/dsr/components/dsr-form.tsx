@@ -21,6 +21,7 @@ function CheckSection({
   onChange,
   allowAdd,
   addLabel,
+  readOnly,
 }: {
   title: string;
   badge: string;
@@ -28,13 +29,24 @@ function CheckSection({
   onChange: (items: CheckItem[]) => void;
   allowAdd?: boolean;
   addLabel?: string;
+  readOnly?: boolean;
 }) {
-  const toggle = (i: number) =>
+  const toggle = (i: number) => {
+    if (readOnly) return;
     onChange(items.map((item, j) => (j === i ? { ...item, completed: !item.completed } : item)));
-  const add = () => onChange([...items, { text: "", completed: true }]);
-  const update = (i: number, text: string) =>
+  };
+  const add = () => {
+    if (readOnly) return;
+    onChange([...items, { text: "", completed: true }]);
+  };
+  const update = (i: number, text: string) => {
+    if (readOnly) return;
     onChange(items.map((item, j) => (j === i ? { ...item, text } : item)));
-  const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
+  };
+  const remove = (i: number) => {
+    if (readOnly) return;
+    onChange(items.filter((_, j) => j !== i));
+  };
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -47,12 +59,14 @@ function CheckSection({
           <div key={i} className="flex items-center gap-3">
             <button
               type="button"
+              disabled={readOnly}
               onClick={() => toggle(i)}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
                 item.completed
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background"
+                  : "border-border bg-background",
+                readOnly && "cursor-not-allowed opacity-80"
               )}
             >
               {item.completed && (
@@ -63,22 +77,24 @@ function CheckSection({
             </button>
             <input
               type="text"
+              disabled={readOnly}
               value={item.text}
               onChange={(e) => update(i, e.target.value)}
               placeholder="Add item..."
               className={cn(
                 "flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40",
-                !item.completed && "text-muted-foreground"
+                !item.completed && "text-muted-foreground",
+                readOnly && "cursor-not-allowed text-foreground/90"
               )}
             />
-            {allowAdd && (
+            {allowAdd && !readOnly && (
               <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
                 <X size={12} />
               </button>
             )}
           </div>
         ))}
-        {allowAdd && (
+        {allowAdd && !readOnly && (
           <button
             type="button"
             onClick={add}
@@ -94,17 +110,20 @@ function CheckSection({
 
 // ── Planned tasks section (with priority chips) ───────────────────────────────
 
-
 function PlannedTasksSection({
   tasks,
   onChange,
+  readOnly,
 }: {
   tasks: TaskItem[];
   onChange: (t: TaskItem[]) => void;
+  readOnly?: boolean;
 }) {
   const completed = tasks.filter((t) => t.completed).length;
-  const toggle = (i: number) =>
+  const toggle = (i: number) => {
+    if (readOnly) return;
     onChange(tasks.map((t, j) => (j === i ? { ...t, completed: !t.completed } : t)));
+  };
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -117,12 +136,14 @@ function PlannedTasksSection({
           <div key={i} className="flex items-center gap-3">
             <button
               type="button"
+              disabled={readOnly}
               onClick={() => toggle(i)}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
                 task.completed
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background"
+                  : "border-border bg-background",
+                readOnly && "cursor-not-allowed opacity-80"
               )}
             >
               {task.completed && (
@@ -166,27 +187,39 @@ function AdditionalWorkSection({
   items,
   taskLabels,
   onChange,
+  readOnly,
 }: {
   items: TextItem[];
   taskLabels: string[];
   onChange: (items: TextItem[]) => void;
+  readOnly?: boolean;
 }) {
-  const add = () => onChange([...items, { text: "" }]);
-  const update = (i: number, text: string) =>
+  const add = () => {
+    if (readOnly) return;
+    onChange([...items, { text: "" }]);
+  };
+  const update = (i: number, text: string) => {
+    if (readOnly) return;
     onChange(items.map((item, j) => (j === i ? { text } : item)));
-  const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
+  };
+  const remove = (i: number) => {
+    if (readOnly) return;
+    onChange(items.filter((_, j) => j !== i));
+  };
 
   return (
     <div className="rounded-xl border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Additional Work Done Today</h3>
-        <button
-          type="button"
-          onClick={add}
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-80"
-        >
-          <PlusCircle size={16} />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={add}
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-80"
+          >
+            <PlusCircle size={16} />
+          </button>
+        )}
       </div>
       <div className="flex flex-col gap-3">
         {items.map((item, i) => (
@@ -197,20 +230,26 @@ function AdditionalWorkSection({
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                disabled={readOnly}
                 value={item.text}
                 onChange={(e) => update(i, e.target.value)}
                 placeholder={`Additional Work for T${i + 1}...`}
-                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+                className={cn(
+                  "flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
+                  readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
+                )}
               />
-              <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-                <X size={13} />
-              </button>
+              {!readOnly && (
+                <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <X size={13} />
+                </button>
+              )}
             </div>
           </div>
         ))}
         {items.length === 0 && (
           <p className="text-sm text-muted-foreground/50 italic">
-            Click + to Add Any Extra Work Completed Outside the Planned Tasks.
+            {readOnly ? "No Additional Work Recorded." : "Click + to Add Any Extra Work Completed Outside the Planned Tasks."}
           </p>
         )}
       </div>
@@ -228,6 +267,7 @@ function DayReflection({
   resultOfDay,
   onResultOfDay,
   errors,
+  readOnly,
 }: {
   sentiment: string;
   onSentiment: (s: string) => void;
@@ -236,6 +276,7 @@ function DayReflection({
   resultOfDay: string;
   onResultOfDay: (s: string) => void;
   errors?: string[];
+  readOnly?: boolean;
 }) {
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -251,14 +292,16 @@ function DayReflection({
               <button
                 key={s}
                 type="button"
-                onClick={() => onSentiment(sentiment === s ? "" : s)}
+                disabled={readOnly}
+                onClick={() => !readOnly && onSentiment(sentiment === s ? "" : s)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
                   sentiment === s
                     ? s === "BREAKTHROUGH"
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-destructive/50 bg-destructive/5 text-destructive"
-                    : "border-border text-muted-foreground hover:bg-accent"
+                    : "border-border text-muted-foreground hover:bg-accent",
+                  readOnly && "cursor-not-allowed opacity-80"
                 )}
               >
                 {s === "BREAKTHROUGH" ? "⚡" : "↘"} {s === "BREAKTHROUGH" ? "Breakthrough" : "Breakdown"}
@@ -272,25 +315,33 @@ function DayReflection({
             Outcome of the Day
           </label>
           <textarea
+            disabled={readOnly}
             value={resultOfDay}
             onChange={(e) => onResultOfDay(e.target.value)}
             placeholder="What Was the Singular Most Important Outcome of Today?"
             rows={3}
-            className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+            className={cn(
+              "w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
+              readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
+            )}
           />
         </div>
 
         <div>
           <label className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             What Did You Learn?
-            <span className="text-destructive">*</span>
+            {!readOnly && <span className="text-destructive">*</span>}
           </label>
           <textarea
+            disabled={readOnly}
             value={reflection}
             onChange={(e) => onReflection(e.target.value)}
             placeholder="Documenting New Learnings..."
             rows={3}
-            className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
+            className={cn(
+              "w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
+              readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
+            )}
           />
           {errors?.[0] && <p className="mt-1 text-xs text-destructive">{errors[0]}</p>}
         </div>
@@ -409,12 +460,13 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         </div>
       )}
 
-      <PlannedTasksSection tasks={tasks} onChange={setTasks} />
+      <PlannedTasksSection tasks={tasks} onChange={setTasks} readOnly={readOnly} />
 
       <AdditionalWorkSection
         items={additionalWorks}
         taskLabels={tasks.map((t) => t.text)}
         onChange={setAdditionalWorks}
+        readOnly={readOnly}
       />
 
       <CheckSection
@@ -424,6 +476,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         onChange={setBlockers}
         allowAdd
         addLabel="Add Resolved Blocker"
+        readOnly={readOnly}
       />
 
       <CheckSection
@@ -433,6 +486,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         onChange={setFollowUps}
         allowAdd
         addLabel="Add Follow-Up"
+        readOnly={readOnly}
       />
 
       <DayReflection
@@ -443,6 +497,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         resultOfDay={resultOfDay}
         onResultOfDay={setResultOfDay}
         errors={state.errors?.reflection}
+        readOnly={readOnly}
       />
 
       {state.message === "saved" && (

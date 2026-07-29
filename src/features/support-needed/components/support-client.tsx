@@ -209,7 +209,14 @@ function DetailPanel({
               </div>
             </form>
           ) : (
-            <p className="text-sm leading-relaxed">{item.text}</p>
+            <div>
+              <p className="text-sm leading-relaxed">{item.text}</p>
+              {item.editedBy && (
+                <span className="text-[10px] text-muted-foreground/70 block mt-1 font-normal">
+                  (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -559,6 +566,11 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
                     >
                       <td className="max-w-xs px-5 py-3.5">
                         <p className="line-clamp-2 text-sm font-medium leading-snug">{item.text}</p>
+                        {item.editedBy && (
+                          <span className="text-[10px] text-muted-foreground/70 block mt-0.5 font-normal">
+                            (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge resolved={item.resolved} />

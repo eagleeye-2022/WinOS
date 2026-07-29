@@ -43,7 +43,19 @@ export async function editBlocker(
     return { message: "This entry has already been reviewed and cannot be changed." };
   }
 
-  const updateData: { text: string; priority?: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null; mentionedUserIds?: string | null; editedById: string } = { text, editedById: session.user.id };
+  const dbUser = await d.user.findFirst({
+    where: {
+      OR: [
+        { id: session.user.id },
+        ...(session.user.email ? [{ email: session.user.email }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  const updateData: { text: string; priority?: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null; mentionedUserIds?: string | null; editedById?: string | null } = {
+    text,
+    editedById: dbUser ? dbUser.id : null,
+  };
   if (priority && ["LOW", "MEDIUM", "HIGH"].includes(priority)) {
     updateData.priority = priority as "LOW" | "MEDIUM" | "HIGH";
   }
