@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         apiDomain: token.apiDomain,
         accountsDomain: token.accountsDomain,
         primaryCalendarUid: primaryCalendar?.uid ?? null,
+        zohoEmail: session.user.email ?? null,
       },
       update: {
         accessToken: token.accessToken,
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
         apiDomain: token.apiDomain,
         accountsDomain: token.accountsDomain,
         primaryCalendarUid: primaryCalendar?.uid ?? null,
+        zohoEmail: session.user.email ?? null,
       },
     });
 

@@ -22,7 +22,9 @@ export async function updateCalendarEvent(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const eventId = getStr(formData, "eventId");
-  if (!eventId) return { message: "Missing eventId" };
+  const etagStr = getStr(formData, "etag");
+  if (!eventId || !etagStr) return { message: "Missing eventId or etag" };
+  const etag = Number(etagStr);
 
   const title = getStr(formData, "title");
   const description = getStr(formData, "description");
@@ -55,16 +57,23 @@ export async function updateCalendarEvent(
     select: { id: true, email: true },
   });
 
-  await updateZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, {
-    title,
-    description,
-    start,
-    end,
-    isAllDay,
-    timezone: CALENDAR_TIMEZONE,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    participantEmails: invitees.map((u: any) => u.email),
-  });
+  await updateZohoEvent(
+    token.accessToken,
+    token.apiDomain,
+    token.calendarUid,
+    eventId,
+    {
+      title,
+      description,
+      start,
+      end,
+      isAllDay,
+      timezone: CALENDAR_TIMEZONE,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      attendeeEmails: invitees.map((u: any) => u.email),
+    },
+    etag,
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const newlyInvited = invitees.filter((u: any) => !previousParticipantIds.has(u.id));

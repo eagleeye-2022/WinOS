@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { DsrForm } from "./dsr-form";
 import { InsightsPanel } from "./insights-panel";
 import { DsrHistory } from "./dsr-history";
+import { DsrHistoryCard } from "./dsr-history-card";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import type { SharedNoteData } from "@/features/dsm/queries";
 import { formatDayHeader, formatFullDate, formatShortDate, toUtcDate } from "@/features/dsm/utils";
@@ -45,8 +46,9 @@ export function DsrPageClient({
 
   const isReviewed = entry?.status === "REVIEWED";
   const canSubmit = !entry || entry.status === "DRAFT";
-  const canEditExisting = (entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW") && !isReviewed;
-  const editable = (canSubmit || isEditing) && dsmReviewed && !isReviewed;
+  const isSubmittedNotReviewed = (entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW") && !isReviewed;
+  const canEditExisting = isSubmittedNotReviewed;
+  const editable = (canSubmit || isSubmittedNotReviewed || isEditing) && dsmReviewed && !isReviewed;
   const showForm = editable || justSubmitted || isReviewed;
   const now = toUtcDate();
   const cp = insights.completionPercent;
@@ -144,7 +146,9 @@ export function DsrPageClient({
           </div>
         )}
 
-        {showForm ? (
+        {isReviewed && entry ? (
+          <DsrHistoryCard entry={entry} defaultOpen={true} />
+        ) : showForm ? (
           <DsrForm
             entry={entry}
             prefill={prefill}
@@ -173,7 +177,7 @@ export function DsrPageClient({
       </div>
 
       {/* ── Right Panel (Summary & Workspace Notes Tabs) ─────────────── */}
-      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96 flex flex-col bg-card">
+      <aside className="w-80 shrink-0 border-l xl:w-96 flex flex-col bg-card h-full sticky top-0 overflow-hidden">
         {/* Tab Selector Header */}
         <div className="flex border-b bg-muted/40 p-1.5 shrink-0">
           <button
@@ -213,8 +217,6 @@ export function DsrPageClient({
             <InsightsPanel
               insights={insights}
               entry={entry ?? (weeklyEntries[0] ?? null)}
-              showSubmitButton={editable}
-              onSubmit={editable ? handlePanelSubmit : undefined}
             />
           ) : (
             <WorkspaceNotesPanel
@@ -223,6 +225,19 @@ export function DsrPageClient({
             />
           )}
         </div>
+
+        {/* Fixed Submit DSR button footer (visible for all tabs) */}
+        {editable && (
+          <div className="shrink-0 border-t bg-card p-4 shadow-lg">
+            <button
+              type="button"
+              onClick={handlePanelSubmit}
+              className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 shadow-md"
+            >
+              {isSubmittedNotReviewed || isEditing ? "Save Changes" : "Submit DSR"}
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   );

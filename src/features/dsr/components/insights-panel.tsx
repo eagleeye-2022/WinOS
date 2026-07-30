@@ -116,101 +116,93 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto p-5">
-      <h2 className="text-lg font-bold">Insights Panel</h2>
+    <div className="flex h-full flex-col min-h-0">
+      {/* Scrollable Insights Content */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <h2 className="text-lg font-bold">Insights Panel</h2>
 
-      {/* Day Summary */}
-      <div className="rounded-xl border bg-card p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <Zap size={14} className="text-primary" />
-          <span className="text-sm font-semibold">Day Summary</span>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">{daySummary}</p>
-        <div className="mt-3 h-0.5 rounded-full bg-primary" />
-      </div>
-
-      {/* Weekly trend */}
-      <WeeklyTrendChart trend={weeklyTrend} streak={streak} />
-
-      {/* Productivity Insights */}
-      <div className="rounded-xl border bg-card p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <Zap size={14} className="text-primary" />
-          <span className="text-sm font-semibold">Productivity Insights</span>
-        </div>
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm text-primary">
-              <Star size={13} className="fill-primary" />
-              Breakthrough Days
-            </div>
-            <span className="text-sm font-bold text-primary">{breakthroughDays}</span>
+        {/* Day Summary */}
+        <div className="rounded-xl border bg-card p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <Zap size={14} className="text-primary" />
+            <span className="text-sm font-semibold">Day Summary</span>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <TrendingDown size={13} />
-              Breakdown Days
-            </div>
-            <span className="text-sm font-bold text-muted-foreground">{breakdownDays}</span>
-          </div>
-          {insightQuote && (
-            <blockquote className="mt-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-xs italic text-muted-foreground leading-relaxed">
-              &ldquo;{insightQuote}&rdquo;
-            </blockquote>
-          )}
+          <p className="text-sm text-muted-foreground leading-relaxed">{daySummary}</p>
+          <div className="mt-3 h-0.5 rounded-full bg-primary" />
         </div>
-      </div>
 
-      {/* Report Timeline — visible after submit */}
-      {hasTimeline && entry && (
-        <ReportTimeline events={entry.timelineEvents} />
-      )}
+        {/* Weekly trend */}
+        <WeeklyTrendChart trend={weeklyTrend} streak={streak} />
 
-      {/* Manager Comments — visible after review */}
-      {(isReviewed || hasManagerComment) && (
+        {/* Productivity Insights */}
         <div className="rounded-xl border bg-card p-4">
           <div className="mb-3 flex items-center gap-2">
-            <CheckCheck size={14} className="text-emerald-600" />
-            <span className="text-sm font-semibold">Manager Comments</span>
+            <Zap size={14} className="text-primary" />
+            <span className="text-sm font-semibold">Productivity Insights</span>
           </div>
-          <div className="min-h-16 rounded-md border bg-background px-3 py-2.5 text-sm text-muted-foreground">
-            {entry?.managerComment || (
-              <span className="italic text-muted-foreground/50">No Comments Yet.</span>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-sm text-primary">
+                <Star size={13} className="fill-primary" />
+                Breakthrough Days
+              </div>
+              <span className="text-sm font-bold text-primary">{breakthroughDays}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <TrendingDown size={13} />
+                Breakdown Days
+              </div>
+              <span className="text-sm font-bold text-muted-foreground">{breakdownDays}</span>
+            </div>
+            {insightQuote && (
+              <blockquote className="mt-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-xs italic text-muted-foreground leading-relaxed">
+                &ldquo;{insightQuote}&rdquo;
+              </blockquote>
             )}
           </div>
         </div>
-      )}
 
-      {/* Submit DSR button */}
-      {showSubmitButton && (
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="mt-auto w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          {isEditMode ? "Save Changes" : "Submit DSR"}
-        </button>
-      )}
+        {/* Report Timeline — visible after submit */}
+        {hasTimeline && entry && (
+          <ReportTimeline events={entry.timelineEvents} />
+        )}
 
-      {/* Completion stats strip (for history view) */}
-      {!showSubmitButton && completionPercent > 0 && (
-        <div className="flex items-center justify-between rounded-xl border bg-card p-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-primary">{completionPercent}%</p>
-            <p className="text-xs text-muted-foreground">COMPLETION</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{completedTaskCount}/{plannedTaskCount}</p>
-            <p className="text-xs text-muted-foreground">TASKS</p>
-          </div>
-          {streak > 0 && (
-            <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{streak}</p>
-              <p className="text-xs text-muted-foreground">STREAK</p>
+        {/* Manager Comments — visible after review */}
+        {(isReviewed || hasManagerComment) && (
+          <div className="rounded-xl border bg-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <CheckCheck size={14} className="text-emerald-600" />
+              <span className="text-sm font-semibold">Manager Comments</span>
             </div>
-          )}
-        </div>
-      )}
+            <div className="min-h-16 rounded-md border bg-background px-3 py-2.5 text-sm text-muted-foreground">
+              {entry?.managerComment || (
+                <span className="italic text-muted-foreground/50">No Comments Yet.</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Completion stats strip (for history view) */}
+        {completionPercent > 0 && (
+          <div className="flex items-center justify-between rounded-xl border bg-card p-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-primary">{completionPercent}%</p>
+              <p className="text-xs text-muted-foreground">COMPLETION</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{completedTaskCount}/{plannedTaskCount}</p>
+              <p className="text-xs text-muted-foreground">TASKS</p>
+            </div>
+            {streak > 0 && (
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">{streak}</p>
+                <p className="text-xs text-muted-foreground">STREAK</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

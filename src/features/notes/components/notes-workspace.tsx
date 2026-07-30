@@ -734,86 +734,86 @@ export function NotesWorkspace({
 
   return (
     <div className="flex h-[calc(100vh-4.5rem)] w-full overflow-hidden bg-background">
-        {/* ── Sub-sidebar for note boards & history ── */}
-        {isSidebarOpen && (
-          <aside className="w-60 bg-card flex flex-col shrink-0 select-none text-foreground my-4 ml-4 rounded-2xl border shadow-xs overflow-hidden transition-all duration-300">
-            {/* Sidebar Navigation Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Notes Navigation
-              </span>
+      {/* ── Sub-sidebar for note boards & history ── */}
+      {isSidebarOpen && (
+        <aside className="w-60 bg-card flex flex-col shrink-0 select-none text-foreground my-4 ml-4 rounded-2xl border shadow-xs overflow-hidden transition-all duration-300">
+          {/* Sidebar Navigation Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Notes Navigation
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Close Navigation"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
+
+          {/* Quick Links Navigation */}
+          <div className="flex flex-col gap-1 p-3 border-b">
+            <Link
+              href="/notes"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary transition-colors"
+            >
+              <FileText size={14} className="text-primary" />
+              <span>My Notes</span>
+            </Link>
+            <Link
+              href="/notes/shared-with-me"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Share2 size={14} />
+              <span>Shared With Me</span>
+            </Link>
+            <Link
+              href="/notes/shared-by-me"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Users size={14} />
+              <span>Shared By Me</span>
+            </Link>
+          </div>
+
+          {/* Boards Section */}
+          <div className="flex flex-col gap-2 p-4 border-b">
+            <div className="flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setIsSidebarOpen(false)}
-                className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                title="Close Navigation"
+                onClick={() => setIsBoardSectionOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
-                <PanelLeftClose size={16} />
+                {isBoardSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span>Note Board</span>
               </button>
-            </div>
-
-            {/* Quick Links Navigation */}
-            <div className="flex flex-col gap-1 p-3 border-b">
-              <Link
-                href="/notes"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary/10 text-primary transition-colors"
-              >
-                <FileText size={14} className="text-primary" />
-                <span>My Notes</span>
-              </Link>
-              <Link
-                href="/notes/shared-with-me"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              >
-                <Share2 size={14} />
-                <span>Shared With Me</span>
-              </Link>
-              <Link
-                href="/notes/shared-by-me"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              >
-                <Users size={14} />
-                <span>Shared By Me</span>
-              </Link>
-            </div>
-
-            {/* Boards Section */}
-            <div className="flex flex-col gap-2 p-4 border-b">
-              <div className="flex items-center justify-between">
+              {(isManager || !pageOwnerId || pageOwnerId === userId) && (
                 <button
                   type="button"
-                  onClick={() => setIsBoardSectionOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  onClick={() => setShowAddBoard((prev) => !prev)}
+                  className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Add Board"
                 >
-                  {isBoardSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span>Note Board</span>
+                  <Plus size={16} />
                 </button>
-                {(isManager || !pageOwnerId || pageOwnerId === userId) && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddBoard((prev) => !prev)}
-                    className="rounded p-1 hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
-                    title="Add Board"
-                  >
-                    <Plus size={16} />
-                  </button>
-                )}
-              </div>
+              )}
+            </div>
 
-              {isBoardSectionOpen && (
-                <>
-                  {showAddBoard && (
-                    <form onSubmit={handleCreateBoard} className="flex flex-col gap-2 mt-2">
-                      <input
-                        type="text"
-                        value={newBoardName}
-                        onChange={(e) => setNewBoardName(e.target.value)}
-                        placeholder="Board Name..."
-                        className="w-full rounded border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
-                        maxLength={60}
-                        required
-                      />
-                      <label className="flex items-center gap-1.5 px-0.5 text-xs text-muted-foreground cursor-pointer">
+            {isBoardSectionOpen && (
+              <>
+                {showAddBoard && (
+                  <form onSubmit={handleCreateBoard} className="flex flex-col gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={newBoardName}
+                      onChange={(e) => setNewBoardName(e.target.value)}
+                      placeholder="Board Name..."
+                      className="w-full rounded border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
+                      maxLength={60}
+                      required
+                    />
+                    {/* <label className="flex items-center gap-1.5 px-0.5 text-xs text-muted-foreground cursor-pointer">
                         <input
                           type="checkbox"
                           checked={newBoardIsDsm}
@@ -821,101 +821,101 @@ export function NotesWorkspace({
                           className="cursor-pointer"
                         />
                         Mark as DSM board (notes shared from here show in /dsm Workspace Notes)
-                      </label>
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAddBoard(false);
-                            setNewBoardIsDsm(false);
-                          }}
-                          className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={isPending}
-                          className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
-                        >
-                          Create
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                      </label> */}
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddBoard(false);
+                          setNewBoardIsDsm(false);
+                        }}
+                        className="rounded px-2.5 py-1 text-xs border hover:bg-accent font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isPending}
+                        className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
+                      >
+                        Create
+                      </button>
+                    </div>
+                  </form>
+                )}
 
-                  <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-60">
-                    {boards.length === 0 ? (
-                      <p className="text-sm text-muted-foreground/60 italic p-2">No Boards Created.</p>
-                    ) : (
-                      boards.map((b) => (
-                        <div
-                          key={b.id}
-                          onClick={() => {
-                            setActiveBoardId(b.id);
-                            localStorage.setItem("winos_active_board_id", b.id);
-                            if (typeof window !== "undefined") {
-                              window.history.pushState(null, "", `/notes?boardId=${b.id}`);
-                            }
-                          }}
-                          className={cn(
-                            "group flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors text-left w-full cursor-pointer",
-                            activeBoardId === b.id
-                              ? "bg-primary/10 text-primary font-bold shadow-2xs"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                <div className="flex flex-col gap-0.5 mt-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-60">
+                  {boards.length === 0 ? (
+                    <p className="text-sm text-muted-foreground/60 italic p-2">No Boards Created.</p>
+                  ) : (
+                    boards.map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setActiveBoardId(b.id);
+                          localStorage.setItem("winos_active_board_id", b.id);
+                          if (typeof window !== "undefined") {
+                            window.history.pushState(null, "", `/notes?boardId=${b.id}`);
+                          }
+                        }}
+                        className={cn(
+                          "group flex items-center justify-between rounded-md px-3 py-2 text-sm font-semibold transition-colors text-left w-full cursor-pointer",
+                          activeBoardId === b.id
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 truncate pr-1">
+                          <span className="truncate">{b.name}</span>
+                          {b.type === "DSM" && (
+                            <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                              DSM
+                            </span>
                           )}
-                        >
-                          <span className="flex items-center gap-1.5 truncate pr-1">
-                            <span className="truncate">{b.name}</span>
-                            {b.type === "DSM" && (
-                              <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                                DSM
-                              </span>
-                            )}
-                          </span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            {(b.ownerId === userId || isManager) && (
-                              <>
-                                <button
-                                  type="button"
-                                  title="Share Board"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSharingItem({
-                                      type: "board",
-                                      id: b.id,
-                                      existingShares: [],
-                                    });
-                                  }}
-                                  className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-primary transition-colors"
-                                >
-                                  <Share2 size={12} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="Delete Board"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteBoard(b.id);
-                                  }}
-                                  className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-destructive transition-colors"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </>
-                            )}
-                            {activeBoardId === b.id && <ChevronRight size={14} className="ml-0.5 text-primary" />}
-                          </div>
+                        </span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          {(b.ownerId === userId || isManager) && (
+                            <>
+                              <button
+                                type="button"
+                                title="Share Board"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSharingItem({
+                                    type: "board",
+                                    id: b.id,
+                                    existingShares: [],
+                                  });
+                                }}
+                                className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Share2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete Board"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteBoard(b.id);
+                                }}
+                                className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-destructive transition-colors"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                          {activeBoardId === b.id && <ChevronRight size={14} className="ml-0.5 text-primary" />}
                         </div>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
-            {/* Shared With Me Section */}
-            {/* <div id="shared-with-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+          {/* Shared With Me Section */}
+          {/* <div id="shared-with-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Share2 size={13} className="text-primary" />
@@ -970,8 +970,8 @@ export function NotesWorkspace({
           </div>
         </div> */}
 
-            {/* Shared By Me Section */}
-            {/* <div id="shared-by-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
+          {/* Shared By Me Section */}
+          {/* <div id="shared-by-me-section" className="flex flex-col gap-2 p-4 border-b overflow-hidden max-h-52 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Users size={13} className="text-emerald-500" />
@@ -1036,8 +1036,8 @@ export function NotesWorkspace({
           </div>
         </div> */}
 
-            {/* History Section */}
-            {/* <div className="flex-1 flex flex-col p-4 overflow-hidden">
+          {/* History Section */}
+          {/* <div className="flex-1 flex flex-col p-4 overflow-hidden">
             <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3 block">
               Note History
             </span>
@@ -1104,430 +1104,430 @@ export function NotesWorkspace({
               )}
             </div>
           </div> */}
-          </aside>
-        )}
+        </aside>
+      )}
 
-        {/* ── Main Board Workspace ── */}
-        <main
-          className="flex-1 flex flex-col overflow-hidden m-4 rounded-2xl border shadow-md relative"
-          style={{
-            backgroundImage: "url('https://thephotoargus.com/wp-content/uploads/2019/09/SunsetHtin.jpg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          {/* Header */}
-          <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0 bg-black/35 backdrop-blur-sm text-white rounded-t-2xl">
-            <div className="flex items-center gap-3">
-              {!isSidebarOpen && (
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
-                  title="Open Navigation"
-                >
-                  <PanelLeftOpen size={15} />
-                  {/* <span>Open Navigation</span> */}
-                </button>
-              )}
-              <h1 className="text-base font-bold text-white">
-                {activeBoard ? activeBoard.name : "iNotes"}
-              </h1>
+      {/* ── Main Board Workspace ── */}
+      <main
+        className="flex-1 flex flex-col overflow-hidden m-4 rounded-2xl border shadow-md relative"
+        style={{
+          backgroundImage: "url('https://thephotoargus.com/wp-content/uploads/2019/09/SunsetHtin.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Header */}
+        <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0 bg-black/35 backdrop-blur-sm text-white rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            {!isSidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+                title="Open Navigation"
+              >
+                <PanelLeftOpen size={15} />
+                {/* <span>Open Navigation</span> */}
+              </button>
+            )}
+            <h1 className="text-base font-bold text-white">
+              {activeBoard ? activeBoard.name : "iNotes"}
+            </h1>
+          </div>
+          {activeBoardId && activeBoard && (activeBoard.ownerId === userId || isManager) && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                title="Edit Board"
+                onClick={() => setEditingBoard({ id: activeBoard.id, name: activeBoard.name })}
+                className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+              >
+                <Pencil size={13} />
+                Edit Board
+              </button>
+              <button
+                type="button"
+                title="Share Board"
+                onClick={() =>
+                  setSharingItem({
+                    type: "board",
+                    id: activeBoard.id,
+                    existingShares: [],
+                  })
+                }
+                className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
+              >
+                <Share2 size={13} />
+                Share Board
+              </button>
+              <button
+                type="button"
+                title="Delete Board"
+                onClick={() => handleDeleteBoard(activeBoard.id)}
+                className="flex items-center gap-1.5 rounded-md bg-red-500/20 text-red-100 border border-red-400/30 px-3 py-1.5 text-xs font-semibold shadow hover:bg-red-500/30 transition-colors cursor-pointer"
+              >
+                <Trash2 size={13} />
+                Delete Board
+              </button>
+              <button
+                onClick={() => setShowNewThread(true)}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                <Plus size={14} />
+                New List
+              </button>
             </div>
-            {activeBoardId && activeBoard && (activeBoard.ownerId === userId || isManager) && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  title="Edit Board"
-                  onClick={() => setEditingBoard({ id: activeBoard.id, name: activeBoard.name })}
-                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
-                >
-                  <Pencil size={13} />
-                  Edit Board
-                </button>
-                <button
-                  type="button"
-                  title="Share Board"
-                  onClick={() =>
-                    setSharingItem({
-                      type: "board",
-                      id: activeBoard.id,
-                      existingShares: [],
-                    })
-                  }
-                  className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
-                >
-                  <Share2 size={13} />
-                  Share Board
-                </button>
-                <button
-                  type="button"
-                  title="Delete Board"
-                  onClick={() => handleDeleteBoard(activeBoard.id)}
-                  className="flex items-center gap-1.5 rounded-md bg-red-500/20 text-red-100 border border-red-400/30 px-3 py-1.5 text-xs font-semibold shadow hover:bg-red-500/30 transition-colors cursor-pointer"
-                >
-                  <Trash2 size={13} />
-                  Delete Board
-                </button>
-                <button
-                  onClick={() => setShowNewThread(true)}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  <Plus size={14} />
-                  New List
-                </button>
-              </div>
+          )}
+        </div>
+
+        {/* Content columns */}
+        {loadingThreads ? (
+          <div className="flex-1 flex items-center text-white justify-center text-sm text-muted-foreground">
+            Loading Workspace Lists...
+          </div>
+        ) : threads.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-transparent backdrop-blur-xl">
+            <h2 className="text-sm font-semibold text-foreground text-white">
+              Your Board is a Fresh Start
+            </h2>
+            {activeBoardId && (
+              <button
+                onClick={() => setShowNewThread(true)}
+                className="mt-4 flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground shadow hover:opacity-95"
+              >
+                <Plus size={14} />
+                New List
+              </button>
             )}
           </div>
-
-          {/* Content columns */}
-          {loadingThreads ? (
-            <div className="flex-1 flex items-center text-white justify-center text-sm text-muted-foreground">
-              Loading Workspace Lists...
-            </div>
-          ) : threads.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-transparent backdrop-blur-xl">
-              <h2 className="text-sm font-semibold text-foreground text-white">
-                Your Board is a Fresh Start
-              </h2>
-              {activeBoardId && (
-                <button
-                  onClick={() => setShowNewThread(true)}
-                  className="mt-4 flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground shadow hover:opacity-95"
-                >
-                  <Plus size={14} />
-                  New List
-                </button>
-              )}
-            </div>
-          ) : (
-            <div
-              ref={boardRef}
-              onMouseDown={handleMouseDown}
-              onMouseLeave={handleMouseLeave}
-              onMouseUp={handleMouseUp}
-              onMouseMove={handleMouseMove}
-              className="flex-1 flex items-start gap-5 overflow-x-auto p-6 cursor-grab active:cursor-grabbing select-none [scrollbar-width:thin]"
-            >
-              {threads.map((thread) => (
-                <div
-                  key={thread.id}
-                  draggable
-                  onDragStart={(e) => handleDragThreadStart(e, thread.id)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDrop(e, thread.id)}
-                  className="w-80 shrink-0 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md shadow-lg flex flex-col max-h-full"
-                >
-                  {/* Thread Header */}
-                  <div className="flex items-center justify-between p-3.5 border-b border-white/10 shrink-0">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-bold text-white">
-                        {toTitleCase(thread.title)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {(thread.authorId === userId || isManager) && (
-                        <>
-                          <button
-                            type="button"
-                            title="Edit List"
-                            onClick={() => setEditingThread({ id: thread.id, title: thread.title })}
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            title="Share List"
-                            onClick={() =>
-                              setSharingItem({
-                                type: "thread",
-                                id: thread.id,
-                                existingShares: thread.shares.map((s) => s.userId),
-                              })
-                            }
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                          >
-                            <Share2 size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete List"
-                            onClick={() => handleDeleteThread(thread.id)}
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-red-300 transition-colors cursor-pointer"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            title="Add Note"
-                            onClick={() => setActiveThreadForNote(thread.id)}
-                            className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                          >
-                            <Plus size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
+        ) : (
+          <div
+            ref={boardRef}
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className="flex-1 flex items-start gap-5 overflow-x-auto p-6 cursor-grab active:cursor-grabbing select-none [scrollbar-width:thin]"
+          >
+            {threads.map((thread) => (
+              <div
+                key={thread.id}
+                draggable
+                onDragStart={(e) => handleDragThreadStart(e, thread.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDrop(e, thread.id)}
+                className="w-80 shrink-0 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md shadow-lg flex flex-col max-h-full"
+              >
+                {/* Thread Header */}
+                <div className="flex items-center justify-between p-3.5 border-b border-white/10 shrink-0">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-bold text-white">
+                      {toTitleCase(thread.title)}
+                    </span>
                   </div>
-
-                  {/* Notes Container */}
-                  <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-3.5 min-h-[100px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {thread.notes.length === 0 ? (
-                      <div className="text-center py-6 text-xs text-white/90 font-medium border border-dashed border-white/20 rounded-lg">
-                        No Cards. Click + To Add.
-                      </div>
-                    ) : (
-                      thread.notes.map((note) => (
-                        <div
-                          key={note.id}
-                          draggable
-                          onDragStart={(e) => handleDragCardStart(e, note.id, thread.id)}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onDrop={(e) => handleDrop(e, thread.id)}
+                  <div className="flex items-center gap-1">
+                    {(thread.authorId === userId || isManager) && (
+                      <>
+                        <button
+                          type="button"
+                          title="Edit List"
+                          onClick={() => setEditingThread({ id: thread.id, title: thread.title })}
+                          className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Share List"
                           onClick={() =>
-                            setEditingNote({
-                              ...note,
-                              checklistItems: note.checklistItems || [],
-                              shares: note.shares || [],
+                            setSharingItem({
+                              type: "thread",
+                              id: thread.id,
+                              existingShares: thread.shares.map((s) => s.userId),
                             })
                           }
-                          className="rounded-xl border border-white/20 dark:border-white/10 p-3.5 shadow-xs relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 group border-l-4 min-h-[100px] max-h-[220px] shrink-0 overflow-hidden"
-                          style={{
-                            backgroundColor: note.color ? `${note.color}e6` : "rgba(255, 255, 255, 0.88)",
-                            borderLeftColor: note.color ? "rgba(0,0,0,0.2)" : "#3b82f6",
-                          }}
+                          className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
                         >
-                          {/* Note Card Top Header (Title + Actions Pill) */}
-                          <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
-                            <h4 className="text-sm font-bold text-foreground line-clamp-2 leading-snug tracking-tight pr-1">
-                              {note.title ? toTitleCase(note.title) : "Untitled Note"}
-                            </h4>
-                            {note.authorId === userId && (
-                              <div className="flex items-center gap-1.5 bg-white/90 dark:bg-card/90 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-border/40 shrink-0">
-                                <button
-                                  type="button"
-                                  title="Share Note"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSharingItem({
-                                      type: "note",
-                                      id: note.id,
-                                      existingShares: note.shares.map((s) => s.userId),
-                                    });
-                                  }}
-                                  className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                                >
-                                  <Share2 size={13} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="Delete Note"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteNote(note.id);
-                                  }}
-                                  className="rounded p-0.5 hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Note Content (Text preview) */}
-                          <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
-                            {note.content && (
-                              <div
-                                className="html-content text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none"
-                                dangerouslySetInnerHTML={{ __html: note.content }}
-                              />
-                            )}
-
-                            {/* Checklist items list matching exact screenshot design */}
-                            {note.checklistItems.length > 0 && (
-                              <div className="flex flex-col gap-1.5 mt-1 border-t border-foreground/10 pt-2 overflow-hidden">
-                                {note.checklistItems.slice(0, 3).map((item) => (
-                                  <div
-                                    key={item.id}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (note.authorId === userId) {
-                                        handleToggleChecklistItem(item.id);
-                                      }
-                                    }}
-                                    className={cn(
-                                      "flex items-center gap-2 rounded px-1 py-0.5",
-                                      note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
-                                    )}
-                                  >
-                                    <button type="button" className="shrink-0">
-                                      {item.checked ? (
-                                        <CheckSquare size={14} className="text-primary" />
-                                      ) : (
-                                        <Square size={14} className="text-muted-foreground/60" />
-                                      )}
-                                    </button>
-                                    <span
-                                      className={cn(
-                                        "text-xs text-foreground leading-tight select-none truncate font-medium",
-                                        item.checked && "text-muted-foreground line-through font-normal"
-                                      )}
-                                    >
-                                      {toTitleCase(item.text)}
-                                    </span>
-                                  </div>
-                                ))}
-                                {note.checklistItems.length > 3 && (
-                                  <span className="text-xs text-muted-foreground/60 font-medium pl-1 pt-0.5">
-                                    +{note.checklistItems.length - 3} more items
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Deadline Indicator */}
-                          {note.deadline && (
-                            <div className="flex items-center gap-1 text-xs text-amber-700/80 mt-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full w-fit shrink-0">
-                              <Calendar size={11} />
-                              <span>Due {new Date(note.deadline).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))
+                          <Share2 size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete List"
+                          onClick={() => handleDeleteThread(thread.id)}
+                          className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-red-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Add Note"
+                          onClick={() => setActiveThreadForNote(thread.id)}
+                          className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </main>
 
-        {/* ── Modals / Overlays ── */}
-
-        {/* 1. Share Dialog Overlay */}
-        {sharingItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-            <div className="w-80 rounded-xl bg-card border p-5 shadow-lg flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100">
-              <div className="flex items-center justify-between border-b pb-2">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Users size={14} />
-                  Share {sharingItem.type === "board" ? "Board" : sharingItem.type === "thread" ? "List" : "Note"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSharingItem(null);
-                    setShareSelection([]);
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Select Members
-                </label>
-                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto border rounded p-2">
-                  {allUsers
-                    .filter((u) => u.id !== userId)
-                    .map((u) => {
-                      const isChecked = shareSelection.includes(u.id);
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => {
-                            if (isChecked) {
-                              setShareSelection(shareSelection.filter((id) => id !== u.id));
-                            } else {
-                              setShareSelection([...shareSelection, u.id]);
-                            }
-                          }}
-                          className="flex items-center justify-between text-left py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
-                        >
-                          <div className="flex flex-col">
-                            <span>{u.name || formatFallbackName(u.email)}</span>
-                            <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
-                              {u.title || u.role}
-                            </span>
-                          </div>
-                          {isChecked ? (
-                            <CheckSquare size={13} className="text-primary" />
-                          ) : (
-                            <Square size={13} className="text-muted-foreground/40" />
+                {/* Notes Container */}
+                <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-3.5 min-h-[100px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {thread.notes.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-white/90 font-medium border border-dashed border-white/20 rounded-lg">
+                      No Cards. Click + To Add.
+                    </div>
+                  ) : (
+                    thread.notes.map((note) => (
+                      <div
+                        key={note.id}
+                        draggable
+                        onDragStart={(e) => handleDragCardStart(e, note.id, thread.id)}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => handleDrop(e, thread.id)}
+                        onClick={() =>
+                          setEditingNote({
+                            ...note,
+                            checklistItems: note.checklistItems || [],
+                            shares: note.shares || [],
+                          })
+                        }
+                        className="rounded-xl border border-white/20 dark:border-white/10 p-3.5 shadow-xs relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 group border-l-4 min-h-[100px] max-h-[220px] shrink-0 overflow-hidden"
+                        style={{
+                          backgroundColor: note.color ? `${note.color}e6` : "rgba(255, 255, 255, 0.88)",
+                          borderLeftColor: note.color ? "rgba(0,0,0,0.2)" : "#3b82f6",
+                        }}
+                      >
+                        {/* Note Card Top Header (Title + Actions Pill) */}
+                        <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
+                          <h4 className="text-sm font-bold text-foreground line-clamp-2 leading-snug tracking-tight pr-1">
+                            {note.title ? toTitleCase(note.title) : "Untitled Note"}
+                          </h4>
+                          {note.authorId === userId && (
+                            <div className="flex items-center gap-1.5 bg-white/90 dark:bg-card/90 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-border/40 shrink-0">
+                              <button
+                                type="button"
+                                title="Share Note"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSharingItem({
+                                    type: "note",
+                                    id: note.id,
+                                    existingShares: note.shares.map((s) => s.userId),
+                                  });
+                                }}
+                                className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                              >
+                                <Share2 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete Note"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteNote(note.id);
+                                }}
+                                className="rounded p-0.5 hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           )}
-                        </button>
-                      );
-                    })}
+                        </div>
+
+                        {/* Note Content (Text preview) */}
+                        <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
+                          {note.content && (
+                            <div
+                              className="html-content text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none"
+                              dangerouslySetInnerHTML={{ __html: note.content }}
+                            />
+                          )}
+
+                          {/* Checklist items list matching exact screenshot design */}
+                          {note.checklistItems.length > 0 && (
+                            <div className="flex flex-col gap-1.5 mt-1 border-t border-foreground/10 pt-2 overflow-hidden">
+                              {note.checklistItems.slice(0, 3).map((item) => (
+                                <div
+                                  key={item.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (note.authorId === userId) {
+                                      handleToggleChecklistItem(item.id);
+                                    }
+                                  }}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded px-1 py-0.5",
+                                    note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
+                                  )}
+                                >
+                                  <button type="button" className="shrink-0">
+                                    {item.checked ? (
+                                      <CheckSquare size={14} className="text-primary" />
+                                    ) : (
+                                      <Square size={14} className="text-muted-foreground/60" />
+                                    )}
+                                  </button>
+                                  <span
+                                    className={cn(
+                                      "text-xs text-foreground leading-tight select-none truncate font-medium",
+                                      item.checked && "text-muted-foreground line-through font-normal"
+                                    )}
+                                  >
+                                    {toTitleCase(item.text)}
+                                  </span>
+                                </div>
+                              ))}
+                              {note.checklistItems.length > 3 && (
+                                <span className="text-xs text-muted-foreground/60 font-medium pl-1 pt-0.5">
+                                  +{note.checklistItems.length - 3} more items
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Deadline Indicator */}
+                        {note.deadline && (
+                          <div className="flex items-center gap-1 text-xs text-amber-700/80 mt-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full w-fit shrink-0">
+                            <Calendar size={11} />
+                            <span>Due {new Date(note.deadline).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-
-              <div className="flex justify-end gap-2 border-t pt-3 mt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSharingItem(null);
-                    setShareSelection([]);
-                  }}
-                  className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleShareSubmit}
-                  disabled={isPending}
-                  className="rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                >
-                  Share
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
         )}
+      </main>
 
-        {/* 2. New Thread Overlay */}
-        {showNewThread && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-            <form
-              onSubmit={handleCreateThread}
-              className="w-full max-w-xl rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                <span className="text-sm font-bold text-foreground">New List</span>
-                <button
-                  type="button"
-                  onClick={() => setShowNewThread(false)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={16} />
-                </button>
+      {/* ── Modals / Overlays ── */}
+
+      {/* 1. Share Dialog Overlay */}
+      {sharingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <div className="w-80 rounded-xl bg-card border p-5 shadow-lg flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Users size={14} />
+                Share {sharingItem.type === "board" ? "Board" : sharingItem.type === "thread" ? "List" : "Note"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSharingItem(null);
+                  setShareSelection([]);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Select Members
+              </label>
+              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto border rounded p-2">
+                {allUsers
+                  .filter((u) => u.id !== userId)
+                  .map((u) => {
+                    const isChecked = shareSelection.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => {
+                          if (isChecked) {
+                            setShareSelection(shareSelection.filter((id) => id !== u.id));
+                          } else {
+                            setShareSelection([...shareSelection, u.id]);
+                          }
+                        }}
+                        className="flex items-center justify-between text-left py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
+                      >
+                        <div className="flex flex-col">
+                          <span>{u.name || formatFallbackName(u.email)}</span>
+                          <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
+                            {u.title || u.role}
+                          </span>
+                        </div>
+                        {isChecked ? (
+                          <CheckSquare size={13} className="text-primary" />
+                        ) : (
+                          <Square size={13} className="text-muted-foreground/40" />
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t pt-3 mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSharingItem(null);
+                  setShareSelection([]);
+                }}
+                className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleShareSubmit}
+                disabled={isPending}
+                className="rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+              >
+                Share
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. New Thread Overlay */}
+      {showNewThread && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+          <form
+            onSubmit={handleCreateThread}
+            className="w-full max-w-xl rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
+              <span className="text-sm font-bold text-foreground">New List</span>
+              <button
+                type="button"
+                onClick={() => setShowNewThread(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[75vh] pr-1">
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Title Of List
+                </label>
+                <input
+                  type="text"
+                  value={threadTitle}
+                  onChange={(e) => setThreadTitle(e.target.value)}
+                  placeholder="Enter Text Here..."
+                  className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                  maxLength={120}
+                  required
+                />
               </div>
 
-              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[75vh] pr-1">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Title Of List
-                  </label>
-                  <input
-                    type="text"
-                    value={threadTitle}
-                    onChange={(e) => setThreadTitle(e.target.value)}
-                    placeholder="Enter Text Here..."
-                    className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
-                    maxLength={120}
-                    required
-                  />
-                </div>
-
-                {/* <div className="flex flex-col gap-1">
+              {/* <div className="flex flex-col gap-1">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Share This Note/List With
                   </label>
@@ -1583,26 +1583,26 @@ export function NotesWorkspace({
                   </div>
                 </div> */}
 
-                {/* Initial Note Workspace */}
-                <div
-                  className="border rounded-lg p-4 flex flex-col gap-2.5"
-                  style={{ backgroundColor: threadColor }}
-                >
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
-                      Card Title
-                    </label>
-                    <input
-                      type="text"
-                      value={threadNoteTitle}
-                      onChange={(e) => setThreadNoteTitle(e.target.value)}
-                      placeholder="Enter card title..."
-                      className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
-                      maxLength={120}
-                    />
-                  </div>
-                  {/* Note Type Selector */}
-                  {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
+              {/* Initial Note Workspace */}
+              <div
+                className="border rounded-lg p-4 flex flex-col gap-2.5"
+                style={{ backgroundColor: threadColor }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                    Card Title
+                  </label>
+                  <input
+                    type="text"
+                    value={threadNoteTitle}
+                    onChange={(e) => setThreadNoteTitle(e.target.value)}
+                    placeholder="Enter card title..."
+                    className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
+                    maxLength={120}
+                  />
+                </div>
+                {/* Note Type Selector */}
+                {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
                     <button
                       type="button"
                       onClick={() => setThreadNoteType("TEXT")}
@@ -1629,54 +1629,54 @@ export function NotesWorkspace({
                     </button>
                   </div> */}
 
-                  {threadNoteType === "TEXT" ? (
-                    <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
-                      <RichTextEditor
-                        value={threadContent}
-                        onChange={(val) => setThreadContent(val)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {threadChecklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Square size={13} className="text-muted-foreground/50 shrink-0" />
-                          <input
-                            type="text"
-                            value={item}
-                            onChange={(e) => {
-                              const newChecklist = [...threadChecklist];
-                              newChecklist[idx] = e.target.value;
-                              setThreadChecklist(newChecklist);
-                            }}
-                            placeholder={`Checklist Item ${idx + 1}`}
-                            className="flex-1 bg-transparent border-none outline-none text-xs"
-                          />
-                          {threadChecklist.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setThreadChecklist(threadChecklist.filter((_, i) => i !== idx))
-                              }
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <X size={12} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setThreadChecklist([...threadChecklist, ""])}
-                        className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
-                      >
-                        <Plus size={11} /> Add Item
-                      </button>
-                    </div>
-                  )}
+                {threadNoteType === "TEXT" ? (
+                  <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
+                    <RichTextEditor
+                      value={threadContent}
+                      onChange={(val) => setThreadContent(val)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {threadChecklist.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Square size={13} className="text-muted-foreground/50 shrink-0" />
+                        <input
+                          type="text"
+                          value={item}
+                          onChange={(e) => {
+                            const newChecklist = [...threadChecklist];
+                            newChecklist[idx] = e.target.value;
+                            setThreadChecklist(newChecklist);
+                          }}
+                          placeholder={`Checklist Item ${idx + 1}`}
+                          className="flex-1 bg-transparent border-none outline-none text-xs"
+                        />
+                        {threadChecklist.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setThreadChecklist(threadChecklist.filter((_, i) => i !== idx))
+                            }
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setThreadChecklist([...threadChecklist, ""])}
+                      className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
+                    >
+                      <Plus size={11} /> Add Item
+                    </button>
+                  </div>
+                )}
 
-                  {/* Deadline */}
-                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                {/* Deadline */}
+                {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">
                       Deadline (Optional)
                     </label>
@@ -1688,87 +1688,87 @@ export function NotesWorkspace({
                     />
                   </div> */}
 
-                  {/* Color Picker */}
-                  <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
-                      Card Color
-                    </label>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {PASTEL_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => setThreadColor(c)}
-                          className={cn(
-                            "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
-                            threadColor === c && "ring-1 ring-primary scale-110"
-                          )}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
+                {/* Color Picker */}
+                <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                    Card Color
+                  </label>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {PASTEL_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setThreadColor(c)}
+                        className={cn(
+                          "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
+                          threadColor === c && "ring-1 ring-primary scale-110"
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowNewThread(false)}
-                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                >
-                  Publish
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+            <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowNewThread(false)}
+                className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+              >
+                Publish
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-        {/* 3. Add Note inside Column Overlay */}
-        {activeThreadForNote && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-            <form
-              onSubmit={handleCreateNote}
-              className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                <span className="text-sm font-bold text-foreground">Add Card To Column</span>
-                <button
-                  type="button"
-                  onClick={() => setActiveThreadForNote(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+      {/* 3. Add Note inside Column Overlay */}
+      {activeThreadForNote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+          <form
+            onSubmit={handleCreateNote}
+            className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
+              <span className="text-sm font-bold text-foreground">Add Card To Column</span>
+              <button
+                type="button"
+                onClick={() => setActiveThreadForNote(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
-                <div
-                  className="border rounded-lg p-4 flex flex-col gap-2.5"
-                  style={{ backgroundColor: noteColor }}
-                >
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
-                      Card Title
-                    </label>
-                    <input
-                      type="text"
-                      value={noteTitle}
-                      onChange={(e) => setNoteTitle(e.target.value)}
-                      placeholder="Enter card title..."
-                      className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
-                      maxLength={120}
-                    />
-                  </div>
-                  {/* Note Type Selector */}
-                  {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
+            <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
+              <div
+                className="border rounded-lg p-4 flex flex-col gap-2.5"
+                style={{ backgroundColor: noteColor }}
+              >
+                <div className="flex flex-col gap-1">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                    Card Title
+                  </label>
+                  <input
+                    type="text"
+                    value={noteTitle}
+                    onChange={(e) => setNoteTitle(e.target.value)}
+                    placeholder="Enter card title..."
+                    className="rounded-md border bg-background px-2.5 py-1 text-xs outline-none focus:border-ring"
+                    maxLength={120}
+                  />
+                </div>
+                {/* Note Type Selector */}
+                {/* <div className="flex gap-1 bg-black/5 rounded p-0.5 self-start mb-1">
                     <button
                       type="button"
                       onClick={() => setNoteNoteType("TEXT")}
@@ -1795,54 +1795,54 @@ export function NotesWorkspace({
                     </button>
                   </div> */}
 
-                  {noteNoteType === "TEXT" ? (
-                    <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
-                      <RichTextEditor
-                        value={noteContent}
-                        onChange={(val) => setNoteContent(val)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {noteChecklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <Square size={13} className="text-muted-foreground/50 shrink-0" />
-                          <input
-                            type="text"
-                            value={item}
-                            onChange={(e) => {
-                              const newChecklist = [...noteChecklist];
-                              newChecklist[idx] = e.target.value;
-                              setNoteChecklist(newChecklist);
-                            }}
-                            placeholder={`Checklist Item ${idx + 1}`}
-                            className="flex-1 bg-transparent border-none outline-none text-xs"
-                          />
-                          {noteChecklist.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setNoteChecklist(noteChecklist.filter((_, i) => i !== idx))
-                              }
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <X size={12} />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setNoteChecklist([...noteChecklist, ""])}
-                        className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
-                      >
-                        <Plus size={11} /> Add Item
-                      </button>
-                    </div>
-                  )}
+                {noteNoteType === "TEXT" ? (
+                  <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
+                    <RichTextEditor
+                      value={noteContent}
+                      onChange={(val) => setNoteContent(val)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {noteChecklist.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Square size={13} className="text-muted-foreground/50 shrink-0" />
+                        <input
+                          type="text"
+                          value={item}
+                          onChange={(e) => {
+                            const newChecklist = [...noteChecklist];
+                            newChecklist[idx] = e.target.value;
+                            setNoteChecklist(newChecklist);
+                          }}
+                          placeholder={`Checklist Item ${idx + 1}`}
+                          className="flex-1 bg-transparent border-none outline-none text-xs"
+                        />
+                        {noteChecklist.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNoteChecklist(noteChecklist.filter((_, i) => i !== idx))
+                            }
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setNoteChecklist([...noteChecklist, ""])}
+                      className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
+                    >
+                      <Plus size={11} /> Add Item
+                    </button>
+                  </div>
+                )}
 
-                  {/* Deadline */}
-                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                {/* Deadline */}
+                {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">
                       Deadline (Optional)
                     </label>
@@ -1854,114 +1854,114 @@ export function NotesWorkspace({
                     />
                   </div> */}
 
-                  {/* Color Picker */}
-                  <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase">
-                      Card Color
-                    </label>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {PASTEL_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => setNoteColor(c)}
-                          className={cn(
-                            "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
-                            noteColor === c && "ring-1 ring-primary scale-110"
-                          )}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
+                {/* Color Picker */}
+                <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase">
+                    Card Color
+                  </label>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {PASTEL_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setNoteColor(c)}
+                        className={cn(
+                          "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
+                          noteColor === c && "ring-1 ring-primary scale-110"
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
+            <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveThreadForNote(null)}
+                className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+              >
+                Save Card
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* 4. Edit Note Dialog Overlay */}
+      {editingNote && (() => {
+        const isEditingReadOnly = editingNote.authorId !== userId;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+            <form
+              onSubmit={handleUpdateNote}
+              className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="flex items-center justify-between border-b pb-3 shrink-0">
+                <span className="text-sm font-bold text-foreground">
+                  {isEditingReadOnly ? "View Note Card" : "Edit Note Card"}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setActiveThreadForNote(null)}
-                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+                  onClick={() => setEditingNote(null)}
+                  className="text-muted-foreground hover:text-foreground"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                >
-                  Save Card
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </div>
-        )}
-        {/* 4. Edit Note Dialog Overlay */}
-        {editingNote && (() => {
-          const isEditingReadOnly = editingNote.authorId !== userId;
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-              <form
-                onSubmit={handleUpdateNote}
-                className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-              >
-                <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                  <span className="text-sm font-bold text-foreground">
-                    {isEditingReadOnly ? "View Note Card" : "Edit Note Card"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setEditingNote(null)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
 
-                <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
-                  <div
-                    className="border rounded-lg p-4 flex flex-col gap-2.5"
-                    style={{ backgroundColor: editingNote.color || "#ffffff" }}
-                  >
-                    {/* Card Title */}
-                    {isEditingReadOnly ? (
-                      editingNote.title && (
-                        <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(editingNote.title)}</h3>
-                      )
-                    ) : (
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          Card Title
-                        </label>
-                        <input
-                          type="text"
-                          value={editingNote.title || ""}
-                          onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
-                          placeholder="Enter card title..."
-                          className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
-                          maxLength={120}
-                        />
-                      </div>
-                    )}
-                    {/* Text Content */}
-                    {isEditingReadOnly ? (
-                      <div
-                        className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
-                        dangerouslySetInnerHTML={{ __html: editingNote.content || "" }}
+              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
+                <div
+                  className="border rounded-lg p-4 flex flex-col gap-2.5"
+                  style={{ backgroundColor: editingNote.color || "#ffffff" }}
+                >
+                  {/* Card Title */}
+                  {isEditingReadOnly ? (
+                    editingNote.title && (
+                      <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(editingNote.title)}</h3>
+                    )
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Card Title
+                      </label>
+                      <input
+                        type="text"
+                        value={editingNote.title || ""}
+                        onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
+                        placeholder="Enter card title..."
+                        className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
+                        maxLength={120}
                       />
-                    ) : (
-                      <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
-                        <RichTextEditor
-                          value={editingNote.content || ""}
-                          onChange={(val) =>
-                            setEditingNote({ ...editingNote, content: val })
-                          }
-                        />
-                      </div>
-                    )}
+                    </div>
+                  )}
+                  {/* Text Content */}
+                  {isEditingReadOnly ? (
+                    <div
+                      className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
+                      dangerouslySetInnerHTML={{ __html: editingNote.content || "" }}
+                    />
+                  ) : (
+                    <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
+                      <RichTextEditor
+                        value={editingNote.content || ""}
+                        onChange={(val) =>
+                          setEditingNote({ ...editingNote, content: val })
+                        }
+                      />
+                    </div>
+                  )}
 
-                    {/* Checklist Section */}
-                    {/* <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
+                  {/* Checklist Section */}
+                  {/* <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
                       <label className="text-xs font-bold text-muted-foreground uppercase">
                         Checklist
                       </label>
@@ -2068,8 +2068,8 @@ export function NotesWorkspace({
                       )}
                     </div> */}
 
-                    {/* Deadline */}
-                    {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
+                  {/* Deadline */}
+                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
                       <label className="text-xs font-bold text-muted-foreground uppercase">
                         Deadline (Optional)
                       </label>
@@ -2091,168 +2091,168 @@ export function NotesWorkspace({
                       />
                     </div> */}
 
-                    {/* Color Picker */}
-                    <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">
-                        Card Color
-                      </label>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        {PASTEL_COLORS.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            disabled={isEditingReadOnly}
-                            onClick={() => setEditingNote({ ...editingNote, color: c })}
-                            className={cn(
-                              "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
-                              editingNote.color === c && "ring-1 ring-primary scale-110"
-                            )}
-                            style={{ backgroundColor: c }}
-                          />
-                        ))}
-                      </div>
+                  {/* Color Picker */}
+                  <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">
+                      Card Color
+                    </label>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {PASTEL_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          disabled={isEditingReadOnly}
+                          onClick={() => setEditingNote({ ...editingNote, color: c })}
+                          className={cn(
+                            "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
+                            editingNote.color === c && "ring-1 ring-primary scale-110"
+                          )}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
-                  {isEditingReadOnly ? (
+              <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
+                {isEditingReadOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingNote(null)}
+                    className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90"
+                  >
+                    Close
+                  </button>
+                ) : (
+                  <>
                     <button
                       type="button"
                       onClick={() => setEditingNote(null)}
-                      className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90"
+                      className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
                     >
-                      Close
+                      Cancel
                     </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setEditingNote(null)}
-                        className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isPending}
-                        className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                      >
-                        Save Edits
-                      </button>
-                    </>
-                  )}
-                </div>
-              </form>
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                    >
+                      Save Edits
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* 5. Edit Board Dialog Overlay */}
+      {editingBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+          <form
+            onSubmit={handleUpdateBoard}
+            className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="flex items-center justify-between border-b pb-3">
+              <span className="text-sm font-bold text-foreground">Edit Board</span>
+              <button
+                type="button"
+                onClick={() => setEditingBoard(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
             </div>
-          );
-        })()}
 
-        {/* 5. Edit Board Dialog Overlay */}
-        {editingBoard && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-            <form
-              onSubmit={handleUpdateBoard}
-              className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="text-sm font-bold text-foreground">Edit Board</span>
-                <button
-                  type="button"
-                  onClick={() => setEditingBoard(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Board Name
+              </label>
+              <input
+                type="text"
+                value={editingBoard.name}
+                onChange={(e) => setEditingBoard({ ...editingBoard, name: e.target.value })}
+                placeholder="Enter board name..."
+                className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                maxLength={60}
+                required
+              />
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Board Name
-                </label>
-                <input
-                  type="text"
-                  value={editingBoard.name}
-                  onChange={(e) => setEditingBoard({ ...editingBoard, name: e.target.value })}
-                  placeholder="Enter board name..."
-                  className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
-                  maxLength={60}
-                  required
-                />
-              </div>
+            <div className="flex justify-end gap-2 border-t pt-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setEditingBoard(null)}
+                className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-              <div className="flex justify-end gap-2 border-t pt-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingBoard(null)}
-                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+      {/* 6. Edit List (Thread) Dialog Overlay */}
+      {editingThread && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
+          <form
+            onSubmit={handleUpdateThread}
+            className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="flex items-center justify-between border-b pb-3">
+              <span className="text-sm font-bold text-foreground">Edit List</span>
+              <button
+                type="button"
+                onClick={() => setEditingThread(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-        {/* 6. Edit List (Thread) Dialog Overlay */}
-        {editingThread && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-            <form
-              onSubmit={handleUpdateThread}
-              className="w-full max-w-md rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="text-sm font-bold text-foreground">Edit List</span>
-                <button
-                  type="button"
-                  onClick={() => setEditingThread(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                List Title
+              </label>
+              <input
+                type="text"
+                value={editingThread.title}
+                onChange={(e) => setEditingThread({ ...editingThread, title: e.target.value })}
+                placeholder="Enter list title..."
+                className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                maxLength={120}
+                required
+              />
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  List Title
-                </label>
-                <input
-                  type="text"
-                  value={editingThread.title}
-                  onChange={(e) => setEditingThread({ ...editingThread, title: e.target.value })}
-                  placeholder="Enter list title..."
-                  className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-ring"
-                  maxLength={120}
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 border-t pt-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingThread(null)}
-                  className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
+            <div className="flex justify-end gap-2 border-t pt-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setEditingThread(null)}
+                className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
   );
 }

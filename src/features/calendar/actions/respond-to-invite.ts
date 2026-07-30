@@ -22,6 +22,8 @@ export async function respondToCalendarInvite(
     return { message: "Invalid request" };
   }
 
+  if (!session.user.email) return { message: "Missing account email" };
+
   const token = await getValidZohoAccessToken(session.user.id);
   if (!token || !token.calendarUid) {
     // Invitee hasn't connected their own Zoho account — can't RSVP via Zoho,
@@ -29,7 +31,14 @@ export async function respondToCalendarInvite(
     return { message: "connect_required" };
   }
 
-  await respondToZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, response);
+  await respondToZohoEvent(
+    token.accessToken,
+    token.apiDomain,
+    token.calendarUid,
+    eventId,
+    session.user.email,
+    response,
+  );
 
   revalidatePath("/calendar");
   return { message: "responded" };

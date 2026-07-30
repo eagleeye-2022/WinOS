@@ -12,6 +12,71 @@ type TaskItem = { id?: string; text: string; priority: string | null; completed:
 type TextItem = { id?: string; text: string };
 type CheckItem = { id?: string; text: string; completed: boolean };
 
+// ── Mention Highlight Helper ──────────────────────────────────────────────────
+
+export function renderTextWithMentions(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(@[a-zA-Z0-9_.-]+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.startsWith("@") ? (
+          <span key={i} className="font-semibold text-blue-600 dark:text-blue-400">
+            {part}
+          </span>
+        ) : (
+          <span key={i} className="text-foreground">
+            {part}
+          </span>
+        )
+      )}
+    </>
+  );
+}
+
+function MentionableInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+  disabled,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="relative flex-1 flex items-center min-w-0">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 flex items-center text-sm whitespace-pre overflow-hidden select-none",
+          className
+        )}
+      >
+        {value ? (
+          renderTextWithMentions(value)
+        ) : (
+          <span className="text-muted-foreground/40">{placeholder}</span>
+        )}
+      </div>
+      <input
+        type="text"
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder=""
+        className={cn(
+          "relative z-10 w-full bg-transparent text-sm outline-none caret-blue-600 text-transparent selection:bg-blue-500/20 selection:text-foreground",
+          className
+        )}
+      />
+    </div>
+  );
+}
+
 // ── Reusable checkbox list section ────────────────────────────────────────────
 
 function CheckSection({
@@ -75,18 +140,18 @@ function CheckSection({
                 </svg>
               )}
             </button>
-            <input
-              type="text"
-              disabled={readOnly}
-              value={item.text}
-              onChange={(e) => update(i, e.target.value)}
-              placeholder="Add item..."
-              className={cn(
-                "flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40",
-                !item.completed && "text-muted-foreground",
-                readOnly && "cursor-not-allowed text-foreground/90"
-              )}
-            />
+            {readOnly ? (
+              <span className={cn("flex-1 text-sm leading-snug", !item.completed && "text-muted-foreground")}>
+                {renderTextWithMentions(item.text)}
+              </span>
+            ) : (
+              <MentionableInput
+                value={item.text}
+                onChange={(val) => update(i, val)}
+                placeholder="Add item..."
+                className={cn(!item.completed && "opacity-70")}
+              />
+            )}
             {allowAdd && !readOnly && (
               <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
                 <X size={12} />
@@ -156,7 +221,7 @@ function PlannedTasksSection({
               "flex-1 text-sm",
               !task.completed && "text-muted-foreground"
             )}>
-              T{i + 1}: {task.text}
+              T{i + 1}: {renderTextWithMentions(task.text)}
             </span>
             {task.priority && (
               <span className={cn(
@@ -511,7 +576,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
 
       {/* Mobile-only submit (desktop uses panel button) */}
       {!readOnly && (
-        <div className="flex items-center gap-3 xl:hidden">
+        <div className="sticky bottom-4 z-30 flex items-center gap-3 rounded-xl border bg-background/95 p-3 backdrop-blur-md shadow-lg xl:hidden">
           {!isEditMode && (
             <button
               type="button"

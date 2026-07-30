@@ -11,13 +11,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(ROUTES.login, request.url));
   }
 
-  const clientId = process.env.CLIENT_ID;
+  const clientId = process.env.CLIENT_ID ?? process.env.ZOHO_CLIENT_ID;
   const redirectUri = process.env.ZOHO_REDIRECT_URI;
   const accountsDomain = process.env.ZOHO_ACCOUNTS_DOMAIN ?? "accounts.zoho.in";
 
   if (!clientId || !redirectUri) {
     return NextResponse.json(
-      { error: "Zoho Calendar is not configured (missing CLIENT_ID or ZOHO_REDIRECT_URI)." },
+      { error: "Zoho Calendar is not configured (missing CLIENT_ID / ZOHO_CLIENT_ID or ZOHO_REDIRECT_URI)." },
       { status: 500 },
     );
   }

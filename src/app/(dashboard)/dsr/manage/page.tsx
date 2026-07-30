@@ -36,15 +36,16 @@ export default async function AllDsrPage({ searchParams }: Props) {
 
   return (
     <div className="flex h-full overflow-hidden">
+
       <div className="flex-1 min-w-0 overflow-hidden">
         <AllDsrClient stats={stats} groups={groups} selectedDateStr={selectedDateStr} />
       </div>
-      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
+      {/* <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
         <WorkspaceNotesPanel
           sharedNotes={sharedItems?.notes || []}
           userRole={session.user.role}
         />
-      </aside>
+      </aside> */}
     </div>
   );
 }

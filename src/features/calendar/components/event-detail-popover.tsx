@@ -62,14 +62,14 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
           )}
           {event.description && <p className="mt-2 whitespace-pre-wrap">{event.description}</p>}
 
-          {event.participants.length > 0 && (
+          {event.attendees.length > 0 && (
             <div className="mt-2">
               <p className="mb-1 text-xs font-medium text-muted-foreground">Participants</p>
               <ul className="flex flex-col gap-0.5">
-                {event.participants.map((p) => (
-                  <li key={p.email} className="text-xs text-muted-foreground">
-                    {p.email}
-                    {p.status ? ` — ${p.status}` : ""}
+                {event.attendees.map((a) => (
+                  <li key={a.email} className="text-xs text-muted-foreground">
+                    {a.email}
+                    {a.status ? ` — ${a.status}` : ""}
                   </li>
                 ))}
               </ul>
@@ -124,6 +124,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
               </button>
               <form action={deleteAction}>
                 <input type="hidden" name="eventId" value={event.id} />
+                <input type="hidden" name="etag" value={event.etag} />
                 <button
                   type="submit"
                   disabled={deletePending}
