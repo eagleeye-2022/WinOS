@@ -633,3 +633,130 @@ enum CompetencyStatus {
   EXTRA
   MISSING
 }
+
+model Project {
+  id               String            @id @default(cuid())
+  code             String?           @default("EEDP-81")
+  name             String
+  progressPercent  Int               @default(0)
+  ownerId          String?
+  ownerName        String?           @default("Dhruv Patidar")
+  ownerInitials    String?           @default("DP")
+  ownerAvatarColor String?           @default("bg-amber-500 text-white")
+  status           String            @default("ACTIVE")
+  totalHours       String            @default("00:00 h")
+  billableHours    String            @default("00:00 h")
+  nonBillableHours String            @default("00:00 h")
+  startDate        String?           @default("11/07/2026")
+  deadline         String?           @default("01/01/2027")
+  description      String?
+  associatedTeam   String?
+  priority         String?           @default("None")
+  tags             String[]          @default([])
+  reminder         String?
+  billingType      String?           @default("Fixed Rate")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  phases           ProjectPhase[]
+  tasks            ProjectTask[]
+  timeLogs         ProjectTimeLog[]
+}
+
+model ProjectPhase {
+  id          String   @id @default(cuid())
+  code        String
+  name        String
+  isCompleted Boolean  @default(false)
+  order       Int      @default(0)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model ProjectTask {
+  id                   String                @id @default(cuid())
+  code                 String
+  title                String
+  phaseCode            String?
+  phaseName            String?
+  status               String                @default("Open")
+  authorName           String                @default("Dhruv Patidar")
+  associatedTeam       String?
+  owner                String?               @default("Unassigned")
+  workHours            String?               @default("00:00")
+  startDate            String?               @default("--")
+  dueDate              String?               @default("--")
+  duration             String?               @default("2 days/hrs")
+  completionPercentage Int                   @default(0)
+  recurrence           String?               @default("None")
+  priority             String?               @default("None")
+  tags                 String[]              @default([])
+  reminder             String?               @default("None")
+  billingType          String?               @default("None")
+  description          String?
+  isWarning            Boolean               @default(false)
+  projectId            String?
+  project              Project?              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  subtasks             ProjectSubtask[]
+  remarks              ProjectTaskRemark[]
+  activities           ProjectTaskActivity[]
+}
+
+model ProjectSubtask {
+  id        String      @id @default(cuid())
+  code      String
+  title     String
+  status    String      @default("Open")
+  ownerName String?     @default("Unassigned")
+  startDate String?     @default("--")
+  dueDate   String?     @default("--")
+  completed Boolean     @default(false)
+  hasLink   Boolean     @default(false)
+  taskId    String
+  task      ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+}
+
+model ProjectTaskRemark {
+  id                String      @id @default(cuid())
+  authorName        String
+  authorInitials    String
+  authorAvatarColor String?     @default("bg-blue-600 text-white")
+  content           String
+  taskId            String
+  task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt         DateTime    @default(now())
+}
+
+model ProjectTaskActivity {
+  id           String      @id @default(cuid())
+  userName     String
+  userInitials String
+  actionText   String
+  taskId       String
+  task         ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+}
+
+model ProjectTimeLog {
+  id           String   @id @default(cuid())
+  code         String
+  title        String
+  project      String
+  duration     String
+  timePeriod   String
+  date         String   @default("11/07/2026")
+  billingType  String   @default("NON BILLABLE")
+  remarks      String?
+  userName     String   @default("Dhruv Patidar")
+  userInitials String   @default("DP")
+  avatarColor  String?  @default("bg-amber-500 text-white")
+  projectId    String?
+  projectRel   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
