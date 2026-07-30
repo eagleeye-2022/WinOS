@@ -128,20 +128,55 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
     where: { userId_date: { userId: session.user.id, date: today } },
     include: {
       tasks: { where: { kind: "TODAY" }, orderBy: { order: "asc" } },
-      blockers: { orderBy: { createdAt: "asc" } },
-      supportNeeds: { orderBy: { order: "asc" } },
+      blockers: {
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          mentions: { include: { user: { select: { id: true, name: true, email: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      supportNeeds: {
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          mentions: { include: { user: { select: { id: true, name: true, email: true } } } },
+        },
+        orderBy: { order: "asc" },
+      },
     },
   });
 
   if (!standup) return { plannedTasks: [], blockers: [], followUps: [] };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function formatItemTextWithMentions(item: any): string {
+    const users: { name: string | null; email: string }[] = [];
+    if (item.mentions && item.mentions.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      users.push(...item.mentions.map((m: any) => m.user));
+    } else if (item.mentionedUser) {
+      users.push(item.mentionedUser);
+    }
+    const uniqueUsers = Array.from(new Map(users.map((u) => [u.email, u])).values());
+    const prefix = uniqueUsers
+      .map((u) => `@${u.name ? u.name.split(" ")[0].toLowerCase() : u.email.split("@")[0]}`)
+      .join(" ");
+
+    const cleanText = (item.text || "").replace(/^(@\S+\s*)+/, "").trim();
+    if (prefix) {
+      return `${prefix} ${cleanText}`;
+    }
+    return item.text || "";
+  }
 
   return {
     plannedTasks: standup.tasks.map((t: { text: string; managerPriority: string | null }) => ({
       text: t.text,
       priority: t.managerPriority ?? null,
     })),
-    blockers: standup.blockers.map((b: { text: string }) => ({ text: b.text })),
-    followUps: standup.supportNeeds.map((s: { text: string }) => ({ text: s.text })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    blockers: standup.blockers.map((b: any) => ({ text: formatItemTextWithMentions(b) })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    followUps: standup.supportNeeds.map((s: any) => ({ text: formatItemTextWithMentions(s) })),
   };
 }
 

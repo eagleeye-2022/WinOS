@@ -5,6 +5,21 @@ import { db } from "@/lib/db";
 // the OAuth routes under src/app/api/auth/zoho/. Tokens are stored on the
 // ZohoAccount model (one row per user), never in a shared/service account.
 //
+// Verified against https://www.zoho.com/calendar/help/api/ (introduction,
+// oauth2-user-guide, get-calendar-list, get-events-list, post-create-event,
+// put-update-event, delete-event):
+//   - Auth header is `Zoho-oauthtoken <token>`, not `Bearer <token>`.
+//   - Create/update send an `eventdata` JSON payload as a URL QUERY PARAM,
+//     not a request body.
+//   - Attendees are sent/returned under the `attendees` field (not
+//     `participants`), shaped as { email, status }.
+//   - Update and delete require the event's `etag` (returned on every read),
+//     sent as an `etag` header.
+//   - There is no dedicated RSVP endpoint — responding to an invite is a
+//     read (to get the current attendees + etag), mutate your own attendee
+//     entry's status, then PUT the full event back.
+//   - `range` queries for listing events are capped at a 31-day span.
+//
 // Env vars used (see .env):
 //   CLIENT_ID / CLIENT_SECRET   — Zoho API Console app credentials
 //   ZOHO_REDIRECT_URI           — must exactly match the Zoho API Console registration
@@ -31,20 +46,22 @@ export type ZohoCalendar = {
   isDefault: boolean;
 };
 
-export type ZohoEventParticipant = {
+export type ZohoEventAttendee = {
   email: string;
   status?: string;
 };
 
 export type ZohoEvent = {
   id: string;
+  etag: number;
   title: string;
   description?: string;
   start: string;
   end: string;
+  timezone?: string;
   isAllDay: boolean;
   organizerEmail?: string;
-  participants: ZohoEventParticipant[];
+  attendees: ZohoEventAttendee[];
 };
 
 export type NewZohoEventInput = {
@@ -54,7 +71,7 @@ export type NewZohoEventInput = {
   end: Date;
   isAllDay: boolean;
   timezone: string;
-  participantEmails: string[];
+  attendeeEmails: string[];
 };
 
 type ZohoAccountRow = {
@@ -69,12 +86,20 @@ type ZohoAccountRow = {
   primaryCalendarUid: string | null;
 };
 
+const RSVP_STATUS: Record<"accept" | "decline" | "tentative", string> = {
+  accept: "ACCEPTED",
+  decline: "DECLINED",
+  tentative: "TENTATIVE",
+};
+
+const MAX_RANGE_DAYS = 31;
+
 function requireOAuthEnv() {
-  const clientId = process.env.CLIENT_ID;
-  const clientSecret = process.env.CLIENT_SECRET;
+  const clientId = process.env.CLIENT_ID ?? process.env.ZOHO_CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET ?? process.env.ZOHO_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
     throw new Error(
-      "Zoho Calendar is not configured. Set CLIENT_ID and CLIENT_SECRET in the environment.",
+      "Zoho Calendar is not configured. Set CLIENT_ID (or ZOHO_CLIENT_ID) and CLIENT_SECRET (or ZOHO_CLIENT_SECRET) in the environment.",
     );
   }
   return { clientId, clientSecret };
@@ -231,46 +256,72 @@ export async function listZohoCalendars(
   }));
 }
 
-/**
- * NOTE: exact query param names for range filtering are not yet verified
- * against live Zoho Calendar API v1 docs — adjust `range`/`sdate`/`edate`
- * param names here if Zoho responds with an error or ignores the filter.
- */
+/** Split a date range into <=31-day chunks — Zoho's `range` query param caps at 31 days. */
+function splitRangeIntoChunks(rangeStart: Date, rangeEnd: Date): { start: Date; end: Date }[] {
+  const chunks: { start: Date; end: Date }[] = [];
+  let chunkStart = new Date(rangeStart);
+
+  while (chunkStart < rangeEnd) {
+    const chunkEnd = new Date(chunkStart);
+    chunkEnd.setDate(chunkEnd.getDate() + MAX_RANGE_DAYS);
+    chunks.push({ start: chunkStart, end: chunkEnd < rangeEnd ? chunkEnd : rangeEnd });
+    chunkStart = chunkEnd;
+  }
+
+  return chunks;
+}
+
 export async function listZohoEvents(
   accessToken: string,
   apiDomain: string,
   calendarUid: string,
   range: { rangeStart: Date; rangeEnd: Date },
 ): Promise<ZohoEvent[]> {
-  const params = new URLSearchParams({
-    range: JSON.stringify({
-      start: toZohoDateTimeString(range.rangeStart),
-      end: toZohoDateTimeString(range.rangeEnd),
+  const chunks = splitRangeIntoChunks(range.rangeStart, range.rangeEnd);
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const params = new URLSearchParams({
+        range: JSON.stringify({
+          start: toZohoDateTimeString(chunk.start),
+          end: toZohoDateTimeString(chunk.end),
+        }),
+      });
+      const data = await zohoFetch(
+        apiDomain,
+        accessToken,
+        `/calendars/${calendarUid}/events?${params.toString()}`,
+        { headers: { Accept: "application/json+large" } },
+      );
+      const events = data.events ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return events.map((e: any) => normalizeZohoEvent(e));
     }),
-  });
-  const data = await zohoFetch(
-    apiDomain,
-    accessToken,
-    `/calendars/${calendarUid}/events?${params.toString()}`,
   );
-  const events = data.events ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return events.map((e: any) => normalizeZohoEvent(e));
+
+  const seen = new Set<string>();
+  const merged: ZohoEvent[] = [];
+  for (const event of results.flat()) {
+    if (seen.has(event.id)) continue;
+    seen.add(event.id);
+    merged.push(event);
+  }
+  return merged;
 }
 
-/**
- * NOTE: the exact create/update event JSON payload shape (field names,
- * casing, whether it's raw JSON or an `eventdata=<json>` form param) is not
- * verified against a live Zoho account — treat the first real API response
- * as ground truth and adjust the body shape below if Zoho rejects it.
- */
-export async function createZohoEvent(
+export async function getZohoEventById(
   accessToken: string,
   apiDomain: string,
   calendarUid: string,
-  input: NewZohoEventInput,
+  eventId: string,
 ): Promise<ZohoEvent> {
-  const body = {
+  const data = await zohoFetch(apiDomain, accessToken, `/calendars/${calendarUid}/events/${eventId}`, {
+    headers: { Accept: "application/json+large" },
+  });
+  return normalizeZohoEvent(data.events?.[0] ?? data);
+}
+
+function buildEventData(input: NewZohoEventInput) {
+  return {
     title: input.title,
     description: input.description ?? "",
     dateandtime: {
@@ -279,16 +330,40 @@ export async function createZohoEvent(
       end: toZohoDateTimeString(input.end),
     },
     isallday: input.isAllDay,
-    participants: input.participantEmails.map((email) => ({ email })),
+    attendees: input.attendeeEmails.map((email) => ({ email, status: "NEEDS-ACTION" })),
   };
+}
 
-  const data = await zohoFetch(apiDomain, accessToken, `/calendars/${calendarUid}/events`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+/** POST/PUT with `eventdata` as a URL query param, per Zoho's documented API shape. */
+async function putOrPostEventData(
+  accessToken: string,
+  apiDomain: string,
+  path: string,
+  method: "POST" | "PUT",
+  eventdata: object,
+  etag?: number,
+) {
+  const params = new URLSearchParams({ eventdata: JSON.stringify(eventdata) });
+  const data = await zohoFetch(apiDomain, accessToken, `${path}?${params.toString()}`, {
+    method,
+    headers: etag !== undefined ? { etag: String(etag) } : undefined,
   });
-
   return normalizeZohoEvent(data.events?.[0] ?? data);
+}
+
+export async function createZohoEvent(
+  accessToken: string,
+  apiDomain: string,
+  calendarUid: string,
+  input: NewZohoEventInput,
+): Promise<ZohoEvent> {
+  return putOrPostEventData(
+    accessToken,
+    apiDomain,
+    `/calendars/${calendarUid}/events`,
+    "POST",
+    buildEventData(input),
+  );
 }
 
 export async function updateZohoEvent(
@@ -297,31 +372,17 @@ export async function updateZohoEvent(
   calendarUid: string,
   eventId: string,
   input: NewZohoEventInput,
+  etag: number,
 ): Promise<ZohoEvent> {
-  const body = {
-    title: input.title,
-    description: input.description ?? "",
-    dateandtime: {
-      timezone: input.timezone,
-      start: toZohoDateTimeString(input.start),
-      end: toZohoDateTimeString(input.end),
-    },
-    isallday: input.isAllDay,
-    participants: input.participantEmails.map((email) => ({ email })),
-  };
-
-  const data = await zohoFetch(
-    apiDomain,
+  const eventdata = { ...buildEventData(input), etag };
+  return putOrPostEventData(
     accessToken,
+    apiDomain,
     `/calendars/${calendarUid}/events/${eventId}`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
+    "PUT",
+    eventdata,
+    etag,
   );
-
-  return normalizeZohoEvent(data.events?.[0] ?? data);
 }
 
 export async function deleteZohoEvent(
@@ -329,28 +390,55 @@ export async function deleteZohoEvent(
   apiDomain: string,
   calendarUid: string,
   eventId: string,
+  etag: number,
 ): Promise<void> {
   await zohoFetch(apiDomain, accessToken, `/calendars/${calendarUid}/events/${eventId}`, {
     method: "DELETE",
+    headers: { etag: String(etag) },
   });
 }
 
 /**
- * NOTE: RSVP endpoint/shape unverified — Zoho may expose this as a query
- * param on the PUT event endpoint rather than a distinct route.
+ * There is no dedicated RSVP endpoint. Responding to an invite means: read
+ * the event to get its current attendees + etag, flip the responding user's
+ * own attendee status, then PUT the full event back with that etag.
  */
 export async function respondToZohoEvent(
   accessToken: string,
   apiDomain: string,
   calendarUid: string,
   eventId: string,
+  currentUserEmail: string,
   response: "accept" | "decline" | "tentative",
 ): Promise<void> {
-  await zohoFetch(
-    apiDomain,
+  const event = await getZohoEventById(accessToken, apiDomain, calendarUid, eventId);
+
+  const updatedAttendees = event.attendees.map((a) =>
+    a.email.toLowerCase() === currentUserEmail.toLowerCase()
+      ? { ...a, status: RSVP_STATUS[response] }
+      : a,
+  );
+
+  const eventdata = {
+    title: event.title,
+    description: event.description ?? "",
+    dateandtime: {
+      timezone: event.timezone,
+      start: event.start,
+      end: event.end,
+    },
+    isallday: event.isAllDay,
+    attendees: updatedAttendees,
+    etag: event.etag,
+  };
+
+  await putOrPostEventData(
     accessToken,
-    `/calendars/${calendarUid}/events/${eventId}?action=rsvp&status=${response}`,
-    { method: "PUT" },
+    apiDomain,
+    `/calendars/${calendarUid}/events/${eventId}`,
+    "PUT",
+    eventdata,
+    event.etag,
   );
 }
 
@@ -360,20 +448,22 @@ export async function respondToZohoEvent(
 function normalizeZohoEvent(raw: any): ZohoEvent {
   return {
     id: raw.uid ?? raw.id,
+    etag: Number(raw.etag) || 0,
     title: raw.title ?? "(untitled)",
     description: raw.description ?? "",
     start: raw.dateandtime?.start ?? raw.start,
     end: raw.dateandtime?.end ?? raw.end,
+    timezone: raw.dateandtime?.timezone,
     isAllDay: Boolean(raw.isallday),
     organizerEmail: raw.organizer?.email,
-    participants: (raw.participants ?? []).map(
+    attendees: (raw.attendees ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (p: any) => ({ email: p.email, status: p.status }),
+      (a: any) => ({ email: a.email, status: a.status }),
     ),
   };
 }
 
-/** Zoho's expected date-time string format — format unverified, adjust if rejected. */
+/** Zoho's documented date-time format: yyyyMMdd'T'HHmmss'Z' (UTC). */
 export function toZohoDateTimeString(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return (

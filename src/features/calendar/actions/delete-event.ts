@@ -17,14 +17,15 @@ export async function deleteCalendarEvent(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const eventId = getStr(formData, "eventId");
-  if (!eventId) return { message: "Missing eventId" };
+  const etagStr = getStr(formData, "etag");
+  if (!eventId || !etagStr) return { message: "Missing eventId or etag" };
 
   const token = await getValidZohoAccessToken(session.user.id);
   if (!token || !token.calendarUid) {
     return { message: "Connect your Zoho Calendar before deleting events." };
   }
 
-  await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId);
+  await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, Number(etagStr));
 
   revalidatePath("/calendar");
   return { message: "deleted" };

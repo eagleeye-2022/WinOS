@@ -7,6 +7,8 @@ import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
 
+import { renderTextWithMentions } from "./dsr-form";
+
 export function DsrHistoryCard({
   entry,
   defaultOpen = false,
@@ -143,7 +145,7 @@ export function DsrHistoryCard({
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
                       T{i + 1}
                     </span>
-                    <span>{task.text}</span>
+                    <span>{renderTextWithMentions(task.text)}</span>
                     {task.priority && (
                       <span className={cn(
                         "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
@@ -172,7 +174,7 @@ export function DsrHistoryCard({
                   <div className="flex flex-col gap-1.5">
                     {entry.followUpsDone.map((f, i) => (
                       <p key={f.id} className="text-xs leading-relaxed">
-                        {i + 1}) {f.text}
+                        {i + 1}) {renderTextWithMentions(f.text)}
                       </p>
                     ))}
                   </div>
@@ -186,7 +188,7 @@ export function DsrHistoryCard({
                   <div className="flex flex-col gap-1.5">
                     {entry.resolvedBlockers.map((b, i) => (
                       <p key={b.id} className="text-xs leading-relaxed">
-                        {i + 1}) {b.text}
+                        {i + 1}) {renderTextWithMentions(b.text)}
                       </p>
                     ))}
                   </div>

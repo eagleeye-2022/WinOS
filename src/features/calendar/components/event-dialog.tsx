@@ -36,7 +36,7 @@ export function EventDialog({ mode, event, defaultStart, internalUsers, currentU
   const pending = mode === "create" ? createPending : updatePending;
 
   const initialParticipantIds = internalUsers
-    .filter((u) => event?.participants.some((p) => p.email === u.email))
+    .filter((u) => event?.attendees.some((a) => a.email === u.email))
     .map((u) => u.id);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialParticipantIds);
   const [isAllDay, setIsAllDay] = useState(event?.isAllDay ?? false);
@@ -90,6 +90,7 @@ export function EventDialog({ mode, event, defaultStart, internalUsers, currentU
           {mode === "edit" && event && (
             <>
               <input type="hidden" name="eventId" value={event.id} />
+              <input type="hidden" name="etag" value={event.etag} />
               {initialParticipantIds.map((id) => (
                 <input key={id} type="hidden" name="previousParticipantIds" value={id} />
               ))}

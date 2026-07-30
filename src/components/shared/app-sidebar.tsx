@@ -145,7 +145,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
         { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
         { label: "iNotes", href: iNotesHref, icon: FileText },
-        { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
+        // { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
         { label: "Support Needed", href: ROUTES.support, icon: Users2 },
         // { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
@@ -154,7 +154,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
         { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
         { label: "iNotes", href: iNotesHref, icon: FileText },
-        { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
+        // { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
 
         { label: "Support Needed", href: ROUTES.support, icon: Users2 },

@@ -4,13 +4,14 @@ import { getValidZohoAccessToken, listZohoEvents } from "@/lib/zoho-calendar";
 
 export type CalendarEventView = {
   id: string;
+  etag: number;
   title: string;
   description: string;
   start: Date;
   end: Date;
   isAllDay: boolean;
   organizerEmail?: string;
-  participants: { email: string; status?: string }[];
+  attendees: { email: string; status?: string }[];
 };
 
 export type ZohoConnectionStatus = {
@@ -55,13 +56,14 @@ export async function getCalendarEvents(
 
     return events.map((e) => ({
       id: e.id,
+      etag: e.etag,
       title: e.title,
       description: e.description ?? "",
       start: new Date(e.start),
       end: new Date(e.end),
       isAllDay: e.isAllDay,
       organizerEmail: e.organizerEmail,
-      participants: e.participants,
+      attendees: e.attendees,
     }));
   } catch (error) {
     console.error("[calendar] failed to fetch Zoho events:", error);

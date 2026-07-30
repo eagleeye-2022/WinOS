@@ -59,7 +59,7 @@ export async function createCalendarEvent(
     isAllDay,
     timezone: CALENDAR_TIMEZONE,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    participantEmails: invitees.map((u: any) => u.email),
+    attendeeEmails: invitees.map((u: any) => u.email),
   });
 
   if (invitees.length > 0) {
