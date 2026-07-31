@@ -101,6 +101,26 @@ export function EventDialog({
   const userName = currentUser?.name || currentUser?.email || "mohit.thakre";
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - 1);
+    if (new Date(start) < now) {
+      alert("Cannot create an event in the past.");
+      e.preventDefault();
+      return;
+    }
+
+    const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
+    const attendeeEmails = new Set<string>();
+    selectedUsers.forEach((u) => attendeeEmails.add(u.email));
+    if (participantEmail) attendeeEmails.add(participantEmail.trim());
+
+    const attendeesList = [
+      { email: currentUser?.email ?? "mohit.thakre@zylker.com", status: "ACCEPTED" },
+      ...Array.from(attendeeEmails)
+        .filter((e) => e !== currentUser?.email)
+        .map((email) => ({ email, status: "NEEDS_ACTION" })),
+    ];
+
     const newEvt: CalendarEventView = {
       id: event?.id ?? `local-evt-${Date.now()}`,
       etag: Date.now(),
@@ -110,10 +130,7 @@ export function EventDialog({
       end: new Date(end),
       isAllDay: false,
       organizerEmail: currentUser?.email ?? "mohit.thakre@zylker.com",
-      attendees: [
-        { email: currentUser?.email ?? "mohit.thakre@zylker.com", status: "ACCEPTED" },
-        ...(participantEmail ? [{ email: participantEmail, status: "NEEDS_ACTION" }] : []),
-      ],
+      attendees: attendeesList,
     };
 
     if (onEventCreatedLocally) {
@@ -193,6 +210,7 @@ export function EventDialog({
           <input type="hidden" name="meetingLink" value={meetingLink} />
           <input type="hidden" name="alertType" value={alertType} />
           <input type="hidden" name="isRecording" value={String(isRecording)} />
+          <input type="hidden" name="participantEmail" value={participantEmail} />
           {selectedIds.map((id) => (
             <input key={id} type="hidden" name="participantIds" value={id} />
           ))}
@@ -272,6 +290,7 @@ export function EventDialog({
                 <input
                   type="datetime-local"
                   name="start"
+                  min={toDateTimeLocalValue(new Date())}
                   value={toDateTimeLocalValue(start)}
                   onChange={(e) => setStart(new Date(e.target.value))}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary transition-all"
@@ -282,12 +301,19 @@ export function EventDialog({
                 <input
                   type="datetime-local"
                   name="end"
+                  min={toDateTimeLocalValue(start)}
                   value={toDateTimeLocalValue(end)}
                   onChange={(e) => setEnd(new Date(e.target.value))}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary transition-all"
                 />
               </div>
             </div>
+            {state.errors?.start && (
+              <p className="text-xs text-destructive">{state.errors.start[0]}</p>
+            )}
+            {state.errors?.end && (
+              <p className="text-xs text-destructive">{state.errors.end[0]}</p>
+            )}
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4">

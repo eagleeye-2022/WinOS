@@ -315,9 +315,11 @@ export async function getTasksAction(): Promise<TaskItem[]> {
       completionPercentage: t.completionPercentage,
       recurrence: t.recurrence || undefined,
       dueDate: t.dueDate || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: t.priority as any,
       tags: t.tags,
       reminder: t.reminder || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       billingType: t.billingType as any,
       description: t.description || undefined,
       isWarning: t.isWarning,

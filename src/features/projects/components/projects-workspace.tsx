@@ -92,6 +92,7 @@ export function ProjectsWorkspace() {
     loadData();
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAddProject = async (newProjData: any) => {
     setIsLoading(true);
     try {

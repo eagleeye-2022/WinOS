@@ -619,6 +619,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                   </label>
                   <select
                     value={logBillingType}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setLogBillingType(e.target.value as any)}
                     className="w-full rounded border px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-pointer"
                   >

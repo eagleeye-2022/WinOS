@@ -229,6 +229,7 @@ export function AllProjectsTableView({
         <div className="flex items-center gap-3">
           <select
             value={statusFilter}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer outline-none"
           >

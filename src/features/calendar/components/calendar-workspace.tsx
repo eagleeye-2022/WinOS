@@ -75,6 +75,7 @@ export function CalendarWorkspace({
   function handleEventCreatedLocally(newEvent: CalendarEventView) {
     setLocalEvents((prev) => [newEvent, ...prev]);
     setDialog(null);
+    setSelectedEvent(newEvent);
   }
 
   return (

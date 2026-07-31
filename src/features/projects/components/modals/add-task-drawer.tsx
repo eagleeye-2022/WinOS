@@ -63,6 +63,7 @@ export function AddTaskDrawer({
       dueDate: "01/01/2027",
       duration,
       completionPercentage: 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: priority as any,
       tags,
       description,

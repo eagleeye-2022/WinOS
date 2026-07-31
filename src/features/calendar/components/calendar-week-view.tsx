@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getWeekDays, isSameDay, formatShortDate, formatTime } from "../utils";
+import { getWeekDays, isSameDay, formatTime } from "../utils";
 import type { CalendarEventView } from "../queries";
 
 type Props = {
@@ -11,7 +11,22 @@ type Props = {
   onSelectSlot: (start: Date) => void;
 };
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+// Office Hours: 10:00 AM to 6:30 PM (10.0 to 18.5)
+const OFFICE_START_HOUR = 10;
+const OFFICE_END_HOUR = 18.5;
+
+const OFFICE_SLOTS = [
+  { hour: 10, minute: 0, label: "10:00 am", height: 60 },
+  { hour: 11, minute: 0, label: "11:00 am", height: 60 },
+  { hour: 12, minute: 0, label: "12:00 pm", height: 60 },
+  { hour: 13, minute: 0, label: "1:00 pm", height: 60 },
+  { hour: 14, minute: 0, label: "2:00 pm", height: 60 },
+  { hour: 15, minute: 0, label: "3:00 pm", height: 60 },
+  { hour: 16, minute: 0, label: "4:00 pm", height: 60 },
+  { hour: 17, minute: 0, label: "5:00 pm", height: 60 },
+  { hour: 18, minute: 0, label: "6:00 pm", height: 30 },
+  { hour: 18, minute: 30, label: "6:30 pm", height: 0 },
+];
 
 export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSlot }: Props) {
   const days = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
@@ -19,19 +34,24 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
 
   function eventsForDay(day: Date) {
     return events
-      .filter((e) => isSameDay(e.start, day))
+      .filter((e) => {
+        if (!isSameDay(e.start, day)) return false;
+        const eStartH = e.start.getHours() + e.start.getMinutes() / 60;
+        const eEndH = e.end.getHours() + e.end.getMinutes() / 60;
+        return eEndH >= OFFICE_START_HOUR && eStartH <= OFFICE_END_HOUR;
+      })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   }
 
-  // Calculate current time line position in hours
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-  const currentTimeTop = (currentHour + currentMinute / 60) * 60; // 60px per hour
+  // Calculate current time line position in office hours (10:00 AM to 6:30 PM)
+  const currentHourDec = now.getHours() + now.getMinutes() / 60;
+  const isNowInOfficeHours = currentHourDec >= OFFICE_START_HOUR && currentHourDec <= OFFICE_END_HOUR;
+  const currentTimeTop = (currentHourDec - OFFICE_START_HOUR) * 60; // 60px per hour
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-background text-foreground">
       {/* Header Row with Day Names & Date Badges */}
-      <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border bg-card sticky top-0 z-10 select-none">
+      <div className="grid grid-cols-[85px_repeat(7,1fr)] border-b border-border bg-card sticky top-0 z-10 select-none">
         <div className="flex flex-col items-center justify-center border-r border-border py-2.5 px-1 text-center">
           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">GMT</span>
           <span className="text-[11px] font-semibold text-primary">+05:30</span>
@@ -62,43 +82,35 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
         })}
       </div>
 
-      {/* Hourly Scrollable Grid Body */}
+      {/* Office Hours Scrollable Grid Body (10:00 AM - 6:30 PM) */}
       <div className="flex-1 overflow-y-auto relative">
-        <div className="grid grid-cols-[80px_repeat(7,1fr)] min-h-[1440px] relative">
+        <div className="grid grid-cols-[85px_repeat(7,1fr)] min-h-[510px] relative">
           
-          {/* Time Column (12pm, 1pm, 2pm...) */}
+          {/* Time Column (10:00 am to 6:30 pm) */}
           <div className="flex flex-col border-r border-border bg-muted/20 select-none z-10">
-            {HOURS.map((h) => {
-              const label =
-                h === 0
-                  ? "12 AM"
-                  : h === 12
-                  ? "12 PM"
-                  : h < 12
-                  ? `${h} AM`
-                  : `${h - 12} PM`;
-
-              return (
-                <div
-                  key={h}
-                  className="h-[60px] border-b border-border/40 pr-3 pt-1 text-right text-[11px] font-medium text-muted-foreground relative"
-                >
-                  {label.toLowerCase()}
-                </div>
-              );
-            })}
+            {OFFICE_SLOTS.map((slot, idx) => (
+              <div
+                key={idx}
+                style={{ height: `${slot.height}px` }}
+                className="border-b border-border/40 pr-3 pt-1 text-right text-[11px] font-medium text-muted-foreground relative"
+              >
+                {slot.label}
+              </div>
+            ))}
           </div>
 
           {/* Current Time Line Indicator across all columns */}
-          <div
-            style={{ top: `${currentTimeTop}px` }}
-            className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-          >
-            <div className="w-[80px] flex justify-end pr-1">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20" />
+          {isNowInOfficeHours && (
+            <div
+              style={{ top: `${currentTimeTop}px` }}
+              className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+            >
+              <div className="w-[85px] flex justify-end pr-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20" />
+              </div>
+              <div className="flex-1 h-[1.5px] bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
             </div>
-            <div className="flex-1 h-[1.5px] bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          </div>
+          )}
 
           {/* Day Grid Columns */}
           {days.map((day) => {
@@ -112,17 +124,18 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                   isToday ? "bg-primary/5" : ""
                 }`}
               >
-                {/* 24 Hourly Slots */}
-                {HOURS.map((h) => (
+                {/* Office Hourly Slot Buttons */}
+                {OFFICE_SLOTS.slice(0, -1).map((slot, idx) => (
                   <button
-                    key={h}
+                    key={idx}
                     type="button"
+                    style={{ height: `${slot.height}px` }}
                     onClick={() => {
-                      const slot = new Date(day);
-                      slot.setHours(h, 0, 0, 0);
-                      onSelectSlot(slot);
+                      const slotDate = new Date(day);
+                      slotDate.setHours(slot.hour, slot.minute, 0, 0);
+                      onSelectSlot(slotDate);
                     }}
-                    className="block h-[60px] w-full border-b border-border/40 hover:bg-primary/10 transition-colors group cursor-pointer"
+                    className="block w-full border-b border-border/40 hover:bg-primary/10 transition-colors group cursor-pointer"
                   >
                     <span className="opacity-0 group-hover:opacity-100 text-[10px] font-semibold text-primary pl-2 pt-1 block text-left">
                       + Add event
@@ -130,12 +143,16 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                   </button>
                 ))}
 
-                {/* Render Events */}
+                {/* Render Events inside Office Hours */}
                 {dayEvents.map((event) => {
-                  const startHour = event.start.getHours() + event.start.getMinutes() / 60;
-                  const endHour = event.end.getHours() + event.end.getMinutes() / 60;
-                  const top = startHour * 60;
-                  const durationHours = Math.max(0.5, endHour - startHour);
+                  const startHourDec = event.start.getHours() + event.start.getMinutes() / 60;
+                  const endHourDec = event.end.getHours() + event.end.getMinutes() / 60;
+
+                  const clampedStart = Math.max(OFFICE_START_HOUR, Math.min(OFFICE_END_HOUR, startHourDec));
+                  const clampedEnd = Math.max(OFFICE_START_HOUR, Math.min(OFFICE_END_HOUR, endHourDec));
+
+                  const top = (clampedStart - OFFICE_START_HOUR) * 60;
+                  const durationHours = Math.max(0.4, clampedEnd - clampedStart);
                   const height = durationHours * 60 - 2;
 
                   return (
@@ -170,5 +187,6 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
     </div>
   );
 }
+
 
 
