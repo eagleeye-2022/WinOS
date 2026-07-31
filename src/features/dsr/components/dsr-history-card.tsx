@@ -197,6 +197,21 @@ export function DsrHistoryCard({
             </div>
           )}
 
+          {(entry.learningItems ?? []).length > 0 && (
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                What Will You Learn Today? ({entry.learningItems.filter((l) => l.completed).length}/{entry.learningItems.length} Learned)
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {entry.learningItems.map((l) => (
+                  <p key={l.id} className={cn("text-xs leading-relaxed", l.completed ? "text-foreground" : "text-muted-foreground line-through")}>
+                    {renderTextWithMentions(l.text)}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
           {entry.managerComment && (
             <div className="mt-3 rounded-lg border border-emerald-200/80 bg-emerald-50/60 p-3">
               <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-emerald-800">

@@ -60,6 +60,11 @@ function createClient() {
   return client;
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
+export const db =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  globalForPrisma.prisma && (globalForPrisma.prisma as any).calendarEvent
+    ? globalForPrisma.prisma
+    : createClient();
 
 if (isDev) globalForPrisma.prisma = db;
+

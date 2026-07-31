@@ -54,9 +54,9 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    <div className="flex min-h-screen min-w-screen flex-col">
+    <div className="flex h-screen w-screen flex-col overflow-hidden">
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
-      <header className="flex h-14 shrink-0 items-center border-b bg-card sticky top-0 z-10 mb-2">
+      <header className="flex h-14 shrink-0 items-center border-b bg-card z-10 mb-2">
         {/* Brand — same visual width as the sidebar */}
         <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
           <WinOSBrand />
@@ -111,12 +111,12 @@ export default async function DashboardLayout({
       </header>
 
       {/* ── Sidebar + content row ───────────────────────────────────────────── */}
-      <div className="flex justify-start w-full">
-        <div className=" sticky top-14  h-full w-56">
+      <div className="flex flex-1 justify-start w-full min-h-0">
+        <div className="h-full w-56 shrink-0">
           <AppSidebar userRole={userRole} userId={session?.user?.id} />
         </div>
 
-        <main className="w-full overflow-auto">{children}</main>
+        <main className="w-full min-h-0 overflow-y-auto">{children}</main>
 
       </div>
 

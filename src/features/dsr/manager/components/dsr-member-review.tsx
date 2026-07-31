@@ -265,6 +265,41 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
   );
 }
 
+// ── Learning card ──────────────────────────────────────────────────────────────
+
+function LearningCard({ entry }: { entry: DsrEntryData }) {
+  const learningItems = entry.learningItems ?? [];
+  if (learningItems.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
+          <Star size={11} className="fill-white text-white" />
+        </span>
+        What Will You Learn Today?
+        <span className="ml-auto text-xs font-normal text-muted-foreground">
+          {learningItems.filter((l) => l.completed).length}/{learningItems.length} Learned
+        </span>
+      </h3>
+      <div className="flex flex-col gap-2">
+        {learningItems.map((l) => (
+          <div key={l.id} className="flex items-center gap-2">
+            {l.completed ? (
+              <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />
+            ) : (
+              <Clock3 size={13} className="shrink-0 text-muted-foreground" />
+            )}
+            <span className={cn("text-xs", l.completed ? "text-foreground" : "text-muted-foreground")}>
+              {l.text}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Breakthrough / breakdown sentiment card ───────────────────────────────────
 
 function SentimentCard({ entry }: { entry: DsrEntryData }) {
@@ -495,102 +530,109 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
     (todayEntry.status !== "SUBMITTED" && todayEntry.status !== "PENDING_REVIEW");
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Back Button */}
-      <div>
-        <Link
-          href={ROUTES.dsrManage}
-          className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft size={14} />
-          Back to All DSR
-        </Link>
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Fixed header block: back button + member card */}
+      <div className="flex shrink-0 flex-col gap-5 p-6 pb-5">
+        {/* Back Button */}
+        <div>
+          <Link
+            href={ROUTES.dsrManage}
+            className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeft size={14} />
+            Back to All DSR
+          </Link>
+        </div>
 
-      {/* Member header */}
-      <div className="flex items-center justify-between rounded-xl border bg-card p-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
-            {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-          </span>
-          <div>
-            <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
-            <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
+        {/* Member header */}
+        <div className="flex items-center justify-between rounded-xl border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+              {(user.name ?? user.email).slice(0, 2).toUpperCase()}
+            </span>
+            <div>
+              <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+              <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
+            <Link
+              href={`/dsr/member/${user.id}?w=${weekOffset - 1}`}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <ChevronLeft size={16} />
+            </Link>
+            <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
+            <Link
+              href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}` : `/dsr/member/${user.id}`}
+              className={cn(
+                "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
+                !canGoForward && "pointer-events-none opacity-30"
+              )}
+            >
+              <ChevronRight size={16} />
+            </Link>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
-          <Link
-            href={`/dsr/member/${user.id}?w=${weekOffset - 1}`}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
-          >
-            <ChevronLeft size={16} />
-          </Link>
-          <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
-          <Link
-            href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}` : `/dsr/member/${user.id}`}
-            className={cn(
-              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
-              !canGoForward && "pointer-events-none opacity-30"
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
+        {!shouldShowHistory && todayEntry ? (
+          <div className="flex flex-col gap-5">
+            {/* Date entry header strip — matches image 2 */}
+            <DateEntryHeader entry={todayEntry} />
+
+            {/* Review detail — left content wider (3fr), right actions narrower (2fr) */}
+            <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+              {/* Left: content cards */}
+              <div className="flex flex-col gap-4">
+                <ResultCard entry={todayEntry} />
+                <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
+                <BlockersSupportCard entry={todayEntry} />
+                <LearningCard entry={todayEntry} />
+                <SentimentCard entry={todayEntry} />
+              </div>
+
+              {/* Right: reviewer actions + timeline */}
+              <div className="flex flex-col gap-4">
+                <ReviewerActionsCard
+                  entryId={todayEntry.id}
+                  userId={user.id}
+                  memberName={memberFirstName}
+                  isReviewed={isReviewed}
+                  dsmReviewed={todayDsmReviewed}
+                  managerComment={todayEntry.managerComment}
+                />
+                <TimelineCard events={todayEntry.timelineEvents} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Weekly history view */
+          <div className="flex flex-col gap-2">
+            <div className="mb-2">
+              <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
+              <p className="text-sm text-muted-foreground">
+                Review Daily Status Updates for {user.name ?? user.email.split("@")[0]}.
+              </p>
+            </div>
+            {weekEntries.length === 0 ? (
+              <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                No DSR Entries for This Week.
+              </div>
+            ) : (
+              weekEntries.map((entry) => (
+                <DsrHistoryCard
+                  key={entry.id}
+                  entry={entry}
+                  defaultOpen={relativeDayLabel(entry.date) === "Today"}
+                />
+              ))
             )}
-          >
-            <ChevronRight size={16} />
-          </Link>
-        </div>
+          </div>
+        )}
       </div>
-
-      {!shouldShowHistory && todayEntry ? (
-        <>
-          {/* Date entry header strip — matches image 2 */}
-          <DateEntryHeader entry={todayEntry} />
-
-          {/* Review detail — left content wider (3fr), right actions narrower (2fr) */}
-          <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-            {/* Left: content cards */}
-            <div className="flex flex-col gap-4">
-              <ResultCard entry={todayEntry} />
-              <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
-              <BlockersSupportCard entry={todayEntry} />
-              <SentimentCard entry={todayEntry} />
-            </div>
-
-            {/* Right: reviewer actions + timeline */}
-            <div className="flex flex-col gap-4">
-              <ReviewerActionsCard
-                entryId={todayEntry.id}
-                userId={user.id}
-                memberName={memberFirstName}
-                isReviewed={isReviewed}
-                dsmReviewed={todayDsmReviewed}
-                managerComment={todayEntry.managerComment}
-              />
-              <TimelineCard events={todayEntry.timelineEvents} />
-            </div>
-          </div>
-        </>
-      ) : (
-        /* Weekly history view */
-        <div className="flex flex-col gap-2">
-          <div className="mb-2">
-            <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
-            <p className="text-sm text-muted-foreground">
-              Review Daily Status Updates for {user.name ?? user.email.split("@")[0]}.
-            </p>
-          </div>
-          {weekEntries.length === 0 ? (
-            <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-              No DSR Entries for This Week.
-            </div>
-          ) : (
-            weekEntries.map((entry) => (
-              <DsrHistoryCard
-                key={entry.id}
-                entry={entry}
-                defaultOpen={relativeDayLabel(entry.date) === "Today"}
-              />
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }

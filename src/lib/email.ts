@@ -58,3 +58,93 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
 
   await transport.sendMail({ from: FROM, to, subject, text });
 }
+
+export type CalendarInviteEmailParams = {
+  to: string;
+  organizerName: string;
+  organizerEmail: string;
+  title: string;
+  description?: string;
+  start: Date;
+  end: Date;
+  meetingLink?: string;
+  location?: string;
+};
+
+/**
+ * Send a structured calendar invitation email to an assigned attendee.
+ */
+export async function sendCalendarInviteEmail(params: CalendarInviteEmailParams): Promise<void> {
+  const { to, organizerName, organizerEmail, title, description, start, end, meetingLink, location } = params;
+  const transport = buildTransport();
+
+  const formattedStart = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(start);
+
+  const formattedEnd = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(end);
+
+  const subject = `Calendar Invite: ${title} from ${organizerName}`;
+  const text = [
+    `You have been invited to a meeting on WinOS Calendar!`,
+    ``,
+    `Title: ${title}`,
+    `Organizer: ${organizerName} (${organizerEmail})`,
+    `Date & Time: ${formattedStart} - ${formattedEnd} (Asia/Kolkata)`,
+    location ? `Location / Room: ${location}` : "",
+    meetingLink ? `Meeting Link: ${meetingLink}` : "",
+    description ? `Description: ${description}` : "",
+    ``,
+    `Log into WinOS Calendar to view details and respond (Accept / Decline).`,
+  ].filter(Boolean).join("\n");
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+      <div style="background: #18181c; color: #ffffff; padding: 20px 24px;">
+        <h2 style="margin: 0; font-size: 18px;">Calendar Invite: ${title}</h2>
+        <p style="margin: 4px 0 0 0; font-size: 13px; color: #a1a1aa;">From ${organizerName} (${organizerEmail})</p>
+      </div>
+      <div style="padding: 24px; color: #18181b; font-size: 14px; line-height: 1.6;">
+        <p style="margin-top: 0;">Hi,</p>
+        <p><strong>${organizerName}</strong> has invited you to a scheduled meeting on <strong>WinOS Calendar</strong>.</p>
+        <div style="background: #f4f4f5; border-left: 4px solid #10b981; padding: 16px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 8px 0; font-weight: bold; font-size: 16px; color: #09090b;">${title}</p>
+          <p style="margin: 4px 0; color: #3f3f46;">📅 <strong>Date & Time:</strong> ${formattedStart} – ${formattedEnd} (Asia/Kolkata)</p>
+          ${location ? `<p style="margin: 4px 0; color: #3f3f46;">📍 <strong>Location:</strong> ${location}</p>` : ""}
+          ${meetingLink ? `<p style="margin: 4px 0; color: #3f3f46;">🔗 <strong>Meeting Link:</strong> <a href="${meetingLink}" style="color: #2563eb;">${meetingLink}</a></p>` : ""}
+          ${description ? `<p style="margin: 8px 0 0 0; color: #52525b; font-style: italic;">"${description}"</p>` : ""}
+        </div>
+        <p>Log in to your WinOS Calendar workspace to accept or decline this meeting invitation.</p>
+      </div>
+      <div style="background: #fafafa; border-top: 1px solid #e4e4e7; padding: 12px 24px; text-align: center; font-size: 12px; color: #71717a;">
+        Sent via WinOS Collaborative Calendar
+      </div>
+    </div>
+  `;
+
+  if (!transport) {
+    if (IS_PROD) {
+      console.error("SMTP not configured for calendar invite email");
+      return;
+    }
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`[CALENDAR INVITE EMAIL] To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(text);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    return;
+  }
+
+  await transport.sendMail({ from: FROM, to, subject, text, html });
+}
+

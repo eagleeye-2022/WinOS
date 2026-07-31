@@ -15,6 +15,7 @@ export async function shareThread(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const threadId = getStr(formData, "threadId");
+  const sharePermissionsStr = getStr(formData, "sharePermissions");
   const shareUserIdsStr = getStr(formData, "shareUserIds") || "";
 
   if (!threadId) return { message: "Missing thread ID" };
@@ -31,20 +32,43 @@ export async function shareThread(
     return { message: "Unauthorized" };
   }
 
-  const shareUserIds = shareUserIdsStr.split(",").map((s) => s.trim()).filter(Boolean);
-  
-  // Clear existing shares and replace or simply add
-  await d.threadShare.deleteMany({ where: { threadId } });
-  
-  if (shareUserIds.length > 0) {
-    await d.threadShare.createMany({
-      data: shareUserIds.map((userId) => ({
-        threadId,
-        userId,
-      })),
-      skipDuplicates: true,
-    });
+  // sharePermissions carries per-user edit rights: [{ userId, canEdit }]
+  // Falls back to shareUserIds (view-only) for callers that don't send permissions.
+  let permissions: { userId: string; canEdit: boolean }[];
+  if (sharePermissionsStr) {
+    try {
+      permissions = JSON.parse(sharePermissionsStr);
+    } catch {
+      return { message: "Invalid share permissions" };
+    }
+  } else {
+    permissions = shareUserIdsStr
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((userId) => ({ userId, canEdit: false }));
+  }
 
+  const shareUserIds = permissions.map((p) => p.userId);
+
+  const existingShares = await d.threadShare.findMany({ where: { threadId } });
+  const removedUserIds = existingShares
+    .map((s: { userId: string }) => s.userId)
+    .filter((userId: string) => !shareUserIds.includes(userId));
+
+  if (removedUserIds.length > 0) {
+    await d.threadShare.deleteMany({ where: { threadId, userId: { in: removedUserIds } } });
+  }
+
+  for (const { userId, canEdit } of permissions) {
+    await d.threadShare.upsert({
+      where: { threadId_userId: { threadId, userId } },
+      update: { canEdit },
+      create: { threadId, userId, canEdit },
+    });
+  }
+
+  if (shareUserIds.length > 0) {
     // Also share all notes currently in the thread with these users so they can see the full thread cards
     const notes = await d.boardNote.findMany({ where: { threadId }, select: { id: true } });
     for (const note of notes) {

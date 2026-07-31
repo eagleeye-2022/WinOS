@@ -25,13 +25,27 @@ export async function updateBoardNote(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Verify ownership / authorization
+  // Verify ownership / authorization: the author, a user granted edit access
+  // on the note's thread via ThreadShare.canEdit, or a manager editing a note
+  // on a DSM workspace board (matches the pre-existing blanket manager access
+  // to team members' DSM notes) may update it.
   const note = await d.boardNote.findUnique({
     where: { id },
+    include: {
+      thread: {
+        include: {
+          shares: { where: { userId: session.user.id } },
+          board: { select: { type: true } },
+        },
+      },
+    },
   });
   if (!note) return { message: "Note not found" };
 
-  if (note.authorId !== session.user.id) {
+  const isAuthor = note.authorId === session.user.id;
+  const hasEditAccess = note.thread?.shares?.[0]?.canEdit === true;
+  const isManagerOnDsmBoard = session.user.role === "MANAGER" && note.thread?.board?.type === "DSM";
+  if (!isAuthor && !hasEditAccess && !isManagerOnDsmBoard) {
     return { message: "Unauthorized" };
   }
 

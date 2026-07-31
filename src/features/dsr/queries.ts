@@ -15,6 +15,7 @@ export type DsrPlannedTaskData = {
 export type DsrAdditionalWorkData = { id: string; text: string; order: number };
 export type DsrResolvedBlockerData = { id: string; text: string; resolved: boolean; order: number };
 export type DsrFollowUpDoneData = { id: string; text: string; completed: boolean; order: number };
+export type DsrLearningItemData = { id: string; text: string; completed: boolean; order: number };
 export type DsrTimelineEventData = { id: string; type: string; label: string; occurredAt: Date };
 
 export type DsrEntryData = {
@@ -35,6 +36,7 @@ export type DsrEntryData = {
   additionalWorks: DsrAdditionalWorkData[];
   resolvedBlockers: DsrResolvedBlockerData[];
   followUpsDone: DsrFollowUpDoneData[];
+  learningItems: DsrLearningItemData[];
   timelineEvents: DsrTimelineEventData[];
 };
 
@@ -42,6 +44,7 @@ export type DsrStandupPrefill = {
   plannedTasks: { text: string; priority: string | null }[];
   blockers: { text: string }[];
   followUps: { text: string }[];
+  learningItems: { text: string }[];
 };
 
 export type DsrInsights = {
@@ -63,6 +66,7 @@ const dsrInclude = {
   additionalWorks: { orderBy: { order: "asc" } },
   resolvedBlockers: { orderBy: { order: "asc" } },
   followUpsDone: { orderBy: { order: "asc" } },
+  learningItems: { orderBy: { order: "asc" } },
   timelineEvents: { orderBy: { occurredAt: "asc" } },
   reviewedBy: { select: { name: true, email: true } },
 };
@@ -119,7 +123,7 @@ export async function getTodayDsmStatus(
 /** Prefill data from today's StandupEntry for first-time DSR creation. */
 export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
   const session = await auth();
-  if (!session?.user?.id) return { plannedTasks: [], blockers: [], followUps: [] };
+  if (!session?.user?.id) return { plannedTasks: [], blockers: [], followUps: [], learningItems: [] };
 
   const today = toUtcDate();
 
@@ -145,7 +149,7 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
     },
   });
 
-  if (!standup) return { plannedTasks: [], blockers: [], followUps: [] };
+  if (!standup) return { plannedTasks: [], blockers: [], followUps: [], learningItems: [] };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function formatItemTextWithMentions(item: any): string {
@@ -177,6 +181,7 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
     blockers: standup.blockers.map((b: any) => ({ text: formatItemTextWithMentions(b) })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     followUps: standup.supportNeeds.map((s: any) => ({ text: formatItemTextWithMentions(s) })),
+    learningItems: standup.learningText ? [{ text: standup.learningText }] : [],
   };
 }
 

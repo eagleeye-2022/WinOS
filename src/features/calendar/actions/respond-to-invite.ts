@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 import { getValidZohoAccessToken, respondToZohoEvent } from "@/lib/zoho-calendar";
@@ -22,24 +23,48 @@ export async function respondToCalendarInvite(
     return { message: "Invalid request" };
   }
 
-  if (!session.user.email) return { message: "Missing account email" };
+  const userId = session.user.id;
+  const userEmail = session.user.email ?? "";
+  const newStatus = response === "accept" ? "ACCEPTED" : response === "decline" ? "DECLINED" : "TENTATIVE";
 
-  const token = await getValidZohoAccessToken(session.user.id);
-  if (!token || !token.calendarUid) {
-    // Invitee hasn't connected their own Zoho account — can't RSVP via Zoho,
-    // but the in-app notification can still be dismissed by the caller.
-    return { message: "connect_required" };
+  // Update DB Attendee status
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).calendarEventAttendee.updateMany({
+      where: {
+        eventId,
+        OR: [
+          { userId },
+          ...(userEmail ? [{ email: userEmail }] : []),
+        ],
+      },
+      data: {
+        status: newStatus,
+        userId,
+      },
+    });
+  } catch (err) {
+    console.warn("[calendar] DB RSVP update skipped or failed:", err);
   }
 
-  await respondToZohoEvent(
-    token.accessToken,
-    token.apiDomain,
-    token.calendarUid,
-    eventId,
-    session.user.email,
-    response,
-  );
+  // Update Zoho Calendar if connected
+  try {
+    const token = await getValidZohoAccessToken(userId);
+    if (token && token.calendarUid && userEmail) {
+      await respondToZohoEvent(
+        token.accessToken,
+        token.apiDomain,
+        token.calendarUid,
+        eventId,
+        userEmail,
+        response,
+      );
+    }
+  } catch (err) {
+    console.warn("[calendar] Zoho RSVP skipped or failed:", err);
+  }
 
   revalidatePath("/calendar");
   return { message: "responded" };
 }
+

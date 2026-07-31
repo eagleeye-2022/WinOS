@@ -48,6 +48,7 @@ const dsrInclude = {
   additionalWorks: { orderBy: { order: "asc" } },
   resolvedBlockers: { orderBy: { order: "asc" } },
   followUpsDone: { orderBy: { order: "asc" } },
+  learningItems: { orderBy: { order: "asc" } },
   timelineEvents: { orderBy: { occurredAt: "asc" } },
   reviewedBy: { select: { name: true, email: true } },
 };

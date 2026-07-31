@@ -26,7 +26,7 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
   const [review, workspaceNote, sharedItems] = await Promise.all([
     getMemberDsrReview(userId, weekOffset),
     getMemberWorkspaceNote(userId),
-    getSharedWorkspaceNotes(),
+    getSharedWorkspaceNotes(userId),
   ]);
 
   if (!review) redirect(ROUTES.dsrManage);
@@ -40,8 +40,8 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DsrMemberReview
           review={review}
           weekOffset={weekOffset}
@@ -52,8 +52,6 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
         <WorkspaceNotesPanel
           sharedNotes={sharedItems?.notes || []}
           userRole={session?.user?.role}
-          note={workspaceNote}
-          canEdit={false}
         />
       </aside>
     </div>

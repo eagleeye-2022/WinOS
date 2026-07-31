@@ -79,7 +79,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       </div>
 
       <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
-        <WorkspaceNotesPanel note={workspaceNote} canEdit={canEditNote} />
+        <WorkspaceNotesPanel />
       </aside>
     </div>
   );

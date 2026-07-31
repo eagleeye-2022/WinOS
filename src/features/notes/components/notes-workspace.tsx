@@ -27,6 +27,7 @@ const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
   ssr: false,
 });
 import { NotesTopNav } from "./notes-top-nav";
+import { EditNoteModal } from "./edit-note-modal";
 import { createBoard } from "../actions/create-board";
 import { createThread } from "../actions/create-thread";
 import { updateBoard } from "../actions/update-board";
@@ -36,7 +37,6 @@ import { deleteBoard } from "../actions/delete-board";
 import { deleteThread } from "../actions/delete-thread";
 import { shareThread } from "../actions/share-thread";
 import { createBoardNote } from "../actions/create-board-note";
-import { updateBoardNote } from "../actions/update-board-note";
 import { deleteBoardNote } from "../actions/delete-board-note";
 import { shareBoardNote } from "../actions/share-board-note";
 import { toggleBoardNoteItem } from "../actions/toggle-board-note-item";
@@ -80,7 +80,7 @@ type ThreadData = {
   boardId: string;
   authorId: string;
   author: UserBasic;
-  shares: { userId: string }[];
+  shares: { userId: string; canEdit: boolean }[];
   notes: BoardNoteData[];
   createdAt: Date;
   updatedAt: Date;
@@ -286,10 +286,10 @@ export function NotesWorkspace({
   const [sharingItem, setSharingItem] = useState<{
     type: "board" | "thread" | "note";
     id: string;
-    existingShares: string[];
+    existingShares: { userId: string; canEdit: boolean }[];
   } | null>(null);
 
-  const [shareSelection, setShareSelection] = useState<string[]>([]);
+  const [shareSelection, setShareSelection] = useState<{ userId: string; canEdit: boolean }[]>([]);
 
   const [isPending, startTransition] = useTransition();
 
@@ -572,34 +572,6 @@ export function NotesWorkspace({
     });
   };
 
-  // Handle Note Update
-  const handleUpdateNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingNote) return;
-
-    const formData = new FormData();
-    formData.append("id", editingNote.id);
-    if (editingNote.title !== undefined) formData.append("title", editingNote.title || "");
-    formData.append("color", editingNote.color || "#ffffff");
-    if (editingNote.deadline) {
-      formData.append("deadline", new Date(editingNote.deadline).toISOString().slice(0, 16));
-    }
-
-    formData.append("content", editingNote.content || "");
-    editingNote.checklistItems.forEach((item) => {
-      if (item.text.trim()) formData.append("item", item.text);
-    });
-
-    startTransition(async () => {
-      const res = await updateBoardNote({}, formData);
-      if (res.message === "updated") {
-        console.log("Client: Note updated successfully:", editingNote.id, "with content:", editingNote.content, "and items:", editingNote.checklistItems);
-        setEditingNote(null);
-        await Promise.all([refreshThreads(), refreshHistory()]);
-      }
-    });
-  };
-
   // Handle Note Delete
   const handleDeleteNote = async (noteId: string) => {
     if (!confirm("Are you sure you want to delete this note?")) return;
@@ -660,16 +632,18 @@ export function NotesWorkspace({
   const handleShareSubmit = async () => {
     if (!sharingItem) return;
     const formData = new FormData();
-    formData.append("shareUserIds", shareSelection.join(","));
 
     startTransition(async () => {
       if (sharingItem.type === "board") {
+        formData.append("shareUserIds", shareSelection.map((s) => s.userId).join(","));
         formData.append("boardId", sharingItem.id);
         await shareBoard({}, formData);
       } else if (sharingItem.type === "thread") {
+        formData.append("sharePermissions", JSON.stringify(shareSelection));
         formData.append("threadId", sharingItem.id);
         await shareThread({}, formData);
       } else {
+        formData.append("shareUserIds", shareSelection.map((s) => s.userId).join(","));
         formData.append("noteId", sharingItem.id);
         await shareBoardNote({}, formData);
       }
@@ -1243,7 +1217,7 @@ export function NotesWorkspace({
                             setSharingItem({
                               type: "thread",
                               id: thread.id,
-                              existingShares: thread.shares.map((s) => s.userId),
+                              existingShares: thread.shares.map((s) => ({ userId: s.userId, canEdit: s.canEdit })),
                             })
                           }
                           className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
@@ -1316,7 +1290,7 @@ export function NotesWorkspace({
                                   setSharingItem({
                                     type: "note",
                                     id: note.id,
-                                    existingShares: note.shares.map((s) => s.userId),
+                                    existingShares: note.shares.map((s) => ({ userId: s.userId, canEdit: false })),
                                   });
                                 }}
                                 className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -1438,32 +1412,59 @@ export function NotesWorkspace({
                 {allUsers
                   .filter((u) => u.id !== userId)
                   .map((u) => {
-                    const isChecked = shareSelection.includes(u.id);
+                    const entry = shareSelection.find((s) => s.userId === u.id);
+                    const isChecked = !!entry;
                     return (
-                      <button
+                      <div
                         key={u.id}
-                        type="button"
-                        onClick={() => {
-                          if (isChecked) {
-                            setShareSelection(shareSelection.filter((id) => id !== u.id));
-                          } else {
-                            setShareSelection([...shareSelection, u.id]);
-                          }
-                        }}
-                        className="flex items-center justify-between text-left py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
+                        className="flex items-center justify-between gap-2 py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
                       >
-                        <div className="flex flex-col">
-                          <span>{u.name || formatFallbackName(u.email)}</span>
-                          <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
-                            {u.title || u.role}
-                          </span>
-                        </div>
-                        {isChecked ? (
-                          <CheckSquare size={13} className="text-primary" />
-                        ) : (
-                          <Square size={13} className="text-muted-foreground/40" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isChecked) {
+                              setShareSelection(shareSelection.filter((s) => s.userId !== u.id));
+                            } else {
+                              setShareSelection([...shareSelection, { userId: u.id, canEdit: false }]);
+                            }
+                          }}
+                          className="flex items-center gap-2 text-left flex-1 min-w-0"
+                        >
+                          {isChecked ? (
+                            <CheckSquare size={13} className="text-primary shrink-0" />
+                          ) : (
+                            <Square size={13} className="text-muted-foreground/40 shrink-0" />
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">{u.name || formatFallbackName(u.email)}</span>
+                            <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
+                              {u.title || u.role}
+                            </span>
+                          </div>
+                        </button>
+                        {sharingItem?.type === "thread" && isChecked && (
+                          <button
+                            type="button"
+                            title="Allow this member to edit notes in this list"
+                            onClick={() =>
+                              setShareSelection(
+                                shareSelection.map((s) =>
+                                  s.userId === u.id ? { ...s, canEdit: !s.canEdit } : s
+                                )
+                              )
+                            }
+                            className={cn(
+                              "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold shrink-0",
+                              entry?.canEdit
+                                ? "bg-primary/15 text-primary"
+                                : "text-muted-foreground/60 hover:text-foreground"
+                            )}
+                          >
+                            <Pencil size={11} />
+                            Can edit
+                          </button>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
               </div>
@@ -1897,256 +1898,15 @@ export function NotesWorkspace({
         </div>
       )}
       {/* 4. Edit Note Dialog Overlay */}
-      {editingNote && (() => {
-        const isEditingReadOnly = editingNote.authorId !== userId;
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
-            <form
-              onSubmit={handleUpdateNote}
-              className="w-full max-w-3xl max-h-[88vh] rounded-xl bg-card border p-6 shadow-xl flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="flex items-center justify-between border-b pb-3 shrink-0">
-                <span className="text-sm font-bold text-foreground">
-                  {isEditingReadOnly ? "View Note Card" : "Edit Note Card"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditingNote(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
-                <div
-                  className="border rounded-lg p-4 flex flex-col gap-2.5"
-                  style={{ backgroundColor: editingNote.color || "#ffffff" }}
-                >
-                  {/* Card Title */}
-                  {isEditingReadOnly ? (
-                    editingNote.title && (
-                      <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(editingNote.title)}</h3>
-                    )
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                        Card Title
-                      </label>
-                      <input
-                        type="text"
-                        value={editingNote.title || ""}
-                        onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
-                        placeholder="Enter card title..."
-                        className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
-                        maxLength={120}
-                      />
-                    </div>
-                  )}
-                  {/* Text Content */}
-                  {isEditingReadOnly ? (
-                    <div
-                      className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
-                      dangerouslySetInnerHTML={{ __html: editingNote.content || "" }}
-                    />
-                  ) : (
-                    <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
-                      <RichTextEditor
-                        value={editingNote.content || ""}
-                        onChange={(val) =>
-                          setEditingNote({ ...editingNote, content: val })
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* Checklist Section */}
-                  {/* <div className="flex flex-col gap-2 border-t pt-3 mt-1.5 border-black/5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">
-                        Checklist
-                      </label>
-                      {editingNote.checklistItems.length > 0 && (
-                        <div className="flex flex-col gap-2">
-                          {editingNote.checklistItems.map((item, idx) => (
-                            <div
-                              key={item.id || idx}
-                              draggable={!isEditingReadOnly}
-                              onDragStart={(e) => {
-                                e.stopPropagation();
-                                e.dataTransfer.setData("text/plain", JSON.stringify({ type: "todo", index: idx }));
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                try {
-                                  const raw = e.dataTransfer.getData("text/plain");
-                                  if (!raw) return;
-                                  const data = JSON.parse(raw);
-                                  if (data.type === "todo" && typeof data.index === "number" && data.index !== idx) {
-                                    const newItems = [...editingNote.checklistItems];
-                                    const [dragged] = newItems.splice(data.index, 1);
-                                    newItems.splice(idx, 0, dragged);
-                                    setEditingNote({ ...editingNote, checklistItems: newItems });
-                                  }
-                                } catch (err) {
-                                  console.error(err);
-                                }
-                              }}
-                              className="flex items-center gap-2 p-1 rounded hover:bg-black/5 cursor-grab active:cursor-grabbing group/todo"
-                            >
-                              {!isEditingReadOnly && (
-                                <div className="cursor-grab text-muted-foreground/40 hover:text-muted-foreground shrink-0 flex items-center">
-                                  <GripVertical size={12} />
-                                </div>
-                              )}
-                              {item.checked ? (
-                                <CheckSquare size={13} className="text-primary shrink-0" />
-                              ) : (
-                                <Square size={13} className="text-muted-foreground/40 shrink-0" />
-                              )}
-                              {isEditingReadOnly ? (
-                                <span className={cn(
-                                  "text-xs select-none",
-                                  item.checked && "text-muted-foreground line-through"
-                                )}>
-                                  {item.text}
-                                </span>
-                              ) : (
-                                <>
-                                  <input
-                                    type="text"
-                                    value={item.text}
-                                    onChange={(e) => {
-                                      const newItems = [...editingNote.checklistItems];
-                                      newItems[idx].text = e.target.value;
-                                      setEditingNote({ ...editingNote, checklistItems: newItems });
-                                    }}
-                                    placeholder={`Checklist Item ${idx + 1}`}
-                                    className="flex-1 bg-transparent border-none outline-none text-xs"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newItems = editingNote.checklistItems.filter(
-                                        (_, i) => i !== idx
-                                      );
-                                      setEditingNote({ ...editingNote, checklistItems: newItems });
-                                    }}
-                                    className="text-muted-foreground hover:text-destructive shrink-0"
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {!isEditingReadOnly && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newItems = [
-                              ...editingNote.checklistItems,
-                              {
-                                id: "new-" + Math.random(),
-                                text: "",
-                                checked: false,
-                                position: editingNote.checklistItems.length,
-                              },
-                            ];
-                            setEditingNote({ ...editingNote, checklistItems: newItems });
-                          }}
-                          className="flex items-center gap-1 text-xs font-semibold text-primary self-start mt-1"
-                        >
-                          <Plus size={11} /> Add Checklist Item
-                        </button>
-                      )}
-                    </div> */}
-
-                  {/* Deadline */}
-                  {/* <div className="flex flex-col gap-1 border-t pt-3 mt-1.5 border-black/5">
-                      <label className="text-xs font-bold text-muted-foreground uppercase">
-                        Deadline (Optional)
-                      </label>
-                      <input
-                        type="datetime-local"
-                        disabled={isEditingReadOnly}
-                        value={
-                          editingNote.deadline
-                            ? new Date(editingNote.deadline).toISOString().slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) =>
-                          setEditingNote({
-                            ...editingNote,
-                            deadline: e.target.value ? new Date(e.target.value) : null,
-                          })
-                        }
-                        className="bg-transparent border rounded p-1 text-xs outline-none max-w-[180px] disabled:opacity-75"
-                      />
-                    </div> */}
-
-                  {/* Color Picker */}
-                  <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-                    <label className="text-xs font-bold text-muted-foreground uppercase">
-                      Card Color
-                    </label>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {PASTEL_COLORS.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          disabled={isEditingReadOnly}
-                          onClick={() => setEditingNote({ ...editingNote, color: c })}
-                          className={cn(
-                            "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
-                            editingNote.color === c && "ring-1 ring-primary scale-110"
-                          )}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">
-                {isEditingReadOnly ? (
-                  <button
-                    type="button"
-                    onClick={() => setEditingNote(null)}
-                    className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90"
-                  >
-                    Close
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setEditingNote(null)}
-                      className="rounded-md border px-4 py-2 text-xs hover:bg-accent font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isPending}
-                      className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-                    >
-                      Save Edits
-                    </button>
-                  </>
-                )}
-              </div>
-            </form>
-          </div>
-        );
-      })()}
+      {editingNote && (
+        <EditNoteModal
+          note={editingNote}
+          onNoteChange={setEditingNote}
+          canEdit={editingNote.authorId === userId}
+          onClose={() => setEditingNote(null)}
+          onSaved={async () => { await Promise.all([refreshThreads(), refreshHistory()]); }}
+        />
+      )}
 
       {/* 5. Edit Board Dialog Overlay */}
       {editingBoard && (

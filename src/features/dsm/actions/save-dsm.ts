@@ -54,6 +54,7 @@ export async function saveDsm(
   // Normalize date to UTC midnight for the @@unique constraint
   const date = new Date(dateStr + "T00:00:00.000Z");
 
+  const learningText = getStr(formData, "learningText");
   const taskTexts = (formData.getAll("taskText") as string[]).map((t) => t.trim()).filter(Boolean);
   const taskPriorities = formData.getAll("taskPriority") as string[];
   const blockerTexts = (formData.getAll("blockerText") as string[]).map((t) => t.trim());
@@ -96,10 +97,12 @@ export async function saveDsm(
         date,
         status: finalStatus,
         submittedAt,
+        learningText: learningText || null,
       },
       update: {
         status: finalStatus,
         submittedAt,
+        learningText: learningText || null,
       },
     });
 

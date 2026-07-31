@@ -29,8 +29,8 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
   if (!review) redirect("/dsm/all");
 
   return (
-    <div className="flex h-full">
-      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
+    <div className="flex h-full min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <MemberReviewDetail review={review} weekOffset={weekOffset} teamMembers={teamMembers} />
       </div>
       <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
