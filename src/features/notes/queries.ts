@@ -116,7 +116,7 @@ export async function getThreads(boardId: string) {
     where: whereClause,
     include: {
       author: { select: { id: true, name: true, email: true, image: true } },
-      shares: { select: { userId: true } },
+      shares: { select: { userId: true, canEdit: true } },
       notes: {
         where: {
           OR: [

@@ -1,14 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Share2,
   CheckSquare,
   Square,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-item";
+import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
 import type { SharedNoteData } from "../queries";
 
 // Pastel color palette matching Note History cards
@@ -67,32 +69,41 @@ function SharedNoteCard({
     });
   };
 
+  // Strip HTML and get plain text preview using substring
+  const plainContent = note.content ? note.content.replace(/<[^>]*>/g, "").trim() : "";
+  const contentPreview =
+    plainContent.length > 120
+      ? plainContent.substring(0, 120) + "…"
+      : plainContent;
+
   return (
     <div className="flex flex-col gap-2.5 text-left text-black">
       {/* Title */}
       {note.title && (
-        <h4 className="text-base font-bold text-black dark:text-black">
-          {note.title}
+        <h4 className="text-base font-bold text-black dark:text-black line-clamp-2">
+          {note.title.length > 60 ? note.title.substring(0, 60) + "…" : note.title}
         </h4>
       )}
 
-      {/* Content */}
-      {note.content && (
-        <div
-          className="text-base text-black dark:text-black leading-relaxed html-content font-medium [&_*]:text-black"
-          dangerouslySetInnerHTML={{ __html: note.content }}
-        />
+      {/* Content preview with substring */}
+      {contentPreview && (
+        <p className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3">
+          {contentPreview}
+        </p>
       )}
 
-      {/* Checklist items */}
+      {/* Checklist items (preview: first 3, rest shown in the modal) */}
       {note.checklistItems.length > 0 && (
         <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
-          {note.checklistItems.map((item) => (
+          {note.checklistItems.slice(0, 3).map((item) => (
             <button
               key={item.id}
               type="button"
               disabled={isPending || isReadOnly}
-              onClick={() => handleToggle(item.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggle(item.id);
+              }}
               className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
                 isReadOnly ? "cursor-default opacity-85" : "hover:bg-black/5 cursor-pointer"
               }`}
@@ -105,20 +116,31 @@ function SharedNoteCard({
                 )}
               </span>
               <span
-                className={`text-sm leading-snug select-none ${
+                className={`text-sm leading-snug select-none line-clamp-1 ${
                   item.checked ? "text-black/50 line-through" : "text-black dark:text-black font-medium"
                 }`}
               >
-                {item.text}
+                {item.text.length > 50 ? item.text.substring(0, 50) + "…" : item.text}
               </span>
             </button>
           ))}
+          {note.checklistItems.length > 3 && (
+            <span className="text-xs text-black/60 font-medium pl-1">
+              +{note.checklistItems.length - 3} more items
+            </span>
+          )}
         </div>
       )}
 
-      {/* Footer Info */}
+      {/* Footer Info (Date at the last of the card) */}
       <div className="flex items-center justify-between mt-1 text-xs text-black/80 dark:text-black/80 border-t pt-2 border-black/10 font-medium">
-        <span>{new Date(note.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
+        <span>
+          {new Date(note.createdAt).toLocaleDateString("en-IN", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </span>
       </div>
     </div>
   );
@@ -129,17 +151,17 @@ function SharedNoteCard({
 type WorkspaceNotesPanelProps = {
   sharedNotes?: SharedNoteData[];
   userRole?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  note?: any;
-  canEdit?: boolean;
 };
 
 export function WorkspaceNotesPanel({
   sharedNotes = [],
   userRole,
 }: WorkspaceNotesPanelProps) {
+  const router = useRouter();
+  const [editingNote, setEditingNote] = useState<SharedNoteData | null>(null);
+
   return (
-    <div className="flex h-full flex-col bg-card">
+    <div className="flex h-full max-h-[calc(100vh-20rem)] flex-col bg-card overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
         <span className="text-lg font-bold text-black dark:text-black">Workspace Notes</span>
@@ -151,7 +173,7 @@ export function WorkspaceNotesPanel({
       </div>
 
       {/* Scrollable shared items list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3.5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3.5">
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-black my-auto">
             <Share2 size={36} className="text-black/40 mb-3" />
@@ -165,22 +187,39 @@ export function WorkspaceNotesPanel({
           <div className="flex flex-col gap-3.5">
             {sharedNotes.map((note) => {
               const bg = getCardColor(note.color, note.id);
+              const threadTitleSub = note.threadTitle
+                ? note.threadTitle.length > 25
+                  ? note.threadTitle.substring(0, 25) + "…"
+                  : note.threadTitle
+                : "";
+
               return (
                 <div
                   key={note.id}
-                  className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md"
+                  onClick={() => setEditingNote(note)}
+                  className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer"
                   style={{
                     backgroundColor: bg,
                     borderLeftColor: "rgba(0, 0, 0, 0.25)",
                   }}
                 >
                   <div className="flex items-center justify-between border-b pb-2 border-black/10">
-                    <span className="text-xs font-bold text-black dark:text-black flex items-center gap-1">
-                      <Sparkles size={13} className="text-primary" /> In {note.threadTitle}
+                    <span className="text-xs font-bold text-black dark:text-black flex items-center gap-1 truncate max-w-[50%]" title={note.threadTitle}>
+                      <Sparkles size={13} className="text-primary shrink-0" /> In {threadTitleSub}
                     </span>
-                    <span className="text-xs font-semibold text-black/90 dark:text-black/90">
-                      by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
-                    </span>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-black/90 dark:text-black/90 shrink-0">
+                      {note.canEdit && (
+                        <span
+                          title="You can edit this note"
+                          className="flex items-center gap-1 text-xs font-semibold text-primary"
+                        >
+                          <Pencil size={11} />
+                        </span>
+                      )}
+                      <span>
+                        by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
+                      </span>
+                    </div>
                   </div>
                   <SharedNoteCard note={note} userRole={userRole} />
                 </div>
@@ -189,6 +228,16 @@ export function WorkspaceNotesPanel({
           </div>
         )}
       </div>
+
+      {editingNote && (
+        <EditNoteModal
+          note={editingNote}
+          onNoteChange={setEditingNote}
+          canEdit={editingNote.canEdit}
+          onClose={() => setEditingNote(null)}
+          onSaved={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

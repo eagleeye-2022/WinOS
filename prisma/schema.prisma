@@ -98,6 +98,7 @@ model StandupEntry {
   reviewedAt    DateTime?
   reviewedById  String?
   reviewComment String?
+  learningText  String?
   userId        String
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
@@ -287,6 +288,7 @@ model DsrEntry {
   reviewedBy         User?                @relation("DsrReviewedBy", fields: [reviewedById], references: [id])
   user               User                 @relation("UserDsrEntries", fields: [userId], references: [id], onDelete: Cascade)
   followUpsDone      DsrFollowUpDone[]
+  learningItems      DsrLearningItem[]
   plannedTasks       DsrPlannedTask[]
   resolvedBlockers   DsrResolvedBlocker[]
   timelineEvents     DsrTimelineEvent[]
@@ -332,6 +334,17 @@ model DsrFollowUpDone {
   dsrEntryId String
   text       String
   completed  Boolean  @default(true)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  dsrEntry   DsrEntry @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
+}
+
+model DsrLearningItem {
+  id         String   @id @default(cuid())
+  dsrEntryId String
+  text       String
+  completed  Boolean  @default(false)
   order      Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -452,6 +465,7 @@ model Thread {
 model ThreadShare {
   threadId  String
   userId    String
+  canEdit   Boolean  @default(false)
   createdAt DateTime @default(now())
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

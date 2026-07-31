@@ -163,7 +163,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   }
 
   return (
-    <aside className="flex justify-between w-56 shrink-0 flex-col border-r bg-card select-none sticky top-0 h-[90vh]">
+    <aside className="flex justify-between w-56 shrink-0 flex-col border-r bg-card select-none h-full overflow-y-auto">
       <div>
         {/* Top Header matching exact screenshot design */}
         <div className="px-5 pt-6 pb-4">

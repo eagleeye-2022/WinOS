@@ -59,6 +59,63 @@ async function attachMentionedUsers<T extends { mentionedUserId?: string | null;
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
+ * Blockers WHERE the current user is the mentionedUser (someone raised a blocker naming them).
+ */
+export async function getBlockersWithMe(): Promise<BlockerItem[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const rows = await d.standupBlocker.findMany({
+    where: {
+      OR: [
+        { mentionedUserId: session.user.id },
+        { mentionedUserIds: { contains: session.user.id } },
+      ],
+    },
+    include: {
+      entry: {
+        include: { user: { select: { id: true, name: true, email: true, role: true, title: true } } },
+      },
+      editedBy: { select: { id: true, name: true, email: true } },
+      comments: {
+        include: { author: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+    orderBy: [{ entry: { date: "desc" } }, { priority: "asc" }],
+  });
+
+  const items = rows.map((b: {
+    id: string;
+    text: string;
+    priority: "LOW" | "MEDIUM" | "HIGH";
+    resolved: boolean;
+    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
+    mentionedUserId?: string | null;
+    mentionedUserIds?: string | null;
+    editedBy?: { id: string; name: string | null; email: string } | null;
+    comments: BlockerCommentItem[];
+  }) => ({
+    id: b.id,
+    text: b.text,
+    priority: b.priority,
+    resolved: b.resolved,
+    date: b.entry.date,
+    entryId: b.entry.id,
+    raisedBy: b.entry.user,
+    mentionedUserId: b.mentionedUserId,
+    mentionedUserIds: b.mentionedUserIds,
+    editedBy: b.editedBy,
+    comments: b.comments,
+  }));
+
+  return attachMentionedUsers(items);
+}
+
+/**
  * All blockers for the current user (team member: own entries; manager: all entries).
  * Includes items from every entry status — Draft, Submitted, Reviewed, etc.
  */

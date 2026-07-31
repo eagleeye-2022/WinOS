@@ -60,6 +60,7 @@ export type MemberReviewEntry = {
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
   reviewComment: string | null;
+  learningText: string | null;
   tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null }[];
   blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser?: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null }[];
   supportNeeds: { id: string; text: string; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null; order: number; resolved?: boolean }[];

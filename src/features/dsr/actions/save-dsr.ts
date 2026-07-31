@@ -32,6 +32,7 @@ export async function saveDsr(
   const additionalWorksJson = formData.get("additionalWorksJson") as string;
   const resolvedBlockersJson = formData.get("resolvedBlockersJson") as string;
   const followUpsDoneJson = formData.get("followUpsDoneJson") as string;
+  const learningItemsJson = formData.get("learningItemsJson") as string;
   const sentiment = (formData.get("sentiment") as string) || null;
   const reflection = (formData.get("reflection") as string)?.trim() || null;
   const resultOfDay = (formData.get("resultOfDay") as string)?.trim() || null;
@@ -44,6 +45,7 @@ export async function saveDsr(
   const additionalWorks: SimpleItem[] = JSON.parse(additionalWorksJson || "[]");
   const resolvedBlockers: SimpleItem[] = JSON.parse(resolvedBlockersJson || "[]");
   const followUpsDone: SimpleItem[] = JSON.parse(followUpsDoneJson || "[]");
+  const learningItems: SimpleItem[] = JSON.parse(learningItemsJson || "[]");
 
   const completedCount = plannedTasks.filter((t) => t.completed).length;
   const totalCount = plannedTasks.length;
@@ -164,6 +166,17 @@ export async function saveDsr(
       data: validFollowUps.map((f, i) => ({
         dsrEntryId: entry.id, text: f.text.trim(),
         completed: f.completed ?? true, order: i,
+      })),
+    });
+  }
+
+  await d.dsrLearningItem.deleteMany({ where: { dsrEntryId: entry.id } });
+  const validLearningItems = learningItems.filter((l) => l.text?.trim());
+  if (validLearningItems.length > 0) {
+    await d.dsrLearningItem.createMany({
+      data: validLearningItems.map((l, i) => ({
+        dsrEntryId: entry.id, text: l.text.trim(),
+        completed: l.completed ?? false, order: i,
       })),
     });
   }

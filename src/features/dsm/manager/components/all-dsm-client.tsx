@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Calendar, Filter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toIsoDateStr, toUtcDate } from "../../utils";
-import { AllDsmStatsRow } from "./all-dsm-stats";
+import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
 import { NewTeamModal } from "./new-team-modal";
 import type { AllDsmStats, TeamGroup, TeamWithMembers, AllUser } from "../queries";
@@ -54,6 +54,50 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     }).format(dateObj);
   }, [dateObj]);
 
+  // Flatten members across all teams for the stat card dropdowns
+  const submittedMembers: StatMember[] = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+          meta: m.submittedAt
+            ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+            : undefined,
+        }))
+    );
+  }, [groups]);
+
+  const pendingMembers: StatMember[] = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "DRAFT" || m.status === null || m.status === "MISSED")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+        }))
+    );
+  }, [groups]);
+
+  const blockerMembers: StatMember[] = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.blockerCount > 0)
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+          meta: `${m.blockerCount} blocker${m.blockerCount > 1 ? "s" : ""}`,
+        }))
+    );
+  }, [groups]);
+
   // Extract unique departments for the filter dropdown
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -95,7 +139,8 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
   }, [groups, selectedDept, searchQuery, sortBy]);
 
   return (
-    <div className="relative flex h-full flex-col gap-6 overflow-y-auto p-6">
+    <div className="relative flex h-full max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex shrink-0 flex-col gap-6 p-6 pb-8">
       {/* Page heading + date filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -247,18 +292,28 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       )}
 
       {/* Stat cards */}
-      {stats && <AllDsmStatsRow stats={stats} />}
+      {stats && (
+        <AllDsmStatsRow
+          stats={stats}
+          submittedMembers={submittedMembers}
+          pendingMembers={pendingMembers}
+          blockerMembers={blockerMembers}
+        />
+      )}
+    </div>
 
-      {/* Team columns */}
-      <div className="flex  gap-5 overflow-x-auto cursor-grab pb-4 dsm-columns-scrollbar">
-        {filteredGroups.map((group, index) => (
-          <TeamColumn key={group.teamId} group={group} colorIndex={index} />
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">
-            <p className="text-sm text-muted-foreground">No Teams Match the Active Filters.</p>
-          </div>
-        )}
+      {/* Team columns (scrollable, fills remaining space) */}
+      <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab dsm-columns-scrollbar">
+        <div className="flex h-full items-start gap-8">
+          {filteredGroups.map((group, index) => (
+            <TeamColumn key={group.teamId} group={group} colorIndex={index} />
+          ))}
+          {filteredGroups.length === 0 && (
+            <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">
+              <p className="text-sm text-muted-foreground">No Teams Match the Active Filters.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Floating + button */}

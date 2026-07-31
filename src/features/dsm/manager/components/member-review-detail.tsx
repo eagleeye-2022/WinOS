@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, CheckCheck, AlertTriangle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
-  PenIcon,
+  PenIcon, GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -1067,6 +1067,17 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
         <TodayTasksSection tasks={todayTasks} isLocked={isLocked} entryId={entry.id} />
       )}
 
+      {/* What will you learn today */}
+      {entry.learningText && (
+        <div className="rounded-xl border bg-card p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+            <GraduationCap size={15} className="text-primary" />
+            What Will You Learn Today?
+          </h3>
+          <p className="text-sm leading-relaxed text-foreground/80">{entry.learningText}</p>
+        </div>
+      )}
+
       {/* Blockers */}
       {(entry.blockers.length > 0 || !isLocked) && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
@@ -1400,64 +1411,72 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
   const otherEntries = entries.filter((e) => relativeDayLabel(e.date) !== "Today");
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Back Button */}
-      <div>
-        <Link
-          href={ROUTES.dsmAll}
-          className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft size={14} />
-          Back to All DSM
-        </Link>
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Fixed header block: back button + member card */}
+      <div className="flex shrink-0 flex-col gap-5 p-6 pb-5">
+        {/* Back Button */}
+        <div>
+          <Link
+            href={ROUTES.dsmAll}
+            className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeft size={14} />
+            Back to All DSM
+          </Link>
+        </div>
 
-      {/* Member header */}
-      <div className="flex items-center justify-between rounded-xl border bg-card p-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
-            {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-          </span>
-          <div>
-            <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
-            <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
+        {/* Member header */}
+        <div className="flex items-center justify-between rounded-xl border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+              {(user.name ?? user.email).slice(0, 2).toUpperCase()}
+            </span>
+            <div>
+              <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+              <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
+            </div>
+          </div>
+
+          {/* Week navigation */}
+          <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
+            <Link
+              href={`/dsm/member/${user.id}?w=${weekOffset - 1}`}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
+            >
+              <ChevronLeft size={16} />
+            </Link>
+            <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
+            <Link
+              href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}` : `/dsm/member/${user.id}`}
+              className={cn(
+                "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
+                !canGoForward && "pointer-events-none opacity-30"
+              )}
+            >
+              <ChevronRight size={16} />
+            </Link>
           </div>
         </div>
-
-        {/* Week navigation */}
-        <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
-          <Link
-            href={`/dsm/member/${user.id}?w=${weekOffset - 1}`}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
-          >
-            <ChevronLeft size={16} />
-          </Link>
-          <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
-          <Link
-            href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}` : `/dsm/member/${user.id}`}
-            className={cn(
-              "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
-              !canGoForward && "pointer-events-none opacity-30"
-            )}
-          >
-            <ChevronRight size={16} />
-          </Link>
-        </div>
       </div>
 
-      {/* Today entry — expanded by default */}
-      {todayEntry && <TodayEntryCard entry={todayEntry} teamMembers={teamMembers} />}
+      {/* Scrollable entries list */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
+        <div className="flex flex-col gap-5">
+          {/* Today entry — expanded by default */}
+          {todayEntry && <TodayEntryCard entry={todayEntry} teamMembers={teamMembers} />}
 
-      {/* Previous days — collapsed by default */}
-      {otherEntries.map((entry) => (
-        <DayCardCollapsed key={entry.id} entry={entry} teamMembers={teamMembers} />
-      ))}
+          {/* Previous days — collapsed by default */}
+          {otherEntries.map((entry) => (
+            <DayCardCollapsed key={entry.id} entry={entry} teamMembers={teamMembers} />
+          ))}
 
-      {entries.length === 0 && (
-        <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-          No Standups Recorded for This Week.
+          {entries.length === 0 && (
+            <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+              No Standups Recorded for This Week.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -461,6 +461,13 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
     return prefill.followUps.map((f) => ({ text: f.text, completed: false }));
   });
 
+  const [learningItems, setLearningItems] = useState<CheckItem[]>(() => {
+    if (entry?.learningItems?.length) {
+      return entry.learningItems.map((l) => ({ id: l.id, text: l.text, completed: l.completed }));
+    }
+    return prefill.learningItems.map((l) => ({ text: l.text, completed: false }));
+  });
+
   const [sentiment, setSentiment] = useState<string>(entry?.sentiment ?? "");
   const [resultOfDay, setResultOfDay] = useState<string>(entry?.resultOfDay ?? "");
   const [reflection, setReflection] = useState<string>(entry?.reflection ?? "");
@@ -476,6 +483,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
     }))));
     fd.set("followUpsDoneJson", JSON.stringify(followUps.map((f) => ({
       id: f.id, text: f.text, completed: f.completed,
+    }))));
+    fd.set("learningItemsJson", JSON.stringify(learningItems.map((l) => ({
+      id: l.id, text: l.text, completed: l.completed,
     }))));
     fd.set("sentiment", sentiment);
     fd.set("reflection", reflection);
@@ -504,6 +514,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
       <input type="hidden" name="additionalWorksJson" value="[]" />
       <input type="hidden" name="resolvedBlockersJson" value="[]" />
       <input type="hidden" name="followUpsDoneJson" value="[]" />
+      <input type="hidden" name="learningItemsJson" value="[]" />
       <input type="hidden" name="sentiment" value={sentiment} />
       <input type="hidden" name="reflection" value={reflection} />
       <input type="hidden" name="resultOfDay" value={resultOfDay} />
@@ -551,6 +562,16 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         onChange={setFollowUps}
         allowAdd
         addLabel="Add Follow-Up"
+        readOnly={readOnly}
+      />
+
+      <CheckSection
+        title="What Will You Learn Today?"
+        badge={`${learningItems.filter((l) => l.completed).length}/${learningItems.length} LEARNED`}
+        items={learningItems}
+        onChange={setLearningItems}
+        allowAdd
+        addLabel="Add Learning Item"
         readOnly={readOnly}
       />
 

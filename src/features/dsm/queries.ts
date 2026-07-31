@@ -45,6 +45,7 @@ export type EntryWithDetails = {
   submittedAt: Date | null;
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
+  learningText: string | null;
   tasks: EntryTask[];
   blockers: EntryBlocker[];
   supportNeeds: EntrySupportNeed[];
@@ -437,8 +438,10 @@ export type SharedNoteData = {
   deadline: Date | null;
   createdAt: Date;
   threadTitle: string;
+  authorId: string;
   authorName: string;
   authorRole: string;
+  canEdit: boolean;
   checklistItems: { id: string; text: string; checked: boolean }[];
 };
 
@@ -462,7 +465,9 @@ export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ 
   const session = await auth();
   if (!session?.user?.id) return { notes: [], threads: [] };
 
-  const activeUserId = targetUserId || session.user.id;
+  const viewerId = session.user.id;
+  const viewerRole = session.user.role;
+  const activeUserId = targetUserId || viewerId;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -486,7 +491,17 @@ export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ 
       ],
     },
     include: {
-      thread: { select: { title: true, board: { select: { name: true } } } },
+      // Select the *viewer's* (session.user.id) share row for canEdit, not the
+      // target member's — the person looking at the screen is who needs edit
+      // rights, which may differ from activeUserId when a manager is reviewing
+      // another member's workspace.
+      thread: {
+        select: {
+          title: true,
+          board: { select: { name: true } },
+          shares: { where: { userId: viewerId }, select: { canEdit: true } },
+        },
+      },
       author: { select: { name: true, email: true, role: true } },
       checklistItems: { orderBy: { position: "asc" } },
     },
@@ -502,8 +517,16 @@ export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ 
     deadline: n.deadline,
     createdAt: n.createdAt,
     threadTitle: n.thread?.title ? `${n.thread.title} (${n.thread.board?.name || 'DSM Board'})` : "DSM Workspace",
+    authorId: n.authorId,
     authorName: n.author.name || n.author.email.split("@")[0],
     authorRole: n.author.role,
+    // Managers retain their existing blanket edit access over team members' DSM
+    // notes (matches the pre-existing checklist-toggle permission model); everyone
+    // else needs to be the author or hold an explicit edit-share grant.
+    canEdit:
+      viewerRole === "MANAGER" ||
+      n.authorId === viewerId ||
+      n.thread?.shares?.[0]?.canEdit === true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     checklistItems: n.checklistItems.map((c: any) => ({
       id: c.id,

@@ -92,7 +92,8 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
   }, [groups, selectedDept, searchQuery, sortBy]);
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
+    <div className="relative flex h-full max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex shrink-0 flex-col gap-6 p-6 pb-4">
       {/* Page Heading + Date Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -251,16 +252,20 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
       )}
 
       {stats && <AllDsrStatsRow stats={stats} />}
+    </div>
 
-      <div className="flex gap-5 overflow-x-auto cursor-grab pb-4 dsm-columns-scrollbar">
-        {filteredGroups.map((group, index) => (
-          <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} />
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">
-            <p className="text-sm text-muted-foreground">No Teams Match the Active Filters.</p>
-          </div>
-        )}
+      {/* Team columns (scrollable, fills remaining space) */}
+      <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab dsm-columns-scrollbar">
+        <div className="flex h-full items-start gap-8">
+          {filteredGroups.map((group, index) => (
+            <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} />
+          ))}
+          {filteredGroups.length === 0 && (
+            <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">
+              <p className="text-sm text-muted-foreground">No Teams Match the Active Filters.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

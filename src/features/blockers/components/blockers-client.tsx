@@ -386,9 +386,17 @@ function RaiseBlockerModal({ onClose }: { onClose: () => void }) {
 
 // ── Main client ───────────────────────────────────────────────────────────────
 
-type Props = { items: BlockerItem[]; currentUserId: string; isManager: boolean };
+type ViewMode = "mine" | "with-me";
 
-export function BlockersClient({ items, currentUserId, isManager }: Props) {
+type Props = {
+  items: BlockerItem[];
+  itemsForMe: BlockerItem[];
+  currentUserId: string;
+  isManager: boolean;
+};
+
+export function BlockersClient({ items, itemsForMe, currentUserId, isManager }: Props) {
+  const [viewMode, setViewMode] = useState<ViewMode>("mine");
   const [statusFilter, setStatusFilter] = useState<BlockerStatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<BlockerPriorityFilter>("all");
   const [search, setSearch] = useState("");
@@ -396,16 +404,30 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
 
+  const activeItems = viewMode === "mine" ? items : itemsForMe;
+
   const filtered = useMemo(
-    () => filterBlockers(items, statusFilter, priorityFilter, search),
-    [items, statusFilter, priorityFilter, search]
+    () => filterBlockers(activeItems, statusFilter, priorityFilter, search),
+    [activeItems, statusFilter, priorityFilter, search]
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const selected = items.find((b) => b.id === selectedId) ?? null;
+  const allItems = [...items, ...itemsForMe];
+  const selected = allItems.find((b) => b.id === selectedId) ?? null;
   const activeCount = items.filter((b) => !b.resolved).length;
+  const withMeActiveCount = itemsForMe.filter((b) => !b.resolved).length;
+
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    setPage(1);
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setSearch("");
+    const next = mode === "mine" ? items : itemsForMe;
+    setSelectedId(next[0]?.id ?? null);
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -431,6 +453,39 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
           >
             <PlusCircle size={16} />
             Raise New Blocker
+          </button>
+        </div>
+
+        {/* View tabs */}
+        <div className="mb-4 flex w-fit gap-0 rounded-xl border bg-muted/30 p-1">
+          <button
+            type="button"
+            onClick={() => handleViewChange("mine")}
+            className={cn(
+              "rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "mine"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            My Blockers
+          </button>
+          <button
+            type="button"
+            onClick={() => handleViewChange("with-me")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
+              viewMode === "with-me"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Blockers with Me
+            {withMeActiveCount > 0 && (
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                {withMeActiveCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -501,7 +556,9 @@ export function BlockersClient({ items, currentUserId, isManager }: Props) {
                   <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     {search || statusFilter !== "all" || priorityFilter !== "all"
                       ? "No Blockers Match Your Filters."
-                      : "No Blockers Recorded Yet. Raise One from Your DSM or Use the Button Above."}
+                      : viewMode === "mine"
+                      ? "No Blockers Recorded Yet. Raise One from Your DSM or Use the Button Above."
+                      : "No One Has Raised a Blocker Mentioning You Yet."}
                   </td>
                 </tr>
               ) : (

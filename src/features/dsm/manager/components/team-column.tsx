@@ -1,12 +1,45 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
-import { SendRemindersButton } from "./send-reminders-button";
+import { SendReminderButton } from "./send-reminder-button";
 import type { TeamGroup, MemberSubmissionCard } from "../queries";
 
 // Department dot color cycles: blue, blue, green, amber
 const DOT_COLORS = ["bg-primary", "bg-primary", "bg-emerald-500", "bg-amber-400"] as const;
+
+// Deterministic avatar gradient per user, cycling through a small palette
+const AVATAR_GRADIENTS = [
+  "from-primary/25 to-primary/10 text-primary",
+  "from-violet-400/25 to-violet-400/10 text-violet-600",
+  "from-sky-400/25 to-sky-400/10 text-sky-600",
+  "from-rose-400/25 to-rose-400/10 text-rose-600",
+  "from-amber-400/25 to-amber-400/10 text-amber-700",
+] as const;
+
+function avatarGradientFor(userId: string) {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+}
+
+function displayNameOf(card: Pick<MemberSubmissionCard, "name" | "email">) {
+  return card.name
+    ? card.name
+    : card.email
+        .split("@")[0]
+        .split(".")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+}
+
+function initialsOf(displayName: string) {
+  const parts = displayName.split(" ");
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return displayName.slice(0, 2).toUpperCase();
+}
 
 // ── Submitted member card ─────────────────────────────────────────────────────
 
@@ -16,7 +49,7 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
 
   if (card.submittedAt) {
     timeStr = new Date(card.submittedAt).toLocaleTimeString("en-US", {
-      hour: "2-digit",
+      hour: "numeric",
       minute: "2-digit",
     });
     const cutoff = new Date(card.submittedAt);
@@ -24,31 +57,29 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
     isOnTime = new Date(card.submittedAt) <= cutoff;
   }
 
-  const displayName = card.name
-    ? card.name
-    : card.email
-      .split("@")[0]
-      .split(".")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
-
-  const initials = (() => {
-    const parts = displayName.split(" ");
-    if (parts.length >= 2 && parts[0] && parts[1]) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return displayName.slice(0, 2).toUpperCase();
-  })();
+  const displayName = displayNameOf(card);
+  const initials = initialsOf(displayName);
+  const isReviewed = card.status === "REVIEWED";
+  const gradient = avatarGradientFor(card.userId);
 
   return (
     <Link
       href={ROUTES.dsmMember(card.userId)}
-      className="block rounded-xl border bg-card p-3.5 shadow-sm transition-shadow hover:shadow-md"
+      className={cn(
+        "group relative flex min-h-[132px] shrink-0 flex-col rounded-2xl border border-l-4 bg-card p-4 shadow-xs",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        isReviewed ? "border-l-indigo-400" : isOnTime ? "border-l-emerald-400" : "border-l-red-400"
+      )}
     >
-      {/* Top row: avatar + name & time (left) | status badge (right) */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Top row: avatar + name & time (left) | status badges (right) */}
+      <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+          <div
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold ring-1 ring-black/5",
+              gradient
+            )}
+          >
             {initials}
           </div>
           <div className="flex flex-col min-w-0">
@@ -56,26 +87,35 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
               {displayName}
             </p>
             {timeStr && (
-              <span className="mt-0.5 text-xs text-muted-foreground">{timeStr}</span>
+              <span className="mt-0.5 text-xs text-muted-foreground">
+                {timeStr}
+              </span>
             )}
           </div>
         </div>
-        {timeStr && (
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
-              isOnTime ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
-            )}
-          >
-            {isOnTime ? "On Time" : "Delayed"}
-          </span>
-        )}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {timeStr && (
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-semibold",
+                isOnTime ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
+              )}
+            >
+              {isOnTime ? "On Time" : "Delayed"}
+            </span>
+          )}
+          {isReviewed && (
+            <span className="flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+              <ClipboardCheck size={11} /> Reviewed
+            </span>
+          )}
+        </div>
       </div>
 
       {card.todayTasks.length > 0 && (
         <div className="mt-3.5 pt-3 border-t border-border/50">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Today&apos;s Task
+          <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <ListChecks size={11} /> Today&apos;s Task
           </p>
           <ul className="space-y-1">
             {card.todayTasks.slice(0, 3).map((task, i) => {
@@ -97,25 +137,40 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
           </ul>
         </div>
       )}
+
+      <ChevronRight
+        size={14}
+        className="absolute bottom-3.5 right-3.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
+      />
     </Link>
   );
 }
 
-// ── Pending placeholder card ──────────────────────────────────────────────────
+// ── Pending member card ───────────────────────────────────────────────────────
 
-function PendingCard({ count, teamId }: { count: number; teamId: string }) {
+function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamId: string }) {
+  const displayName = displayNameOf(card);
+  const initials = initialsOf(displayName);
+
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-4 py-7 text-center">
-      <div className="mb-3 flex gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="h-2.5 w-2.5 rounded-full bg-muted-foreground/25" />
-        ))}
+    <div className="flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-l-4 border-dashed border-l-red-300 bg-red-50/40 p-4 dark:bg-red-950/10">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-500 ring-1 ring-black/5">
+            {initials}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground">
+              {displayName}
+            </p>
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-red-500">
+              <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
+            </span>
+          </div>
+        </div>
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {count} Pending Submission{count !== 1 ? "s" : ""}
-      </p>
-      <div className="mt-2">
-        <SendRemindersButton teamId={teamId} pendingCount={count} />
+      <div className="mt-3.5 pt-3 border-t border-red-200/60">
+        <SendReminderButton userId={card.userId} teamId={teamId} />
       </div>
     </div>
   );
@@ -137,9 +192,9 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
   );
 
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-3">
-      {/* Column header */}
-      <div className="flex items-center gap-2">
+    <div className="flex h-full min-h-[420px] w-64 shrink-0 flex-col gap-3">
+      {/* Column header (fixed) */}
+      <div className="flex shrink-0 items-center gap-2">
         <span className={cn("h-2 w-2 rounded-full", dotColor)} />
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
@@ -153,21 +208,22 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
         )}
       </div>
 
-      {/* Submitted member cards */}
-      {submitted.map((card) => (
+      {/* Member cards (internal scroll — keeps the column height fixed) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 dsm-columns-scrollbar">
+        {submitted.map((card) => (
+          <SubmittedCard key={card.userId} card={card} />
+        ))}
 
-        <SubmittedCard key={card.userId} card={card} />
-      ))}
+        {pending.map((card) => (
+          <PendingMemberCard key={card.userId} card={card} teamId={group.teamId} />
+        ))}
 
-      {/* Pending placeholder */}
-      {pending.length > 0 && <PendingCard count={pending.length} teamId={group.teamId} />}
-
-      {/* Empty team */}
-      {group.totalMembers === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6 text-center">
-          <p className="text-xs text-muted-foreground">No Members Yet</p>
-        </div>
-      )}
+        {group.totalMembers === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6 text-center">
+            <p className="text-xs text-muted-foreground">No Members Yet</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping } from "lucide-react";
+import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
@@ -443,6 +443,7 @@ export function SubmitDsmForm({
           : [],
     })) ?? [{ text: "", mentionedUserIds: [] }]
   );
+  const [learningText, setLearningText] = useState(entry?.learningText ?? "");
 
   // If save-draft succeeded, update state silently (no reset needed — user continues editing)
   useEffect(() => {
@@ -497,6 +498,21 @@ export function SubmitDsmForm({
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
+        </Section>
+
+        {/* What will you learn today */}
+        <Section
+          icon={<GraduationCap size={16} className="text-primary" />}
+          title="What Will You Learn Today?"
+        >
+          <textarea
+            name="learningText"
+            rows={3}
+            value={learningText}
+            onChange={(e) => setLearningText(e.target.value)}
+            placeholder="What New Skill, Topic, or Concept Are You Planning to Learn Today?"
+            className={cn(inputCls, "resize-none")}
+          />
         </Section>
 
         {/* Blockers */}

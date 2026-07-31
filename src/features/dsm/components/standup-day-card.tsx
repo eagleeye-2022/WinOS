@@ -148,6 +148,15 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
             </div>
           )}
 
+          {entry.learningText && (
+            <div className="mt-3 rounded-md border bg-muted/30 p-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                What Will You Learn Today?
+              </p>
+              <p className="text-xs leading-relaxed">{entry.learningText}</p>
+            </div>
+          )}
+
           {(entry.supportNeeds.length > 0 || entry.blockers.length > 0) && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {entry.supportNeeds.length > 0 && (
