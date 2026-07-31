@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getStr } from "@/lib/action-utils";
 import { getValidZohoAccessToken, deleteZohoEvent } from "@/lib/zoho-calendar";
@@ -17,16 +18,30 @@ export async function deleteCalendarEvent(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const eventId = getStr(formData, "eventId");
-  const etagStr = getStr(formData, "etag");
-  if (!eventId || !etagStr) return { message: "Missing eventId or etag" };
+  if (!eventId) return { message: "Missing eventId" };
 
-  const token = await getValidZohoAccessToken(session.user.id);
-  if (!token || !token.calendarUid) {
-    return { message: "Connect your Zoho Calendar before deleting events." };
+  // Delete DB event
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).calendarEvent.deleteMany({
+      where: { id: eventId },
+    });
+  } catch (err) {
+    console.warn("[calendar] DB event delete skipped or failed:", err);
   }
 
-  await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, Number(etagStr));
+  // Delete from Zoho if connected
+  try {
+    const etagStr = getStr(formData, "etag");
+    const token = await getValidZohoAccessToken(session.user.id);
+    if (token && token.calendarUid && etagStr) {
+      await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, Number(etagStr));
+    }
+  } catch (err) {
+    console.warn("[calendar] Zoho delete skipped or failed:", err);
+  }
 
   revalidatePath("/calendar");
   return { message: "deleted" };
 }
+

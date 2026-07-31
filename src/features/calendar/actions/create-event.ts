@@ -21,11 +21,21 @@ export async function createCalendarEvent(
   const session = await auth();
   if (!session?.user?.id) return { message: "Unauthorized" };
 
+  const userId = session.user.id;
+  const organizerEmail = session.user.email ?? "";
+  const organizerName = session.user.name ?? session.user.email ?? "A teammate";
+
   const title = getStr(formData, "title");
   const description = getStr(formData, "description");
   const startStr = getStr(formData, "start");
   const endStr = getStr(formData, "end");
   const isAllDay = getStr(formData, "isAllDay") === "on";
+  const location = getStr(formData, "location");
+  const meetingType = getStr(formData, "meetingType") || "online";
+  const meetingMode = getStr(formData, "meetingMode") || "audio";
+  const meetingLink = getStr(formData, "meetingLink");
+  const alertType = getStr(formData, "alertType") || "zia";
+  const isRecording = getStr(formData, "isRecording") === "true";
   const participantIds = formData.getAll("participantIds") as string[];
 
   const errors: CreateEventState["errors"] = {};
@@ -40,45 +50,98 @@ export async function createCalendarEvent(
     return { errors: { end: ["End time must be after start time"] } };
   }
 
-  const token = await getValidZohoAccessToken(session.user.id);
-  if (!token || !token.calendarUid) {
-    return { message: "Connect your Zoho Calendar before creating events." };
-  }
-
+  // 1. Fetch assigned invitee users from DB
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const invitees = await (db as any).user.findMany({
     where: { id: { in: participantIds } },
     select: { id: true, email: true },
   });
 
-  const zohoEvent = await createZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, {
-    title,
-    description,
-    start,
-    end,
-    isAllDay,
-    timezone: CALENDAR_TIMEZONE,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    attendeeEmails: invitees.map((u: any) => u.email),
+  // Build attendees array
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const attendeeData: any[] = [
+    {
+      userId: userId,
+      email: organizerEmail,
+      status: "ACCEPTED",
+      role: "ORGANIZER",
+    },
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  invitees.forEach((u: any) => {
+    if (u.id !== userId) {
+      attendeeData.push({
+        userId: u.id,
+        email: u.email,
+        status: "NEEDS_ACTION",
+        role: "PARTICIPANT",
+      });
+    }
   });
 
+  // 2. Save event in PostgreSQL Database for cross-user collaboration
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createdDbEvent = await (db as any).calendarEvent.create({
+    data: {
+      title,
+      description,
+      location,
+      meetingType,
+      meetingMode,
+      isRecording,
+      meetingLink,
+      alertType,
+      start,
+      end,
+      isAllDay,
+      organizerId: userId,
+      attendees: {
+        createMany: {
+          data: attendeeData,
+        },
+      },
+    },
+  });
+
+  // 3. Send notifications to invited participants
   if (invitees.length > 0) {
-    const organizerId = session.user.id;
-    const organizerName = session.user.name ?? session.user.email ?? "A teammate";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).notification.createMany({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: invitees.map((u: any) => ({
-        type: "CALENDAR_INVITE",
-        title: "Calendar Invite",
-        message: `${organizerName} invited you to "${title}"`,
-        userId: u.id,
-        createdById: organizerId,
-        relatedEntryId: zohoEvent.id,
-      })),
+      data: invitees
+        .filter((u: any) => u.id !== userId)
+        .map((u: any) => ({
+          type: "CALENDAR_INVITE",
+          title: "Calendar Invite",
+          message: `${organizerName} invited you to "${title}"`,
+          userId: u.id,
+          createdById: userId,
+          relatedEntryId: createdDbEvent.id,
+        })),
     });
+  }
+
+  // 4. Optionally sync with Zoho Calendar if user connected Zoho
+  try {
+    const token = await getValidZohoAccessToken(userId);
+    if (token && token.calendarUid) {
+      await createZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, {
+        title,
+        description,
+        start,
+        end,
+        isAllDay,
+        timezone: CALENDAR_TIMEZONE,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        attendeeEmails: invitees.map((u: any) => u.email),
+      });
+    }
+  } catch (err) {
+    console.warn("[calendar] Zoho sync skipped/failed:", err);
   }
 
   revalidatePath("/calendar");
   return { message: "created" };
 }
+

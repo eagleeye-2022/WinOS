@@ -60,6 +60,10 @@ function createClient() {
   return client;
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
+export const db =
+  globalForPrisma.prisma && (globalForPrisma.prisma as any).calendarEvent
+    ? globalForPrisma.prisma
+    : createClient();
 
 if (isDev) globalForPrisma.prisma = db;
+
