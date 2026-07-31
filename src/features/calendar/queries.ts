@@ -65,7 +65,12 @@ export async function getCalendarEvents(
                   some: {
                     OR: [
                       { userId: userId },
-                      ...(userEmail ? [{ email: userEmail }] : []),
+                      ...(userEmail
+                        ? [
+                            { email: { equals: userEmail, mode: "insensitive" } },
+                            { email: userEmail.toLowerCase() },
+                          ]
+                        : []),
                     ],
                   },
                 },

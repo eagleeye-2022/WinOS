@@ -68,13 +68,17 @@ export function EventDialog({
 
   // Local Form UI States matching mockups
   const [meetingType, setMeetingType] = useState<"face-to-face" | "online">("online");
-  const [title, setTitle] = useState(event?.title ?? (mode === "create" ? "Zylker Marketing Openhouse" : ""));
+  const [title, setTitle] = useState(event?.title ?? "");
   const [start, setStart] = useState<Date>(event?.start ?? defaultStart ?? new Date());
   const [end, setEnd] = useState<Date>(
     event?.end ?? new Date((event?.start ?? defaultStart ?? new Date()).getTime() + 60 * 60 * 1000),
   );
   const [repeatEvent, setRepeatEvent] = useState(false);
-  const [location, setLocation] = useState("Conference room 10");
+  const [location, setLocation] = useState(
+    event?.description?.startsWith("Location: ")
+      ? event.description.replace("Location: ", "")
+      : "",
+  );
   const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [meetingMode, setMeetingMode] = useState<"audio" | "video">("audio");
   const [isRecording, setIsRecording] = useState(false);
@@ -82,7 +86,7 @@ export function EventDialog({
   // Advanced toggles
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(true);
   const [assignToTab, setAssignToTab] = useState<"participants" | "conversation">("participants");
-  const [participantEmail, setParticipantEmail] = useState("scott.fisher@zylker.com");
+  const [participantEmail, setParticipantEmail] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [alertType, setAlertType] = useState<"none" | "remind" | "zia">("zia");
   const [coHosts, setCoHosts] = useState<string[]>([]);
@@ -171,7 +175,7 @@ export function EventDialog({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       {/* Slide-over Drawer Panel */}
       <div className="w-full max-w-xl h-full border-l border-border bg-card text-card-foreground shadow-2xl flex flex-col overflow-hidden">
-        
+
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -231,11 +235,10 @@ export function EventDialog({
               <button
                 type="button"
                 onClick={() => setMeetingType("face-to-face")}
-                className={`flex items-center justify-center gap-2.5 rounded-xl border py-3 px-4 text-xs font-semibold transition-all ${
-                  meetingType === "face-to-face"
-                    ? "border-primary bg-primary/10 text-primary shadow-xs"
-                    : "border-border bg-muted/30 text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
+                className={`flex items-center justify-center gap-2.5 rounded-xl border py-3 px-4 text-xs font-semibold transition-all ${meetingType === "face-to-face"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs"
+                  : "border-border bg-muted/30 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
               >
                 <MapPin size={16} />
                 <span>Face to Face Meeting</span>
@@ -244,11 +247,10 @@ export function EventDialog({
               <button
                 type="button"
                 onClick={() => setMeetingType("online")}
-                className={`flex items-center justify-center gap-2.5 rounded-xl border py-3 px-4 text-xs font-semibold transition-all ${
-                  meetingType === "online"
-                    ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary/40"
-                    : "border-border bg-muted/30 text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
+                className={`flex items-center justify-center gap-2.5 rounded-xl border py-3 px-4 text-xs font-semibold transition-all ${meetingType === "online"
+                  ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary/40"
+                  : "border-border bg-muted/30 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
               >
                 <Phone size={16} />
                 <span>Online Meeting</span>
@@ -316,10 +318,10 @@ export function EventDialog({
             )}
 
             <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4">
+              {/* <span className="text-[11px] text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4">
                 ( GMT +05:30 ) India Standard Time(Asia/Kolkata)
-              </span>
-              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+              </span> */}
+              {/* <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
                 <input
                   type="checkbox"
                   name="isAllDay"
@@ -328,7 +330,7 @@ export function EventDialog({
                   className="rounded border-input bg-background text-primary focus:ring-primary"
                 />
                 Repeat event
-              </label>
+              </label> */}
             </div>
           </div>
 
@@ -386,11 +388,10 @@ export function EventDialog({
                   <button
                     type="button"
                     onClick={() => setMeetingMode("audio")}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${
-                      meetingMode === "audio"
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${meetingMode === "audio"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     <Phone size={13} />
                     Audio
@@ -398,11 +399,10 @@ export function EventDialog({
                   <button
                     type="button"
                     onClick={() => setMeetingMode("video")}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${
-                      meetingMode === "video"
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${meetingMode === "video"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
                     <Video size={13} />
                     Video
@@ -411,7 +411,7 @@ export function EventDialog({
                 <Info size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" />
               </div>
 
-              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer ml-auto select-none">
+              {/* <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer ml-auto select-none">
                 <input
                   type="checkbox"
                   checked={isRecording}
@@ -420,7 +420,7 @@ export function EventDialog({
                 />
                 <span>Record</span>
                 <Info size={13} className="text-muted-foreground cursor-pointer" />
-              </label>
+              </label> */}
             </div>
 
             {/* Quick Links: Co-hosts and Speakers */}
@@ -430,14 +430,14 @@ export function EventDialog({
                 onClick={() => setShowAddCoHostInput(!showAddCoHostInput)}
                 className="hover:underline flex items-center gap-1 font-medium"
               >
-                • +Add Co-hosts
+                + Add Co-hosts
               </button>
               <button
                 type="button"
                 onClick={() => setShowAddSpeakerInput(!showAddSpeakerInput)}
                 className="hover:underline flex items-center gap-1 font-medium"
               >
-                • +Add Speakers
+                + Add Speakers
               </button>
             </div>
 
@@ -534,25 +534,23 @@ export function EventDialog({
                     <button
                       type="button"
                       onClick={() => setAssignToTab("participants")}
-                      className={`font-semibold transition-colors pb-1 border-b-2 ${
-                        assignToTab === "participants"
-                          ? "border-primary text-primary"
-                          : "border-transparent text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`font-semibold transition-colors pb-1 border-b-2 ${assignToTab === "participants"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Participants
                     </button>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => setAssignToTab("conversation")}
-                      className={`font-semibold transition-colors pb-1 border-b-2 ${
-                        assignToTab === "conversation"
-                          ? "border-primary text-primary"
-                          : "border-transparent text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`font-semibold transition-colors pb-1 border-b-2 ${assignToTab === "conversation"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Conversation
-                    </button>
+                    </button> */}
                   </div>
 
                   {assignToTab === "participants" ? (
@@ -597,7 +595,7 @@ export function EventDialog({
                 </div>
 
                 {/* Alert Type */}
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="block text-xs font-medium text-foreground">
                     Alert Type
                   </label>
@@ -637,7 +635,7 @@ export function EventDialog({
                       </span>
                     </label>
                   </div>
-                </div>
+                </div> */}
               </div>
             )}
           </div>
@@ -650,16 +648,16 @@ export function EventDialog({
 
           {/* Action Footer */}
           <div className="sticky bottom-0 bg-card border-t border-border -mx-6 -mb-5 px-6 py-4 flex items-center justify-between">
-            <button
+            {/* <button
               type="button"
               onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
               className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
             >
               <span>Advanced</span>
               {isAdvancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
+            </button> */}
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-[-24px]">
               <button
                 type="button"
                 onClick={onClose}
