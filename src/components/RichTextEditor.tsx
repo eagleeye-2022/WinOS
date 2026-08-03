@@ -1,10 +1,9 @@
-"use client";
-
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
 import { Link } from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import {
   Bold,
   Italic,
@@ -24,6 +23,9 @@ import {
   Link2,
   Unlink,
   Terminal,
+  Image as ImageIcon,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { Highlight } from "@tiptap/extension-highlight";
@@ -42,6 +44,41 @@ interface RichTextEditorProps {
 }
 
 export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadAndInsertImage = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.fileUrl) {
+          editor?.chain().focus().setImage({ src: data.fileUrl }).run();
+          setIsUploading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to upload image to /api/uploads", err);
+    }
+
+    // Fallback to base64 Data URL
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string" && editor) {
+        editor.chain().focus().setImage({ src: reader.result }).run();
+      }
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -60,10 +97,47 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       TaskList,
       TaskItem.configure({ nested: true }),
       Highlight,
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: "max-w-full h-auto rounded-lg shadow-xs my-2 inline-block border border-border/50",
+        },
+      }),
     ],
     editorProps: {
       attributes: {
         class: "prose max-w-none focus:outline-none min-h-[160px] p-3 text-sm leading-relaxed text-foreground",
+      },
+      handlePaste: (_view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        const imageItems = items.filter((item) => item.type.startsWith("image/"));
+        if (imageItems.length > 0) {
+          event.preventDefault();
+          imageItems.forEach((item) => {
+            const file = item.getAsFile();
+            if (file) {
+              uploadAndInsertImage(file);
+            }
+          });
+          return true;
+        }
+        return false;
+      },
+      handleDrop: (_view, event, _slice, moved) => {
+        if (!moved && event.dataTransfer && event.dataTransfer.files?.length) {
+          const files = Array.from(event.dataTransfer.files).filter((file) =>
+            file.type.startsWith("image/")
+          );
+          if (files.length > 0) {
+            event.preventDefault();
+            files.forEach((file) => {
+              uploadAndInsertImage(file);
+            });
+            return true;
+          }
+        }
+        return false;
       },
     },
     content: value,
@@ -284,6 +358,52 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
           title="Quote"
         >
           <Quote size={14} />
+        </button>
+
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Image Upload, Paste & URL */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            files.forEach((file) => {
+              if (file.type.startsWith("image/")) {
+                uploadAndInsertImage(file);
+              }
+            });
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className={toolbarBtnClass(false)}
+          title="Upload or Paste Image"
+        >
+          {isUploading ? (
+            <Loader2 size={14} className="animate-spin text-primary" />
+          ) : (
+            <ImageIcon size={14} />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const url = window.prompt("Enter Image URL:");
+            if (url) {
+              editor.chain().focus().setImage({ src: url }).run();
+            }
+          }}
+          className={toolbarBtnClass(false)}
+          title="Insert Image by URL"
+        >
+          <Upload size={14} />
         </button>
       </div>
 

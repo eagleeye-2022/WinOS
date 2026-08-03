@@ -37,6 +37,88 @@ function getCardColor(color: string | null | undefined, id: string) {
 
 // ── Shared Note Card ──────────────────────────────────────────────────────────
 
+function parseNoteContent(content: string, dbChecklistItems: { id: string; text: string; checked: boolean }[]) {
+  if (dbChecklistItems && dbChecklistItems.length > 0) {
+    return {
+      checklist: dbChecklistItems,
+      cleanText: "",
+    };
+  }
+
+  if (!content) return { checklist: [], cleanText: "" };
+
+  const extractedChecklist: { id: string; text: string; checked: boolean }[] = [];
+
+  // Parse Tiptap TaskItems or list items from HTML
+  const taskRegex = /<li[^>]*data-type="taskItem"[^>]*data-checked="(true|false)"[^>]*>(.*?)<\/li>/gi;
+  let match;
+  let idx = 0;
+
+  while ((match = taskRegex.exec(content)) !== null) {
+    const isChecked = match[1] === "true";
+    const itemText = match[2]
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .trim();
+
+    if (itemText) {
+      extractedChecklist.push({
+        id: `extracted-task-${idx++}`,
+        text: itemText,
+        checked: isChecked,
+      });
+    }
+  }
+
+  // Fallback: If no data-type="taskItem" found, try any <li> item
+  if (extractedChecklist.length === 0) {
+    const liRegex = /<li[^>]*>(.*?)<\/li>/gi;
+    while ((match = liRegex.exec(content)) !== null) {
+      const isChecked = match[0].includes('data-checked="true"') || match[0].includes('checked');
+      const itemText = match[1]
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .trim();
+
+      if (itemText) {
+        extractedChecklist.push({
+          id: `extracted-li-${idx++}`,
+          text: itemText,
+          checked: isChecked,
+        });
+      }
+    }
+  }
+
+  // Clean text preview by stripping HTML tags and un-escaping entities
+  let cleanText = content
+    .replace(/<li[^>]*>(.*?)<\/li>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/p>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (cleanText.length > 120) {
+    cleanText = cleanText.substring(0, 120) + "…";
+  }
+
+  return {
+    checklist: extractedChecklist,
+    cleanText: extractedChecklist.length > 0 && cleanText.length < 5 ? "" : cleanText,
+  };
+}
+
 function SharedNoteCard({
   note,
   userRole,
@@ -60,7 +142,7 @@ function SharedNoteCard({
   const isReadOnly = userRole === "TEAM_MEMBER" && note.authorRole === "MANAGER";
 
   const handleToggle = async (itemId: string) => {
-    if (isReadOnly) return;
+    if (isReadOnly || itemId.startsWith("extracted-")) return;
     const formData = new FormData();
     formData.append("itemId", itemId);
     startTransition(async () => {
@@ -69,75 +151,73 @@ function SharedNoteCard({
     });
   };
 
-  // Strip HTML and get plain text preview using substring
-  const plainContent = note.content ? note.content.replace(/<[^>]*>/g, "").trim() : "";
-  const contentPreview =
-    plainContent.length > 120
-      ? plainContent.substring(0, 120) + "…"
-      : plainContent;
+  const { checklist, cleanText } = parseNoteContent(note.content, note.checklistItems);
 
   return (
-    <div className="flex flex-col gap-2.5 text-left text-black">
-      {/* Title */}
-      {note.title && (
-        <h4 className="text-base font-bold text-black dark:text-black line-clamp-2">
-          {note.title.length > 60 ? note.title.substring(0, 60) + "…" : note.title}
-        </h4>
-      )}
+    <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-black">
+      <div className="flex flex-col gap-2.5">
+        {/* Title */}
+        {note.title && (
+          <h4 className="text-base font-bold text-black dark:text-black line-clamp-2">
+            {note.title.length > 60 ? note.title.substring(0, 60) + "…" : note.title}
+          </h4>
+        )}
 
-      {/* Content preview with substring */}
-      {contentPreview && (
-        <p className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3">
-          {contentPreview}
-        </p>
-      )}
+        {/* Content preview */}
+        {note.content && (
+          <div
+            className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
+            dangerouslySetInnerHTML={{ __html: note.content }}
+          />
+        )}
 
-      {/* Checklist items (preview: first 3, rest shown in the modal) */}
-      {note.checklistItems.length > 0 && (
-        <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
-          {note.checklistItems.slice(0, 3).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              disabled={isPending || isReadOnly}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggle(item.id);
-              }}
-              className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
-                isReadOnly ? "cursor-default opacity-85" : "hover:bg-black/5 cursor-pointer"
-              }`}
-            >
-              <span className="mt-0.5 shrink-0">
-                {item.checked ? (
-                  <CheckSquare size={15} className="text-primary" />
-                ) : (
-                  <Square size={15} className="text-slate-700" />
-                )}
-              </span>
-              <span
-                className={`text-sm leading-snug select-none line-clamp-1 ${
-                  item.checked ? "text-black/50 line-through" : "text-black dark:text-black font-medium"
+        {/* Checklist items with checkboxes */}
+        {checklist.length > 0 && (
+          <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
+            {checklist.slice(0, 5).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={isPending || isReadOnly || item.id.startsWith("extracted-")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggle(item.id);
+                }}
+                className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
+                  isReadOnly || item.id.startsWith("extracted-") ? "cursor-default opacity-90" : "hover:bg-black/5 cursor-pointer"
                 }`}
               >
-                {item.text.length > 50 ? item.text.substring(0, 50) + "…" : item.text}
+                <span className="mt-0.5 shrink-0">
+                  {item.checked ? (
+                    <CheckSquare size={15} className="text-primary" />
+                  ) : (
+                    <Square size={15} className="text-slate-700" />
+                  )}
+                </span>
+                <span
+                  className={`text-sm leading-snug select-none line-clamp-1 ${
+                    item.checked ? "text-black/50 line-through" : "text-black dark:text-black font-medium"
+                  }`}
+                >
+                  {item.text.length > 60 ? item.text.substring(0, 60) + "…" : item.text}
+                </span>
+              </button>
+            ))}
+            {checklist.length > 5 && (
+              <span className="text-xs text-black/60 font-medium pl-1">
+                +{checklist.length - 5} more items
               </span>
-            </button>
-          ))}
-          {note.checklistItems.length > 3 && (
-            <span className="text-xs text-black/60 font-medium pl-1">
-              +{note.checklistItems.length - 3} more items
-            </span>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Footer Info (Date at the last of the card) */}
-      <div className="flex items-center justify-between mt-1 text-xs text-black/80 dark:text-black/80 border-t pt-2 border-black/10 font-medium">
+      {/* Footer Info (Date anchored at the very end of the card) */}
+      <div className="flex items-center justify-between mt-auto text-xs text-black/80 dark:text-black/80 border-t pt-2 border-black/10 font-medium">
         <span>
           {new Date(note.createdAt).toLocaleDateString("en-IN", {
+            day: "2-digit",
             month: "short",
-            day: "numeric",
             year: "numeric",
           })}
         </span>
@@ -161,7 +241,7 @@ export function WorkspaceNotesPanel({
   const [editingNote, setEditingNote] = useState<SharedNoteData | null>(null);
 
   return (
-    <div className="flex h-full max-h-[calc(100vh-20rem)] flex-col bg-card overflow-hidden">
+    <div className="flex flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
         <span className="text-lg font-bold text-black dark:text-black">Workspace Notes</span>
@@ -172,8 +252,8 @@ export function WorkspaceNotesPanel({
         )}
       </div>
 
-      {/* Scrollable shared items list */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3.5">
+      {/* Shared items list */}
+      <div className="px-4 py-4 flex flex-col gap-3.5">
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-black my-auto">
             <Share2 size={36} className="text-black/40 mb-3" />

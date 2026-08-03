@@ -270,9 +270,10 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
 
       {/* Body */}
       {note.type === "TEXT" ? (
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {contentPreview(note.content)}
-        </p>
+        <div
+          className="text-sm text-muted-foreground leading-relaxed html-content line-clamp-6 overflow-hidden [&_img]:max-h-48 [&_img]:w-auto [&_img]:rounded-md [&_img]:object-cover [&_img]:my-1.5"
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
       ) : (
         <ChecklistView items={note.checklistItems} />
       )}

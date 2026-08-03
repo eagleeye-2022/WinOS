@@ -55,6 +55,15 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
   const tentativeCount = attendees.filter((a) => a.status === "TENTATIVE" || a.status === "MAYBE").length;
   const pendingCount = attendees.filter((a) => !a.status || a.status === "NEEDS_ACTION" || a.status === "PENDING").length;
 
+  const currentUserAttendee = event.attendees?.find(
+    (a) => a.email.toLowerCase() === currentUserEmail.toLowerCase(),
+  );
+  const currentUserStatus = currentUserAttendee?.status?.toUpperCase() || "NEEDS_ACTION";
+  const hasResponded =
+    currentUserStatus === "ACCEPTED" ||
+    currentUserStatus === "DECLINED" ||
+    currentUserStatus === "TENTATIVE";
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       {/* Slide-over Event Details Drawer Panel styled with WinOS Theme Tokens */}
@@ -135,6 +144,10 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
             <div className="text-xs text-foreground font-medium">
               {isOrganizer ? (
                 <span>You&apos;re the host of this meeting. Get started!</span>
+              ) : currentUserStatus === "ACCEPTED" ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓ You have accepted this invitation.</span>
+              ) : currentUserStatus === "DECLINED" ? (
+                <span className="text-rose-500 font-semibold">✕ You declined this invitation.</span>
               ) : (
                 <span>You are invited to participate in this event.</span>
               )}
@@ -213,28 +226,44 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
         <div className="bg-background border-t border-border px-6 py-4 flex items-center justify-end gap-3">
           {!isOrganizer && (
             <>
-              <form action={respondAction}>
-                <input type="hidden" name="eventId" value={event.id} />
-                <input type="hidden" name="response" value="accept" />
-                <button
-                  type="submit"
-                  disabled={respondPending}
-                  className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-2xs"
-                >
-                  Accept
-                </button>
-              </form>
-              <form action={respondAction}>
-                <input type="hidden" name="eventId" value={event.id} />
-                <input type="hidden" name="response" value="decline" />
-                <button
-                  type="submit"
-                  disabled={respondPending}
-                  className="rounded-full border border-border bg-card px-5 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  Decline
-                </button>
-              </form>
+              {hasResponded ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold border ${
+                      currentUserStatus === "ACCEPTED"
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {currentUserStatus === "ACCEPTED" ? "✓ Accepted" : "✕ Declined"}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <form action={respondAction}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <input type="hidden" name="response" value="accept" />
+                    <button
+                      type="submit"
+                      disabled={respondPending}
+                      className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-2xs"
+                    >
+                      Accept
+                    </button>
+                  </form>
+                  <form action={respondAction}>
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <input type="hidden" name="response" value="decline" />
+                    <button
+                      type="submit"
+                      disabled={respondPending}
+                      className="rounded-full border border-border bg-card px-5 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      Decline
+                    </button>
+                  </form>
+                </>
+              )}
             </>
           )}
 

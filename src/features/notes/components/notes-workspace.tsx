@@ -86,6 +86,12 @@ type ThreadData = {
   updatedAt: Date;
 };
 
+type BoardShareEntry = {
+  userId: string;
+  canEdit: boolean;
+  user: UserBasic;
+};
+
 type BoardData = {
   id: string;
   name: string;
@@ -93,6 +99,7 @@ type BoardData = {
   type: string;
   createdAt: Date;
   updatedAt: Date;
+  shares: BoardShareEntry[];
 };
 
 type HistoryNoteData = BoardNoteData & {
@@ -628,6 +635,9 @@ export function NotesWorkspace({
     });
   };
 
+  // Collaborator board search state
+  const [collaboratorSearch, setCollaboratorSearch] = useState("");
+
   // Handle Share Submit
   const handleShareSubmit = async () => {
     if (!sharingItem) return;
@@ -635,21 +645,26 @@ export function NotesWorkspace({
 
     startTransition(async () => {
       if (sharingItem.type === "board") {
-        formData.append("shareUserIds", shareSelection.map((s) => s.userId).join(","));
+        formData.append("sharePermissions", JSON.stringify(shareSelection));
         formData.append("boardId", sharingItem.id);
         await shareBoard({}, formData);
+        // Refresh the page so board shares are re-fetched from the server
+        window.location.reload();
       } else if (sharingItem.type === "thread") {
         formData.append("sharePermissions", JSON.stringify(shareSelection));
         formData.append("threadId", sharingItem.id);
         await shareThread({}, formData);
+        setSharingItem(null);
+        setShareSelection([]);
+        await refreshThreads();
       } else {
         formData.append("shareUserIds", shareSelection.map((s) => s.userId).join(","));
         formData.append("noteId", sharingItem.id);
         await shareBoardNote({}, formData);
+        setSharingItem(null);
+        setShareSelection([]);
+        await refreshThreads();
       }
-      setSharingItem(null);
-      setShareSelection([]);
-      await refreshThreads();
     });
   };
 
@@ -705,6 +720,18 @@ export function NotesWorkspace({
   };
 
   const activeBoard = boards.find((b) => b.id === activeBoardId);
+
+  // Whether the current user has canEdit access to the active board via BoardShare
+  const canEditActiveBoard = !!(
+    activeBoard?.shares?.find((s) => s.userId === userId)?.canEdit
+  );
+
+  // Whether the current user can add/edit notes in a given thread
+  const canEditThread = (thread: ThreadData): boolean =>
+    thread.authorId === userId ||
+    isManager ||
+    canEditActiveBoard ||
+    thread.shares.some((s) => s.userId === userId && s.canEdit);
 
   return (
     <div className="flex h-[calc(100vh-4.5rem)] w-full overflow-hidden bg-background">
@@ -855,10 +882,11 @@ export function NotesWorkspace({
                                 title="Share Board"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setCollaboratorSearch("");
                                   setSharingItem({
                                     type: "board",
                                     id: b.id,
-                                    existingShares: [],
+                                    existingShares: (b.shares || []).map((s) => ({ userId: s.userId, canEdit: s.canEdit })),
                                   });
                                 }}
                                 className="rounded p-1 hover:bg-background/80 text-muted-foreground hover:text-primary transition-colors"
@@ -1110,6 +1138,32 @@ export function NotesWorkspace({
           </div>
           {activeBoardId && activeBoard && (activeBoard.ownerId === userId || isManager) && (
             <div className="flex items-center gap-2">
+              {/* Collaborator avatar stack */}
+              {activeBoard.shares && activeBoard.shares.length > 0 && (
+                <div className="flex items-center">
+                  {activeBoard.shares.slice(0, 4).map((s, i) => {
+                    const displayName = s.user?.name || s.user?.email?.split("@")[0] || "?";
+                    const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                    return (
+                      <div
+                        key={s.userId}
+                        title={displayName}
+                        className="w-7 h-7 rounded-full border-2 border-white/30 bg-primary flex items-center justify-center text-[10px] font-bold text-white -ml-2 first:ml-0 shadow"
+                        style={{ zIndex: 10 - i }}
+                      >
+                        {s.user?.image ? (
+                          <img src={s.user.image} alt={initials} className="w-full h-full rounded-full object-cover" />
+                        ) : initials}
+                      </div>
+                    );
+                  })}
+                  {activeBoard.shares.length > 4 && (
+                    <div className="w-7 h-7 rounded-full border-2 border-white/30 bg-white/20 flex items-center justify-center text-[10px] font-bold text-white -ml-2 shadow">
+                      +{activeBoard.shares.length - 4}
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 title="Edit Board"
@@ -1121,18 +1175,19 @@ export function NotesWorkspace({
               </button>
               <button
                 type="button"
-                title="Share Board"
-                onClick={() =>
+                title="Manage Collaborators"
+                onClick={() => {
+                  setCollaboratorSearch("");
                   setSharingItem({
                     type: "board",
                     id: activeBoard.id,
-                    existingShares: [],
-                  })
-                }
+                    existingShares: (activeBoard.shares || []).map((s) => ({ userId: s.userId, canEdit: s.canEdit })),
+                  });
+                }}
                 className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-white/20 transition-colors border border-white/15 cursor-pointer"
               >
-                <Share2 size={13} />
-                Share Board
+                <Users size={13} />
+                Collaborators
               </button>
               <button
                 type="button"
@@ -1200,6 +1255,7 @@ export function NotesWorkspace({
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
+                    {/* Owner-only actions: edit/share/delete list */}
                     {(thread.authorId === userId || isManager) && (
                       <>
                         <button
@@ -1232,15 +1288,18 @@ export function NotesWorkspace({
                         >
                           <Trash2 size={12} />
                         </button>
-                        <button
-                          type="button"
-                          title="Add Note"
-                          onClick={() => setActiveThreadForNote(thread.id)}
-                          className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                        >
-                          <Plus size={13} />
-                        </button>
                       </>
+                    )}
+                    {/* Add Note — visible to owner AND collaborators with canEdit */}
+                    {canEditThread(thread) && (
+                      <button
+                        type="button"
+                        title="Add Note"
+                        onClick={() => setActiveThreadForNote(thread.id)}
+                        className="rounded p-1 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1386,111 +1445,286 @@ export function NotesWorkspace({
       {/* 1. Share Dialog Overlay */}
       {sharingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-          <div className="w-80 rounded-xl bg-card border p-5 shadow-lg flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100">
-            <div className="flex items-center justify-between border-b pb-2">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Users size={14} />
-                Share {sharingItem.type === "board" ? "Board" : sharingItem.type === "thread" ? "List" : "Note"}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSharingItem(null);
-                  setShareSelection([]);
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X size={14} />
-              </button>
-            </div>
+          {/* ── Board Collaborator Panel ── */}
+          {sharingItem.type === "board" ? (
+            <div className="w-[420px] rounded-2xl bg-card border shadow-2xl flex flex-col gap-0 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-primary/10 to-transparent">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+                    <Users size={16} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">Collaborator Board</p>
+                    <p className="text-xs text-muted-foreground">{shareSelection.length} collaborator{shareSelection.length !== 1 ? "s" : ""}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSharingItem(null); setShareSelection([]); setCollaboratorSearch(""); }}
+                  className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Select Members
-              </label>
-              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto border rounded p-2">
-                {allUsers
-                  .filter((u) => u.id !== userId)
-                  .map((u) => {
-                    const entry = shareSelection.find((s) => s.userId === u.id);
-                    const isChecked = !!entry;
+              {/* Owner row */}
+              {(() => {
+                const owner = allUsers.find((u) => u.id === (boards.find((b) => b.id === sharingItem.id)?.ownerId));
+                const ownerName = owner ? (owner.name || formatFallbackName(owner.email)) : "Board Owner";
+                const ownerInitials = ownerName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                return (
+                  <div className="flex items-center gap-3 px-5 py-3 border-b bg-muted/30">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white shrink-0 ring-2 ring-primary/30">
+                      {owner?.image ? <img src={owner.image} alt={ownerInitials} className="w-full h-full rounded-full object-cover" /> : ownerInitials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{ownerName}</p>
+                      <p className="text-xs text-muted-foreground/70 truncate">{owner?.title || owner?.email}</p>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full shrink-0">Owner</span>
+                  </div>
+                );
+              })()}
+
+              {/* Current collaborators list */}
+              <div className="flex flex-col max-h-44 overflow-y-auto divide-y divide-border/50">
+                {shareSelection.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/60 italic text-center py-4">No collaborators yet. Add people below.</p>
+                ) : (
+                  shareSelection.map((s) => {
+                    const u = allUsers.find((u) => u.id === s.userId);
+                    if (!u) return null;
+                    const displayName = u.name || formatFallbackName(u.email);
+                    const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                     return (
-                      <div
-                        key={u.id}
-                        className="flex items-center justify-between gap-2 py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
-                      >
+                      <div key={s.userId} className="flex items-center gap-3 px-5 py-2.5 hover:bg-accent/40 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground shrink-0">
+                          {u.image ? <img src={u.image} alt={initials} className="w-full h-full rounded-full object-cover" /> : initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                          <p className="text-xs text-muted-foreground/70 truncate">{u.title || u.email}</p>
+                        </div>
+                        {/* Can Edit toggle */}
                         <button
                           type="button"
-                          onClick={() => {
-                            if (isChecked) {
-                              setShareSelection(shareSelection.filter((s) => s.userId !== u.id));
-                            } else {
-                              setShareSelection([...shareSelection, { userId: u.id, canEdit: false }]);
-                            }
-                          }}
-                          className="flex items-center gap-2 text-left flex-1 min-w-0"
-                        >
-                          {isChecked ? (
-                            <CheckSquare size={13} className="text-primary shrink-0" />
-                          ) : (
-                            <Square size={13} className="text-muted-foreground/40 shrink-0" />
-                          )}
-                          <div className="flex flex-col min-w-0">
-                            <span className="truncate">{u.name || formatFallbackName(u.email)}</span>
-                            <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
-                              {u.title || u.role}
-                            </span>
-                          </div>
-                        </button>
-                        {sharingItem?.type === "thread" && isChecked && (
-                          <button
-                            type="button"
-                            title="Allow this member to edit notes in this list"
-                            onClick={() =>
-                              setShareSelection(
-                                shareSelection.map((s) =>
-                                  s.userId === u.id ? { ...s, canEdit: !s.canEdit } : s
-                                )
+                          title={s.canEdit ? "Can edit — click to restrict" : "View only — click to allow editing"}
+                          onClick={() =>
+                            setShareSelection(
+                              shareSelection.map((sel) =>
+                                sel.userId === s.userId ? { ...sel, canEdit: !sel.canEdit } : sel
                               )
-                            }
-                            className={cn(
-                              "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold shrink-0",
-                              entry?.canEdit
-                                ? "bg-primary/15 text-primary"
-                                : "text-muted-foreground/60 hover:text-foreground"
-                            )}
-                          >
-                            <Pencil size={11} />
-                            Can edit
-                          </button>
-                        )}
+                            )
+                          }
+                          className={cn(
+                            "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border transition-all shrink-0",
+                            s.canEdit
+                              ? "bg-primary/15 text-primary border-primary/30"
+                              : "bg-muted text-muted-foreground border-border hover:border-primary/30 hover:text-primary"
+                          )}
+                        >
+                          <Pencil size={10} />
+                          {s.canEdit ? "Can Edit" : "View Only"}
+                        </button>
+                        {/* Remove */}
+                        <button
+                          type="button"
+                          title="Remove collaborator"
+                          onClick={() => setShareSelection(shareSelection.filter((sel) => sel.userId !== s.userId))}
+                          className="rounded p-1 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <X size={13} />
+                        </button>
                       </div>
                     );
-                  })}
+                  })
+                )}
+              </div>
+
+              {/* Add people section */}
+              <div className="border-t px-5 py-3 flex flex-col gap-2 bg-muted/20">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Add People</label>
+                <input
+                  type="text"
+                  value={collaboratorSearch}
+                  onChange={(e) => setCollaboratorSearch(e.target.value)}
+                  placeholder="Search by name or email..."
+                  className="rounded-lg border bg-background px-3 py-1.5 text-xs outline-none focus:border-ring focus:ring-1 focus:ring-ring/30"
+                />
+                <div className="flex flex-col gap-0.5 max-h-32 overflow-y-auto">
+                  {allUsers
+                    .filter((u) => {
+                      if (u.id === userId) return false;
+                      if (u.id === boards.find((b) => b.id === sharingItem.id)?.ownerId) return false;
+                      if (shareSelection.some((s) => s.userId === u.id)) return false;
+                      const q = collaboratorSearch.toLowerCase();
+                      if (!q) return true;
+                      return (
+                        (u.name || "").toLowerCase().includes(q) ||
+                        u.email.toLowerCase().includes(q)
+                      );
+                    })
+                    .slice(0, 8)
+                    .map((u) => {
+                      const displayName = u.name || formatFallbackName(u.email);
+                      const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            setShareSelection([...shareSelection, { userId: u.id, canEdit: false }]);
+                            setCollaboratorSearch("");
+                          }}
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent transition-colors text-left w-full"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-foreground shrink-0">
+                            {u.image ? <img src={u.image} alt={initials} className="w-full h-full rounded-full object-cover" /> : initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                            <p className="text-[10px] text-muted-foreground/70 truncate">{u.title || u.email}</p>
+                          </div>
+                          <span className="text-[10px] text-primary font-bold shrink-0">+ Add</span>
+                        </button>
+                      );
+                    })}
+                  {allUsers.filter((u) => {
+                    if (u.id === userId) return false;
+                    if (u.id === boards.find((b) => b.id === sharingItem.id)?.ownerId) return false;
+                    if (shareSelection.some((s) => s.userId === u.id)) return false;
+                    const q = collaboratorSearch.toLowerCase();
+                    if (!q) return true;
+                    return (u.name || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+                  }).length === 0 && collaboratorSearch && (
+                    <p className="text-xs text-muted-foreground/60 italic text-center py-2">No members found.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer actions */}
+              <div className="flex justify-between items-center px-5 py-3 border-t bg-muted/10">
+                <button
+                  type="button"
+                  onClick={() => { setSharingItem(null); setShareSelection([]); setCollaboratorSearch(""); }}
+                  className="rounded-lg border px-4 py-1.5 text-xs hover:bg-accent font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareSubmit}
+                  disabled={isPending}
+                  className="rounded-lg bg-primary text-primary-foreground px-5 py-1.5 text-xs font-bold shadow hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5 transition-opacity"
+                >
+                  <Users size={12} />
+                  Save Collaborators
+                </button>
               </div>
             </div>
+          ) : (
+            /* ── Generic Share Panel for Thread / Note ── */
+            <div className="w-80 rounded-xl bg-card border p-5 shadow-lg flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Users size={14} />
+                  Share {sharingItem.type === "thread" ? "List" : "Note"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setSharingItem(null); setShareSelection([]); }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X size={14} />
+                </button>
+              </div>
 
-            <div className="flex justify-end gap-2 border-t pt-3 mt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setSharingItem(null);
-                  setShareSelection([]);
-                }}
-                className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleShareSubmit}
-                disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
-              >
-                Share
-              </button>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Select Members
+                </label>
+                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto border rounded p-2">
+                  {allUsers
+                    .filter((u) => u.id !== userId)
+                    .map((u) => {
+                      const entry = shareSelection.find((s) => s.userId === u.id);
+                      const isChecked = !!entry;
+                      return (
+                        <div
+                          key={u.id}
+                          className="flex items-center justify-between gap-2 py-1 px-1.5 rounded hover:bg-accent text-xs font-medium"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isChecked) {
+                                setShareSelection(shareSelection.filter((s) => s.userId !== u.id));
+                              } else {
+                                setShareSelection([...shareSelection, { userId: u.id, canEdit: false }]);
+                              }
+                            }}
+                            className="flex items-center gap-2 text-left flex-1 min-w-0"
+                          >
+                            {isChecked ? (
+                              <CheckSquare size={13} className="text-primary shrink-0" />
+                            ) : (
+                              <Square size={13} className="text-muted-foreground/40 shrink-0" />
+                            )}
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{u.name || formatFallbackName(u.email)}</span>
+                              <span className="text-xs text-muted-foreground/60 font-normal leading-none mt-0.5">
+                                {u.title || u.role}
+                              </span>
+                            </div>
+                          </button>
+                          {sharingItem?.type === "thread" && isChecked && (
+                            <button
+                              type="button"
+                              title="Allow this member to edit notes in this list"
+                              onClick={() =>
+                                setShareSelection(
+                                  shareSelection.map((s) =>
+                                    s.userId === u.id ? { ...s, canEdit: !s.canEdit } : s
+                                  )
+                                )
+                              }
+                              className={cn(
+                                "flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold shrink-0",
+                                entry?.canEdit
+                                  ? "bg-primary/15 text-primary"
+                                  : "text-muted-foreground/60 hover:text-foreground"
+                              )}
+                            >
+                              <Pencil size={11} />
+                              Can edit
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => { setSharingItem(null); setShareSelection([]); }}
+                  className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareSubmit}
+                  disabled={isPending}
+                  className="rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                >
+                  Share
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1902,7 +2136,14 @@ export function NotesWorkspace({
         <EditNoteModal
           note={editingNote}
           onNoteChange={setEditingNote}
-          canEdit={editingNote.authorId === userId}
+          canEdit={
+            editingNote.authorId === userId ||
+            isManager ||
+            canEditActiveBoard ||
+            threads
+              .find((t) => t.notes.some((n) => n.id === editingNote.id))
+              ?.shares.some((s) => s.userId === userId && s.canEdit) === true
+          }
           onClose={() => setEditingNote(null)}
           onSaved={async () => { await Promise.all([refreshThreads(), refreshHistory()]); }}
         />

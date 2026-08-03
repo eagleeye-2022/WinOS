@@ -6,7 +6,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export type SaveDsrState = {
-  errors?: { reflection?: string[] };
+  errors?: {
+    reflection?: string[];
+    resultOfDay?: string[];
+  };
   message?: string;
 };
 
@@ -37,8 +40,17 @@ export async function saveDsr(
   const reflection = (formData.get("reflection") as string)?.trim() || null;
   const resultOfDay = (formData.get("resultOfDay") as string)?.trim() || null;
 
-  if (action === "submit" && !reflection) {
-    return { errors: { reflection: ["Please add a reflection before submitting."] } };
+  if (action === "submit") {
+    const errors: { reflection?: string[]; resultOfDay?: string[] } = {};
+    if (!reflection) {
+      errors.reflection = ["Please add a reflection before submitting."];
+    }
+    if (!resultOfDay) {
+      errors.resultOfDay = ["Please add the outcome of the day before submitting."];
+    }
+    if (Object.keys(errors).length > 0) {
+      return { errors };
+    }
   }
 
   const plannedTasks: TaskItem[] = JSON.parse(plannedTasksJson || "[]");

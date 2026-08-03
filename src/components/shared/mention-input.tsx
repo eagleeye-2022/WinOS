@@ -27,6 +27,7 @@ type MentionInputProps = {
   teamMembers?: MentionMember[];
   onSelectMention?: (memberId: string, newValue?: string) => void;
   required?: boolean;
+  autoFocus?: boolean;
 };
 
 export function MentionInput({
@@ -38,6 +39,7 @@ export function MentionInput({
   teamMembers = [],
   onSelectMention,
   required,
+  autoFocus,
 }: MentionInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"people" | "file">("people");
@@ -51,6 +53,12 @@ export function MentionInput({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const effectiveMembers = teamMembers.length > 0 ? teamMembers : fallbackMembers;
+
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
 
   // Load files for @file: mode
   useEffect(() => {
@@ -262,6 +270,7 @@ export function MentionInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder || "Type @ for people, @file: for files"}
         required={required}
+        autoFocus={autoFocus}
         className={cn(
           "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50",
           className
