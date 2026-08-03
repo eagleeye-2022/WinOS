@@ -21,6 +21,7 @@ model User {
   accounts              Account[]
   blockerComments       BlockerComment[]
   boards                Board[]
+  boardShares           BoardShare[]
   boardNotes            BoardNote[]
   noteShares            BoardNoteShare[]
   competencyAttributes  CompetencyAttribute[]
@@ -436,16 +437,28 @@ model OtpToken {
 }
 
 model Board {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   name      String
   ownerId   String
-  type      String   @default("NORMAL") // "DSM" | "NORMAL"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type      String       @default("NORMAL") // "DSM" | "NORMAL"
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   threads   Thread[]
+  shares    BoardShare[]
 
   @@unique([name, ownerId])
+}
+
+model BoardShare {
+  boardId   String
+  userId    String
+  canEdit   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId])
 }
 
 model Thread {
@@ -492,6 +505,7 @@ model BoardNote {
 model BoardNoteShare {
   noteId    String
   userId    String
+  canEdit   Boolean   @default(false)
   createdAt DateTime  @default(now())
   note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)

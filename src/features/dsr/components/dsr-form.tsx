@@ -332,6 +332,7 @@ function DayReflection({
   resultOfDay,
   onResultOfDay,
   errors,
+  resultOfDayErrors,
   readOnly,
 }: {
   sentiment: string;
@@ -341,6 +342,7 @@ function DayReflection({
   resultOfDay: string;
   onResultOfDay: (s: string) => void;
   errors?: string[];
+  resultOfDayErrors?: string[];
   readOnly?: boolean;
 }) {
   return (
@@ -376,8 +378,9 @@ function DayReflection({
         </div>
 
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <label className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Outcome of the Day
+            {!readOnly && <span className="text-destructive">*</span>}
           </label>
           <textarea
             disabled={readOnly}
@@ -390,6 +393,7 @@ function DayReflection({
               readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
             )}
           />
+          {resultOfDayErrors?.[0] && <p className="mt-1 text-xs text-destructive">{resultOfDayErrors[0]}</p>}
         </div>
 
         <div>
@@ -583,6 +587,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
         resultOfDay={resultOfDay}
         onResultOfDay={setResultOfDay}
         errors={state.errors?.reflection}
+        resultOfDayErrors={state.errors?.resultOfDay}
         readOnly={readOnly}
       />
 

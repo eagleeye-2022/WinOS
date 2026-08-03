@@ -383,6 +383,7 @@ function EditBlockerRow({
           name="text"
           value={text}
           onChange={setText}
+          autoFocus
           placeholder="Edit blocker... (@ to mention member)"
           teamMembers={teamMembers}
           onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
@@ -499,6 +500,7 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
           name="text"
           value={text}
           onChange={setText}
+          autoFocus
           placeholder={mentionedMembers.length > 0 ? "Describe blocker..." : "Describe blocker... (@ to mention team members)"}
           teamMembers={teamMembers}
           onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
@@ -647,6 +649,7 @@ function EditSupportRow({
           name="text"
           value={text}
           onChange={setText}
+          autoFocus
           placeholder="Edit support need... (@ to mention member)"
           teamMembers={teamMembers}
           onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
@@ -763,6 +766,7 @@ function AddSupportRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
           name="text"
           value={text}
           onChange={setText}
+          autoFocus
           placeholder={mentionedMembers.length > 0 ? "Describe support needed..." : "Describe support needed... (@ to mention team members)"}
           teamMembers={teamMembers}
           onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}

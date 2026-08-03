@@ -192,6 +192,7 @@ function DetailPanel({
                 name="text"
                 rows={3}
                 defaultValue={item.text}
+                autoFocus
                 className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
               />
               {editState.message && editState.message !== "updated" && (

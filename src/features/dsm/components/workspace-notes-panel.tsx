@@ -164,10 +164,11 @@ function SharedNoteCard({
         )}
 
         {/* Content preview */}
-        {cleanText && (
-          <p className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3">
-            {cleanText}
-          </p>
+        {note.content && (
+          <div
+            className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
+            dangerouslySetInnerHTML={{ __html: note.content }}
+          />
         )}
 
         {/* Checklist items with checkboxes */}
