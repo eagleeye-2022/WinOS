@@ -15,7 +15,7 @@ export async function shareBoard(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const boardId = getStr(formData, "boardId");
-  const shareUserIdsStr = getStr(formData, "shareUserIds") || "";
+  const sharePermissionsStr = getStr(formData, "sharePermissions") || "[]";
 
   if (!boardId) return { message: "Missing board ID" };
 
@@ -29,31 +29,56 @@ export async function shareBoard(
     return { message: "Unauthorized" };
   }
 
-  const shareUserIds = shareUserIdsStr.split(",").map((s) => s.trim()).filter(Boolean);
+  let sharePermissions: { userId: string; canEdit: boolean }[] = [];
+  try {
+    sharePermissions = JSON.parse(sharePermissionsStr);
+  } catch {
+    sharePermissions = [];
+  }
 
-  // Find all threads in this board
+  const shareUserIds = sharePermissions.map((s) => s.userId).filter(Boolean);
+
+  // 1. Update BoardShare (board-level collaborators)
+  await d.boardShare.deleteMany({ where: { boardId } });
+  if (sharePermissions.length > 0) {
+    await d.boardShare.createMany({
+      data: sharePermissions.map(({ userId, canEdit }) => ({
+        boardId,
+        userId,
+        canEdit: !!canEdit,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  // 2. Cascade to all threads in this board
   const threads = await d.thread.findMany({ where: { boardId }, select: { id: true } });
 
   for (const thread of threads) {
     await d.threadShare.deleteMany({ where: { threadId: thread.id } });
     if (shareUserIds.length > 0) {
       await d.threadShare.createMany({
-        data: shareUserIds.map((userId) => ({
+        data: sharePermissions.map(({ userId, canEdit }) => ({
           threadId: thread.id,
           userId,
+          canEdit: !!canEdit,
         })),
         skipDuplicates: true,
       });
 
+      // 3. Cascade to notes inside each thread
       const notes = await d.boardNote.findMany({ where: { threadId: thread.id }, select: { id: true } });
       for (const note of notes) {
-        await d.boardNoteShare.createMany({
-          data: shareUserIds.map((userId) => ({
-            noteId: note.id,
-            userId,
-          })),
-          skipDuplicates: true,
-        });
+        await d.boardNoteShare.deleteMany({ where: { noteId: note.id } });
+        if (shareUserIds.length > 0) {
+          await d.boardNoteShare.createMany({
+            data: shareUserIds.map((userId) => ({
+              noteId: note.id,
+              userId,
+            })),
+            skipDuplicates: true,
+          });
+        }
       }
     }
   }

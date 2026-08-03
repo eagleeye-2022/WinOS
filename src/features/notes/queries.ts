@@ -79,6 +79,7 @@ export async function getBoards(targetUserId?: string) {
     where: {
       OR: [
         { ownerId: userId },
+        { shares: { some: { userId } } },
         {
           threads: {
             some: {
@@ -91,6 +92,14 @@ export async function getBoards(targetUserId?: string) {
           }
         }
       ]
+    },
+    include: {
+      shares: {
+        include: {
+          user: { select: { id: true, name: true, email: true, image: true, title: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: { name: "asc" },
   });
