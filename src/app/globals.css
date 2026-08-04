@@ -251,3 +251,18 @@ body {
 .dsm-columns-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted-foreground) !important;
 }
+
+/* Ensure all buttons, links, clickable items, and interactive elements across WinOS have pointer cursor */
+button,
+a,
+select,
+summary,
+[role="button"],
+[tabindex],
+[onclick],
+.cursor-pointer,
+button *,
+a *,
+[role="button"] * {
+  cursor: pointer !important;
+}

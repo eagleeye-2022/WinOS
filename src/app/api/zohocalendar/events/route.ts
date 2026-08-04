@@ -123,14 +123,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Match users from DB
-    const inviteeUsers = allAssignedEmails.size > 0
-      ? await (db as any).user.findMany({
+    const inviteeUsers: Array<{ id: string; email: string }> = allAssignedEmails.size > 0
+      ? await (db as unknown as { user: { findMany: (args: unknown) => Promise<Array<{ id: string; email: string }>> } }).user.findMany({
           where: { email: { in: Array.from(allAssignedEmails) } },
           select: { id: true, email: true },
         })
       : [];
 
-    const attendeeDataMap = new Map<string, any>();
+    const attendeeDataMap = new Map<string, { userId: string | null; email: string; status: string; role: string }>();
     attendeeDataMap.set(organizerEmail.toLowerCase(), {
       userId,
       email: organizerEmail,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       role: "ORGANIZER",
     });
 
-    inviteeUsers.forEach((u: any) => {
+    inviteeUsers.forEach((u) => {
       if (u.id !== userId) {
         attendeeDataMap.set(u.email.toLowerCase(), {
           userId: u.id,
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create DB Event
-    const event = await (db as any).calendarEvent.create({
+    const event = await (db as unknown as { calendarEvent: { create: (args: unknown) => Promise<{ id: string }> } }).calendarEvent.create({
       data: {
         title: title.trim(),
         description: description.trim(),

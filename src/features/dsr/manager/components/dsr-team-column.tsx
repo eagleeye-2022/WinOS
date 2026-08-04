@@ -58,9 +58,8 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
     <Link
       href={ROUTES.dsrMember(card.userId)}
       className={cn(
-        "group relative flex min-h-[132px] shrink-0 flex-col rounded-2xl border border-l-4 bg-card p-4 shadow-xs",
-        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
-        isReviewed ? "border-l-indigo-400" : "border-l-emerald-400"
+        "group relative flex min-h-[132px] shrink-0 flex-col rounded-2xl border bg-card p-4 shadow-xs",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -117,7 +116,7 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
   const initials = initialsOf(displayName);
 
   return (
-    <div className="flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-l-4 border-dashed border-l-red-300 bg-red-50/40 p-4 dark:bg-red-950/10">
+    <div className="flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-red-50/40 p-4 dark:bg-red-950/10">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-500 ring-1 ring-black/5">
@@ -152,7 +151,7 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
   );
 
   return (
-    <div className="flex h-full min-h-[420px] w-64 shrink-0 flex-col gap-3">
+    <div className="flex h-full min-h-[420px] w-80 md:w-96 min-w-[320px] shrink-0 flex-col gap-3">
       {/* Column header (fixed) */}
       <div className="flex shrink-0 items-center gap-2">
         <span className={cn("h-2 w-2 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />

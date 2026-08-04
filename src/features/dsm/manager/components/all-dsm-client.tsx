@@ -304,7 +304,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
 
       {/* Team columns (scrollable, fills remaining space) */}
       <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab dsm-columns-scrollbar">
-        <div className="flex h-full items-start gap-8">
+        <div className="flex h-full min-w-full items-start gap-6">
           {filteredGroups.map((group, index) => (
             <TeamColumn key={group.teamId} group={group} colorIndex={index} />
           ))}

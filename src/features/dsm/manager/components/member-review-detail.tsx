@@ -24,8 +24,9 @@ import { deleteSupport, type DeleteSupportState } from "@/features/support-neede
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { reviewStatus, relativeDayLabel, formatShortDate, weekOfMonth, getWeekRange } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
-import { MentionInput } from "@/components/shared/mention-input";
 import type { TeamMember } from "@/features/dsm/queries";
+import { MentionInput } from "@/components/shared/mention-input";
+import { EventDialog } from "@/features/calendar/components/event-dialog";
 
 
 // ── Mention helpers ───────────────────────────────────────────────────────────
@@ -1045,6 +1046,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
   const isReviewable = entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW";
   const isLocked = entry.status === "REVIEWED";
+  const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -1088,7 +1090,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
               <AlertTriangle size={15} className="text-destructive" />
-              Blockers (Data Needed)
+              Any Blockers?
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                 {entry.blockers.length}
               </span>
@@ -1102,7 +1104,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (b.mentionedUser?.id === id ? b.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
               return (
-                <div key={b.id} className="group/item flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-destructive/10">
+                <div key={b.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-destructive/10">
                   {!isLocked ? (
                     <EditBlockerRow
                       blockerId={b.id}
@@ -1131,6 +1133,17 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                       )}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const titleText = b.text.trim() ? `Blocker Sync: ${b.text.trim()}` : "Blocker Resolution Meeting";
+                      setScheduleModal({ title: titleText, participantIds: uIds });
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-destructive hover:bg-destructive/15 px-2 py-0.5 rounded border border-destructive/30 transition-all cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <Calendar size={12} />
+                    Schedule Meeting
+                  </button>
                   {!isLocked && <DeleteBlockerButton blockerId={b.id} />}
                 </div>
               );
@@ -1146,7 +1159,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-sky-700">
             <span className="flex items-center gap-2">
               <Handshake size={15} className="text-sky-700" />
-              Support Needed (Meeting)
+              Any Support Needed?
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                 {entry.supportNeeds.length}
               </span>
@@ -1160,7 +1173,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (s.mentionedUser?.id === id ? s.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
               return (
-                <div key={s.id} className="group/item flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-sky-100/60">
+                <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-sky-100/60">
                   {!isLocked ? (
                     <EditSupportRow
                       supportId={s.id}
@@ -1189,6 +1202,17 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                       )}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const titleText = s.text.trim() ? `Support Sync: ${s.text.trim()}` : "Support Sync Meeting";
+                      setScheduleModal({ title: titleText, participantIds: uIds });
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2 py-0.5 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <Calendar size={12} />
+                    Schedule Meeting
+                  </button>
                   {!isLocked && <DeleteSupportButton supportId={s.id} />}
                 </div>
               );
@@ -1210,6 +1234,18 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           <CheckCheck size={16} />
           Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name?.split(" ")[0] ?? "manager"}` : ""}
         </div>
+      )}
+
+      {/* Event Scheduler Modal */}
+      {scheduleModal && (
+        <EventDialog
+          mode="create"
+          defaultTitle={scheduleModal.title}
+          defaultParticipantIds={scheduleModal.participantIds}
+          internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
+          currentUserId=""
+          onClose={() => setScheduleModal(null)}
+        />
       )}
     </div>
   );

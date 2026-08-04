@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   try {
     const token = await exchangeZohoCodeForToken(code);
 
-    let calendars: any[] = [];
+    let calendars: Array<{ isDefault?: boolean; uid?: string }> = [];
     try {
       calendars = await listZohoCalendars(token.accessToken, token.apiDomain);
     } catch (calErr) {

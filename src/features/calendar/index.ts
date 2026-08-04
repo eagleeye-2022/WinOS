@@ -6,7 +6,7 @@ export { CalendarWeekView } from "./components/calendar-week-view";
 export { CalendarMonthView } from "./components/calendar-month-view";
 export { ParticipantPicker } from "./components/participant-picker";
 
-export { getZohoConnectionStatus, getCalendarEvents } from "./queries";
+export { getZohoConnectionStatus, getCalendarEvents, getTodayCalendarEvents } from "./queries";
 export type { CalendarEventView, ZohoConnectionStatus } from "./queries";
 
 export { createCalendarEvent } from "./actions/create-event";

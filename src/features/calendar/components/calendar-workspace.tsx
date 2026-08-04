@@ -50,6 +50,7 @@ export function CalendarWorkspace({
 
   // Keep localEvents in sync with server revalidation
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalEvents(initialEvents);
   }, [initialEvents]);
 
@@ -214,6 +215,7 @@ export function CalendarWorkspace({
       {errorBanner && (
         <div className="border-b border-destructive/20 bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive flex items-center justify-between">
           <span>Failed to connect Zoho Calendar: {errorBanner}</span>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/auth/zoho/login" className="underline font-semibold hover:opacity-80">
             Try again
           </a>

@@ -113,11 +113,7 @@ export function AllDsmStatsRow({
         <button
           type="button"
           onClick={() => toggle("submitted")}
-          disabled={totalSubmitted === 0}
-          className={cn(
-            "flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors",
-            totalSubmitted > 0 && "hover:bg-accent cursor-pointer"
-          )}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
             <Users size={18} className="text-primary" />
@@ -146,11 +142,7 @@ export function AllDsmStatsRow({
         <button
           type="button"
           onClick={() => toggle("pending")}
-          disabled={pendingCount === 0}
-          className={cn(
-            "flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors",
-            pendingCount > 0 && "hover:bg-accent cursor-pointer"
-          )}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
             <Clock size={18} className="text-amber-600" />
@@ -179,11 +171,7 @@ export function AllDsmStatsRow({
         <button
           type="button"
           onClick={() => toggle("blockers")}
-          disabled={blockerCount === 0}
-          className={cn(
-            "flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors",
-            blockerCount > 0 && "hover:bg-accent cursor-pointer"
-          )}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
             <Ban size={18} className="text-destructive" />

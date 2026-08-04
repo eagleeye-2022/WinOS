@@ -51,6 +51,50 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
     }).format(dateObj);
   }, [dateObj]);
 
+  // Flatten members across all teams for the stat card dropdowns
+  const submittedMembers = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+          meta: m.submittedAt
+            ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+            : undefined,
+        }))
+    );
+  }, [groups]);
+
+  const pendingMembers = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => !m.status || m.status === "DRAFT" || m.status === "MISSED")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+        }))
+    );
+  }, [groups]);
+
+  const blockerMembers = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "MISSED" || (m.plannedTaskCount > 0 && m.completedTaskCount < m.plannedTaskCount))
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+          meta: m.status === "MISSED" ? "Missed DSR" : `${m.plannedTaskCount - m.completedTaskCount} pending tasks`,
+        }))
+    );
+  }, [groups]);
+
   // Extract unique departments for the filter dropdown
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -251,12 +295,19 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
         </div>
       )}
 
-      {stats && <AllDsrStatsRow stats={stats} />}
+      {stats && (
+        <AllDsrStatsRow
+          stats={stats}
+          submittedMembers={submittedMembers}
+          pendingMembers={pendingMembers}
+          blockerMembers={blockerMembers}
+        />
+      )}
     </div>
 
       {/* Team columns (scrollable, fills remaining space) */}
       <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab dsm-columns-scrollbar">
-        <div className="flex h-full items-start gap-8">
+        <div className="flex h-full min-w-full items-start gap-6">
           {filteredGroups.map((group, index) => (
             <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} />
           ))}

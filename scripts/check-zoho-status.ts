@@ -9,11 +9,12 @@ async function main() {
   });
 
   console.log(`Found ${accounts.length} Zoho Account(s) in DB:`);
-  accounts.forEach((acc: any) => {
+  accounts.forEach((acc: Record<string, unknown>) => {
+    const u = acc.user as { email?: string } | undefined;
     console.log({
       id: acc.id,
       userId: acc.userId,
-      userEmail: acc.user?.email,
+      userEmail: u?.email,
       zohoEmail: acc.zohoEmail,
       primaryCalendarUid: acc.primaryCalendarUid,
       apiDomain: acc.apiDomain,
@@ -42,7 +43,7 @@ async function main() {
   });
 
   console.log(`Found ${events.length} recent event(s) in DB:`);
-  events.forEach((e: any) => {
+  events.forEach((e: Record<string, unknown>) => {
     console.log({
       id: e.id,
       title: e.title,
