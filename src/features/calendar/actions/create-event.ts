@@ -57,11 +57,6 @@ export async function createCalendarEvent(
   const start = fromDateTimeLocalValue(startStr);
   const end = fromDateTimeLocalValue(endStr);
 
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - 1);
-  if (start < now) {
-    return { errors: { start: ["Cannot create an event in the past"] } };
-  }
 
   if (end <= start) {
     return { errors: { end: ["End time must be after start time"] } };
@@ -188,23 +183,28 @@ export async function createCalendarEvent(
   try {
     const token = await getValidZohoAccessToken(userId);
     if (token && token.calendarUid) {
-      await createZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, {
+      console.log(`[calendar] Syncing event "${title}" to Zoho Calendar (UID: ${token.calendarUid})...`);
+      const zohoRes = await createZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, {
         title,
         description,
         start,
         end,
         isAllDay,
         timezone: CALENDAR_TIMEZONE,
-         
         attendeeEmails: Array.from(attendeeDataMap.keys()),
       });
+      console.log(`[calendar] Successfully created Zoho event ID: ${zohoRes.id}`);
+    } else {
+      console.warn(`[calendar] Zoho sync skipped for user ${userId}: No valid token or primary calendarUid found.`);
     }
   } catch (err) {
-    console.warn("[calendar] Zoho sync skipped/failed:", err);
+    console.error("[calendar] Zoho sync failed:", err);
   }
 
   revalidatePath("/calendar");
+  revalidatePath("/zohocalendar");
   return { message: "created" };
 }
+
 
 

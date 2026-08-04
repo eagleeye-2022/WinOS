@@ -29,7 +29,16 @@ export async function getZohoConnectionStatus(): Promise<ZohoConnectionStatus> {
     select: { zohoEmail: true },
   });
 
-  return { connected: Boolean(account), zohoEmail: account?.zohoEmail ?? null };
+  if (account) {
+    return { connected: true, zohoEmail: account.zohoEmail ?? session.user.email ?? null };
+  }
+
+  // Option 2: Organization Master Account (Auto-Connected for all workspace users)
+  if (process.env.ZOHO_ORG_MASTER_REFRESH_TOKEN) {
+    return { connected: true, zohoEmail: "Organization Account (Auto-Connected)" };
+  }
+
+  return { connected: false, zohoEmail: null };
 }
 
 /**

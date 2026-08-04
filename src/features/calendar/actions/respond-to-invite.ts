@@ -29,14 +29,18 @@ export async function respondToCalendarInvite(
 
   // Update DB Attendee status
   try {
+    const OR_conditions: Array<Record<string, unknown>> = [{ userId }];
+    if (userEmail) {
+      OR_conditions.push({ email: userEmail });
+      OR_conditions.push({ email: userEmail.toLowerCase() });
+      OR_conditions.push({ email: { equals: userEmail, mode: "insensitive" } });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).calendarEventAttendee.updateMany({
       where: {
         eventId,
-        OR: [
-          { userId },
-          ...(userEmail ? [{ email: userEmail }] : []),
-        ],
+        OR: OR_conditions,
       },
       data: {
         status: newStatus,
@@ -65,6 +69,7 @@ export async function respondToCalendarInvite(
   }
 
   revalidatePath("/calendar");
+  revalidatePath("/zohocalendar");
   return { message: "responded" };
 }
 

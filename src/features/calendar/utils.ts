@@ -49,11 +49,19 @@ export function getViewRange(view: "week" | "month", anchor: Date): { rangeStart
   return { rangeStart, rangeEnd };
 }
 
-export function isSameDay(a: Date, b: Date): boolean {
+export function isSameDay(
+  a: Date | string | null | undefined,
+  b: Date | string | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  const dateA = a instanceof Date ? a : new Date(a);
+  const dateB = b instanceof Date ? b : new Date(b);
+  if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return false;
+
   return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
+    dateA.getFullYear() === dateB.getFullYear() &&
+    dateA.getMonth() === dateB.getMonth() &&
+    dateA.getDate() === dateB.getDate()
   );
 }
 

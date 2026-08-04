@@ -13,14 +13,15 @@ export default async function CalendarPage({ searchParams }: Props) {
   if (!session?.user?.id) redirect(ROUTES.login);
 
   const sp = await searchParams;
+  const connectionStatus = await getZohoConnectionStatus();
+
   const view = sp.view === "month" ? "month" : "week";
   const anchorDate = sp.date ? new Date(sp.date) : new Date();
 
   const { rangeStart, rangeEnd } = getViewRange(view, anchorDate);
 
-  const [events, connectionStatus, users] = await Promise.all([
+  const [events, users] = await Promise.all([
     getCalendarEvents(rangeStart, rangeEnd),
-    getZohoConnectionStatus(),
     getWorkspaceUsers(),
   ]);
 

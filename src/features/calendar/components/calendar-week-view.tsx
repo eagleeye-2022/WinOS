@@ -33,14 +33,25 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
   const now = new Date();
 
   function eventsForDay(day: Date) {
+    const seen = new Set<string>();
     return events
       .filter((e) => {
-        if (!isSameDay(e.start, day)) return false;
-        const eStartH = e.start.getHours() + e.start.getMinutes() / 60;
-        const eEndH = e.end.getHours() + e.end.getMinutes() / 60;
+        if (!e?.id || !e?.start || !e?.end) return false;
+        if (seen.has(e.id)) return false;
+        const eStart = e.start instanceof Date ? e.start : new Date(e.start);
+        const eEnd = e.end instanceof Date ? e.end : new Date(e.end);
+        if (isNaN(eStart.getTime()) || isNaN(eEnd.getTime())) return false;
+        if (!isSameDay(eStart, day)) return false;
+        seen.add(e.id);
+        const eStartH = eStart.getHours() + eStart.getMinutes() / 60;
+        const eEndH = eEnd.getHours() + eEnd.getMinutes() / 60;
         return eEndH >= OFFICE_START_HOUR && eStartH <= OFFICE_END_HOUR;
       })
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+      .sort((a, b) => {
+        const aStart = a.start instanceof Date ? a.start : new Date(a.start);
+        const bStart = b.start instanceof Date ? b.start : new Date(b.start);
+        return aStart.getTime() - bStart.getTime();
+      });
   }
 
   // Calculate current time line position in office hours (10:00 AM to 6:30 PM)
@@ -144,7 +155,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                 ))}
 
                 {/* Render Events inside Office Hours */}
-                {dayEvents.map((event) => {
+                {dayEvents.map((event, idx) => {
                   const startHourDec = event.start.getHours() + event.start.getMinutes() / 60;
                   const endHourDec = event.end.getHours() + event.end.getMinutes() / 60;
 
@@ -157,7 +168,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
 
                   return (
                     <button
-                      key={event.id}
+                      key={`${day.toISOString()}-${event.id}-${idx}`}
                       type="button"
                       onClick={() => onSelectEvent(event)}
                       style={{ top: `${top}px`, height: `${height}px` }}

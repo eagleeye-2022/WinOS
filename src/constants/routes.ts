@@ -12,6 +12,7 @@ export const ROUTES = {
   dsrMember: (userId: string) => `/dsr/member/${userId}` as const,
   notes: "/notes",
   calendar: "/calendar",
+  zohoCalendar: "/calendar",
   blockers: "/blockers",
   support: "/support",
   needsHelp: "/needs-help",

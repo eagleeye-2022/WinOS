@@ -152,6 +152,7 @@ export async function updateCalendarEvent(
   }
 
   revalidatePath("/calendar");
+  revalidatePath("/zohocalendar");
   return { message: "updated" };
 }
 

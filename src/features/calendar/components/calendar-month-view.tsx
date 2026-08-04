@@ -18,9 +18,22 @@ export function CalendarMonthView({ anchorDate, events, onSelectEvent, onSelectS
   const today = new Date();
 
   function eventsForDay(day: Date) {
+    const seen = new Set<string>();
     return events
-      .filter((e) => isSameDay(e.start, day))
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
+      .filter((e) => {
+        if (!e?.id || !e?.start) return false;
+        if (seen.has(e.id)) return false;
+        const eStart = e.start instanceof Date ? e.start : new Date(e.start);
+        if (isNaN(eStart.getTime())) return false;
+        if (!isSameDay(eStart, day)) return false;
+        seen.add(e.id);
+        return true;
+      })
+      .sort((a, b) => {
+        const aStart = a.start instanceof Date ? a.start : new Date(a.start);
+        const bStart = b.start instanceof Date ? b.start : new Date(b.start);
+        return aStart.getTime() - bStart.getTime();
+      });
   }
 
   return (
@@ -62,9 +75,9 @@ export function CalendarMonthView({ anchorDate, events, onSelectEvent, onSelectS
                 {day.getDate()}
               </span>
               <div className="flex flex-col gap-1 overflow-hidden pt-1">
-                {dayEvents.slice(0, 3).map((event) => (
+                {dayEvents.slice(0, 3).map((event, idx) => (
                   <span
-                    key={event.id}
+                    key={`${day.toISOString()}-${event.id}-${idx}`}
                     role="button"
                     tabIndex={0}
                     onClick={(e) => {

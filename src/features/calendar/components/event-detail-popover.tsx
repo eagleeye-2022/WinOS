@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Pencil, Trash2, Clock, Crown, User as UserIcon } from "lucide-react";
 import { deleteCalendarEvent, type DeleteEventState } from "../actions/delete-event";
@@ -16,10 +16,13 @@ type Props = {
   currentUserEmail: string;
   onClose: () => void;
   onEdit: () => void;
+  onRespond?: (status: string) => void;
 };
 
-export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }: Props) {
+export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, onRespond }: Props) {
   const router = useRouter();
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
+
   const [deleteState, deleteAction, deletePending] = useActionState<DeleteEventState, FormData>(
     deleteCalendarEvent,
     {},
@@ -55,14 +58,23 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
   const tentativeCount = attendees.filter((a) => a.status === "TENTATIVE" || a.status === "MAYBE").length;
   const pendingCount = attendees.filter((a) => !a.status || a.status === "NEEDS_ACTION" || a.status === "PENDING").length;
 
-  const currentUserAttendee = event.attendees?.find(
-    (a) => a.email.toLowerCase() === currentUserEmail.toLowerCase(),
-  );
-  const currentUserStatus = currentUserAttendee?.status?.toUpperCase() || "NEEDS_ACTION";
+  const currentUserAttendee = event.attendees?.find((a) => {
+    if (!a) return false;
+    if (currentUserEmail && a.email && a.email.toLowerCase() === currentUserEmail.toLowerCase()) {
+      return true;
+    }
+    return false;
+  });
+
+  const rawStatus = (localStatus || currentUserAttendee?.status)?.toUpperCase() || "NEEDS_ACTION";
+  const currentUserStatus =
+    rawStatus === "ACCEPT" ? "ACCEPTED" : rawStatus === "DECLINE" ? "DECLINED" : rawStatus;
+
   const hasResponded =
     currentUserStatus === "ACCEPTED" ||
     currentUserStatus === "DECLINED" ||
-    currentUserStatus === "TENTATIVE";
+    currentUserStatus === "TENTATIVE" ||
+    currentUserStatus === "MAYBE";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
@@ -240,7 +252,14 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
                 </div>
               ) : (
                 <>
-                  <form action={respondAction}>
+                  <form
+                    action={async (formData) => {
+                      setLocalStatus("ACCEPTED");
+                      onRespond?.("ACCEPTED");
+                      await respondAction(formData);
+                      router.refresh();
+                    }}
+                  >
                     <input type="hidden" name="eventId" value={event.id} />
                     <input type="hidden" name="response" value="accept" />
                     <button
@@ -251,7 +270,14 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
                       Accept
                     </button>
                   </form>
-                  <form action={respondAction}>
+                  <form
+                    action={async (formData) => {
+                      setLocalStatus("DECLINED");
+                      onRespond?.("DECLINED");
+                      await respondAction(formData);
+                      router.refresh();
+                    }}
+                  >
                     <input type="hidden" name="eventId" value={event.id} />
                     <input type="hidden" name="response" value="decline" />
                     <button
@@ -276,13 +302,21 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit }:
               >
                 <Pencil size={13} /> Edit
               </button>
-              <form action={deleteAction}>
+              <form
+                action={async (formData) => {
+                  if (confirm("Are you sure you want to delete this event?")) {
+                    await deleteAction(formData);
+                    router.refresh();
+                    onClose();
+                  }
+                }}
+              >
                 <input type="hidden" name="eventId" value={event.id} />
                 <input type="hidden" name="etag" value={event.etag} />
                 <button
                   type="submit"
                   disabled={deletePending}
-                  className="flex items-center gap-1.5 rounded-full bg-destructive/10 border border-destructive/30 px-5 py-2 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-all"
+                  className="flex items-center gap-1.5 rounded-full bg-destructive/10 border border-destructive/30 px-5 py-2 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-all cursor-pointer"
                 >
                   <Trash2 size={13} /> {deletePending ? "Deleting…" : "Delete"}
                 </button>

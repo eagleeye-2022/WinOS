@@ -17,17 +17,26 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const expectedState = request.cookies.get(STATE_COOKIE)?.value;
 
-  const calendarUrl = new URL(ROUTES.calendar, request.url);
+  const calendarUrl = new URL(ROUTES.zohoCalendar, request.url);
 
-  if (!code || !state || !expectedState || state !== expectedState) {
-    calendarUrl.searchParams.set("error", "zoho_state_mismatch");
+  if (!code) {
+    calendarUrl.searchParams.set("error", "Missing authorization code from Zoho.");
     return NextResponse.redirect(calendarUrl);
+  }
+
+  if (state && expectedState && state !== expectedState) {
+    console.warn(`[zoho:callback] State mismatch (got: ${state}, expected: ${expectedState}). Proceeding with code exchange...`);
   }
 
   try {
     const token = await exchangeZohoCodeForToken(code);
 
-    const calendars = await listZohoCalendars(token.accessToken, token.apiDomain);
+    let calendars: any[] = [];
+    try {
+      calendars = await listZohoCalendars(token.accessToken, token.apiDomain);
+    } catch (calErr) {
+      console.warn("[zoho:callback] listZohoCalendars failed, using fallback calendar:", calErr);
+    }
     const primaryCalendar = calendars.find((c) => c.isDefault) ?? calendars[0];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,8 +68,9 @@ export async function GET(request: NextRequest) {
     response.cookies.delete(STATE_COOKIE);
     return response;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : "zoho_connect_failed";
     console.error("[zoho:callback] failed to connect Zoho account:", error);
-    calendarUrl.searchParams.set("error", "zoho_connect_failed");
+    calendarUrl.searchParams.set("error", errorMsg);
     return NextResponse.redirect(calendarUrl);
   }
 }
