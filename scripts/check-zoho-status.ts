@@ -43,7 +43,7 @@ async function main() {
   });
 
   console.log(`Found ${events.length} recent event(s) in DB:`);
-  events.forEach((e: Record<string, unknown>) => {
+  events.forEach((e: any) => {
     console.log({
       id: e.id,
       title: e.title,

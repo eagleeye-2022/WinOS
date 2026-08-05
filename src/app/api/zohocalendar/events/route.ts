@@ -160,8 +160,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create DB Event
-    const event = await (db as unknown as { calendarEvent: { create: (args: unknown) => Promise<{ id: string }> } }).calendarEvent.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const event = await (db as any).calendarEvent.create({
       data: {
         title: title.trim(),
         description: description.trim(),
