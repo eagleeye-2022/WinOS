@@ -43,6 +43,7 @@ async function main() {
   });
 
   console.log(`Found ${events.length} recent event(s) in DB:`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   events.forEach((e: any) => {
     console.log({
       id: e.id,
