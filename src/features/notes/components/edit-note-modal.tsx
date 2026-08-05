@@ -82,13 +82,13 @@ export function EditNoteModal<T extends EditNoteModalData>({
           <span className="text-sm font-bold text-foreground">
             {isReadOnly ? "View Note Card" : "Edit Note Card"}
           </span>
-          <button
+          {/* <button
             type="button"
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
           >
             <X size={16} />
-          </button>
+          </button> */}
         </div>
 
         <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">

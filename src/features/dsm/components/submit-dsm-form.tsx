@@ -1,11 +1,14 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap } from "lucide-react";
+import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap, Calendar as CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
+import type { CalendarEventView } from "@/features/calendar/queries";
+import { formatTime } from "@/features/calendar/utils";
+import { EventDialog } from "@/features/calendar/components/event-dialog";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -135,10 +138,12 @@ function BlockerRows({
   blockers,
   teamMembers,
   onChange,
+  onScheduleMeeting,
 }: {
   blockers: { text: string; priority: string; mentionedUserIds: string[] }[];
   teamMembers: TeamMember[];
   onChange: (b: { text: string; priority: string; mentionedUserIds: string[] }[]) => void;
+  onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
   const updateField = (i: number, field: "text" | "priority", v: string) => {
     const n = [...blockers];
@@ -205,28 +210,43 @@ function BlockerRows({
                 />
               </div>
 
-              {/* Bottom: priority picker */}
-              <div className="flex items-center gap-1.5 border-t px-3 py-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Priority:
-                </span>
-                <select
-                  name="blockerPriority"
-                  value={b.priority}
-                  onChange={(e) => updateField(i, "priority", e.target.value)}
-                  className={cn(
-                    "cursor-pointer bg-transparent text-xs outline-none rounded px-1",
-                    b.priority === "HIGH" && "font-semibold text-red-600",
-                    b.priority === "MEDIUM" && "font-semibold text-amber-600",
-                    b.priority === "LOW" && "font-semibold text-sky-600",
-                    !b.priority && "text-muted-foreground"
-                  )}
-                >
-                  <option value="">Select priority</option>
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-                  ))}
-                </select>
+              {/* Bottom: priority picker & schedule meeting action */}
+              <div className="flex items-center justify-between border-t px-3 py-1.5 bg-muted/20">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Priority:
+                  </span>
+                  <select
+                    name="blockerPriority"
+                    value={b.priority}
+                    onChange={(e) => updateField(i, "priority", e.target.value)}
+                    className={cn(
+                      "cursor-pointer bg-transparent text-xs outline-none rounded px-1",
+                      b.priority === "HIGH" && "font-semibold text-red-600",
+                      b.priority === "MEDIUM" && "font-semibold text-amber-600",
+                      b.priority === "LOW" && "font-semibold text-sky-600",
+                      !b.priority && "text-muted-foreground"
+                    )}
+                  >
+                    <option value="">Select priority</option>
+                    {PRIORITIES.map((p) => (
+                      <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+                    ))}
+                  </select>
+                </div>
+                {onScheduleMeeting && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const titleText = b.text.trim() ? `Blocker Sync: ${b.text.trim()}` : "Blocker Resolution Meeting";
+                      onScheduleMeeting(titleText, b.mentionedUserIds);
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2 py-0.5 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <CalendarIcon size={12} />
+                    Schedule Meeting
+                  </button>
+                )}
               </div>
             </div>
 
@@ -260,10 +280,12 @@ function SupportRows({
   supports,
   teamMembers,
   onChange,
+  onScheduleMeeting,
 }: {
   supports: { text: string; mentionedUserIds: string[] }[];
   teamMembers: TeamMember[];
   onChange: (s: { text: string; mentionedUserIds: string[] }[]) => void;
+  onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
   const updateText = (i: number, v: string) => {
     const n = [...supports];
@@ -329,6 +351,26 @@ function SupportRows({
                   className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm"
                 />
               </div>
+
+              {/* Bottom: Schedule Meeting Action */}
+              <div className="flex items-center justify-between border-t px-3 py-1.5 bg-muted/20">
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {s.mentionedUserIds.length > 0 ? `${s.mentionedUserIds.length} tagged for meeting` : "Tag people (@) to invite"}
+                </span>
+                {onScheduleMeeting && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const titleText = s.text.trim() ? `Support Sync: ${s.text.trim()}` : "Data/Support Sync Meeting";
+                      onScheduleMeeting(titleText, s.mentionedUserIds);
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2.5 py-1 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <CalendarIcon size={12} />
+                    Schedule Meeting
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Remove row button */}
@@ -384,6 +426,7 @@ type SubmitDsmFormProps = {
   yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
   teamMembers: TeamMember[];
   todayDateStr: string; // "YYYY-MM-DD"
+  todayCalendarEvents?: CalendarEventView[];
   onCancel?: () => void;
 };
 
@@ -396,6 +439,7 @@ export function SubmitDsmForm({
   yesterdayBlockers,
   teamMembers,
   todayDateStr,
+  todayCalendarEvents,
   onCancel,
 }: SubmitDsmFormProps) {
   const [state, action, pending] = useActionState(saveDsm, initialState);
@@ -444,6 +488,7 @@ export function SubmitDsmForm({
     })) ?? [{ text: "", mentionedUserIds: [] }]
   );
   const [learningText, setLearningText] = useState(entry?.learningText ?? "");
+  const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
   // If save-draft succeeded, update state silently (no reset needed — user continues editing)
   useEffect(() => {
@@ -488,6 +533,69 @@ export function SubmitDsmForm({
           )}
         </Section>
 
+        {/* Today's Scheduled Zoho Calendar Meetings Widget */}
+        {/* {todayCalendarEvents && todayCalendarEvents.length > 0 && (
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <CalendarIcon size={16} className="text-primary" />
+                <span>Today&apos;s Scheduled Calendar Meetings ({todayCalendarEvents.length})</span>
+              </div>
+              <span className="text-[11px] font-semibold text-primary/80 bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                Zoho Calendar Integration
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {todayCalendarEvents.map((ev) => {
+                const timeStr = `${formatTime(ev.start)} - ${formatTime(ev.end)}`;
+                return (
+                  <div key={ev.id} className="flex flex-col justify-between rounded-lg border border-border bg-card p-3 shadow-2xs space-y-2.5">
+                    <div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                        <span className="truncate max-w-[180px]">{ev.title}</span>
+                        <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                          <Clock size={10} /> {timeStr}
+                        </span>
+                      </div>
+                      {ev.description && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{ev.description}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTasks((prev) => [
+                            ...prev.filter((t) => t.text.trim()),
+                            { text: `Meeting: ${ev.title} (${timeStr})`, priority: "P1", carried: false },
+                          ]);
+                        }}
+                        className="flex-1 rounded-md bg-primary/10 border border-primary/30 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-all text-center cursor-pointer"
+                      >
+                        + Add to Tasks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSupports((prev) => [
+                            ...prev.filter((s) => s.text.trim()),
+                            { text: `Data/Input needed for meeting: ${ev.title} (${timeStr})`, mentionedUserIds: [] },
+                          ]);
+                        }}
+                        className="flex-1 rounded-md bg-secondary border border-border py-1 text-[11px] font-semibold text-foreground hover:bg-accent transition-all text-center cursor-pointer"
+                      >
+                        + Add to Data Needed
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )} */}
+
         {/* Today's tasks */}
         <Section
           icon={<ClipboardList size={16} className="text-primary" />}
@@ -516,13 +624,23 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers (Data Needed)?">
-          <BlockerRows blockers={blockers} teamMembers={teamMembers} onChange={setBlockers} />
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers?">
+          <BlockerRows
+            blockers={blockers}
+            teamMembers={teamMembers}
+            onChange={setBlockers}
+          // onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
+          />
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed (Meeting)?">
-          <SupportRows supports={supports} teamMembers={teamMembers} onChange={setSupports} />
+        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed?">
+          <SupportRows
+            supports={supports}
+            teamMembers={teamMembers}
+            onChange={setSupports}
+            onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
+          />
         </Section>
 
         {/* Footer */}
@@ -560,6 +678,18 @@ export function SubmitDsmForm({
           </div>
         </div>
       </form>
+
+      {/* Direct Meeting Scheduler Modal */}
+      {scheduleModal && (
+        <EventDialog
+          mode="create"
+          defaultTitle={scheduleModal.title}
+          defaultParticipantIds={scheduleModal.participantIds}
+          internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
+          currentUserId=""
+          onClose={() => setScheduleModal(null)}
+        />
+      )}
     </div>
   );
 }

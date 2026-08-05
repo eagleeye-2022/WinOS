@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from "lucide-react";
 import { ConnectZohoBanner } from "./connect-zoho-banner";
 import { CalendarWeekView } from "./calendar-week-view";
 import { CalendarMonthView } from "./calendar-month-view";
 import { EventDialog } from "./event-dialog";
 import { EventDetailPopover } from "./event-detail-popover";
-import { formatFullDate, getWeekDays } from "../utils";
+import { getWeekDays } from "../utils";
 import type { CalendarEventView, ZohoConnectionStatus } from "../queries";
 
 type InternalUser = { id: string; name: string | null; email: string };
@@ -21,7 +21,7 @@ type Props = {
   anchorDateIso: string;
   currentUserId: string;
   currentUserEmail: string;
-  connectedBanner: boolean;
+  connectedBanner?: boolean;
   errorBanner?: string;
   focusEventId?: string;
 };
@@ -38,6 +38,7 @@ export function CalendarWorkspace({
   errorBanner,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const anchorDate = useMemo(() => new Date(anchorDateIso), [anchorDateIso]);
 
   // Local state for client-side events
@@ -46,6 +47,35 @@ export function CalendarWorkspace({
   const [dialog, setDialog] = useState<{ mode: "create" | "edit"; defaultStart?: Date; event?: CalendarEventView } | null>(
     null,
   );
+
+  // Keep localEvents in sync with server revalidation
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocalEvents(initialEvents);
+  }, [initialEvents]);
+
+  function handleEventResponded(eventId: string, newStatus: string) {
+    setLocalEvents((prev) =>
+      prev.map((ev) => {
+        if (ev.id !== eventId) return ev;
+        const attendees = (ev.attendees || []).map((a) =>
+          a.email.toLowerCase() === currentUserEmail.toLowerCase()
+            ? { ...a, status: newStatus }
+            : a,
+        );
+        const hasUser = attendees.some((a) => a.email.toLowerCase() === currentUserEmail.toLowerCase());
+        const finalAttendees = hasUser
+          ? attendees
+          : [...attendees, { email: currentUserEmail, status: newStatus }];
+
+        const updated = { ...ev, attendees: finalAttendees };
+        if (selectedEvent?.id === eventId) {
+          setSelectedEvent(updated);
+        }
+        return updated;
+      }),
+    );
+  }
 
   // Computed Date Range Text (e.g. "26 Jul - 01 Aug 2026")
   const weekDays = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
@@ -62,7 +92,7 @@ export function CalendarWorkspace({
 
   function navigateTo(targetView: "week" | "month", date: Date) {
     const params = new URLSearchParams({ view: targetView, date: date.toISOString() });
-    router.push(`/calendar?${params.toString()}`);
+    router.push(`${pathname}?${params.toString()}`);
   }
 
   function step(direction: -1 | 1) {
@@ -83,14 +113,14 @@ export function CalendarWorkspace({
       {/* Top Header Bar */}
       <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3.5 shadow-2xs">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
               <CalendarIcon size={18} />
             </div>
             <h1 className="text-base font-bold text-foreground tracking-tight">Calendar</h1>
-          </div>
+          </div> */}
 
-          <div className="h-5 w-[1px] bg-border" />
+          {/* <div className="h-5 w-[1px] bg-border" /> */}
 
           <div className="flex items-center gap-2">
             <button
@@ -125,27 +155,42 @@ export function CalendarWorkspace({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Zoho Connection Status Badge or Connect Button commented out */}
+          {/* {connectionStatus.connected ? (
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate max-w-[180px]">
+                Zoho: {connectionStatus.zohoEmail ?? "Connected"}
+              </span>
+            </div>
+          ) : (
+            <a
+              href="/api/auth/zoho/login"
+              className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-all"
+            >
+              <CalendarIcon size={14} /> Connect Zoho Calendar
+            </a>
+          )} */}
+
           {/* View Toggle */}
           <div className="flex rounded-xl border border-border bg-muted p-0.5">
             <button
               type="button"
               onClick={() => navigateTo("week", anchorDate)}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                view === "week"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${view === "week"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               Week
             </button>
             <button
               type="button"
               onClick={() => navigateTo("month", anchorDate)}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                view === "month"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${view === "month"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               Month
             </button>
@@ -168,8 +213,12 @@ export function CalendarWorkspace({
         </div>
       )}
       {errorBanner && (
-        <div className="border-b border-destructive/20 bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive">
-          Failed to connect Zoho Calendar. Please try again.
+        <div className="border-b border-destructive/20 bg-destructive/10 px-6 py-2 text-xs font-medium text-destructive flex items-center justify-between">
+          <span>Failed to connect Zoho Calendar: {errorBanner}</span>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/api/auth/zoho/login" className="underline font-semibold hover:opacity-80">
+            Try again
+          </a>
         </div>
       )}
 
@@ -200,6 +249,7 @@ export function CalendarWorkspace({
           onEdit={() => {
             setDialog({ mode: "edit", event: selectedEvent });
           }}
+          onRespond={(status) => handleEventResponded(selectedEvent.id, status)}
         />
       )}
 

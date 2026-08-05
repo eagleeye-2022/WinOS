@@ -24,8 +24,9 @@ import { deleteSupport, type DeleteSupportState } from "@/features/support-neede
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { reviewStatus, relativeDayLabel, formatShortDate, weekOfMonth, getWeekRange } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
-import { MentionInput } from "@/components/shared/mention-input";
 import type { TeamMember } from "@/features/dsm/queries";
+import { MentionInput } from "@/components/shared/mention-input";
+import { EventDialog } from "@/features/calendar/components/event-dialog";
 
 
 // ── Mention helpers ───────────────────────────────────────────────────────────
@@ -828,29 +829,128 @@ function ReviewButton({ entryId }: { entryId: string }) {
   );
 }
 
+// ── Helper: Get yesterday tasks (explicit or fallback to previous entry's TODAY tasks) ──
+
+function getYesterdayTasksForEntry(
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): { id?: string; text: string; isCompleted: boolean }[] {
+  const explicitYesterday = entry.tasks.filter((t) => t.kind === "YESTERDAY");
+  if (explicitYesterday.length > 0) {
+    return explicitYesterday.map((t) => ({
+      id: t.id,
+      text: t.text,
+      isCompleted: true,
+    }));
+  }
+
+  const entryTime = new Date(entry.date).getTime();
+  const prevEntry = allEntries
+    .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  if (prevEntry) {
+    const prevTodayTasks = prevEntry.tasks.filter((t) => t.kind === "TODAY");
+    const currentTodayTasksText = entry.tasks
+      .filter((t) => t.kind === "TODAY")
+      .map((t) => t.text.trim().toLowerCase());
+
+    return prevTodayTasks.map((t) => {
+      const isCarriedOver = currentTodayTasksText.includes(t.text.trim().toLowerCase());
+      return {
+        id: t.id,
+        text: t.text,
+        isCompleted: !isCarriedOver,
+      };
+    });
+  }
+
+  return [];
+}
+
+function isTaskCarriedOver(
+  taskText: string,
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): boolean {
+  const entryTime = new Date(entry.date).getTime();
+  const prevEntry = allEntries
+    .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  if (!prevEntry) return false;
+
+  const prevTodayTasksText = prevEntry.tasks
+    .filter((t) => t.kind === "TODAY")
+    .map((t) => t.text.trim().toLowerCase());
+
+  return prevTodayTasksText.includes(taskText.trim().toLowerCase());
+}
+
 // ── Compact entry preview (collapsed state) ───────────────────────────────────
 
-function CompactEntryPreview({ entry }: { entry: MemberReviewEntry }) {
+function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEntry; allEntries?: MemberReviewEntry[] }) {
+  const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
   const hasFollowUps = entry.supportNeeds.length > 0;
   const hasBlockers = entry.blockers.length > 0;
 
   return (
     <div className="space-y-3 px-4 pb-4 pt-3">
+      {yesterdayTasks.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Yesterday&apos;s Tasks
+          </p>
+          <div className="space-y-1.5">
+            {yesterdayTasks.map((task, i) => (
+              <div key={task.id || i} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
+                      task.isCompleted ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                    )}
+                  >
+                    Y{i + 1}
+                  </span>
+                  <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
+                </div>
+                {!task.isCompleted && (
+                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                    CO
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {todayTasks.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Today&apos;s Task
           </p>
           <div className="space-y-1.5">
-            {todayTasks.map((task, i) => (
-              <div key={task.id} className="flex items-start gap-2">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                  T{i + 1}
-                </span>
-                <span className="text-sm leading-snug text-foreground/80">{task.text}</span>
-              </div>
-            ))}
+            {todayTasks.map((task, i) => {
+              const carried = isTaskCarriedOver(task.text, entry, allEntries);
+              return (
+                <div key={task.id} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                      T{i + 1}
+                    </span>
+                    <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
+                  </div>
+                  {carried && (
+                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                      CO
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -937,12 +1037,14 @@ function TaskRow({
   isLocked,
   takenPriorities,
   totalTasks,
+  isCarriedOver,
 }: {
   task: TaskItem;
   rank: number;
   isLocked: boolean;
   takenPriorities: string[];
   totalTasks: number;
+  isCarriedOver?: boolean;
 }) {
   return (
     <div className="group/task flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
@@ -955,11 +1057,16 @@ function TaskRow({
       >
         {task.managerPriority ?? rank}
       </span>
-      <span className="flex-1 text-sm">
-        {task.text}
+      <span className="flex-1 text-sm flex items-center flex-wrap gap-1.5">
+        <span>{task.text}</span>
         {task.priority && (
-          <span className="ml-2 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
             {task.priority}
+          </span>
+        )}
+        {isCarriedOver && (
+          <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 shrink-0">
+            CO
           </span>
         )}
       </span>
@@ -995,10 +1102,14 @@ function TodayTasksSection({
   tasks,
   isLocked,
   entryId,
+  entry,
+  allEntries = [],
 }: {
   tasks: TaskItem[];
   isLocked: boolean;
   entryId: string;
+  entry?: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
 }) {
   // Sort: P1 first, unassigned last
   const sorted = sortByPriority(tasks);
@@ -1028,6 +1139,7 @@ function TodayTasksSection({
             isLocked={isLocked}
             takenPriorities={takenFor(task.id)}
             totalTasks={tasks.length}
+            isCarriedOver={entry ? isTaskCarriedOver(task.text, entry, allEntries) : false}
           />
         ))}
       </div>
@@ -1040,35 +1152,70 @@ function TodayTasksSection({
 
 // ── Day entry expanded (full review form) ─────────────────────────────────────
 
-function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; teamMembers?: TeamMember[] }) {
-  const yesterdayTasks = entry.tasks.filter((t) => t.kind === "YESTERDAY");
+function EntryExpanded({
+  entry,
+  allEntries = [],
+  teamMembers = [],
+}: {
+  entry: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
+  teamMembers?: TeamMember[];
+}) {
+  const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
   const isReviewable = entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW";
   const isLocked = entry.status === "REVIEWED";
+  const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
   return (
     <div className="space-y-4">
       {/* Yesterday completed */}
-      {yesterdayTasks.length > 0 && (
-        <div className="rounded-xl border bg-card p-4">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-            <CheckCircle2 size={15} className="text-primary" />
-            What Did You Complete Yesterday?
-          </h3>
+      <div className="rounded-xl border bg-card p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+          <CheckCircle2 size={15} className="text-primary" />
+          What Did You Do Yesterday?
+          <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {yesterdayTasks.length} task{yesterdayTasks.length !== 1 ? "s" : ""}
+          </span>
+        </h3>
+        {yesterdayTasks.length > 0 ? (
           <div className="space-y-2">
-            {yesterdayTasks.map((task) => (
-              <div key={task.id} className="flex items-start gap-2.5">
-                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-primary" />
-                <span className="text-sm">{task.text}</span>
+            {yesterdayTasks.map((task, i) => (
+              <div key={task.id || i} className="flex items-center justify-between gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  {task.isCompleted ? (
+                    <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                  ) : (
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-500/60 bg-amber-50 text-[10px] font-bold text-amber-600">
+                      •
+                    </span>
+                  )}
+                  <span className={cn("text-sm leading-snug truncate", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
+                    {task.text}
+                  </span>
+                </div>
+                {!task.isCompleted && (
+                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                    CO
+                  </span>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No tasks logged for yesterday.</p>
+        )}
+      </div>
 
       {/* Today tasks + priority */}
       {(todayTasks.length > 0 || !isLocked) && (
-        <TodayTasksSection tasks={todayTasks} isLocked={isLocked} entryId={entry.id} />
+        <TodayTasksSection
+          tasks={todayTasks}
+          isLocked={isLocked}
+          entryId={entry.id}
+          entry={entry}
+          allEntries={allEntries}
+        />
       )}
 
       {/* What will you learn today */}
@@ -1088,7 +1235,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
               <AlertTriangle size={15} className="text-destructive" />
-              Blockers (Data Needed)
+              Any Blockers?
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                 {entry.blockers.length}
               </span>
@@ -1102,7 +1249,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (b.mentionedUser?.id === id ? b.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
               return (
-                <div key={b.id} className="group/item flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-destructive/10">
+                <div key={b.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-destructive/10">
                   {!isLocked ? (
                     <EditBlockerRow
                       blockerId={b.id}
@@ -1146,7 +1293,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-sky-700">
             <span className="flex items-center gap-2">
               <Handshake size={15} className="text-sky-700" />
-              Support Needed (Meeting)
+              Any Support Needed?
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                 {entry.supportNeeds.length}
               </span>
@@ -1160,7 +1307,7 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (s.mentionedUser?.id === id ? s.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
               return (
-                <div key={s.id} className="group/item flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-sky-100/60">
+                <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-sky-100/60">
                   {!isLocked ? (
                     <EditSupportRow
                       supportId={s.id}
@@ -1189,6 +1336,17 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
                       )}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const titleText = s.text.trim() ? `Support Sync: ${s.text.trim()}` : "Support Sync Meeting";
+                      setScheduleModal({ title: titleText, participantIds: uIds });
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2 py-0.5 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <Calendar size={12} />
+                    Schedule Meeting
+                  </button>
                   {!isLocked && <DeleteSupportButton supportId={s.id} />}
                 </div>
               );
@@ -1211,13 +1369,33 @@ function EntryExpanded({ entry, teamMembers = [] }: { entry: MemberReviewEntry; 
           Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name?.split(" ")[0] ?? "manager"}` : ""}
         </div>
       )}
+
+      {/* Event Scheduler Modal */}
+      {scheduleModal && (
+        <EventDialog
+          mode="create"
+          defaultTitle={scheduleModal.title}
+          defaultParticipantIds={scheduleModal.participantIds}
+          internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
+          currentUserId=""
+          onClose={() => setScheduleModal(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ── Today entry card — expanded by default ────────────────────────────────────
 
-function TodayEntryCard({ entry, teamMembers = [] }: { entry: MemberReviewEntry; teamMembers?: TeamMember[] }) {
+function TodayEntryCard({
+  entry,
+  allEntries = [],
+  teamMembers = [],
+}: {
+  entry: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
+  teamMembers?: TeamMember[];
+}) {
   const [expanded, setExpanded] = useState(true);
   const review = reviewStatus({
     status: entry.status,
@@ -1279,10 +1457,10 @@ function TodayEntryCard({ entry, teamMembers = [] }: { entry: MemberReviewEntry;
         <div className="border-t">
           {expanded ? (
             <div className="px-4 pb-4 pt-3">
-              <EntryExpanded entry={entry} teamMembers={teamMembers} />
+              <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} />
             </div>
           ) : (
-            <CompactEntryPreview entry={entry} />
+            <CompactEntryPreview entry={entry} allEntries={allEntries} />
           )}
         </div>
       )}
@@ -1292,7 +1470,15 @@ function TodayEntryCard({ entry, teamMembers = [] }: { entry: MemberReviewEntry;
 
 // ── Day card (non-today, collapsible) ─────────────────────────────────────────
 
-function DayCardCollapsed({ entry, teamMembers = [] }: { entry: MemberReviewEntry; teamMembers?: TeamMember[] }) {
+function DayCardCollapsed({
+  entry,
+  allEntries = [],
+  teamMembers = [],
+}: {
+  entry: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
+  teamMembers?: TeamMember[];
+}) {
   const [open, setOpen] = useState(false);
   const review = reviewStatus({
     status: entry.status,
@@ -1376,7 +1562,7 @@ function DayCardCollapsed({ entry, teamMembers = [] }: { entry: MemberReviewEntr
 
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-4 pb-4 pt-3">
-          <EntryExpanded entry={entry} teamMembers={teamMembers} />
+          <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} />
         </div>
       )}
     </div>
@@ -1411,8 +1597,9 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
   const weekLabel = `Week ${weekOfMonth(start)}`;
   const canGoForward = weekOffset < 0;
 
-  const todayEntry = entries.find((e) => relativeDayLabel(e.date) === "Today");
-  const otherEntries = entries.filter((e) => relativeDayLabel(e.date) !== "Today");
+  const displayedEntries = entries.filter((e) => new Date(e.date).getTime() >= start.getTime());
+  const todayEntry = displayedEntries.find((e) => relativeDayLabel(e.date) === "Today");
+  const otherEntries = displayedEntries.filter((e) => relativeDayLabel(e.date) !== "Today");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1467,14 +1654,14 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
       <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
         <div className="flex flex-col gap-5">
           {/* Today entry — expanded by default */}
-          {todayEntry && <TodayEntryCard entry={todayEntry} teamMembers={teamMembers} />}
+          {todayEntry && <TodayEntryCard entry={todayEntry} allEntries={entries} teamMembers={teamMembers} />}
 
           {/* Previous days — collapsed by default */}
           {otherEntries.map((entry) => (
-            <DayCardCollapsed key={entry.id} entry={entry} teamMembers={teamMembers} />
+            <DayCardCollapsed key={entry.id} entry={entry} allEntries={entries} teamMembers={teamMembers} />
           ))}
 
-          {entries.length === 0 && (
+          {displayedEntries.length === 0 && (
             <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
               No Standups Recorded for This Week.
             </div>

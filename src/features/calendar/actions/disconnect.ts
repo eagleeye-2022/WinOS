@@ -19,5 +19,6 @@ export async function disconnectZohoAccount(
   await (db as any).zohoAccount.deleteMany({ where: { userId: session.user.id } });
 
   revalidatePath("/calendar");
+  revalidatePath("/zohocalendar");
   return { message: "disconnected" };
 }

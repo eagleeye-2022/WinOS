@@ -29,7 +29,16 @@ export async function getZohoConnectionStatus(): Promise<ZohoConnectionStatus> {
     select: { zohoEmail: true },
   });
 
-  return { connected: Boolean(account), zohoEmail: account?.zohoEmail ?? null };
+  if (account) {
+    return { connected: true, zohoEmail: account.zohoEmail ?? session.user.email ?? null };
+  }
+
+  // Option 2: Organization Master Account (Auto-Connected for all workspace users)
+  if (process.env.ZOHO_ORG_MASTER_REFRESH_TOKEN) {
+    return { connected: true, zohoEmail: "Organization Account (Auto-Connected)" };
+  }
+
+  return { connected: false, zohoEmail: null };
 }
 
 /**
@@ -138,5 +147,13 @@ export async function getCalendarEvents(
   }
 
   return Array.from(eventMap.values());
+}
+
+export async function getTodayCalendarEvents(): Promise<CalendarEventView[]> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return getCalendarEvents(start, end);
 }
 

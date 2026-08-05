@@ -12,6 +12,7 @@ import {
 import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-item";
 import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
 import type { SharedNoteData } from "../queries";
+import { toTitleCase } from "@/lib/utils";
 
 // Pastel color palette matching Note History cards
 const COLOR_PALETTE = [
@@ -297,7 +298,7 @@ export function WorkspaceNotesPanel({
                         </span>
                       )}
                       <span>
-                        by {note.authorName} {note.authorRole === "MANAGER" && "(Manager)"}
+                        By {toTitleCase(note.authorName)} {note.authorRole === "MANAGER" && "(Manager)"}
                       </span>
                     </div>
                   </div>

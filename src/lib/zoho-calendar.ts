@@ -107,6 +107,21 @@ function requireOAuthEnv() {
 
 // ── Token exchange / refresh ────────────────────────────────────────────────
 
+export function getCalendarApiDomain(domainFromToken?: string): string {
+  if (process.env.ZOHO_API_DOMAIN) {
+    return process.env.ZOHO_API_DOMAIN.replace(/^https?:\/\//, "");
+  }
+  if (!domainFromToken) return "calendar.zoho.in";
+  const clean = domainFromToken.replace(/^https?:\/\//, "");
+  if (clean.includes("zohoapis.")) {
+    return clean.replace(/^(www\.)?zohoapis\./, "calendar.zoho.");
+  }
+  if (clean.includes("zoho.")) {
+    return clean.replace(/^(www\.)?zoho\./, "calendar.zoho.");
+  }
+  return clean;
+}
+
 export async function exchangeZohoCodeForToken(code: string) {
   const { clientId, clientSecret } = requireOAuthEnv();
   const redirectUri = process.env.ZOHO_REDIRECT_URI;
@@ -138,9 +153,7 @@ export async function exchangeZohoCodeForToken(code: string) {
     accessToken: data.access_token as string,
     refreshToken: data.refresh_token as string,
     expiresIn: data.expires_in as number,
-    apiDomain: (data.api_domain as string | undefined)?.replace(/^https?:\/\//, "") ??
-      process.env.ZOHO_API_DOMAIN ??
-      "calendar.zoho.in",
+    apiDomain: getCalendarApiDomain(data.api_domain as string | undefined),
     accountsDomain,
   };
 }
@@ -182,6 +195,59 @@ export async function refreshZohoToken(account: ZohoAccountRow) {
 
 const EXPIRY_SAFETY_MARGIN_MS = 2 * 60 * 1000;
 
+let cachedMasterToken: { accessToken: string; expiresAt: number; apiDomain: string; calendarUid: string } | null = null;
+
+export async function getMasterZohoToken(): Promise<{ accessToken: string; apiDomain: string; calendarUid: string } | null> {
+  const masterRefreshToken = process.env.ZOHO_ORG_MASTER_REFRESH_TOKEN;
+  if (!masterRefreshToken) return null;
+
+  if (cachedMasterToken && cachedMasterToken.expiresAt - Date.now() > EXPIRY_SAFETY_MARGIN_MS) {
+    return {
+      accessToken: cachedMasterToken.accessToken,
+      apiDomain: cachedMasterToken.apiDomain,
+      calendarUid: cachedMasterToken.calendarUid,
+    };
+  }
+
+  const clientId = process.env.CLIENT_ID ?? process.env.ZOHO_CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET ?? process.env.ZOHO_CLIENT_SECRET;
+  const accountsDomain = process.env.ZOHO_ACCOUNTS_DOMAIN ?? "accounts.zoho.in";
+
+  if (!clientId || !clientSecret) return null;
+
+  try {
+    const res = await fetch(`https://${accountsDomain}/oauth/v2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: masterRefreshToken,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      console.error("[zoho:master] Failed to refresh Master Token:", data);
+      return null;
+    }
+
+    const accessToken = data.access_token as string;
+    const expiresIn = (data.expires_in as number) ?? 3600;
+    const expiresAt = Date.now() + expiresIn * 1000;
+    const apiDomain = getCalendarApiDomain(data.api_domain as string | undefined);
+    const calendarUid = process.env.ZOHO_ORG_MASTER_CALENDAR_ID ?? "b6d6265ec4de49f388a612d3fb376a0b";
+
+    cachedMasterToken = { accessToken, expiresAt, apiDomain, calendarUid };
+
+    return { accessToken, apiDomain, calendarUid };
+  } catch (error) {
+    console.error("[zoho:master] Error getting Master Token:", error);
+    return null;
+  }
+}
+
 /**
  * Returns a valid access token + api domain for the given user, refreshing
  * it first if it's expired/about to expire. Returns null if the user hasn't
@@ -194,22 +260,52 @@ export async function getValidZohoAccessToken(
   const account = (await (db as any).zohoAccount.findUnique({ where: { userId } })) as
     | ZohoAccountRow
     | null;
-  if (!account) return null;
 
-  if (account.expiresAt.getTime() - Date.now() < EXPIRY_SAFETY_MARGIN_MS) {
-    const refreshed = await refreshZohoToken(account);
+  if (account) {
+    let accessToken = account.accessToken;
+    if (account.expiresAt.getTime() - Date.now() < EXPIRY_SAFETY_MARGIN_MS) {
+      const refreshed = await refreshZohoToken(account);
+      accessToken = refreshed.accessToken;
+    }
+
+    const apiDomain = getCalendarApiDomain(account.apiDomain);
+
+    let calendarUid = account.primaryCalendarUid;
+    if (!calendarUid) {
+      try {
+        const cals = await listZohoCalendars(accessToken, apiDomain);
+        const primary = cals.find((c) => c.isDefault) ?? cals[0];
+        if (primary?.uid) {
+          calendarUid = primary.uid;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (db as any).zohoAccount.update({
+            where: { userId },
+            data: { primaryCalendarUid: calendarUid, apiDomain },
+          });
+        }
+      } catch (e) {
+        console.warn("[zoho] Failed to auto-fetch primary calendarUid:", e);
+      }
+    }
+
     return {
-      accessToken: refreshed.accessToken,
-      apiDomain: account.apiDomain,
-      calendarUid: account.primaryCalendarUid,
+      accessToken,
+      apiDomain,
+      calendarUid,
     };
   }
 
-  return {
-    accessToken: account.accessToken,
-    apiDomain: account.apiDomain,
-    calendarUid: account.primaryCalendarUid,
-  };
+  // Option 2 Fallback: Organization Master Account
+  const master = await getMasterZohoToken();
+  if (master) {
+    return {
+      accessToken: master.accessToken,
+      apiDomain: master.apiDomain,
+      calendarUid: master.calendarUid,
+    };
+  }
+
+  return null;
 }
 
 // ── Calendar API v1 ──────────────────────────────────────────────────────────
@@ -321,7 +417,7 @@ export async function getZohoEventById(
 }
 
 function buildEventData(input: NewZohoEventInput) {
-  return {
+  const eventdata: Record<string, unknown> = {
     title: input.title,
     description: input.description ?? "",
     dateandtime: {
@@ -330,8 +426,13 @@ function buildEventData(input: NewZohoEventInput) {
       end: toZohoDateTimeString(input.end),
     },
     isallday: input.isAllDay,
-    attendees: input.attendeeEmails.map((email) => ({ email, status: "NEEDS-ACTION" })),
   };
+
+  if (input.attendeeEmails && input.attendeeEmails.length > 0) {
+    eventdata.attendees = input.attendeeEmails.map((email) => ({ email, status: "NEEDS-ACTION" }));
+  }
+
+  return eventdata;
 }
 
 /** POST/PUT with `eventdata` as a URL query param, per Zoho's documented API shape. */

@@ -14,7 +14,7 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { NotesTopNav } from "./notes-top-nav";
 
 export type SharedNoteItem = {
@@ -164,7 +164,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
 
               const checkedItems = note.checklistItems?.filter((c) => c.checked).length || 0;
               const totalItems = note.checklistItems?.length || 0;
-              const authorName = note.author?.name || note.author?.email?.split("@")[0] || "User";
+              const authorName = toTitleCase(note.author?.name || note.author?.email?.split("@")[0] || "User");
               const authorInitial = authorName.charAt(0).toUpperCase();
 
               return (

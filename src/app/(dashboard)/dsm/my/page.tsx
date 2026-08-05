@@ -16,6 +16,8 @@ import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-p
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
 import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
+import { getTodayCalendarEvents } from "@/features/calendar";
+
 type Props = {
   searchParams: Promise<{ submitted?: string; w?: string }>;
 };
@@ -30,7 +32,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, workspaceNote, kpiStats, teamMembers] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, workspaceNote, kpiStats, teamMembers, todayCalendarEvents] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
@@ -40,6 +42,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       getWorkspaceNote(),
       getKpiStats(),
       getTeamMembers(),
+      getTodayCalendarEvents(),
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
@@ -75,6 +78,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           weekOffset={weekOffset}
           kpiStats={kpiStats}
           basePath="/dsm/my"
+          todayCalendarEvents={todayCalendarEvents}
         />
       </div>
 

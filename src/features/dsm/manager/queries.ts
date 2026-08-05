@@ -299,9 +299,11 @@ export async function getMemberReview(
   if (!user) return null;
 
   const { start, end } = getWeekRange(weekOffset);
+  const extendedStart = new Date(start);
+  extendedStart.setDate(extendedStart.getDate() - 7);
 
   const entriesRaw = await d.standupEntry.findMany({
-    where: { userId: memberId, date: { gte: start, lte: end } },
+    where: { userId: memberId, date: { gte: extendedStart, lte: end } },
       include: {
         tasks: { orderBy: { order: "asc" } },
         blockers: {

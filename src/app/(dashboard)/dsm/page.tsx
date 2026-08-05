@@ -16,6 +16,8 @@ import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-p
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
 import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
+import { getTodayCalendarEvents } from "@/features/calendar";
+
 type Props = {
   searchParams: Promise<{ submitted?: string; w?: string }>;
 };
@@ -30,7 +32,7 @@ export default async function DSMPage({ searchParams }: Props) {
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
   if (session?.user?.role === "MANAGER") redirect("/dsm/all");
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, kpiStats, teamMembers, sharedItems] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
@@ -40,6 +42,7 @@ export default async function DSMPage({ searchParams }: Props) {
       getKpiStats(),
       getTeamMembers(),
       getSharedWorkspaceNotes(),
+      getTodayCalendarEvents(),
     ]);
 
   const today = toUtcDate();
@@ -80,6 +83,7 @@ export default async function DSMPage({ searchParams }: Props) {
           weekOffset={weekOffset}
           kpiStats={kpiStats}
           basePath="/dsm"
+          todayCalendarEvents={todayCalendarEvents}
         />
       </div>
 

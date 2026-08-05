@@ -29,6 +29,8 @@ type Props = {
   mode: "create" | "edit";
   event?: CalendarEventView;
   defaultStart?: Date;
+  defaultTitle?: string;
+  defaultParticipantIds?: string[];
   internalUsers: InternalUser[];
   currentUserId: string;
   onClose: () => void;
@@ -47,6 +49,8 @@ export function EventDialog({
   mode,
   event,
   defaultStart,
+  defaultTitle,
+  defaultParticipantIds,
   internalUsers,
   currentUserId,
   onClose,
@@ -68,7 +72,7 @@ export function EventDialog({
 
   // Local Form UI States matching mockups
   const [meetingType, setMeetingType] = useState<"face-to-face" | "online">("online");
-  const [title, setTitle] = useState(event?.title ?? "");
+  const [title, setTitle] = useState(event?.title ?? defaultTitle ?? "");
   const [start, setStart] = useState<Date>(event?.start ?? defaultStart ?? new Date());
   const [end, setEnd] = useState<Date>(
     event?.end ?? new Date((event?.start ?? defaultStart ?? new Date()).getTime() + 60 * 60 * 1000),
@@ -96,22 +100,17 @@ export function EventDialog({
   const [tempCoHost, setTempCoHost] = useState("");
   const [tempSpeaker, setTempSpeaker] = useState("");
 
-  const initialParticipantIds = internalUsers
-    .filter((u) => event?.attendees.some((a) => a.email === u.email))
-    .map((u) => u.id);
+  const initialParticipantIds = defaultParticipantIds && defaultParticipantIds.length > 0
+    ? defaultParticipantIds
+    : internalUsers
+      .filter((u) => event?.attendees.some((a) => a.email === u.email))
+      .map((u) => u.id);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialParticipantIds);
 
   const currentUser = internalUsers.find((u) => u.id === currentUserId);
   const userName = currentUser?.name || currentUser?.email || "mohit.thakre";
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - 1);
-    if (new Date(start) < now) {
-      alert("Cannot create an event in the past.");
-      e.preventDefault();
-      return;
-    }
 
     const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
     const attendeeEmails = new Set<string>();
@@ -230,7 +229,7 @@ export function EventDialog({
           )}
 
           {/* Meeting Type Selector (Face to Face vs Online Meeting) */}
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -261,7 +260,7 @@ export function EventDialog({
                 Real-time interaction between remotely located users.
               </p>
             )}
-          </div>
+          </div> */}
 
           {/* Title / Name */}
           <div className="space-y-1.5">
@@ -347,7 +346,7 @@ export function EventDialog({
               placeholder="Conference room 10"
               className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-sm text-foreground outline-none focus:border-primary"
             />
-            <div className="relative">
+            {/* <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowRoomPicker(!showRoomPicker)}
@@ -374,143 +373,11 @@ export function EventDialog({
                   ))}
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
 
           {/* Meeting Mode (Audio vs Video + Record option) */}
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-4">
-              <label className="text-xs font-medium text-foreground min-w-[90px]">
-                Meeting Mode
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-full bg-muted p-0.5 border border-border">
-                  <button
-                    type="button"
-                    onClick={() => setMeetingMode("audio")}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${meetingMode === "audio"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >
-                    <Phone size={13} />
-                    Audio
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMeetingMode("video")}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-1 text-xs font-semibold transition-all ${meetingMode === "video"
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >
-                    <Video size={13} />
-                    Video
-                  </button>
-                </div>
-                <Info size={14} className="text-muted-foreground cursor-pointer hover:text-foreground" />
-              </div>
 
-              {/* <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer ml-auto select-none">
-                <input
-                  type="checkbox"
-                  checked={isRecording}
-                  onChange={(e) => setIsRecording(e.target.checked)}
-                  className="rounded border-input bg-background text-primary focus:ring-primary"
-                />
-                <span>Record</span>
-                <Info size={13} className="text-muted-foreground cursor-pointer" />
-              </label> */}
-            </div>
-
-            {/* Quick Links: Co-hosts and Speakers */}
-            <div className="flex items-center gap-4 text-xs text-primary pt-1">
-              <button
-                type="button"
-                onClick={() => setShowAddCoHostInput(!showAddCoHostInput)}
-                className="hover:underline flex items-center gap-1 font-medium"
-              >
-                + Add Co-hosts
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddSpeakerInput(!showAddSpeakerInput)}
-                className="hover:underline flex items-center gap-1 font-medium"
-              >
-                + Add Speakers
-              </button>
-            </div>
-
-            {/* Co-host input row */}
-            {showAddCoHostInput && (
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="email"
-                  value={tempCoHost}
-                  onChange={(e) => setTempCoHost(e.target.value)}
-                  placeholder="co-host@zylker.com"
-                  className="flex-1 rounded-lg border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (tempCoHost) {
-                      setCoHosts([...coHosts, tempCoHost]);
-                      setTempCoHost("");
-                      setShowAddCoHostInput(false);
-                    }
-                  }}
-                  className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-            {coHosts.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {coHosts.map((ch, idx) => (
-                  <span key={idx} className="rounded-full bg-muted border border-border px-2.5 py-0.5 text-[11px] text-foreground">
-                    Co-host: {ch}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Speaker input row */}
-            {showAddSpeakerInput && (
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="email"
-                  value={tempSpeaker}
-                  onChange={(e) => setTempSpeaker(e.target.value)}
-                  placeholder="speaker@zylker.com"
-                  className="flex-1 rounded-lg border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (tempSpeaker) {
-                      setSpeakers([...speakers, tempSpeaker]);
-                      setTempSpeaker("");
-                      setShowAddSpeakerInput(false);
-                    }
-                  }}
-                  className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-            {speakers.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {speakers.map((sp, idx) => (
-                  <span key={idx} className="rounded-full bg-muted border border-border px-2.5 py-0.5 text-[11px] text-foreground">
-                    Speaker: {sp}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Advanced Section Toggle */}
           <div className="border-t border-border pt-4 space-y-4">
@@ -555,13 +422,13 @@ export function EventDialog({
 
                   {assignToTab === "participants" ? (
                     <div className="space-y-2 pt-1">
-                      <input
+                      {/* <input
                         type="email"
                         value={participantEmail}
                         onChange={(e) => setParticipantEmail(e.target.value)}
-                        placeholder="scott.fisher@zylker.com"
+                        placeholder="scott.fisher@eagleeyedigital.com"
                         className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary"
-                      />
+                      /> */}
                       <ParticipantPicker
                         users={internalUsers}
                         currentUserId={currentUserId}
