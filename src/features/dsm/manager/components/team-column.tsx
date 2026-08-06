@@ -152,14 +152,17 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
   const initials = initialsOf(displayName);
 
   return (
-    <div className="flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-red-50/40 p-4 dark:bg-red-950/10">
+    <Link
+      href={ROUTES.dsmMember(card.userId)}
+      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-red-50/40 p-4 transition-all duration-200 hover:border-red-300 hover:bg-red-50/70 hover:shadow-md dark:bg-red-950/10 dark:hover:bg-red-950/20 cursor-pointer"
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-500 ring-1 ring-black/5">
             {initials}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight text-foreground">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
               {displayName}
             </p>
             <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-red-500">
@@ -168,10 +171,13 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
           </div>
         </div>
       </div>
-      <div className="mt-3.5 pt-3 border-t border-red-200/60">
+      <div className="mt-3.5 pt-3 border-t border-red-200/60 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
+        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
+          Set Tasks <ChevronRight size={13} />
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -182,13 +188,6 @@ type Props = { group: TeamGroup; colorIndex?: number };
 export function TeamColumn({ group, colorIndex = 0 }: Props) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
   const dotColor = DOT_COLORS[colorIndex % DOT_COLORS.length];
-
-  const submitted = group.members.filter(
-    (m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED"
-  );
-  const pending = group.members.filter(
-    (m) => m.status === "DRAFT" || m.status === null || m.status === "MISSED"
-  );
 
   return (
     <div className="flex h-full min-h-[420px] w-80 md:w-96 min-w-[320px] shrink-0 flex-col gap-3">
@@ -209,13 +208,18 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
 
       {/* Member cards (internal scroll — keeps the column height fixed) */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 dsm-columns-scrollbar">
-        {submitted.map((card) => (
-          <SubmittedCard key={card.userId} card={card} />
-        ))}
+        {group.members.map((card) => {
+          const isSubmitted =
+            card.status === "SUBMITTED" ||
+            card.status === "PENDING_REVIEW" ||
+            card.status === "REVIEWED";
 
-        {pending.map((card) => (
-          <PendingMemberCard key={card.userId} card={card} teamId={group.teamId} />
-        ))}
+          return isSubmitted ? (
+            <SubmittedCard key={card.userId} card={card} />
+          ) : (
+            <PendingMemberCard key={card.userId} card={card} teamId={group.teamId} />
+          );
+        })}
 
         {group.totalMembers === 0 && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6 text-center">

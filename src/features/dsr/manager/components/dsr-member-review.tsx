@@ -447,16 +447,7 @@ function ReviewerActionsCard({
     );
   }
 
-  if (!dsmReviewed) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div className="text-sm font-semibold text-amber-700">Waiting on DSM Review</div>
-        <p className="mt-1 text-xs text-amber-700/80">
-          This member&apos;s DSM must be reviewed before their DSR can be reviewed.
-        </p>
-      </div>
-    );
-  }
+
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -523,11 +514,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
   const memberFirstName = user.name?.split(" ")[0] ?? "Member";
   const isReviewed = todayEntry?.status === "REVIEWED";
 
-  const shouldShowHistory =
-    showHistory ||
-    !todayEntry ||
-    isReviewed ||
-    (todayEntry.status !== "SUBMITTED" && todayEntry.status !== "PENDING_REVIEW");
+  const shouldShowHistory = showHistory || !todayEntry;
 
   return (
     <div className="flex h-full min-h-0 flex-col">

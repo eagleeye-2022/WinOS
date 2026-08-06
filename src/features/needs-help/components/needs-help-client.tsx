@@ -14,8 +14,8 @@ import type { HelpRequestItem } from "../queries";
 const PAGE_SIZE = 5;
 
 const STATUS_STYLES = {
-  in_progress: "bg-blue-100 text-blue-700",
-  resolved: "bg-emerald-100 text-emerald-700",
+  in_progress: "border border-blue-500/40 text-blue-700 dark:text-blue-400 bg-transparent",
+  resolved: "border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-transparent",
 } as const;
 
 function StatusBadge({ resolved }: { resolved: boolean }) {
@@ -141,21 +141,86 @@ export function NeedsHelpClient({ items }: Props) {
   const activeCount = items.filter((s) => !s.resolved).length;
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* ── Main area ─────────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto p-6">
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-y-auto p-6">
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">Needs My Help</h1>
-              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
-                {activeCount} Active
-              </span>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight">Needs My Help</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Support Requests Where Teammates Have Tagged You for Help.
             </p>
+          </div>
+        </div>
+
+        {/* Dashboard Metric Stat Cards */}
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <div
+            onClick={() => {
+              setStatusFilter("all");
+              setPage(1);
+            }}
+            className={cn(
+              "flex cursor-pointer items-center justify-between rounded-xl border border-border bg-transparent p-3 shadow-2xs transition-all hover:scale-[1.01] hover:border-primary/50 active:scale-[0.99]",
+              statusFilter === "all" && "ring-2 ring-primary/40 border-primary/50"
+            )}
+          >
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Requests</p>
+              <p className="text-xl font-bold text-foreground">{items.length}</p>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-transparent text-primary">
+              <Search size={16} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => {
+              setStatusFilter("in_progress");
+              setPage(1);
+            }}
+            className={cn(
+              "flex cursor-pointer items-center justify-between rounded-xl border border-amber-500/30 bg-transparent p-3 shadow-2xs transition-all hover:scale-[1.01] hover:border-amber-500/60 active:scale-[0.99]",
+              statusFilter === "in_progress" && "ring-2 ring-amber-500/40 border-amber-500/60"
+            )}
+          >
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pending</p>
+                <span className="text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                  Active
+                </span>
+              </div>
+              <p className="text-xl font-bold text-amber-800 dark:text-amber-300">{activeCount}</p>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-transparent text-amber-600 dark:text-amber-400">
+              <Search size={16} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => {
+              setStatusFilter("resolved");
+              setPage(1);
+            }}
+            className={cn(
+              "flex cursor-pointer items-center justify-between rounded-xl border border-emerald-500/30 bg-transparent p-3 shadow-2xs transition-all hover:scale-[1.01] hover:border-emerald-500/60 active:scale-[0.99]",
+              statusFilter === "resolved" && "ring-2 ring-emerald-500/40 border-emerald-500/60"
+            )}
+          >
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Resolved</p>
+                <span className="text-[9px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                  Done
+                </span>
+              </div>
+              <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">{items.length - activeCount}</p>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-transparent text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 size={16} />
+            </div>
           </div>
         </div>
 
@@ -186,7 +251,7 @@ export function NeedsHelpClient({ items }: Props) {
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
@@ -200,7 +265,7 @@ export function NeedsHelpClient({ items }: Props) {
                   Date Raised
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Raised By
+                  From
                 </th>
               </tr>
             </thead>

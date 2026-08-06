@@ -3,6 +3,7 @@ import { ArrowRight, AlertCircle, BarChart2, ClipboardList, Users2, User } from 
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
+import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { getTodayEntry } from "@/features/dsm/queries";
 import { getCurrentDsrEntry } from "@/features/dsr/queries";
 import { getMyBlockers } from "@/features/blockers/queries";
@@ -176,7 +177,7 @@ function ManagerDashboard({
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
               { label: "DSR Reviews",    desc: "Evening Review Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
               { label: "Blockers",       desc: "Team Blockers & Issues",   icon: AlertCircle,   href: ROUTES.blockers },
-              { label: "Support Needed", desc: "Pending Support Requests", icon: Users2,        href: ROUTES.support },
+              { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const
           ).map(({ label, desc, icon: Icon, href }) => (
             <Link
@@ -185,7 +186,7 @@ function ManagerDashboard({
               className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/30"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
-                <Icon size={15} strokeWidth={1.75} className="text-muted-foreground" />
+                <Icon size={label === "Support Needed" ? 17 : 15} strokeWidth={1.75} className="text-muted-foreground" />
               </span>
               <div className="min-w-0">
                 <p className="text-base font-semibold">{label}</p>
@@ -330,8 +331,8 @@ function MemberDashboard({
         >
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
-              <Users2
-                size={15}
+              <SupportNeededIcon
+                size={17}
                 strokeWidth={1.75}
                 className={pendingSupports > 0 ? "text-blue-500" : "text-muted-foreground"}
               />

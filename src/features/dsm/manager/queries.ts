@@ -76,6 +76,40 @@ export type AllUser = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+export function sortTeamMembers<T extends { name: string | null; email: string }>(
+  members: T[],
+  teamName: string
+): T[] {
+  const lowerTeam = teamName.toLowerCase();
+  const isCreative = lowerTeam.includes("creative") || lowerTeam.includes("design");
+  const isTech = lowerTeam.includes("tech") || lowerTeam.includes("engineering");
+
+  function getMemberRank(member: T): number {
+    const name = (member.name || member.email).toLowerCase();
+
+    if (isCreative) {
+      if (name.includes("shadab") || name.includes("shadb")) return 1;
+    }
+
+    if (isTech) {
+      if (name.includes("ujjwal") || name.includes("ujjawal")) return 1;
+      if (name.startsWith("m") || name.includes("mohit") || name.includes("marcus")) return 2;
+    }
+
+    return 99;
+  }
+
+  return [...members].sort((a, b) => {
+    const rankA = getMemberRank(a);
+    const rankB = getMemberRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+
+    const nameA = (a.name || a.email).toLowerCase();
+    const nameB = (b.name || b.email).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}
+
 async function requireManager() {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -268,13 +302,15 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
         c.status === "REVIEWED"
     ).length;
 
+    const sortedCards = sortTeamMembers(cards, team.name);
+
     groups.push({
       teamId: team.id,
       teamName: team.name,
       department: team.department,
       totalMembers: team.members.length,
       submittedCount,
-      members: cards,
+      members: sortedCards,
     });
   }
 
@@ -304,25 +340,60 @@ export async function getMemberReview(
 
   const entriesRaw = await d.standupEntry.findMany({
     where: { userId: memberId, date: { gte: extendedStart, lte: end } },
-      include: {
-        tasks: { orderBy: { order: "asc" } },
-        blockers: {
-          include: {
-            mentionedUser: { select: { id: true, name: true, email: true } },
-            editedBy: { select: { id: true, name: true, email: true } },
-          }
-        },
-        supportNeeds: {
-          orderBy: { order: "asc" },
-          include: {
-            mentionedUser: { select: { id: true, name: true, email: true } },
-            editedBy: { select: { id: true, name: true, email: true } },
-          },
-        },
-        reviewedBy: { select: { name: true, email: true } },
+    include: {
+      tasks: { orderBy: { order: "asc" } },
+      blockers: {
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          editedBy: { select: { id: true, name: true, email: true } },
+        }
       },
+      supportNeeds: {
+        orderBy: { order: "asc" },
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          editedBy: { select: { id: true, name: true, email: true } },
+        },
+      },
+      reviewedBy: { select: { name: true, email: true } },
+    },
     orderBy: { date: "desc" },
   });
+
+  const todayUtc = toUtcDate(new Date());
+  const hasTodayEntry = entriesRaw.some((e: { date: Date }) => toUtcDate(e.date).getTime() === todayUtc.getTime());
+
+  if (!hasTodayEntry && weekOffset === 0) {
+    try {
+      const newTodayEntry = await d.standupEntry.create({
+        data: {
+          userId: memberId,
+          date: todayUtc,
+          status: "DRAFT",
+        },
+        include: {
+          tasks: { orderBy: { order: "asc" } },
+          blockers: {
+            include: {
+              mentionedUser: { select: { id: true, name: true, email: true } },
+              editedBy: { select: { id: true, name: true, email: true } },
+            }
+          },
+          supportNeeds: {
+            orderBy: { order: "asc" },
+            include: {
+              mentionedUser: { select: { id: true, name: true, email: true } },
+              editedBy: { select: { id: true, name: true, email: true } },
+            },
+          },
+          reviewedBy: { select: { name: true, email: true } },
+        },
+      });
+      entriesRaw.unshift(newTodayEntry);
+    } catch {
+      // Ignore if concurrent creation or DB error
+    }
+  }
 
   const entries = await attachMentionedUsers(entriesRaw);
 

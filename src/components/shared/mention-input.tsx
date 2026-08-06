@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, KeyboardEvent, ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ClipboardEvent, FormEvent, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,25 +20,82 @@ export type MentionFile = {
 };
 
 type MentionInputProps = {
-  value: string;
-  onChange: (value: string) => void;
+  /** Initial plain text content. Only read on mount — pass a `key` prop to reset the editor. */
+  defaultValue?: string;
+  /** Mentions to hydrate inline at the start of the content on mount (e.g. previously saved mentions). */
+  defaultMentions?: MentionMember[];
+  /** Fires on every edit with the current plain text and the ordered list of mentioned user ids. */
+  onChange: (value: string, mentionIds: string[]) => void;
   name?: string;
   placeholder?: string;
   className?: string;
   teamMembers?: MentionMember[];
-  onSelectMention?: (memberId: string, newValue?: string) => void;
   required?: boolean;
   autoFocus?: boolean;
 };
 
+function memberLabel(m: { name: string | null; email: string }): string {
+  return (m.name?.split(" ")[0] || m.email.split("@")[0]) ?? "";
+}
+
+/** Deletes `count` characters immediately before the caret and returns a collapsed range at the cut point. */
+function removeCharsBeforeCaret(root: HTMLElement, count: number): Range | null {
+  if (count <= 0) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  const { startContainer, startOffset } = range;
+
+  // Fast path: the "@query" text lives entirely within the current text node.
+  if (startContainer.nodeType === Node.TEXT_NODE && startOffset >= count) {
+    const textNode = startContainer as Text;
+    textNode.deleteData(startOffset - count, count);
+    const r = document.createRange();
+    r.setStart(textNode, startOffset - count);
+    r.collapse(true);
+    return r;
+  }
+
+  // Fallback for cases where the browser split the text across nodes.
+  const selAny = sel as Selection & { modify?: (a: string, b: string, c: string) => void };
+  if (typeof selAny.modify === "function") {
+    for (let i = 0; i < count; i++) selAny.modify("extend", "backward", "character");
+    const r = sel.getRangeAt(0);
+    r.deleteContents();
+    r.collapse(true);
+    return r;
+  }
+  return null;
+}
+
+function getTextBeforeCaret(root: HTMLElement): string {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return "";
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return "";
+  const preRange = document.createRange();
+  preRange.selectNodeContents(root);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  return preRange.toString();
+}
+
+function placeCaretAtEnd(root: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
 export function MentionInput({
-  value,
+  defaultValue = "",
+  defaultMentions = [],
   onChange,
   name,
   placeholder,
   className,
   teamMembers = [],
-  onSelectMention,
   required,
   autoFocus,
 }: MentionInputProps) {
@@ -48,17 +106,32 @@ export function MentionInput({
   const [fileList, setFileList] = useState<MentionFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [fallbackMembers, setFallbackMembers] = useState<MentionMember[]>([]);
+  const [hiddenValue, setHiddenValue] = useState(defaultValue);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const effectiveMembers = teamMembers.length > 0 ? teamMembers : fallbackMembers;
 
+  // Hydrate initial content (mentions + free text) once on mount.
   useEffect(() => {
-    if (autoFocus && inputRef.current) {
-      inputRef.current.focus();
+    const root = editorRef.current;
+    if (!root) return;
+    root.innerHTML = "";
+    defaultMentions.forEach((m) => {
+      root.appendChild(createMentionNode(m));
+      root.appendChild(document.createTextNode(" "));
+    });
+    if (defaultValue) {
+      root.appendChild(document.createTextNode(defaultValue));
     }
-  }, [autoFocus]);
+    setHiddenValue(root.textContent ?? "");
+    if (autoFocus) {
+      root.focus();
+      placeCaretAtEnd(root);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load files for @file: mode
   useEffect(() => {
@@ -103,13 +176,37 @@ export function MentionInput({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle text input & trigger detection
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const cursorPos = e.target.selectionStart || val.length;
-    onChange(val);
+  function createMentionNode(member: MentionMember): HTMLSpanElement {
+    const span = document.createElement("span");
+    span.contentEditable = "false";
+    span.dataset.mentionId = member.id;
+    span.className =
+      "mx-px inline-block select-none rounded bg-primary/10 px-1 font-semibold text-primary";
+    span.textContent = `@${memberLabel(member)}`;
+    return span;
+  }
 
-    const textBeforeCursor = val.slice(0, cursorPos);
+  function collectMentionIds(root: HTMLElement): string[] {
+    const ids: string[] = [];
+    root.querySelectorAll<HTMLElement>("[data-mention-id]").forEach((el) => {
+      const id = el.dataset.mentionId;
+      if (id && !ids.includes(id)) ids.push(id);
+    });
+    return ids;
+  }
+
+  function emitChange() {
+    const root = editorRef.current;
+    if (!root) return;
+    // Chrome/Firefox sometimes leave a stray empty text node/<br> after the last character is deleted.
+    if (root.textContent === "") root.innerHTML = "";
+    const text = root.textContent ?? "";
+    setHiddenValue(text);
+    onChange(text, collectMentionIds(root));
+  }
+
+  function detectTrigger(root: HTMLElement) {
+    const textBeforeCursor = getTextBeforeCaret(root);
     const lastAtIndex = textBeforeCursor.lastIndexOf("@");
 
     if (lastAtIndex !== -1) {
@@ -131,33 +228,35 @@ export function MentionInput({
       }
     }
     setIsOpen(false);
+  }
+
+  const handleInput = (e: FormEvent<HTMLDivElement>) => {
+    emitChange();
+    detectTrigger(e.currentTarget);
   };
 
-  // Also trigger check on focus or click if cursor is on a mention token
-  const handleFocusOrClick = () => {
-    if (!inputRef.current) return;
-    const val = inputRef.current.value;
-    const cursorPos = inputRef.current.selectionStart || val.length;
-    const textBeforeCursor = val.slice(0, cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+  const handleFocusOrClick = (e: ReactMouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
+    detectTrigger(e.currentTarget);
+  };
 
-    if (lastAtIndex !== -1) {
-      const charBefore = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : " ";
-      if (/\s/.test(charBefore) || lastAtIndex === 0) {
-        const mentionQuery = textBeforeCursor.slice(lastAtIndex + 1);
-        if (!/\s/.test(mentionQuery)) {
-          if (mentionQuery.toLowerCase().startsWith("file:")) {
-            setMode("file");
-            setQuery(mentionQuery.slice(5));
-          } else {
-            setMode("people");
-            setQuery(mentionQuery);
-          }
-          setIsOpen(true);
-          return;
-        }
-      }
-    }
+  const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    const root = editorRef.current;
+    if (!root) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    const after = document.createRange();
+    after.setStartAfter(node);
+    after.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(after);
+    emitChange();
+    detectTrigger(root);
   };
 
   // Filtered lists
@@ -181,58 +280,51 @@ export function MentionInput({
   const activeItemsCount =
     mode === "people" ? filteredMembers.length : filteredFiles.length;
 
-  const selectMember = (member: MentionMember) => {
-    // When the caller tracks the mention separately (onSelectMention, e.g. a chip),
-    // just remove the typed "@query" — don't also leave "@Name" behind in the text.
-    // Otherwise (no separate tracking) fall back to inserting "@Name " as the record.
-    const nameStr = member.name || member.email.split("@")[0];
-    const mentionText = onSelectMention ? "" : `@${nameStr} `;
+  function insertNodeReplacingQuery(node: Node & ChildNode, removeLen: number, trailing = " ") {
+    const root = editorRef.current;
+    if (!root) return;
+    root.focus();
+    const range = removeCharsBeforeCaret(root, removeLen);
+    if (!range) return;
+    range.insertNode(node);
+    const spaceNode = document.createTextNode(trailing);
+    node.after(spaceNode);
 
-    const cursorPos = inputRef.current?.selectionStart || value.length;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const textAfterCursor = value.slice(cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+    const after = document.createRange();
+    after.setStartAfter(spaceNode);
+    after.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(after);
 
-    const newTextBefore = value.slice(0, lastAtIndex) + mentionText;
-    const newValue = newTextBefore + textAfterCursor.replace(/^\s*/, "");
-    const newCursorPos = newTextBefore.length;
-
-    onChange(newValue);
-    if (onSelectMention) onSelectMention(member.id, newValue);
     setIsOpen(false);
+    emitChange();
+  }
 
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
+  const selectMember = (member: MentionMember) => {
+    insertNodeReplacingQuery(createMentionNode(member), 1 + query.length);
   };
 
   const selectFile = (file: MentionFile) => {
-    const fileText = `📄 ${file.title} `;
-
-    const cursorPos = inputRef.current?.selectionStart || value.length;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const textAfterCursor = value.slice(cursorPos);
-    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
-
-    const newTextBefore = value.slice(0, lastAtIndex) + fileText;
-    const newValue = newTextBefore + textAfterCursor.replace(/^\s*/, "");
-    const newCursorPos = newTextBefore.length;
-
-    onChange(newValue);
-    setIsOpen(false);
-
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
+    insertNodeReplacingQuery(document.createTextNode(`📄 ${file.title}`), 1 + 5 + query.length);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      if (isOpen && activeItemsCount > 0) {
+        e.preventDefault();
+        if (mode === "people" && filteredMembers[selectedIndex]) {
+          selectMember(filteredMembers[selectedIndex]);
+        } else if (mode === "file" && filteredFiles[selectedIndex]) {
+          selectFile(filteredFiles[selectedIndex]);
+        }
+      } else {
+        // Single-line field: text wraps naturally, no manual line breaks.
+        e.preventDefault();
+      }
+      return;
+    }
+
     if (!isOpen) return;
 
     if (e.key === "ArrowDown") {
@@ -243,7 +335,7 @@ export function MentionInput({
       setSelectedIndex((prev) =>
         prev === 0 ? Math.max(0, activeItemsCount - 1) : prev - 1
       );
-    } else if (e.key === "Enter" || e.key === "Tab") {
+    } else if (e.key === "Tab") {
       if (activeItemsCount > 0) {
         e.preventDefault();
         if (mode === "people" && filteredMembers[selectedIndex]) {
@@ -259,20 +351,23 @@ export function MentionInput({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <input
-        ref={inputRef}
-        type="text"
-        name={name}
-        value={value}
-        onChange={handleInputChange}
+      {name && <input type="hidden" name={name} value={hiddenValue} required={required} />}
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="false"
+        aria-required={required}
+        data-placeholder={placeholder || "Type @ for people, @file: for files"}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
         onClick={handleFocusOrClick}
         onFocus={handleFocusOrClick}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder || "Type @ for people, @file: for files"}
-        required={required}
-        autoFocus={autoFocus}
+        onPaste={handlePaste}
         className={cn(
-          "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50",
+          "w-full whitespace-pre-wrap break-words rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring",
+          "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50 empty:before:pointer-events-none",
           className
         )}
       />
@@ -292,6 +387,7 @@ export function MentionInput({
                   <button
                     key={m.id}
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => selectMember(m)}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
@@ -328,6 +424,7 @@ export function MentionInput({
                 <button
                   key={f.id}
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectFile(f)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={cn(

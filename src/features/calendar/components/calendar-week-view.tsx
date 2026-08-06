@@ -11,11 +11,12 @@ type Props = {
   onSelectSlot: (start: Date) => void;
 };
 
-// Office Hours: 10:00 AM to 6:30 PM (10.0 to 18.5)
-const OFFICE_START_HOUR = 10;
-const OFFICE_END_HOUR = 18.5;
+// Hours: 9:00 AM to 8:00 PM (9.0 to 20.0)
+const OFFICE_START_HOUR = 9;
+const OFFICE_END_HOUR = 20;
 
 const OFFICE_SLOTS = [
+  { hour: 9, minute: 0, label: "9:00 am", height: 60 },
   { hour: 10, minute: 0, label: "10:00 am", height: 60 },
   { hour: 11, minute: 0, label: "11:00 am", height: 60 },
   { hour: 12, minute: 0, label: "12:00 pm", height: 60 },
@@ -24,8 +25,9 @@ const OFFICE_SLOTS = [
   { hour: 15, minute: 0, label: "3:00 pm", height: 60 },
   { hour: 16, minute: 0, label: "4:00 pm", height: 60 },
   { hour: 17, minute: 0, label: "5:00 pm", height: 60 },
-  { hour: 18, minute: 0, label: "6:00 pm", height: 30 },
-  { hour: 18, minute: 30, label: "6:30 pm", height: 0 },
+  { hour: 18, minute: 0, label: "6:00 pm", height: 60 },
+  { hour: 19, minute: 0, label: "7:00 pm", height: 60 },
+  { hour: 20, minute: 0, label: "8:00 pm", height: 0 },
 ];
 
 export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSlot }: Props) {
@@ -34,18 +36,22 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
 
   function eventsForDay(day: Date) {
     const seen = new Set<string>();
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+
     return events
       .filter((e) => {
-        if (!e?.id || !e?.start || !e?.end) return false;
+        if (!e?.id || !e?.start) return false;
         if (seen.has(e.id)) return false;
         const eStart = e.start instanceof Date ? e.start : new Date(e.start);
-        const eEnd = e.end instanceof Date ? e.end : new Date(e.end);
+        const eEnd = e.end ? (e.end instanceof Date ? e.end : new Date(e.end)) : new Date(eStart.getTime() + 60 * 60 * 1000);
         if (isNaN(eStart.getTime()) || isNaN(eEnd.getTime())) return false;
-        if (!isSameDay(eStart, day)) return false;
+        
+        // Match any event that overlaps with this day
+        if (eStart.getTime() > dayEnd.getTime() || eEnd.getTime() < dayStart.getTime()) return false;
+
         seen.add(e.id);
-        const eStartH = eStart.getHours() + eStart.getMinutes() / 60;
-        const eEndH = eEnd.getHours() + eEnd.getMinutes() / 60;
-        return eEndH >= OFFICE_START_HOUR && eStartH <= OFFICE_END_HOUR;
+        return true;
       })
       .sort((a, b) => {
         const aStart = a.start instanceof Date ? a.start : new Date(a.start);
@@ -54,7 +60,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
       });
   }
 
-  // Calculate current time line position in office hours (10:00 AM to 6:30 PM)
+  // Calculate current time line position in hours (9:00 AM to 8:00 PM)
   const currentHourDec = now.getHours() + now.getMinutes() / 60;
   const isNowInOfficeHours = currentHourDec >= OFFICE_START_HOUR && currentHourDec <= OFFICE_END_HOUR;
   const currentTimeTop = (currentHourDec - OFFICE_START_HOUR) * 60; // 60px per hour
@@ -93,11 +99,11 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
         })}
       </div>
 
-      {/* Office Hours Scrollable Grid Body (10:00 AM - 6:30 PM) */}
+      {/* Office Hours Scrollable Grid Body (9:00 AM - 8:00 PM) */}
       <div className="flex-1 overflow-y-auto relative">
-        <div className="grid grid-cols-[85px_repeat(7,1fr)] min-h-[510px] relative">
+        <div className="grid grid-cols-[85px_repeat(7,1fr)] min-h-[660px] relative">
           
-          {/* Time Column (10:00 am to 6:30 pm) */}
+          {/* Time Column (9:00 am to 8:00 pm) */}
           <div className="flex flex-col border-r border-border bg-muted/20 select-none z-10">
             {OFFICE_SLOTS.map((slot, idx) => (
               <div
@@ -149,22 +155,30 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                     className="block w-full border-b border-border/40 hover:bg-primary/10 transition-colors group cursor-pointer"
                   >
                     <span className="opacity-0 group-hover:opacity-100 text-[10px] font-semibold text-primary pl-2 pt-1 block text-left">
-                      + Add event
+                      + Add Event
                     </span>
                   </button>
                 ))}
 
                 {/* Render Events inside Office Hours */}
                 {dayEvents.map((event, idx) => {
-                  const startHourDec = event.start.getHours() + event.start.getMinutes() / 60;
-                  const endHourDec = event.end.getHours() + event.end.getMinutes() / 60;
+                  const eStart = event.start instanceof Date ? event.start : new Date(event.start);
+                  const eEnd = event.end ? (event.end instanceof Date ? event.end : new Date(event.end)) : new Date(eStart.getTime() + 3600000);
 
-                  const clampedStart = Math.max(OFFICE_START_HOUR, Math.min(OFFICE_END_HOUR, startHourDec));
-                  const clampedEnd = Math.max(OFFICE_START_HOUR, Math.min(OFFICE_END_HOUR, endHourDec));
+                  const startHourDec = isSameDay(eStart, day)
+                    ? eStart.getHours() + eStart.getMinutes() / 60
+                    : OFFICE_START_HOUR;
+
+                  const endHourDec = isSameDay(eEnd, day)
+                    ? eEnd.getHours() + eEnd.getMinutes() / 60
+                    : OFFICE_END_HOUR;
+
+                  const clampedStart = Math.max(OFFICE_START_HOUR, Math.min(OFFICE_END_HOUR - 0.5, startHourDec));
+                  const clampedEnd = Math.max(clampedStart + 0.5, Math.min(OFFICE_END_HOUR, endHourDec));
 
                   const top = (clampedStart - OFFICE_START_HOUR) * 60;
-                  const durationHours = Math.max(0.4, clampedEnd - clampedStart);
-                  const height = durationHours * 60 - 2;
+                  const durationHours = clampedEnd - clampedStart;
+                  const height = Math.max(28, durationHours * 60 - 2);
 
                   return (
                     <button
@@ -185,7 +199,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                         )}
                       </div>
                       <p className="text-[10px] font-medium opacity-90">
-                        {formatTime(event.start)} - {formatTime(event.end)}
+                        {formatTime(eStart)} - {formatTime(eEnd)}
                       </p>
                     </button>
                   );

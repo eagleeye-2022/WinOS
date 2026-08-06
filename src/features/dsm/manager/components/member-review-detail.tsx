@@ -29,15 +29,6 @@ import { MentionInput } from "@/components/shared/mention-input";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
 
 
-// ── Mention helpers ───────────────────────────────────────────────────────────
-
-/** Strips the "@Name " text MentionInput just inserted, since the mention is tracked as a chip instead */
-function stripMentionInsertion(value: string, member: { name: string | null; email: string }): string {
-  const label = member.name || member.email.split("@")[0];
-  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return value.replace(new RegExp(`@${escaped}\\s?`), "").replace(/\s{2,}/g, " ");
-}
-
 // ── Priority helpers ──────────────────────────────────────────────────────────
 
 /** Priority levels for a given task count — exactly one level per task, unbounded */
@@ -174,17 +165,17 @@ function EditTaskRow({ taskId, text }: { taskId: string; text: string }) {
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
       >
-        <Check size={14} />
+        <Check size={16} strokeWidth={2.5} />
       </button>
       <button
         type="button"
         onClick={() => setEditing(false)}
         title="Cancel"
-        className="rounded p-1 text-muted-foreground hover:bg-accent"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
       >
-        <X size={14} />
+        <X size={16} strokeWidth={2} />
       </button>
     </form>
   );
@@ -250,16 +241,18 @@ function AddTaskRow({ entryId }: { entryId: string }) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          title="Add task"
+          className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
         >
-          {pending ? "Adding..." : "Add"}
+          <Check size={16} strokeWidth={2.5} />
         </button>
         <button
           type="button"
           onClick={() => setAdding(false)}
-          className="rounded border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
+          title="Cancel"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
         >
-          Cancel
+          <X size={16} strokeWidth={2} />
         </button>
       </div>
       {state.message && state.message !== "created" && (
@@ -288,8 +281,8 @@ function EditBlockerRow({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(initialText);
   const [prevInitialText, setPrevInitialText] = useState(initialText);
+  const [resetToken, setResetToken] = useState(0);
 
   const getInitialIds = () => {
     if (initialMentionedUserId) return initialMentionedUserId.split(",").filter(Boolean);
@@ -302,22 +295,9 @@ function EditBlockerRow({
 
   if (initialText !== prevInitialText) {
     setPrevInitialText(initialText);
-    setText(initialText);
     setMentionedUserIds(getInitialIds());
+    setResetToken((t) => t + 1);
   }
-
-  const addMention = (mId: string, updatedText?: string) => {
-    if (mId && !mentionedUserIds.includes(mId)) {
-      setMentionedUserIds((prev) => [...prev, mId]);
-    }
-    if (updatedText !== undefined) {
-      setText(updatedText);
-    }
-  };
-
-  const removeMention = (mId: string) => {
-    setMentionedUserIds((prev) => prev.filter((id) => id !== mId));
-  };
 
   const mentionedMembers = mentionedUserIds
     .map((id) => teamMembers.find((m) => m.id === id) ?? (initialMentionedUser?.id === id ? initialMentionedUser : null))
@@ -364,52 +344,37 @@ function EditBlockerRow({
       <input type="hidden" name="blockerId" value={blockerId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
 
-      <div className="flex flex-1 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2.5 py-1">
-        {mentionedMembers.map((m) => (
-          <span
-            key={m.id}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary select-none"
-          >
-            @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
-            <button
-              type="button"
-              onClick={() => removeMention(m.id)}
-              className="text-primary/60 hover:text-destructive transition-colors"
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
+      <div className="flex-1 rounded-md border bg-background px-2.5 py-1">
         <MentionInput
+          key={resetToken}
           name="text"
-          value={text}
-          onChange={setText}
+          defaultValue={initialText}
+          defaultMentions={mentionedMembers}
+          onChange={(text, ids) => setMentionedUserIds(ids)}
           autoFocus
           placeholder="Edit blocker... (@ to mention member)"
           teamMembers={teamMembers}
-          onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
-          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm font-normal text-foreground"
+          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm font-normal text-foreground"
         />
       </div>
       <button
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
       >
-        <Check size={14} />
+        <Check size={16} strokeWidth={2.5} />
       </button>
       <button
         type="button"
         onClick={() => {
           setEditing(false);
-          setText(initialText);
           setMentionedUserIds(getInitialIds());
         }}
         title="Cancel"
-        className="rounded p-1 text-muted-foreground hover:bg-accent"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
       >
-        <X size={14} />
+        <X size={16} strokeWidth={2} />
       </button>
     </form>
   );
@@ -436,25 +401,7 @@ function DeleteBlockerButton({ blockerId }: { blockerId: string }) {
 function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMembers?: TeamMember[] }) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddBlockerState, FormData>(addBlocker, {});
-  const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
-
-  const addMention = (mId: string, updatedText?: string) => {
-    if (mId && !mentionedUserIds.includes(mId)) {
-      setMentionedUserIds((prev) => [...prev, mId]);
-    }
-    if (updatedText !== undefined) {
-      setText(updatedText);
-    }
-  };
-
-  const removeMention = (mId: string) => {
-    setMentionedUserIds((prev) => prev.filter((id) => id !== mId));
-  };
-
-  const mentionedMembers = mentionedUserIds
-    .map((id) => teamMembers.find((m) => m.id === id))
-    .filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
   if (!adding) {
     return (
@@ -473,7 +420,6 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       action={async (fd) => {
         await action(fd);
         setAdding(false);
-        setText("");
         setMentionedUserIds([]);
       }}
       className="mt-2 flex items-center gap-1.5"
@@ -481,52 +427,34 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
 
-      <div className="flex flex-1 flex-wrap items-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5">
-        {mentionedMembers.map((m) => (
-          <span
-            key={m!.id}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary select-none"
-          >
-            @{m!.name?.split(" ")[0]?.toLowerCase() ?? m!.email.split("@")[0]}
-            <button
-              type="button"
-              onClick={() => removeMention(m!.id)}
-              className="text-primary/60 hover:text-destructive transition-colors"
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
+      <div className="flex-1 rounded-md border bg-card px-2.5 py-1.5">
         <MentionInput
           name="text"
-          value={text}
-          onChange={setText}
+          onChange={(text, ids) => setMentionedUserIds(ids)}
           autoFocus
-          placeholder={mentionedMembers.length > 0 ? "Describe blocker..." : "Describe blocker... (@ to mention team members)"}
+          placeholder="Describe blocker... (@ to mention team members)"
           teamMembers={teamMembers}
-          onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
-          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm font-normal text-foreground"
+          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm font-normal text-foreground"
         />
       </div>
       <button
         type="submit"
         disabled={pending}
-        title="Add"
-        className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+        title="Add blocker"
+        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
       >
-        <Check size={14} />
+        <Check size={16} strokeWidth={2.5} />
       </button>
       <button
         type="button"
         onClick={() => {
           setAdding(false);
-          setText("");
           setMentionedUserIds([]);
         }}
         title="Cancel"
-        className="rounded p-1 text-muted-foreground hover:bg-accent"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
       >
-        <X size={14} />
+        <X size={16} strokeWidth={2} />
       </button>
       {state.message && state.message !== "created" && (
         <p className="text-xs text-destructive">{state.message}</p>
@@ -554,8 +482,8 @@ function EditSupportRow({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(initialText);
   const [prevInitialText, setPrevInitialText] = useState(initialText);
+  const [resetToken, setResetToken] = useState(0);
 
   const getInitialIds = () => {
     if (initialMentionedUserId) return initialMentionedUserId.split(",").filter(Boolean);
@@ -568,22 +496,9 @@ function EditSupportRow({
 
   if (initialText !== prevInitialText) {
     setPrevInitialText(initialText);
-    setText(initialText);
     setMentionedUserIds(getInitialIds());
+    setResetToken((t) => t + 1);
   }
-
-  const addMention = (mId: string, updatedText?: string) => {
-    if (mId && !mentionedUserIds.includes(mId)) {
-      setMentionedUserIds((prev) => [...prev, mId]);
-    }
-    if (updatedText !== undefined) {
-      setText(updatedText);
-    }
-  };
-
-  const removeMention = (mId: string) => {
-    setMentionedUserIds((prev) => prev.filter((id) => id !== mId));
-  };
 
   const mentionedMembers = mentionedUserIds
     .map((id) => teamMembers.find((m) => m.id === id) ?? (initialMentionedUser?.id === id ? initialMentionedUser : null))
@@ -630,52 +545,37 @@ function EditSupportRow({
       <input type="hidden" name="supportId" value={supportId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
 
-      <div className="flex flex-1 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2.5 py-1">
-        {mentionedMembers.map((m) => (
-          <span
-            key={m.id}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 select-none"
-          >
-            @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
-            <button
-              type="button"
-              onClick={() => removeMention(m.id)}
-              className="text-sky-600 hover:text-destructive transition-colors"
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
+      <div className="flex-1 rounded-md border bg-background px-2.5 py-1">
         <MentionInput
+          key={resetToken}
           name="text"
-          value={text}
-          onChange={setText}
+          defaultValue={initialText}
+          defaultMentions={mentionedMembers}
+          onChange={(text, ids) => setMentionedUserIds(ids)}
           autoFocus
           placeholder="Edit support need... (@ to mention member)"
           teamMembers={teamMembers}
-          onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
-          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm font-normal text-foreground"
+          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm font-normal text-foreground"
         />
       </div>
       <button
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
       >
-        <Check size={14} />
+        <Check size={16} strokeWidth={2.5} />
       </button>
       <button
         type="button"
         onClick={() => {
           setEditing(false);
-          setText(initialText);
           setMentionedUserIds(getInitialIds());
         }}
         title="Cancel"
-        className="rounded p-1 text-muted-foreground hover:bg-accent"
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
       >
-        <X size={14} />
+        <X size={16} strokeWidth={2} />
       </button>
     </form>
   );
@@ -699,28 +599,19 @@ function DeleteSupportButton({ supportId }: { supportId: string }) {
 }
 
 
-function AddSupportRow({ entryId, teamMembers = [] }: { entryId: string; teamMembers?: TeamMember[] }) {
+function AddSupportRow({
+  entryId,
+  teamMembers = [],
+  onScheduleMeeting,
+}: {
+  entryId: string;
+  teamMembers?: TeamMember[];
+  onScheduleMeeting?: (title: string, participantIds: string[]) => void;
+}) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddSupportState, FormData>(addSupport, {});
   const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
-
-  const addMention = (mId: string, updatedText?: string) => {
-    if (mId && !mentionedUserIds.includes(mId)) {
-      setMentionedUserIds((prev) => [...prev, mId]);
-    }
-    if (updatedText !== undefined) {
-      setText(updatedText);
-    }
-  };
-
-  const removeMention = (mId: string) => {
-    setMentionedUserIds((prev) => prev.filter((id) => id !== mId));
-  };
-
-  const mentionedMembers = mentionedUserIds
-    .map((id) => teamMembers.find((m) => m.id === id))
-    .filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
   if (!adding) {
     return (
@@ -742,58 +633,64 @@ function AddSupportRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
         setText("");
         setMentionedUserIds([]);
       }}
-      className="mt-2 flex items-center gap-1.5"
+      className="mt-2 flex flex-col gap-2 rounded-lg border border-sky-200 bg-card p-3 shadow-xs"
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
 
-      <div className="flex flex-1 flex-wrap items-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5">
-        {mentionedMembers.map((m) => (
-          <span
-            key={m!.id}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 select-none"
-          >
-            @{m!.name?.split(" ")[0]?.toLowerCase() ?? m!.email.split("@")[0]}
-            <button
-              type="button"
-              onClick={() => removeMention(m!.id)}
-              className="text-sky-600 hover:text-destructive transition-colors"
-            >
-              <X size={10} />
-            </button>
-          </span>
-        ))}
+      <div className="rounded-md border bg-background px-2.5 py-1.5">
         <MentionInput
           name="text"
-          value={text}
-          onChange={setText}
+          onChange={(v, ids) => {
+            setText(v);
+            setMentionedUserIds(ids);
+          }}
           autoFocus
-          placeholder={mentionedMembers.length > 0 ? "Describe support needed..." : "Describe support needed... (@ to mention team members)"}
+          placeholder="Describe support needed... (@ to mention team members)"
           teamMembers={teamMembers}
-          onSelectMention={(mId, updatedText) => addMention(mId, updatedText)}
-          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm font-normal text-foreground"
+          className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm font-normal text-foreground"
         />
       </div>
-      <button
-        type="submit"
-        disabled={pending}
-        title="Add"
-        className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
-      >
-        <Check size={14} />
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setAdding(false);
-          setText("");
-          setMentionedUserIds([]);
-        }}
-        title="Cancel"
-        className="rounded p-1 text-muted-foreground hover:bg-accent"
-      >
-        <X size={14} />
-      </button>
+
+      <div className="flex items-center justify-between border-t pt-2 border-sky-100">
+        <div className="flex items-center gap-2">
+          {onScheduleMeeting && (
+            <button
+              type="button"
+              onClick={() => {
+                const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
+                onScheduleMeeting(titleText, mentionedUserIds);
+              }}
+              className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2.5 py-1 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs"
+            >
+              <Calendar size={12} />
+              Schedule Meeting
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="submit"
+            disabled={pending}
+            title="Add support"
+            className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+          >
+            <Check size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(false);
+              setText("");
+              setMentionedUserIds([]);
+            }}
+            title="Cancel"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
       {state.message && state.message !== "created" && (
         <p className="text-xs text-destructive">{state.message}</p>
       )}
@@ -904,20 +801,18 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
           </p>
           <div className="space-y-1.5">
             {yesterdayTasks.map((task, i) => (
-              <div key={task.id || i} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
-                      task.isCompleted ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                    )}
-                  >
-                    Y{i + 1}
-                  </span>
-                  <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
-                </div>
+              <div key={task.id || i} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
+                    task.isCompleted ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                  )}
+                >
+                  Y{i + 1}
+                </span>
+                <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
                 {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
                     CO
                   </span>
                 )}
@@ -936,15 +831,13 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
             {todayTasks.map((task, i) => {
               const carried = isTaskCarriedOver(task.text, entry, allEntries);
               return (
-                <div key={task.id} className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                      T{i + 1}
-                    </span>
-                    <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
-                  </div>
+                <div key={task.id} className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                    T{i + 1}
+                  </span>
+                  <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
                   {carried && (
-                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
                       CO
                     </span>
                   )}
@@ -991,7 +884,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
           {hasBlockers && (
             <div className="rounded-lg bg-destructive/5 border border-destructive/10 p-2.5">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-destructive">
-                Blockers (Data Needed)
+                Blockers (Dependencies)
               </p>
               <ol className="space-y-0.5">
                 {entry.blockers.map((b, i) => {
@@ -1065,7 +958,7 @@ function TaskRow({
           </span>
         )}
         {isCarriedOver && (
-          <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 shrink-0">
+          <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 shrink-0">
             CO
           </span>
         )}
@@ -1163,7 +1056,7 @@ function EntryExpanded({
 }) {
   const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
-  const isReviewable = entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW";
+  const isReviewable = entry.status !== "REVIEWED";
   const isLocked = entry.status === "REVIEWED";
   const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
@@ -1181,21 +1074,19 @@ function EntryExpanded({
         {yesterdayTasks.length > 0 ? (
           <div className="space-y-2">
             {yesterdayTasks.map((task, i) => (
-              <div key={task.id || i} className="flex items-center justify-between gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  {task.isCompleted ? (
-                    <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
-                  ) : (
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-500/60 bg-amber-50 text-[10px] font-bold text-amber-600">
-                      •
-                    </span>
-                  )}
-                  <span className={cn("text-sm leading-snug truncate", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
-                    {task.text}
+              <div key={task.id || i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
+                {task.isCompleted ? (
+                  <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                ) : (
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-500/60 bg-amber-50 text-[10px] font-bold text-amber-600">
+                    •
                   </span>
-                </div>
+                )}
+                <span className={cn("text-sm leading-snug truncate", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
+                  {task.text}
+                </span>
                 {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
                     CO
                   </span>
                 )}
@@ -1235,7 +1126,7 @@ function EntryExpanded({
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
               <AlertTriangle size={15} className="text-destructive" />
-              Any Blockers?
+              Any Blockers (Dependencies)?
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                 {entry.blockers.length}
               </span>
@@ -1293,7 +1184,7 @@ function EntryExpanded({
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-sky-700">
             <span className="flex items-center gap-2">
               <Handshake size={15} className="text-sky-700" />
-              Any Support Needed?
+              Any Support Needed (Meeting)?
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                 {entry.supportNeeds.length}
               </span>
@@ -1339,7 +1230,7 @@ function EntryExpanded({
                   <button
                     type="button"
                     onClick={() => {
-                      const titleText = s.text.trim() ? `Support Sync: ${s.text.trim()}` : "Support Sync Meeting";
+                      const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       setScheduleModal({ title: titleText, participantIds: uIds });
                     }}
                     className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2 py-0.5 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs shrink-0"
@@ -1352,7 +1243,13 @@ function EntryExpanded({
               );
             })}
           </div>
-          {!isLocked && <AddSupportRow entryId={entry.id} teamMembers={teamMembers} />}
+          {!isLocked && (
+            <AddSupportRow
+              entryId={entry.id}
+              teamMembers={teamMembers}
+              onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
+            />
+          )}
         </div>
       )}
 
