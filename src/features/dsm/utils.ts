@@ -117,3 +117,82 @@ export function formatFullDate(date: Date): string {
     timeZone: "UTC",
   }).format(new Date(date));
 }
+
+// ── Team & Member Sequence Helpers ──────────────────────────────────────────
+
+export function getTeamRank(teamName: string, department?: string | null): number {
+  const lowerName = teamName.toLowerCase();
+  const lowerDept = (department || "").toLowerCase();
+
+  // 1. Marketing Team
+  if (lowerName.includes("marketing") || lowerDept.includes("marketing")) {
+    return 1;
+  }
+  // 2. Creative / Design Team
+  if (
+    lowerName.includes("creative") ||
+    lowerName.includes("design") ||
+    lowerDept.includes("creative") ||
+    lowerDept.includes("design")
+  ) {
+    return 2;
+  }
+  // 3. Tech / Engineering Team
+  if (
+    lowerName.includes("tech") ||
+    lowerName.includes("engineering") ||
+    lowerDept.includes("tech") ||
+    lowerDept.includes("engineering")
+  ) {
+    return 3;
+  }
+
+  return 99;
+}
+
+export function sortTeamGroups<
+  T extends { teamName?: string; name?: string; department?: string | null }
+>(groups: T[]): T[] {
+  return [...groups].sort((a, b) => {
+    const nameA = a.teamName || a.name || "";
+    const nameB = b.teamName || b.name || "";
+    const rankA = getTeamRank(nameA, a.department);
+    const rankB = getTeamRank(nameB, b.department);
+    if (rankA !== rankB) return rankA - rankB;
+    return nameA.localeCompare(nameB);
+  });
+}
+
+export function sortTeamMembers<T extends { name: string | null; email: string }>(
+  members: T[],
+  teamName: string
+): T[] {
+  const lowerTeam = teamName.toLowerCase();
+  const isCreative = lowerTeam.includes("creative") || lowerTeam.includes("design");
+  const isTech = lowerTeam.includes("tech") || lowerTeam.includes("engineering");
+
+  function getMemberRank(member: T): number {
+    const name = (member.name || member.email).toLowerCase();
+
+    if (isCreative) {
+      if (name.includes("shadab") || name.includes("shadb")) return 1;
+    }
+
+    if (isTech) {
+      if (name.includes("ujjwal") || name.includes("ujjawal")) return 1;
+      if (name.startsWith("m") || name.includes("mohit") || name.includes("marcus")) return 2;
+    }
+
+    return 99;
+  }
+
+  return [...members].sort((a, b) => {
+    const rankA = getMemberRank(a);
+    const rankB = getMemberRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+
+    const nameA = (a.name || a.email).toLowerCase();
+    const nameB = (b.name || b.email).toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}

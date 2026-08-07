@@ -4,7 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Calendar, Filter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toIsoDateStr, toUtcDate } from "../../utils";
+import { toIsoDateStr, toUtcDate, sortTeamGroups } from "../../utils";
 import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
 import { NewTeamModal } from "./new-team-modal";
@@ -26,7 +26,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
-  const [sortBy, setSortBy] = useState<"submissions-desc" | "submissions-asc" | "name">("submissions-desc");
+  const [sortBy, setSortBy] = useState<"default" | "submissions-desc" | "submissions-asc" | "name">("default");
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -126,6 +126,9 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       return true;
     });
 
+    if (sortBy === "default") {
+      return sortTeamGroups(filtered);
+    }
     if (sortBy === "submissions-desc") {
       return [...filtered].sort((a, b) => b.submittedCount - a.submittedCount);
     }
@@ -135,7 +138,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     if (sortBy === "name") {
       return [...filtered].sort((a, b) => a.teamName.localeCompare(b.teamName));
     }
-    return filtered;
+    return sortTeamGroups(filtered);
   }, [groups, selectedDept, searchQuery, sortBy]);
 
   return (
@@ -267,9 +270,10 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
           <div className="w-48">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "submissions-desc" | "submissions-asc" | "name")}
+              onChange={(e) => setSortBy(e.target.value as "default" | "submissions-desc" | "submissions-asc" | "name")}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
             >
+              <option value="default">Team Sequence (Marketing, Creative, Tech)</option>
               <option value="submissions-desc">Submissions (High to Low)</option>
               <option value="submissions-asc">Submissions (Low to High)</option>
               <option value="name">Team Name</option>

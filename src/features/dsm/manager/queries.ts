@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange } from "../utils";
+import { toUtcDate, getWeekRange, getTeamRank, sortTeamGroups, sortTeamMembers } from "../utils";
+
+export { getTeamRank, sortTeamGroups, sortTeamMembers };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -75,40 +77,6 @@ export type AllUser = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-export function sortTeamMembers<T extends { name: string | null; email: string }>(
-  members: T[],
-  teamName: string
-): T[] {
-  const lowerTeam = teamName.toLowerCase();
-  const isCreative = lowerTeam.includes("creative") || lowerTeam.includes("design");
-  const isTech = lowerTeam.includes("tech") || lowerTeam.includes("engineering");
-
-  function getMemberRank(member: T): number {
-    const name = (member.name || member.email).toLowerCase();
-
-    if (isCreative) {
-      if (name.includes("shadab") || name.includes("shadb")) return 1;
-    }
-
-    if (isTech) {
-      if (name.includes("ujjwal") || name.includes("ujjawal")) return 1;
-      if (name.startsWith("m") || name.includes("mohit") || name.includes("marcus")) return 2;
-    }
-
-    return 99;
-  }
-
-  return [...members].sort((a, b) => {
-    const rankA = getMemberRank(a);
-    const rankB = getMemberRank(b);
-    if (rankA !== rankB) return rankA - rankB;
-
-    const nameA = (a.name || a.email).toLowerCase();
-    const nameB = (b.name || b.email).toLowerCase();
-    return nameA.localeCompare(nameB);
-  });
-}
 
 async function requireManager() {
   const session = await auth();
@@ -314,7 +282,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
     });
   }
 
-  return groups;
+  return sortTeamGroups(groups);
 }
 
 /** Full review data for a specific team member (current week or offset). */
@@ -421,7 +389,7 @@ export async function getAllTeams(): Promise<TeamWithMembers[]> {
     orderBy: { name: "asc" },
   });
 
-  return teams as TeamWithMembers[];
+  return sortTeamGroups(teams as TeamWithMembers[]);
 }
 
 /** All users for team-member picker. */

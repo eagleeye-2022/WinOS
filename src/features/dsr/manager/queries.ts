@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
-import { sortTeamMembers } from "@/features/dsm/manager/queries";
+import { sortTeamMembers, sortTeamGroups } from "@/features/dsm/manager/queries";
 import type { DsrEntryData } from "../queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
     });
   }
 
-  return groups;
+  return sortTeamGroups(groups);
 }
 
 /** Full DSR review data for a specific member (current week or offset). */
