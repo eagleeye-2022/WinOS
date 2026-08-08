@@ -121,11 +121,16 @@ export function formatFullDate(date: Date): string {
 // ── Team & Member Sequence Helpers ──────────────────────────────────────────
 
 export function getTeamRank(teamName: string, department?: string | null): number {
-  const lowerName = teamName.toLowerCase();
+  const lowerName = (teamName || "").toLowerCase();
   const lowerDept = (department || "").toLowerCase();
 
-  // 1. Marketing Team
-  if (lowerName.includes("marketing") || lowerDept.includes("marketing")) {
+  // 1. Marketing / Growth / SMM Team
+  if (
+    lowerName.includes("marketing") ||
+    lowerDept.includes("marketing") ||
+    lowerName.includes("smm") ||
+    lowerName.includes("growth")
+  ) {
     return 1;
   }
   // 2. Creative / Design Team
@@ -150,29 +155,21 @@ export function getTeamRank(teamName: string, department?: string | null): numbe
   return 99;
 }
 
-export function sortTeamGroups<
-  T extends { teamName?: string; name?: string; department?: string | null }
->(groups: T[]): T[] {
-  return [...groups].sort((a, b) => {
-    const nameA = a.teamName || a.name || "";
-    const nameB = b.teamName || b.name || "";
-    const rankA = getTeamRank(nameA, a.department);
-    const rankB = getTeamRank(nameB, b.department);
-    if (rankA !== rankB) return rankA - rankB;
-    return nameA.localeCompare(nameB);
-  });
-}
-
-export function sortTeamMembers<T extends { name: string | null; email: string }>(
-  members: T[],
-  teamName: string
-): T[] {
-  const lowerTeam = teamName.toLowerCase();
+export function sortTeamMembers<
+  T extends {
+    name?: string | null;
+    email?: string;
+    userId?: string;
+    user?: { name?: string | null; email?: string };
+  }
+>(members: T[], teamName: string): T[] {
+  const lowerTeam = (teamName || "").toLowerCase();
   const isCreative = lowerTeam.includes("creative") || lowerTeam.includes("design");
   const isTech = lowerTeam.includes("tech") || lowerTeam.includes("engineering");
 
   function getMemberRank(member: T): number {
-    const name = (member.name || member.email).toLowerCase();
+    const rawName = member.name || member.user?.name || member.email || member.user?.email || "";
+    const name = rawName.toLowerCase();
 
     if (isCreative) {
       if (name.includes("shadab") || name.includes("shadb")) return 1;
@@ -191,8 +188,32 @@ export function sortTeamMembers<T extends { name: string | null; email: string }
     const rankB = getMemberRank(b);
     if (rankA !== rankB) return rankA - rankB;
 
-    const nameA = (a.name || a.email).toLowerCase();
-    const nameB = (b.name || b.email).toLowerCase();
+    const nameA = (a.name || a.user?.name || a.email || a.user?.email || "").toLowerCase();
+    const nameB = (b.name || b.user?.name || b.email || b.user?.email || "").toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}
+
+export function sortTeamGroups<
+  T extends { teamName?: string; name?: string; department?: string | null; members?: any[] }
+>(groups: T[]): T[] {
+  const sortedWithMembers = [...groups].map((g) => {
+    if (Array.isArray(g.members)) {
+      const tName = g.teamName || g.name || "";
+      return {
+        ...g,
+        members: sortTeamMembers(g.members, tName),
+      };
+    }
+    return g;
+  });
+
+  return sortedWithMembers.sort((a, b) => {
+    const nameA = a.teamName || a.name || "";
+    const nameB = b.teamName || b.name || "";
+    const rankA = getTeamRank(nameA, a.department);
+    const rankB = getTeamRank(nameB, b.department);
+    if (rankA !== rankB) return rankA - rankB;
     return nameA.localeCompare(nameB);
   });
 }

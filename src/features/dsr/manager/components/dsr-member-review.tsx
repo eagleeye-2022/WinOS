@@ -16,6 +16,7 @@ import { relativeDayLabel, weekOfMonth, getWeekRange, formatShortDate } from "@/
 import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
 import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
+import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 
 // ── Date entry header — static strip matching Figma image 2 ──────────────────
 
@@ -160,6 +161,41 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
       <div className="flex flex-col gap-2">
         {plannedTasks.map((task) => (
           <TaskItemRow key={task.id} task={task} locked={locked} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Additional work card ───────────────────────────────────────────────────────
+
+function AdditionalWorkCard({ entry }: { entry: DsrEntryData }) {
+  const { additionalWorks } = entry;
+  if (!additionalWorks || additionalWorks.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <Zap size={11} />
+          </span>
+          Additional Work Done Today
+        </h3>
+        <span className="text-xs font-bold text-primary">
+          {additionalWorks.length} Item{additionalWorks.length > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {additionalWorks.map((work, i) => (
+          <div key={work.id || i} className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-2.5">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary mt-0.5">
+              +
+            </span>
+            <span className="flex-1 text-sm text-foreground leading-snug">
+              {renderTextWithMentions(work.text)}
+            </span>
+          </div>
         ))}
       </div>
     </div>
@@ -576,6 +612,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
               <div className="flex flex-col gap-4">
                 <ResultCard entry={todayEntry} />
                 <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
+                <AdditionalWorkCard entry={todayEntry} />
                 <BlockersSupportCard entry={todayEntry} />
                 <LearningCard entry={todayEntry} />
                 <SentimentCard entry={todayEntry} />

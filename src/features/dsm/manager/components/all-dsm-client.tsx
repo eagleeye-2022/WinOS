@@ -126,20 +126,8 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       return true;
     });
 
-    if (sortBy === "default") {
-      return sortTeamGroups(filtered);
-    }
-    if (sortBy === "submissions-desc") {
-      return [...filtered].sort((a, b) => b.submittedCount - a.submittedCount);
-    }
-    if (sortBy === "submissions-asc") {
-      return [...filtered].sort((a, b) => a.submittedCount - b.submittedCount);
-    }
-    if (sortBy === "name") {
-      return [...filtered].sort((a, b) => a.teamName.localeCompare(b.teamName));
-    }
     return sortTeamGroups(filtered);
-  }, [groups, selectedDept, searchQuery, sortBy]);
+  }, [groups, selectedDept, searchQuery]);
 
   return (
     <div className="relative flex h-full max-h-[calc(100vh-4rem)] flex-col overflow-hidden">

@@ -133,6 +133,18 @@ export function DsrHistoryCard({
       {/* Expanded content */}
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-5 pb-5 pt-4">
+          {/* Outcome of the Day */}
+          {entry.resultOfDay && (
+            <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Outcome of the Day
+              </p>
+              <p className="text-xs leading-relaxed text-foreground italic">
+                &ldquo;{renderTextWithMentions(entry.resultOfDay)}&rdquo;
+              </p>
+            </div>
+          )}
+
           {/* Completed tasks */}
           {entry.plannedTasks.filter((t) => t.completed).length > 0 && (
             <div className="mb-4">
@@ -157,6 +169,25 @@ export function DsrHistoryCard({
                         {task.priority.toUpperCase()}
                       </span>
                     )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Additional work done */}
+          {entry.additionalWorks && entry.additionalWorks.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Additional Work Done Today
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {entry.additionalWorks.map((work, i) => (
+                  <div key={work.id || i} className="flex items-center gap-2 text-sm">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                      +
+                    </span>
+                    <span>{renderTextWithMentions(work.text)}</span>
                   </div>
                 ))}
               </div>
@@ -209,6 +240,19 @@ export function DsrHistoryCard({
                   </p>
                 ))}
               </div>
+            </div>
+          )}
+
+          {(entry.sentiment || entry.reflection) && (
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {entry.sentiment ? `${entry.sentiment} Sentiment & Key Learnings` : "Day Reflection"}
+              </p>
+              {entry.reflection && (
+                <p className="text-xs leading-relaxed text-foreground">
+                  {renderTextWithMentions(entry.reflection)}
+                </p>
+              )}
             </div>
           )}
 

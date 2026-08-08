@@ -2038,9 +2038,9 @@ export function NotesWorkspace({
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
                     {noteChecklist.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={idx} className="flex items-center gap-2 py-0.5">
                         <Square size={13} className="text-muted-foreground/50 shrink-0" />
                         <input
                           type="text"
@@ -2053,17 +2053,16 @@ export function NotesWorkspace({
                           placeholder={`Checklist Item ${idx + 1}`}
                           className="flex-1 bg-transparent border-none outline-none text-xs"
                         />
-                        {noteChecklist.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setNoteChecklist(noteChecklist.filter((_, i) => i !== idx))
-                            }
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X size={12} />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNoteChecklist(noteChecklist.filter((_, i) => i !== idx))
+                          }
+                          className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
+                          title="Remove item"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                     ))}
                     <button
