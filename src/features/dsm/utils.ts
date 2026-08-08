@@ -194,8 +194,16 @@ export function sortTeamMembers<
   });
 }
 
+type MemberItem = {
+  name?: string | null;
+  email?: string;
+  userId?: string;
+  user?: { name?: string | null; email?: string };
+};
+
 export function sortTeamGroups<
-  T extends { teamName?: string; name?: string; department?: string | null; members?: any[] }
+  M extends MemberItem,
+  T extends { teamName?: string; name?: string; department?: string | null; members?: M[] }
 >(groups: T[]): T[] {
   const sortedWithMembers = [...groups].map((g) => {
     if (Array.isArray(g.members)) {

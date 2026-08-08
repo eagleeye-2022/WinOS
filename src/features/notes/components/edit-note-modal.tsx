@@ -140,10 +140,10 @@ export function EditNoteModal<T extends EditNoteModalData>({
                 </label>
                 <div className="flex flex-col gap-1">
                   {note.checklistItems.map((item, idx) => (
-                    <div key={(item as any).id || idx} className="flex items-center gap-2 py-0.5">
+                    <div key={item.id || idx} className="flex items-center gap-2 py-0.5">
                       <input
                         type="checkbox"
-                        checked={(item as any).checked || false}
+                        checked={item.checked || false}
                         disabled={isReadOnly}
                         onChange={(e) => {
                           const updated = [...note.checklistItems];
@@ -153,7 +153,7 @@ export function EditNoteModal<T extends EditNoteModalData>({
                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
                       />
                       {isReadOnly ? (
-                        <span className={cn("text-sm text-foreground leading-snug", (item as any).checked && "line-through text-muted-foreground")}>
+                        <span className={cn("text-sm text-foreground leading-snug", item.checked && "line-through text-muted-foreground")}>
                           {item.text}
                         </span>
                       ) : (

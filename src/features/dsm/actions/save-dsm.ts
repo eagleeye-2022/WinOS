@@ -61,11 +61,9 @@ export async function saveDsm(
   const blockerPriorities = formData.getAll("blockerPriority") as string[];
   // Each blockerUserId value is a comma-separated list of mentioned user IDs
   const blockerUserIdRaw = formData.getAll("blockerUserId") as string[];
-  const blockerUserIds = blockerUserIdRaw.map((v) => v.trim() || null);
   const supportTexts = (formData.getAll("supportText") as string[]).map((t) => t.trim());
   // Each supportUserId value is a comma-separated list of mentioned user IDs
   const supportUserIdRaw = formData.getAll("supportUserId") as string[];
-  const supportUserIds = supportUserIdRaw.map((v) => v.trim() || null);
 
   // Validate on submit only
   if (action === "submit" && taskTexts.length === 0) {
