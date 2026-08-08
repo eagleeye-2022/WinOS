@@ -55,9 +55,9 @@ function ChecklistEditor({
   const add = () => onChange([...items, ""]);
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex items-center gap-2 py-0.5">
           <span className="h-3.5 w-3.5 shrink-0 rounded-sm border border-muted-foreground/40" />
           <input
             name="item"
@@ -66,21 +66,20 @@ function ChecklistEditor({
             placeholder={`Item ${i + 1}`}
             className="flex-1 rounded-md border bg-background px-2 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
           />
-          {items.length > 1 && (
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <XIcon size={13} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
+            title="Remove item"
+          >
+            <XIcon size={13} />
+          </button>
         </div>
       ))}
       <button
         type="button"
         onClick={add}
-        className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground mt-0.5"
       >
         <Plus size={12} />
         Add item

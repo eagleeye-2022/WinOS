@@ -132,10 +132,19 @@ body {
 .html-content li[data-type="taskItem"] {
   display: flex !important;
   flex-direction: row !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   gap: 0.375rem !important;
   list-style-type: none !important;
+  margin-top: 0 !important;
   margin-bottom: 0.25rem !important;
+}
+
+.html-content li[data-type="taskItem"]:last-child {
+  margin-bottom: 0 !important;
+}
+
+.html-content li[data-type="taskItem"]:empty {
+  display: none !important;
 }
 
 .html-content li[data-type="taskItem"] label {

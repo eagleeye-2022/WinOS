@@ -56,9 +56,9 @@ function ChecklistEditItems({ initial }: { initial: string[] }) {
   const remove = (i: number) => setItems(items.filter((_, j) => j !== i));
   const add = () => setItems([...items, ""]);
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex items-center gap-2 py-0.5">
           <span className="h-3 w-3 shrink-0 rounded-sm border border-muted-foreground/40" />
           <input
             name="item"
@@ -67,14 +67,12 @@ function ChecklistEditItems({ initial }: { initial: string[] }) {
             placeholder={`Item ${i + 1}`}
             className="flex-1 rounded-md border bg-background px-2 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
           />
-          {items.length > 1 && (
-            <button type="button" onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive">
-              <X size={12} />
-            </button>
-          )}
+          <button type="button" onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive p-0.5">
+            <X size={12} />
+          </button>
         </div>
       ))}
-      <button type="button" onClick={add} className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground">
+      <button type="button" onClick={add} className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground mt-0.5">
         <Plus size={11} /> Add item
       </button>
     </div>
