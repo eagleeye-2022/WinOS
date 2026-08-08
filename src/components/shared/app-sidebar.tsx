@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
+import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 
 // ── Daily quotes ─────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+        { label: "Support Needed", href: ROUTES.support, icon: SupportNeededIcon },
       ]
       : [
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
@@ -156,7 +157,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
 
-        { label: "Support Needed", href: ROUTES.support, icon: Users2 },
+        { label: "Support Needed", href: ROUTES.support, icon: SupportNeededIcon },
         { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
       ];
   }
@@ -191,7 +192,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 )}
               >
-                <Icon size={18} strokeWidth={2} className="shrink-0" />
+                <Icon size={item.label === "Support Needed" ? 20 : 18} strokeWidth={2} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
               </Link>
             );

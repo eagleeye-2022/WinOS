@@ -20,7 +20,7 @@ import {
 import { createCalendarEvent, type CreateEventState } from "../actions/create-event";
 import { updateCalendarEvent, type UpdateEventState } from "../actions/update-event";
 import { ParticipantPicker } from "./participant-picker";
-import { toDateTimeLocalValue } from "../utils";
+import { toDateTimeLocalValue, toTitleCase } from "../utils";
 import type { CalendarEventView } from "../queries";
 
 type InternalUser = { id: string; name: string | null; email: string };
@@ -127,7 +127,7 @@ export function EventDialog({
     const newEvt: CalendarEventView = {
       id: event?.id ?? `local-evt-${Date.now()}`,
       etag: Date.now(),
-      title: title || "Scheduled Event",
+      title: toTitleCase(title) || "Scheduled Event",
       description: meetingType === "online" ? `Online Meeting (${meetingMode.toUpperCase()})` : `Location: ${location}`,
       start: new Date(start),
       end: new Date(end),

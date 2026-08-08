@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
+import { sortTeamMembers, sortTeamGroups } from "@/features/dsm/manager/queries";
 import type { DsrEntryData } from "../queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -167,17 +168,19 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
       (c) => c.status === "SUBMITTED" || c.status === "PENDING_REVIEW" || c.status === "REVIEWED"
     ).length;
 
+    const sortedCards = sortTeamMembers(cards, team.name);
+
     groups.push({
       teamId: team.id,
       teamName: team.name,
       department: team.department,
       totalMembers: team.members.length,
       submittedCount,
-      members: cards,
+      members: sortedCards,
     });
   }
 
-  return groups;
+  return sortTeamGroups(groups);
 }
 
 /** Full DSR review data for a specific member (current week or offset). */

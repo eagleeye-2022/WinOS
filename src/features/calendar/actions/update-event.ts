@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, updateZohoEvent } from "@/lib/zoho-calendar";
-import { CALENDAR_TIMEZONE, fromDateTimeLocalValue } from "../utils";
+import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils";
 
 export type UpdateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -24,7 +24,7 @@ export async function updateCalendarEvent(
   const eventId = getStr(formData, "eventId");
   if (!eventId) return { message: "Missing eventId" };
 
-  const title = getStr(formData, "title");
+  const title = toTitleCase(getStr(formData, "title"));
   const description = getStr(formData, "description");
   const startStr = getStr(formData, "start");
   const endStr = getStr(formData, "end");

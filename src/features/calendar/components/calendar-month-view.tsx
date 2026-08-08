@@ -19,13 +19,17 @@ export function CalendarMonthView({ anchorDate, events, onSelectEvent, onSelectS
 
   function eventsForDay(day: Date) {
     const seen = new Set<string>();
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+
     return events
       .filter((e) => {
         if (!e?.id || !e?.start) return false;
         if (seen.has(e.id)) return false;
         const eStart = e.start instanceof Date ? e.start : new Date(e.start);
-        if (isNaN(eStart.getTime())) return false;
-        if (!isSameDay(eStart, day)) return false;
+        const eEnd = e.end ? (e.end instanceof Date ? e.end : new Date(e.end)) : new Date(eStart.getTime() + 60 * 60 * 1000);
+        if (isNaN(eStart.getTime()) || isNaN(eEnd.getTime())) return false;
+        if (eStart.getTime() > dayEnd.getTime() || eEnd.getTime() < dayStart.getTime()) return false;
         seen.add(e.id);
         return true;
       })

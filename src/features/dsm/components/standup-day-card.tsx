@@ -190,7 +190,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
               {entry.blockers.length > 0 && (
                 <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3">
                   <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Blockers (Data Needed)
+                    Blockers (Dependencies)
                   </p>
                   {entry.blockers.map((b, i) => {
                     const mentioned = b.mentionedUsers ?? (b.mentionedUser ? [b.mentionedUser] : []);

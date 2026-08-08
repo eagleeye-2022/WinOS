@@ -24,18 +24,9 @@ const PRIORITY_LABELS: Record<Priority, string> = {
 const inputCls =
   "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50";
 
-// ── Mention helpers ───────────────────────────────────────────────────────────
-
-/** Strips the "@Name " text MentionInput just inserted, since the mention is tracked as a chip instead */
-function stripMentionInsertion(value: string, member: { name: string | null; email: string }): string {
-  const label = member.name || member.email.split("@")[0];
-  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return value.replace(new RegExp(`@${escaped}\\s?`), "").replace(/\s{2,}/g, " ");
-}
-
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-type Task = { text: string; priority: string; carried: boolean };
+type Task = { id: string; text: string; priority: string; carried: boolean };
 
 function TaskRows({
   tasks,
@@ -52,7 +43,7 @@ function TaskRows({
     onChange(n);
   };
   const remove = (i: number) => onChange(tasks.filter((_, j) => j !== i));
-  const add = () => onChange([...tasks, { text: "", priority: "", carried: false }]);
+  const add = () => onChange([...tasks, { id: crypto.randomUUID(), text: "", priority: "", carried: false }]);
 
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
 
@@ -67,7 +58,7 @@ function TaskRows({
         );
 
         return (
-          <div key={i} className="flex flex-col gap-1.5 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+          <div key={task.id} className="flex flex-col gap-1.5 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
             <div className="flex items-center gap-2">
               <span className={cn(
                 "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
@@ -77,13 +68,10 @@ function TaskRows({
               </span>
               <MentionInput
                 name="taskText"
-                value={task.text}
+                defaultValue={task.text}
                 onChange={(v) => updateField(i, "text", v)}
                 placeholder="Add task details... (Type @ for people, @file: for files)"
                 teamMembers={teamMembers}
-                onSelectMention={(mId, updatedText) => {
-                  if (updatedText !== undefined) updateField(i, "text", updatedText);
-                }}
               />
               {task.carried && (
                 <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
@@ -140,9 +128,9 @@ function BlockerRows({
   onChange,
   onScheduleMeeting,
 }: {
-  blockers: { text: string; priority: string; mentionedUserIds: string[] }[];
+  blockers: { id: string; text: string; priority: string; mentionedUserIds: string[] }[];
   teamMembers: TeamMember[];
-  onChange: (b: { text: string; priority: string; mentionedUserIds: string[] }[]) => void;
+  onChange: (b: { id: string; text: string; priority: string; mentionedUserIds: string[] }[]) => void;
   onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
   const updateField = (i: number, field: "text" | "priority", v: string) => {
@@ -150,63 +138,36 @@ function BlockerRows({
     n[i] = { ...n[i], [field]: v };
     onChange(n);
   };
-  const addMention = (i: number, mId: string, updatedText?: string) => {
+  const updateMentions = (i: number, text: string, mentionedUserIds: string[]) => {
     const n = [...blockers];
-    const existing = n[i].mentionedUserIds;
-    n[i] = {
-      ...n[i],
-      mentionedUserIds: existing.includes(mId) ? existing : [...existing, mId],
-      text: updatedText !== undefined ? updatedText : n[i].text,
-    };
-    onChange(n);
-  };
-  const removeMention = (i: number, mId: string) => {
-    const n = [...blockers];
-    n[i] = { ...n[i], mentionedUserIds: n[i].mentionedUserIds.filter((id) => id !== mId) };
+    n[i] = { ...n[i], text, mentionedUserIds };
     onChange(n);
   };
   const remove = (i: number) => onChange(blockers.filter((_, j) => j !== i));
-  const add = () => onChange([...blockers, { text: "", priority: "", mentionedUserIds: [] }]);
+  const add = () => onChange([...blockers, { id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [] }]);
 
   const memberById = (id: string) => teamMembers.find((m) => m.id === id);
-  const mentionLabel = (m: TeamMember) => m.name?.split(" ")[0] ?? m.email.split("@")[0];
 
   return (
     <div className="flex flex-col gap-2">
       {blockers.map((b, i) => {
-        const mentionedMembers = b.mentionedUserIds.map(memberById).filter(Boolean) as TeamMember[];
+        const initialMentions = b.mentionedUserIds.map(memberById).filter(Boolean) as TeamMember[];
         return (
-          <div key={i} className="flex items-start gap-2">
+          <div key={b.id} className="flex items-start gap-2">
             {/* Emit comma-separated user IDs in a single hidden input to preserve row-index alignment */}
             <input type="hidden" name="blockerUserId" value={b.mentionedUserIds.join(",")} />
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-              {/* Top: chips + text input */}
-              <div className="flex flex-row flex-wrap items-center gap-1.5 px-3 py-2">
-                {mentionedMembers.map((m) => (
-                  <span
-                    key={m.id}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary select-none"
-                  >
-                    @{mentionLabel(m).toLowerCase()}
-                    <button
-                      type="button"
-                      onClick={() => removeMention(i, m.id)}
-                      className="text-primary/50 hover:text-destructive transition-colors"
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
+              <div className="px-3 py-2">
                 <MentionInput
                   name="blockerText"
-                  value={b.text}
-                  onChange={(v) => updateField(i, "text", v)}
-                  placeholder={mentionedMembers.length > 0 ? "Add description..." : "Describe the blocker... (@ to mention people)"}
+                  defaultValue={b.text}
+                  defaultMentions={initialMentions}
+                  onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                  placeholder="Describe the blocker... (@ to mention people)"
                   teamMembers={teamMembers}
-                  onSelectMention={(mId, updatedText) => addMention(i, mId, updatedText)}
-                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm"
+                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
                 />
               </div>
 
@@ -282,73 +243,41 @@ function SupportRows({
   onChange,
   onScheduleMeeting,
 }: {
-  supports: { text: string; mentionedUserIds: string[] }[];
+  supports: { id: string; text: string; mentionedUserIds: string[] }[];
   teamMembers: TeamMember[];
-  onChange: (s: { text: string; mentionedUserIds: string[] }[]) => void;
+  onChange: (s: { id: string; text: string; mentionedUserIds: string[] }[]) => void;
   onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
-  const updateText = (i: number, v: string) => {
+  const updateMentions = (i: number, text: string, mentionedUserIds: string[]) => {
     const n = [...supports];
-    n[i] = { ...n[i], text: v };
-    onChange(n);
-  };
-  const addMention = (i: number, mId: string, updatedText?: string) => {
-    const n = [...supports];
-    const existing = n[i].mentionedUserIds;
-    n[i] = {
-      ...n[i],
-      mentionedUserIds: existing.includes(mId) ? existing : [...existing, mId],
-      text: updatedText !== undefined ? updatedText : n[i].text,
-    };
-    onChange(n);
-  };
-  const removeMention = (i: number, mId: string) => {
-    const n = [...supports];
-    n[i] = { ...n[i], mentionedUserIds: n[i].mentionedUserIds.filter((id) => id !== mId) };
+    n[i] = { ...n[i], text, mentionedUserIds };
     onChange(n);
   };
   const remove = (i: number) => onChange(supports.filter((_, j) => j !== i));
-  const add = () => onChange([...supports, { text: "", mentionedUserIds: [] }]);
+  const add = () => onChange([...supports, { id: crypto.randomUUID(), text: "", mentionedUserIds: [] }]);
 
   const memberById = (id: string) => teamMembers.find((m) => m.id === id);
-  const mentionLabel = (m: TeamMember) => m.name?.split(" ")[0] ?? m.email.split("@")[0];
 
   return (
     <div className="flex flex-col gap-2">
       {supports.map((s, i) => {
-        const mentionedMembers = s.mentionedUserIds.map(memberById).filter(Boolean) as TeamMember[];
+        const initialMentions = s.mentionedUserIds.map(memberById).filter(Boolean) as TeamMember[];
         return (
-          <div key={i} className="flex items-start gap-2">
+          <div key={s.id} className="flex items-start gap-2">
             {/* Emit comma-separated user IDs in a single hidden input to preserve row-index alignment */}
             <input type="hidden" name="supportUserId" value={s.mentionedUserIds.join(",")} />
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
-              {/* Chips + text input in a flex-wrap row */}
-              <div className="flex flex-row flex-wrap items-center gap-1.5 px-3 py-2">
-                {mentionedMembers.map((m) => (
-                  <span
-                    key={m.id}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary select-none"
-                  >
-                    @{mentionLabel(m).toLowerCase()}
-                    <button
-                      type="button"
-                      onClick={() => removeMention(i, m.id)}
-                      className="text-primary/50 hover:text-destructive transition-colors"
-                    >
-                      <X size={10} />
-                    </button>
-                  </span>
-                ))}
+              <div className="px-3 py-2">
                 <MentionInput
                   name="supportText"
-                  value={s.text}
-                  onChange={(v) => updateText(i, v)}
-                  placeholder={mentionedMembers.length > 0 ? "Add details..." : "Add support details... (@ to mention people)"}
+                  defaultValue={s.text}
+                  defaultMentions={initialMentions}
+                  onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                  placeholder="Add support details... (@ to mention people)"
                   teamMembers={teamMembers}
-                  onSelectMention={(mId, updatedText) => addMention(i, mId, updatedText)}
-                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent min-w-[120px] flex-1 text-sm"
+                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
                 />
               </div>
 
@@ -361,7 +290,7 @@ function SupportRows({
                   <button
                     type="button"
                     onClick={() => {
-                      const titleText = s.text.trim() ? `Support Sync: ${s.text.trim()}` : "Data/Support Sync Meeting";
+                      const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       onScheduleMeeting(titleText, s.mentionedUserIds);
                     }}
                     className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2.5 py-1 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs"
@@ -448,17 +377,18 @@ export function SubmitDsmForm({
   const [tasks, setTasks] = useState<Task[]>(() => {
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
-      return existingToday.map((t) => ({ text: t.text, priority: t.priority ?? "", carried: false }));
+      return existingToday.map((t) => ({ id: crypto.randomUUID(), text: t.text, priority: t.priority ?? "", carried: false }));
     }
     if (yesterdayIncompleteTasks.length > 0) {
-      return yesterdayIncompleteTasks.map((text) => ({ text, priority: "", carried: true }));
+      return yesterdayIncompleteTasks.map((text) => ({ id: crypto.randomUUID(), text, priority: "", carried: true }));
     }
-    return [{ text: "", priority: "", carried: false }, { text: "", priority: "", carried: false }];
+    return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false }, { id: crypto.randomUUID(), text: "", priority: "", carried: false }];
   });
 
-  const [blockers, setBlockers] = useState<{ text: string; priority: string; mentionedUserIds: string[] }[]>(() => {
+  const [blockers, setBlockers] = useState<{ id: string; text: string; priority: string; mentionedUserIds: string[] }[]>(() => {
     if (entry?.blockers && entry.blockers.length > 0) {
       return entry.blockers.map((b) => ({
+        id: crypto.randomUUID(),
         text: b.text,
         priority: b.priority,
         mentionedUserIds: b.mentionedUserIds
@@ -470,22 +400,24 @@ export function SubmitDsmForm({
     }
     if (yesterdayBlockers && yesterdayBlockers.length > 0) {
       return yesterdayBlockers.map((b) => ({
+        id: crypto.randomUUID(),
         text: b.text,
         priority: b.priority,
         mentionedUserIds: b.mentionedUserId ? [b.mentionedUserId] : [],
       }));
     }
-    return [{ text: "", priority: "", mentionedUserIds: [] }];
+    return [{ id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [] }];
   });
-  const [supports, setSupports] = useState<{ text: string; mentionedUserIds: string[] }[]>(() =>
+  const [supports, setSupports] = useState<{ id: string; text: string; mentionedUserIds: string[] }[]>(() =>
     entry?.supportNeeds.map((s) => ({
+      id: crypto.randomUUID(),
       text: s.text,
       mentionedUserIds: s.mentionedUserIds
         ? s.mentionedUserIds.split(",").filter(Boolean)
         : s.mentionedUser?.id
           ? [s.mentionedUser.id]
           : [],
-    })) ?? [{ text: "", mentionedUserIds: [] }]
+    })) ?? [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [] }]
   );
   const [learningText, setLearningText] = useState(entry?.learningText ?? "");
   const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
@@ -624,7 +556,7 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers?">
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers (Dependencies)?">
           <BlockerRows
             blockers={blockers}
             teamMembers={teamMembers}
@@ -634,7 +566,7 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed?">
+        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed (Meeting)?">
           <SupportRows
             supports={supports}
             teamMembers={teamMembers}

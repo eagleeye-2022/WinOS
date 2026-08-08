@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, createZohoEvent } from "@/lib/zoho-calendar";
 import { sendCalendarInviteEmail } from "@/lib/email";
-import { CALENDAR_TIMEZONE, fromDateTimeLocalValue } from "../utils";
+import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils";
 
 export type CreateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -26,7 +26,7 @@ export async function createCalendarEvent(
   const organizerEmail = session.user.email ?? "";
   const organizerName = session.user.name ?? session.user.email ?? "A teammate";
 
-  const title = getStr(formData, "title");
+  const title = toTitleCase(getStr(formData, "title"));
   const description = getStr(formData, "description");
   const startStr = getStr(formData, "start");
   const endStr = getStr(formData, "end");

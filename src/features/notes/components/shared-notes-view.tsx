@@ -214,7 +214,10 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                           />
                         </div>
                         <div className="mt-1 flex flex-col gap-1">
-                          {note.checklistItems?.slice(0, 3).map((item) => (
+                          {[
+                            ...(note.checklistItems?.filter((c) => !c.checked) || []),
+                            ...(note.checklistItems?.filter((c) => c.checked) || []),
+                          ].slice(0, 3).map((item) => (
                             <div key={item.id} className="flex items-center gap-2 text-xs text-foreground/80 line-clamp-1">
                               <span className={cn("text-xs font-semibold shrink-0", item.checked ? "text-emerald-500" : "text-muted-foreground/60")}>
                                 {item.checked ? "✓" : "○"}

@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange } from "../utils";
+import { toUtcDate, getWeekRange, getTeamRank, sortTeamGroups, sortTeamMembers } from "../utils";
+
+export { getTeamRank, sortTeamGroups, sortTeamMembers };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -268,17 +270,19 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
         c.status === "REVIEWED"
     ).length;
 
+    const sortedCards = sortTeamMembers(cards, team.name);
+
     groups.push({
       teamId: team.id,
       teamName: team.name,
       department: team.department,
       totalMembers: team.members.length,
       submittedCount,
-      members: cards,
+      members: sortedCards,
     });
   }
 
-  return groups;
+  return sortTeamGroups(groups);
 }
 
 /** Full review data for a specific team member (current week or offset). */
@@ -304,25 +308,60 @@ export async function getMemberReview(
 
   const entriesRaw = await d.standupEntry.findMany({
     where: { userId: memberId, date: { gte: extendedStart, lte: end } },
-      include: {
-        tasks: { orderBy: { order: "asc" } },
-        blockers: {
-          include: {
-            mentionedUser: { select: { id: true, name: true, email: true } },
-            editedBy: { select: { id: true, name: true, email: true } },
-          }
-        },
-        supportNeeds: {
-          orderBy: { order: "asc" },
-          include: {
-            mentionedUser: { select: { id: true, name: true, email: true } },
-            editedBy: { select: { id: true, name: true, email: true } },
-          },
-        },
-        reviewedBy: { select: { name: true, email: true } },
+    include: {
+      tasks: { orderBy: { order: "asc" } },
+      blockers: {
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          editedBy: { select: { id: true, name: true, email: true } },
+        }
       },
+      supportNeeds: {
+        orderBy: { order: "asc" },
+        include: {
+          mentionedUser: { select: { id: true, name: true, email: true } },
+          editedBy: { select: { id: true, name: true, email: true } },
+        },
+      },
+      reviewedBy: { select: { name: true, email: true } },
+    },
     orderBy: { date: "desc" },
   });
+
+  const todayUtc = toUtcDate(new Date());
+  const hasTodayEntry = entriesRaw.some((e: { date: Date }) => toUtcDate(e.date).getTime() === todayUtc.getTime());
+
+  if (!hasTodayEntry && weekOffset === 0) {
+    try {
+      const newTodayEntry = await d.standupEntry.create({
+        data: {
+          userId: memberId,
+          date: todayUtc,
+          status: "DRAFT",
+        },
+        include: {
+          tasks: { orderBy: { order: "asc" } },
+          blockers: {
+            include: {
+              mentionedUser: { select: { id: true, name: true, email: true } },
+              editedBy: { select: { id: true, name: true, email: true } },
+            }
+          },
+          supportNeeds: {
+            orderBy: { order: "asc" },
+            include: {
+              mentionedUser: { select: { id: true, name: true, email: true } },
+              editedBy: { select: { id: true, name: true, email: true } },
+            },
+          },
+          reviewedBy: { select: { name: true, email: true } },
+        },
+      });
+      entriesRaw.unshift(newTodayEntry);
+    } catch {
+      // Ignore if concurrent creation or DB error
+    }
+  }
 
   const entries = await attachMentionedUsers(entriesRaw);
 
@@ -350,7 +389,7 @@ export async function getAllTeams(): Promise<TeamWithMembers[]> {
     orderBy: { name: "asc" },
   });
 
-  return teams as TeamWithMembers[];
+  return sortTeamGroups(teams as TeamWithMembers[]);
 }
 
 /** All users for team-member picker. */

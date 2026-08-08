@@ -154,6 +154,24 @@ function SharedNoteCard({
 
   const { checklist, cleanText } = parseNoteContent(note.content, note.checklistItems);
 
+  const hasChecklist = checklist.length > 0;
+  const uncheckedItems = checklist.filter((i) => !i.checked);
+  const checkedItems = checklist.filter((i) => i.checked);
+
+  // Top unchecked items displayed as preview under title
+  const topUncheckedItems = hasChecklist ? uncheckedItems.slice(0, 1) : [];
+  const topUncheckedIds = new Set(topUncheckedItems.map((i) => i.id));
+
+  // Items shown in the lower list section (remaining unchecked items + checked items)
+  const remainingItems = hasChecklist
+    ? [...uncheckedItems.filter((i) => !topUncheckedIds.has(i.id)), ...checkedItems]
+    : [];
+
+  const shownLowerItems = remainingItems.slice(0, 5);
+  const totalMoreItems = checklist.length - (topUncheckedItems.length + shownLowerItems.length);
+
+  const showCleanText = cleanText && cleanText.toLowerCase() !== note.title?.toLowerCase();
+
   return (
     <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-black">
       <div className="flex flex-col gap-2.5">
@@ -164,18 +182,15 @@ function SharedNoteCard({
           </h4>
         )}
 
-        {/* Content preview */}
-        {note.content && (
-          <div
-            className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
-            dangerouslySetInnerHTML={{ __html: note.content }}
-          />
-        )}
-
-        {/* Checklist items with checkboxes */}
-        {checklist.length > 0 && (
-          <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
-            {checklist.slice(0, 5).map((item) => (
+        {/* Content Preview (Top Unchecked Task & Clean Text Preview) */}
+        {hasChecklist ? (
+          <div className="flex flex-col gap-1.5">
+            {showCleanText && (
+              <p className="text-sm font-semibold text-black dark:text-black line-clamp-2">
+                {cleanText}
+              </p>
+            )}
+            {topUncheckedItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -185,7 +200,45 @@ function SharedNoteCard({
                   handleToggle(item.id);
                 }}
                 className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
-                  isReadOnly || item.id.startsWith("extracted-") ? "cursor-default opacity-90" : "hover:bg-black/5 cursor-pointer"
+                  isReadOnly || item.id.startsWith("extracted-")
+                    ? "cursor-default opacity-90"
+                    : "hover:bg-black/5 cursor-pointer"
+                }`}
+              >
+                <span className="mt-0.5 shrink-0">
+                  <Square size={15} className="text-slate-700" />
+                </span>
+                <span className="text-sm leading-snug select-none line-clamp-2 text-black dark:text-black font-semibold">
+                  {item.text.length > 80 ? item.text.substring(0, 80) + "…" : item.text}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          note.content && (
+            <div
+              className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
+              dangerouslySetInnerHTML={{ __html: note.content }}
+            />
+          )
+        )}
+
+        {/* Lower Checklist Section (Checked items & remaining list) */}
+        {remainingItems.length > 0 && (
+          <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
+            {shownLowerItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={isPending || isReadOnly || item.id.startsWith("extracted-")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggle(item.id);
+                }}
+                className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
+                  isReadOnly || item.id.startsWith("extracted-")
+                    ? "cursor-default opacity-90"
+                    : "hover:bg-black/5 cursor-pointer"
                 }`}
               >
                 <span className="mt-0.5 shrink-0">
@@ -204,9 +257,9 @@ function SharedNoteCard({
                 </span>
               </button>
             ))}
-            {checklist.length > 5 && (
+            {totalMoreItems > 0 && (
               <span className="text-xs text-black/60 font-medium pl-1">
-                +{checklist.length - 5} more items
+                +{totalMoreItems} more items
               </span>
             )}
           </div>
