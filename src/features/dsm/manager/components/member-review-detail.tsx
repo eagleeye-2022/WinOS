@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, CheckCheck, AlertTriangle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
-  PenIcon, GraduationCap,
+  PenIcon, GraduationCap, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -26,6 +26,7 @@ import { reviewStatus, relativeDayLabel, formatShortDate, weekOfMonth, getWeekRa
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
+import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
 
 
@@ -39,16 +40,16 @@ function priorityLevels(taskCount: number): string[] {
 
 /** Priority → colour classes, cycling through a palette for any number of levels */
 const PRIORITY_COLOR_CYCLE = [
-  "bg-red-50 text-red-700 border-red-300",
-  "bg-amber-50 text-amber-700 border-amber-300",
-  "bg-sky-50 text-sky-700 border-sky-300",
-  "bg-violet-50 text-violet-700 border-violet-300",
-  "bg-emerald-50 text-emerald-700 border-emerald-300",
-  "bg-pink-50 text-pink-700 border-pink-300",
-  "bg-orange-50 text-orange-700 border-orange-300",
-  "bg-teal-50 text-teal-700 border-teal-300",
-  "bg-indigo-50 text-indigo-700 border-indigo-300",
-  "bg-lime-50 text-lime-700 border-lime-300",
+  "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-300 dark:border-red-800",
+  "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800",
+  "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800",
+  "bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-800",
+  "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800",
+  "bg-pink-50 dark:bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-800",
+  "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800",
+  "bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800",
+  "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800",
+  "bg-lime-50 dark:bg-lime-500/15 text-lime-700 dark:text-lime-300 border-lime-300 dark:border-lime-800",
 ];
 function priorityColor(p: string): string {
   const n = parseInt(p.slice(1), 10);
@@ -165,9 +166,9 @@ function EditTaskRow({ taskId, text }: { taskId: string; text: string }) {
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+        className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
       >
-        <Check size={16} strokeWidth={2.5} />
+        {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
       </button>
       <button
         type="button"
@@ -195,7 +196,7 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
         title="Remove task"
         className="rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover/task:opacity-100 hover:bg-destructive/10 hover:text-destructive"
       >
-        <Trash2 size={13} />
+        {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
     </form>
   );
@@ -242,9 +243,9 @@ function AddTaskRow({ entryId }: { entryId: string }) {
           type="submit"
           disabled={pending}
           title="Add task"
-          className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+          className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
         >
-          <Check size={16} strokeWidth={2.5} />
+          {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
         </button>
         <button
           type="button"
@@ -307,13 +308,10 @@ function EditBlockerRow({
     return (
       <div className="flex flex-1 flex-col gap-0.5 min-w-0">
         <div className="flex flex-1 items-center gap-1.5 min-w-0">
-          <div className="flex flex-1 flex-wrap items-center gap-1 min-w-0">
-            {mentionedMembers.map((m) => (
-              <span key={m.id} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary shrink-0 select-none">
-                @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
-              </span>
-            ))}
-            <span className="text-sm leading-snug text-destructive/90 truncate">{initialText}</span>
+          <div className="flex flex-1 items-center gap-1 min-w-0">
+            <span className="text-sm leading-snug text-destructive/90 truncate">
+              {renderTextWithMentions(initialText, mentionedMembers, "font-semibold text-destructive")}
+            </span>
           </div>
           <button
             type="button"
@@ -361,9 +359,9 @@ function EditBlockerRow({
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+        className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
       >
-        <Check size={16} strokeWidth={2.5} />
+        {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
       </button>
       <button
         type="button"
@@ -391,7 +389,7 @@ function DeleteBlockerButton({ blockerId }: { blockerId: string }) {
         title="Remove blocker"
         className="rounded p-1 text-destructive/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive"
       >
-        <Trash2 size={13} />
+        {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
     </form>
   );
@@ -441,9 +439,9 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
         type="submit"
         disabled={pending}
         title="Add blocker"
-        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+        className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
       >
-        <Check size={16} strokeWidth={2.5} />
+        {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
       </button>
       <button
         type="button"
@@ -508,18 +506,15 @@ function EditSupportRow({
     return (
       <div className="flex flex-1 flex-col gap-0.5 min-w-0">
         <div className="flex flex-1 items-center gap-1.5 min-w-0">
-          <div className="flex flex-1 flex-wrap items-center gap-1 min-w-0">
-            {mentionedMembers.map((m) => (
-              <span key={m.id} className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 shrink-0 select-none">
-                @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
-              </span>
-            ))}
-            <span className="text-sm leading-snug text-foreground/90 truncate">{initialText}</span>
+          <div className="flex flex-1 items-center gap-1 min-w-0">
+            <span className="text-sm leading-snug text-foreground/90 truncate">
+              {renderTextWithMentions(initialText, mentionedMembers, "font-semibold text-info")}
+            </span>
           </div>
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border px-2 py-1 text-xs font-medium text-sky-700/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-sky-100 hover:text-sky-800"
+            className="rounded border px-2 py-1 text-xs font-medium text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info"
           >
             Edit
           </button>
@@ -562,9 +557,9 @@ function EditSupportRow({
         type="submit"
         disabled={pending}
         title="Save"
-        className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+        className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
       >
-        <Check size={16} strokeWidth={2.5} />
+        {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
       </button>
       <button
         type="button"
@@ -590,9 +585,9 @@ function DeleteSupportButton({ supportId }: { supportId: string }) {
         type="submit"
         disabled={pending}
         title="Remove support need"
-        className="rounded p-1 text-sky-700/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-sky-100 hover:text-sky-800"
+        className="rounded p-1 text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info"
       >
-        <Trash2 size={13} />
+        {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
     </form>
   );
@@ -618,7 +613,7 @@ function AddSupportRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-sky-300 py-2 text-xs font-medium text-sky-700 transition-colors hover:border-sky-500 hover:bg-sky-100/50"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-info/40 py-2 text-xs font-medium text-info transition-colors hover:border-info hover:bg-info/10"
       >
         <Plus size={13} /> Add Support Needed
       </button>
@@ -633,7 +628,7 @@ function AddSupportRow({
         setText("");
         setMentionedUserIds([]);
       }}
-      className="mt-2 flex flex-col gap-2 rounded-lg border border-sky-200 bg-card p-3 shadow-xs"
+      className="mt-2 flex flex-col gap-2 rounded-lg border border-info/30 bg-card p-3 shadow-xs"
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
@@ -652,7 +647,7 @@ function AddSupportRow({
         />
       </div>
 
-      <div className="flex items-center justify-between border-t pt-2 border-sky-100">
+      <div className="flex items-center justify-between border-t pt-2 border-info/20">
         <div className="flex items-center gap-2">
           {onScheduleMeeting && (
             <button
@@ -661,7 +656,7 @@ function AddSupportRow({
                 const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
                 onScheduleMeeting(titleText, mentionedUserIds);
               }}
-              className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2.5 py-1 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 text-[11px] font-semibold text-info hover:bg-info/20 px-2.5 py-1 rounded border border-info/40 transition-all cursor-pointer shadow-2xs"
             >
               <Calendar size={12} />
               Schedule Meeting
@@ -673,9 +668,9 @@ function AddSupportRow({
             type="submit"
             disabled={pending}
             title="Add support"
-            className="rounded-md bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
           >
-            <Check size={16} strokeWidth={2.5} />
+            {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
           </button>
           <button
             type="button"
@@ -705,7 +700,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
 
   if (state.message === "reviewed") {
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">
         <CheckCheck size={16} /> Reviewed
       </div>
     );
@@ -719,7 +714,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
         disabled={pending}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        <CheckCheck size={16} />
+        {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
         {pending ? "Reviewing…" : "Reviewed ✓"}
       </button>
     </form>
@@ -805,14 +800,14 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                 <span
                   className={cn(
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
-                    task.isCompleted ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                    task.isCompleted ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                   )}
                 >
                   Y{i + 1}
                 </span>
                 <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
                 {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                     CO
                   </span>
                 )}
@@ -837,7 +832,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                   </span>
                   <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
                   {carried && (
-                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                    <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                       CO
                     </span>
                   )}
@@ -851,8 +846,8 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
       {(hasFollowUps || hasBlockers) && (
         <div className={cn("grid gap-2", hasFollowUps && hasBlockers ? "grid-cols-2" : "grid-cols-1")}>
           {hasFollowUps && (
-            <div className="rounded-lg bg-sky-50/50 border border-sky-100 p-2.5">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700">
+            <div className="rounded-lg bg-info/10 border border-info/20 p-2.5">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-info">
                 Support Needed (Meeting)
               </p>
               <ol className="space-y-0.5">
@@ -864,12 +859,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                   return (
                     <li key={s.id} className="text-xs leading-snug text-foreground/80">
                       {i + 1}){" "}
-                      {mentioned.map((m) => (
-                        <span key={m.id} className="font-semibold text-primary">
-                          @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                        </span>
-                      ))}
-                      {s.text}
+                      {renderTextWithMentions(s.text, mentioned, "font-semibold text-primary")}
                       {s.editedBy && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                           (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
@@ -895,12 +885,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                   return (
                     <li key={b.id} className="text-xs leading-snug text-destructive/90">
                       {i + 1}){" "}
-                      {mentioned.map((m) => (
-                        <span key={m.id} className="font-semibold text-destructive">
-                          @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                        </span>
-                      ))}
-                      {b.text}
+                      {renderTextWithMentions(b.text, mentioned, "font-semibold text-destructive")}
                       {b.editedBy && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                           (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
@@ -958,7 +943,7 @@ function TaskRow({
           </span>
         )}
         {isCarriedOver && (
-          <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 shrink-0">
+          <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning shrink-0">
             CO
           </span>
         )}
@@ -1076,9 +1061,9 @@ function EntryExpanded({
             {yesterdayTasks.map((task, i) => (
               <div key={task.id || i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
                 {task.isCompleted ? (
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-500" />
+                  <CheckCircle2 size={16} className="shrink-0 text-success" />
                 ) : (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-amber-500/60 bg-amber-50 text-[10px] font-bold text-amber-600">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-warning/50 bg-warning/10 text-[10px] font-bold text-warning">
                     •
                   </span>
                 )}
@@ -1086,7 +1071,7 @@ function EntryExpanded({
                   {task.text}
                 </span>
                 {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-amber-700 dark:text-amber-400">
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                     CO
                   </span>
                 )}
@@ -1153,13 +1138,8 @@ function EntryExpanded({
                   ) : (
                     <div className="flex flex-1 flex-col gap-0.5">
                       <div className="flex flex-1 items-center gap-1.5">
-                        {members.map((m) => (
-                          <span key={m.id} className="text-xs font-semibold text-primary shrink-0">
-                            @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                          </span>
-                        ))}
                         <span className={cn("flex-1 text-sm leading-snug", b.resolved ? "line-through text-muted-foreground" : "text-destructive/90")}>
-                          {b.text}
+                          {renderTextWithMentions(b.text, members, "font-semibold text-destructive")}
                         </span>
                       </div>
                       {b.editedBy && (
@@ -1180,12 +1160,12 @@ function EntryExpanded({
 
       {/* Support needed */}
       {(entry.supportNeeds.length > 0 || !isLocked) && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4">
-          <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-sky-700">
+        <div className="rounded-xl border border-info/30 bg-info/10 p-4">
+          <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-info">
             <span className="flex items-center gap-2">
-              <Handshake size={15} className="text-sky-700" />
+              <Handshake size={15} className="text-info" />
               Any Support Needed (Meeting)?
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
+              <span className="rounded-full bg-info/15 px-2 py-0.5 text-xs font-semibold text-info">
                 {entry.supportNeeds.length}
               </span>
             </span>
@@ -1198,7 +1178,7 @@ function EntryExpanded({
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (s.mentionedUser?.id === id ? s.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
               return (
-                <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-sky-100/60">
+                <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-info/10">
                   {!isLocked ? (
                     <EditSupportRow
                       supportId={s.id}
@@ -1211,13 +1191,8 @@ function EntryExpanded({
                   ) : (
                     <div className="flex flex-1 flex-col gap-0.5">
                       <div className="flex flex-1 items-center gap-1.5">
-                        {members.map((m) => (
-                          <span key={m.id} className="text-xs font-medium text-primary shrink-0">
-                            @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                          </span>
-                        ))}
                         <span className="flex-1 text-sm leading-snug text-foreground/90">
-                          {s.text}
+                          {renderTextWithMentions(s.text, members, "font-medium text-primary")}
                         </span>
                       </div>
                       {s.editedBy && (
@@ -1233,7 +1208,7 @@ function EntryExpanded({
                       const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       setScheduleModal({ title: titleText, participantIds: uIds });
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-200/60 px-2 py-0.5 rounded border border-sky-300 transition-all cursor-pointer shadow-2xs shrink-0"
+                    className="flex items-center gap-1 text-[11px] font-semibold text-info hover:bg-info/20 px-2 py-0.5 rounded border border-info/40 transition-all cursor-pointer shadow-2xs shrink-0"
                   >
                     <Calendar size={12} />
                     Schedule Meeting
@@ -1261,7 +1236,7 @@ function EntryExpanded({
       )}
 
       {entry.status === "REVIEWED" && (
-        <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+        <div className="flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">
           <CheckCheck size={16} />
           Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name?.split(" ")[0] ?? "manager"}` : ""}
         </div>
@@ -1314,7 +1289,7 @@ function TodayEntryCard({
             </span>
           </div>
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
-            <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="w-fit rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
             </span>
           )}
@@ -1323,15 +1298,15 @@ function TodayEntryCard({
         <div className="flex shrink-0 items-center gap-2">
           <span className={cn(
             "flex items-center gap-1.5 text-xs font-medium",
-            review.kind === "reviewed" ? "text-emerald-600"
-              : review.kind === "pending" ? "text-amber-600"
+            review.kind === "reviewed" ? "text-success"
+              : review.kind === "pending" ? "text-warning"
                 : review.kind === "none" ? "text-muted-foreground"
                   : "text-destructive"
           )}>
             <span className={cn(
               "h-2 w-2 rounded-full",
-              review.kind === "reviewed" ? "bg-emerald-500"
-                : review.kind === "pending" ? "bg-amber-500"
+              review.kind === "reviewed" ? "bg-success"
+                : review.kind === "pending" ? "bg-warning"
                   : review.kind === "none" ? "bg-muted-foreground/40"
                     : "bg-destructive"
             )} />
@@ -1399,7 +1374,7 @@ function DayCardCollapsed({
             <span className="text-xs text-muted-foreground">{dayLabel}</span>
           )}
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
             </span>
           )}
@@ -1409,7 +1384,7 @@ function DayCardCollapsed({
             </span>
           )}
           {entry.status === "DRAFT" && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
               Draft
             </span>
           )}
@@ -1419,7 +1394,7 @@ function DayCardCollapsed({
             </span>
           )}
           {entry.supportNeeds.length > 0 && (
-            <span className="rounded-full border border-sky-300/50 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+            <span className="rounded-full border border-info/40 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
               {entry.supportNeeds.length} Follow-Up{entry.supportNeeds.length > 1 ? "s" : ""}
             </span>
           )}
@@ -1433,8 +1408,8 @@ function DayCardCollapsed({
             </span>
           )}
           {review.kind === "pending" && (
-            <span className="flex items-center gap-1 text-amber-600">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span className="flex items-center gap-1 text-warning">
+              <span className="h-2 w-2 rounded-full bg-warning" />
               {review.label}
             </span>
           )}

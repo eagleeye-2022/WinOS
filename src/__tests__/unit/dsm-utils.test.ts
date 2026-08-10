@@ -9,6 +9,8 @@ import {
   relativeDayLabel,
   formatShortDate,
   formatFullDate,
+  sortTeamMembers,
+  sortTeamGroups,
 } from "@/features/dsm/utils";
 
 // ── toUtcDate ─────────────────────────────────────────────────────────────────
@@ -246,5 +248,121 @@ describe("formatShortDate", () => {
 describe("formatFullDate", () => {
   it("formats as 'May 28, 2026'", () => {
     expect(formatFullDate(new Date("2026-05-28T00:00:00Z"))).toBe("May 28, 2026");
+  });
+});
+
+// ── sortTeamMembers & sortTeamGroups ─────────────────────────────────────────
+
+describe("sortTeamMembers", () => {
+  it("sorts Tech team members in explicit sequence: Ujjwal -> Mohit / M.thakre -> Dhruv", () => {
+    const members = [
+      { name: "Dhruv Sharma" },
+      { name: "M.thakre" },
+      { name: "Ujjawal Singh" },
+    ];
+    const sorted = sortTeamMembers(members, "Tech Team");
+    expect(sorted.map((m) => m.name)).toEqual([
+      "Ujjawal Singh",
+      "M.thakre",
+      "Dhruv Sharma",
+    ]);
+  });
+
+  it("sorts remaining Tech members alphabetically after fixed ranks", () => {
+    const members = [
+      { name: "Zack" },
+      { name: "Dhruv" },
+      { name: "Alex" },
+      { name: "Ishita" },
+      { name: "Mohit" },
+      { name: "Ujjwal" },
+    ];
+    const sorted = sortTeamMembers(members, "Engineering");
+    expect(sorted.map((m) => m.name)).toEqual([
+      "Ujjwal",
+      "Mohit",
+      "Dhruv",
+      "Alex",
+      "Ishita",
+      "Zack",
+    ]);
+  });
+
+  it("sorts Creative team members in explicit sequence: Shadab -> Vanshika -> Vaishnavi", () => {
+    const members = [
+      { name: "Vaishnavi" },
+      { name: "Vanshika" },
+      { name: "Shadab" },
+      { name: "Test Member" },
+    ];
+    const sorted = sortTeamMembers(members, "Creative Team");
+    expect(sorted.map((m) => m.name)).toEqual([
+      "Shadab",
+      "Vanshika",
+      "Vaishnavi",
+      "Test Member",
+    ]);
+  });
+
+  it("sorts Marketing team members in explicit sequence: Rahil -> Muskan -> Unnati -> Priyanka -> Yogesh", () => {
+    const members = [
+      { name: "Yogesh" },
+      { name: "Priyanka" },
+      { name: "Muskan" },
+      { name: "Rahil" },
+      { name: "Unnati" },
+    ];
+    const sorted = sortTeamMembers(members, "Marketing Team");
+    expect(sorted.map((m) => m.name)).toEqual([
+      "Rahil",
+      "Muskan",
+      "Unnati",
+      "Priyanka",
+      "Yogesh",
+    ]);
+  });
+
+  it("sorts SMM team members with Rohan first", () => {
+    const members = [
+      { name: "Test Member" },
+      { name: "Rohan Gour" },
+    ];
+    const sorted = sortTeamMembers(members, "SMM Team");
+    expect(sorted.map((m) => m.name)).toEqual([
+      "Rohan Gour",
+      "Test Member",
+    ]);
+  });
+});
+
+describe("sortTeamGroups", () => {
+  it("sorts groups by Department Rank (Marketing -> Creative -> Tech -> Others)", () => {
+    const groups = [
+      { teamName: "Tech Team", department: "Engineering" },
+      { teamName: "Marketing Team", department: "Marketing" },
+      { teamName: "Design Team", department: "Creative" },
+    ];
+    const sorted = sortTeamGroups(groups);
+    expect(sorted.map((g) => g.teamName)).toEqual([
+      "Marketing Team",
+      "Design Team",
+      "Tech Team",
+    ]);
+  });
+
+  it("ranks SMM after Marketing -> Creative -> Tech", () => {
+    const groups = [
+      { teamName: "SMM Team", department: null },
+      { teamName: "Tech Team", department: "Engineering" },
+      { teamName: "Marketing Team", department: "Marketing" },
+      { teamName: "Design Team", department: "Creative" },
+    ];
+    const sorted = sortTeamGroups(groups);
+    expect(sorted.map((g) => g.teamName)).toEqual([
+      "Marketing Team",
+      "Design Team",
+      "Tech Team",
+      "SMM Team",
+    ]);
   });
 });

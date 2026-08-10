@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { HelpCircle, LogOut, Search } from "lucide-react";
+import { HelpCircle, LogOut } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { AppSidebar } from "@/components/shared/app-sidebar";
@@ -12,6 +12,8 @@ import {
   getNotifications,
 } from "@/features/notifications/queries";
 import { ModuleSwitcher } from "@/components/shared/module-switcher";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { Button } from "@/components/ui/button";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -68,17 +70,8 @@ export default async function DashboardLayout({
           <ModuleSwitcher />
         </div>
 
-        {/* Search — centered in remaining space */}
-        <div className="flex flex-1 items-center justify-center px-4">
-          <div className="flex w-full max-w-sm items-center gap-2 rounded-full border bg-background px-3 py-1.5">
-            <Search size={13} className="shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search WinOS..."
-              className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
-            />
-          </div>
-        </div>
+        {/* Spacer — keeps right icons pinned while leaving room for future content */}
+        <div className="flex-1" />
 
         {/* Right icons */}
         <div className="flex items-center gap-2 px-4">
@@ -86,12 +79,17 @@ export default async function DashboardLayout({
             initialUnread={unreadCount}
             initialNotifications={recentNotifications}
           />
-          <button
+          {/* <ThemeToggle /> */}
+          <Button
             type="button"
-            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+            variant="ghost"
+            size="icon"
+            aria-label="Help"
+            title="Help"
+            className="h-8 w-8 rounded-full text-muted-foreground"
           >
             <HelpCircle size={16} />
-          </button>
+          </Button>
           <span
             title={userName}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
@@ -99,13 +97,16 @@ export default async function DashboardLayout({
             {initials || "U"}
           </span>
           <form action={logoutAction}>
-            <button
+            <Button
               type="submit"
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
               title="Sign out"
-              className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent"
+              className="h-8 w-8 rounded-full text-muted-foreground"
             >
               <LogOut size={16} />
-            </button>
+            </Button>
           </form>
         </div>
       </header>

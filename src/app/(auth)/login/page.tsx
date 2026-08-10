@@ -1,5 +1,6 @@
 import { LoginForm } from "@/features/auth/components/login-form";
 import { APP_CONFIG } from "@/config/app";
+import { createCaptcha } from "@/lib/captcha";
 
 export default async function LoginPage({
   searchParams,
@@ -7,6 +8,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const captcha = createCaptcha();
 
   return (
     <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
@@ -17,7 +19,7 @@ export default async function LoginPage({
       {/* <p className="mb-6 text-xs text-muted-foreground">
         Enter Your @eagleeyedigital.io Email to Receive a Sign-In Code
       </p> */}
-      <LoginForm error={error} />
+      <LoginForm error={error} captcha={captcha} />
     </div>
   );
 }

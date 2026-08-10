@@ -18,6 +18,15 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-danger: var(--destructive);
+  --color-danger-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -29,7 +38,60 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-reveal 950ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes theme-reveal {
+  0% {
+    clip-path: circle(0% at var(--vt-x, 0%) var(--vt-y, 100%));
+    filter: blur(10px) saturate(0.7) brightness(1.05);
+  }
+  55% {
+    filter: blur(2px) saturate(1.05) brightness(1);
+  }
+  100% {
+    clip-path: circle(
+      var(--vt-r, 150%) at var(--vt-x, 0%) var(--vt-y, 100%)
+    );
+    filter: blur(0) saturate(1) brightness(1);
+  }
+}
+
+@keyframes theme-toggle-ripple {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
 :root {
+  /* dark-mode palette — single source of truth, referenced by .dark below */
+  --dark-bg: #000000;
+  --dark-surface: #000000;
+  --dark-primary: #0f3460;
+  --dark-secondary: #000000;
+
+  --dark-text-primary: #ffffff;
+  --dark-text-secondary: #d9dce7;
+  --dark-text-muted: #aeb3c2;
+  --dark-border: #4a4e69;
+
   /* WinOS brand blue — matches Figma primary (~#1976D2 / Material Blue 700) */
   --primary: oklch(0.546 0.200 260);
   --primary-foreground: oklch(0.985 0 0);
@@ -54,6 +116,16 @@
   --accent-foreground: oklch(0.456 0.185 257);
 
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --success: #16a34a;
+  --success-foreground: oklch(0.985 0 0);
+
+  --warning: #d97706;
+  --warning-foreground: oklch(0.985 0 0);
+
+  --info: #0284c7;
+  --info-foreground: oklch(0.985 0 0);
 
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -63,32 +135,52 @@
 }
 
 .dark {
-  --primary: oklch(0.72 0.15 257);
-  --primary-foreground: oklch(0.145 0 0);
+  /* subtle variations derived from the four core colors — used for elevation & states */
+  --dark-surface-elevated: color-mix(in srgb, var(--dark-surface) 80%, white 20%);
+  --dark-primary-hover: color-mix(in srgb, var(--dark-primary) 78%, white 22%);
+  --dark-accent: color-mix(in srgb, var(--dark-primary) 65%, var(--dark-surface) 35%);
+  --dark-muted-bg: color-mix(in srgb, var(--dark-bg) 65%, var(--dark-surface) 35%);
+  --dark-disabled-text: color-mix(in srgb, var(--dark-text-muted) 55%, var(--dark-bg) 45%);
+  --dark-link: var(--dark-primary-hover);
+  --dark-link-hover: color-mix(in srgb, var(--dark-primary-hover) 75%, white 25%);
 
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
+  /** semantic tokens mapped from the dark-mode palette */
+  --primary: var(--dark-primary);
+  --primary-foreground: var(--dark-text-primary);
 
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  --background: var(--dark-bg);
+  --foreground: var(--dark-text-primary);
 
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --card: var(--dark-surface);
+  --card-foreground: var(--dark-text-primary);
 
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --popover: var(--dark-surface-elevated);
+  --popover-foreground: var(--dark-text-primary);
 
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  --secondary: var(--dark-secondary);
+  --secondary-foreground: var(--dark-text-primary);
 
-  --accent: oklch(0.269 0.03 257);
-  --accent-foreground: oklch(0.72 0.15 257);
+  --muted: var(--dark-muted-bg);
+  --muted-foreground: var(--dark-text-muted);
 
-  --destructive: oklch(0.704 0.191 22.216);
+  --accent: var(--dark-accent);
+  --accent-foreground: var(--dark-text-primary);
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.15 257);
+  --destructive: #ff8080;
+  --destructive-foreground: #000000;
+
+  --success: #7dff95;
+  --success-foreground: #000000;
+
+  --warning: #ffbc5e;
+  --warning-foreground: #000000;
+
+  --info: #87d1ff;
+  --info-foreground: #000000;
+
+  --border: var(--dark-border);
+  --input: var(--dark-secondary);
+  --ring: var(--dark-primary-hover);
 }
 
 * {
@@ -98,6 +190,28 @@
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+.dark body {
+  background: linear-gradient(180deg, var(--dark-bg) 0%, var(--dark-surface) 60%, var(--dark-secondary) 100%);
+  background-attachment: fixed;
+}
+
+.dark ::placeholder {
+  color: var(--dark-text-muted);
+}
+
+.dark a {
+  color: var(--dark-link);
+}
+
+.dark a:hover {
+  color: var(--dark-link-hover);
+}
+
+.dark :disabled,
+.dark [aria-disabled="true"] {
+  color: var(--dark-disabled-text);
 }
 
 /* Rich text content formatting */

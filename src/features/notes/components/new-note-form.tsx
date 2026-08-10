@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Plus, X as XIcon } from "lucide-react";
+import { Plus, X as XIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ColorPicker } from "@/components/shared/color-picker";
 import { createNote, type CreateNoteState } from "../actions/create-note";
@@ -239,8 +239,9 @@ export function NewNoteForm({ notebooks }: NewNoteFormProps) {
         <button
           type="submit"
           disabled={notePending}
-          className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-1.5 self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
+          {notePending && <Loader2 size={14} className="animate-spin" />}
           {notePending ? "Saving…" : "Add note"}
         </button>
 
@@ -266,8 +267,9 @@ export function NewNoteForm({ notebooks }: NewNoteFormProps) {
             <button
               type="submit"
               disabled={nbPending}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
             >
+              {nbPending && <Loader2 size={12} className="animate-spin" />}
               {nbPending ? "…" : "Create"}
             </button>
           </div>

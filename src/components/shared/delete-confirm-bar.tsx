@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 type DeleteConfirmBarProps = {
   /** Confirmation prompt shown to the user. */
@@ -29,8 +29,9 @@ export function DeleteConfirmBar({
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-destructive px-2 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
+          {pending && <Loader2 size={12} className="animate-spin" />}
           {pending ? "Deleting…" : "Delete"}
         </button>
       </form>

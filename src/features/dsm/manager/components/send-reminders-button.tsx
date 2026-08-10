@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Bell, BellRing, CheckCircle2 } from "lucide-react";
+import { Bell, CheckCircle2, Loader2 } from "lucide-react";
 import { sendRemindersToTeam, type SendReminderState } from "@/features/notifications/actions/send-reminder";
 
 type Props = {
@@ -23,7 +23,7 @@ export function SendRemindersButton({ teamId, pendingCount }: Props) {
 
   if (wasSent) {
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+      <span className="flex items-center gap-1 text-xs font-medium text-success">
         <CheckCircle2 size={12} />
         {state.sent} Reminder{state.sent !== 1 ? "s" : ""} Sent
       </span>
@@ -47,7 +47,7 @@ export function SendRemindersButton({ teamId, pendingCount }: Props) {
         className="flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline disabled:text-muted-foreground disabled:no-underline"
       >
         {pending ? (
-          <BellRing size={11} className="animate-pulse" />
+          <Loader2 size={11} className="animate-spin" />
         ) : (
           <Bell size={11} />
         )}

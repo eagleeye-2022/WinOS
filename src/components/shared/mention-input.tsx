@@ -118,12 +118,40 @@ export function MentionInput({
     const root = editorRef.current;
     if (!root) return;
     root.innerHTML = "";
-    defaultMentions.forEach((m) => {
-      root.appendChild(createMentionNode(m));
-      root.appendChild(document.createTextNode(" "));
-    });
-    if (defaultValue) {
-      root.appendChild(document.createTextNode(defaultValue));
+
+    // `defaultValue` already has "@Label" embedded wherever the user typed the mention
+    // (MentionInput's onChange emits root.textContent, mentions included). Rebuild the
+    // mention chips in place instead of re-prefixing them, or they'd render twice.
+    let rebuiltInline = false;
+    if (defaultMentions.length > 0 && defaultValue) {
+      const byLabel = defaultMentions
+        .map((m) => ({ member: m, label: `@${memberLabel(m)}` }))
+        .sort((a, b) => b.label.length - a.label.length); // longest first avoids partial overlaps
+      const escaped = byLabel.map((l) => l.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const pattern = new RegExp(`(${escaped.join("|")})`, "g");
+
+      if (pattern.test(defaultValue)) {
+        pattern.lastIndex = 0;
+        defaultValue.split(pattern).forEach((part) => {
+          const match = byLabel.find((l) => l.label === part);
+          if (match) {
+            root.appendChild(createMentionNode(match.member));
+          } else if (part) {
+            root.appendChild(document.createTextNode(part));
+          }
+        });
+        rebuiltInline = true;
+      }
+    }
+
+    if (!rebuiltInline) {
+      defaultMentions.forEach((m) => {
+        root.appendChild(createMentionNode(m));
+        root.appendChild(document.createTextNode(" "));
+      });
+      if (defaultValue) {
+        root.appendChild(document.createTextNode(defaultValue));
+      }
     }
     setHiddenValue(root.textContent ?? "");
     if (autoFocus) {
@@ -430,11 +458,11 @@ export function MentionInput({
                   className={cn(
                     "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
                     selectedIndex === idx
-                      ? "bg-emerald-500/10 text-emerald-600 font-medium"
+                      ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium"
                       : "hover:bg-accent text-foreground"
                   )}
                 >
-                  <FileText size={14} className="shrink-0 text-emerald-500" />
+                  <FileText size={14} className="shrink-0 text-emerald-500 dark:text-emerald-400" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-foreground">
                       {f.title}

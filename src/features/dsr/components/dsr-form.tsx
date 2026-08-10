@@ -21,7 +21,7 @@ export function renderTextWithMentions(text: string) {
     <>
       {parts.map((part, i) =>
         part.startsWith("@") ? (
-          <span key={i} className="font-semibold text-blue-600 dark:text-blue-400">
+          <span key={i} className="font-semibold text-info">
             {part}
           </span>
         ) : (
@@ -69,7 +69,7 @@ function MentionableInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder=""
         className={cn(
-          "relative z-10 w-full bg-transparent text-sm outline-none caret-blue-600 text-transparent selection:bg-blue-500/20 selection:text-foreground",
+          "relative z-10 w-full bg-transparent text-sm outline-none caret-primary text-transparent selection:bg-primary/20 selection:text-foreground",
           className
         )}
       />
@@ -226,9 +226,9 @@ function PlannedTasksSection({
             {task.priority && (
               <span className={cn(
                 "shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase",
-                task.priority.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
-                task.priority.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
-                task.priority.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+                task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
+                task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
+                task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
                 !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {task.priority.toUpperCase()}

@@ -56,13 +56,13 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
         <DsmHeader entry={todayEntry} />
 
         {justSubmitted && (
-          <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <svg className="mt-0.5 h-[18px] w-[18px] shrink-0 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+          <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
+            <svg className="mt-0.5 h-[18px] w-[18px] shrink-0 text-success" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
             <div>
-              <p className="text-sm font-semibold text-emerald-800">DSM Submitted for {formatShortDate(toUtcDate())}</p>
-              <p className="text-xs text-emerald-700">Your Team Focus Has Been Updated for Today.</p>
+              <p className="text-sm font-semibold text-success">DSM Submitted for {formatShortDate(toUtcDate())}</p>
+              <p className="text-xs text-success">Your Team Focus Has Been Updated for Today.</p>
             </div>
           </div>
         )}

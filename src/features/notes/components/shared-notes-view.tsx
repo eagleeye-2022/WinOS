@@ -219,7 +219,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                             ...(note.checklistItems?.filter((c) => c.checked) || []),
                           ].slice(0, 3).map((item) => (
                             <div key={item.id} className="flex items-center gap-2 text-xs text-foreground/80 line-clamp-1">
-                              <span className={cn("text-xs font-semibold shrink-0", item.checked ? "text-emerald-500" : "text-muted-foreground/60")}>
+                              <span className={cn("text-xs font-semibold shrink-0", item.checked ? "text-success" : "text-muted-foreground/60")}>
                                 {item.checked ? "✓" : "○"}
                               </span>
                               <span className={cn("truncate", item.checked && "line-through text-muted-foreground/60")}>{item.text}</span>
@@ -249,7 +249,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                           <span className="truncate text-xs font-semibold">{authorName}</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded-full text-xs">
+                        <div className="flex items-center gap-1.5 font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full text-xs">
                           <Users size={11} />
                           <span className="truncate">{recipients.length > 0 ? recipients.join(", ") : "Shared"}</span>
                         </div>
@@ -262,7 +262,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                     </div>
 
                     {note.deadline && (
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md self-start">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-danger bg-danger/10 border border-danger/20 px-2 py-0.5 rounded-md self-start">
                         <Calendar size={11} />
                         Due: {new Date(note.deadline).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
                       </div>
@@ -314,7 +314,7 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                   <div className="flex flex-col gap-2 rounded-xl border border-border/60 p-4 bg-background/60 backdrop-blur-xs max-h-60 overflow-y-auto">
                     {selectedNote.checklistItems.map((item) => (
                       <div key={item.id} className="flex items-center gap-2.5 text-sm">
-                        <span className={cn("font-bold text-sm shrink-0", item.checked ? "text-emerald-500" : "text-muted-foreground/60")}>
+                        <span className={cn("font-bold text-sm shrink-0", item.checked ? "text-success" : "text-muted-foreground/60")}>
                           {item.checked ? "✓" : "○"}
                         </span>
                         <span className={cn("text-foreground", item.checked && "line-through text-muted-foreground/70")}>{item.text}</span>

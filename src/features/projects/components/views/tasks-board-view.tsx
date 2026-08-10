@@ -86,14 +86,14 @@ export function TasksBoardView({
       code: "OPEN",
       title: "OPEN",
       badgeColor: "bg-emerald-600 text-white",
-      borderColor: "border-emerald-200 dark:border-emerald-900/40",
+      borderColor: "border-success/30",
       tasks: filteredTasks.filter((t) => t.status.toLowerCase() === "open"),
     },
     {
       code: "IN_PROGRESS",
       title: "IN PROGRESS",
       badgeColor: "bg-amber-500 text-white",
-      borderColor: "border-amber-200 dark:border-amber-900/40",
+      borderColor: "border-warning/30",
       tasks: filteredTasks.filter(
         (t) => t.status.toLowerCase() === "in progress" || t.status.toLowerCase() === "in_progress"
       ),
@@ -102,49 +102,49 @@ export function TasksBoardView({
       code: "IN_REVIEW",
       title: "IN REVIEW",
       badgeColor: "bg-sky-500 text-white",
-      borderColor: "border-sky-200 dark:border-sky-900/40",
+      borderColor: "border-info/30",
       tasks: [],
     },
     {
       code: "ON_HOLD",
       title: "ON HOLD",
       badgeColor: "bg-slate-400 text-white",
-      borderColor: "border-slate-200 dark:border-slate-800",
+      borderColor: "border",
       tasks: [],
     },
     {
       code: "DELAYED",
       title: "DELAYED",
       badgeColor: "bg-cyan-500 text-white",
-      borderColor: "border-cyan-200 dark:border-cyan-900/40",
+      borderColor: "border-info/30",
       tasks: [],
     },
     {
       code: "DONE",
       title: "DONE",
-      badgeColor: "bg-lime-600 text-white",
-      borderColor: "border-lime-200 dark:border-lime-900/40",
+      badgeColor: "bg-success text-success-foreground",
+      borderColor: "border-success/30",
       tasks: [],
     },
     {
       code: "FOLLOW_UP",
       title: "FOLLOW UP",
       badgeColor: "bg-purple-600 text-white",
-      borderColor: "border-purple-200 dark:border-purple-900/40",
+      borderColor: "border-primary/30",
       tasks: [],
     },
     {
       code: "PENDING_FROM_CLIENT",
       title: "PENDING FROM CLIENT",
       badgeColor: "bg-rose-500 text-white",
-      borderColor: "border-rose-200 dark:border-rose-900/40",
+      borderColor: "border-danger/30",
       tasks: [],
     },
     {
       code: "CLOSED",
       title: "CLOSED",
       badgeColor: "bg-slate-700 text-white",
-      borderColor: "border-slate-300 dark:border-slate-700",
+      borderColor: "border",
       tasks: filteredTasks.filter(
         (t) => t.status.toLowerCase() === "closed"
       ),
@@ -153,7 +153,7 @@ export function TasksBoardView({
       code: "READY_TO_ONBOARD",
       title: "READY TO ONBOARD",
       badgeColor: "bg-yellow-700 text-white",
-      borderColor: "border-yellow-300 dark:border-yellow-900/40",
+      borderColor: "border-warning/30",
       tasks: [],
     },
   ];
@@ -266,35 +266,35 @@ export function TasksBoardView({
             <button
               type="button"
               onClick={() => setActiveSubTab("DASHBOARD")}
-              className={`pb-0.5 ${activeSubTab === "DASHBOARD" ? "text-blue-600 border-b-2 border-blue-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-0.5 ${activeSubTab === "DASHBOARD" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Dashboard
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab("TASKS")}
-              className={`pb-0.5 ${activeSubTab === "TASKS" ? "text-blue-600 border-b-2 border-blue-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-0.5 ${activeSubTab === "TASKS" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Tasks
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab("PHASES")}
-              className={`pb-0.5 ${activeSubTab === "PHASES" ? "text-blue-600 border-b-2 border-blue-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-0.5 ${activeSubTab === "PHASES" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Phases
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab("TIME_LOGS")}
-              className={`pb-0.5 ${activeSubTab === "TIME_LOGS" ? "text-blue-600 border-b-2 border-blue-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-0.5 ${activeSubTab === "TIME_LOGS" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Time Logs
             </button>
             <button
               type="button"
               onClick={() => setActiveSubTab("CHECKLIST")}
-              className={`pb-0.5 ${activeSubTab === "CHECKLIST" ? "text-blue-600 border-b-2 border-blue-600 font-bold" : "text-muted-foreground hover:text-foreground"}`}
+              className={`pb-0.5 ${activeSubTab === "CHECKLIST" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Checklist
             </button>
@@ -337,7 +337,7 @@ export function TasksBoardView({
                   onClick={() => setViewMode("STATUS_COLUMNS")}
                   className={`p-1.5 rounded transition-colors ${
                     viewMode === "STATUS_COLUMNS"
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 font-bold"
+                      ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
                   }`}
                   title="Vertical Status Columns"
@@ -349,7 +349,7 @@ export function TasksBoardView({
                   onClick={() => setViewMode("PHASE_COLUMNS")}
                   className={`p-1.5 rounded transition-colors ${
                     viewMode === "PHASE_COLUMNS"
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 font-bold"
+                      ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
                   }`}
                   title="17 Phase Vertical Columns"
@@ -361,7 +361,7 @@ export function TasksBoardView({
                   onClick={() => setViewMode("KANBAN")}
                   className={`p-1.5 rounded transition-colors ${
                     viewMode === "KANBAN"
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300 font-bold"
+                      ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
                   }`}
                   title="Kanban Board View"
@@ -408,7 +408,7 @@ export function TasksBoardView({
               <button
                 type="button"
                 onClick={() => setIsAddTaskDrawerOpen(true)}
-                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
               >
                 <Plus size={16} /> Add Task
               </button>
@@ -442,16 +442,16 @@ export function TasksBoardView({
 
           {/* View Mode 1: Vertical Status Columns */}
           {viewMode === "STATUS_COLUMNS" && (
-            <div className="flex-1 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/80">
+            <div className="flex-1 overflow-x-auto p-6 bg-background">
               <div className="flex gap-4 h-full items-start">
                 {statusColumnsList.map((col) => (
                   <div
                     key={col.code}
-                    className="w-12 hover:w-64 transition-all duration-300 shrink-0 rounded-2xl border bg-slate-100/70 dark:bg-card p-2 flex flex-col h-full max-h-full items-center shadow-2xs group"
+                    className="w-12 hover:w-64 transition-all duration-300 shrink-0 rounded-2xl border bg-card p-2 flex flex-col h-full max-h-full items-center shadow-2xs group"
                   >
                     <button
                       type="button"
-                      className="mb-3 p-1 rounded-md border bg-background text-blue-600 dark:text-blue-400 hover:bg-accent transition-colors shadow-2xs"
+                      className="mb-3 p-1 rounded-md border bg-background text-info hover:bg-accent transition-colors shadow-2xs"
                       title={`Open ${col.title} tasks`}
                     >
                       <ExternalLink size={13} />
@@ -473,7 +473,7 @@ export function TasksBoardView({
                         <div
                           key={task.id}
                           onClick={() => handleOpenTask(task)}
-                          className="rounded-lg border border-border bg-background p-2.5 shadow-2xs hover:border-blue-500/60 hover:shadow-xs transition-all cursor-pointer space-y-1.5"
+                          className="rounded-lg border border-border bg-background p-2.5 shadow-2xs hover:border-primary/60 hover:shadow-xs transition-all cursor-pointer space-y-1.5"
                         >
                           <span className="font-mono text-[10px] font-bold text-muted-foreground block">
                             {task.code}
@@ -492,22 +492,22 @@ export function TasksBoardView({
 
           {/* View Mode 2: 17 Phase Vertical Columns */}
           {viewMode === "PHASE_COLUMNS" && (
-            <div className="flex-1 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/80">
+            <div className="flex-1 overflow-x-auto p-6 bg-background">
               <div className="flex gap-3 h-full items-start">
                 {verticalPhasesList.map((phase) => (
                   <div
                     key={phase.code}
-                    className="w-12 hover:w-60 transition-all duration-300 shrink-0 rounded-2xl border bg-slate-100/70 dark:bg-card p-2 flex flex-col h-full max-h-full items-center shadow-2xs group"
+                    className="w-12 hover:w-60 transition-all duration-300 shrink-0 rounded-2xl border bg-card p-2 flex flex-col h-full max-h-full items-center shadow-2xs group"
                   >
                     <button
                       type="button"
-                      className="mb-3 p-1 rounded-md border bg-background text-blue-600 dark:text-blue-400 hover:bg-accent transition-colors shadow-2xs"
+                      className="mb-3 p-1 rounded-md border bg-background text-info hover:bg-accent transition-colors shadow-2xs"
                     >
                       <ExternalLink size={13} />
                     </button>
 
                     <div
-                      className="rounded-full bg-slate-200/80 dark:bg-slate-800 text-foreground px-2 py-4 text-[11px] font-bold tracking-wide select-none transition-transform duration-200"
+                      className="rounded-full bg-secondary text-foreground px-2 py-4 text-[11px] font-bold tracking-wide select-none transition-transform duration-200"
                       style={{
                         writingMode: "vertical-rl",
                         textOrientation: "mixed",
@@ -524,7 +524,7 @@ export function TasksBoardView({
 
           {/* View Mode 3: Kanban Board Columns */}
           {viewMode === "KANBAN" && (
-            <div className="flex-1 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background">
+            <div className="flex-1 overflow-x-auto p-6 bg-background">
               <div className="flex gap-5 h-full items-start">
                 {phaseColumns.map((col) => (
                   <div
@@ -561,22 +561,22 @@ export function TasksBoardView({
                                 "https://www.figma.com/design/Vm2CJsnQueANsM8TOXAl6H/WinOS---Web-Design?node-id=1-7&t=7EKtZ6Eb1SFxcRt-1",
                             })
                           }
-                          className="rounded-lg border border-border bg-background p-3.5 shadow-2xs hover:border-blue-500/60 hover:shadow-md transition-all cursor-pointer space-y-2.5"
+                          className="rounded-lg border border-border bg-background p-3.5 shadow-2xs hover:border-primary/60 hover:shadow-md transition-all cursor-pointer space-y-2.5"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-mono text-[11px] font-bold text-muted-foreground">
                               {task.code}
                             </span>
                             {task.status === "Open" ? (
-                              <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                              <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-[10px] font-bold text-success">
                                 OPEN
                               </span>
                             ) : task.status === "In Progress" ? (
-                              <span className="rounded-full bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                              <span className="rounded-full bg-warning/10 px-2.5 py-0.5 text-[10px] font-bold text-warning">
                                 IN PROGRESS
                               </span>
                             ) : (
-                              <span className="rounded-full bg-sky-100 dark:bg-sky-950/60 px-2.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300">
+                              <span className="rounded-full bg-info/10 px-2.5 py-0.5 text-[10px] font-bold text-info">
                                 CLOSED
                               </span>
                             )}
@@ -609,7 +609,7 @@ export function TasksBoardView({
 
           {/* Bottom Sprint Footer */}
           <div className="flex items-center justify-between border-t px-6 py-2.5 bg-background text-xs text-muted-foreground font-medium shrink-0">
-            <div className="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-950/60 px-3 py-1 text-sky-700 dark:text-sky-300 font-semibold">
+            <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-1 text-info font-semibold">
               • ACTIVE SPRINT: 68% COMPLETE
             </div>
             <div className="flex items-center gap-4 text-[11px]">

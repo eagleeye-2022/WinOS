@@ -6,15 +6,15 @@ import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "@/features/dsm/manager/components/send-reminder-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
 
-const DOT_COLORS = ["bg-primary", "bg-primary", "bg-emerald-500", "bg-amber-400"];
+const DOT_COLORS = ["bg-primary", "bg-primary", "bg-success", "bg-warning"];
 
 // Deterministic avatar gradient per user, cycling through a small palette
 const AVATAR_GRADIENTS = [
   "from-primary/25 to-primary/10 text-primary",
-  "from-violet-400/25 to-violet-400/10 text-violet-600",
-  "from-sky-400/25 to-sky-400/10 text-sky-600",
-  "from-rose-400/25 to-rose-400/10 text-rose-600",
-  "from-amber-400/25 to-amber-400/10 text-amber-700",
+  "from-violet-400/25 dark:from-violet-400/20 to-violet-400/10 text-violet-600 dark:text-violet-300",
+  "from-sky-400/25 dark:from-sky-400/20 to-sky-400/10 text-sky-600 dark:text-sky-300",
+  "from-rose-400/25 dark:from-rose-400/20 to-rose-400/10 text-rose-600 dark:text-rose-300",
+  "from-amber-400/25 dark:from-amber-400/20 to-amber-400/10 text-amber-700 dark:text-amber-300",
 ] as const;
 
 function avatarGradientFor(userId: string) {
@@ -66,7 +66,7 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold ring-1 ring-black/5",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold ring-1 ring-border dark:ring-white/10",
               gradient
             )}
           >
@@ -84,7 +84,7 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
           </div>
         </div>
         {isReviewed && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-900 dark:text-indigo-950">
             <ClipboardCheck size={11} /> Reviewed
           </span>
         )}
@@ -118,24 +118,24 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
   return (
     <Link
       href={ROUTES.dsrMember(card.userId)}
-      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-red-50/40 p-4 transition-all duration-200 hover:border-red-300 hover:bg-red-50/70 hover:shadow-md dark:bg-red-950/10 dark:hover:bg-red-950/20 cursor-pointer"
+      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-danger/10 p-4 transition-all duration-200 hover:border-destructive/40 hover:bg-danger/15 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-bold text-red-500 ring-1 ring-black/5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-xs font-bold text-destructive ring-1 ring-border dark:ring-white/10">
             {initials}
           </div>
           <div className="flex flex-col min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
               {displayName}
             </p>
-            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-red-500">
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-destructive">
               <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
             </span>
           </div>
         </div>
       </div>
-      <div className="mt-3.5 pt-3 border-t border-red-200/60 flex items-center justify-between">
+      <div className="mt-3.5 pt-3 border-t border-destructive/20 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
           Review <ChevronRight size={13} />
@@ -153,11 +153,11 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
   return (
     <div className="flex h-full min-h-[420px] w-80 md:w-96 min-w-[320px] shrink-0 flex-col gap-3">
       {/* Column header (fixed) */}
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2 pr-3">
         <span className={cn("h-2 w-2 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />
         <span className="text-sm font-semibold">{group.teamName}</span>
         {allSubmitted ? (
-          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
             <CheckCircle2 size={11} /> All Submitted
           </span>
         ) : (
@@ -168,7 +168,7 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
       </div>
 
       {/* Member cards (internal scroll — keeps the column height fixed) */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 dsm-columns-scrollbar">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 dsm-columns-scrollbar">
         {group.members.map((card) => {
           const isSubmitted =
             card.status === "SUBMITTED" ||

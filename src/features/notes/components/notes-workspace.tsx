@@ -19,6 +19,7 @@ import {
   GripVertical,
   Pencil,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -837,8 +838,9 @@ export function NotesWorkspace({
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
+                        className="flex items-center gap-1 rounded bg-primary text-primary-foreground px-3 py-1 text-xs font-semibold"
                       >
+                        {isPending && <Loader2 size={12} className="animate-spin" />}
                         Create
                       </button>
                     </div>
@@ -1957,8 +1959,9 @@ export function NotesWorkspace({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
               >
+                {isPending && <Loader2 size={13} className="animate-spin" />}
                 Publish
               </button>
             </div>
@@ -2122,8 +2125,9 @@ export function NotesWorkspace({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
               >
+                {isPending && <Loader2 size={13} className="animate-spin" />}
                 Save Card
               </button>
             </div>
@@ -2192,8 +2196,9 @@ export function NotesWorkspace({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
               >
+                {isPending && <Loader2 size={13} className="animate-spin" />}
                 Save Changes
               </button>
             </div>
@@ -2201,7 +2206,7 @@ export function NotesWorkspace({
         </div>
       )}
 
-      {/* 6. Edit List (Thread) Dialog Overlay */}
+  {/* 6. Edit List (Thread) Dialog Overlay */}
       {editingThread && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs">
           <form
@@ -2245,8 +2250,9 @@ export function NotesWorkspace({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
               >
+                {isPending && <Loader2 size={13} className="animate-spin" />}
                 Save Changes
               </button>
             </div>

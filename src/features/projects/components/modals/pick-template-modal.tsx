@@ -71,7 +71,7 @@ export function PickTemplateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-xs p-4">
       <div className="w-full max-w-md rounded-xl border bg-background shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
@@ -114,7 +114,7 @@ export function PickTemplateModal({
                   onClick={() => toggleSelect(template.id)}
                   className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-all ${
                     selectedIds.includes(template.id)
-                      ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 shadow-2xs"
+                      ? "border-info bg-info/10 shadow-2xs"
                       : "border-border bg-background hover:bg-accent/40"
                   }`}
                 >
@@ -122,7 +122,7 @@ export function PickTemplateModal({
                     type="checkbox"
                     checked={selectedIds.includes(template.id)}
                     onChange={() => {}}
-                    className="mt-0.5 rounded border-input text-blue-600 h-4 w-4"
+                    className="mt-0.5 rounded border-input text-primary h-4 w-4"
                   />
                   <div className="space-y-0.5">
                     <h4 className="font-bold text-foreground leading-tight">
@@ -151,7 +151,7 @@ export function PickTemplateModal({
             type="button"
             onClick={handleAdd}
             disabled={selectedIds.length === 0}
-            className="rounded-md bg-blue-600 px-5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-2xs"
+            className="rounded-md bg-primary px-5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-2xs"
           >
             Add
           </button>

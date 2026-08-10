@@ -56,16 +56,16 @@ export default async function DSMPage({ searchParams }: Props) {
 
         {/* Success banner after submit */}
         {justSubmitted && (
-          <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="flex items-start gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-3">
             <CheckCircle2
               size={18}
-              className="mt-0.5 shrink-0 text-emerald-600"
+              className="mt-0.5 shrink-0 text-success"
             />
             <div>
-              <p className="text-sm font-semibold text-emerald-800">
+              <p className="text-sm font-semibold text-success">
                 DSM Submitted Successfully
               </p>
-              <p className="text-xs text-emerald-700">
+              <p className="text-xs text-success">
                 Your Team Focus Has Been Updated for {formatShortDate(today)}.
               </p>
             </div>

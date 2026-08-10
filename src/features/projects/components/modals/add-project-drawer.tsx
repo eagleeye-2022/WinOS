@@ -14,6 +14,7 @@ import {
   Strikethrough,
   Maximize2,
   AlignLeft,
+  Loader2,
 } from "lucide-react";
 import { DEFAULT_PROJECT_PHASES } from "../../data/mock-projects";
 import { Project, ProjectPhase } from "../../types";
@@ -58,6 +59,8 @@ export function AddProjectDrawer({
   const [newPhaseCode, setNewPhaseCode] = useState("");
   const [newPhaseName, setNewPhaseName] = useState("");
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isOpen) return null;
 
   const handleAddNewPhase = () => {
@@ -100,6 +103,8 @@ export function AddProjectDrawer({
     e.preventDefault();
     if (!projectName.trim()) return;
 
+    setIsSubmitting(true);
+
     const initials = owner
       ? owner
           .split(" ")
@@ -138,10 +143,11 @@ export function AddProjectDrawer({
 
     onAddProject(newProject);
     onClose();
+    setIsSubmitting(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs transition-opacity duration-200">
       <div className="relative flex h-full w-full max-w-2xl flex-col bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Drawer Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
@@ -226,7 +232,7 @@ export function AddProjectDrawer({
                 <button
                   type="button"
                   onClick={() => setShowAddPhaseModal(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-blue-50/50 py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-100/60 dark:bg-blue-950/20 dark:border-blue-900/50 dark:text-blue-400 transition-colors"
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-info/30 bg-info/10 py-2.5 text-xs font-semibold text-info hover:bg-info/15 transition-colors"
                 >
                   Add New Phase <Plus size={15} />
                 </button>
@@ -371,7 +377,7 @@ export function AddProjectDrawer({
                       </label>
                       <button
                         type="button"
-                        className="text-[10px] text-blue-600 hover:underline"
+                        className="text-[10px] text-primary hover:underline"
                       >
                         Enter Duration
                       </button>
@@ -595,8 +601,10 @@ export function AddProjectDrawer({
           <div className="flex items-center justify-start gap-3 pt-3 pb-4">
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-6 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm"
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
             >
+              {isSubmitting && <Loader2 size={13} className="animate-spin" />}
               Add
             </button>
             <button

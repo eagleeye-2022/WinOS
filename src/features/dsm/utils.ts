@@ -124,11 +124,10 @@ export function getTeamRank(teamName: string, department?: string | null): numbe
   const lowerName = (teamName || "").toLowerCase();
   const lowerDept = (department || "").toLowerCase();
 
-  // 1. Marketing / Growth / SMM Team
+  // 1. Marketing / Growth Team
   if (
     lowerName.includes("marketing") ||
     lowerDept.includes("marketing") ||
-    lowerName.includes("smm") ||
     lowerName.includes("growth")
   ) {
     return 1;
@@ -151,6 +150,15 @@ export function getTeamRank(teamName: string, department?: string | null): numbe
   ) {
     return 3;
   }
+  // 4. SMM Team
+  if (
+    lowerName.includes("smm") ||
+    lowerName.includes("social media") ||
+    lowerDept.includes("smm") ||
+    lowerDept.includes("social media")
+  ) {
+    return 4;
+  }
 
   return 99;
 }
@@ -166,6 +174,8 @@ export function sortTeamMembers<
   const lowerTeam = (teamName || "").toLowerCase();
   const isCreative = lowerTeam.includes("creative") || lowerTeam.includes("design");
   const isTech = lowerTeam.includes("tech") || lowerTeam.includes("engineering");
+  const isMarketing = lowerTeam.includes("marketing") || lowerTeam.includes("growth");
+  const isSMM = lowerTeam.includes("smm") || lowerTeam.includes("social media");
 
   function getMemberRank(member: T): number {
     const rawName = member.name || member.user?.name || member.email || member.user?.email || "";
@@ -173,11 +183,26 @@ export function sortTeamMembers<
 
     if (isCreative) {
       if (name.includes("shadab") || name.includes("shadb")) return 1;
+      if (name.includes("vanshika") || name.includes("vanchika")) return 2;
+      if (name.includes("vaishnavi")) return 3;
+    }
+
+    if (isMarketing) {
+      if (name.includes("rahil")) return 1;
+      if (name.includes("muskan")) return 2;
+      if (name.includes("unnati")) return 3;
+      if (name.includes("priyanka")) return 4;
+      if (name.includes("yogesh")) return 5;
     }
 
     if (isTech) {
       if (name.includes("ujjwal") || name.includes("ujjawal")) return 1;
-      if (name.startsWith("m") || name.includes("mohit") || name.includes("marcus")) return 2;
+      if (name.includes("mohit") || name.includes("thakre") || name.includes("m.thakre")) return 2;
+      if (name.includes("dhruv")) return 3;
+    }
+
+    if (isSMM) {
+      if (name.includes("rohan")) return 1;
     }
 
     return 99;

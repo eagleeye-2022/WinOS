@@ -3,7 +3,7 @@
 import { useActionState, useState, useEffect, useRef } from "react";
 import {
   X, Search, Users, ChevronDown, Pencil, Check,
-  Paintbrush, Code2, TrendingUp, Hash, Layers, ShoppingBag, HeartHandshake,
+  Paintbrush, Code2, TrendingUp, Hash, Layers, ShoppingBag, HeartHandshake, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createTeam, type CreateTeamState } from "../actions/create-team";
@@ -18,19 +18,19 @@ function DeptIcon({ department }: { department?: string | null }) {
   const base = "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg";
   switch (department) {
     case "Design":
-      return <span className={cn(base, "bg-orange-100")}><Paintbrush size={15} className="text-orange-600" /></span>;
+      return <span className={cn(base, "bg-orange-100 dark:bg-orange-500/15")}><Paintbrush size={15} className="text-orange-600 dark:text-orange-300" /></span>;
     case "Engineering":
-      return <span className={cn(base, "bg-blue-100")}><Code2 size={15} className="text-blue-600" /></span>;
+      return <span className={cn(base, "bg-blue-100 dark:bg-blue-500/15")}><Code2 size={15} className="text-blue-600 dark:text-blue-300" /></span>;
     case "Marketing":
-      return <span className={cn(base, "bg-green-100")}><TrendingUp size={15} className="text-green-600" /></span>;
+      return <span className={cn(base, "bg-green-100 dark:bg-green-500/15")}><TrendingUp size={15} className="text-green-600 dark:text-green-300" /></span>;
     case "SMM":
-      return <span className={cn(base, "bg-purple-100")}><Hash size={15} className="text-purple-600" /></span>;
+      return <span className={cn(base, "bg-purple-100 dark:bg-purple-500/15")}><Hash size={15} className="text-purple-600 dark:text-purple-300" /></span>;
     case "Product":
-      return <span className={cn(base, "bg-violet-100")}><Layers size={15} className="text-violet-600" /></span>;
+      return <span className={cn(base, "bg-violet-100 dark:bg-violet-500/15")}><Layers size={15} className="text-violet-600 dark:text-violet-300" /></span>;
     case "Sales":
-      return <span className={cn(base, "bg-amber-100")}><ShoppingBag size={15} className="text-amber-600" /></span>;
+      return <span className={cn(base, "bg-amber-100 dark:bg-amber-500/15")}><ShoppingBag size={15} className="text-amber-600 dark:text-amber-300" /></span>;
     case "Support":
-      return <span className={cn(base, "bg-cyan-100")}><HeartHandshake size={15} className="text-cyan-600" /></span>;
+      return <span className={cn(base, "bg-cyan-100 dark:bg-cyan-500/15")}><HeartHandshake size={15} className="text-cyan-600 dark:text-cyan-300" /></span>;
     default:
       return <span className={cn(base, "bg-primary/10")}><Users size={15} className="text-primary" /></span>;
   }
@@ -60,7 +60,7 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
       >
         <span
           className={cn(
-            "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+            "inline-block h-3.5 w-3.5 transform rounded-full bg-card shadow transition-transform",
             on ? "translate-x-4.5" : "translate-x-0.5"
           )}
         />
@@ -420,6 +420,7 @@ function TeamForm({
           disabled={pending}
           className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
+          {pending && <Loader2 size={14} className="animate-spin" />}
           {pending
             ? isEdit ? "Saving…" : "Creating…"
             : isEdit ? "Save Team" : "Create Team 🚀"}
@@ -440,7 +441,7 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
       <div className="flex max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-background shadow-2xl">
 
         {/* Left — existing teams */}

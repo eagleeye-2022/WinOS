@@ -11,6 +11,7 @@ import {
   Info,
   User,
   X,
+  Loader2,
 } from "lucide-react";
 
 interface PhaseRow {
@@ -107,6 +108,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showAddPhaseForm, setShowAddPhaseForm] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleSelectAll = () => {
     if (selectedIds.length === phases.length) {
@@ -128,6 +130,8 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
     e.preventDefault();
     if (!newPhaseName.trim()) return;
 
+    setIsSubmitting(true);
+
     const newPh: PhaseRow = {
       id: `ph-${Date.now()}`,
       name: newPhaseName.trim(),
@@ -142,6 +146,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
     setPhases([...phases, newPh]);
     setNewPhaseName("");
     setShowAddPhaseForm(false);
+    setIsSubmitting(false);
   };
 
   return (
@@ -153,7 +158,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
             <select
               value={selectedPhaseFilter}
               onChange={(e) => setSelectedPhaseFilter(e.target.value)}
-              className="rounded border border-input bg-background px-3 py-1.5 font-medium text-blue-600 dark:text-blue-400 outline-none cursor-pointer appearance-none pr-8"
+              className="rounded border border-input bg-background px-3 py-1.5 font-medium text-info outline-none cursor-pointer appearance-none pr-8"
             >
               <option value="All Phases">All Phases</option>
               <option value="Active Phases">Active Phases</option>
@@ -161,7 +166,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
             </select>
             <ChevronDown
               size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-600 dark:text-blue-400 pointer-events-none"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-info pointer-events-none"
             />
           </div>
         </div>
@@ -196,7 +201,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
           <button
             type="button"
             onClick={() => setShowAddPhaseForm(true)}
-            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
           >
             <Plus size={16} /> Add Task
           </button>
@@ -207,7 +212,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
       {showAddPhaseForm && (
         <form
           onSubmit={handleAddPhaseSubmit}
-          className="flex items-center gap-3 border-b p-3 bg-blue-50/50 dark:bg-blue-950/20 text-xs"
+          className="flex items-center gap-3 border-b p-3 bg-info/10 text-xs"
         >
           <input
             type="text"
@@ -219,8 +224,10 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
           />
           <button
             type="submit"
-            className="rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
+            {isSubmitting && <Loader2 size={12} className="animate-spin" />}
             Save Phase
           </button>
           <button
@@ -243,7 +250,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
                   type="checkbox"
                   checked={selectedIds.length === phases.length}
                   onChange={toggleSelectAll}
-                  className="rounded border-input text-blue-600 h-4 w-4"
+                  className="rounded border-input text-primary h-4 w-4"
                 />
               </th>
               <th className="py-3 px-4 border-r whitespace-nowrap min-w-[280px]">
@@ -275,7 +282,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
               <td
                 colSpan={6}
                 onClick={() => setShowAddPhaseForm(true)}
-                className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-blue-600 hover:bg-accent/20 transition-colors"
+                className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
               >
                 Add Phase...
               </td>
@@ -291,7 +298,7 @@ export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
                     type="checkbox"
                     checked={selectedIds.includes(phase.id)}
                     onChange={() => toggleSelect(phase.id)}
-                    className="rounded border-input text-blue-600 h-4 w-4"
+                    className="rounded border-input text-primary h-4 w-4"
                   />
                 </td>
 

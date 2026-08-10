@@ -39,11 +39,11 @@ function StatusBadge({ status }: { status: EntryStatus }) {
     );
   }
   const styles: Record<NonNullable<EntryStatus>, string> = {
-    SUBMITTED:      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
-    PENDING_REVIEW: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
-    REVIEWED:       "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400",
-    DRAFT:          "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
-    MISSED:         "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+    SUBMITTED:      "bg-success/10 text-success",
+    PENDING_REVIEW: "bg-info/10 text-info",
+    REVIEWED:       "bg-primary/10 text-primary",
+    DRAFT:          "bg-warning/10 text-warning",
+    MISSED:         "bg-danger/10 text-danger",
   };
   const labels: Record<NonNullable<EntryStatus>, string> = {
     SUBMITTED: "Submitted", PENDING_REVIEW: "Pending Review",
@@ -59,9 +59,9 @@ function StatusBadge({ status }: { status: EntryStatus }) {
 function ProjectBadge({ status }: { status: "On Track" | "At Risk" | "Needs Attention" }) {
   if (status === "At Risk") return null;
   const styles = {
-    "On Track":        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
-    "At Risk":         "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
-    "Needs Attention": "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+    "On Track":        "bg-success/10 text-success",
+    "At Risk":         "bg-warning/10 text-warning",
+    "Needs Attention": "bg-danger/10 text-danger",
   };
   return (
     <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", styles[status])}>
@@ -309,7 +309,7 @@ function MemberDashboard({
               <AlertCircle
                 size={15}
                 strokeWidth={1.75}
-                className={unresolvedBlockers > 0 ? "text-amber-500" : "text-muted-foreground"}
+                className={unresolvedBlockers > 0 ? "text-warning" : "text-muted-foreground"}
               />
             </span>
             <div>
@@ -334,7 +334,7 @@ function MemberDashboard({
               <SupportNeededIcon
                 size={17}
                 strokeWidth={1.75}
-                className={pendingSupports > 0 ? "text-blue-500" : "text-muted-foreground"}
+                className={pendingSupports > 0 ? "text-info" : "text-muted-foreground"}
               />
             </span>
             <div>

@@ -3,7 +3,7 @@
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare, Clock, Clock3, Users, AlertCircle } from "lucide-react";
+import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare, Clock, Clock3, Users, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
@@ -23,14 +23,14 @@ const PAGE_SIZE = 5;
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
 const STATUS_STYLES = {
-  in_progress: "border border-blue-500/40 text-blue-700 dark:text-blue-400 bg-transparent",
-  resolved: "border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-transparent",
+  in_progress: "border border-info/40 text-info bg-transparent",
+  resolved: "border border-success/40 text-success bg-transparent",
 } as const;
 
 const PRIORITY_STYLES = {
-  HIGH: "border border-red-500/40 text-red-700 dark:text-red-400 bg-transparent",
-  MEDIUM: "border border-amber-500/40 text-amber-700 dark:text-amber-400 bg-transparent",
-  LOW: "border border-violet-500/40 text-violet-700 dark:text-violet-400 bg-transparent",
+  HIGH: "border border-danger/40 text-danger bg-transparent",
+  MEDIUM: "border border-warning/40 text-warning bg-transparent",
+  LOW: "border border-primary/40 text-primary bg-transparent",
 } as const;
 
 function StatusBadge({ resolved }: { resolved: boolean }) {
@@ -71,7 +71,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
       id: "created",
       label: `Raised by ${item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}`,
       timeStr: formatEventTime(item.date),
-      colorClass: "bg-amber-500",
+      colorClass: "bg-warning",
     });
 
     // 2. Mentions event
@@ -90,7 +90,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
         id: "edited",
         label: `Edited by ${item.editedBy.name ?? item.editedBy.email.split("@")[0]}`,
         timeStr: formatEventTime(item.date),
-        colorClass: "bg-blue-500",
+        colorClass: "bg-info",
       });
     }
 
@@ -100,7 +100,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
         id: `comment-${c.id}`,
         label: `Update from ${c.author.name ?? c.author.email.split("@")[0]}: "${c.text}"`,
         timeStr: formatEventTime(c.createdAt),
-        colorClass: "bg-blue-500",
+        colorClass: "bg-info",
       });
     }
 
@@ -110,14 +110,14 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
         id: "resolved",
         label: "Marked as Resolved (Manager Resolution)",
         timeStr: formatEventTime(new Date()),
-        colorClass: "bg-emerald-500",
+        colorClass: "bg-success",
       });
     } else {
       evs.push({
         id: "active",
         label: `Blocker Active (${daysOpen(item.date)} days open)`,
         timeStr: formatEventTime(item.date),
-        colorClass: "bg-amber-500",
+        colorClass: "bg-warning",
       });
     }
 
@@ -201,7 +201,7 @@ function CommentForm({ blockerId }: { blockerId: string }) {
         className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50"
       />
       {state.errors?.text && <p className="text-xs text-destructive">{state.errors.text[0]}</p>}
-      {state.message === "added" && <p className="text-xs text-emerald-600">Update Posted.</p>}
+      {state.message === "added" && <p className="text-xs text-success">Update Posted.</p>}
       {state.message && state.message !== "added" && (
         <p className="text-xs text-destructive">{state.message}</p>
       )}
@@ -210,7 +210,7 @@ function CommentForm({ blockerId }: { blockerId: string }) {
         disabled={pending}
         className="flex items-center justify-center gap-2 self-end rounded-lg border px-4 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
       >
-        <MessageSquare size={12} />
+        {pending ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
         {pending ? "Posting…" : "Post Update"}
       </button>
     </form>
@@ -315,8 +315,9 @@ function DetailPanel({
                 <button
                   type="submit"
                   disabled={editPending}
-                  className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
+                  {editPending && <Loader2 size={12} className="animate-spin" />}
                   {editPending ? "Saving..." : "Save"}
                 </button>
               </div>
@@ -376,7 +377,7 @@ function DetailPanel({
           <p className="text-xs text-destructive">{resolveState.message}</p>
         )}
         {reminderState.message === "sent" && (
-          <p className="text-xs text-emerald-600">Reminder Sent.</p>
+          <p className="text-xs text-success">Reminder Sent.</p>
         )}
         {reminderState.message === "no_target" && (
           <p className="text-xs text-muted-foreground">No Manager Found to Notify.</p>
@@ -398,7 +399,7 @@ function DetailPanel({
                   : "bg-primary text-primary-foreground"
               )}
             >
-              <CheckCircle2 size={16} />
+              {resolvePending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
               {resolvePending
                 ? "Updating…"
                 : isResolved
@@ -415,7 +416,7 @@ function DetailPanel({
             disabled={isResolved || reminderPending}
             className="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
           >
-            <Play size={14} />
+            {reminderPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
             {reminderPending ? "Sending…" : "Send Reminder"}
           </button>
         </form>
@@ -438,9 +439,9 @@ function RaiseBlockerModal({
 
   if (state.message === "created") {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay">
         <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
-          <div className="mb-4 flex items-center gap-2 text-emerald-700">
+          <div className="mb-4 flex items-center gap-2 text-success">
             <CheckCircle2 size={18} />
             <span className="font-semibold">Blocker Raised Successfully.</span>
           </div>
@@ -457,7 +458,7 @@ function RaiseBlockerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay">
       <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-base font-semibold">Raise New Blocker</h2>
@@ -519,8 +520,9 @@ function RaiseBlockerModal({
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
+              {pending && <Loader2 size={14} className="animate-spin" />}
               {pending ? "Raising…" : "Raise Blocker"}
             </button>
           </div>
@@ -643,14 +645,14 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pending</p>
-                <span className="text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-[11px] font-semibold text-warning uppercase tracking-wider">Pending</p>
+                <span className="text-[9px] font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Active
                 </span>
               </div>
-              <p className="text-xl font-bold text-amber-800 dark:text-amber-300">{pendingCount}</p>
+              <p className="text-xl font-bold text-warning">{pendingCount}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-transparent text-amber-600 dark:text-amber-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-transparent text-warning">
               <Clock size={16} />
             </div>
           </div>
@@ -668,14 +670,14 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Resolved</p>
-                <span className="text-[9px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-[11px] font-semibold text-success uppercase tracking-wider">Resolved</p>
+                <span className="text-[9px] font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Done
                 </span>
               </div>
-              <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">{resolvedCount}</p>
+              <p className="text-xl font-bold text-success">{resolvedCount}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-transparent text-emerald-600 dark:text-emerald-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-transparent text-success">
               <CheckCircle2 size={16} />
             </div>
           </div>
@@ -693,14 +695,14 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wider">With Me</p>
-                <span className="text-[9px] font-semibold uppercase text-violet-600 dark:text-violet-400 border border-violet-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-[11px] font-semibold text-primary uppercase tracking-wider">With Me</p>
+                <span className="text-[9px] font-semibold uppercase text-primary border border-violet-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Tagged
                 </span>
               </div>
-              <p className="text-xl font-bold text-violet-800 dark:text-violet-300">{withMeActiveCount}</p>
+              <p className="text-xl font-bold text-primary">{withMeActiveCount}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-transparent text-violet-600 dark:text-violet-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/30 bg-transparent text-primary">
               <Users size={16} />
             </div>
           </div>
@@ -774,7 +776,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
               className={cn(
                 "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
                 statusFilter === "in_progress"
-                  ? "bg-blue-600 text-white font-semibold shadow-sm"
+                  ? "bg-info text-info-foreground font-semibold shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -786,7 +788,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
               className={cn(
                 "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
                 statusFilter === "resolved"
-                  ? "bg-emerald-600 text-white font-semibold shadow-sm"
+                  ? "bg-success text-success-foreground font-semibold shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >

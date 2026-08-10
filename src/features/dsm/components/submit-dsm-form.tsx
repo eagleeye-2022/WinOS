@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
@@ -74,7 +74,7 @@ function TaskRows({
                 teamMembers={teamMembers}
               />
               {task.carried && (
-                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
                   Carried over
                 </span>
               )}
@@ -183,9 +183,9 @@ function BlockerRows({
                     onChange={(e) => updateField(i, "priority", e.target.value)}
                     className={cn(
                       "cursor-pointer bg-transparent text-xs outline-none rounded px-1",
-                      b.priority === "HIGH" && "font-semibold text-red-600",
-                      b.priority === "MEDIUM" && "font-semibold text-amber-600",
-                      b.priority === "LOW" && "font-semibold text-sky-600",
+                      b.priority === "HIGH" && "font-semibold text-destructive",
+                      b.priority === "MEDIUM" && "font-semibold text-warning",
+                      b.priority === "LOW" && "font-semibold text-info",
                       !b.priority && "text-muted-foreground"
                     )}
                   >
@@ -583,8 +583,9 @@ export function SubmitDsmForm({
               value="draft"
               type="submit"
               disabled={pending}
-              className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
             >
+              {pending && <Loader2 size={14} className="animate-spin" />}
               Save Draft
             </button>
           )}
@@ -604,6 +605,7 @@ export function SubmitDsmForm({
               disabled={pending}
               className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
+              {pending && <Loader2 size={16} className="animate-spin" />}
               {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSM"}
               {!pending && <ChevronRight size={16} />}
             </button>

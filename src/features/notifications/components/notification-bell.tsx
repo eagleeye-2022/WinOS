@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Bell, Check, CheckCheck, Clock3, CalendarDays } from "lucide-react";
+import { Bell, Check, CheckCheck, Clock3, CalendarDays, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { markNotificationRead, markAllNotificationsRead, type MarkReadState } from "../actions/mark-read";
@@ -45,12 +45,12 @@ function NotifRow({
     >
       {/* Icon */}
       {notif.type === "CALENDAR_INVITE" ? (
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100">
-          <CalendarDays size={13} className="text-blue-600" />
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-info/15">
+          <CalendarDays size={13} className="text-info" />
         </span>
       ) : (
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100">
-          <Clock3 size={13} className="text-amber-600" />
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warning/15">
+          <Clock3 size={13} className="text-warning" />
         </span>
       )}
 
@@ -88,7 +88,7 @@ function NotifRow({
             title="Mark as read"
             className="rounded-full p-1 text-muted-foreground/40 transition-colors hover:bg-accent hover:text-primary"
           >
-            <Check size={13} />
+            {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
           </button>
         </form>
       )}

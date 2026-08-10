@@ -146,7 +146,7 @@ export function AllProjectsTableView({
               <button
                 type="button"
                 onClick={onOpenAddModal}
-                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
               >
                 <Plus size={16} /> Add New Project
               </button>
@@ -204,7 +204,7 @@ export function AllProjectsTableView({
             onClick={() => setActiveTab("ACTIVE")}
             className={`pb-3 transition-colors relative ${
               activeTab === "ACTIVE"
-                ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400"
+                ? "text-info border-b-2 border-info"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -215,7 +215,7 @@ export function AllProjectsTableView({
             onClick={() => setActiveTab("COMPLETED")}
             className={`pb-3 transition-colors relative ${
               activeTab === "COMPLETED"
-                ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400"
+                ? "text-info border-b-2 border-info"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -231,7 +231,7 @@ export function AllProjectsTableView({
             value={statusFilter}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 cursor-pointer outline-none"
+            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-info cursor-pointer outline-none"
           >
             <option value="ALL">All Projects</option>
             <option value="ACTIVE">Active Projects</option>
@@ -362,11 +362,11 @@ export function AllProjectsTableView({
                     <button
                       type="button"
                       onClick={() => handleCopyLink(project.id)}
-                      className="p-1 text-muted-foreground hover:text-blue-600 transition-colors rounded"
+                      className="p-1 text-muted-foreground hover:text-primary transition-colors rounded"
                       title="Copy Project Link"
                     >
                       {copiedId === project.id ? (
-                        <Check size={14} className="text-emerald-600" />
+                        <Check size={14} className="text-success" />
                       ) : (
                         <Copy size={14} />
                       )}
@@ -393,7 +393,7 @@ export function AllProjectsTableView({
                   </td>
 
                   <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 rounded bg-emerald-700 dark:bg-emerald-800 px-3 py-1 text-[11px] font-semibold text-white">
+                    <span className="inline-flex items-center gap-1 rounded bg-success px-3 py-1 text-[11px] font-semibold text-success-foreground">
                       {project.status === "ACTIVE" ? "Active" : "Completed"}
                     </span>
                   </td>
@@ -402,11 +402,11 @@ export function AllProjectsTableView({
                     {project.totalHours}
                   </td>
 
-                  <td className="py-3 px-4 border-r font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                  <td className="py-3 px-4 border-r font-mono text-[11px] font-bold text-info whitespace-nowrap">
                     {project.billableHours}
                   </td>
 
-                  <td className="py-3 px-4 border-r font-mono text-[11px] font-bold text-amber-600 dark:text-amber-500 whitespace-nowrap">
+                  <td className="py-3 px-4 border-r font-mono text-[11px] font-bold text-warning whitespace-nowrap">
                     {project.nonBillableHours}
                   </td>
 
@@ -425,7 +425,7 @@ export function AllProjectsTableView({
                       </span>
                       <div className="flex-1 min-w-[70px] bg-muted rounded-full h-3 overflow-hidden flex items-center p-0.5">
                         <div
-                          className="bg-emerald-500 h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-white font-bold px-1"
+                          className="bg-success h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-success-foreground font-bold px-1"
                           style={{
                             width: `${Math.max(
                               project.taskProgressPercent,
@@ -450,7 +450,7 @@ export function AllProjectsTableView({
                       </span>
                       <div className="flex-1 min-w-[70px] bg-muted rounded-full h-2 overflow-hidden">
                         <div
-                          className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                          className="bg-success h-full rounded-full transition-all duration-300"
                           style={{
                             width: `${
                               (project.completedPhasesCount /
@@ -489,7 +489,7 @@ export function AllProjectsTableView({
       {/* Bottom Sprint Footer Bar (shown for Team Member view matching Image 1) */}
       {userRole === "TEAM_MEMBER" && (
         <div className="flex items-center justify-between border-t px-6 py-2 bg-background text-xs text-muted-foreground font-medium shrink-0">
-          <div className="inline-flex items-center rounded-full bg-sky-100 dark:bg-sky-950/60 px-3 py-0.5 text-sky-700 dark:text-sky-300 font-semibold text-[11px]">
+          <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-0.5 text-info font-semibold text-[11px]">
             • ACTIVE SPRINT: 68% COMPLETE
           </div>
           <div className="flex items-center gap-4 text-[11px]">

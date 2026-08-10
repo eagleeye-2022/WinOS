@@ -16,6 +16,7 @@ import {
   Folder,
   X,
   Check,
+  Loader2,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 
@@ -37,6 +38,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
   const [logDuration, setLogDuration] = useState("00:30");
   const [logBillingType, setLogBillingType] = useState<"NON BILLABLE" | "BILLABLE">("NON BILLABLE");
   const [logRemarks, setLogRemarks] = useState("");
+  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
 
   const formattedDate = currentDate.toLocaleDateString("en-GB");
 
@@ -89,6 +91,8 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
     e.preventDefault();
     if (!logTitle.trim()) return;
 
+    setIsSubmittingLog(true);
+
     const newLog: TimeLogEntry = {
       id: `tl-${Date.now()}`,
       code: `EC2-T${Math.floor(3000 + Math.random() * 900)}`,
@@ -113,6 +117,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
     setShowAddLogModal(false);
     setLogTitle("");
     setLogRemarks("");
+    setIsSubmittingLog(false);
   };
 
   // Flattened entries for Group By Date mode (Matching Image 3)
@@ -129,7 +134,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative">
       {/* Top Header Bar */}
       <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400">
+        <h1 className="text-xl font-bold tracking-tight text-info">
           Time Tracker
         </h1>
         <div className="flex items-center gap-3">
@@ -197,7 +202,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
               <ChevronLeft size={15} />
             </button>
             <div className="flex items-center gap-1.5 font-medium px-1.5 text-xs">
-              <CalendarIcon size={14} className="text-blue-600 dark:text-blue-400" />
+              <CalendarIcon size={14} className="text-info" />
               <span>{formattedDate}</span>
             </div>
             <button
@@ -214,18 +219,18 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
         {/* Action Buttons & Filter Icons */}
         <div className="flex items-center gap-3 text-xs">
           {/* Add Time Log Split Button */}
-          <div className="inline-flex rounded-md bg-blue-600 text-white shadow-xs">
+          <div className="inline-flex rounded-md bg-primary text-primary-foreground shadow-xs">
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-4 py-1.5 font-semibold text-xs hover:bg-blue-700 transition-colors border-r border-blue-500"
+              className="px-4 py-1.5 font-semibold text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/30"
             >
               Add Time Log
             </button>
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-2 py-1.5 hover:bg-blue-700 transition-colors"
+              className="px-2 py-1.5 hover:bg-primary/90 transition-colors"
             >
               <ChevronDown size={14} />
             </button>
@@ -258,7 +263,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                 <th className="py-3 px-3 border-r w-10 text-center">
                   <input
                     type="checkbox"
-                    className="rounded border-input text-blue-600 h-4 w-4"
+                    className="rounded border-input text-primary h-4 w-4"
                   />
                 </th>
                 <th className="py-3 px-4 border-r whitespace-nowrap">ID</th>
@@ -283,7 +288,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
             </thead>
             <tbody className="divide-y divide-border">
               {/* Date Header Row */}
-              <tr className="bg-slate-100/70 dark:bg-muted/30 font-medium">
+              <tr className="bg-muted/30 font-medium">
                 <td className="py-3 px-3 border-r text-center" />
                 <td colSpan={3} className="py-3 px-4 border-r whitespace-nowrap font-bold">
                   05:07 | 01:51 | 03:16
@@ -296,7 +301,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                 <td
                   colSpan={8}
                   onClick={() => setShowAddLogModal(true)}
-                  className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-blue-600 hover:bg-accent/20 transition-colors"
+                  className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
                 >
                   Add Time Log...
                 </td>
@@ -312,7 +317,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                       type="checkbox"
                       checked={selectedLogIds.includes(log.id)}
                       onChange={() => handleToggleSelectLog(log.id)}
-                      className="rounded border-input text-blue-600 h-4 w-4"
+                      className="rounded border-input text-primary h-4 w-4"
                     />
                   </td>
 
@@ -361,7 +366,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                   </td>
 
                   <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="inline-block rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800/60 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                    <span className="inline-block rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning">
                       {log.billingType}
                     </span>
                   </td>
@@ -377,7 +382,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                 <th className="py-3 px-3 border-r w-10 text-center">
                   <input
                     type="checkbox"
-                    className="rounded border-input text-blue-600 h-4 w-4"
+                    className="rounded border-input text-primary h-4 w-4"
                   />
                 </th>
                 <th className="py-3 px-4 border-r whitespace-nowrap">ID</th>
@@ -406,7 +411,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
               {userGroups.map((group) => (
                 <React.Fragment key={group.userId}>
                   {/* User Row Header */}
-                  <tr className="bg-slate-100/70 dark:bg-muted/30 hover:bg-accent/40 transition-colors font-medium">
+                  <tr className="bg-muted/30 hover:bg-accent/40 transition-colors font-medium">
                     <td className="py-3 px-3 border-r text-center">
                       <button
                         type="button"
@@ -438,8 +443,8 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                     {/* DAILY LOG HOURS (Matching Image 1) */}
                     <td className="py-3 px-4 border-r font-mono font-bold whitespace-nowrap">
                       <span className="text-foreground">05:07</span> |{" "}
-                      <span className="text-blue-600 dark:text-blue-400">01:51</span> |{" "}
-                      <span className="text-amber-600 dark:text-amber-500">03:16</span>
+                      <span className="text-info">01:51</span> |{" "}
+                      <span className="text-warning">03:16</span>
                     </td>
 
                     <td colSpan={4} className="py-3 px-4" />
@@ -453,7 +458,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                         <td
                           colSpan={8}
                           onClick={() => setShowAddLogModal(true)}
-                          className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-blue-600 hover:bg-accent/20 transition-colors"
+                          className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
                         >
                           Add Time Log...
                         </td>
@@ -469,7 +474,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                               type="checkbox"
                               checked={selectedLogIds.includes(log.id)}
                               onChange={() => handleToggleSelectLog(log.id)}
-                              className="rounded border-input text-blue-600 h-4 w-4"
+                              className="rounded border-input text-primary h-4 w-4"
                             />
                           </td>
 
@@ -504,7 +509,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                           </td>
 
                           <td className="py-3 px-4 border-r whitespace-nowrap">
-                            <span className="inline-block rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                            <span className="inline-block rounded border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-[10px] font-bold text-warning">
                               {log.billingType}
                             </span>
                           </td>
@@ -528,7 +533,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
         <div className="flex items-center gap-6">
           <div>
             <span className="text-muted-foreground font-normal">Billable</span>{" "}
-            <strong className="text-blue-600 dark:text-blue-400 ml-1">
+            <strong className="text-info ml-1">
               00:00 h
             </strong>
           </div>
@@ -539,7 +544,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
             <span className="text-muted-foreground font-normal">
               Non Billable
             </span>{" "}
-            <strong className="text-amber-600 dark:text-amber-500 ml-1">
+            <strong className="text-warning ml-1">
               01:00 h
             </strong>
           </div>
@@ -559,7 +564,7 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
 
       {/* Add Time Log Modal Dialog */}
       {showAddLogModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-xl space-y-4 text-xs animate-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-sm font-bold text-foreground">Add New Time Log</h3>
@@ -652,8 +657,10 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                 </button>
                 <button
                   type="submit"
-                  className="rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                  disabled={isSubmittingLog}
+                  className="flex items-center gap-1.5 rounded bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
+                  {isSubmittingLog && <Loader2 size={12} className="animate-spin" />}
                   Save Log
                 </button>
               </div>

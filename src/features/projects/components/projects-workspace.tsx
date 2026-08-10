@@ -167,7 +167,7 @@ export function ProjectsWorkspace() {
                 onClick={() =>
                   setUserRole(userRole === "ADMIN" ? "TEAM_MEMBER" : "ADMIN")
                 }
-                className="flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 dark:bg-blue-950/40 dark:border-blue-800 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition-colors"
+                className="flex items-center gap-1 rounded-full border border-info/30 bg-info/10 px-2.5 py-1 text-[10px] font-bold text-info hover:bg-info/15 transition-colors"
                 title="Click to toggle Admin / Team Member perspective"
               >
                 {userRole === "ADMIN" ? (
@@ -176,7 +176,7 @@ export function ProjectsWorkspace() {
                   </>
                 ) : (
                   <>
-                    <UserCheck size={11} className="text-blue-500" /> Member View
+                    <UserCheck size={11} className="text-primary" /> Member View
                   </>
                 )}
               </button>
@@ -207,12 +207,12 @@ export function ProjectsWorkspace() {
               onClick={() => setActiveNav("ALL_PROJECTS")}
               className={`flex w-full items-center gap-3 rounded-r-md px-3 py-2 text-xs font-semibold transition-all relative ${
                 activeNav === "ALL_PROJECTS"
-                  ? "bg-blue-600 text-white shadow-xs"
+                  ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
               {activeNav === "ALL_PROJECTS" && (
-                <span className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r" />
+                <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
               )}
               <FolderKanban size={16} />
               <span>All Projects</span>
@@ -225,12 +225,12 @@ export function ProjectsWorkspace() {
                 onClick={() => setActiveNav("USERS")}
                 className={`flex w-full items-center gap-3 rounded-r-md px-3 py-2 text-xs font-semibold transition-all relative ${
                   activeNav === "USERS"
-                    ? "bg-blue-600 text-white shadow-xs"
+                    ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 {activeNav === "USERS" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r" />
+                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
                 )}
                 <Users size={16} />
                 <span>Users</span>
@@ -264,12 +264,12 @@ export function ProjectsWorkspace() {
                 onClick={() => setActiveNav("MY_TASKS")}
                 className={`flex w-full items-center gap-3 rounded-r-md px-3 py-1.5 text-xs font-semibold transition-all relative ${
                   activeNav === "MY_TASKS"
-                    ? "bg-blue-600 text-white shadow-xs"
+                    ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 {activeNav === "MY_TASKS" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r" />
+                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
                 )}
                 <CheckSquare size={15} />
                 <span>My Tasks</span>
@@ -280,12 +280,12 @@ export function ProjectsWorkspace() {
                 onClick={() => setActiveNav("TIME_TRACKER")}
                 className={`flex w-full items-center gap-3 rounded-r-md px-3 py-1.5 text-xs font-semibold transition-all relative ${
                   activeNav === "TIME_TRACKER"
-                    ? "bg-blue-600 text-white shadow-xs"
+                    ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 {activeNav === "TIME_TRACKER" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-r" />
+                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
                 )}
                 <Clock size={15} />
                 <span>Time Tracker</span>
@@ -321,14 +321,14 @@ export function ProjectsWorkspace() {
         {/* Sidebar Footer Section */}
         <div className="p-4 space-y-4 border-t">
           {/* Steve Jobs Quote Card */}
-          <div className="relative overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 p-3.5 dark:from-blue-950/30 dark:to-indigo-950/20 dark:border-blue-900/40">
+          <div className="relative overflow-hidden rounded-xl border border-info/20 bg-info/5 p-3.5">
             <div className="flex items-start gap-2">
-              <Quote size={16} className="text-blue-500 shrink-0 mt-0.5" />
+              <Quote size={16} className="text-primary shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="text-[11px] leading-tight text-foreground/80 font-medium italic">
                   &ldquo;Great things in business are never done by one person. They&apos;re done by a team of people.&rdquo;
                 </p>
-                <span className="block text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                <span className="block text-[10px] font-semibold text-info">
                   — Steve Jobs
                 </span>
               </div>
@@ -370,7 +370,7 @@ export function ProjectsWorkspace() {
       <main className="flex-1 overflow-hidden bg-background">
         {isLoading ? (
           <div className="flex h-full flex-col items-center justify-center space-y-3">
-            <Loader2 size={28} className="animate-spin text-blue-600" />
+            <Loader2 size={28} className="animate-spin text-primary" />
             <p className="text-xs text-muted-foreground font-medium">
               Fetching workspace data from database...
             </p>
@@ -412,7 +412,7 @@ export function ProjectsWorkspace() {
 
             {activeNav === "HOME" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Home size={32} className="text-blue-600 mb-2" />
+                <Home size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Projects Home Overview</h3>
                 <p className="text-xs max-w-sm mt-1">
                   Welcome to WinOS Projects Workspace. Select All Projects, Tasks, Users, or Time Tracker to get started.
@@ -422,7 +422,7 @@ export function ProjectsWorkspace() {
 
             {activeNav === "COLLABORATION" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Share2 size={32} className="text-blue-600 mb-2" />
+                <Share2 size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Team Collaboration</h3>
                 <p className="text-xs max-w-sm mt-1">
                   Share project updates, discuss milestones, and collaborate in real-time.
@@ -432,7 +432,7 @@ export function ProjectsWorkspace() {
 
             {activeNav === "RECENT_PROJECT" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <FileText size={32} className="text-blue-600 mb-2" />
+                <FileText size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Recent Project: {selectedRecentProject}</h3>
                 <p className="text-xs max-w-sm mt-1">
                   Viewing workspace board and task details for project {selectedRecentProject}.
@@ -442,7 +442,7 @@ export function ProjectsWorkspace() {
 
             {activeNav === "ARCHIVE" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Archive size={32} className="text-blue-600 mb-2" />
+                <Archive size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Project Archives</h3>
                 <p className="text-xs max-w-sm mt-1">
                   View and restore archived projects and completed milestones.
@@ -452,7 +452,7 @@ export function ProjectsWorkspace() {
 
             {activeNav === "SETTINGS" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Settings size={32} className="text-blue-600 mb-2" />
+                <Settings size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Workspace Settings</h3>
                 <p className="text-xs max-w-sm mt-1">
                   Configure project workflows, user permissions, and custom phase defaults.
