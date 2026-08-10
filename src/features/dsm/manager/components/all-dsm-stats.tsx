@@ -132,7 +132,7 @@ export function AllDsmStatsRow({
             members={submittedMembers}
             emptyLabel="No Submissions Yet."
             icon={CheckCircle2}
-            iconClassName="text-emerald-500"
+            iconClassName="text-success"
           />
         )}
       </div>
@@ -144,13 +144,13 @@ export function AllDsmStatsRow({
           onClick={() => toggle("pending")}
           className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-            <Clock size={18} className="text-amber-600" />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning/10">
+            <Clock size={18} className="text-warning" />
           </span>
           <div>
             <p className="text-xs text-muted-foreground">Pending</p>
             <p className="text-2xl font-bold">{pendingCount}</p>
-            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
               <Clock size={8} /> 10:10 AM CUTOFF
             </span>
           </div>
@@ -161,7 +161,7 @@ export function AllDsmStatsRow({
             members={pendingMembers}
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
-            iconClassName="text-amber-500"
+            iconClassName="text-warning"
           />
         )}
       </div>
@@ -203,15 +203,15 @@ export function AllDsmStatsRow({
         >
           <span className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            projectStatus === "On Track" ? "bg-emerald-100" : "bg-amber-100"
+            projectStatus === "On Track" ? "bg-success/10" : "bg-warning/10"
           )}>
-            <TrendingUp size={18} className={projectStatus === "On Track" ? "text-emerald-600" : "text-amber-600"} />
+            <TrendingUp size={18} className={projectStatus === "On Track" ? "text-success" : "text-warning"} />
           </span>
           <div>
             <p className="text-xs text-muted-foreground">Project Status</p>
             <p className={cn(
               "text-lg font-bold",
-              projectStatus === "On Track" ? "text-emerald-600" : "text-amber-600"
+              projectStatus === "On Track" ? "text-success" : "text-warning"
             )}>
               {projectStatus}
             </p>

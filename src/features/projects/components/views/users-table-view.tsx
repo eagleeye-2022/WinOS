@@ -59,7 +59,7 @@ export function UsersTableView({
         <button
           type="button"
           onClick={() => onOpenInviteModal(activeTab)}
-          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
         >
           <UserPlus size={16} />
           {activeTab === "PORTAL" ? "Invite New Member" : "Invite Client"}
@@ -77,7 +77,7 @@ export function UsersTableView({
             }}
             className={`pb-3 transition-colors relative ${
               activeTab === "PORTAL"
-                ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400"
+                ? "text-info border-b-2 border-info"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -91,7 +91,7 @@ export function UsersTableView({
             }}
             className={`pb-3 transition-colors relative ${
               activeTab === "CLIENT"
-                ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400"
+                ? "text-info border-b-2 border-info"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -113,7 +113,7 @@ export function UsersTableView({
                     selectedUserIds.length === filteredUsers.length
                   }
                   onChange={handleSelectAll}
-                  className="rounded border-input text-blue-600 focus:ring-blue-500 h-4 w-4"
+                  className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                 />
               </th>
               <th className="py-3 px-4 border-r whitespace-nowrap">
@@ -174,7 +174,7 @@ export function UsersTableView({
                       type="checkbox"
                       checked={selectedUserIds.includes(user.id)}
                       onChange={() => handleToggleUser(user.id)}
-                      className="rounded border-input text-blue-600 focus:ring-blue-500 h-4 w-4"
+                      className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                     />
                   </td>
 
@@ -183,7 +183,7 @@ export function UsersTableView({
                     <div className="flex items-center gap-3">
                       <span
                         className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${
-                          user.avatarColor || "bg-blue-600 text-white"
+                          user.avatarColor || "bg-primary text-primary-foreground"
                         }`}
                       >
                         {user.initials}
@@ -211,17 +211,17 @@ export function UsersTableView({
                       {/* ROLE */}
                       <td className="py-3 px-4 border-r whitespace-nowrap">
                         {user.role === "REPORTING MANAGER 1" && (
-                          <span className="inline-block rounded bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                          <span className="inline-block rounded bg-warning/10 px-2.5 py-0.5 text-[10px] font-bold text-warning">
                             REPORTING MANAGER 1
                           </span>
                         )}
                         {user.role === "TEAM MEMBER" && (
-                          <span className="inline-block rounded bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-block rounded bg-success/10 px-2.5 py-0.5 text-[10px] font-bold text-success">
                             TEAM MEMBER
                           </span>
                         )}
                         {user.role === "ADMINISTRATOR" && (
-                          <span className="inline-block rounded bg-blue-100 dark:bg-blue-950/60 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                          <span className="inline-block rounded bg-info/10 px-2.5 py-0.5 text-[10px] font-bold text-info">
                             ADMINISTRATOR
                           </span>
                         )}
@@ -241,7 +241,7 @@ export function UsersTableView({
 
                       {/* ROLE */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="inline-block rounded-full bg-purple-100 dark:bg-purple-950/60 px-3 py-0.5 text-[11px] font-semibold text-purple-600 dark:text-purple-300">
+                        <span className="inline-block rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-semibold text-primary">
                           Client
                         </span>
                       </td>

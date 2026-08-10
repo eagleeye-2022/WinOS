@@ -54,7 +54,7 @@ export function DsrHistoryCard({
 
           {/* Submission status badge */}
           {entry.status !== "MISSED" && entry.status !== "DRAFT" && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
             </span>
           )}
@@ -66,7 +66,7 @@ export function DsrHistoryCard({
 
           {/* Blocker count badge */}
           {blockerCount > 0 && (
-            <span className="rounded-full border border-sky-300/60 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+            <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
               {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} Resolved
             </span>
           )}
@@ -88,8 +88,8 @@ export function DsrHistoryCard({
             </span>
           )}
           {review.kind === "pending" && (
-            <span className="flex items-center gap-1 text-amber-600">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span className="flex items-center gap-1 text-warning">
+              <span className="h-2 w-2 rounded-full bg-warning" />
               {review.label}
             </span>
           )}
@@ -161,9 +161,9 @@ export function DsrHistoryCard({
                     {task.priority && (
                       <span className={cn(
                         "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                        task.priority.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
-                        task.priority.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
-                        task.priority.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+                        task.priority.toUpperCase() === "P1" && "bg-success/15 text-success border border-success/30",
+                        task.priority.toUpperCase() === "P2" && "bg-info/15 text-info border border-info/30",
+                        task.priority.toUpperCase() === "P3" && "bg-warning/15 text-warning border border-warning/30",
                         !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
                       )}>
                         {task.priority.toUpperCase()}
@@ -257,11 +257,11 @@ export function DsrHistoryCard({
           )}
 
           {entry.managerComment && (
-            <div className="mt-3 rounded-lg border border-emerald-200/80 bg-emerald-50/60 p-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-emerald-800">
+            <div className="mt-3 rounded-lg border border-success/40 bg-success/10 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-success">
                 Manager Feedback
               </p>
-              <p className="text-xs leading-relaxed text-emerald-900 whitespace-pre-wrap">
+              <p className="text-xs leading-relaxed text-success whitespace-pre-wrap">
                 {entry.managerComment}
               </p>
             </div>

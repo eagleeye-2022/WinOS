@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, ChevronDown, Calendar, Tag as TagIcon } from "lucide-react";
+import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { TaskItem, TaskStatus } from "../../types";
 
 interface AddTaskDrawerProps {
@@ -25,6 +25,7 @@ export function AddTaskDrawer({
   const [description, setDescription] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -45,6 +46,8 @@ export function AddTaskDrawer({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    setIsSubmitting(true);
 
     const taskCode = `WI1-T${Math.floor(40 + Math.random() * 50)}`;
 
@@ -88,10 +91,11 @@ export function AddTaskDrawer({
     onClose();
     setTitle("");
     setDescription("");
+    setIsSubmitting(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs transition-opacity duration-200">
       <div className="relative flex h-full w-full max-w-xl flex-col bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
@@ -260,8 +264,10 @@ export function AddTaskDrawer({
           <div className="flex items-center justify-start gap-3 pt-4 border-t">
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-6 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-xs"
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
             >
+              {isSubmitting && <Loader2 size={13} className="animate-spin" />}
               Create Task
             </button>
             <button

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, AlertCircle, Zap, ArrowLeft,
+  Star, Clock3, AlertCircle, Zap, ArrowLeft, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -41,7 +41,7 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
         {(entry.status === "SUBMITTED" ||
           entry.status === "PENDING_REVIEW" ||
           entry.status === "REVIEWED") && (
-          <span className="w-fit rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+          <span className="w-fit rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
             Submitted
           </span>
         )}
@@ -49,17 +49,17 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
       <div className="flex items-center gap-2">
         <span className={cn(
           "flex items-center gap-1.5 text-xs",
-          review.kind === "reviewed" ? "text-emerald-600"
+          review.kind === "reviewed" ? "text-success"
             : review.kind === "none" ? "text-muted-foreground"
             : review.kind === "missed-deadline" ? "text-destructive"
-            : "text-amber-600"
+            : "text-warning"
         )}>
           <span className={cn(
             "h-2 w-2 rounded-full",
-            review.kind === "reviewed" ? "bg-emerald-500"
+            review.kind === "reviewed" ? "bg-success"
               : review.kind === "none" ? "bg-muted-foreground/40"
               : review.kind === "missed-deadline" ? "bg-destructive"
-              : "bg-amber-500"
+              : "bg-warning"
           )} />
           {review.label}
         </span>
@@ -77,7 +77,7 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-2.5 flex items-center gap-2">
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
-          <Star size={11} className="fill-white text-white" />
+          <Star size={11} className="fill-primary-foreground text-primary-foreground" />
         </span>
         <h3 className="text-sm font-semibold">Outcome of the Day</h3>
       </div>
@@ -108,14 +108,16 @@ function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][numb
         title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
         className={cn(
           "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
-          task.completed ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-muted border border-border hover:border-emerald-500"
+          task.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
         )}
       >
-        {task.completed && (
+        {pending ? (
+          <Loader2 size={10} className="animate-spin" />
+        ) : task.completed ? (
           <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
             <polyline points="1,4 3,6 7,2" />
           </svg>
-        )}
+        ) : null}
       </button>
       <span className={cn("flex-1 text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
         {task.text}
@@ -123,9 +125,9 @@ function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][numb
       {task.priority && (
         <span className={cn(
           "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-          task.priority.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
-          task.priority.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
-          task.priority.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+          task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
+          task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
+          task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
           !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
         )}>
           {task.priority.toUpperCase()}
@@ -145,7 +147,7 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <CheckCircle2 size={14} className="text-emerald-600" />
+          <CheckCircle2 size={14} className="text-success" />
           Task Progress
         </h3>
         <span className="text-sm font-bold text-primary">
@@ -154,7 +156,7 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
       </div>
       <div className="mb-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-emerald-500 transition-all"
+          className="h-full rounded-full bg-success transition-all"
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -229,19 +231,19 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                 className={cn(
                   "flex items-start justify-between gap-2 rounded-lg border p-2.5",
                   b.resolved
-                    ? "border-emerald-200/60 bg-emerald-50/60"
+                    ? "border-success/30 bg-success/10"
                     : "border-destructive/20 bg-destructive/5"
                 )}
               >
                 <span className="flex items-start gap-1.5">
                   {b.resolved ? (
-                    <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-emerald-600" />
+                    <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-success" />
                   ) : (
                     <AlertCircle size={13} className="mt-0.5 shrink-0 text-destructive" />
                   )}
                   <span className={cn(
                     "text-xs font-semibold leading-snug",
-                    b.resolved ? "text-emerald-700" : "text-destructive"
+                    b.resolved ? "text-success" : "text-destructive"
                   )}>
                     {b.text}
                   </span>
@@ -249,7 +251,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                 <span className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                   b.resolved
-                    ? "bg-emerald-100 text-emerald-700"
+                    ? "bg-success/10 text-success"
                     : "bg-destructive/10 text-destructive"
                 )}>
                   {b.resolved ? "Resolved" : "Pending"}
@@ -274,7 +276,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
               >
                 <div className="flex items-center gap-2">
                   {f.completed ? (
-                    <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />
+                    <CheckCircle2 size={13} className="shrink-0 text-success" />
                   ) : (
                     <Clock3 size={13} className="shrink-0 text-muted-foreground" />
                   )}
@@ -283,8 +285,8 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                 <span className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                   f.completed
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700"
+                    ? "bg-success/10 text-success"
+                    : "bg-warning/10 text-warning"
                 )}>
                   {f.completed ? "Completed" : "Pending"}
                 </span>
@@ -322,7 +324,7 @@ function LearningCard({ entry }: { entry: DsrEntryData }) {
         {learningItems.map((l) => (
           <div key={l.id} className="flex items-center gap-2">
             {l.completed ? (
-              <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />
+              <CheckCircle2 size={13} className="shrink-0 text-success" />
             ) : (
               <Clock3 size={13} className="shrink-0 text-muted-foreground" />
             )}
@@ -348,11 +350,11 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
     <div className={cn(
       "rounded-xl border border-l-4 p-4",
       isBreakthrough
-        ? "border-emerald-200 border-l-emerald-500 bg-emerald-50/40"
+        ? "border-success/30 border-l-success bg-success/10"
         : "border-destructive/20 border-l-destructive bg-destructive/5"
     )}>
       <div className="mb-3 flex items-center gap-2">
-        <Zap size={14} className={isBreakthrough ? "text-emerald-600" : "text-destructive"} />
+        <Zap size={14} className={isBreakthrough ? "text-success" : "text-destructive"} />
         <h3 className="text-sm font-semibold">
           {isBreakthrough ? "Breakthrough" : "Breakdown"} Sentiment
         </h3>
@@ -360,7 +362,7 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
           <span className={cn(
             "ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase",
             isBreakthrough
-              ? "bg-emerald-100 text-emerald-700"
+              ? "bg-success/10 text-success"
               : "bg-destructive/10 text-destructive"
           )}>
             {isBreakthrough ? "Breakthrough" : "Breakdown"}
@@ -413,8 +415,8 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
               <div className="flex flex-col items-center">
                 <span className={cn(
                   "mt-0.5 h-3 w-3 shrink-0 rounded-full",
-                  isCurrent ? "border-2 border-emerald-500 bg-card"
-                    : isComplete ? "bg-emerald-500"
+                  isCurrent ? "border-2 border-success bg-card"
+                    : isComplete ? "bg-success"
                     : "bg-muted"
                 )} />
                 {!isLast && (
@@ -466,14 +468,14 @@ function ReviewerActionsCard({
 
   if (isReviewed) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+      <div className="rounded-xl border border-success/30 bg-success/10 p-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-success">
           <CheckCheck size={16} />
           DSR Reviewed
         </div>
         {managerComment && (
-          <div className="rounded-lg bg-emerald-100/60 p-3 text-xs text-emerald-900 border border-emerald-200">
-            <p className="font-semibold uppercase tracking-wider text-[10px] text-emerald-700 mb-1">
+          <div className="rounded-lg bg-success/15 p-3 text-xs text-success border border-success/30">
+            <p className="font-semibold uppercase tracking-wider text-[10px] text-success mb-1">
               Manager Comment:
             </p>
             <p className="whitespace-pre-wrap leading-relaxed">{managerComment}</p>
@@ -512,7 +514,7 @@ function ReviewerActionsCard({
           disabled={pending}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          <CheckCheck size={16} />
+          {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
           {pending ? "Reviewing…" : "Reviewed"}
         </button>
       </form>

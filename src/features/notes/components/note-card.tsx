@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useActionState } from "react";
-import { Pin, PinOff, Pencil, Trash2, X, Check, Bell, Square, CheckSquare, Plus } from "lucide-react";
+import { Pin, PinOff, Pencil, Trash2, X, Check, Bell, Square, CheckSquare, Plus, Loader2 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ColorPicker } from "@/components/shared/color-picker";
 import { DeleteConfirmBar } from "@/components/shared/delete-confirm-bar";
@@ -94,9 +94,11 @@ function ChecklistItemRow({ item }: { item: NoteWithDetails["checklistItems"][nu
           disabled={togglePending}
           className="text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          {item.checked
-            ? <CheckSquare size={14} className="text-primary" />
-            : <Square size={14} />}
+          {togglePending
+            ? <Loader2 size={14} className="animate-spin" />
+            : item.checked
+              ? <CheckSquare size={14} className="text-primary" />
+              : <Square size={14} />}
         </button>
       </form>
       <span className={cn("text-sm leading-snug", item.checked && "text-muted-foreground line-through")}>
@@ -199,7 +201,7 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
           <div className="flex items-center gap-2">
             <button type="submit" disabled={updatePending}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
-              <Check size={12} /> {updatePending ? "Saving…" : "Save"}
+              {updatePending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {updatePending ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={() => setEditing(false)}
               className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent">
@@ -249,7 +251,7 @@ export function NoteCard({ note, showAuthor, notebooks = [] }: NoteCardProps) {
               <input type="hidden" name="id" value={note.id} />
               <input type="hidden" name="isPinned" value={String(note.isPinned)} />
               <button type="submit" disabled={pinPending} title={note.isPinned ? "Unpin" : "Pin"} className={iconBtn}>
-                {note.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+                {pinPending ? <Loader2 size={13} className="animate-spin" /> : note.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
               </button>
             </form>
             <button type="button" onClick={() => setEditing(true)} title="Edit" className={iconBtn}><Pencil size={13} /></button>

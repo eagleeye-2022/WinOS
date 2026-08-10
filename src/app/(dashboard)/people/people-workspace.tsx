@@ -2,22 +2,23 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { uploadRtdFileAction, getRtdDocumentsAction, saveRtdManagerNotesAction, type RTDDocument } from "./actions";
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  UploadCloud, 
-  CheckCircle, 
-  X, 
-  FileCode, 
-  FileSpreadsheet, 
-  MessageSquare, 
-  User, 
-  ChevronLeft, 
+import {
+  Plus,
+  Search,
+  FileText,
+  UploadCloud,
+  CheckCircle,
+  X,
+  FileCode,
+  FileSpreadsheet,
+  MessageSquare,
+  User,
+  ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
   ClipboardSignature,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,15 +26,15 @@ import { cn } from "@/lib/utils";
 function FileIcon({ fileName, size = 16 }: { fileName: string; size?: number }) {
   const ext = fileName.split(".").pop()?.toLowerCase();
   if (ext === "pdf") {
-    return <FileText size={size} className="text-rose-500" />;
+    return <FileText size={size} className="text-rose-500 dark:text-rose-400" />;
   }
   if (ext === "xlsx" || ext === "xls") {
-    return <FileSpreadsheet size={size} className="text-emerald-500" />;
+    return <FileSpreadsheet size={size} className="text-emerald-500 dark:text-emerald-400" />;
   }
   if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext || "")) {
-    return <ImageIcon size={size} className="text-violet-500" />;
+    return <ImageIcon size={size} className="text-violet-500 dark:text-violet-400" />;
   }
-  return <FileCode size={size} className="text-blue-500" />;
+  return <FileCode size={size} className="text-blue-500 dark:text-blue-400" />;
 }
 
 
@@ -87,6 +88,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
   // Manager Notes input state (for currently active document)
   const [editingManagerNotes, setEditingManagerNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Active document data helper
   const activeDoc = useMemo(() => {
@@ -171,6 +173,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
     e.preventDefault();
     if (!uploadedFile || !uploadedFile.rawFile) return;
 
+    setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", uploadedFile.rawFile);
@@ -194,6 +197,8 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
       setTimeout(() => setShowSuccessToast(false), 4000);
     } catch (err) {
       console.error("[RTD] Upload failed", err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -634,7 +639,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
 
       {/* ── UPLOAD MODAL OVERLAY ── */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-overlay backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-card border w-full max-w-xl rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/20">
@@ -754,10 +759,11 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                 </button>
                 <button
                   type="submit"
-                  disabled={!uploadedFile}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  disabled={!uploadedFile || isUploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
                 >
-                  Submit Document ↗
+                  {isUploading && <Loader2 size={13} className="animate-spin" />}
+                  {isUploading ? "Submitting…" : "Submit Document ↗"}
                 </button>
               </div>
             </form>
@@ -767,8 +773,8 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
 
       {/* ── SUCCESS TOAST POPUP ── */}
       {showSuccessToast && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-3 bg-card border rounded-2xl p-4 shadow-xl border-emerald-500/20 z-50 animate-in slide-in-from-bottom-5 duration-300">
-          <div className="h-8 w-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-600 shrink-0">
+        <div className="fixed bottom-6 right-6 flex items-center gap-3 bg-card border rounded-2xl p-4 shadow-xl border-success/20 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="h-8 w-8 rounded-full bg-success/15 flex items-center justify-center text-success shrink-0">
             <CheckCircle size={18} />
           </div>
           <div>

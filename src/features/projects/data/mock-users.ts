@@ -11,7 +11,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Portal Owner",
     statusText: "Active 2m ago",
     initials: "DP",
-    avatarColor: "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    avatarColor: "bg-info/20 text-info",
   },
   {
     id: "pu-2",
@@ -22,7 +22,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Contractor",
     statusText: "Active 1h ago",
     initials: "EE",
-    avatarColor: "bg-neutral-300 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200",
+    avatarColor: "bg-secondary text-secondary-foreground",
   },
   {
     id: "pu-3",
@@ -33,7 +33,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Employee",
     statusText: "Online",
     initials: "IV",
-    avatarColor: "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200",
+    avatarColor: "bg-warning/20 text-warning",
   },
   {
     id: "pu-4",
@@ -44,7 +44,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Admin",
     statusText: "Active yesterday",
     initials: "MN",
-    avatarColor: "bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200",
+    avatarColor: "bg-success/20 text-success",
   },
   {
     id: "pu-5",
@@ -55,7 +55,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Employee",
     statusText: "Active 4h ago",
     initials: "MT",
-    avatarColor: "bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-200",
+    avatarColor: "bg-danger/20 text-danger",
   },
   {
     id: "pu-6",
@@ -66,7 +66,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Employee",
     statusText: "Active 3h ago",
     initials: "MP",
-    avatarColor: "bg-blue-600 text-white",
+    avatarColor: "bg-warning/20 text-warning",
   },
   {
     id: "pu-7",
@@ -77,7 +77,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     portalProfile: "Employee",
     statusText: "Active 5h ago",
     initials: "PG",
-    avatarColor: "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-200",
+    avatarColor: "bg-primary/20 text-primary",
   },
 
   // Client Users
@@ -90,7 +90,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     projects: "Optidarma",
     statusText: "Active 2m ago",
     initials: "DP",
-    avatarColor: "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    avatarColor: "bg-info/20 text-info",
   },
   {
     id: "cu-2",
@@ -101,7 +101,7 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     projects: "Untitled OMS",
     statusText: "Active 1h ago",
     initials: "EE",
-    avatarColor: "bg-neutral-300 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200",
+    avatarColor: "bg-secondary text-secondary-foreground",
   },
   {
     id: "cu-3",
@@ -112,6 +112,6 @@ export const INITIAL_MOCK_USERS: ProjectUser[] = [
     projects: "Kosmetico",
     statusText: "Active 2m ago",
     initials: "DP",
-    avatarColor: "bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    avatarColor: "bg-info/20 text-info",
   },
 ];

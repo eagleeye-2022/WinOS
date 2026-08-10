@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
 
@@ -13,7 +14,7 @@ type StandupDayCardProps = {
 
 const PRIORITY_COLORS = {
   LOW: "text-muted-foreground",
-  MEDIUM: "text-amber-600",
+  MEDIUM: "text-warning",
   HIGH: "text-destructive",
 };
 
@@ -55,7 +56,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
           )}
 
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+            <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
             </span>
           )}
@@ -65,7 +66,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
             </span>
           )}
           {entry.status === "DRAFT" && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+            <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
               Draft
             </span>
           )}
@@ -76,7 +77,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
             </span>
           )}
           {supportCount > 0 && (
-            <span className="rounded-full border border-sky-400/30 bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+            <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
               {supportCount} Support Needed
             </span>
           )}
@@ -91,8 +92,8 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
             </span>
           )}
           {review.kind === "pending" && (
-            <span className="flex items-center gap-1 text-amber-600">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span className="flex items-center gap-1 text-warning">
+              <span className="h-2 w-2 rounded-full bg-warning" />
               {review.label}
             </span>
           )}
@@ -133,9 +134,9 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                       {p && (
                         <span className={cn(
                           "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                          p.toUpperCase() === "P1" && "bg-emerald-100 text-emerald-800 border border-emerald-300",
-                          p.toUpperCase() === "P2" && "bg-blue-100 text-blue-800 border border-blue-300",
-                          p.toUpperCase() === "P3" && "bg-amber-100 text-amber-800 border border-amber-300",
+                          p.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
+                          p.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
+                          p.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
                           !["P1","P2","P3"].includes(p.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
                         )}>
                           {p.toUpperCase()}
@@ -170,12 +171,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                       <div key={s.id} className="flex flex-col gap-0.5">
                         <p className="text-xs leading-relaxed">
                           {i + 1}){" "}
-                          {mentioned.map((m) => (
-                            <span key={m.id} className="font-medium text-primary">
-                              @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                            </span>
-                          ))}
-                          {s.text}
+                          {renderTextWithMentions(s.text, mentioned, "font-medium text-primary")}
                           {s.editedBy && (
                             <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                               (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
@@ -198,12 +194,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                       <div key={b.id} className="flex flex-col gap-0.5">
                         <p className={cn("text-xs leading-relaxed", PRIORITY_COLORS[b.priority])}>
                           {i + 1}){" "}
-                          {mentioned.map((m) => (
-                            <span key={m.id} className="font-semibold underline">
-                              @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}&nbsp;
-                            </span>
-                          ))}
-                          {b.text}
+                          {renderTextWithMentions(b.text, mentioned, "font-semibold underline")}
                           {b.editedBy && (
                             <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                               (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})

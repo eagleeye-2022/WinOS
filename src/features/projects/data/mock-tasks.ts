@@ -65,7 +65,7 @@ export const INITIAL_MOCK_TASKS: TaskItem[] = [
     remarks: [],
     activities: [],
     assignees: [
-      { id: "u2", name: "Vaishnavi Shivhare", initials: "VS", avatarColor: "bg-blue-600 text-white" },
+      { id: "u2", name: "Vaishnavi Shivhare", initials: "VS", avatarColor: "bg-primary text-primary-foreground" },
     ],
   },
   {
@@ -131,7 +131,7 @@ export const INITIAL_MOCK_TASKS: TaskItem[] = [
         id: "rem-1",
         authorName: "Vaishnavi Shivhare",
         authorInitials: "VS",
-        authorAvatarColor: "bg-blue-600 text-white",
+        authorAvatarColor: "bg-primary text-primary-foreground",
         content:
           "1. brand consistency is like showing up the same way, every time. It's not just about looking the same; it's about offering the same level of reliability, value, and experience.",
         createdAt: "28/10/2025 05:59 PM",
@@ -167,7 +167,7 @@ export const INITIAL_MOCK_TASKS: TaskItem[] = [
       },
     ],
     assignees: [
-      { id: "u1", name: "Dhruv Patidar", initials: "DP", avatarColor: "bg-amber-500 text-white" },
+      { id: "u1", name: "Dhruv Patidar", initials: "DP", avatarColor: "bg-warning text-warning-foreground" },
     ],
     isWarning: true,
   },

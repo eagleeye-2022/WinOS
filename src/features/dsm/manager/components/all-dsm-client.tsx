@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Calendar, Filter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDragScroll } from "@/hooks/use-drag-scroll";
 import { toIsoDateStr, toUtcDate, sortTeamGroups } from "../../utils";
 import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
@@ -21,12 +22,13 @@ type Props = {
 export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }: Props) {
   const router = useRouter();
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const columnsScrollRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useDragScroll(columnsScrollRef);
 
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
-  const [sortBy, setSortBy] = useState<"default" | "submissions-desc" | "submissions-asc" | "name">("default");
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -255,19 +257,6 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
             </select>
           </div>
 
-          <div className="w-48">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "default" | "submissions-desc" | "submissions-asc" | "name")}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer"
-            >
-              <option value="default">Team Sequence (Marketing, Creative, Tech)</option>
-              <option value="submissions-desc">Submissions (High to Low)</option>
-              <option value="submissions-asc">Submissions (Low to High)</option>
-              <option value="name">Team Name</option>
-            </select>
-          </div>
-
           {(searchQuery || selectedDept !== "all") && (
             <button
               type="button"
@@ -295,8 +284,16 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     </div>
 
       {/* Team columns (scrollable, fills remaining space) */}
-      <div className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab dsm-columns-scrollbar">
-        <div className="flex h-full min-w-full items-start gap-6">
+      <div
+        ref={columnsScrollRef}
+        onMouseDown={dragScroll.onMouseDown}
+        onMouseMove={dragScroll.onMouseMove}
+        onMouseUp={dragScroll.onMouseUp}
+        onMouseLeave={dragScroll.onMouseLeave}
+        onClickCapture={dragScroll.onClickCapture}
+        className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab active:cursor-grabbing select-none dsm-columns-scrollbar"
+      >
+        <div className="flex h-full min-w-full items-start gap-6 ">
           {filteredGroups.map((group, index) => (
             <TeamColumn key={group.teamId} group={group} colorIndex={index} />
           ))}

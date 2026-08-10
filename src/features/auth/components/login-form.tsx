@@ -1,15 +1,22 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { Loader2, RefreshCw } from "lucide-react";
 import {
   requestOtpAction,
   verifyOtpAction,
   type RequestOtpState,
 } from "@/features/auth/actions/login";
+import type { Captcha } from "@/lib/captcha";
 
-const INITIAL_STATE: RequestOtpState = { step: "email" };
-
-export function LoginForm({ error }: { error?: string }) {
+export function LoginForm({
+  error,
+  captcha,
+}: {
+  error?: string;
+  captcha: Captcha;
+}) {
+  const INITIAL_STATE: RequestOtpState = { step: "email", captcha };
   const [otpState, requestOtp, otpPending] = useActionState(
     requestOtpAction,
     INITIAL_STATE,
@@ -18,6 +25,29 @@ export function LoginForm({ error }: { error?: string }) {
     verifyOtpAction,
     undefined,
   );
+
+  // Manual refresh (via the button) overrides the action's CAPTCHA until the
+  // action itself returns a new one (wrong answer, rate limit, etc.), at
+  // which point that newer CAPTCHA should win again.
+  const [manualCaptcha, setManualCaptcha] = useState<Captcha | null>(null);
+  const [lastActionCaptcha, setLastActionCaptcha] = useState(otpState.captcha);
+  if (otpState.captcha !== lastActionCaptcha) {
+    setLastActionCaptcha(otpState.captcha);
+    setManualCaptcha(null);
+  }
+  const activeCaptcha = manualCaptcha ?? otpState.captcha ?? captcha;
+
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  async function refreshCaptcha() {
+    setCaptchaLoading(true);
+    try {
+      const res = await fetch("/api/captcha");
+      const fresh: Captcha = await res.json();
+      setManualCaptcha(fresh);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  }
 
   const isPending = otpPending || verifyPending;
 
@@ -42,13 +72,13 @@ export function LoginForm({ error }: { error?: string }) {
         )}
 
         {otpState.resent && !errorMsg && (
-          <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+          <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
             A New Code Was Sent.
           </p>
         )}
 
         {otpState.devOtp && (
-          <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             Dev — OTP: <strong>{otpState.devOtp}</strong>
           </p>
         )}
@@ -78,8 +108,9 @@ export function LoginForm({ error }: { error?: string }) {
             type="submit"
             disabled={isPending}
             suppressHydrationWarning
-            className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
+            {verifyPending && <Loader2 size={14} className="animate-spin" />}
             {verifyPending ? "Verifying…" : "Verify and Sign In"}
           </button>
         </form>
@@ -126,12 +157,53 @@ export function LoginForm({ error }: { error?: string }) {
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+
+        <div>
+          <label
+            htmlFor="captchaAnswer"
+            className="mb-1 block text-sm font-medium"
+          >
+            Enter the Code Shown Below
+          </label>
+          <div className="mb-2 flex items-center gap-2">
+            <div
+              className="overflow-hidden rounded-md border bg-background"
+              // Server-generated SVG containing only shapes/text — no user input.
+              dangerouslySetInnerHTML={{ __html: activeCaptcha.svg }}
+            />
+            <button
+              type="button"
+              onClick={refreshCaptcha}
+              disabled={captchaLoading}
+              aria-label="Get a new CAPTCHA code"
+              className="rounded-md border p-2 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw
+                size={16}
+                className={captchaLoading ? "animate-spin" : ""}
+              />
+            </button>
+          </div>
+          <input type="hidden" name="captchaToken" value={activeCaptcha.token} />
+          <input
+            id="captchaAnswer"
+            name="captchaAnswer"
+            type="text"
+            autoComplete="off"
+            placeholder="Enter Code"
+            required
+            suppressHydrationWarning
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
         <button
           type="submit"
           disabled={isPending}
           suppressHydrationWarning
-          className="rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
+          {otpPending && <Loader2 size={14} className="animate-spin" />}
           {otpPending ? "Sending Code…" : "Send Verification Code"}
         </button>
       </form>

@@ -145,7 +145,7 @@ export function TaskDetailDrawer({
             id: "rem-default",
             authorName: "Vaishnavi Shivhare",
             authorInitials: "VS",
-            authorAvatarColor: "bg-blue-600 text-white",
+            authorAvatarColor: "bg-primary text-primary-foreground",
             content:
               "1. brand consistency is like showing up the same way, every time. It's not just about looking the same; it's about offering the same level of reliability, value, and experience.",
             createdAt: "28/10/2025 05:59 PM",
@@ -227,7 +227,7 @@ export function TaskDetailDrawer({
       id: `rem-${Date.now()}`,
       authorName: "Vaishnavi Shivhare",
       authorInitials: "VS",
-      authorAvatarColor: "bg-blue-600 text-white",
+      authorAvatarColor: "bg-primary text-primary-foreground",
       content: newRemarkText,
       createdAt: new Date().toLocaleString("en-GB"),
     };
@@ -286,7 +286,7 @@ export function TaskDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs transition-opacity duration-200">
       <div className="relative flex h-full w-full max-w-5xl bg-background shadow-2xl animate-in slide-in-from-right duration-300 overflow-hidden">
         {/* Left Split-Pane Task Selector */}
         <div className="w-64 border-r border-border bg-muted/10 flex flex-col shrink-0 select-none p-3 space-y-3">
@@ -304,15 +304,15 @@ export function TaskDetailDrawer({
                 onClick={() => setSelectedTaskCode(item.code)}
                 className={`rounded-lg border p-3 cursor-pointer transition-all space-y-1.5 ${
                   selectedTaskCode === item.code
-                    ? "border-blue-500 bg-background shadow-xs ring-1 ring-blue-400/40"
-                    : "border-border bg-background/60 hover:border-blue-300"
+                    ? "border-primary bg-background shadow-xs ring-1 ring-primary/40"
+                    : "border-border bg-background/60 hover:border-primary/30"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[10px] font-bold text-muted-foreground">
                     {item.code}
                   </span>
-                  <span className="rounded-full bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 text-[9px] font-bold text-sky-700 dark:text-sky-300">
+                  <span className="rounded-full bg-info/10 px-2 py-0.5 text-[9px] font-bold text-info">
                     {item.status.toUpperCase()}
                   </span>
                 </div>
@@ -407,7 +407,7 @@ export function TaskDetailDrawer({
             {/* Status Section */}
             <div className="rounded-lg border p-3 bg-card flex items-center justify-between shadow-2xs">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-600" />
+                <span className="h-2 w-2 rounded-full bg-primary" />
                 <select
                   value={status}
                   onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
@@ -438,7 +438,7 @@ export function TaskDetailDrawer({
                     }`}
                   />
                   <span>Description</span>
-                  <Plus size={14} className="text-blue-600 dark:text-blue-400 ml-1" />
+                  <Plus size={14} className="text-info ml-1" />
                 </button>
               </div>
 
@@ -448,7 +448,7 @@ export function TaskDetailDrawer({
                     href="https://www.figma.com/design/Vm2CJsnQueANsM8TOXAl6H/WinOS---Web-Design?node-id=1-7&t=7EKtZ6Eb1SFxcRt-1"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium block"
+                    className="text-info hover:underline font-medium block"
                   >
                     https://www.figma.com/design/Vm2CJsnQueANsM8TOXAl6H/WinOS---Web-Design?node-id=1-7&amp;t=7EKtZ6Eb1SFxcRt-1
                   </a>
@@ -463,7 +463,7 @@ export function TaskDetailDrawer({
                 onClick={() => setActiveTab("REMARKS")}
                 className={`pb-2.5 transition-colors ${
                   activeTab === "REMARKS"
-                    ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 font-bold"
+                    ? "text-info border-b-2 border-info font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -474,7 +474,7 @@ export function TaskDetailDrawer({
                 onClick={() => setActiveTab("SUBTASKS")}
                 className={`pb-2.5 transition-colors ${
                   activeTab === "SUBTASKS"
-                    ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 font-bold"
+                    ? "text-info border-b-2 border-info font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -485,7 +485,7 @@ export function TaskDetailDrawer({
                 onClick={() => setActiveTab("TRACKED_HOURS")}
                 className={`pb-2.5 transition-colors ${
                   activeTab === "TRACKED_HOURS"
-                    ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 font-bold"
+                    ? "text-info border-b-2 border-info font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -496,7 +496,7 @@ export function TaskDetailDrawer({
                 onClick={() => setActiveTab("TIMELINE")}
                 className={`pb-2.5 transition-colors ${
                   activeTab === "TIMELINE"
-                    ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 font-bold"
+                    ? "text-info border-b-2 border-info font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -507,7 +507,7 @@ export function TaskDetailDrawer({
                 onClick={() => setActiveTab("CHECKLIST")}
                 className={`pb-2.5 transition-colors ${
                   activeTab === "CHECKLIST"
-                    ? "text-blue-600 border-b-2 border-blue-600 dark:text-blue-400 font-bold"
+                    ? "text-info border-b-2 border-info font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -528,7 +528,7 @@ export function TaskDetailDrawer({
                   <button
                     type="button"
                     onClick={() => setIsTemplateModalOpen(true)}
-                    className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-2xs hover:bg-primary/90 transition-colors"
                   >
                     Add Template
                   </button>
@@ -542,7 +542,7 @@ export function TaskDetailDrawer({
                         type="checkbox"
                         checked={item.checked}
                         onChange={() => handleToggleCheckitem(item.id)}
-                        className="rounded border-input text-blue-600 h-4 w-4"
+                        className="rounded border-input text-primary h-4 w-4"
                       />
                       <span className={`text-xs ${item.checked ? "line-through text-muted-foreground" : "text-foreground font-medium"}`}>
                         {item.label}
@@ -561,7 +561,7 @@ export function TaskDetailDrawer({
                         ]);
                       }
                     }}
-                    className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 pt-1 hover:underline"
+                    className="flex items-center gap-1 text-xs font-bold text-info pt-1 hover:underline"
                   >
                     + Create Item
                   </button>
@@ -600,7 +600,7 @@ export function TaskDetailDrawer({
                           {/* Progress bar */}
                           <div className="w-24 bg-muted rounded-full h-2 overflow-hidden">
                             <div
-                              className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                              className="bg-primary h-full rounded-full transition-all duration-300"
                               style={{
                                 width: `${
                                   (sop.items.filter((i) => i.checked).length /
@@ -618,7 +618,7 @@ export function TaskDetailDrawer({
                       {sop.expanded && (
                         <div className="p-4 border-t space-y-3 bg-background">
                           {/* Select All */}
-                          <label className="flex items-center gap-3 font-bold text-blue-600 dark:text-blue-400 cursor-pointer border-b pb-2">
+                          <label className="flex items-center gap-3 font-bold text-info cursor-pointer border-b pb-2">
                             <input
                               type="checkbox"
                               checked={sop.items.length > 0 && sop.items.every((i) => i.checked)}
@@ -628,7 +628,7 @@ export function TaskDetailDrawer({
                                   sop.items.every((i) => i.checked)
                                 )
                               }
-                              className="rounded border-input text-blue-600 h-4 w-4"
+                              className="rounded border-input text-primary h-4 w-4"
                             />
                             <span>Select All</span>
                           </label>
@@ -641,7 +641,7 @@ export function TaskDetailDrawer({
                                   type="checkbox"
                                   checked={it.checked}
                                   onChange={() => handleToggleSopItem(sop.id, it.id)}
-                                  className="rounded border-input text-blue-600 h-4 w-4"
+                                  className="rounded border-input text-primary h-4 w-4"
                                 />
                                 <span className={`text-xs ${it.checked ? "line-through text-muted-foreground" : "text-foreground font-medium"}`}>
                                   {it.label}
@@ -660,7 +660,7 @@ export function TaskDetailDrawer({
                   <button
                     type="button"
                     onClick={() => alert("Checklist progress saved successfully!")}
-                    className="rounded-md bg-blue-600 px-6 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-2xs transition-colors"
+                    className="rounded-md bg-primary px-6 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors"
                   >
                     Save All Progress
                   </button>

@@ -71,7 +71,7 @@ function ReportTimeline({ events }: { events: DsrEntryData["timelineEvents"] }) 
           return (
             <div key={event.id} className="flex gap-3">
               <div className="flex flex-col items-center">
-                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-success" />
                 {!isLast && (
                   <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: "14px" }} />
                 )}
@@ -172,7 +172,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
         {(isReviewed || hasManagerComment) && (
           <div className="rounded-xl border bg-card p-4">
             <div className="mb-3 flex items-center gap-2">
-              <CheckCheck size={14} className="text-emerald-600" />
+              <CheckCheck size={14} className="text-success" />
               <span className="text-sm font-semibold">Manager Comments</span>
             </div>
             <div className="min-h-16 rounded-md border bg-background px-3 py-2.5 text-sm text-muted-foreground">

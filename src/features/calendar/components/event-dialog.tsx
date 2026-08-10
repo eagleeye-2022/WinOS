@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Plus,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { createCalendarEvent, type CreateEventState } from "../actions/create-event";
 import { updateCalendarEvent, type UpdateEventState } from "../actions/update-event";
@@ -144,9 +145,9 @@ export function EventDialog({
   const successMessage = mode === "create" ? "created" : "updated";
   if (state.message === successMessage) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50 backdrop-blur-xs">
+      <div className="fixed inset-0 z-50 flex items-center justify-end bg-overlay backdrop-blur-xs">
         <div className="w-full max-w-xl h-full border-l border-border bg-card p-6 shadow-2xl text-card-foreground flex flex-col justify-center items-center">
-          <div className="mb-4 flex flex-col items-center gap-3 text-emerald-600 dark:text-emerald-400">
+          <div className="mb-4 flex flex-col items-center gap-3 text-success">
             <CheckCircle2 size={48} />
             <h3 className="text-xl font-bold text-foreground">
               {mode === "create" ? "Event Scheduled Successfully!" : "Event Updated!"}
@@ -171,7 +172,7 @@ export function EventDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs animate-in fade-in duration-200">
       {/* Slide-over Drawer Panel */}
       <div className="w-full max-w-xl h-full border-l border-border bg-card text-card-foreground shadow-2xl flex flex-col overflow-hidden">
 
@@ -188,7 +189,7 @@ export function EventDialog({
           <div className="flex items-center gap-3">
             {/* Profile Pill */}
             <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs text-foreground">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
               <span className="font-medium truncate max-w-[140px]">{userName}</span>
             </div>
 
@@ -535,8 +536,9 @@ export function EventDialog({
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs"
               >
+                {pending && <Loader2 size={13} className="animate-spin" />}
                 {pending ? "Saving…" : mode === "create" ? "Create" : "Save"}
               </button>
             </div>

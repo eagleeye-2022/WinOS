@@ -132,7 +132,7 @@ export function AllDsrStatsRow({
             members={submittedMembers}
             emptyLabel="No Submissions Yet."
             icon={CheckCircle2}
-            iconClassName="text-emerald-500"
+            iconClassName="text-success"
           />
         )}
       </div>
@@ -144,8 +144,8 @@ export function AllDsrStatsRow({
           onClick={() => toggle("pending")}
           className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-            <Clock size={18} className="text-amber-600" />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning/15">
+            <Clock size={18} className="text-warning" />
           </span>
           <div>
             <p className="text-xs text-muted-foreground">Pending</p>
@@ -158,7 +158,7 @@ export function AllDsrStatsRow({
             members={pendingMembers}
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
-            iconClassName="text-amber-500"
+            iconClassName="text-warning"
           />
         )}
       </div>
@@ -203,15 +203,15 @@ export function AllDsrStatsRow({
         >
           <span className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            projectStatus === "On Track" ? "bg-emerald-100" : "bg-amber-100"
+            projectStatus === "On Track" ? "bg-success/15" : "bg-warning/15"
           )}>
-            <TrendingUp size={18} className={projectStatus === "On Track" ? "text-emerald-600" : "text-amber-600"} />
+            <TrendingUp size={18} className={projectStatus === "On Track" ? "text-success" : "text-warning"} />
           </span>
           <div>
             <p className="text-xs text-muted-foreground">Project Status</p>
             <p className={cn(
               "text-lg font-bold",
-              projectStatus === "On Track" ? "text-emerald-600" : "text-amber-600"
+              projectStatus === "On Track" ? "text-success" : "text-warning"
             )}>
               {projectStatus}
             </p>

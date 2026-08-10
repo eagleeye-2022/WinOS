@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "@/features/dsm/utils";
 import { daysOpen, filterHelpRequests, type HelpStatusFilter } from "../utils";
@@ -14,8 +14,8 @@ import type { HelpRequestItem } from "../queries";
 const PAGE_SIZE = 5;
 
 const STATUS_STYLES = {
-  in_progress: "border border-blue-500/40 text-blue-700 dark:text-blue-400 bg-transparent",
-  resolved: "border border-emerald-500/40 text-emerald-700 dark:text-emerald-400 bg-transparent",
+  in_progress: "border border-info/40 text-info bg-transparent",
+  resolved: "border border-success/40 text-success bg-transparent",
 } as const;
 
 function StatusBadge({ resolved }: { resolved: boolean }) {
@@ -110,7 +110,7 @@ function DetailPanel({ item, onClose }: { item: HelpRequestItem; onClose: () => 
             disabled={isResolved || resolvePending}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            <CheckCircle2 size={15} />
+            {resolvePending ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
             {isResolved ? "Resolved" : resolvePending ? "Resolving…" : "Mark as Resolved"}
           </button>
         </form>
@@ -187,14 +187,14 @@ export function NeedsHelpClient({ items }: Props) {
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Pending</p>
-                <span className="text-[9px] font-semibold uppercase text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-[11px] font-semibold text-warning uppercase tracking-wider">Pending</p>
+                <span className="text-[9px] font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Active
                 </span>
               </div>
-              <p className="text-xl font-bold text-amber-800 dark:text-amber-300">{activeCount}</p>
+              <p className="text-xl font-bold text-warning">{activeCount}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-transparent text-amber-600 dark:text-amber-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/30 bg-transparent text-warning">
               <Search size={16} />
             </div>
           </div>
@@ -211,14 +211,14 @@ export function NeedsHelpClient({ items }: Props) {
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Resolved</p>
-                <span className="text-[9px] font-semibold uppercase text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-[11px] font-semibold text-success uppercase tracking-wider">Resolved</p>
+                <span className="text-[9px] font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Done
                 </span>
               </div>
-              <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">{items.length - activeCount}</p>
+              <p className="text-xl font-bold text-success">{items.length - activeCount}</p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-transparent text-emerald-600 dark:text-emerald-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-transparent text-success">
               <CheckCircle2 size={16} />
             </div>
           </div>

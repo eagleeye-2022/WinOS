@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Pencil, Trash2, Clock, Crown, User as UserIcon } from "lucide-react";
+import { X, Pencil, Trash2, Clock, Crown, User as UserIcon, Loader2 } from "lucide-react";
 import { deleteCalendarEvent, type DeleteEventState } from "../actions/delete-event";
 import {
   respondToCalendarInvite,
@@ -77,7 +77,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
     currentUserStatus === "MAYBE";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs animate-in fade-in duration-200">
       {/* Slide-over Event Details Drawer Panel styled with WinOS Theme Tokens */}
       <div className="w-full max-w-xl h-full border-l border-border bg-card text-card-foreground shadow-2xl flex flex-col overflow-hidden">
         
@@ -126,7 +126,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
 
                 {/* Organizer Profile Pill */}
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs text-foreground">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
                   <span className="font-medium truncate max-w-[150px]">
                     {event.organizerEmail ? event.organizerEmail.split("@")[0] : currentUserEmail.split("@")[0]}
                   </span>
@@ -157,9 +157,9 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
               {isOrganizer ? (
                 <span>You&apos;re the host of this meeting. Get started!</span>
               ) : currentUserStatus === "ACCEPTED" ? (
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓ You have accepted this invitation.</span>
+                <span className="text-success font-semibold">✓ You have accepted this invitation.</span>
               ) : currentUserStatus === "DECLINED" ? (
-                <span className="text-rose-500 font-semibold">✕ You declined this invitation.</span>
+                <span className="text-destructive font-semibold">✕ You declined this invitation.</span>
               ) : (
                 <span>You are invited to participate in this event.</span>
               )}
@@ -171,11 +171,11 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
             <div className="flex items-center justify-between text-xs font-semibold text-foreground">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-foreground font-bold">Attendees -</span>
-                <span className="text-emerald-500 font-semibold">{acceptedCount} Accepted</span>
+                <span className="text-success font-semibold">{acceptedCount} Accepted</span>
                 <span className="text-muted-foreground">|</span>
-                <span className="text-rose-500 font-semibold">{declinedCount} Declined</span>
+                <span className="text-destructive font-semibold">{declinedCount} Declined</span>
                 <span className="text-muted-foreground">|</span>
-                <span className="text-amber-500 font-semibold">{tentativeCount} May attend</span>
+                <span className="text-warning font-semibold">{tentativeCount} May attend</span>
                 <span className="text-muted-foreground">|</span>
                 <span className="text-muted-foreground">{pendingCount} Yet to decide</span>
               </div>
@@ -243,8 +243,8 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                   <span
                     className={`rounded-full px-4 py-1.5 text-xs font-semibold border ${
                       currentUserStatus === "ACCEPTED"
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                        ? "bg-success/10 border-success/30 text-success"
+                        : "bg-danger/10 border-danger/30 text-danger"
                     }`}
                   >
                     {currentUserStatus === "ACCEPTED" ? "✓ Accepted" : "✕ Declined"}
@@ -265,8 +265,9 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                     <button
                       type="submit"
                       disabled={respondPending}
-                      className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition-all shadow-2xs"
+                      className="flex items-center gap-1.5 rounded-full bg-success px-5 py-2 text-xs font-semibold text-success-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-2xs"
                     >
+                      {respondPending && <Loader2 size={13} className="animate-spin" />}
                       Accept
                     </button>
                   </form>
@@ -283,8 +284,9 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                     <button
                       type="submit"
                       disabled={respondPending}
-                      className="rounded-full border border-border bg-card px-5 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 rounded-full border border-border bg-card px-5 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                     >
+                      {respondPending && <Loader2 size={13} className="animate-spin" />}
                       Decline
                     </button>
                   </form>
@@ -318,7 +320,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                   disabled={deletePending}
                   className="flex items-center gap-1.5 rounded-full bg-destructive/10 border border-destructive/30 px-5 py-2 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  <Trash2 size={13} /> {deletePending ? "Deleting…" : "Delete"}
+                  {deletePending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} {deletePending ? "Deleting…" : "Delete"}
                 </button>
               </form>
             </>

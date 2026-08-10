@@ -11,6 +11,7 @@ import { sendOtpEmail } from "@/lib/email";
 import { logOtp } from "@/lib/logger";
 import { fmtWait } from "@/lib/fmt";
 import { ROUTES } from "@/constants/routes";
+import { createCaptcha, verifyCaptcha, type Captcha } from "@/lib/captcha";
 
 const COMPANY_DOMAIN = "eagleeyedigital.io";
 
@@ -61,6 +62,8 @@ export type RequestOtpState = {
   resent?: boolean;
   /** Seconds until the next OTP request is allowed (rate-limited response). */
   rateLimitWaitSeconds?: number;
+  /** Fresh CAPTCHA to render — issued whenever the response stays on the email step. */
+  captcha?: Captcha;
 };
 
 export async function requestOtpAction(
@@ -68,13 +71,27 @@ export async function requestOtpAction(
   formData: FormData,
 ): Promise<RequestOtpState> {
   const email = ((formData.get("email") as string) ?? "").trim().toLowerCase();
+  const captchaToken = formData.get("captchaToken") as string | null;
+  const captchaAnswer = formData.get("captchaAnswer") as string | null;
 
-  if (!email) return { step: "email", error: "Email is required." };
+  if (!email) return { step: "email", error: "Email is required.", captcha: createCaptcha() };
 
   if (!email.endsWith(`@${COMPANY_DOMAIN}`)) {
     return {
       step: "email",
       error: "Only @eagleeyedigital.io email addresses are allowed.",
+      captcha: createCaptcha(),
+    };
+  }
+
+  // Skip the CAPTCHA check on resend (the OTP step form doesn't render one) —
+  // only the initial send from the email step is gated.
+  const isResend = _prev.step === "otp" && _prev.email === email;
+  if (!isResend && !verifyCaptcha(captchaToken, captchaAnswer)) {
+    return {
+      step: "email",
+      error: "Incorrect CAPTCHA code. Please try again.",
+      captcha: createCaptcha(),
     };
   }
 
@@ -84,7 +101,7 @@ export async function requestOtpAction(
     rateLimit = await checkEmailRateLimit(email);
   } catch (err) {
     devLogPrismaError("checkEmailRateLimit", err);
-    return { step: "email", error: SERVICE_UNAVAILABLE };
+    return { step: "email", error: SERVICE_UNAVAILABLE, captcha: createCaptcha() };
   }
 
   if (!rateLimit.allowed) {
@@ -95,6 +112,7 @@ export async function requestOtpAction(
       email: isAlreadyOnOtpStep ? email : undefined,
       error: `Please wait ${fmtWait(rateLimit.waitSeconds)} before requesting a new code.`,
       rateLimitWaitSeconds: rateLimit.waitSeconds,
+      captcha: isAlreadyOnOtpStep ? undefined : createCaptcha(),
     };
   }
 
@@ -103,7 +121,7 @@ export async function requestOtpAction(
     await storeOtp(email, otp);
   } catch (err) {
     devLogPrismaError("storeOtp", err);
-    return { step: "email", error: SERVICE_UNAVAILABLE };
+    return { step: "email", error: SERVICE_UNAVAILABLE, captcha: createCaptcha() };
   }
   logOtp("otp.requested", email);
 
@@ -115,10 +133,10 @@ export async function requestOtpAction(
     return {
       step: "email",
       error: "Failed to send the verification code. Please try again.",
+      captcha: createCaptcha(),
     };
   }
 
-  const isResend = _prev.step === "otp" && _prev.email === email;
   // Dev-mode hint: only when SMTP is absent AND not in production.
   const devOtp =
     !process.env.SMTP_HOST && process.env.NODE_ENV !== "production"

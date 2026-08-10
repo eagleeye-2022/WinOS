@@ -157,8 +157,8 @@ export function CalendarWorkspace({
         <div className="flex items-center gap-3">
           {/* Zoho Connection Status Badge or Connect Button commented out */}
           {/* {connectionStatus.connected ? (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-1 text-xs font-medium text-success">
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
               <span className="truncate max-w-[180px]">
                 Zoho: {connectionStatus.zohoEmail ?? "Connected"}
               </span>
@@ -207,8 +207,8 @@ export function CalendarWorkspace({
       </div>
 
       {connectedBanner && (
-        <div className="border-b border-emerald-500/20 bg-emerald-500/10 px-6 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="border-b border-success/20 bg-success/10 px-6 py-2 text-xs font-medium text-success flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
           Zoho Calendar connected{connectionStatus.zohoEmail ? ` as ${connectionStatus.zohoEmail}` : ""}.
         </div>
       )}

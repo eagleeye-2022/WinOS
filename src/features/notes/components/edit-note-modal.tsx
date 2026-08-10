@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn, toTitleCase } from "@/lib/utils";
 import { updateBoardNote } from "../actions/update-board-note";
@@ -245,8 +245,9 @@ export function EditNoteModal<T extends EditNoteModalData>({
               <button
                 type="submit"
                 disabled={isPending}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-5 py-2 text-xs font-semibold shadow hover:opacity-90 disabled:opacity-50"
               >
+                {isPending && <Loader2 size={13} className="animate-spin" />}
                 Save Edits
               </button>
             </>

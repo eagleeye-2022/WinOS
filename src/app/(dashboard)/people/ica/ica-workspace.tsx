@@ -12,7 +12,8 @@ import {
   Trash2,
   ExternalLink,
   Sparkles,
-  ChevronLeft
+  ChevronLeft,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,12 +32,12 @@ type MatchStatus = "Matched" | "Extra" | "Missing";
 
 function AttributeStatusIcon({ status }: { status: MatchStatus }) {
   if (status === "Matched") {
-    return <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />;
+    return <CheckCircle2 size={13} className="text-success shrink-0" />;
   }
   return (
     <span className={cn(
       "h-1.5 w-1.5 rounded-full shrink-0 ml-0.5 mr-0.5",
-      status === "Extra" ? "bg-neutral-400" : "bg-rose-500"
+      status === "Extra" ? "bg-muted-foreground" : "bg-destructive"
     )} />
   );
 }
@@ -83,20 +84,20 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
   const renderTooltipItems = (items: IcaItem[], categoryName: string) => {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 font-bold text-slate-900 uppercase tracking-wider text-xs">
+        <div className="flex items-center justify-between border-b border-border pb-1.5 font-bold text-foreground uppercase tracking-wider text-xs">
           <span>{categoryName}</span>
-          <span className="text-sky-600 font-semibold">{items.length} total</span>
+          <span className="text-primary font-semibold">{items.length} total</span>
         </div>
         {items.length === 0 ? (
-          <span className="text-xs text-slate-400 italic py-1 block">No attributes added yet</span>
+          <span className="text-xs text-muted-foreground italic py-1 block">No attributes added yet</span>
         ) : (
           <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
             {items.map((item) => (
-              <div key={item.id} className="flex items-center gap-1.5 text-xs text-slate-700">
+              <div key={item.id} className="flex items-center gap-1.5 text-xs text-foreground">
                 <span className={cn(
                   "h-1.5 w-1.5 rounded-full shrink-0",
-                  item.status === "Matched" ? "bg-emerald-500" :
-                    item.status === "Extra" ? "bg-slate-400" : "bg-rose-500"
+                  item.status === "Matched" ? "bg-success" :
+                    item.status === "Extra" ? "bg-muted-foreground" : "bg-destructive"
                 )} />
                 <span className="truncate flex-1" title={item.name}>{item.name}</span>
               </div>
@@ -108,7 +109,7 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
   };
 
   return (
-    <div className="relative w-full aspect-square rounded-2xl shadow-sm border border-sky-100/50 bg-sky-950/5 select-none overflow-visible mx-auto">
+    <div className="relative w-full aspect-square rounded-2xl shadow-sm border border-sky-100/50 dark:border-sky-500/20 bg-sky-950/5 dark:bg-sky-400/5 select-none overflow-visible mx-auto">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/competency-iceberg.png"
@@ -146,65 +147,65 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
 
       {/* 1. Skills Badge */}
       <div className="absolute top-[14%] left-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-emerald-500 dark:hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Skills</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-xs text-emerald-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20 px-1 text-xs text-emerald-700 dark:text-emerald-300 font-bold">
             {counts.skills}
           </span>
         </div>
-        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.skills, "Skills")}
         </div>
       </div>
 
       {/* 2. Knowledge Badge */}
       <div className="absolute top-[19%] right-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-cyan-500 dark:hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Knowledge</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 px-1 text-xs text-cyan-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-500/20 px-1 text-xs text-cyan-700 dark:text-cyan-300 font-bold">
             {counts.knowledge}
           </span>
         </div>
-        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.knowledge, "Knowledge")}
         </div>
       </div>
 
       {/* 3. Traits Badge */}
       <div className="absolute top-[47%] left-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-sky-500 dark:hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Traits</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 px-1 text-xs text-sky-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-500/20 px-1 text-xs text-sky-700 dark:text-sky-300 font-bold">
             {counts.traits}
           </span>
         </div>
-        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.traits, "Traits")}
         </div>
       </div>
 
       {/* 4. Self-Image Badge */}
       <div className="absolute top-[59%] right-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-indigo-500 dark:hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Self-Image</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 text-xs text-indigo-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20 px-1 text-xs text-indigo-700 dark:text-indigo-300 font-bold">
             {counts.selfImage}
           </span>
         </div>
-        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.selfImage, "Self-Image")}
         </div>
       </div>
 
       {/* 5. Motives Badge */}
       <div className="absolute top-[79%] left-[9%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-white/90 hover:bg-white border border-sky-200 hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-fuchsia-500 dark:hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Motives</span>
-          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 px-1 text-xs text-fuchsia-700 font-bold">
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 dark:bg-fuchsia-500/20 px-1 text-xs text-fuchsia-700 dark:text-fuchsia-300 font-bold">
             {counts.motives}
           </span>
         </div>
-        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-white border border-sky-100 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.motives, "Motives")}
         </div>
       </div>
@@ -237,6 +238,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; rawFile?: File } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Manager Notes input state
@@ -454,6 +456,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
     e.preventDefault();
     if (!uploadedFile || !uploadedFile.rawFile || !profile) return;
 
+    setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", uploadedFile.rawFile);
@@ -474,6 +477,8 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
       setUploadedFile(null);
     } catch (err) {
       console.error("[ICA] Failed to upload alignment file", err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -531,7 +536,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                   {/* Custom App Theme Toolbar for PDF */}
                   <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-xs font-semibold text-foreground select-none">
                     <div className="flex items-center gap-2 truncate max-w-[70%]">
-                      <FileText size={15} className="text-rose-500 shrink-0" />
+                      <FileText size={15} className="text-rose-500 dark:text-rose-400 shrink-0" />
                       <span className="truncate font-bold text-foreground">{activeDoc.fileName}</span>
                     </div>
                     <a
@@ -552,7 +557,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                 </div>
               ) : (
                 <div className="p-8 flex flex-col items-center justify-center text-center gap-3 max-w-sm">
-                  <FileText size={48} className="text-rose-500 animate-bounce" />
+                  <FileText size={48} className="text-rose-500 dark:text-rose-400 animate-bounce" />
                   <div>
                     <h3 className="text-sm font-bold text-foreground">{activeDoc.fileName}</h3>
                     <p className="text-xs text-muted-foreground mt-1">This document file can be downloaded or opened directly in a new tab.</p>
@@ -611,7 +616,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     rel="noopener noreferrer"
                     className="flex items-center gap-2.5 bg-accent/20 hover:bg-accent/40 border rounded-xl p-2.5 transition-colors cursor-pointer"
                   >
-                    <FileText size={18} className="text-rose-500 shrink-0" />
+                    <FileText size={18} className="text-rose-500 dark:text-rose-400 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold truncate text-foreground" title={activeDoc.fileName}>
                         {activeDoc.fileName}
@@ -730,15 +735,15 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
             </div>
             <div className="flex items-center gap-4 text-xs font-medium select-none text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="h-2 w-2 rounded-full bg-success" />
                 Matched
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-neutral-400" />
+                <span className="h-2 w-2 rounded-full bg-muted-foreground" />
                 Extra
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                <span className="h-2 w-2 rounded-full bg-destructive" />
                 Missing
               </span>
             </div>
@@ -791,14 +796,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                         <div
                           key={item.id}
                           onClick={() => toggleAttributeStatus("skills", item)}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-success/10 text-success px-3 py-1 text-xs font-medium border border-success/20 shadow-3xs hover:bg-success/20 cursor-pointer transition-all select-none"
                         >
                           <AttributeStatusIcon status={item.status} />
                           <span>{item.name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("skills", item); }}
-                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                            className="opacity-0 group-hover:opacity-100 text-success hover:text-danger transition-opacity ml-1"
                           >
                             <X size={10} />
                           </button>
@@ -827,14 +832,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                         <div
                           key={item.id}
                           onClick={() => toggleAttributeStatus("knowledge", item)}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-success/10 text-success px-3 py-1 text-xs font-medium border border-success/20 shadow-3xs hover:bg-success/20 cursor-pointer transition-all select-none"
                         >
                           <AttributeStatusIcon status={item.status} />
                           <span>{item.name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("knowledge", item); }}
-                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                            className="opacity-0 group-hover:opacity-100 text-success hover:text-danger transition-opacity ml-1"
                           >
                             <X size={10} />
                           </button>
@@ -880,14 +885,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                         <div
                           key={item.id}
                           onClick={() => toggleAttributeStatus("selfImage", item)}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-success/10 text-success px-3 py-1 text-xs font-medium border border-success/20 shadow-3xs hover:bg-success/20 cursor-pointer transition-all select-none"
                         >
                           <AttributeStatusIcon status={item.status} />
                           <span>{item.name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("selfImage", item); }}
-                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                            className="opacity-0 group-hover:opacity-100 text-success hover:text-danger transition-opacity ml-1"
                           >
                             <X size={10} />
                           </button>
@@ -916,14 +921,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                         <div
                           key={item.id}
                           onClick={() => toggleAttributeStatus("traits", item)}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-success/10 text-success px-3 py-1 text-xs font-medium border border-success/20 shadow-3xs hover:bg-success/20 cursor-pointer transition-all select-none"
                         >
                           <AttributeStatusIcon status={item.status} />
                           <span>{item.name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("traits", item); }}
-                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                            className="opacity-0 group-hover:opacity-100 text-success hover:text-danger transition-opacity ml-1"
                           >
                             <X size={10} />
                           </button>
@@ -952,14 +957,14 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                         <div
                           key={item.id}
                           onClick={() => toggleAttributeStatus("motives", item)}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-1 text-xs font-medium border border-emerald-500/20 shadow-3xs hover:bg-emerald-500/20 cursor-pointer transition-all select-none"
+                          className="group inline-flex items-center gap-1.5 rounded-full bg-success/10 text-success px-3 py-1 text-xs font-medium border border-success/20 shadow-3xs hover:bg-success/20 cursor-pointer transition-all select-none"
                         >
                           <AttributeStatusIcon status={item.status} />
                           <span>{item.name}</span>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); deleteAttributeHandler("motives", item); }}
-                            className="opacity-0 group-hover:opacity-100 text-emerald-800 dark:text-emerald-300 hover:text-rose-600 transition-opacity ml-1"
+                            className="opacity-0 group-hover:opacity-100 text-success hover:text-danger transition-opacity ml-1"
                           >
                             <X size={10} />
                           </button>
@@ -1108,7 +1113,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline truncate max-w-[140px] cursor-pointer"
                       title="Click to view detail preview"
                     >
-                      <FileText size={14} className="text-rose-500 shrink-0" />
+                      <FileText size={14} className="text-rose-500 dark:text-rose-400 shrink-0" />
                       <span className="truncate">{activeDoc.fileName}</span>
                     </button>
                     <button
@@ -1120,7 +1125,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                           setProfile(data);
                         }
                       }}
-                      className="text-muted-foreground hover:text-rose-600 transition-colors p-0.5 cursor-pointer"
+                      className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-0.5 cursor-pointer"
                       title="Delete document"
                     >
                       <Trash2 size={12} />
@@ -1132,7 +1137,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                     onClick={() => setShowUploadModal(true)}
                     className="flex items-center gap-1.5 mt-0.5 text-xs font-bold text-primary hover:underline cursor-pointer"
                   >
-                    <FileText size={14} className="text-rose-500 shrink-0" />
+                    <FileText size={14} className="text-rose-500 dark:text-rose-400 shrink-0" />
                     <span>Upload file</span>
                   </button>
                 )}
@@ -1190,7 +1195,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
 
       {/* ── UPLOAD FILE MODAL ── */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-overlay backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-card border w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
 
             <div className="flex items-center justify-between border-b px-5 py-4 bg-muted/20">
@@ -1237,7 +1242,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                 <div className="border rounded-xl p-3 flex flex-col gap-2.5 bg-background">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <FileText size={18} className="text-rose-500" />
+                      <FileText size={18} className="text-rose-500 dark:text-rose-400" />
                       <div>
                         <p className="text-xs font-bold">{uploadedFile.name}</p>
                         <p className="text-xs text-muted-foreground">{uploadedFile.size}</p>
@@ -1279,10 +1284,11 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                 </button>
                 <button
                   type="submit"
-                  disabled={!uploadedFile}
-                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  disabled={!uploadedFile || isUploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
                 >
-                  Upload File
+                  {isUploading && <Loader2 size={13} className="animate-spin" />}
+                  {isUploading ? "Uploading…" : "Upload File"}
                 </button>
               </div>
             </form>

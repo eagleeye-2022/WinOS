@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Maximize2,
   Search,
+  Loader2,
 } from "lucide-react";
 import { ProjectUser, UserType } from "../../types";
 
@@ -41,6 +42,7 @@ export function InviteMemberModal({
   const [projectTab, setProjectTab] = useState<"ALL" | "WORKING">("ALL");
   const [projectSearch, setProjectSearch] = useState("");
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -55,6 +57,8 @@ export function InviteMemberModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
+
+    setIsSubmitting(true);
 
     const initials = name
       .split(" ")
@@ -79,11 +83,12 @@ export function InviteMemberModal({
         : "None",
       statusText: "Active 1m ago",
       initials: initials || "U",
-      avatarColor: "bg-blue-600 text-white",
+      avatarColor: "bg-primary text-primary-foreground",
     };
 
     onInviteUser(newUser);
     onClose();
+    setIsSubmitting(false);
   };
 
   const filteredProjects = AVAILABLE_PROJECTS.filter(
@@ -93,7 +98,7 @@ export function InviteMemberModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-xs transition-opacity duration-200">
       <div className="relative flex h-full w-full max-w-2xl flex-col bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
@@ -224,7 +229,7 @@ export function InviteMemberModal({
                     onClick={() => setProjectTab("ALL")}
                     className={`pb-1 transition-colors ${
                       projectTab === "ALL"
-                        ? "text-blue-600 border-b-2 border-blue-600"
+                        ? "text-primary border-b-2 border-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -235,7 +240,7 @@ export function InviteMemberModal({
                     onClick={() => setProjectTab("WORKING")}
                     className={`pb-1 transition-colors ${
                       projectTab === "WORKING"
-                        ? "text-blue-600 border-b-2 border-blue-600"
+                        ? "text-primary border-b-2 border-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -269,7 +274,7 @@ export function InviteMemberModal({
                         type="checkbox"
                         checked={selectedProjects.includes(project.id)}
                         onChange={() => handleToggleProject(project.id)}
-                        className="rounded border-input text-blue-600 focus:ring-blue-500 h-4 w-4"
+                        className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                       />
                       <span className="font-mono text-muted-foreground text-[11px]">
                         {project.id}
@@ -287,8 +292,10 @@ export function InviteMemberModal({
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                className="rounded-md bg-blue-600 px-6 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-xs"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
               >
+                {isSubmitting && <Loader2 size={13} className="animate-spin" />}
                 Invite
               </button>
               <button
