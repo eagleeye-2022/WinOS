@@ -257,6 +257,11 @@ body {
   margin-bottom: 0 !important;
 }
 
+.html-content li[data-type="taskItem"][data-checked="true"] > div {
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+
 .html-content li[data-type="taskItem"]:empty {
   display: none !important;
 }

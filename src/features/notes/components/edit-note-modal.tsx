@@ -58,7 +58,10 @@ export function EditNoteModal<T extends EditNoteModalData>({
     }
     formData.append("content", note.content || "");
     note.checklistItems.forEach((item) => {
-      if (item.text.trim()) formData.append("item", item.text);
+      if (item.text.trim()) {
+        formData.append("item", item.text);
+        formData.append("itemChecked", item.checked ? "true" : "false");
+      }
     });
 
     startTransition(async () => {

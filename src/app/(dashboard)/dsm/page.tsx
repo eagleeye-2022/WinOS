@@ -39,7 +39,7 @@ export default async function DSMPage({ searchParams }: Props) {
       getYesterdayIncompleteTasks(),
       getYesterdayBlockers(),
       getWeekEntries(weekOffset),
-      getKpiStats(),
+      getKpiStats(weekOffset),
       getTeamMembers(),
       getSharedWorkspaceNotes(),
       getTodayCalendarEvents(),

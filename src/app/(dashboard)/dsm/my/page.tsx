@@ -40,7 +40,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       getYesterdayBlockers(),
       getWeekEntries(weekOffset),
       getWorkspaceNote(),
-      getKpiStats(),
+      getKpiStats(weekOffset),
       getTeamMembers(),
       getTodayCalendarEvents(),
     ]);

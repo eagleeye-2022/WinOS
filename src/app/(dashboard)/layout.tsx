@@ -79,7 +79,7 @@ export default async function DashboardLayout({
             initialUnread={unreadCount}
             initialNotifications={recentNotifications}
           />
-          {/* <ThemeToggle /> */}
+          <ThemeToggle />
           <Button
             type="button"
             variant="ghost"

@@ -113,6 +113,40 @@ export function toDateTimeLocalValue(date: Date): string {
   );
 }
 
+export type EventDateTimeErrors = { start?: string; end?: string };
+
+/**
+ * Shared start/end validation used by both the Create Event UI (live, per keystroke)
+ * and the server action (final guard before the DB write) so the rules can't diverge
+ * or be bypassed by calling the action directly.
+ */
+export function validateEventDateTime(start: Date, end: Date, now: Date = new Date()): EventDateTimeErrors {
+  const errors: EventDateTimeErrors = {};
+
+  const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (startDateOnly < todayOnly) {
+    errors.start = "You cannot schedule an event for a previous date.";
+  } else if (start.getTime() <= now.getTime()) {
+    errors.start = "Start time must be later than the current time.";
+  }
+
+  if (!errors.start) {
+    if (end.getTime() <= start.getTime()) {
+      errors.end = "End time must be later than start time.";
+    } else if (
+      end.getFullYear() !== start.getFullYear() ||
+      end.getMonth() !== start.getMonth() ||
+      end.getDate() !== start.getDate()
+    ) {
+      errors.end = "Event cannot continue into the next day. Please select an end time on the same date.";
+    }
+  }
+
+  return errors;
+}
+
 export function toTitleCase(str: string): string {
   if (!str) return "";
   return str
