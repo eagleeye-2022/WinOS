@@ -153,23 +153,8 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function formatItemTextWithMentions(item: any): string {
-    const users: { name: string | null; email: string }[] = [];
-    if (item.mentions && item.mentions.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      users.push(...item.mentions.map((m: any) => m.user));
-    } else if (item.mentionedUser) {
-      users.push(item.mentionedUser);
-    }
-    const uniqueUsers = Array.from(new Map(users.map((u) => [u.email, u])).values());
-    const prefix = uniqueUsers
-      .map((u) => `@${u.name ? u.name.split(" ")[0].toLowerCase() : u.email.split("@")[0]}`)
-      .join(" ");
-
-    const cleanText = (item.text || "").replace(/^(@\S+\s*)+/, "").trim();
-    if (prefix) {
-      return `${prefix} ${cleanText}`;
-    }
-    return item.text || "";
+    const rawText = item.text || "";
+    return rawText.replace(/^(@\S+\s*)+/, "").trim();
   }
 
   return {
