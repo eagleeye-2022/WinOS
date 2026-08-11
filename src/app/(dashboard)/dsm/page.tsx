@@ -39,7 +39,7 @@ export default async function DSMPage({ searchParams }: Props) {
       getYesterdayIncompleteTasks(),
       getYesterdayBlockers(),
       getWeekEntries(weekOffset),
-      getKpiStats(),
+      getKpiStats(weekOffset),
       getTeamMembers(),
       getSharedWorkspaceNotes(),
       getTodayCalendarEvents(),
@@ -49,7 +49,7 @@ export default async function DSMPage({ searchParams }: Props) {
   const todayDateStr = toIsoDateStr(today);
 
   return (
-    <div className="flex h-full">
+    <div className="dsm-scope flex h-full bg-background text-foreground">
       {/* ── Main content column ──────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
         <DsmHeader entry={todayEntry} />

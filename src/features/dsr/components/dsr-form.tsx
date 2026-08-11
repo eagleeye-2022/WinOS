@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useRef, useEffect, startTransition } from "react";
-import { PlusCircle, X } from "lucide-react";
+import { PlusCircle, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import type { DsrEntryData, DsrStandupPrefill } from "../queries";
@@ -426,12 +426,18 @@ type Props = {
   prefill: DsrStandupPrefill;
   todayDateStr: string;
   onRegisterSubmit?: (fn: () => void) => void;
+  onPendingChange?: (pending: boolean) => void;
   readOnly?: boolean;
   onCancel?: () => void;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOnly, onCancel }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPendingChange, readOnly, onCancel }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
+
+  useEffect(() => {
+    onPendingChange?.(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
   const formRef = useRef<HTMLFormElement>(null);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
@@ -608,8 +614,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
               type="button"
               disabled={pending}
               onClick={() => buildAndSubmit("draft")}
-              className="flex-1 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
             >
+              {pending && <Loader2 size={14} className="animate-spin dark:text-[#93C5FD]" />}
               Save Draft
             </button>
           )}
@@ -617,8 +624,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, readOn
             type="button"
             disabled={pending}
             onClick={() => buildAndSubmit("submit")}
-            className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
           >
+            {pending && <Loader2 size={14} className="animate-spin" />}
             {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSR"}
           </button>
         </div>

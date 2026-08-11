@@ -290,42 +290,43 @@ export async function getWorkspaceNote(): Promise<WorkspaceNoteData | null> {
 }
 
 /** KPI metrics computed from real data. */
-export async function getKpiStats(): Promise<KpiStats> {
+export async function getKpiStats(weekOffset: number = 0): Promise<KpiStats> {
   const session = await auth();
   if (!session?.user?.id) {
     return { submissionRate: 0, submissionRateDelta: 0, supportMeetingsCount: 0, resolvedBlockers: 0 };
   }
 
   const now = new Date();
-  const { start: thisWeekStart, end: thisWeekEnd } = getWeekRange(0, now);
-  const { start: lastWeekStart, end: lastWeekEnd } = getWeekRange(-1, now);
+  const { start: thisWeekStart, end: thisWeekEnd } = getWeekRange(weekOffset, now);
+  const { start: lastWeekStart, end: lastWeekEnd } = getWeekRange(weekOffset - 1, now);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Submission rate = submitted+reviewed entries / weekdays in last 4 weeks
-  const fourWeeksAgo = new Date(now);
-  fourWeeksAgo.setDate(now.getDate() - 28);
+  // Submission rate = submitted+reviewed entries / weekdays in the 4 weeks ending with the selected week
+  const rateEnd = thisWeekEnd < now ? thisWeekEnd : now;
+  const fourWeeksAgo = new Date(rateEnd);
+  fourWeeksAgo.setDate(rateEnd.getDate() - 28);
 
   const allEntries = await d.standupEntry.findMany({
-    where: { userId: session.user.id, date: { gte: fourWeeksAgo } },
+    where: { userId: session.user.id, date: { gte: fourWeeksAgo, lte: rateEnd } },
     select: { status: true, date: true },
   });
 
-  const workingDays = countWeekdays(fourWeeksAgo, now);
+  const workingDays = countWeekdays(fourWeeksAgo, rateEnd);
   const submittedCount = allEntries.filter(
     (e: { status: string }) => e.status !== "DRAFT" && e.status !== "MISSED"
   ).length;
   const submissionRate = workingDays > 0 ? Math.round((submittedCount / workingDays) * 100) : 0;
 
-  // Delta vs last week
+  // Delta vs previous week
   const thisWeekEntries = allEntries.filter(
     (e: { date: Date; status: string }) => new Date(e.date) >= thisWeekStart && new Date(e.date) <= thisWeekEnd
   );
   const lastWeekEntries = allEntries.filter(
     (e: { date: Date; status: string }) => new Date(e.date) >= lastWeekStart && new Date(e.date) <= lastWeekEnd
   );
-  const thisWeekDays = countWeekdays(thisWeekStart, now);
+  const thisWeekDays = countWeekdays(thisWeekStart, rateEnd);
   const lastWeekDays = countWeekdays(lastWeekStart, lastWeekEnd);
   const thisWeekRate = thisWeekDays > 0
     ? Math.round((thisWeekEntries.filter((e: { status: string }) => e.status !== "DRAFT" && e.status !== "MISSED").length / thisWeekDays) * 100)

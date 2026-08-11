@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DsrForm } from "./dsr-form";
 import { InsightsPanel } from "./insights-panel";
@@ -43,6 +43,7 @@ export function DsrPageClient({
   const [, forceRender] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [rightTab, setRightTab] = useState<"insights" | "notes">("insights");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isReviewed = entry?.status === "REVIEWED";
   const canSubmit = !entry || entry.status === "DRAFT";
@@ -154,6 +155,7 @@ export function DsrPageClient({
             prefill={prefill}
             todayDateStr={todayDateStr}
             onRegisterSubmit={editable ? handleRegisterSubmit : undefined}
+            onPendingChange={setIsSubmitting}
             readOnly={!editable}
             onCancel={isEditing ? () => setIsEditing(false) : undefined}
           />
@@ -231,10 +233,16 @@ export function DsrPageClient({
           <div className="shrink-0 border-t bg-card p-4 shadow-lg">
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={handlePanelSubmit}
-              className="w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 shadow-md"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 shadow-md disabled:opacity-50"
             >
-              {isSubmittedNotReviewed || isEditing ? "Save Changes" : "Submit DSR"}
+              {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+              {isSubmitting
+                ? "Saving…"
+                : isSubmittedNotReviewed || isEditing
+                  ? "Save Changes"
+                  : "Submit DSR"}
             </button>
           </div>
         )}

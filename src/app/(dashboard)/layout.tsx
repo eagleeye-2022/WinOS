@@ -14,6 +14,7 @@ import {
 import { ModuleSwitcher } from "@/components/shared/module-switcher";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -56,66 +57,70 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden">
+    <div className="dsm-scope flex h-screen w-screen flex-col overflow-hidden">
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
-      <header className="flex h-14 shrink-0 items-center border-b bg-card z-10 mb-2">
-        {/* Brand — same visual width as the sidebar */}
-        <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
-          <WinOSBrand />
-        </div>
+      <RouteDarkScope match="/dsm">
+        <header className="flex h-14 shrink-0 items-center border-b bg-card z-10 mb-2">
+          {/* Brand — same visual width as the sidebar */}
+          <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
+            <WinOSBrand />
+          </div>
 
-        {/* Clock & Switcher */}
-        <div className="flex items-center gap-3 px-4 shrink-0">
-          <ClockChip />
-          <ModuleSwitcher />
-        </div>
+          {/* Clock & Switcher */}
+          <div className="flex items-center gap-3 px-4 shrink-0">
+            <ClockChip />
+            <ModuleSwitcher />
+          </div>
 
-        {/* Spacer — keeps right icons pinned while leaving room for future content */}
-        <div className="flex-1" />
+          {/* Spacer — keeps right icons pinned while leaving room for future content */}
+          <div className="flex-1" />
 
-        {/* Right icons */}
-        <div className="flex items-center gap-2 px-4">
-          <NotificationBell
-            initialUnread={unreadCount}
-            initialNotifications={recentNotifications}
-          />
-          {/* <ThemeToggle /> */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Help"
-            title="Help"
-            className="h-8 w-8 rounded-full text-muted-foreground"
-          >
-            <HelpCircle size={16} />
-          </Button>
-          <span
-            title={userName}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
-          >
-            {initials || "U"}
-          </span>
-          <form action={logoutAction}>
+          {/* Right icons */}
+          <div className="flex items-center gap-2 px-4">
+            <NotificationBell
+              initialUnread={unreadCount}
+              initialNotifications={recentNotifications}
+            />
+            <ThemeToggle />
             <Button
-              type="submit"
+              type="button"
               variant="ghost"
               size="icon"
-              aria-label="Sign out"
-              title="Sign out"
+              aria-label="Help"
+              title="Help"
               className="h-8 w-8 rounded-full text-muted-foreground"
             >
-              <LogOut size={16} />
+              <HelpCircle size={16} />
             </Button>
-          </form>
-        </div>
-      </header>
+            <span
+              title={userName}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+            >
+              {initials || "U"}
+            </span>
+            <form action={logoutAction}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                aria-label="Sign out"
+                title="Sign out"
+                className="h-8 w-8 rounded-full text-muted-foreground"
+              >
+                <LogOut size={16} />
+              </Button>
+            </form>
+          </div>
+        </header>
+      </RouteDarkScope>
 
       {/* ── Sidebar + content row ───────────────────────────────────────────── */}
       <div className="flex flex-1 justify-start w-full min-h-0">
-        <div className="h-full w-56 shrink-0">
-          <AppSidebar userRole={userRole} userId={session?.user?.id} />
-        </div>
+        <RouteDarkScope match="/dsm">
+          <div className="h-full w-56 shrink-0">
+            <AppSidebar userRole={userRole} userId={session?.user?.id} />
+          </div>
+        </RouteDarkScope>
 
         <main className="w-full min-h-0 overflow-y-auto">{children}</main>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -21,7 +21,8 @@ import {
 import { createCalendarEvent, type CreateEventState } from "../actions/create-event";
 import { updateCalendarEvent, type UpdateEventState } from "../actions/update-event";
 import { ParticipantPicker } from "./participant-picker";
-import { toDateTimeLocalValue, toTitleCase } from "../utils";
+import { EventDateTimePicker } from "./event-date-time-picker";
+import { toDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
 import type { CalendarEventView } from "../queries";
 
 type InternalUser = { id: string; name: string | null; email: string };
@@ -111,7 +112,24 @@ export function EventDialog({
   const currentUser = internalUsers.find((u) => u.id === currentUserId);
   const userName = currentUser?.name || currentUser?.email || "mohit.thakre";
 
+  // Ticking clock so "Start time must be in the future" / disabled quick options
+  // stay accurate even if the dialog is left open for a while.
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Only newly-created events must start in the future — editing an existing
+  // (possibly already-past) event shouldn't be blocked by this.
+  const dtErrors = mode === "create" ? validateEventDateTime(start, end, now) : {};
+  const isDateTimeValid = !dtErrors.start && !dtErrors.end;
+
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (!isDateTimeValid) {
+      e.preventDefault();
+      return;
+    }
 
     const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
     const attendeeEmails = new Set<string>();
@@ -209,6 +227,8 @@ export function EventDialog({
           onSubmit={handleFormSubmit}
           className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm"
         >
+          <input type="hidden" name="start" value={toDateTimeLocalValue(start)} />
+          <input type="hidden" name="end" value={toDateTimeLocalValue(end)} />
           <input type="hidden" name="meetingType" value={meetingType} />
           <input type="hidden" name="meetingMode" value={meetingMode} />
           <input type="hidden" name="meetingLink" value={meetingLink} />
@@ -283,56 +303,15 @@ export function EventDialog({
           </div>
 
           {/* Date & Time */}
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-foreground">
-              Date &amp; Time
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="datetime-local"
-                  name="start"
-                  min={toDateTimeLocalValue(new Date())}
-                  value={toDateTimeLocalValue(start)}
-                  onChange={(e) => setStart(new Date(e.target.value))}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary transition-all"
-                />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">to</span>
-              <div className="relative flex-1">
-                <input
-                  type="datetime-local"
-                  name="end"
-                  min={toDateTimeLocalValue(start)}
-                  value={toDateTimeLocalValue(end)}
-                  onChange={(e) => setEnd(new Date(e.target.value))}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-            {state.errors?.start && (
-              <p className="text-xs text-destructive">{state.errors.start[0]}</p>
-            )}
-            {state.errors?.end && (
-              <p className="text-xs text-destructive">{state.errors.end[0]}</p>
-            )}
-
-            <div className="flex items-center justify-between pt-1">
-              {/* <span className="text-[11px] text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4">
-                ( GMT +05:30 ) India Standard Time(Asia/Kolkata)
-              </span> */}
-              {/* <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  name="isAllDay"
-                  checked={repeatEvent}
-                  onChange={(e) => setRepeatEvent(e.target.checked)}
-                  className="rounded border-input bg-background text-primary focus:ring-primary"
-                />
-                Repeat event
-              </label> */}
-            </div>
-          </div>
+          <EventDateTimePicker
+            start={start}
+            end={end}
+            onStartChange={setStart}
+            onEndChange={setEnd}
+            now={now}
+            startError={dtErrors.start ?? state.errors?.start?.[0]}
+            endError={dtErrors.end ?? state.errors?.end?.[0]}
+          />
 
           {/* Location / Room */}
           <div className="space-y-1.5">
@@ -535,7 +514,8 @@ export function EventDialog({
               </button>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={pending || !isDateTimeValid}
+                title={!isDateTimeValid ? "Fix the date/time errors above before creating this event" : undefined}
                 className="flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs"
               >
                 {pending && <Loader2 size={13} className="animate-spin" />}

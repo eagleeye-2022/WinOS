@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, createZohoEvent } from "@/lib/zoho-calendar";
 import { sendCalendarInviteEmail } from "@/lib/email";
-import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils";
+import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
 
 export type CreateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -57,9 +57,14 @@ export async function createCalendarEvent(
   const start = fromDateTimeLocalValue(startStr);
   const end = fromDateTimeLocalValue(endStr);
 
-
-  if (end <= start) {
-    return { errors: { end: ["End time must be after start time"] } };
+  const dtErrors = validateEventDateTime(start, end);
+  if (dtErrors.start || dtErrors.end) {
+    return {
+      errors: {
+        start: dtErrors.start ? [dtErrors.start] : undefined,
+        end: dtErrors.end ? [dtErrors.end] : undefined,
+      },
+    };
   }
 
   // 1. Fetch assigned invitee users from DB matching either IDs or emails

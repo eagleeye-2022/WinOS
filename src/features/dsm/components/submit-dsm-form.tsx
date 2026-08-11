@@ -112,9 +112,9 @@ function TaskRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add task
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add task
       </button>
     </div>
   );
@@ -202,9 +202,9 @@ function BlockerRows({
                       const titleText = b.text.trim() ? `Blocker Sync: ${b.text.trim()}` : "Blocker Resolution Meeting";
                       onScheduleMeeting(titleText, b.mentionedUserIds);
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2 py-0.5 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2 py-0.5 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
                   >
-                    <CalendarIcon size={12} />
+                    <CalendarIcon size={12} className="dark:text-[#93C5FD]" />
                     Schedule Meeting
                   </button>
                 )}
@@ -227,9 +227,9 @@ function BlockerRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add Blocker
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Blocker
       </button>
     </div>
   );
@@ -293,9 +293,9 @@ function SupportRows({
                       const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       onScheduleMeeting(titleText, s.mentionedUserIds);
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2.5 py-1 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2.5 py-1 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
                   >
-                    <CalendarIcon size={12} />
+                    <CalendarIcon size={12} className="dark:text-[#93C5FD]" />
                     Schedule Meeting
                   </button>
                 )}
@@ -316,9 +316,9 @@ function SupportRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add Support Needed
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Support Needed
       </button>
     </div>
   );
@@ -450,12 +450,12 @@ export function SubmitDsmForm({
         <input type="hidden" name="date" value={todayDateStr} />
 
         {/* Yesterday — read-only completed tasks */}
-        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What Did You Complete Yesterday?">
+        <Section icon={<CheckCircle2 size={16} className="text-primary dark:text-[#3B82F6]" />} title="What Did You Complete Yesterday?">
           {yesterdayTasks.length > 0 ? (
             <div className="flex flex-col gap-2">
               {yesterdayTasks.map((task, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-sm">
-                  <CheckCircle2 size={18} className="shrink-0 text-primary" />
+                  <CheckCircle2 size={18} className="shrink-0 text-primary dark:text-[#3B82F6]" />
                   <span>{task}</span>
                 </div>
               ))}
@@ -583,9 +583,9 @@ export function SubmitDsmForm({
               value="draft"
               type="submit"
               disabled={pending}
-              className="flex items-center gap-1.5 rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
             >
-              {pending && <Loader2 size={14} className="animate-spin" />}
+              {pending && <Loader2 size={14} className="animate-spin dark:text-[#93C5FD]" />}
               Save Draft
             </button>
           )}
@@ -603,7 +603,7 @@ export function SubmitDsmForm({
               value="submit"
               type="submit"
               disabled={pending}
-              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
             >
               {pending && <Loader2 size={16} className="animate-spin" />}
               {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSM"}

@@ -43,12 +43,21 @@ export async function createBoardNote(
 
   // Handle checklist items if any
   const items = formData.getAll("item") as string[];
-  const validItems = items.map((t) => t.trim()).filter(Boolean);
+  const itemsChecked = formData.getAll("itemChecked") as string[];
+  const validItems = items
+    .map((text, i) => ({
+      text: text.trim(),
+      checked: itemsChecked[i] === "true",
+      position: i,
+    }))
+    .filter((item) => Boolean(item.text));
+
   if (validItems.length > 0) {
     await d.boardNoteChecklistItem.createMany({
-      data: validItems.map((text, i) => ({
-        text,
-        position: i,
+      data: validItems.map((item) => ({
+        text: item.text,
+        checked: item.checked,
+        position: item.position,
         noteId: note.id,
       })),
     });

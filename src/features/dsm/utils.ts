@@ -124,41 +124,19 @@ export function getTeamRank(teamName: string, department?: string | null): numbe
   const lowerName = (teamName || "").toLowerCase();
   const lowerDept = (department || "").toLowerCase();
 
-  // 1. Marketing / Growth Team
-  if (
-    lowerName.includes("marketing") ||
-    lowerDept.includes("marketing") ||
-    lowerName.includes("growth")
-  ) {
-    return 1;
-  }
-  // 2. Creative / Design Team
-  if (
-    lowerName.includes("creative") ||
-    lowerName.includes("design") ||
-    lowerDept.includes("creative") ||
-    lowerDept.includes("design")
-  ) {
-    return 2;
-  }
-  // 3. Tech / Engineering Team
-  if (
-    lowerName.includes("tech") ||
-    lowerName.includes("engineering") ||
-    lowerDept.includes("tech") ||
-    lowerDept.includes("engineering")
-  ) {
-    return 3;
-  }
-  // 4. SMM Team
-  if (
-    lowerName.includes("smm") ||
-    lowerName.includes("social media") ||
-    lowerDept.includes("smm") ||
-    lowerDept.includes("social media")
-  ) {
-    return 4;
-  }
+  // Name matches are checked first (most specific) so a sub-team like SMM
+  // isn't misclassified just because it shares a broader department label
+  // (e.g. SMM team's department is often also "Marketing").
+  if (lowerName.includes("smm") || lowerName.includes("social media")) return 4;
+  if (lowerName.includes("creative") || lowerName.includes("design")) return 2;
+  if (lowerName.includes("tech") || lowerName.includes("engineering")) return 3;
+  if (lowerName.includes("marketing") || lowerName.includes("growth")) return 1;
+
+  // Fall back to department only when the team name itself gives no hint.
+  if (lowerDept.includes("smm") || lowerDept.includes("social media")) return 4;
+  if (lowerDept.includes("creative") || lowerDept.includes("design")) return 2;
+  if (lowerDept.includes("tech") || lowerDept.includes("engineering")) return 3;
+  if (lowerDept.includes("marketing")) return 1;
 
   return 99;
 }

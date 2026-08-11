@@ -51,13 +51,27 @@ function parseNoteContent(content: string, dbChecklistItems: { id: string; text:
   const extractedChecklist: { id: string; text: string; checked: boolean }[] = [];
 
   // Parse Tiptap TaskItems or list items from HTML
-  const taskRegex = /<li[^>]*data-type="taskItem"[^>]*data-checked="(true|false)"[^>]*>(.*?)<\/li>/gi;
+  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
   let match;
   let idx = 0;
 
-  while ((match = taskRegex.exec(content)) !== null) {
-    const isChecked = match[1] === "true";
-    const itemText = match[2]
+  while ((match = liRegex.exec(content)) !== null) {
+    const liHtml = match[0];
+    const innerHtml = match[1];
+
+    const isTaskItem = liHtml.includes('data-type="taskItem"') || innerHtml.includes('type="checkbox"');
+    if (!isTaskItem) continue;
+
+    let isChecked = false;
+    if (/data-checked=["']true["']/i.test(liHtml)) {
+      isChecked = true;
+    } else if (/data-checked=["']false["']/i.test(liHtml)) {
+      isChecked = false;
+    } else if (/<input[^>]*type=["']checkbox["'][^>]*checked/i.test(innerHtml) || /<input[^>]*checked[^>]*type=["']checkbox["']/i.test(innerHtml)) {
+      isChecked = true;
+    }
+
+    const itemText = innerHtml
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
@@ -74,32 +88,9 @@ function parseNoteContent(content: string, dbChecklistItems: { id: string; text:
     }
   }
 
-  // Fallback: If no data-type="taskItem" found, try any <li> item
-  if (extractedChecklist.length === 0) {
-    const liRegex = /<li[^>]*>(.*?)<\/li>/gi;
-    while ((match = liRegex.exec(content)) !== null) {
-      const isChecked = match[0].includes('data-checked="true"') || match[0].includes('checked');
-      const itemText = match[1]
-        .replace(/<[^>]*>/g, "")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .trim();
-
-      if (itemText) {
-        extractedChecklist.push({
-          id: `extracted-li-${idx++}`,
-          text: itemText,
-          checked: isChecked,
-        });
-      }
-    }
-  }
-
   // Clean text preview by stripping HTML tags and un-escaping entities
   let cleanText = content
-    .replace(/<li[^>]*>(.*?)<\/li>/gi, " ")
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, " ")
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<\/p>/gi, " ")
     .replace(/<[^>]*>/g, "")
@@ -155,20 +146,8 @@ function SharedNoteCard({
   const { checklist, cleanText } = parseNoteContent(note.content, note.checklistItems);
 
   const hasChecklist = checklist.length > 0;
-  const uncheckedItems = checklist.filter((i) => !i.checked);
-  const checkedItems = checklist.filter((i) => i.checked);
-
-  // Top unchecked items displayed as preview under title
-  const topUncheckedItems = hasChecklist ? uncheckedItems.slice(0, 1) : [];
-  const topUncheckedIds = new Set(topUncheckedItems.map((i) => i.id));
-
-  // Items shown in the lower list section (remaining unchecked items + checked items)
-  const remainingItems = hasChecklist
-    ? [...uncheckedItems.filter((i) => !topUncheckedIds.has(i.id)), ...checkedItems]
-    : [];
-
-  const shownLowerItems = remainingItems.slice(0, 5);
-  const totalMoreItems = checklist.length - (topUncheckedItems.length + shownLowerItems.length);
+  const shownItems = checklist.slice(0, 6);
+  const totalMoreItems = checklist.length - shownItems.length;
 
   const showCleanText = cleanText && cleanText.toLowerCase() !== note.title?.toLowerCase();
 
@@ -182,51 +161,17 @@ function SharedNoteCard({
           </h4>
         )}
 
-        {/* Content Preview (Top Unchecked Task & Clean Text Preview) */}
-        {hasChecklist ? (
-          <div className="flex flex-col gap-1.5">
-            {showCleanText && (
-              <p className="text-sm font-semibold text-black dark:text-black line-clamp-2">
-                {cleanText}
-              </p>
-            )}
-            {topUncheckedItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                disabled={isPending || isReadOnly || item.id.startsWith("extracted-")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggle(item.id);
-                }}
-                className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
-                  isReadOnly || item.id.startsWith("extracted-")
-                    ? "cursor-default opacity-90"
-                    : "hover:bg-black/5 cursor-pointer"
-                }`}
-              >
-                <span className="mt-0.5 shrink-0">
-                  <Square size={15} className="text-slate-700" />
-                </span>
-                <span className="text-sm leading-snug select-none line-clamp-2 text-black dark:text-black font-semibold">
-                  {item.text.length > 80 ? item.text.substring(0, 80) + "…" : item.text}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          note.content && (
-            <div
-              className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
-              dangerouslySetInnerHTML={{ __html: note.content }}
-            />
-          )
+        {/* Content Preview (Clean Text Preview if available) */}
+        {showCleanText && (
+          <p className="text-sm font-semibold text-black dark:text-black line-clamp-2">
+            {cleanText}
+          </p>
         )}
 
-        {/* Lower Checklist Section (Checked items & remaining list) */}
-        {remainingItems.length > 0 && (
-          <div className="flex flex-col gap-2 mt-1 border-t pt-2.5 border-black/10">
-            {shownLowerItems.map((item) => (
+        {/* Checklist items section displaying exact persisted order and checkbox states */}
+        {hasChecklist ? (
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-black/10 pt-2 font-medium">
+            {shownItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -249,11 +194,11 @@ function SharedNoteCard({
                   )}
                 </span>
                 <span
-                  className={`text-sm leading-snug select-none line-clamp-1 ${
-                    item.checked ? "text-black/50 line-through" : "text-black dark:text-black font-medium"
+                  className={`text-sm leading-snug select-none line-clamp-2 ${
+                    item.checked ? "text-black/50 line-through font-normal" : "text-black dark:text-black font-semibold"
                   }`}
                 >
-                  {item.text.length > 60 ? item.text.substring(0, 60) + "…" : item.text}
+                  {item.text.length > 80 ? item.text.substring(0, 80) + "…" : item.text}
                 </span>
               </button>
             ))}
@@ -263,6 +208,13 @@ function SharedNoteCard({
               </span>
             )}
           </div>
+        ) : (
+          note.content && (
+            <div
+              className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
+              dangerouslySetInnerHTML={{ __html: note.content }}
+            />
+          )
         )}
       </div>
 
@@ -298,7 +250,7 @@ export function WorkspaceNotesPanel({
     <div className="flex flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
-        <span className="text-lg font-bold text-black dark:text-black">Workspace Notes</span>
+        <span className="text-lg font-bold text-foreground">Workspace Notes</span>
         {sharedNotes.length > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground">
             {sharedNotes.length}
@@ -309,10 +261,10 @@ export function WorkspaceNotesPanel({
       {/* Shared items list */}
       <div className="px-4 py-4 flex flex-col gap-3.5">
         {sharedNotes.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-black my-auto">
-            <Share2 size={36} className="text-black/40 mb-3" />
-            <p className="font-semibold text-black dark:text-black text-lg">No Shared Notes</p>
-            <p className="text-sm text-black/70 dark:text-black/70 mt-1 max-w-xs">
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-foreground my-auto">
+            <Share2 size={36} className="text-muted-foreground mb-3" />
+            <p className="font-semibold text-foreground text-lg">No Shared Notes</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
               When Team Members Share Notes with You, They Will Appear Here.
             </p>
           </div>
