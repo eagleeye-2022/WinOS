@@ -614,9 +614,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
               type="button"
               disabled={pending}
               onClick={() => buildAndSubmit("draft")}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
             >
-              {pending && <Loader2 size={14} className="animate-spin" />}
+              {pending && <Loader2 size={14} className="animate-spin dark:text-[#93C5FD]" />}
               Save Draft
             </button>
           )}
@@ -624,7 +624,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
             type="button"
             disabled={pending}
             onClick={() => buildAndSubmit("submit")}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
           >
             {pending && <Loader2 size={14} className="animate-spin" />}
             {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSR"}

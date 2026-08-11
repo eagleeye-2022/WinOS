@@ -418,7 +418,7 @@ function TeamForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
         >
           {pending && <Loader2 size={14} className="animate-spin" />}
           {pending
@@ -519,8 +519,8 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
               type="button"
               onClick={() => setSelectedTeam(null)}
               className={cn(
-                "w-full rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary",
-                !selectedTeam && "border-primary/40 text-primary"
+                "w-full rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40",
+                !selectedTeam && "border-primary/40 text-primary dark:border-[#3B82F6] dark:text-[#3B82F6]"
               )}
             >
               + New Team

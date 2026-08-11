@@ -164,7 +164,7 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
             {initials}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary dark:group-hover:text-[#2563EB] transition-colors">
               {displayName}
             </p>
             <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-destructive">
@@ -175,8 +175,8 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
       </div>
       <div className="mt-3.5 pt-3 border-t border-destructive/20 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
-        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
-          Set Tasks <ChevronRight size={13} />
+        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
+          Set Tasks <ChevronRight size={13} className="dark:text-[#93C5FD]" />
         </span>
       </div>
     </Link>

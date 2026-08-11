@@ -205,13 +205,13 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
             className={cn(
               "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-accent",
               showFilters || searchQuery || selectedDept !== "all"
-                ? "bg-primary/10 border-primary text-primary hover:bg-primary/15"
+                ? "bg-primary/10 border-primary text-primary hover:bg-primary/15 dark:bg-[#1E293B] dark:border-[#3B82F6] dark:text-[#3B82F6]"
                 : "text-muted-foreground"
             )}
           >
-            <Filter size={13} /> Filters
+            <Filter size={13} className="dark:text-[#93C5FD]" /> Filters
             {(searchQuery || selectedDept !== "all") && (
-              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground dark:bg-[#3B82F6] dark:text-[#F8FAFC]">
                 {Number(!!searchQuery) + Number(selectedDept !== "all")}
               </span>
             )}
@@ -264,7 +264,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
                 setSearchQuery("");
                 setSelectedDept("all");
               }}
-              className="text-xs font-semibold text-primary hover:underline sm:ml-auto"
+              className="text-xs font-semibold text-primary hover:underline sm:ml-auto dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
             >
               Clear Filters
             </button>
@@ -309,7 +309,7 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
       <button
         type="button"
         onClick={() => setShowModal(true)}
-        className="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
         aria-label="Create new team"
       >
         <Plus size={24} />

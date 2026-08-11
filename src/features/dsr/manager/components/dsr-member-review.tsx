@@ -512,7 +512,7 @@ function ReviewerActionsCard({
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
         >
           {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
           {pending ? "Reviewing…" : "Reviewed"}

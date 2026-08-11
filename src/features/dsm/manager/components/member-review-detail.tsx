@@ -214,9 +214,9 @@ function AddTaskRow({ entryId }: { entryId: string }) {
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add Task
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task
       </button>
     );
   }
@@ -316,7 +316,7 @@ function EditBlockerRow({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border px-2 py-1 text-xs font-medium text-destructive/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+            className="rounded border px-2 py-1 text-xs font-medium text-destructive/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
           >
             Edit
           </button>
@@ -406,9 +406,9 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-destructive/40 py-2 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/10"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-destructive/40 py-2 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/10 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add Blocker
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Blocker
       </button>
     );
   }
@@ -514,7 +514,7 @@ function EditSupportRow({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border px-2 py-1 text-xs font-medium text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info"
+            className="rounded border px-2 py-1 text-xs font-medium text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
           >
             Edit
           </button>
@@ -613,9 +613,9 @@ function AddSupportRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-info/40 py-2 text-xs font-medium text-info transition-colors hover:border-info hover:bg-info/10"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-info/40 py-2 text-xs font-medium text-info transition-colors hover:border-info hover:bg-info/10 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
-        <Plus size={13} /> Add Support Needed
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Support Needed
       </button>
     );
   }
@@ -712,7 +712,7 @@ function ReviewButton({ entryId }: { entryId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
       >
         {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
         {pending ? "Reviewing…" : "Reviewed ✓"}

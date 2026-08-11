@@ -250,7 +250,7 @@ export function WorkspaceNotesPanel({
     <div className="flex flex-col bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
-        <span className="text-lg font-bold text-black dark:text-black">Workspace Notes</span>
+        <span className="text-lg font-bold text-foreground">Workspace Notes</span>
         {sharedNotes.length > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground">
             {sharedNotes.length}
@@ -261,10 +261,10 @@ export function WorkspaceNotesPanel({
       {/* Shared items list */}
       <div className="px-4 py-4 flex flex-col gap-3.5">
         {sharedNotes.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-black my-auto">
-            <Share2 size={36} className="text-black/40 mb-3" />
-            <p className="font-semibold text-black dark:text-black text-lg">No Shared Notes</p>
-            <p className="text-sm text-black/70 dark:text-black/70 mt-1 max-w-xs">
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-foreground my-auto">
+            <Share2 size={36} className="text-muted-foreground mb-3" />
+            <p className="font-semibold text-foreground text-lg">No Shared Notes</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-xs">
               When Team Members Share Notes with You, They Will Appear Here.
             </p>
           </div>
