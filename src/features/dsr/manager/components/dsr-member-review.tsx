@@ -245,7 +245,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                     "text-xs font-semibold leading-snug",
                     b.resolved ? "text-success" : "text-destructive"
                   )}>
-                    {b.text}
+                    {b.text ? b.text.replace(/^(@\S+\s*)+/, "").trim() : ""}
                   </span>
                 </span>
                 <span className={cn(
@@ -280,7 +280,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
                   ) : (
                     <Clock3 size={13} className="shrink-0 text-muted-foreground" />
                   )}
-                  <span className="text-xs">{f.text}</span>
+                  <span className="text-xs">{f.text ? f.text.replace(/^(@\S+\s*)+/, "").trim() : ""}</span>
                 </div>
                 <span className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",

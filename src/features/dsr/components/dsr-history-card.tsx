@@ -205,7 +205,7 @@ export function DsrHistoryCard({
                   <div className="flex flex-col gap-1.5">
                     {entry.followUpsDone.map((f, i) => (
                       <p key={f.id} className="text-xs leading-relaxed">
-                        {i + 1}) {renderTextWithMentions(f.text)}
+                        {i + 1}) {renderTextWithMentions(f.text ? f.text.replace(/^(@\S+\s*)+/, "").trim() : "")}
                       </p>
                     ))}
                   </div>
@@ -219,7 +219,7 @@ export function DsrHistoryCard({
                   <div className="flex flex-col gap-1.5">
                     {entry.resolvedBlockers.map((b, i) => (
                       <p key={b.id} className="text-xs leading-relaxed">
-                        {i + 1}) {renderTextWithMentions(b.text)}
+                        {i + 1}) {renderTextWithMentions(b.text ? b.text.replace(/^(@\S+\s*)+/, "").trim() : "")}
                       </p>
                     ))}
                   </div>
