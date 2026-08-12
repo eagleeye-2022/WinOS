@@ -7,9 +7,10 @@ import {
   getYesterdayIncompleteTasks,
   getYesterdayBlockers,
   getWeekEntries,
-  getWorkspaceNote,
+  getSharedWorkspaceNotes,
   getKpiStats,
   getTeamMembers,
+  isUserInAnyTeam,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -32,23 +33,21 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, workspaceNote, kpiStats, teamMembers, todayCalendarEvents] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
       getYesterdayIncompleteTasks(),
       getYesterdayBlockers(),
       getWeekEntries(weekOffset),
-      getWorkspaceNote(),
+      getSharedWorkspaceNotes(),
       getKpiStats(weekOffset),
       getTeamMembers(),
       getTodayCalendarEvents(),
+      isUserInAnyTeam(),
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
-  const canEditNote =
-    session?.user?.role === "MANAGER" ||
-    (workspaceNote != null && workspaceNote.owner.id === session?.user?.id);
 
   return (
     <div className="flex h-full">
@@ -83,8 +82,12 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       </div>
 
       <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
-        <WorkspaceNotesPanel />
+        <WorkspaceNotesPanel
+          sharedNotes={inAnyTeam ? (sharedItems?.notes || []) : []}
+          userRole={session.user.role}
+        />
       </aside>
     </div>
   );
 }
+

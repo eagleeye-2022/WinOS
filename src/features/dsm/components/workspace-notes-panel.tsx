@@ -38,77 +38,153 @@ function getCardColor(color: string | null | undefined, id: string) {
 
 // ── Shared Note Card ──────────────────────────────────────────────────────────
 
-function parseNoteContent(content: string, dbChecklistItems: { id: string; text: string; checked: boolean }[]) {
-  if (dbChecklistItems && dbChecklistItems.length > 0) {
-    return {
-      checklist: dbChecklistItems,
-      cleanText: "",
-    };
+function extractFirstContentHeading(content: string): string {
+  if (!content || !content.trim()) return "";
+
+  // 1. HTML Headings (h1-h6)
+  const hMatch = content.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  if (hMatch && hMatch[1]) {
+    const text = hMatch[1].replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+    if (text) return text;
   }
 
-  if (!content) return { checklist: [], cleanText: "" };
+  // 2. Strong / Bold tags (<p><strong>...</strong></p> or <strong>...</strong>)
+  const strongMatch = content.match(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/i);
+  if (strongMatch && strongMatch[1]) {
+    const text = strongMatch[1].replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+    if (text) return text;
+  }
 
+  // 3. Markdown headings (# Heading) or bold (**Heading**)
+  const mdMatch = content.match(/^(?:\s*#+\s*|\s*\*\*|\s*__)(.*?)(?:\*\*|__|[\r\n]|$)/m);
+  if (mdMatch && mdMatch[1]) {
+    const text = mdMatch[1].replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+    if (text) return text;
+  }
+
+  // 4. First non-empty line of text
+  const cleanHtml = content
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+  const lines = cleanHtml.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 0) {
+    let firstLine = lines[0];
+    const boldBlock = firstLine.match(/^\*\*([^*]+)\*\*/);
+    if (boldBlock) {
+      firstLine = boldBlock[1].trim();
+    }
+    if (firstLine.length > 80) {
+      firstLine = firstLine.substring(0, 80) + "…";
+    }
+    return firstLine;
+  }
+
+  return "";
+}
+
+function parseNoteContent(content: string, dbChecklistItems: { id: string; text: string; checked: boolean }[]) {
   const extractedChecklist: { id: string; text: string; checked: boolean }[] = [];
 
-  // Parse Tiptap TaskItems or list items from HTML
-  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-  let match;
-  let idx = 0;
+  if (dbChecklistItems && dbChecklistItems.length > 0) {
+    extractedChecklist.push(...dbChecklistItems);
+  } else if (content) {
+    // Parse Tiptap TaskItems or list items from HTML
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match;
+    let idx = 0;
 
-  while ((match = liRegex.exec(content)) !== null) {
-    const liHtml = match[0];
-    const innerHtml = match[1];
+    while ((match = liRegex.exec(content)) !== null) {
+      const liHtml = match[0];
+      const innerHtml = match[1];
 
-    const isTaskItem = liHtml.includes('data-type="taskItem"') || innerHtml.includes('type="checkbox"');
-    if (!isTaskItem) continue;
+      const isTaskItem = liHtml.includes('data-type="taskItem"') || innerHtml.includes('type="checkbox"');
+      if (!isTaskItem) continue;
 
-    let isChecked = false;
-    if (/data-checked=["']true["']/i.test(liHtml)) {
-      isChecked = true;
-    } else if (/data-checked=["']false["']/i.test(liHtml)) {
-      isChecked = false;
-    } else if (/<input[^>]*type=["']checkbox["'][^>]*checked/i.test(innerHtml) || /<input[^>]*checked[^>]*type=["']checkbox["']/i.test(innerHtml)) {
-      isChecked = true;
+      let isChecked = false;
+      if (/data-checked=["']true["']/i.test(liHtml)) {
+        isChecked = true;
+      } else if (/data-checked=["']false["']/i.test(liHtml)) {
+        isChecked = false;
+      } else if (/<input[^>]*type=["']checkbox["'][^>]*checked/i.test(innerHtml) || /<input[^>]*checked[^>]*type=["']checkbox["']/i.test(innerHtml)) {
+        isChecked = true;
+      }
+
+      const itemText = innerHtml
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .trim();
+
+      if (itemText) {
+        extractedChecklist.push({
+          id: `extracted-task-${idx++}`,
+          text: itemText,
+          checked: isChecked,
+        });
+      }
     }
+  }
 
-    const itemText = innerHtml
+  const cleanText = extractFirstContentHeading(content);
+
+  return {
+    checklist: extractedChecklist,
+    cleanText,
+  };
+}
+
+function extractFirstHeading(title?: string | null, content?: string | null): string {
+  const cleanHeading = (raw: string): string => {
+    let s = raw
       .replace(/<[^>]*>/g, "")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
+      .replace(/^[\s#*_-]+/, "")
+      .replace(/[\s*_-]+$/, "")
+      .replace(/\s+/g, " ")
       .trim();
 
-    if (itemText) {
-      extractedChecklist.push({
-        id: `extracted-task-${idx++}`,
-        text: itemText,
-        checked: isChecked,
-      });
+    const boldMatch = s.match(/^\*\*([^*]+)\*\*/);
+    if (boldMatch) {
+      s = boldMatch[1].trim();
     }
-  }
 
-  // Clean text preview by stripping HTML tags and un-escaping entities
-  let cleanText = content
-    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, " ")
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<\/p>/gi, " ")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
-    .trim();
+    if (s.includes("\n")) {
+      s = s.split("\n")[0].trim();
+    }
 
-  if (cleanText.length > 120) {
-    cleanText = cleanText.substring(0, 120) + "…";
-  }
-
-  return {
-    checklist: extractedChecklist,
-    cleanText: extractedChecklist.length > 0 && cleanText.length < 5 ? "" : cleanText,
+    return s;
   };
+
+  if (title && title.trim()) {
+    const htmlHeading =
+      title.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i) ||
+      title.match(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/i);
+    if (htmlHeading && htmlHeading[1]) {
+      const cleaned = cleanHeading(htmlHeading[1]);
+      if (cleaned) return cleaned;
+    }
+
+    const firstLine = title.split(/[\r\n]+/)[0];
+    const cleaned = cleanHeading(firstLine);
+    if (cleaned) return cleaned;
+  }
+
+  if (!content || !content.trim()) return "";
+
+  return extractFirstContentHeading(content);
 }
 
 function SharedNoteCard({
@@ -149,15 +225,16 @@ function SharedNoteCard({
   const shownItems = checklist.slice(0, 6);
   const totalMoreItems = checklist.length - shownItems.length;
 
-  const showCleanText = cleanText && cleanText.toLowerCase() !== note.title?.toLowerCase();
+  const cardTitle = extractFirstHeading(note.title, note.content);
+  const showCleanText = cleanText && cleanText.toLowerCase() !== cardTitle.toLowerCase();
 
   return (
     <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-black">
       <div className="flex flex-col gap-2.5">
         {/* Title */}
-        {note.title && (
+        {cardTitle && (
           <h4 className="text-base font-bold text-black dark:text-black line-clamp-2">
-            {note.title.length > 60 ? note.title.substring(0, 60) + "…" : note.title}
+            {cardTitle.length > 60 ? cardTitle.substring(0, 60) + "…" : cardTitle}
           </h4>
         )}
 

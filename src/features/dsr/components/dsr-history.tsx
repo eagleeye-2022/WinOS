@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { weekOfMonth, getWeekRange, relativeDayLabel } from "@/features/dsm/utils";
+import { getWeekRange, relativeDayLabel, formatWeekRange } from "@/features/dsm/utils";
 import { DsrHistoryCard } from "./dsr-history-card";
 import type { DsrEntryData } from "../queries";
 
@@ -12,8 +12,8 @@ type Props = {
 };
 
 export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
-  const { start } = getWeekRange(weekOffset);
-  const weekLabel = `Week ${weekOfMonth(start)}`;
+  const { start, end } = getWeekRange(weekOffset);
+  const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
 
   return (

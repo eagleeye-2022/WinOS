@@ -202,9 +202,9 @@ function BlockerRows({
                       const titleText = b.text.trim() ? `Blocker Sync: ${b.text.trim()}` : "Blocker Resolution Meeting";
                       onScheduleMeeting(titleText, b.mentionedUserIds);
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2 py-0.5 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
-                    <CalendarIcon size={12} className="dark:text-[#93C5FD]" />
+                    <CalendarIcon size={12} className="text-muted-foreground" />
                     Schedule Meeting
                   </button>
                 )}
@@ -293,9 +293,9 @@ function SupportRows({
                       const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       onScheduleMeeting(titleText, s.mentionedUserIds);
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:bg-primary/15 px-2.5 py-1 rounded border border-primary/30 transition-all cursor-pointer shadow-2xs dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
-                    <CalendarIcon size={12} className="dark:text-[#93C5FD]" />
+                    <CalendarIcon size={12} className="text-muted-foreground" />
                     Schedule Meeting
                   </button>
                 )}
@@ -543,7 +543,8 @@ export function SubmitDsmForm({
         {/* What will you learn today */}
         <Section
           icon={<GraduationCap size={16} className="text-primary" />}
-          title="What Will You Learn Today?"
+          title="What Will You Learn Today( WhyFi )?"
+          required
         >
           <textarea
             name="learningText"
@@ -552,11 +553,15 @@ export function SubmitDsmForm({
             onChange={(e) => setLearningText(e.target.value)}
             placeholder="What New Skill, Topic, or Concept Are You Planning to Learn Today?"
             className={cn(inputCls, "resize-none")}
+            required
           />
+          {state.errors?.learningText && (
+            <p className="text-xs text-destructive">{state.errors.learningText[0]}</p>
+          )}
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Any Blockers (Dependencies)?">
+        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Blockers (Dependencies)?">
           <BlockerRows
             blockers={blockers}
             teamMembers={teamMembers}
@@ -566,7 +571,7 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Any Support Needed (Meeting)?">
+        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Support Needed (Meeting)?">
           <SupportRows
             supports={supports}
             teamMembers={teamMembers}
@@ -583,9 +588,9 @@ export function SubmitDsmForm({
               value="draft"
               type="submit"
               disabled={pending}
-              className="flex items-center gap-1.5 rounded-lg border px-5 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-5 py-2 text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
             >
-              {pending && <Loader2 size={14} className="animate-spin dark:text-[#93C5FD]" />}
+              {pending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
               Save Draft
             </button>
           )}

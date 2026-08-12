@@ -23,9 +23,11 @@ function WinOSBrand() {
     <Image
       src="/winos-logo.png.png"
       alt="WinOS by Eagle Eye Digital"
-      width={110}
-      height={38}
-      className="object-contain"
+      width={500}
+      height={170}
+      quality={100}
+      unoptimized
+      className="h-11 w-auto object-contain shrink-0"
       priority
     />
   );

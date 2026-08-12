@@ -8,8 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 export function toTitleCase(str: string | null | undefined): string {
   if (!str) return "";
   return str
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .split(/[\s._-]+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }

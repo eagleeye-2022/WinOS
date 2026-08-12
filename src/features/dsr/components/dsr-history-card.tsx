@@ -67,7 +67,7 @@ export function DsrHistoryCard({
           {/* Blocker count badge */}
           {blockerCount > 0 && (
             <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
-              {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} Resolved
+              {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} (Dependencies) Resolved
             </span>
           )}
 
@@ -200,7 +200,7 @@ export function DsrHistoryCard({
               {entry.followUpsDone.length > 0 && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Support Received
+                    Support Needed (Meeting) Resolved
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {entry.followUpsDone.map((f, i) => (
@@ -214,7 +214,7 @@ export function DsrHistoryCard({
               {entry.resolvedBlockers.length > 0 && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Blockers Solved
+                    Blockers (Dependencies) Resolved
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {entry.resolvedBlockers.map((b, i) => (
@@ -231,7 +231,7 @@ export function DsrHistoryCard({
           {(entry.learningItems ?? []).length > 0 && (
             <div className="mt-3 rounded-lg border bg-muted/30 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                What Will You Learn Today? ({entry.learningItems.filter((l) => l.completed).length}/{entry.learningItems.length} Learned)
+                What Will You Learn Today( WhyFi )? ({entry.learningItems.filter((l) => l.completed).length}/{entry.learningItems.length} Learned)
               </p>
               <div className="flex flex-col gap-1.5">
                 {entry.learningItems.map((l) => (

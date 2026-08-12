@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "./send-reminder-button";
 import type { TeamGroup, MemberSubmissionCard } from "../queries";
@@ -24,13 +24,8 @@ function avatarGradientFor(userId: string) {
 }
 
 function displayNameOf(card: Pick<MemberSubmissionCard, "name" | "email">) {
-  return card.name
-    ? card.name
-    : card.email
-        .split("@")[0]
-        .split(".")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+  const raw = card.name ?? card.email.split("@")[0];
+  return toTitleCase(raw);
 }
 
 function initialsOf(displayName: string) {
@@ -96,29 +91,35 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
           {timeStr && (
             <span
               className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-semibold",
+                "rounded-full border bg-transparent px-2 py-0.5 text-xs font-semibold shadow-2xs",
                 isOnTime
-                  ? "bg-emerald-300 dark:bg-emerald-200 text-emerald-900 dark:text-emerald-950"
-                  : "bg-rose-300 dark:bg-rose-200 text-rose-900 dark:text-rose-950"
+                  ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+                  : "border-rose-500/50 text-rose-600 dark:text-rose-400"
               )}
             >
               {isOnTime ? "On Time" : "Delayed"}
             </span>
           )}
-          {isReviewed && (
-            <span className="flex items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-900 dark:text-indigo-950">
-              <ClipboardCheck size={11} /> Reviewed
-            </span>
-          )}
+
         </div>
       </div>
 
       {card.todayTasks.length > 0 && (
         <div className="mt-3.5 pt-3 border-t border-border/50">
-          <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <ListChecks size={11} /> Today&apos;s Task
-          </p>
-          <ul className="space-y-1">
+          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+            <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <ListChecks size={11} /> Today&apos;s Task
+            </p>
+            <p>
+              {isReviewed && (
+                <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-2  text-xs font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
+                  <ClipboardCheck size={11} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
+                </span>
+              )}
+            </p>
+
+          </div>
+          <ul className="space-y-1 pt-2">
             {card.todayTasks.slice(0, 3).map((task, i) => {
               const p = task.managerPriority ?? task.priority;
               return (

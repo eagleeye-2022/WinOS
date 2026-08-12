@@ -2,6 +2,8 @@ import { LoginForm } from "@/features/auth/components/login-form";
 import { APP_CONFIG } from "@/config/app";
 import { createCaptcha } from "@/lib/captcha";
 
+import Image from "next/image";
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -12,7 +14,18 @@ export default async function LoginPage({
 
   return (
     <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
-      <h1 className="mb-1 text-xl font-semibold">{APP_CONFIG.name}</h1>
+      <div className="mb-4 flex items-center justify-start">
+        <Image
+          src="/winos-logo.png.png"
+          alt={APP_CONFIG.name}
+          width={500}
+          height={170}
+          quality={100}
+          unoptimized
+          className="h-14 w-auto object-contain"
+          priority
+        />
+      </div>
       <p className="mb-1 text-sm font-medium text-foreground pb-2.5">
         Sign In with Your Eagleeye Digital Account
       </p>

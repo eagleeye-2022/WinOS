@@ -462,6 +462,24 @@ export type SharedThreadData = {
   }[];
 };
 
+export async function isUserInAnyTeam(userId?: string): Promise<boolean> {
+  const session = await auth();
+  const id = userId || session?.user?.id;
+  if (!id) return false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const count = await d.team.count({
+    where: {
+      OR: [
+        { leadId: id },
+        { members: { some: { userId: id } } },
+      ],
+    },
+  });
+  return count > 0;
+}
+
 export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ notes: SharedNoteData[]; threads: SharedThreadData[] }> {
   const session = await auth();
   if (!session?.user?.id) return { notes: [], threads: [] };

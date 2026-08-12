@@ -9,7 +9,7 @@ import {
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { reviewStandup, type ReviewStandupState } from "../actions/review-standup";
 import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-priority";
@@ -22,7 +22,7 @@ import { addBlocker, type AddBlockerState } from "@/features/blockers/actions/ad
 import { editSupport, type EditSupportState } from "@/features/support-needed/actions/edit-support";
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
-import { reviewStatus, relativeDayLabel, formatShortDate, weekOfMonth, getWeekRange } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, getWeekRange, formatWeekRange } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -656,9 +656,9 @@ function AddSupportRow({
                 const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
                 onScheduleMeeting(titleText, mentionedUserIds);
               }}
-              className="flex items-center gap-1 text-[11px] font-semibold text-info hover:bg-info/20 px-2.5 py-1 rounded border border-info/40 transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
             >
-              <Calendar size={12} />
+              <Calendar size={12} className="text-muted-foreground" />
               Schedule Meeting
             </button>
           )}
@@ -1099,7 +1099,7 @@ function EntryExpanded({
         <div className="rounded-xl border bg-card p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
             <GraduationCap size={15} className="text-primary" />
-            What Will You Learn Today?
+            What Will You Learn Today( WhyFi )?
           </h3>
           <p className="text-sm leading-relaxed text-foreground/80">{entry.learningText}</p>
         </div>
@@ -1111,7 +1111,7 @@ function EntryExpanded({
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
               <AlertTriangle size={15} className="text-destructive" />
-              Any Blockers (Dependencies)?
+              Blockers (Dependencies)?
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                 {entry.blockers.length}
               </span>
@@ -1164,7 +1164,7 @@ function EntryExpanded({
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-info">
             <span className="flex items-center gap-2">
               <Handshake size={15} className="text-info" />
-              Any Support Needed (Meeting)?
+              Support Needed (Meeting)?
               <span className="rounded-full bg-info/15 px-2 py-0.5 text-xs font-semibold text-info">
                 {entry.supportNeeds.length}
               </span>
@@ -1208,9 +1208,9 @@ function EntryExpanded({
                       const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                       setScheduleModal({ title: titleText, participantIds: uIds });
                     }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-info hover:bg-info/20 px-2 py-0.5 rounded border border-info/40 transition-all cursor-pointer shadow-2xs shrink-0"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
                   >
-                    <Calendar size={12} />
+                    <Calendar size={12} className="text-muted-foreground" />
                     Schedule Meeting
                   </button>
                   {!isLocked && <DeleteSupportButton supportId={s.id} />}
@@ -1465,8 +1465,8 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
     };
   }, [router]);
 
-  const { start } = getWeekRange(weekOffset);
-  const weekLabel = `Week ${weekOfMonth(start)}`;
+  const { start, end } = getWeekRange(weekOffset);
+  const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
 
   const displayedEntries = entries.filter((e) => new Date(e.date).getTime() >= start.getTime());
@@ -1495,7 +1495,7 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
             </span>
             <div>
-              <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+              <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
             </div>
           </div>

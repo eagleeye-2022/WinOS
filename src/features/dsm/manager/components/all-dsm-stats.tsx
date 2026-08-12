@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Users, Clock, Ban, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import type { AllDsmStats } from "../queries";
 
@@ -23,13 +23,8 @@ type Props = {
 };
 
 function displayNameOf(member: Pick<StatMember, "name" | "email">) {
-  return member.name
-    ? member.name
-    : member.email
-        .split("@")[0]
-        .split(".")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+  const raw = member.name ?? member.email.split("@")[0];
+  return toTitleCase(raw);
 }
 
 // ── Shared member-list dropdown ────────────────────────────────────────────────

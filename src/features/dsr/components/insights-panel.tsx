@@ -116,20 +116,22 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
   return (
-    <div className="flex h-full flex-col min-h-0">
+    <div className="flex h-full w-full flex-col min-h-0">
       {/* Scrollable Insights Content */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         <h2 className="text-lg font-bold">Insights Panel</h2>
 
         {/* Day Summary */}
-        <div className="rounded-xl border bg-card p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Zap size={14} className="text-primary" />
-            <span className="text-sm font-semibold">Day Summary</span>
+        {daySummary && !daySummary.startsWith("Fill in your evening review") && (
+          <div className="rounded-xl border bg-card p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Zap size={14} className="text-primary" />
+              <span className="text-sm font-semibold">Day Summary</span>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">{daySummary}</p>
+            <div className="mt-3 h-0.5 rounded-full bg-primary" />
           </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">{daySummary}</p>
-          <div className="mt-3 h-0.5 rounded-full bg-primary" />
-        </div>
+        )}
 
         {/* Weekly trend */}
         <WeeklyTrendChart trend={weeklyTrend} streak={streak} />

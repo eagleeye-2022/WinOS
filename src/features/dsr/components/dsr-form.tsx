@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useRef, useEffect, startTransition } from "react";
-import { PlusCircle, X, Loader2 } from "lucide-react";
+import { PlusCircle, X, Loader2, Zap, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import type { DsrEntryData, DsrStandupPrefill } from "../queries";
@@ -229,7 +229,7 @@ function PlannedTasksSection({
                 task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
                 task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
                 task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-                !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+                !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
               )}>
                 {task.priority.toUpperCase()}
               </span>
@@ -354,26 +354,38 @@ function DayReflection({
           <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Sentiment
           </label>
-          <div className="flex gap-2">
-            {["BREAKTHROUGH", "BREAKDOWN"].map((s) => (
-              <button
-                key={s}
-                type="button"
-                disabled={readOnly}
-                onClick={() => !readOnly && onSentiment(sentiment === s ? "" : s)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                  sentiment === s
-                    ? s === "BREAKTHROUGH"
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-destructive/50 bg-destructive/5 text-destructive"
-                    : "border-border text-muted-foreground hover:bg-accent",
-                  readOnly && "cursor-not-allowed opacity-80"
-                )}
-              >
-                {s === "BREAKTHROUGH" ? "⚡" : "↘"} {s === "BREAKTHROUGH" ? "Breakthrough" : "Breakdown"}
-              </button>
-            ))}
+          <div className="flex gap-4 w-full">
+            <button
+              type="button"
+              disabled={readOnly}
+              onClick={() => !readOnly && onSentiment(sentiment === "BREAKTHROUGH" ? "" : "BREAKTHROUGH")}
+              className={cn(
+                "flex items-center w-fit justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-2xs active:scale-[0.99]",
+                sentiment === "BREAKTHROUGH"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                readOnly && "cursor-not-allowed opacity-80"
+              )}
+            >
+              <Zap size={16} className={sentiment === "BREAKTHROUGH" ? "text-primary-foreground fill-current" : "text-amber-500"} />
+              <span>Breakthrough</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={readOnly}
+              onClick={() => !readOnly && onSentiment(sentiment === "BREAKDOWN" ? "" : "BREAKDOWN")}
+              className={cn(
+                "flex items-center w-fit justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-2xs active:scale-[0.99]",
+                sentiment === "BREAKDOWN"
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 shadow-xs"
+                  : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+                readOnly && "cursor-not-allowed opacity-80"
+              )}
+            >
+              <TrendingDown size={16} className={sentiment === "BREAKDOWN" ? "text-amber-600 dark:text-amber-400" : "text-amber-500"} />
+              <span>Breakdown</span>
+            </button>
           </div>
         </div>
 
@@ -394,25 +406,6 @@ function DayReflection({
             )}
           />
           {resultOfDayErrors?.[0] && <p className="mt-1 text-xs text-destructive">{resultOfDayErrors[0]}</p>}
-        </div>
-
-        <div>
-          <label className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            What Did You Learn?
-            {!readOnly && <span className="text-destructive">*</span>}
-          </label>
-          <textarea
-            disabled={readOnly}
-            value={reflection}
-            onChange={(e) => onReflection(e.target.value)}
-            placeholder="Documenting New Learnings..."
-            rows={3}
-            className={cn(
-              "w-full resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
-              readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
-            )}
-          />
-          {errors?.[0] && <p className="mt-1 text-xs text-destructive">{errors[0]}</p>}
         </div>
       </div>
     </div>
@@ -556,27 +549,27 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
       />
 
       <CheckSection
-        title="Blockers Resolved"
+        title="Blockers (Dependencies) Resolved"
         badge={`${blockers.filter((b) => b.completed).length}/${blockers.length} BLOCKERS RESOLVED`}
         items={blockers}
         onChange={setBlockers}
         allowAdd
-        addLabel="Add Resolved Blocker"
+        addLabel="Add Resolved Blocker (Dependencies)"
         readOnly={readOnly}
       />
 
       <CheckSection
-        title="Follow-Ups Done"
-        badge={`${followUps.filter((f) => f.completed).length}/${followUps.length} FOLLOW-UPS COMPLETED`}
+        title="Support Needed (Meeting) Resolved"
+        badge={`${followUps.filter((f) => f.completed).length}/${followUps.length} RESOLVED`}
         items={followUps}
         onChange={setFollowUps}
         allowAdd
-        addLabel="Add Follow-Up"
+        addLabel="Add Support Needed (Meeting)"
         readOnly={readOnly}
       />
 
       <CheckSection
-        title="What Will You Learn Today?"
+        title="What Will You Learn Today( WhyFi )?"
         badge={`${learningItems.filter((l) => l.completed).length}/${learningItems.length} LEARNED`}
         items={learningItems}
         onChange={setLearningItems}
@@ -614,9 +607,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
               type="button"
               disabled={pending}
               onClick={() => buildAndSubmit("draft")}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:bg-[#1E293B] dark:border-[#3B82F6]/30"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground py-2 text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
             >
-              {pending && <Loader2 size={14} className="animate-spin dark:text-[#93C5FD]" />}
+              {pending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
               Save Draft
             </button>
           )}

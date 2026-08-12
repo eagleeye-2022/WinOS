@@ -42,9 +42,6 @@ export async function saveDsr(
 
   if (action === "submit") {
     const errors: { reflection?: string[]; resultOfDay?: string[] } = {};
-    if (!reflection) {
-      errors.reflection = ["Please add a reflection before submitting."];
-    }
     if (!resultOfDay) {
       errors.resultOfDay = ["Please add the outcome of the day before submitting."];
     }

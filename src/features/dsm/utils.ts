@@ -44,6 +44,19 @@ export function getWeekRange(weekOffset: number, from: Date = new Date()): { sta
   return { start: monday, end: sunday };
 }
 
+/** Format a week range as exact dates e.g. "10 Aug - 16 Aug". */
+export function formatWeekRange(start: Date, end: Date): string {
+  const startDay = start.getUTCDate();
+  const startMonth = start.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const endDay = end.getUTCDate();
+  const endMonth = end.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+
+  if (startMonth === endMonth) {
+    return `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
+  }
+  return `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
+}
+
 export type ReviewStatus =
   | { label: "Pending Review"; kind: "pending" }
   | { label: string; kind: "reviewed" } // "Reviewed by X"

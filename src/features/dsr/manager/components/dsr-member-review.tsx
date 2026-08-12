@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, AlertCircle, Zap, ArrowLeft, Loader2,
+  Star, Clock3, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
-import { relativeDayLabel, weekOfMonth, getWeekRange, formatShortDate } from "@/features/dsm/utils";
+import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
 import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
 import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
@@ -73,13 +73,34 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
 
 function ResultCard({ entry }: { entry: DsrEntryData }) {
   if (!entry.resultOfDay) return null;
+
+  const isBreakthrough = entry.sentiment === "BREAKTHROUGH";
+
   return (
     <div className="rounded-xl border bg-card p-4">
-      <div className="mb-2.5 flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
-          <Star size={11} className="fill-primary-foreground text-primary-foreground" />
-        </span>
-        <h3 className="text-sm font-semibold">Outcome of the Day</h3>
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
+            <Star size={11} className="fill-primary-foreground text-primary-foreground" />
+          </span>
+          <h3 className="text-sm font-semibold">Outcome of the Day</h3>
+        </div>
+
+        {entry.sentiment && (
+          <span
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+              "border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            )}
+          >
+            {isBreakthrough ? (
+              <Zap size={12} className="fill-current text-amber-500" />
+            ) : (
+              <TrendingDown size={12} className="text-amber-500" />
+            )}
+            <span>{isBreakthrough ? "Breakthrough" : "Breakdown"}</span>
+          </span>
+        )}
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">
         &ldquo;{entry.resultOfDay}&rdquo;
@@ -222,7 +243,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
         <div className="mb-3">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <span className="inline-block h-3 w-0.5 rounded-full bg-destructive" />
-            Blockers
+            Blockers (Dependencies) Resolved
           </p>
           <div className="flex flex-col gap-2">
             {resolvedBlockers.map((b) => (
@@ -266,7 +287,7 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <span className="inline-block h-3 w-0.5 rounded-full bg-muted-foreground/50" />
-            Support
+            Support Needed (Meeting) Resolved
           </p>
           <div className="flex flex-col gap-2">
             {followUpsDone.map((f) => (
@@ -315,7 +336,7 @@ function LearningCard({ entry }: { entry: DsrEntryData }) {
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
           <Star size={11} className="fill-white text-white" />
         </span>
-        What Will You Learn Today?
+        What Will You Learn Today( WhyFi )?
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {learningItems.filter((l) => l.completed).length}/{learningItems.length} Learned
         </span>
@@ -347,34 +368,37 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
   const isBreakthrough = sentiment === "BREAKTHROUGH";
 
   return (
-    <div className={cn(
-      "rounded-xl border border-l-4 p-4",
-      isBreakthrough
-        ? "border-success/30 border-l-success bg-success/10"
-        : "border-destructive/20 border-l-destructive bg-destructive/5"
-    )}>
-      <div className="mb-3 flex items-center gap-2">
-        <Zap size={14} className={isBreakthrough ? "text-success" : "text-destructive"} />
-        <h3 className="text-sm font-semibold">
-          {isBreakthrough ? "Breakthrough" : "Breakdown"} Sentiment
-        </h3>
+    <div className="rounded-xl border bg-card p-4">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500">
+            {isBreakthrough ? (
+              <Zap size={11} className="fill-white text-white" />
+            ) : (
+              <TrendingDown size={11} className="text-white" />
+            )}
+          </span>
+          <h3 className="text-sm font-semibold">
+            {isBreakthrough ? "Breakthrough" : "Breakdown"}
+          </h3>
+        </div>
         {sentiment && (
-          <span className={cn(
-            "ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase",
-            isBreakthrough
-              ? "bg-success/10 text-success"
-              : "bg-destructive/10 text-destructive"
-          )}>
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+              "border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            )}
+          >
             {isBreakthrough ? "Breakthrough" : "Breakdown"}
           </span>
         )}
       </div>
       {reflection && (
-        <div>
+        <div className="mt-2 pt-2 border-t border-border/40">
           <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Key Learnings
+            Reflection / Key Learnings
           </p>
-          <p className="text-sm leading-relaxed text-foreground/80">{reflection}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{reflection}</p>
         </div>
       )}
     </div>
@@ -545,8 +569,8 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
       window.removeEventListener("focus", handleFocus);
     };
   }, [router]);
-  const { start } = getWeekRange(weekOffset);
-  const weekLabel = `Week ${weekOfMonth(start)}`;
+  const { start, end } = getWeekRange(weekOffset);
+  const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
 
   const memberFirstName = user.name?.split(" ")[0] ?? "Member";
@@ -576,7 +600,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
             </span>
             <div>
-              <h2 className="text-2xl font-bold">{user.name ?? user.email.split("@")[0]}</h2>
+              <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
             </div>
           </div>
@@ -640,7 +664,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
             <div className="mb-2">
               <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
               <p className="text-sm text-muted-foreground">
-                Review Daily Status Updates for {user.name ?? user.email.split("@")[0]}.
+                Review Daily Status Updates for {toTitleCase(user.name ?? user.email.split("@")[0])}.
               </p>
             </div>
             {weekEntries.length === 0 ? (
