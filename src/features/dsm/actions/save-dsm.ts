@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { getStr } from "@/lib/action-utils";
 
 export type SaveDsmState = {
-  errors?: { tasks?: string[] };
+  errors?: { tasks?: string[]; learningText?: string[] };
   message?: string;
 };
 
@@ -66,8 +66,17 @@ export async function saveDsm(
   const supportUserIdRaw = formData.getAll("supportUserId") as string[];
 
   // Validate on submit only
-  if (action === "submit" && taskTexts.length === 0) {
-    return { errors: { tasks: ["At least one task is required to submit"] } };
+  if (action === "submit") {
+    const errors: { tasks?: string[]; learningText?: string[] } = {};
+    if (taskTexts.length === 0) {
+      errors.tasks = ["At least one task is required to submit"];
+    }
+    if (!learningText || !learningText.trim()) {
+      errors.learningText = ["Learning details are required to submit"];
+    }
+    if (Object.keys(errors).length > 0) {
+      return { errors };
+    }
   }
 
   // Guard: a REVIEWED entry cannot be changed by the member

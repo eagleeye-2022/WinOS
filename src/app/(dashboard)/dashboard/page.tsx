@@ -21,7 +21,9 @@ type EntryStatus = "DRAFT" | "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "MISS
 
 
 function firstName(nameOrEmail: string) {
-  return nameOrEmail.split(" ")[0].split("@")[0];
+  const raw = nameOrEmail.split(" ")[0].split("@")[0].split(".")[0];
+  if (!raw) return "";
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
 function todayLabel() {

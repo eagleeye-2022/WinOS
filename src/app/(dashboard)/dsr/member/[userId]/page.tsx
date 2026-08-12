@@ -6,6 +6,8 @@ import { getMemberWorkspaceNote, getSharedWorkspaceNotes } from "@/features/dsm/
 import { createDsrOpenedEvent } from "@/features/dsr/manager/actions/review-dsr";
 import { DsrMemberReview } from "@/features/dsr/manager/components/dsr-member-review";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
+import { InsightsPanel } from "@/features/dsr/components/insights-panel";
+import { getDsrInsights } from "@/features/dsr/queries";
 
 type Props = {
   params: Promise<{ userId: string }>;
@@ -31,6 +33,8 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
 
   if (!review) redirect(ROUTES.dsrManage);
 
+  const insights = await getDsrInsights(review.todayEntry ?? null, userId);
+
   // Create OPENED event when manager first views a submitted/pending entry
   if (
     review.todayEntry &&
@@ -48,11 +52,19 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
           showHistory={justReviewed}
         />
       </div>
-      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
-        <WorkspaceNotesPanel
-          sharedNotes={sharedItems?.notes || []}
-          userRole={session?.user?.role}
-        />
+      <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l bg-card xl:w-96">
+        <div className="shrink-0 border-b">
+          <WorkspaceNotesPanel
+            sharedNotes={sharedItems?.notes || []}
+            userRole={session?.user?.role}
+          />
+        </div>
+        <div className="flex-1 min-h-0">
+          <InsightsPanel
+            insights={insights}
+            entry={review.todayEntry ?? null}
+          />
+        </div>
       </aside>
     </div>
   );

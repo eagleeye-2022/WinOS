@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, ChevronRight } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "@/features/dsm/manager/components/send-reminder-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
@@ -24,7 +24,8 @@ function avatarGradientFor(userId: string) {
 }
 
 function displayNameOf(card: Pick<DsrMemberCard, "name" | "email">) {
-  return card.name ?? card.email.split("@")[0];
+  const raw = card.name ?? card.email.split("@")[0];
+  return toTitleCase(raw);
 }
 
 function initialsOf(displayName: string) {

@@ -188,9 +188,13 @@ export async function getWeeklyDsrHistory(weekOffset = 0): Promise<DsrEntryData[
 }
 
 /** Computed insights for the right panel. */
-export async function getDsrInsights(todayEntry: DsrEntryData | null): Promise<DsrInsights> {
+export async function getDsrInsights(
+  todayEntry: DsrEntryData | null,
+  targetUserId?: string
+): Promise<DsrInsights> {
   const session = await auth();
-  if (!session?.user?.id) {
+  const userId = targetUserId || session?.user?.id;
+  if (!userId) {
     return {
       completionPercent: 0, completedTaskCount: 0, plannedTaskCount: 0,
       streak: 0, breakthroughDays: 0, breakdownDays: 0,
@@ -207,7 +211,7 @@ export async function getDsrInsights(todayEntry: DsrEntryData | null): Promise<D
   fourWeeksAgo.setDate(today.getDate() - 28);
 
   const recentEntries = await d.dsrEntry.findMany({
-    where: { userId: session.user.id, date: { gte: fourWeeksAgo } },
+    where: { userId, date: { gte: fourWeeksAgo } },
     select: { date: true, status: true, sentiment: true, completionPercent: true },
     orderBy: { date: "desc" },
   });

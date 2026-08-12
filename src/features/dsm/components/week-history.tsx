@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { weekOfMonth, getWeekRange, relativeDayLabel } from "../utils";
+import { getWeekRange, relativeDayLabel, formatWeekRange } from "../utils";
 import { StandupDayCard } from "./standup-day-card";
 import type { EntryWithDetails } from "../queries";
 
@@ -13,8 +13,8 @@ type WeekHistoryProps = {
 };
 
 export function WeekHistory({ entries, weekOffset, basePath = "/dsm", headerAction }: WeekHistoryProps) {
-  const { start } = getWeekRange(weekOffset);
-  const weekLabel = `Week ${weekOfMonth(start)}`;
+  const { start, end } = getWeekRange(weekOffset);
+  const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
 
   return (
