@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
-  CheckCircle2, CheckCheck, AlertTriangle, Calendar, Handshake,
+  CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
+import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { reviewStandup, type ReviewStandupState } from "../actions/review-standup";
 import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-priority";
 import { editTask, type EditTaskState } from "../actions/edit-task";
@@ -1110,7 +1111,7 @@ function EntryExpanded({
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-destructive" />
+              <AlertCircle size={15} className="text-destructive" />
               Blockers (Dependencies)?
               <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
                 {entry.blockers.length}
@@ -1163,7 +1164,7 @@ function EntryExpanded({
         <div className="rounded-xl border border-info/30 bg-info/10 p-4">
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-info">
             <span className="flex items-center gap-2">
-              <Handshake size={15} className="text-info" />
+              <SupportNeededIcon size={15} className="text-info" />
               Support Needed (Meeting)?
               <span className="rounded-full bg-info/15 px-2 py-0.5 text-xs font-semibold text-info">
                 {entry.supportNeeds.length}

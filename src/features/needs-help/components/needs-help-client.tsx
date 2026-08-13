@@ -9,9 +9,21 @@ import { daysOpen, filterHelpRequests, type HelpStatusFilter } from "../utils";
 import { markHelpResolved, type MarkHelpResolvedState } from "../actions/mark-help-resolved";
 import type { HelpRequestItem } from "../queries";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 8;
 
-const PAGE_SIZE = 5;
+function getVisiblePages(current: number, total: number): (number | string)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | string)[] = [1];
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) {
+    if (!pages.includes(i)) pages.push(i);
+  }
+  if (current < total - 2) pages.push("...");
+  if (!pages.includes(total)) pages.push(total);
+  return pages;
+}
 
 const STATUS_STYLES = {
   in_progress: "border border-info/40 text-info bg-transparent",
@@ -323,30 +335,36 @@ export function NeedsHelpClient({ items }: Props) {
                   type="button"
                   disabled={safePage <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground hover:bg-accent disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground hover:bg-accent disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronLeft size={13} />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPage(p)}
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded border text-xs font-medium transition-colors",
-                      p === safePage
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent"
-                    )}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {getVisiblePages(safePage, totalPages).map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPage(p)}
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded border text-xs font-medium transition-colors cursor-pointer",
+                        p === safePage
+                          ? "border-primary bg-primary text-primary-foreground font-bold"
+                          : "text-muted-foreground hover:bg-accent"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">
+                      ...
+                    </span>
+                  )
+                )}
                 <button
                   type="button"
                   disabled={safePage >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground hover:bg-accent disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground hover:bg-accent disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronRight size={13} />
                 </button>

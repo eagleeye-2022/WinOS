@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Calendar as CalendarIcon, Clock, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CALENDAR_TIMEZONE } from "@/features/calendar/utils";
 
 type Props = {
   start: Date;
@@ -26,7 +27,13 @@ function pad(n: number): string {
 }
 
 function dateInputValue(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CALENDAR_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date);
 }
 
 function to12Hour(hour24: number): { hour12: number; period: Period } {
@@ -47,13 +54,13 @@ function hourLabel(hour24: number): string {
 
 function buildDate(dateStr: string, hour12: number, minute: number, period: Period): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1, to24Hour(hour12, period), minute, 0, 0);
+  const h24 = to24Hour(hour12, period);
+  return new Date(`${y}-${pad(m || 1)}-${pad(d || 1)}T${pad(h24)}:${pad(minute)}:00+05:30`);
 }
 
 function quickOptionDate(today: Date, hour24: number): Date {
-  const d = new Date(today);
-  d.setHours(hour24, 0, 0, 0);
-  return d;
+  const dateStr = dateInputValue(today);
+  return new Date(`${dateStr}T${pad(hour24)}:00:00+05:30`);
 }
 
 function isSameMinute(a: Date, b: Date): boolean {
@@ -219,15 +226,13 @@ function MinuteSelect({
 }
 
 export function EventDateTimePicker({ start, end, onStartChange, onEndChange, now, startError, endError }: Props) {
-  const isToday =
-    start.getFullYear() === now.getFullYear() &&
-    start.getMonth() === now.getMonth() &&
-    start.getDate() === now.getDate();
+  const startDayStr = dateInputValue(start);
+  const nowDayStr = dateInputValue(now);
+  const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowDayStr = dateInputValue(tomorrowDate);
 
-  const isTomorrow =
-    start.getFullYear() === now.getFullYear() &&
-    start.getMonth() === now.getMonth() &&
-    start.getDate() === now.getDate() + 1;
+  const isToday = startDayStr === nowDayStr;
+  const isTomorrow = startDayStr === tomorrowDayStr;
 
   const datePrefix = isToday
     ? "Today"
@@ -250,8 +255,25 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
     return match ? match.id : "custom";
   });
 
-  const startParts = to12Hour(start.getHours());
-  const endParts = to12Hour(end.getHours());
+  const getIstTimeParts = (d: Date) => {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: CALENDAR_TIMEZONE,
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    let h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+    if (h === 24) h = 0;
+    const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+    return { hour24: h, minute: m };
+  };
+
+  const startIst = getIstTimeParts(start);
+  const endIst = getIstTimeParts(end);
+
+  const startParts = to12Hour(startIst.hour24);
+  const endParts = to12Hour(endIst.hour24);
 
   function selectQuick(newStart: Date, id: string) {
     setSelected(id);
@@ -263,7 +285,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
     const next = buildDate(
       patch.dateStr ?? dateInputValue(start),
       patch.hour12 ?? startParts.hour12,
-      patch.minute ?? start.getMinutes(),
+      patch.minute ?? startIst.minute,
       patch.period ?? startParts.period,
     );
     onStartChange(next);
@@ -277,7 +299,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
     const next = buildDate(
       dateInputValue(start),
       patch.hour12 ?? endParts.hour12,
-      patch.minute ?? end.getMinutes(),
+      patch.minute ?? endIst.minute,
       patch.period ?? endParts.period,
     );
     onEndChange(next);
@@ -374,7 +396,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
             />
             <span className="text-xs text-muted-foreground">:</span>
             <MinuteSelect
-              value={start.getMinutes()}
+              value={startIst.minute}
               onChange={(m) => updateCustomStart({ minute: m })}
               paddingClass="py-1.5"
             />
@@ -400,7 +422,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
             />
             <span className="text-xs text-muted-foreground">:</span>
             <MinuteSelect
-              value={end.getMinutes()}
+              value={endIst.minute}
               onChange={(m) => updateEnd({ minute: m })}
               paddingClass="py-1"
             />

@@ -8,8 +8,9 @@ export type SupportReminderState = { message?: string };
 
 /**
  * Send a reminder about an unresolved support need.
- * - If there is a mentionedUser, notify them to provide support.
- * - Otherwise notify the user's team lead / first manager.
+ * - Owner (whoever raised the need, member or manager) → notifies the mentioned
+ *   user, else their team lead, else the first manager in the system.
+ * - Manager viewing someone else's need → notifies the team member who raised it.
  */
 export async function sendSupportReminder(
   _: SupportReminderState,
@@ -50,20 +51,28 @@ export async function sendSupportReminder(
   const isManager = session.user.role === "MANAGER";
   if (!isOwner && !isManager) return { message: "Unauthorized" };
 
-  // Target: mentionedUser first, then team lead, then any manager
-  let targetUserId: string | null = need.mentionedUser?.id ?? null;
+  // Decide who to notify. Ownership decides the direction, not role — a manager
+  // who raised their own support need still needs to escalate outward, not to themself.
+  let targetUserId: string | null = null;
+  if (isOwner) {
+    // Owner notifies the mentioned user, if any, else their team lead, then any other manager
+    targetUserId = need.mentionedUser?.id ?? null;
 
-  if (!targetUserId) {
-    const firstMembership = need.entry.user.teamMemberships?.[0];
-    targetUserId = firstMembership?.team?.leadId ?? null;
-  }
+    if (!targetUserId) {
+      const firstMembership = need.entry.user.teamMemberships?.[0];
+      targetUserId = firstMembership?.team?.leadId ?? null;
+    }
 
-  if (!targetUserId) {
-    const manager = await d.user.findFirst({
-      where: { role: "MANAGER" },
-      select: { id: true },
-    });
-    targetUserId = manager?.id ?? null;
+    if (!targetUserId) {
+      const manager = await d.user.findFirst({
+        where: { role: "MANAGER", id: { not: session.user.id } },
+        select: { id: true },
+      });
+      targetUserId = manager?.id ?? null;
+    }
+  } else {
+    // Manager reminds the team member who raised this support need
+    targetUserId = need.entry.userId;
   }
 
   if (!targetUserId || targetUserId === session.user.id) {

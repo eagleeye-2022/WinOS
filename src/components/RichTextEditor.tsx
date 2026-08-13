@@ -107,7 +107,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     ],
     editorProps: {
       attributes: {
-        class: "prose max-w-none focus:outline-none min-h-[160px] p-3 text-sm leading-relaxed text-foreground",
+        class: "prose max-w-none focus:outline-none min-h-[160px] p-3 text-sm leading-snug text-foreground prose-p:my-0.5 prose-p:leading-snug",
       },
       handlePaste: (_view, event) => {
         const items = Array.from(event.clipboardData?.items || []);

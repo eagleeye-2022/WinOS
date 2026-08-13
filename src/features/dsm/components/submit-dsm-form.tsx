@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, Ban, ClipboardList, HandHelping, GraduationCap, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
+import { useActionState, useState, useEffect, useRef } from "react";
+import { Plus, X, ChevronRight, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
@@ -9,6 +9,7 @@ import { MentionInput } from "@/components/shared/mention-input";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { formatTime } from "@/features/calendar/utils";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
+import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -67,6 +68,7 @@ function TaskRows({
                 T{i + 1}
               </span>
               <MentionInput
+                key={`${task.id}-${task.text}`}
                 name="taskText"
                 defaultValue={task.text}
                 onChange={(v) => updateField(i, "text", v)}
@@ -161,6 +163,7 @@ function BlockerRows({
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
               <div className="px-3 py-2">
                 <MentionInput
+                  key={`${b.id}-${b.text}`}
                   name="blockerText"
                   defaultValue={b.text}
                   defaultMentions={initialMentions}
@@ -271,6 +274,7 @@ function SupportRows({
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
               <div className="px-3 py-2">
                 <MentionInput
+                  key={`${s.id}-${s.text}`}
                   name="supportText"
                   defaultValue={s.text}
                   defaultMentions={initialMentions}
@@ -374,7 +378,21 @@ export function SubmitDsmForm({
   const [state, action, pending] = useActionState(saveDsm, initialState);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
+  const isLoadedRef = useRef(false);
+  const draftKey = `winos_dsm_draft_${todayDateStr}`;
+
+  // Read saved draft synchronously on initial render
+  const savedDraft = typeof window !== "undefined" && !isEditMode ? (() => {
+    try {
+      const saved = localStorage.getItem(draftKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
   const [tasks, setTasks] = useState<Task[]>(() => {
+    if (savedDraft?.tasks?.length) return savedDraft.tasks;
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
       return existingToday.map((t) => ({ id: crypto.randomUUID(), text: t.text, priority: t.priority ?? "", carried: false }));
@@ -386,6 +404,7 @@ export function SubmitDsmForm({
   });
 
   const [blockers, setBlockers] = useState<{ id: string; text: string; priority: string; mentionedUserIds: string[] }[]>(() => {
+    if (savedDraft?.blockers?.length) return savedDraft.blockers;
     if (entry?.blockers && entry.blockers.length > 0) {
       return entry.blockers.map((b) => ({
         id: crypto.randomUUID(),
@@ -408,8 +427,10 @@ export function SubmitDsmForm({
     }
     return [{ id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [] }];
   });
-  const [supports, setSupports] = useState<{ id: string; text: string; mentionedUserIds: string[] }[]>(() =>
-    entry?.supportNeeds.map((s) => ({
+
+  const [supports, setSupports] = useState<{ id: string; text: string; mentionedUserIds: string[] }[]>(() => {
+    if (savedDraft?.supports?.length) return savedDraft.supports;
+    return entry?.supportNeeds.map((s) => ({
       id: crypto.randomUUID(),
       text: s.text,
       mentionedUserIds: s.mentionedUserIds
@@ -417,17 +438,42 @@ export function SubmitDsmForm({
         : s.mentionedUser?.id
           ? [s.mentionedUser.id]
           : [],
-    })) ?? [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [] }]
-  );
-  const [learningText, setLearningText] = useState(entry?.learningText ?? "");
+    })) ?? [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [] }];
+  });
+
+  const [learningText, setLearningText] = useState(savedDraft?.learningText ?? entry?.learningText ?? "");
   const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
-  // If save-draft succeeded, update state silently (no reset needed — user continues editing)
   useEffect(() => {
-    if (state.message === "saved") {
-      // Draft saved — feedback handled by status message below
+    isLoadedRef.current = true;
+  }, []);
+
+  // Auto-save form draft to localStorage on every change
+  useEffect(() => {
+    if (!isLoadedRef.current || isEditMode) return;
+    const draftData = {
+      tasks,
+      blockers,
+      supports,
+      learningText,
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+    } catch {
+      // Ignore storage error
     }
-  }, [state.message]);
+  }, [draftKey, isEditMode, tasks, blockers, supports, learningText]);
+
+  // Clear draft upon successful save or submission
+  useEffect(() => {
+    if (state.message === "saved" || state.message === "submitted") {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // Ignore
+      }
+    }
+  }, [state.message, draftKey]);
 
   return (
     <div className="rounded-xl border bg-card">
@@ -561,7 +607,7 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Blockers */}
-        <Section icon={<Ban size={16} className="text-muted-foreground" />} title="Blockers (Dependencies)?">
+        <Section icon={<AlertCircle size={16} className="text-muted-foreground" />} title="Blockers (Dependencies)?">
           <BlockerRows
             blockers={blockers}
             teamMembers={teamMembers}
@@ -571,7 +617,7 @@ export function SubmitDsmForm({
         </Section>
 
         {/* Support needed */}
-        <Section icon={<HandHelping size={16} className="text-muted-foreground" />} title="Support Needed (Meeting)?">
+        <Section icon={<SupportNeededIcon size={16} className="text-muted-foreground" />} title="Support Needed (Meeting)?">
           <SupportRows
             supports={supports}
             teamMembers={teamMembers}

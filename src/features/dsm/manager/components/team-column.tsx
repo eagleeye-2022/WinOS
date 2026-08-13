@@ -107,7 +107,7 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
       {card.todayTasks.length > 0 && (
         <div className="mt-3.5 pt-3 border-t border-border/50">
           <div className="flex items-center justify-between gap-1.5 flex-wrap">
-            <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               <ListChecks size={11} /> Today&apos;s Task
             </p>
             <p>

@@ -432,10 +432,23 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
   const formRef = useRef<HTMLFormElement>(null);
+  const isLoadedRef = useRef(false);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
+  const draftKey = `winos_dsr_draft_${todayDateStr}`;
 
-  // Initialize state from existing entry or DSM prefill
+  // Read saved draft synchronously on initial render
+  const savedDraft = typeof window !== "undefined" && !readOnly && !isEditMode ? (() => {
+    try {
+      const saved = localStorage.getItem(draftKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  // Initialize state from draft, existing entry, or DSM prefill
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
+    if (savedDraft?.tasks?.length) return savedDraft.tasks;
     if (entry?.plannedTasks.length) {
       return entry.plannedTasks.map((t) => ({
         id: t.id, text: t.text, priority: t.priority, completed: t.completed,
@@ -446,11 +459,13 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
     }));
   });
 
-  const [additionalWorks, setAdditionalWorks] = useState<TextItem[]>(() =>
-    entry?.additionalWorks.map((w) => ({ id: w.id, text: w.text })) ?? []
-  );
+  const [additionalWorks, setAdditionalWorks] = useState<TextItem[]>(() => {
+    if (savedDraft?.additionalWorks) return savedDraft.additionalWorks;
+    return entry?.additionalWorks.map((w) => ({ id: w.id, text: w.text })) ?? [];
+  });
 
   const [blockers, setBlockers] = useState<CheckItem[]>(() => {
+    if (savedDraft?.blockers?.length) return savedDraft.blockers;
     if (entry?.resolvedBlockers.length) {
       return entry.resolvedBlockers.map((b) => ({ id: b.id, text: b.text, completed: b.resolved }));
     }
@@ -458,6 +473,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
   });
 
   const [followUps, setFollowUps] = useState<CheckItem[]>(() => {
+    if (savedDraft?.followUps?.length) return savedDraft.followUps;
     if (entry?.followUpsDone.length) {
       return entry.followUpsDone.map((f) => ({ id: f.id, text: f.text, completed: f.completed }));
     }
@@ -465,15 +481,51 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
   });
 
   const [learningItems, setLearningItems] = useState<CheckItem[]>(() => {
+    if (savedDraft?.learningItems?.length) return savedDraft.learningItems;
     if (entry?.learningItems?.length) {
       return entry.learningItems.map((l) => ({ id: l.id, text: l.text, completed: l.completed }));
     }
     return prefill.learningItems.map((l) => ({ text: l.text, completed: false }));
   });
 
-  const [sentiment, setSentiment] = useState<string>(entry?.sentiment ?? "");
-  const [resultOfDay, setResultOfDay] = useState<string>(entry?.resultOfDay ?? "");
-  const [reflection, setReflection] = useState<string>(entry?.reflection ?? "");
+  const [sentiment, setSentiment] = useState<string>(savedDraft?.sentiment ?? entry?.sentiment ?? "");
+  const [resultOfDay, setResultOfDay] = useState<string>(savedDraft?.resultOfDay ?? entry?.resultOfDay ?? "");
+  const [reflection, setReflection] = useState<string>(savedDraft?.reflection ?? entry?.reflection ?? "");
+
+  useEffect(() => {
+    isLoadedRef.current = true;
+  }, []);
+
+  // Auto-save form draft to localStorage on every change
+  useEffect(() => {
+    if (!isLoadedRef.current || readOnly || isEditMode) return;
+    const draftData = {
+      tasks,
+      additionalWorks,
+      blockers,
+      followUps,
+      learningItems,
+      sentiment,
+      resultOfDay,
+      reflection,
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+    } catch {
+      // Ignore storage error
+    }
+  }, [draftKey, readOnly, isEditMode, tasks, additionalWorks, blockers, followUps, learningItems, sentiment, resultOfDay, reflection]);
+
+  // Clear draft upon successful save or submission
+  useEffect(() => {
+    if (state.message === "submitted" || state.message === "saved") {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // Ignore
+      }
+    }
+  }, [state.message, draftKey]);
 
   function buildAndSubmit(actionValue: "draft" | "submit") {
     if (!formRef.current) return;
