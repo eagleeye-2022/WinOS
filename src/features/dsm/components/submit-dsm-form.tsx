@@ -68,7 +68,7 @@ function TaskRows({
                 T{i + 1}
               </span>
               <MentionInput
-                key={`${task.id}-${task.text}`}
+                key={task.id}
                 name="taskText"
                 defaultValue={task.text}
                 onChange={(v) => updateField(i, "text", v)}
@@ -163,7 +163,7 @@ function BlockerRows({
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
               <div className="px-3 py-2">
                 <MentionInput
-                  key={`${b.id}-${b.text}`}
+                  key={b.id}
                   name="blockerText"
                   defaultValue={b.text}
                   defaultMentions={initialMentions}
@@ -274,7 +274,7 @@ function SupportRows({
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
               <div className="px-3 py-2">
                 <MentionInput
-                  key={`${s.id}-${s.text}`}
+                  key={s.id}
                   name="supportText"
                   defaultValue={s.text}
                   defaultMentions={initialMentions}
