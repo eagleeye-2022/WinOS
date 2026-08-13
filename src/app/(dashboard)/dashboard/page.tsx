@@ -178,8 +178,8 @@ function ManagerDashboard({
               { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
               { label: "DSR Reviews",    desc: "Evening Review Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
-              { label: "Blockers (Dependencies)", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
-              { label: "Support Needed (Meeting)", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
+              { label: "Blockers", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
+              { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const
           ).map(({ label, desc, icon: Icon, href }) => (
             <Link
