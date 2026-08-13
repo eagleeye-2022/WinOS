@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Users, Clock, Ban, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, Clock, AlertCircle, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import type { AllDsrStats } from "../queries";
@@ -166,10 +166,10 @@ export function AllDsrStatsRow({
           className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-            <Ban size={18} className="text-destructive" />
+            <AlertCircle size={18} className="text-destructive" />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Blockers</p>
+            <p className="text-xs text-muted-foreground">Blockers (Dependencies)</p>
             <p className={cn("text-2xl font-bold", highPriorityBlockers > 0 && "text-destructive")}>
               {highPriorityBlockers}
               {highPriorityBlockers > 0 && (
@@ -180,10 +180,10 @@ export function AllDsrStatsRow({
         </button>
         {openCard === "blockers" && (
           <MemberListDropdown
-            title="Members with Blockers"
+            title="Members with Blockers (Dependencies)"
             members={blockerMembers}
             emptyLabel="No Active Blockers."
-            icon={Ban}
+            icon={AlertCircle}
             iconClassName="text-destructive"
           />
         )}
@@ -223,7 +223,7 @@ export function AllDsrStatsRow({
                 <span className="font-semibold">{pendingCount}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Open Blockers</span>
+                <span className="text-muted-foreground">Open Blockers (Dependencies)</span>
                 <span className="font-semibold">{highPriorityBlockers}</span>
               </div>
             </div>

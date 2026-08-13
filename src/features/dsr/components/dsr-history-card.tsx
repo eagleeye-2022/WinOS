@@ -217,7 +217,16 @@ export function DsrHistoryCard({
                     Blockers (Dependencies) Resolved
                   </p>
                   <div className="flex flex-col gap-1.5">
-                    {entry.resolvedBlockers.map((b, i) => (
+                    {Array.from(
+                      new Map(
+                        (entry.resolvedBlockers ?? [])
+                          .filter((b) => b.resolved !== false)
+                          .map((b) => [
+                            (b.text || "").trim().toLowerCase(),
+                            b,
+                          ])
+                      ).values()
+                    ).map((b, i) => (
                       <p key={b.id} className="text-xs leading-relaxed">
                         {i + 1}) {renderTextWithMentions(b.text ? b.text.replace(/^(@\S+\s*)+/, "").trim() : "")}
                       </p>

@@ -16,9 +16,21 @@ import { editBlocker, type EditBlockerState } from "../actions/edit-blocker";
 import type { BlockerItem } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 8;
 
-const PAGE_SIZE = 5;
+function getVisiblePages(current: number, total: number): (number | string)[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | string)[] = [1];
+  if (current > 3) pages.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) {
+    if (!pages.includes(i)) pages.push(i);
+  }
+  if (current < total - 2) pages.push("...");
+  if (!pages.includes(total)) pages.push(total);
+  return pages;
+}
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
@@ -70,7 +82,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
     evs.push({
       id: "created",
       label: `Raised by ${item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}`,
-      timeStr: formatEventTime(item.date),
+      timeStr: formatFullDate(item.date),
       colorClass: "bg-warning",
     });
 
@@ -79,7 +91,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
       evs.push({
         id: "mentions",
         label: `Tagged: ${item.mentionedUsers.map((u) => u.name ?? u.email.split("@")[0]).join(", ")}`,
-        timeStr: formatEventTime(item.date),
+        timeStr: formatFullDate(item.date),
         colorClass: "bg-violet-500",
       });
     }
@@ -89,7 +101,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
       evs.push({
         id: "edited",
         label: `Edited by ${item.editedBy.name ?? item.editedBy.email.split("@")[0]}`,
-        timeStr: formatEventTime(item.date),
+        timeStr: formatFullDate(item.date),
         colorClass: "bg-info",
       });
     }
@@ -116,7 +128,7 @@ function BlockerTimeline({ item, isResolved }: { item: BlockerItem; isResolved: 
       evs.push({
         id: "active",
         label: `Blocker Active (${daysOpen(item.date)} days open)`,
-        timeStr: formatEventTime(item.date),
+        timeStr: formatFullDate(item.date),
         colorClass: "bg-warning",
       });
     }
@@ -385,7 +397,7 @@ function DetailPanel({
         {reminderState.message === "already_resolved" && (
           <p className="text-xs text-muted-foreground">This Blocker Is Already Resolved.</p>
         )}
-        {isManager && (
+        {(isManager || canComment) && (
           <form action={resolveAction}>
             <input type="hidden" name="blockerId" value={item.id} />
             <input type="hidden" name="resolved" value={isResolved ? "false" : "true"} />
@@ -592,7 +604,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
         {/* Header */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">{isManager ? "Team Blockers & Issues" : "My Blockers"}</h1>
+            <h1 className="text-3xl font-bold">{isManager ? "Team Blockers & Issues" : "Blockers (Dependencies)"}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isManager
                 ? "Monitor, Assign, and Resolve Dependencies Across the Team."
@@ -949,37 +961,45 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           {filtered.length > 0 && (
             <div className="flex items-center justify-between border-t px-5 py-3">
               <p className="text-xs text-muted-foreground">
-                Showing {paginated.length} of {filtered.length} Blocker{filtered.length !== 1 ? "s" : ""}
+                Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
+                {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} Item
+                {filtered.length !== 1 ? "s" : ""}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   disabled={safePage <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronLeft size={13} />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPage(p)}
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded border text-xs font-medium transition-colors",
-                      p === safePage
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-accent"
-                    )}
-                  >
-                    {p}
-                  </button>
-                ))}
+                {getVisiblePages(safePage, totalPages).map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPage(p)}
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded border text-xs font-medium transition-colors cursor-pointer",
+                        p === safePage
+                          ? "border-primary bg-primary text-primary-foreground font-bold"
+                          : "text-muted-foreground hover:bg-accent"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">
+                      ...
+                    </span>
+                  )
+                )}
                 <button
                   type="button"
                   disabled={safePage >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+                  className="flex h-7 w-7 items-center justify-center rounded border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30 cursor-pointer"
                 >
                   <ChevronRight size={13} />
                 </button>

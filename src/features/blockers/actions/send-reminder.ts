@@ -8,8 +8,9 @@ export type BlockerReminderState = { message?: string };
 
 /**
  * Send a reminder notification about an unresolved blocker.
- * - Team member → notifies their team lead (or first manager in system)
- * - Manager → notifies the team member who owns the blocker
+ * - Owner (whoever raised the blocker, member or manager) → notifies the mentioned
+ *   user, else their team lead, else the first manager in the system.
+ * - Manager viewing someone else's blocker → notifies the team member who owns it.
  */
 export async function sendBlockerReminder(
   _: BlockerReminderState,
@@ -49,24 +50,29 @@ export async function sendBlockerReminder(
   const isManager = session.user.role === "MANAGER";
   if (!isOwner && !isManager) return { message: "Unauthorized" };
 
-  // Decide who to notify
+  // Decide who to notify. Ownership decides the direction, not role — a manager
+  // who raised their own blocker still needs to escalate outward, not to themself.
   let targetUserId: string | null = null;
-  if (isManager) {
-    // Manager reminds the team member who has this blocker
-    targetUserId = blocker.entry.userId;
-  } else {
-    // Team member notifies their team lead
-    const firstMembership = blocker.entry.user.teamMemberships?.[0];
-    targetUserId = firstMembership?.team?.leadId ?? null;
+  if (isOwner) {
+    // Owner notifies the mentioned user, if any, else their team lead
+    targetUserId = blocker.mentionedUserId ?? null;
 
-    // Fall back to any manager in the system
+    if (!targetUserId) {
+      const firstMembership = blocker.entry.user.teamMemberships?.[0];
+      targetUserId = firstMembership?.team?.leadId ?? null;
+    }
+
+    // Fall back to any other manager in the system
     if (!targetUserId) {
       const manager = await d.user.findFirst({
-        where: { role: "MANAGER" },
+        where: { role: "MANAGER", id: { not: session.user.id } },
         select: { id: true },
       });
       targetUserId = manager?.id ?? null;
     }
+  } else {
+    // Manager reminds the team member who has this blocker
+    targetUserId = blocker.entry.userId;
   }
 
   if (!targetUserId || targetUserId === session.user.id) {

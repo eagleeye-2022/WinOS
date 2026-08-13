@@ -22,6 +22,31 @@ export type SupportNeedItem = {
   editedBy?: { id: string; name: string | null; email: string } | null;
 };
 
+function deduplicateSupportNeeds(items: SupportNeedItem[]): SupportNeedItem[] {
+  const seenMap = new Map<string, SupportNeedItem>();
+
+  for (const item of items) {
+    const cleanText = item.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const key = `${item.raisedBy.id}_${cleanText}`;
+
+    if (!seenMap.has(key)) {
+      seenMap.set(key, { ...item, comments: [...(item.comments || [])] });
+    } else {
+      const existing = seenMap.get(key)!;
+      if (item.comments && item.comments.length > 0) {
+        const existingCommentIds = new Set(existing.comments.map((c) => c.id));
+        item.comments.forEach((c) => {
+          if (!existingCommentIds.has(c.id)) {
+            existing.comments.push(c);
+          }
+        });
+      }
+    }
+  }
+
+  return Array.from(seenMap.values());
+}
+
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
@@ -55,11 +80,29 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
     orderBy: [{ entry: { date: "desc" } }, { order: "asc" }],
   });
 
-  return rows.map((s: {
+  const dsrEntries = rows.length > 0
+    ? await d.dsrEntry.findMany({
+        where: {
+          OR: rows.map((r: { entry: { userId: string; date: Date } }) => ({
+            userId: r.entry.userId,
+            date: r.entry.date,
+          })),
+        },
+        include: { followUpsDone: true },
+      })
+    : [];
+
+  const dsrMap = new Map<string, { text: string; completed: boolean }[]>();
+  dsrEntries.forEach((e: { userId: string; date: Date; followUpsDone: { text: string; completed: boolean }[] }) => {
+    const key = `${e.userId}_${new Date(e.date).toISOString().slice(0, 10)}`;
+    dsrMap.set(key, e.followUpsDone ?? []);
+  });
+
+  const items = rows.map((s: {
     id: string;
     text: string;
     resolved: boolean;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
+    entry: { id: string; userId: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
     editedBy?: { id: string; name: string | null; email: string } | null;
     comments: {
@@ -68,17 +111,32 @@ export async function getRequestedFromMe(): Promise<SupportNeedItem[]> {
       createdAt: Date;
       author: { id: string; name: string | null; email: string };
     }[];
-  }) => ({
-    id: s.id,
-    text: s.text,
-    resolved: s.resolved,
-    date: s.entry.date,
-    entryId: s.entry.id,
-    raisedBy: s.entry.user,
-    supportFrom: s.mentionedUser,
-    editedBy: s.editedBy,
-    comments: s.comments,
-  }));
+  }) => {
+    const key = `${s.entry.userId}_${new Date(s.entry.date).toISOString().slice(0, 10)}`;
+    const dsrFollowUps = dsrMap.get(key) ?? [];
+    const cleanSText = s.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const isDsrDone = dsrFollowUps.some(
+      (fu) =>
+        fu.completed &&
+        (fu.text.trim().toLowerCase() === cleanSText ||
+          cleanSText.includes(fu.text.trim().toLowerCase()) ||
+          fu.text.trim().toLowerCase().includes(cleanSText))
+    );
+
+    return {
+      id: s.id,
+      text: s.text,
+      resolved: s.resolved || isDsrDone,
+      date: s.entry.date,
+      entryId: s.entry.id,
+      raisedBy: s.entry.user,
+      supportFrom: s.mentionedUser,
+      editedBy: s.editedBy,
+      comments: s.comments,
+    };
+  });
+
+  return deduplicateSupportNeeds(items);
 }
 
 /**
@@ -119,11 +177,29 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
     orderBy: [{ entry: { date: "desc" } }, { order: "asc" }],
   });
 
-  return rows.map((s: {
+  const dsrEntries = rows.length > 0
+    ? await d.dsrEntry.findMany({
+        where: {
+          OR: rows.map((r: { entry: { userId: string; date: Date } }) => ({
+            userId: r.entry.userId,
+            date: r.entry.date,
+          })),
+        },
+        include: { followUpsDone: true },
+      })
+    : [];
+
+  const dsrMap = new Map<string, { text: string; completed: boolean }[]>();
+  dsrEntries.forEach((e: { userId: string; date: Date; followUpsDone: { text: string; completed: boolean }[] }) => {
+    const key = `${e.userId}_${new Date(e.date).toISOString().slice(0, 10)}`;
+    dsrMap.set(key, e.followUpsDone ?? []);
+  });
+
+  const items = rows.map((s: {
     id: string;
     text: string;
     resolved: boolean;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string } };
+    entry: { id: string; userId: string; date: Date; user: { id: string; name: string | null; email: string } };
     mentionedUser: { id: string; name: string | null; email: string } | null;
     editedBy?: { id: string; name: string | null; email: string } | null;
     comments: {
@@ -132,15 +208,30 @@ export async function getMySupportNeeds(): Promise<SupportNeedItem[]> {
       createdAt: Date;
       author: { id: string; name: string | null; email: string };
     }[];
-  }) => ({
-    id: s.id,
-    text: s.text,
-    resolved: s.resolved,
-    date: s.entry.date,
-    entryId: s.entry.id,
-    raisedBy: s.entry.user,
-    supportFrom: s.mentionedUser,
-    editedBy: s.editedBy,
-    comments: s.comments,
-  }));
+  }) => {
+    const key = `${s.entry.userId}_${new Date(s.entry.date).toISOString().slice(0, 10)}`;
+    const dsrFollowUps = dsrMap.get(key) ?? [];
+    const cleanSText = s.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const isDsrDone = dsrFollowUps.some(
+      (fu) =>
+        fu.completed &&
+        (fu.text.trim().toLowerCase() === cleanSText ||
+          cleanSText.includes(fu.text.trim().toLowerCase()) ||
+          fu.text.trim().toLowerCase().includes(cleanSText))
+    );
+
+    return {
+      id: s.id,
+      text: s.text,
+      resolved: s.resolved || isDsrDone,
+      date: s.entry.date,
+      entryId: s.entry.id,
+      raisedBy: s.entry.user,
+      supportFrom: s.mentionedUser,
+      editedBy: s.editedBy,
+      comments: s.comments,
+    };
+  });
+
+  return deduplicateSupportNeeds(items);
 }

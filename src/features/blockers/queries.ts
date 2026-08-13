@@ -27,7 +27,7 @@ export type BlockerItem = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function attachMentionedUsers<T extends { mentionedUserId?: string | null; mentionedUserIds?: string | null }>(items: T[]): Promise<(T & { mentionedUsers: { id: string; name: string | null; email: string }[] })[]> {
+async function attachMentionedUsers(items: BlockerItem[]): Promise<BlockerItem[]> {
   const idsToMention = (item: { mentionedUserId?: string | null; mentionedUserIds?: string | null }) =>
     item.mentionedUserIds
       ? item.mentionedUserIds.split(",").filter(Boolean)
@@ -54,6 +54,31 @@ async function attachMentionedUsers<T extends { mentionedUserId?: string | null;
       .map((id) => userMap.get(id))
       .filter((u): u is { id: string; name: string | null; email: string } => Boolean(u)),
   }));
+}
+
+function deduplicateBlockers(items: BlockerItem[]): BlockerItem[] {
+  const seenMap = new Map<string, BlockerItem>();
+
+  for (const item of items) {
+    const cleanText = item.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const key = `${item.raisedBy.id}_${cleanText}`;
+
+    if (!seenMap.has(key)) {
+      seenMap.set(key, { ...item, comments: [...(item.comments || [])] });
+    } else {
+      const existing = seenMap.get(key)!;
+      if (item.comments && item.comments.length > 0) {
+        const existingCommentIds = new Set(existing.comments.map((c) => c.id));
+        item.comments.forEach((c) => {
+          if (!existingCommentIds.has(c.id)) {
+            existing.comments.push(c);
+          }
+        });
+      }
+    }
+  }
+
+  return Array.from(seenMap.values());
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -88,31 +113,63 @@ export async function getBlockersWithMe(): Promise<BlockerItem[]> {
     orderBy: [{ entry: { date: "desc" } }, { priority: "asc" }],
   });
 
+  const dsrEntries = rows.length > 0
+    ? await d.dsrEntry.findMany({
+        where: {
+          OR: rows.map((r: { entry: { userId: string; date: Date } }) => ({
+            userId: r.entry.userId,
+            date: r.entry.date,
+          })),
+        },
+        include: { resolvedBlockers: true },
+      })
+    : [];
+
+  const dsrMap = new Map<string, { text: string; resolved: boolean }[]>();
+  dsrEntries.forEach((e: { userId: string; date: Date; resolvedBlockers: { text: string; resolved: boolean }[] }) => {
+    const key = `${e.userId}_${new Date(e.date).toISOString().slice(0, 10)}`;
+    dsrMap.set(key, e.resolvedBlockers ?? []);
+  });
+
   const items = rows.map((b: {
     id: string;
     text: string;
     priority: "LOW" | "MEDIUM" | "HIGH";
     resolved: boolean;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
+    entry: { id: string; userId: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
     mentionedUserId?: string | null;
     mentionedUserIds?: string | null;
     editedBy?: { id: string; name: string | null; email: string } | null;
     comments: BlockerCommentItem[];
-  }) => ({
-    id: b.id,
-    text: b.text,
-    priority: b.priority,
-    resolved: b.resolved,
-    date: b.entry.date,
-    entryId: b.entry.id,
-    raisedBy: b.entry.user,
-    mentionedUserId: b.mentionedUserId,
-    mentionedUserIds: b.mentionedUserIds,
-    editedBy: b.editedBy,
-    comments: b.comments,
-  }));
+  }) => {
+    const key = `${b.entry.userId}_${new Date(b.entry.date).toISOString().slice(0, 10)}`;
+    const dsrBlockers = dsrMap.get(key) ?? [];
+    const cleanBText = b.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const isDsrResolved = dsrBlockers.some(
+      (rb) =>
+        rb.resolved &&
+        (rb.text.trim().toLowerCase() === cleanBText ||
+          cleanBText.includes(rb.text.trim().toLowerCase()) ||
+          rb.text.trim().toLowerCase().includes(cleanBText))
+    );
 
-  return attachMentionedUsers(items);
+    return {
+      id: b.id,
+      text: b.text,
+      priority: b.priority,
+      resolved: b.resolved || isDsrResolved,
+      date: b.entry.date,
+      entryId: b.entry.id,
+      raisedBy: b.entry.user,
+      mentionedUserId: b.mentionedUserId,
+      mentionedUserIds: b.mentionedUserIds,
+      editedBy: b.editedBy,
+      comments: b.comments,
+    };
+  });
+
+  const attached = await attachMentionedUsers(items);
+  return deduplicateBlockers(attached);
 }
 
 /**
@@ -152,29 +209,61 @@ export async function getMyBlockers(): Promise<BlockerItem[]> {
     orderBy: [{ entry: { date: "desc" } }, { priority: "asc" }],
   });
 
+  const dsrEntries = rows.length > 0
+    ? await d.dsrEntry.findMany({
+        where: {
+          OR: rows.map((r: { entry: { userId: string; date: Date } }) => ({
+            userId: r.entry.userId,
+            date: r.entry.date,
+          })),
+        },
+        include: { resolvedBlockers: true },
+      })
+    : [];
+
+  const dsrMap = new Map<string, { text: string; resolved: boolean }[]>();
+  dsrEntries.forEach((e: { userId: string; date: Date; resolvedBlockers: { text: string; resolved: boolean }[] }) => {
+    const key = `${e.userId}_${new Date(e.date).toISOString().slice(0, 10)}`;
+    dsrMap.set(key, e.resolvedBlockers ?? []);
+  });
+
   const items = rows.map((b: {
     id: string;
     text: string;
     priority: "LOW" | "MEDIUM" | "HIGH";
     resolved: boolean;
-    entry: { id: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
+    entry: { id: string; userId: string; date: Date; user: { id: string; name: string | null; email: string; role: string; title: string | null } };
     mentionedUserId?: string | null;
     mentionedUserIds?: string | null;
     editedBy?: { id: string; name: string | null; email: string } | null;
     comments: BlockerCommentItem[];
-  }) => ({
-    id: b.id,
-    text: b.text,
-    priority: b.priority,
-    resolved: b.resolved,
-    date: b.entry.date,
-    entryId: b.entry.id,
-    raisedBy: b.entry.user,
-    mentionedUserId: b.mentionedUserId,
-    mentionedUserIds: b.mentionedUserIds,
-    editedBy: b.editedBy,
-    comments: b.comments,
-  }));
+  }) => {
+    const key = `${b.entry.userId}_${new Date(b.entry.date).toISOString().slice(0, 10)}`;
+    const dsrBlockers = dsrMap.get(key) ?? [];
+    const cleanBText = b.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+    const isDsrResolved = dsrBlockers.some(
+      (rb) =>
+        rb.resolved &&
+        (rb.text.trim().toLowerCase() === cleanBText ||
+          cleanBText.includes(rb.text.trim().toLowerCase()) ||
+          rb.text.trim().toLowerCase().includes(cleanBText))
+    );
 
-  return attachMentionedUsers(items);
+    return {
+      id: b.id,
+      text: b.text,
+      priority: b.priority,
+      resolved: b.resolved || isDsrResolved,
+      date: b.entry.date,
+      entryId: b.entry.id,
+      raisedBy: b.entry.user,
+      mentionedUserId: b.mentionedUserId,
+      mentionedUserIds: b.mentionedUserIds,
+      editedBy: b.editedBy,
+      comments: b.comments,
+    };
+  });
+
+  const attached = await attachMentionedUsers(items);
+  return deduplicateBlockers(attached);
 }

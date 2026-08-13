@@ -63,10 +63,10 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Zoho Calendar" || label === "Calendar") {
     return pathname.startsWith(ROUTES.zohoCalendar) || pathname.startsWith(ROUTES.calendar);
   }
-  if (label === "My Blockers") {
+  if (label === "My Blockers" || label === "Blockers (Dependencies)") {
     return pathname.startsWith(ROUTES.blockers);
   }
-  if (label === "Support Needed") {
+  if (label === "Support Needed" || label === "Support Needed (Meeting)") {
     return pathname.startsWith(ROUTES.support);
   }
   if (label === "Needs My Help" || label === "Need My Help") {
@@ -142,20 +142,20 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       ? [
         { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
         { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
-        { label: "My DSM", href: ROUTES.dsmMy, icon: User },
         { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
+        { label: "My DSM", href: ROUTES.dsmMy, icon: User },
         { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
-        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
-        { label: "Support Needed", href: ROUTES.support, icon: SupportNeededIcon },
+        { label: "Blockers ", href: ROUTES.blockers, icon: AlertCircle },
+        { label: "Support Needed ", href: ROUTES.support, icon: SupportNeededIcon },
       ]
       : [
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
         { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
-        { label: "My Blockers", href: ROUTES.blockers, icon: AlertCircle },
+        { label: "Blockers", href: ROUTES.blockers, icon: AlertCircle },
 
         { label: "Support Needed", href: ROUTES.support, icon: SupportNeededIcon },
         { label: "Need My Help", href: ROUTES.needsHelp, icon: HeartHandshake },
@@ -192,7 +192,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 )}
               >
-                <Icon size={item.label === "Support Needed" ? 20 : 18} strokeWidth={2} className="shrink-0" />
+                <Icon size={item.label.startsWith("Support Needed") ? 20 : 18} strokeWidth={2} className="shrink-0" />
                 <span className="truncate">{item.label}</span>
               </Link>
             );

@@ -163,7 +163,7 @@ export async function saveDsr(
     await d.dsrResolvedBlocker.createMany({
       data: validBlockers.map((b, i) => ({
         dsrEntryId: entry.id, text: b.text.trim(),
-        resolved: b.resolved ?? true, order: i,
+        resolved: b.resolved ?? b.completed ?? true, order: i,
       })),
     });
   }
@@ -174,9 +174,51 @@ export async function saveDsr(
     await d.dsrFollowUpDone.createMany({
       data: validFollowUps.map((f, i) => ({
         dsrEntryId: entry.id, text: f.text.trim(),
-        completed: f.completed ?? true, order: i,
+        completed: f.completed ?? f.resolved ?? true, order: i,
       })),
     });
+  }
+
+  // Synchronize resolved status to StandupBlocker and StandupSupportNeed records for this user/date
+  try {
+    const standupEntry = await d.standupEntry.findUnique({
+      where: { userId_date: { userId: session.user.id, date } },
+      include: { blockers: true, supportNeeds: true },
+    });
+
+    if (standupEntry) {
+      for (const sb of standupEntry.blockers) {
+        const cleanSbText = sb.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+        const match = validBlockers.find((b) => {
+          const cleanBText = b.text.trim().toLowerCase();
+          return cleanBText === cleanSbText || cleanSbText.includes(cleanBText) || cleanBText.includes(cleanSbText);
+        });
+        if (match) {
+          const isResolved = match.resolved ?? match.completed ?? true;
+          await d.standupBlocker.update({
+            where: { id: sb.id },
+            data: { resolved: isResolved },
+          });
+        }
+      }
+
+      for (const sn of standupEntry.supportNeeds) {
+        const cleanSnText = sn.text.replace(/^(@\S+\s*)+/, "").trim().toLowerCase();
+        const match = validFollowUps.find((f) => {
+          const cleanFText = f.text.trim().toLowerCase();
+          return cleanFText === cleanSnText || cleanSnText.includes(cleanFText) || cleanFText.includes(cleanSnText);
+        });
+        if (match) {
+          const isDone = match.completed ?? match.resolved ?? true;
+          await d.standupSupportNeed.update({
+            where: { id: sn.id },
+            data: { resolved: isDone },
+          });
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.error("[saveDsr] Error syncing standup blocker/support status:", syncErr);
   }
 
   await d.dsrLearningItem.deleteMany({ where: { dsrEntryId: entry.id } });

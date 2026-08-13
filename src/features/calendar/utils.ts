@@ -99,18 +99,43 @@ export function formatEventTimeRange(start: Date, end: Date, isAllDay: boolean):
   return `${formatTime(start)} – ${formatTime(end)}`;
 }
 
-/** Convert a <input type="datetime-local"> value (local wall-clock, no TZ) into a Date. */
+/** Convert a <input type="datetime-local"> value (local wall-clock, no TZ) into a Date locked to Asia/Kolkata (+05:30). */
 export function fromDateTimeLocalValue(value: string): Date {
+  if (!value) return new Date();
+  const clean = value.trim();
+  if (clean.includes("Z") || /[+-]\d{2}:\d{2}$/.test(clean)) {
+    return new Date(clean);
+  }
+  const formatted = clean.length === 16 ? `${clean}:00+05:30` : clean.length === 19 ? `${clean}+05:30` : clean;
+  const d = new Date(formatted);
+  if (!isNaN(d.getTime())) return d;
   return new Date(value);
 }
 
-/** Format a Date as a value for <input type="datetime-local">. */
+/** Format a Date as a value for <input type="datetime-local"> in Indian Standard Time (Asia/Kolkata). */
 export function toDateTimeLocalValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
+  if (!date || isNaN(date.getTime())) return "";
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CALENDAR_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
+  let hour = getPart("hour");
+  if (hour === "24") hour = "00";
+  const minute = getPart("minute");
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
 export type EventDateTimeErrors = { start?: string; end?: string };

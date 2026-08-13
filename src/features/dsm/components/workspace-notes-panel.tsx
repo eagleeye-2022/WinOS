@@ -81,8 +81,8 @@ function extractFirstContentHeading(content: string): string {
     if (boldBlock) {
       firstLine = boldBlock[1].trim();
     }
-    if (firstLine.length > 80) {
-      firstLine = firstLine.substring(0, 80) + "…";
+    if (firstLine.length > 20) {
+      firstLine = firstLine.substring(0, 20) + "...";
     }
     return firstLine;
   }
@@ -225,23 +225,25 @@ function SharedNoteCard({
   const shownItems = checklist.slice(0, 6);
   const totalMoreItems = checklist.length - shownItems.length;
 
-  const cardTitle = extractFirstHeading(note.title, note.content);
-  const showCleanText = cleanText && cleanText.toLowerCase() !== cardTitle.toLowerCase();
+  const rawCardTitle = extractFirstHeading(note.title, note.content);
+  const cardTitle = rawCardTitle.length > 20 ? rawCardTitle.substring(0, 20) + "..." : rawCardTitle;
+  const showCleanText = cleanText && cleanText.toLowerCase() !== rawCardTitle.toLowerCase();
+  const formattedCleanText = cleanText.length > 20 ? cleanText.substring(0, 20) + "..." : cleanText;
 
   return (
     <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-black">
       <div className="flex flex-col gap-2.5">
         {/* Title */}
         {cardTitle && (
-          <h4 className="text-base font-bold text-black dark:text-black line-clamp-2">
-            {cardTitle.length > 60 ? cardTitle.substring(0, 60) + "…" : cardTitle}
+          <h4 className="text-base font-bold text-black dark:text-black truncate">
+            {cardTitle}
           </h4>
         )}
 
         {/* Content Preview (Clean Text Preview if available) */}
         {showCleanText && (
-          <p className="text-sm font-semibold text-black dark:text-black line-clamp-2">
-            {cleanText}
+          <p className="text-sm font-semibold text-black dark:text-black truncate">
+            {formattedCleanText}
           </p>
         )}
 
@@ -351,8 +353,8 @@ export function WorkspaceNotesPanel({
             {sharedNotes.map((note) => {
               const bg = getCardColor(note.color, note.id);
               const threadTitleSub = note.threadTitle
-                ? note.threadTitle.length > 25
-                  ? note.threadTitle.substring(0, 25) + "…"
+                ? note.threadTitle.length > 20
+                  ? note.threadTitle.substring(0, 20) + "..."
                   : note.threadTitle
                 : "";
 

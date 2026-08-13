@@ -20,15 +20,25 @@ export async function markSupportResolved(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Resolving is a manager-only decision; the owner can describe progress via
-  // comments, but only a manager marks the support need as actually resolved.
-  if (session.user.role !== "MANAGER") return { message: "Unauthorized" };
-
   const need = await d.standupSupportNeed.findUnique({
     where: { id: supportId },
-    select: { id: true, resolved: true, entry: { select: { userId: true } } },
+    select: {
+      id: true,
+      text: true,
+      resolved: true,
+      mentionedUserId: true,
+      mentionedUserIds: true,
+      entry: { select: { userId: true, date: true } },
+    },
   });
   if (!need) return { message: "Not found" };
+
+  const isOwner = need.entry.userId === session.user.id;
+  const isMentioned =
+    need.mentionedUserId === session.user.id ||
+    (need.mentionedUserIds && need.mentionedUserIds.includes(session.user.id));
+  const isManager = session.user.role === "MANAGER";
+  if (!isManager && !isOwner && !isMentioned) return { message: "Unauthorized" };
 
   const newResolved = resolvedVal !== null ? resolvedVal === "true" : !need.resolved;
 
@@ -37,10 +47,40 @@ export async function markSupportResolved(
     data: { resolved: newResolved },
   });
 
+  // Sync to DsrFollowUpDone if a DSR entry exists for this user and date
+  try {
+    const dsr = await d.dsrEntry.findUnique({
+      where: { userId_date: { userId: need.entry.userId, date: need.entry.date } },
+      include: { followUpsDone: true },
+    });
+    if (dsr) {
+      const cleanText = need.text.replace(/^(@\S+\s*)+/, "").trim();
+      const existingFu = dsr.followUpsDone.find(
+        (fu: { text: string }) =>
+          fu.text.trim().toLowerCase() === cleanText.toLowerCase() ||
+          fu.text.trim().toLowerCase() === need.text.trim().toLowerCase()
+      );
+      if (existingFu) {
+        await d.dsrFollowUpDone.update({
+          where: { id: existingFu.id },
+          data: { completed: newResolved },
+        });
+      } else if (newResolved) {
+        await d.dsrFollowUpDone.create({
+          data: { dsrEntryId: dsr.id, text: cleanText, completed: true },
+        });
+      }
+    }
+  } catch (syncErr) {
+    console.error("[markSupportResolved] Error syncing to DsrFollowUpDone:", syncErr);
+  }
+
   revalidatePath("/support");
+  revalidatePath("/support-needed");
   revalidatePath("/dsm");
   revalidatePath(`/dsm/member/${need.entry.userId}`);
   revalidatePath("/dsm/all");
   revalidatePath("/dsm/my");
+  revalidatePath("/dsr");
   return { message: newResolved ? "resolved" : "unresolved" };
 }

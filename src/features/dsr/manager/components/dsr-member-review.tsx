@@ -41,25 +41,25 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
         {(entry.status === "SUBMITTED" ||
           entry.status === "PENDING_REVIEW" ||
           entry.status === "REVIEWED") && (
-          <span className="w-fit rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
-            Submitted
-          </span>
-        )}
+            <span className="w-fit rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+              Submitted
+            </span>
+          )}
       </div>
       <div className="flex items-center gap-2">
         <span className={cn(
           "flex items-center gap-1.5 text-xs",
           review.kind === "reviewed" ? "text-success"
             : review.kind === "none" ? "text-muted-foreground"
-            : review.kind === "missed-deadline" ? "text-destructive"
-            : "text-warning"
+              : review.kind === "missed-deadline" ? "text-destructive"
+                : "text-warning"
         )}>
           <span className={cn(
             "h-2 w-2 rounded-full",
             review.kind === "reviewed" ? "bg-success"
               : review.kind === "none" ? "bg-muted-foreground/40"
-              : review.kind === "missed-deadline" ? "bg-destructive"
-              : "bg-warning"
+                : review.kind === "missed-deadline" ? "bg-destructive"
+                  : "bg-warning"
           )} />
           {review.label}
         </span>
@@ -149,7 +149,7 @@ function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][numb
           task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
           task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
           task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-          !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+          !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
         )}>
           {task.priority.toUpperCase()}
         </span>
@@ -409,8 +409,8 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
 
 const TIMELINE_STEPS = [
   { type: "SUBMITTED", label: "Report Submitted" },
-  { type: "OPENED",    label: "Manager Opened"   },
-  { type: "APPROVED",  label: "Manager Approved" },
+  { type: "OPENED", label: "Manager Opened" },
+  { type: "APPROVED", label: "Manager Approved" },
 ] as const;
 
 function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
@@ -441,7 +441,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
                   "mt-0.5 h-3 w-3 shrink-0 rounded-full",
                   isCurrent ? "border-2 border-success bg-card"
                     : isComplete ? "bg-success"
-                    : "bg-muted"
+                      : "bg-muted"
                 )} />
                 {!isLast && (
                   <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: "16px" }} />
@@ -488,7 +488,43 @@ function ReviewerActionsCard({
   managerComment?: string | null;
 }) {
   const [state, action, pending] = useActionState<ReviewDsrState, FormData>(reviewDsr, {});
-  const [comment, setComment] = useState("");
+
+  const draftKey = `winos_dsr_manager_comment_${entryId}`;
+
+  const [comment, setComment] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return localStorage.getItem(draftKey) ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  useEffect(() => {
+    if (!comment) {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    try {
+      localStorage.setItem(draftKey, comment);
+    } catch {
+      // ignore
+    }
+  }, [comment, draftKey]);
+
+  useEffect(() => {
+    if (state.message === "reviewed") {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+    }
+  }, [state.message, draftKey]);
 
   if (isReviewed) {
     return (
@@ -641,7 +677,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
                 <AdditionalWorkCard entry={todayEntry} />
                 <BlockersSupportCard entry={todayEntry} />
                 <LearningCard entry={todayEntry} />
-                <SentimentCard entry={todayEntry} />
+                {/* <SentimentCard entry={todayEntry} /> */}
               </div>
 
               {/* Right: reviewer actions + timeline */}

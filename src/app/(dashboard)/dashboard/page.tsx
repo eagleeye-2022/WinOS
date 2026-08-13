@@ -178,8 +178,8 @@ function ManagerDashboard({
               { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
               { label: "DSR Reviews",    desc: "Evening Review Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
-              { label: "Blockers",       desc: "Team Blockers & Issues",   icon: AlertCircle,   href: ROUTES.blockers },
-              { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
+              { label: "Blockers (Dependencies)", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
+              { label: "Support Needed (Meeting)", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const
           ).map(({ label, desc, icon: Icon, href }) => (
             <Link
@@ -188,7 +188,7 @@ function ManagerDashboard({
               className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/30"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
-                <Icon size={label === "Support Needed" ? 17 : 15} strokeWidth={1.75} className="text-muted-foreground" />
+                <Icon size={label.startsWith("Support Needed") ? 17 : 15} strokeWidth={1.75} className="text-muted-foreground" />
               </span>
               <div className="min-w-0">
                 <p className="text-base font-semibold">{label}</p>
@@ -315,7 +315,7 @@ function MemberDashboard({
               />
             </span>
             <div>
-              <p className="text-sm font-medium">My Blockers</p>
+              <p className="text-sm font-medium">Blockers (Dependencies)</p>
               <p className="text-xs text-muted-foreground">
                 {unresolvedBlockers === 0 ? "No Open Blockers" : `${unresolvedBlockers} Unresolved`}
               </p>
@@ -340,7 +340,7 @@ function MemberDashboard({
               />
             </span>
             <div>
-              <p className="text-sm font-medium">Support Needed</p>
+              <p className="text-sm font-medium">Support Needed (Meeting)</p>
               <p className="text-xs text-muted-foreground">
                 {pendingSupports === 0
                   ? "No Open Requests"

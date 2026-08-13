@@ -73,12 +73,12 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
 
           {blockerCount > 0 && (
             <span className="rounded-full border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
-              {blockerCount} Blocker{blockerCount > 1 ? "s" : ""}
+              {blockerCount} Blocker{blockerCount > 1 ? "s" : ""} (Dependencies)
             </span>
           )}
           {supportCount > 0 && (
             <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
-              {supportCount} Support Needed
+              {supportCount} Support Needed (Meeting)
             </span>
           )}
         </div>

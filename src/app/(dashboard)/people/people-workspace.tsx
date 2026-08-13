@@ -72,7 +72,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("Newest");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 8;
 
   // View States
   const [showUploadModal, setShowUploadModal] = useState(false);

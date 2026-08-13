@@ -21,13 +21,13 @@ import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 function WinOSBrand() {
   return (
     <Image
-      src="/winos-logo.png.png"
+      src="/winos-logo.png"
       alt="WinOS by Eagle Eye Digital"
-      width={500}
+      width={900}
       height={170}
-      quality={100}
+      quality={1000}
       unoptimized
-      className="h-11 w-auto object-contain shrink-0"
+      className="h-44 w-auto object-contain pt-2 shrink-0"
       priority
     />
   );

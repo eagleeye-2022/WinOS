@@ -16,7 +16,7 @@ export default async function LoginPage({
     <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
       <div className="mb-4 flex items-center justify-start">
         <Image
-          src="/winos-logo.png.png"
+          src="/winos-logo.png"
           alt={APP_CONFIG.name}
           width={500}
           height={170}
