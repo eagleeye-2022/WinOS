@@ -11,6 +11,7 @@ import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
+import { toggleDsrLearning, type ToggleDsrLearningState } from "../actions/toggle-dsr-learning";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
 import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
 import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
@@ -326,7 +327,43 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
 
 // ── Learning card ──────────────────────────────────────────────────────────────
 
-function LearningCard({ entry }: { entry: DsrEntryData }) {
+function LearningItemRow({ item, locked }: { item: DsrEntryData["learningItems"][number]; locked?: boolean }) {
+  const [, action, pending] = useActionState<ToggleDsrLearningState, FormData>(toggleDsrLearning, {});
+  const [, startTransition] = useTransition();
+
+  return (
+    <form
+      action={(fd) => {
+        startTransition(() => action(fd));
+      }}
+      className="flex items-center gap-2.5"
+    >
+      <input type="hidden" name="itemId" value={item.id} />
+      <button
+        type="submit"
+        disabled={pending || locked}
+        title={locked ? "Waiting on DSM review" : item.completed ? "Mark as uncompleted" : "Mark as completed"}
+        className={cn(
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
+          item.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
+        )}
+      >
+        {pending ? (
+          <Loader2 size={10} className="animate-spin" />
+        ) : item.completed ? (
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+            <polyline points="1,4 3,6 7,2" />
+          </svg>
+        ) : null}
+      </button>
+      <span className={cn("flex-1 text-xs select-none", item.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+        {item.text}
+      </span>
+    </form>
+  );
+}
+
+function LearningCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
   const learningItems = entry.learningItems ?? [];
   if (learningItems.length === 0) return null;
 
@@ -343,16 +380,7 @@ function LearningCard({ entry }: { entry: DsrEntryData }) {
       </h3>
       <div className="flex flex-col gap-2">
         {learningItems.map((l) => (
-          <div key={l.id} className="flex items-center gap-2">
-            {l.completed ? (
-              <CheckCircle2 size={13} className="shrink-0 text-success" />
-            ) : (
-              <Clock3 size={13} className="shrink-0 text-muted-foreground" />
-            )}
-            <span className={cn("text-xs", l.completed ? "text-foreground" : "text-muted-foreground")}>
-              {l.text}
-            </span>
-          </div>
+          <LearningItemRow key={l.id} item={l} locked={locked} />
         ))}
       </div>
     </div>
@@ -676,7 +704,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
                 <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
                 <AdditionalWorkCard entry={todayEntry} />
                 <BlockersSupportCard entry={todayEntry} />
-                <LearningCard entry={todayEntry} />
+                <LearningCard entry={todayEntry} locked={!todayDsmReviewed} />
                 {/* <SentimentCard entry={todayEntry} /> */}
               </div>
 
