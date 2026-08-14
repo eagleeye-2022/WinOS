@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Home,
   ClipboardList,
   LayoutGrid,
   User,
@@ -42,6 +43,9 @@ function getDayQuote() {
 // ── Active route helper ───────────────────────────────────────────────────────
 
 function isSubItemActive(pathname: string, href: string, label: string): boolean {
+  if (label === "Home" || label === "Dashboard") {
+    return pathname === ROUTES.dashboard;
+  }
   if (label === "All DSM") {
     return pathname.startsWith("/dsm/all") || pathname.startsWith("/dsm/member");
   }
@@ -140,7 +144,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     // Standup Module
     navItems = isManager
       ? [
-        { label: "Dashboard", href: ROUTES.dashboard, icon: LayoutDashboard },
+        { label: "Home", href: ROUTES.dashboard, icon: Home },
         { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
         { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
         { label: "My DSM", href: ROUTES.dsmMy, icon: User },

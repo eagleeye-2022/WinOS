@@ -18,6 +18,27 @@ const PASTEL_COLORS = [
   "#faf5ff", // Soft Purple
 ];
 
+const getCardBg = (color?: string | null) => {
+  if (!color || color === "#ffffff" || color === "transparent") {
+    return {
+      light: undefined,
+      dark: undefined,
+    };
+  }
+  const hex = color.toLowerCase();
+  if (hex === "#fef9c3" || hex === "#fffbeb") return { light: color, dark: "#1e1b13" };
+  if (hex === "#dcfce7" || hex === "#f0fdf4") return { light: color, dark: "#12251a" };
+  if (hex === "#dbeafe" || hex === "#eff6ff") return { light: color, dark: "#132238" };
+  if (hex === "#fce7f3" || hex === "#fdf2f8") return { light: color, dark: "#281523" };
+  if (hex === "#f3e8ff" || hex === "#faf5ff") return { light: color, dark: "#21152d" };
+  if (hex === "#ffedd5" || hex === "#fff1f2") return { light: color, dark: "#2a1b12" };
+
+  return {
+    light: color,
+    dark: "#1e2430",
+  };
+};
+
 export type EditNoteModalData = {
   id: string;
   title?: string | null;
@@ -95,136 +116,144 @@ export function EditNoteModal<T extends EditNoteModalData>({
         </div>
 
         <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto max-h-[82vh] pr-1">
-          <div
-            className="border rounded-lg p-4 flex flex-col gap-2.5"
-            style={{ backgroundColor: note.color || "#ffffff" }}
-          >
-            {/* Card Title */}
-            {isReadOnly ? (
-              note.title && (
-                <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(note.title)}</h3>
-              )
-            ) : (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Card Title
-                </label>
-                <input
-                  type="text"
-                  value={note.title || ""}
-                  onChange={(e) => onNoteChange({ ...note, title: e.target.value })}
-                  placeholder="Enter card title..."
-                  className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
-                  maxLength={120}
-                />
-              </div>
-            )}
-
-            {/* Text Content */}
-            {isReadOnly ? (
+          {(() => {
+            const cardBg = getCardBg(note.color);
+            return (
               <div
-                className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
-                dangerouslySetInnerHTML={{ __html: note.content || "" }}
-              />
-            ) : (
-              <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
-                <RichTextEditor
-                  value={note.content || ""}
-                  onChange={(val) => onNoteChange({ ...note, content: val })}
-                />
-              </div>
-            )}
+                className="border rounded-lg p-4 flex flex-col gap-2.5 bg-card text-card-foreground border-border bg-[var(--card-bg-light)] dark:bg-[var(--card-bg-dark)]"
+                style={{
+                  ["--card-bg-light" as string]: cardBg.light,
+                  ["--card-bg-dark" as string]: cardBg.dark,
+                }}
+              >
+                {/* Card Title */}
+                {isReadOnly ? (
+                  note.title && (
+                    <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(note.title)}</h3>
+                  )
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Card Title
+                    </label>
+                    <input
+                      type="text"
+                      value={note.title || ""}
+                      onChange={(e) => onNoteChange({ ...note, title: e.target.value })}
+                      placeholder="Enter card title..."
+                      className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none focus:border-ring"
+                      maxLength={120}
+                    />
+                  </div>
+                )}
 
-            {/* Checklist Items */}
-            {note.checklistItems && note.checklistItems.length > 0 && (
-              <div className="flex flex-col gap-1.5 mt-2 border-t pt-3 border-black/10">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Checklist Items
-                </label>
-                <div className="flex flex-col gap-1">
-                  {note.checklistItems.map((item, idx) => (
-                    <div key={item.id || idx} className="flex items-center gap-2 py-0.5">
-                      <input
-                        type="checkbox"
-                        checked={item.checked || false}
-                        disabled={isReadOnly}
-                        onChange={(e) => {
-                          const updated = [...note.checklistItems];
-                          updated[idx] = { ...updated[idx], checked: e.target.checked };
-                          onNoteChange({ ...note, checklistItems: updated });
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                      />
-                      {isReadOnly ? (
-                        <span className={cn("text-sm text-foreground leading-snug", item.checked && "line-through text-muted-foreground")}>
-                          {item.text}
-                        </span>
-                      ) : (
-                        <input
-                          type="text"
-                          value={item.text}
-                          onChange={(e) => {
-                            const updated = [...note.checklistItems];
-                            updated[idx] = { ...updated[idx], text: e.target.value };
-                            onNoteChange({ ...note, checklistItems: updated });
-                          }}
-                          placeholder={`Checklist item ${idx + 1}...`}
-                          className="flex-1 rounded-md border bg-background px-2.5 py-1 text-sm outline-none focus:border-ring"
-                        />
-                      )}
+                {/* Text Content */}
+                {isReadOnly ? (
+                  <div
+                    className="text-sm text-foreground bg-background rounded-lg border p-3.5 leading-relaxed html-content text-left"
+                    dangerouslySetInnerHTML={{ __html: note.content || "" }}
+                  />
+                ) : (
+                  <div className="bg-background text-foreground rounded border text-sm max-w-full overflow-hidden">
+                    <RichTextEditor
+                      value={note.content || ""}
+                      onChange={(val) => onNoteChange({ ...note, content: val })}
+                    />
+                  </div>
+                )}
+
+                {/* Checklist Items */}
+                {note.checklistItems && note.checklistItems.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-2 border-t pt-3 border-border/50">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Checklist Items
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      {note.checklistItems.map((item, idx) => (
+                        <div key={item.id || idx} className="flex items-center gap-2 py-0.5">
+                          <input
+                            type="checkbox"
+                            checked={item.checked || false}
+                            disabled={isReadOnly}
+                            onChange={(e) => {
+                              const updated = [...note.checklistItems];
+                              updated[idx] = { ...updated[idx], checked: e.target.checked };
+                              onNoteChange({ ...note, checklistItems: updated });
+                            }}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                          />
+                          {isReadOnly ? (
+                            <span className={cn("text-sm text-foreground leading-snug", item.checked && "line-through text-muted-foreground")}>
+                              {item.text}
+                            </span>
+                          ) : (
+                            <input
+                              type="text"
+                              value={item.text}
+                              onChange={(e) => {
+                                const updated = [...note.checklistItems];
+                                updated[idx] = { ...updated[idx], text: e.target.value };
+                                onNoteChange({ ...note, checklistItems: updated });
+                              }}
+                              placeholder={`Checklist item ${idx + 1}...`}
+                              className="flex-1 rounded-md border bg-background px-2.5 py-1 text-sm outline-none focus:border-ring"
+                            />
+                          )}
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = note.checklistItems.filter((_, i) => i !== idx);
+                                onNoteChange({ ...note, checklistItems: updated });
+                              }}
+                              className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors shrink-0"
+                              title="Remove item"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                       {!isReadOnly && (
                         <button
                           type="button"
                           onClick={() => {
-                            const updated = note.checklistItems.filter((_, i) => i !== idx);
+                            const updated = [...(note.checklistItems || []), { text: "", checked: false }];
                             onNoteChange({ ...note, checklistItems: updated });
                           }}
-                          className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors shrink-0"
-                          title="Remove item"
+                          className="flex items-center gap-1 self-start text-xs font-semibold text-primary hover:underline mt-1"
                         >
-                          <X size={14} />
+                          <Plus size={12} /> Add Checklist Item
                         </button>
                       )}
                     </div>
-                  ))}
-                  {!isReadOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = [...(note.checklistItems || []), { text: "", checked: false }];
-                        onNoteChange({ ...note, checklistItems: updated });
-                      }}
-                      className="flex items-center gap-1 self-start text-xs font-semibold text-primary hover:underline mt-1"
-                    >
-                      <Plus size={12} /> Add Checklist Item
-                    </button>
-                  )}
+                  </div>
+                )}
+
+                {/* Color Picker */}
+                <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-border/50">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">
+                    Card Color
+                  </label>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {PASTEL_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        disabled={isReadOnly}
+                        onClick={() => onNoteChange({ ...note, color: c })}
+                        className={cn(
+                          "h-5.5 w-5.5 rounded-full border border-border shadow-xs relative transition-transform hover:scale-110",
+                          note.color === c && "ring-2 ring-primary scale-110"
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Color Picker */}
-            <div className="flex flex-col gap-1 mt-2 border-t pt-2 border-black/5">
-              <label className="text-xs font-bold text-muted-foreground uppercase">
-                Card Color
-              </label>
-              <div className="flex items-center gap-1.5 mt-1">
-                {PASTEL_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    disabled={isReadOnly}
-                    onClick={() => onNoteChange({ ...note, color: c })}
-                    className={cn(
-                      "h-5.5 w-5.5 rounded-full border border-black/10 shadow-xs relative transition-transform hover:scale-110",
-                      note.color === c && "ring-1 ring-primary scale-110"
-                    )}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
 
         <div className="flex justify-end gap-2 border-t pt-3 mt-2 shrink-0">

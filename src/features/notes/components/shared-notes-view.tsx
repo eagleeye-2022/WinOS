@@ -62,6 +62,29 @@ type Props = {
   type: "with-me" | "by-me";
 };
 
+const getCardBg = (color?: string | null) => {
+  if (!color || color === "#ffffff" || color === "transparent") {
+    return {
+      light: undefined,
+      dark: undefined,
+      border: undefined,
+    };
+  }
+  const hex = color.toLowerCase();
+  if (hex === "#fef9c3" || hex === "#fffbeb") return { light: color, dark: "#1e1b13", border: "#eab308" };
+  if (hex === "#dcfce7" || hex === "#f0fdf4") return { light: color, dark: "#12251a", border: "#22c55e" };
+  if (hex === "#dbeafe" || hex === "#eff6ff") return { light: color, dark: "#132238", border: "#3b82f6" };
+  if (hex === "#fce7f3" || hex === "#fdf2f8") return { light: color, dark: "#281523", border: "#ec4899" };
+  if (hex === "#f3e8ff" || hex === "#faf5ff") return { light: color, dark: "#21152d", border: "#a855f7" };
+  if (hex === "#ffedd5" || hex === "#fff1f2") return { light: color, dark: "#2a1b12", border: "#f97316" };
+
+  return {
+    light: color,
+    dark: "#1e2430",
+    border: color,
+  };
+};
+
 export function SharedNotesView({ title, description, notes, type }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNote, setSelectedNote] = useState<SharedNoteItem | null>(null);
@@ -167,14 +190,17 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
               const authorName = toTitleCase(note.author?.name || note.author?.email?.split("@")[0] || "User");
               const authorInitial = authorName.charAt(0).toUpperCase();
 
+              const cardBg = getCardBg(note.color);
+
               return (
                 <div
                   key={note.id}
                   onClick={() => setSelectedNote(note)}
-                  className="group relative flex flex-col justify-between rounded-xl border bg-card/90 backdrop-blur-sm p-4 transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden border-l-4"
+                  className="group relative flex flex-col justify-between rounded-xl border bg-card/90 backdrop-blur-sm p-4 transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer overflow-hidden border-l-4 bg-[var(--card-bg-light)] dark:bg-[var(--card-bg-dark)]"
                   style={{
-                    backgroundColor: note.color || undefined,
-                    borderLeftColor: note.color ? "rgba(0,0,0,0.25)" : type === "with-me" ? "#3b82f6" : "#10b981",
+                    ["--card-bg-light" as string]: cardBg.light,
+                    ["--card-bg-dark" as string]: cardBg.dark,
+                    borderLeftColor: cardBg.border || (type === "with-me" ? "#3b82f6" : "#10b981"),
                   }}
                 >
                   <div className="flex flex-col gap-2.5">

@@ -131,6 +131,29 @@ const PASTEL_COLORS = [
   "#fdf2f8", // Soft Pink
 ];
 
+const getCardBg = (color?: string | null) => {
+  if (!color || color === "#ffffff" || color === "transparent") {
+    return {
+      light: "rgba(255, 255, 255, 0.95)",
+      dark: "#1e2430",
+      border: "#3b82f6",
+    };
+  }
+  const hex = color.toLowerCase();
+  if (hex === "#fef9c3" || hex === "#fffbeb") return { light: color, dark: "#1e1b13", border: "#eab308" };
+  if (hex === "#dcfce7" || hex === "#f0fdf4") return { light: color, dark: "#12251a", border: "#22c55e" };
+  if (hex === "#dbeafe" || hex === "#eff6ff") return { light: color, dark: "#132238", border: "#3b82f6" };
+  if (hex === "#fce7f3" || hex === "#fdf2f8") return { light: color, dark: "#281523", border: "#ec4899" };
+  if (hex === "#f3e8ff" || hex === "#faf5ff") return { light: color, dark: "#21152d", border: "#a855f7" };
+  if (hex === "#ffedd5" || hex === "#fff1f2") return { light: color, dark: "#2a1b12", border: "#f97316" };
+
+  return {
+    light: color,
+    dark: "#1e2430",
+    border: color,
+  };
+};
+
 export function NotesWorkspace({
   initialBoards,
   historyNotes,
@@ -1313,127 +1336,132 @@ export function NotesWorkspace({
                       No Cards. Click + To Add.
                     </div>
                   ) : (
-                    thread.notes.map((note) => (
-                      <div
-                        key={note.id}
-                        draggable
-                        onDragStart={(e) => handleDragCardStart(e, note.id, thread.id)}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={(e) => handleDrop(e, thread.id)}
-                        onClick={() =>
-                          setEditingNote({
-                            ...note,
-                            checklistItems: note.checklistItems || [],
-                            shares: note.shares || [],
-                          })
-                        }
-                        className="rounded-xl border border-white/20 dark:border-white/10 p-3.5 shadow-xs relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 group border-l-4 min-h-[100px] max-h-[220px] shrink-0 overflow-hidden"
-                        style={{
-                          backgroundColor: note.color ? `${note.color}e6` : "rgba(255, 255, 255, 0.88)",
-                          borderLeftColor: note.color ? "rgba(0,0,0,0.2)" : "#3b82f6",
-                        }}
-                      >
-                        {/* Note Card Top Header (Title + Actions Pill) */}
-                        <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
-                          <h4 className="text-sm font-bold text-foreground line-clamp-2 leading-snug tracking-tight pr-1">
-                            {note.title ? toTitleCase(note.title) : "Untitled Note"}
-                          </h4>
-                          {note.authorId === userId && (
-                            <div className="flex items-center gap-1.5 bg-white/90 dark:bg-card/90 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-border/40 shrink-0">
-                              <button
-                                type="button"
-                                title="Share Note"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSharingItem({
-                                    type: "note",
-                                    id: note.id,
-                                    existingShares: note.shares.map((s) => ({ userId: s.userId, canEdit: false })),
-                                  });
-                                }}
-                                className="rounded p-0.5 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                              >
-                                <Share2 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                title="Delete Note"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteNote(note.id);
-                                }}
-                                className="rounded p-0.5 hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                    thread.notes.map((note) => {
+                      const cardBg = getCardBg(note.color);
 
-                        {/* Note Content (Text preview) */}
-                        <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
-                          {note.content && (
-                            <div
-                              className="html-content text-xs text-foreground/80 leading-relaxed line-clamp-3 overflow-hidden select-none"
-                              dangerouslySetInnerHTML={{ __html: note.content }}
-                            />
-                          )}
-
-                          {/* Checklist items list matching exact screenshot design */}
-                          {note.checklistItems.length > 0 && (
-                            <div className="flex flex-col gap-1.5 mt-1 border-t border-foreground/10 pt-2 overflow-hidden">
-                              {note.checklistItems.slice(0, 3).map((item) => (
-                                <div
-                                  key={item.id}
+                      return (
+                        <div
+                          key={note.id}
+                          draggable
+                          onDragStart={(e) => handleDragCardStart(e, note.id, thread.id)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => handleDrop(e, thread.id)}
+                          onClick={() =>
+                            setEditingNote({
+                              ...note,
+                              checklistItems: note.checklistItems || [],
+                              shares: note.shares || [],
+                            })
+                          }
+                          className="rounded-xl border border-slate-200/60 dark:border-slate-800/80 p-3.5 shadow-xs relative flex flex-col justify-between cursor-grab active:cursor-grabbing hover:shadow-md backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 group border-l-4 min-h-[100px] max-h-[220px] shrink-0 overflow-hidden bg-[var(--card-bg-light)] dark:bg-[var(--card-bg-dark)] text-slate-900 dark:text-slate-100"
+                          style={{
+                            ["--card-bg-light" as string]: cardBg.light,
+                            ["--card-bg-dark" as string]: cardBg.dark,
+                            borderLeftColor: cardBg.border,
+                          }}
+                        >
+                          {/* Note Card Top Header (Title + Actions Pill) */}
+                          <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug tracking-tight pr-1">
+                              {note.title ? toTitleCase(note.title) : "Untitled Note"}
+                            </h4>
+                            {note.authorId === userId && (
+                              <div className="flex items-center gap-1.5 bg-slate-900/10 dark:bg-slate-100/10 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-slate-900/10 dark:border-slate-100/10 shrink-0">
+                                <button
+                                  type="button"
+                                  title="Share Note"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (note.authorId === userId) {
-                                      handleToggleChecklistItem(item.id);
-                                    }
+                                    setSharingItem({
+                                      type: "note",
+                                      id: note.id,
+                                      existingShares: note.shares.map((s) => ({ userId: s.userId, canEdit: false })),
+                                    });
                                   }}
-                                  className={cn(
-                                    "flex items-center gap-2 rounded px-1 py-0.5",
-                                    note.authorId === userId ? "hover:bg-black/5 cursor-pointer" : "cursor-default opacity-85"
-                                  )}
+                                  className="rounded p-0.5 hover:bg-slate-900/10 dark:hover:bg-slate-100/20 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
                                 >
-                                  <button type="button" className="shrink-0">
-                                    {item.checked ? (
-                                      <CheckSquare size={14} className="text-primary" />
-                                    ) : (
-                                      <Square size={14} className="text-muted-foreground/60" />
-                                    )}
-                                  </button>
-                                  <span
+                                  <Share2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Delete Note"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteNote(note.id);
+                                  }}
+                                  className="rounded p-0.5 hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Note Content (Text preview) */}
+                          <div className="flex-1 overflow-hidden min-h-0 flex flex-col gap-2">
+                            {note.content && (
+                              <div
+                                className="html-content text-xs text-slate-800 dark:text-slate-200 leading-relaxed line-clamp-3 overflow-hidden select-none"
+                                dangerouslySetInnerHTML={{ __html: note.content }}
+                              />
+                            )}
+
+                            {/* Checklist items list matching exact screenshot design */}
+                            {note.checklistItems.length > 0 && (
+                              <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-900/10 dark:border-slate-100/10 pt-2 overflow-hidden">
+                                {note.checklistItems.slice(0, 3).map((item) => (
+                                  <div
+                                    key={item.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (note.authorId === userId) {
+                                        handleToggleChecklistItem(item.id);
+                                      }
+                                    }}
                                     className={cn(
-                                      "text-xs text-foreground leading-tight select-none truncate font-medium",
-                                      item.checked && "text-muted-foreground line-through font-normal"
+                                      "flex items-center gap-2 rounded px-1 py-0.5 transition-colors",
+                                      note.authorId === userId ? "hover:bg-slate-900/5 dark:hover:bg-slate-100/10 cursor-pointer" : "cursor-default opacity-85"
                                     )}
                                   >
-                                    {toTitleCase(item.text)}
+                                    <button type="button" className="shrink-0">
+                                      {item.checked ? (
+                                        <CheckSquare size={14} className="text-primary" />
+                                      ) : (
+                                        <Square size={14} className="text-slate-500 dark:text-slate-400" />
+                                      )}
+                                    </button>
+                                    <span
+                                      className={cn(
+                                        "text-xs leading-tight select-none truncate font-medium",
+                                        item.checked ? "text-slate-500 dark:text-slate-400 line-through font-normal" : "text-slate-900 dark:text-slate-100 font-semibold"
+                                      )}
+                                    >
+                                      {toTitleCase(item.text)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {note.checklistItems.length > 3 && (
+                                  <span className="text-xs text-slate-600 dark:text-slate-400 font-medium pl-1 pt-0.5">
+                                    +{note.checklistItems.length - 3} more items
                                   </span>
-                                </div>
-                              ))}
-                              {note.checklistItems.length > 3 && (
-                                <span className="text-xs text-muted-foreground/60 font-medium pl-1 pt-0.5">
-                                  +{note.checklistItems.length - 3} more items
-                                </span>
-                              )}
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Deadline Indicator */}
+                          {note.deadline && (
+                            <div className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 mt-1 font-medium bg-amber-500/15 px-2 py-0.5 rounded-full w-fit shrink-0">
+                              <Calendar size={11} />
+                              <span>Due {new Date(note.deadline).toLocaleDateString()}</span>
                             </div>
                           )}
                         </div>
-
-                        {/* Deadline Indicator */}
-                        {note.deadline && (
-                          <div className="flex items-center gap-1 text-xs text-amber-700/80 mt-1 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full w-fit shrink-0">
-                            <Calendar size={11} />
-                            <span>Due {new Date(note.deadline).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

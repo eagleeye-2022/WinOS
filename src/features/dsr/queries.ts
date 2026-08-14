@@ -166,7 +166,13 @@ export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
     blockers: standup.blockers.map((b: any) => ({ text: formatItemTextWithMentions(b) })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     followUps: standup.supportNeeds.map((s: any) => ({ text: formatItemTextWithMentions(s) })),
-    learningItems: standup.learningText ? [{ text: standup.learningText }] : [],
+    learningItems: standup.learningText
+      ? standup.learningText
+          .split("\n")
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+          .map((text: string) => ({ text }))
+      : [],
   };
 }
 

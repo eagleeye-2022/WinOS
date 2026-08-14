@@ -122,6 +122,61 @@ function TaskRows({
   );
 }
 
+// ── Learning rows ─────────────────────────────────────────────────────────────
+
+function LearningRows({
+  items,
+  teamMembers,
+  onChange,
+}: {
+  items: { id: string; text: string }[];
+  teamMembers: TeamMember[];
+  onChange: (items: { id: string; text: string }[]) => void;
+}) {
+  const updateText = (i: number, v: string) => {
+    const n = [...items];
+    n[i] = { ...n[i], text: v };
+    onChange(n);
+  };
+  const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
+  const add = () => onChange([...items, { id: crypto.randomUUID(), text: "" }]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      {items.map((item, i) => (
+        <div key={item.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+          <span className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
+            item.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+          )}>
+            L{i + 1}
+          </span>
+          <MentionInput
+            key={item.id}
+            name="learningItemText"
+            defaultValue={item.text}
+            onChange={(v) => updateText(i, v)}
+            placeholder="Add learning task details..."
+            teamMembers={teamMembers}
+          />
+          {items.length > 1 && (
+            <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+      >
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Add learning task
+      </button>
+    </div>
+  );
+}
+
 // ── Blocker rows ──────────────────────────────────────────────────────────────
 
 function BlockerRows({
@@ -441,7 +496,18 @@ export function SubmitDsmForm({
     })) ?? [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [] }];
   });
 
-  const [learningText, setLearningText] = useState(savedDraft?.learningText ?? entry?.learningText ?? "");
+  const [learningItems, setLearningItems] = useState<{ id: string; text: string }[]>(() => {
+    if (savedDraft?.learningItems?.length) return savedDraft.learningItems;
+    if (savedDraft?.learningText) {
+      const lines = savedDraft.learningText.split("\n").map((t: string) => t.trim()).filter(Boolean);
+      if (lines.length > 0) return lines.map((text: string) => ({ id: crypto.randomUUID(), text }));
+    }
+    if (entry?.learningText) {
+      const lines = entry.learningText.split("\n").map((t) => t.trim()).filter(Boolean);
+      if (lines.length > 0) return lines.map((text) => ({ id: crypto.randomUUID(), text }));
+    }
+    return [{ id: crypto.randomUUID(), text: "" }];
+  });
   const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
 
   useEffect(() => {
@@ -455,14 +521,15 @@ export function SubmitDsmForm({
       tasks,
       blockers,
       supports,
-      learningText,
+      learningItems,
+      learningText: learningItems.map((l) => l.text.trim()).filter(Boolean).join("\n"),
     };
     try {
       localStorage.setItem(draftKey, JSON.stringify(draftData));
     } catch {
       // Ignore storage error
     }
-  }, [draftKey, isEditMode, tasks, blockers, supports, learningText]);
+  }, [draftKey, isEditMode, tasks, blockers, supports, learningItems]);
 
   // Clear draft upon successful save or submission
   useEffect(() => {
@@ -592,15 +659,12 @@ export function SubmitDsmForm({
           title="What Will You Learn Today( WhyFi )?"
           required
         >
-          <textarea
+          <input
+            type="hidden"
             name="learningText"
-            rows={3}
-            value={learningText}
-            onChange={(e) => setLearningText(e.target.value)}
-            placeholder="What New Skill, Topic, or Concept Are You Planning to Learn Today?"
-            className={cn(inputCls, "resize-none")}
-            required
+            value={learningItems.map((l) => l.text.trim()).filter(Boolean).join("\n")}
           />
+          <LearningRows items={learningItems} teamMembers={teamMembers} onChange={setLearningItems} />
           {state.errors?.learningText && (
             <p className="text-xs text-destructive">{state.errors.learningText[0]}</p>
           )}

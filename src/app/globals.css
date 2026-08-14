@@ -1,6 +1,18 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import "../styles/_variables.scss";
 @import "../styles/_keyframe-animations.scss";
+
+/* Logo theme visibility helper classes */
+.logo-dark {
+  display: none !important;
+}
+.dark .logo-dark {
+  display: block !important;
+}
+.dark .logo-light {
+  display: none !important;
+}
 
 @theme inline {
   --color-background: var(--background);

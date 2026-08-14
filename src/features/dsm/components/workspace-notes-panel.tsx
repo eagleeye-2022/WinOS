@@ -14,26 +14,33 @@ import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
 import type { SharedNoteData } from "../queries";
 import { toTitleCase } from "@/lib/utils";
 
-// Pastel color palette matching Note History cards
+// Pastel color palette matching Note History cards for Light mode, and rich dark tones for Dark mode
 const COLOR_PALETTE = [
-  "#fef9c3", // Yellow
-  "#dcfce7", // Green
-  "#dbeafe", // Blue
-  "#fce7f3", // Pink
-  "#f3e8ff", // Purple
-  "#ffedd5", // Orange
+  { light: "#fef9c3", dark: "#1e1b13", border: "#eab308" }, // Yellow
+  { light: "#dcfce7", dark: "#12251a", border: "#22c55e" }, // Green
+  { light: "#dbeafe", dark: "#132238", border: "#3b82f6" }, // Blue
+  { light: "#fce7f3", dark: "#281523", border: "#ec4899" }, // Pink
+  { light: "#f3e8ff", dark: "#21152d", border: "#a855f7" }, // Purple
+  { light: "#ffedd5", dark: "#2a1b12", border: "#f97316" }, // Orange
 ];
 
-function getCardColor(color: string | null | undefined, id: string) {
-  if (color && color !== "#ffffff" && color !== "transparent") {
-    return color;
-  }
+function getCardColors(color: string | null | undefined, id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % COLOR_PALETTE.length;
-  return COLOR_PALETTE[index];
+  const palette = COLOR_PALETTE[index];
+
+  if (color && color !== "#ffffff" && color !== "transparent") {
+    return {
+      light: color,
+      dark: "#1e2430",
+      border: color,
+    };
+  }
+
+  return palette;
 }
 
 // ── Shared Note Card ──────────────────────────────────────────────────────────
@@ -231,25 +238,25 @@ function SharedNoteCard({
   const formattedCleanText = cleanText.length > 20 ? cleanText.substring(0, 20) + "..." : cleanText;
 
   return (
-    <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-black">
+    <div className="flex flex-col flex-1 justify-between gap-2.5 text-left text-slate-900 dark:text-slate-100">
       <div className="flex flex-col gap-2.5">
         {/* Title */}
         {cardTitle && (
-          <h4 className="text-base font-bold text-black dark:text-black truncate">
+          <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
             {cardTitle}
           </h4>
         )}
 
         {/* Content Preview (Clean Text Preview if available) */}
         {showCleanText && (
-          <p className="text-sm font-semibold text-black dark:text-black truncate">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
             {formattedCleanText}
           </p>
         )}
 
         {/* Checklist items section displaying exact persisted order and checkbox states */}
         {hasChecklist ? (
-          <div className="flex flex-col gap-1.5 mt-1 border-t border-black/10 pt-2 font-medium">
+          <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-900/10 dark:border-slate-100/10 pt-2 font-medium">
             {shownItems.map((item) => (
               <button
                 key={item.id}
@@ -262,19 +269,19 @@ function SharedNoteCard({
                 className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
                   isReadOnly || item.id.startsWith("extracted-")
                     ? "cursor-default opacity-90"
-                    : "hover:bg-black/5 cursor-pointer"
+                    : "hover:bg-slate-900/5 dark:hover:bg-slate-100/10 cursor-pointer"
                 }`}
               >
                 <span className="mt-0.5 shrink-0">
                   {item.checked ? (
                     <CheckSquare size={15} className="text-primary" />
                   ) : (
-                    <Square size={15} className="text-slate-700" />
+                    <Square size={15} className="text-slate-600 dark:text-slate-400" />
                   )}
                 </span>
                 <span
                   className={`text-sm leading-snug select-none line-clamp-2 ${
-                    item.checked ? "text-black/50 line-through font-normal" : "text-black dark:text-black font-semibold"
+                    item.checked ? "text-slate-500 dark:text-slate-400 line-through font-normal" : "text-slate-900 dark:text-slate-100 font-semibold"
                   }`}
                 >
                   {item.text.length > 80 ? item.text.substring(0, 80) + "…" : item.text}
@@ -282,7 +289,7 @@ function SharedNoteCard({
               </button>
             ))}
             {totalMoreItems > 0 && (
-              <span className="text-xs text-black/60 font-medium pl-1">
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium pl-1">
                 +{totalMoreItems} more items
               </span>
             )}
@@ -290,7 +297,7 @@ function SharedNoteCard({
         ) : (
           note.content && (
             <div
-              className="text-sm text-black dark:text-black leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
+              className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-medium line-clamp-3 [&_img]:max-h-36 [&_img]:w-auto [&_img]:rounded-md [&_img]:my-1"
               dangerouslySetInnerHTML={{ __html: note.content }}
             />
           )
@@ -298,7 +305,7 @@ function SharedNoteCard({
       </div>
 
       {/* Footer Info (Date anchored at the very end of the card) */}
-      <div className="flex items-center justify-between mt-auto text-xs text-black/80 dark:text-black/80 border-t pt-2 border-black/10 font-medium">
+      <div className="flex items-center justify-between mt-auto text-xs text-slate-600 dark:text-slate-400 border-t pt-2 border-slate-900/10 dark:border-slate-100/10 font-medium">
         <span>
           {new Date(note.createdAt).toLocaleDateString("en-IN", {
             day: "2-digit",
@@ -351,7 +358,7 @@ export function WorkspaceNotesPanel({
           /* Shared Notes Section */
           <div className="flex flex-col gap-3.5">
             {sharedNotes.map((note) => {
-              const bg = getCardColor(note.color, note.id);
+              const palette = getCardColors(note.color, note.id);
               const threadTitleSub = note.threadTitle
                 ? note.threadTitle.length > 20
                   ? note.threadTitle.substring(0, 20) + "..."
@@ -362,17 +369,18 @@ export function WorkspaceNotesPanel({
                 <div
                   key={note.id}
                   onClick={() => setEditingNote(note)}
-                  className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer"
+                  className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer border-slate-200/80 dark:border-slate-800/80 bg-[var(--card-bg-light)] dark:bg-[var(--card-bg-dark)]"
                   style={{
-                    backgroundColor: bg,
-                    borderLeftColor: "rgba(0, 0, 0, 0.25)",
+                    ["--card-bg-light" as string]: palette.light,
+                    ["--card-bg-dark" as string]: palette.dark,
+                    borderLeftColor: palette.border,
                   }}
                 >
-                  <div className="flex items-center justify-between border-b pb-2 border-black/10">
-                    <span className="text-xs font-bold text-black dark:text-black flex items-center gap-1 truncate max-w-[50%]" title={note.threadTitle}>
+                  <div className="flex items-center justify-between border-b pb-2 border-slate-900/10 dark:border-slate-100/10">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1 truncate max-w-[50%]" title={note.threadTitle}>
                       <Sparkles size={13} className="text-primary shrink-0" /> In {threadTitleSub}
                     </span>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-black/90 dark:text-black/90 shrink-0">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
                       {note.canEdit && (
                         <span
                           title="You can edit this note"
