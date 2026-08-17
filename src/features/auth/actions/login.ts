@@ -1,6 +1,7 @@
 "use server";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
+import { db } from "@/lib/db";
 import {
   generateOtp,
   storeOtp,
@@ -82,6 +83,27 @@ export async function requestOtpAction(
       error: "Only @eagleeyedigital.io email addresses are allowed.",
       captcha: createCaptcha(),
     };
+  }
+
+  // Account active status check — block OTP generation if user login is disabled by manager
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingUser = await (db as any).user.findUnique({
+      where: { email },
+      select: { isActive: true },
+    });
+    if (existingUser && !existingUser.isActive) {
+      return {
+        step: "email",
+        error: "Your account login has been disabled by management. Please contact your administrator.",
+        captcha: createCaptcha(),
+      };
+    }
+  } catch (err) {
+    if (isPrismaInfraError(err)) {
+      devLogPrismaError("checkUserActive", err);
+      return { step: "email", error: SERVICE_UNAVAILABLE, captcha: createCaptcha() };
+    }
   }
 
   // Skip the CAPTCHA check on resend (the OTP step form doesn't render one) —

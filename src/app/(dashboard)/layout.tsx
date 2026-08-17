@@ -15,6 +15,7 @@ import { ModuleSwitcher } from "@/components/shared/module-switcher";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
+import { SessionGuard } from "@/components/shared/session-guard";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -54,7 +55,9 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
 
-  if (!session) redirect(ROUTES.login);
+  if (!session || !session.user || !(session.user as { id?: string }).id) {
+    redirect(ROUTES.login);
+  }
 
   const userRole = (session.user as { role?: string })?.role ?? "TEAM_MEMBER";
   const userName = session.user?.name ?? session.user?.email ?? "";
@@ -72,6 +75,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="dsm-scope flex h-screen w-screen flex-col overflow-hidden">
+      <SessionGuard />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">
         <header className="flex h-14 shrink-0 items-center border-b bg-card z-10 mb-2">

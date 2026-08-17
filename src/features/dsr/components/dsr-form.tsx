@@ -37,12 +37,14 @@ export function renderTextWithMentions(text: string) {
 function MentionableInput({
   value,
   onChange,
+  onEnterSubmit,
   placeholder,
   className,
   disabled,
 }: {
   value: string;
   onChange: (val: string) => void;
+  onEnterSubmit?: () => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -67,6 +69,12 @@ function MentionableInput({
         disabled={disabled}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnterSubmit?.();
+          }
+        }}
         placeholder=""
         className={cn(
           "relative z-10 w-full bg-transparent text-sm outline-none caret-primary text-transparent selection:bg-primary/20 selection:text-foreground",
@@ -148,6 +156,7 @@ function CheckSection({
               <MentionableInput
                 value={item.text}
                 onChange={(val) => update(i, val)}
+                onEnterSubmit={allowAdd && i === items.length - 1 && item.text.trim() ? add : undefined}
                 placeholder="Add item..."
                 className={cn(!item.completed && "opacity-70")}
               />
@@ -298,6 +307,14 @@ function AdditionalWorkSection({
                 disabled={readOnly}
                 value={item.text}
                 onChange={(e) => update(i, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (!readOnly && i === items.length - 1 && item.text.trim()) {
+                      add();
+                    }
+                  }
+                }}
                 placeholder={`Additional Work for T${i + 1}...`}
                 className={cn(
                   "flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
@@ -532,15 +549,15 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
     const fd = new FormData(formRef.current);
     fd.set("action", actionValue);
     fd.set("plannedTasksJson", JSON.stringify(tasks));
-    fd.set("additionalWorksJson", JSON.stringify(additionalWorks));
-    fd.set("resolvedBlockersJson", JSON.stringify(blockers.map((b) => ({
-      id: b.id, text: b.text, resolved: b.completed,
+    fd.set("additionalWorksJson", JSON.stringify(additionalWorks.filter((w) => w.text.trim())));
+    fd.set("resolvedBlockersJson", JSON.stringify(blockers.filter((b) => b.text.trim()).map((b) => ({
+      id: b.id, text: b.text.trim(), resolved: b.completed,
     }))));
-    fd.set("followUpsDoneJson", JSON.stringify(followUps.map((f) => ({
-      id: f.id, text: f.text, completed: f.completed,
+    fd.set("followUpsDoneJson", JSON.stringify(followUps.filter((f) => f.text.trim()).map((f) => ({
+      id: f.id, text: f.text.trim(), completed: f.completed,
     }))));
-    fd.set("learningItemsJson", JSON.stringify(learningItems.map((l) => ({
-      id: l.id, text: l.text, completed: l.completed,
+    fd.set("learningItemsJson", JSON.stringify(learningItems.filter((l) => l.text.trim()).map((l) => ({
+      id: l.id, text: l.text.trim(), completed: l.completed,
     }))));
     fd.set("sentiment", sentiment);
     fd.set("reflection", reflection);

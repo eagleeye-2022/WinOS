@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -22,6 +22,7 @@ import { createCalendarEvent, type CreateEventState } from "../actions/create-ev
 import { updateCalendarEvent, type UpdateEventState } from "../actions/update-event";
 import { ParticipantPicker } from "./participant-picker";
 import { EventDateTimePicker } from "./event-date-time-picker";
+import { EventDetailPopover } from "./event-detail-popover";
 import { toDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
 import type { CalendarEventView } from "../queries";
 
@@ -37,6 +38,8 @@ type Props = {
   currentUserId: string;
   onClose: () => void;
   onEventCreatedLocally?: (event: CalendarEventView) => void;
+  /** Fired once, after the server confirms the event was created/updated. */
+  onSaved?: (event: CalendarEventView) => void;
 };
 
 const ROOM_OPTIONS = [
@@ -57,6 +60,7 @@ export function EventDialog({
   currentUserId,
   onClose,
   onEventCreatedLocally,
+  onSaved,
 }: Props) {
   const router = useRouter();
   const [createState, createAction, createPending] = useActionState<CreateEventState, FormData>(
@@ -72,13 +76,34 @@ export function EventDialog({
   const action = mode === "create" ? createAction : updateAction;
   const pending = mode === "create" ? createPending : updatePending;
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isLoading = pending || isSubmitting;
+
+  useEffect(() => {
+    if (state.message || state.errors) {
+      const timer = setTimeout(() => setIsSubmitting(false), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [state]);
+
   // Local Form UI States matching mockups
   const [meetingType, setMeetingType] = useState<"face-to-face" | "online">("online");
   const [title, setTitle] = useState(event?.title ?? defaultTitle ?? "");
-  const [start, setStart] = useState<Date>(event?.start ?? defaultStart ?? new Date());
-  const [end, setEnd] = useState<Date>(
-    event?.end ?? new Date((event?.start ?? defaultStart ?? new Date()).getTime() + 60 * 60 * 1000),
-  );
+  const [start, setStart] = useState<Date>(() => {
+    if (event?.start) return event.start;
+    if (defaultStart) return defaultStart;
+    const d = new Date();
+    d.setHours(17, 0, 0, 0);
+    return d;
+  });
+  const [end, setEnd] = useState<Date>(() => {
+    if (event?.end) return event.end;
+    const s = event?.start ?? defaultStart;
+    if (s) return new Date(s.getTime() + 60 * 60 * 1000);
+    const d = new Date();
+    d.setHours(18, 0, 0, 0);
+    return d;
+  });
   const [repeatEvent, setRepeatEvent] = useState(false);
   const [location, setLocation] = useState(
     event?.description?.startsWith("Location: ")
@@ -131,6 +156,8 @@ export function EventDialog({
       return;
     }
 
+    setIsSubmitting(true);
+
     const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
     const attendeeEmails = new Set<string>();
     selectedUsers.forEach((u) => attendeeEmails.add(u.email));
@@ -160,32 +187,82 @@ export function EventDialog({
     }
   }
 
+  const [isEditingAfterSuccess, setIsEditingAfterSuccess] = useState(false);
+
   const successMessage = mode === "create" ? "created" : "updated";
-  if (state.message === successMessage) {
+
+  const onSavedFiredRef = useRef(false);
+  useEffect(() => {
+    if (state.message !== successMessage) {
+      onSavedFiredRef.current = false;
+      return;
+    }
+    if (onSavedFiredRef.current) return;
+    onSavedFiredRef.current = true;
+
+    const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
+    const attendeeEmails = new Set<string>();
+    selectedUsers.forEach((u) => attendeeEmails.add(u.email));
+    if (participantEmail) attendeeEmails.add(participantEmail.trim());
+    const userEmail = currentUser?.email ?? "mohit.thakre@zylker.com";
+
+    onSaved?.({
+      id: state.eventId || event?.id || `local-evt-${Date.now()}`,
+      etag: Date.now(),
+      title: toTitleCase(title) || "Scheduled Event",
+      description: location ? `Location: ${location}` : meetingType === "online" ? `Online Meeting` : "",
+      start: new Date(start),
+      end: new Date(end),
+      isAllDay: false,
+      organizerEmail: userEmail,
+      attendees: [
+        { email: userEmail, status: "ACCEPTED" },
+        ...Array.from(attendeeEmails)
+          .filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
+          .map((email) => ({ email, status: "NEEDS_ACTION" })),
+      ],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.message]);
+
+  if (state.message === successMessage && !isEditingAfterSuccess) {
+    const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
+    const attendeeEmails = new Set<string>();
+    selectedUsers.forEach((u) => attendeeEmails.add(u.email));
+    if (participantEmail) attendeeEmails.add(participantEmail.trim());
+
+    const userEmail = currentUser?.email ?? "mohit.thakre@zylker.com";
+    const attendeesList = [
+      { email: userEmail, status: "ACCEPTED" },
+      ...Array.from(attendeeEmails)
+        .filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
+        .map((email) => ({ email, status: "NEEDS_ACTION" })),
+    ];
+
+    const createdEventView: CalendarEventView = {
+      id: state.eventId || event?.id || "local-evt-created",
+      etag: 1,
+      title: toTitleCase(title) || "Scheduled Event",
+      description: location ? `Location: ${location}` : meetingType === "online" ? `Online Meeting` : "",
+      start: new Date(start),
+      end: new Date(end),
+      isAllDay: false,
+      organizerEmail: userEmail,
+      attendees: attendeesList,
+    };
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-end bg-overlay backdrop-blur-xs">
-        <div className="w-full max-w-xl h-full border-l border-border bg-card p-6 shadow-2xl text-card-foreground flex flex-col justify-center items-center">
-          <div className="mb-4 flex flex-col items-center gap-3 text-success">
-            <CheckCircle2 size={48} />
-            <h3 className="text-xl font-bold text-foreground">
-              {mode === "create" ? "Event Scheduled Successfully!" : "Event Updated!"}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {title} has been added to your calendar schedule.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              router.refresh();
-              onClose();
-            }}
-            className="mt-4 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            Done
-          </button>
-        </div>
-      </div>
+      <EventDetailPopover
+        event={createdEventView}
+        currentUserEmail={userEmail}
+        onClose={() => {
+          router.refresh();
+          onClose();
+        }}
+        onEdit={() => {
+          setIsEditingAfterSuccess(true);
+        }}
+      />
     );
   }
 
@@ -508,18 +585,19 @@ export function EventDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-border px-5 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
+                disabled={isLoading}
+                className="rounded-full border border-border px-5 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={pending || !isDateTimeValid}
+                disabled={isLoading || !isDateTimeValid}
                 title={!isDateTimeValid ? "Fix the date/time errors above before creating this event" : undefined}
-                className="flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
               >
-                {pending && <Loader2 size={13} className="animate-spin" />}
-                {pending ? "Saving…" : mode === "create" ? "Create" : "Save"}
+                {isLoading && <Loader2 size={13} className="animate-spin" />}
+                {isLoading ? (mode === "create" ? "Creating…" : "Saving…") : mode === "create" ? "Create" : "Save"}
               </button>
             </div>
           </div>

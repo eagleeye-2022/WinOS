@@ -16,8 +16,32 @@ model User {
   password              String?
   role                  UserRole              @default(TEAM_MEMBER)
   title                 String?
+  employeeId            String?               @unique
+  employmentType        String?
+  dateOfJoining         DateTime?
+  dateOfConfirmation    DateTime?
+  dateOfBirth           DateTime?
+  gender                String?
+  maritalStatus         String?
+  workMobile            String?
+  personalMobile        String?
+  parentGuardianName    String?
+  parentGuardianMobile  String?
+  permanentAddress      String?
+  personalEmail         String?
+  aadharNumber          String?
+  bankAccountNumber     String?
+  ifscCode              String?
+  isActive              Boolean               @default(true)
+  reportingToId         String?
+  secondaryReportingToId String?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
+  reportingTo           User?                   @relation("ReportsTo", fields: [reportingToId], references: [id])
+  directReports         User[]                  @relation("ReportsTo")
+  secondaryReportingTo  User?                   @relation("SecondaryReportsTo", fields: [secondaryReportingToId], references: [id])
+  secondaryReports      User[]                  @relation("SecondaryReportsTo")
+  documents             UserDocument[]
   accounts              Account[]
   blockerComments       BlockerComment[]
   boards                Board[]
@@ -266,6 +290,70 @@ model TeamMember {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
+}
+
+enum ProfileRole {
+  EMPLOYEE
+  MANAGER
+  CONTRACTOR
+  CLIENT
+  GUEST
+  DEVELOPER
+  SUPPORT
+}
+
+enum PermissionScope {
+  NONE
+  OWNED
+  ALL
+  BOTH
+}
+
+model PermissionModule {
+  id          String              @id @default(cuid())
+  profileType String              @default("USER") // "USER" | "CLIENT" | "SYSTEM"
+  key         String
+  name        String
+  order       Int                 @default(0)
+  actions     PermissionAction[]
+
+  @@unique([profileType, key])
+}
+
+model PermissionAction {
+  id          String            @id @default(cuid())
+  moduleId    String
+  key         String
+  label       String
+  controlType String            // "BOOLEAN" | "SCOPE"
+  order       Int               @default(0)
+  module      PermissionModule  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  rules       PermissionRule[]
+
+  @@unique([moduleId, key])
+}
+
+model PermissionRule {
+  id        String            @id @default(cuid())
+  role      ProfileRole
+  actionId  String
+  enabled   Boolean           @default(false)
+  scope     PermissionScope   @default(NONE)
+  scopeAssignee Boolean       @default(false) // meaningful when scope = BOTH
+  scopeOwner    Boolean       @default(false) // meaningful when scope = BOTH
+  action    PermissionAction  @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, actionId])
+}
+
+model UserDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  fileUrl   String
+  fileName  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DsrEntry {

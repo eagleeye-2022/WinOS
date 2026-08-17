@@ -1,9 +1,6 @@
-import React from "react";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
 export default function UsersPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-xl font-bold">Users</h1>
-    </div>
-  );
+  redirect(ROUTES.settingsUsers);
 }

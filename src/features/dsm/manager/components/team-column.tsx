@@ -140,6 +140,21 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
         </div>
       )}
 
+      {card.todayTasks.length === 0 && (
+        <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between">
+          {isReviewed ? (
+            <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
+              <ClipboardCheck size={11} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
+            </span>
+          ) : (
+            <span />
+          )}
+          <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
+            Add Task <ChevronRight size={13} className="dark:text-[#93C5FD]" />
+          </span>
+        </div>
+      )}
+
       <ChevronRight
         size={14}
         className="absolute bottom-3.5 right-3.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
@@ -177,7 +192,7 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
       <div className="mt-3.5 pt-3 border-t border-destructive/20 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
-          Set Tasks <ChevronRight size={13} className="dark:text-[#93C5FD]" />
+          Add Task <ChevronRight size={13} className="dark:text-[#93C5FD]" />
         </span>
       </div>
     </Link>
