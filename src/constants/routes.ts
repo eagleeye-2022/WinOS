@@ -16,6 +16,8 @@ export const ROUTES = {
   blockers: "/blockers",
   support: "/support",
   needsHelp: "/needs-help",
+  settingsUsers: "/settings/users",
+  settingsProfileAccess: "/settings/profile-access",
 } as const;
 
 export const PUBLIC_ROUTES: string[] = [ROUTES.login];

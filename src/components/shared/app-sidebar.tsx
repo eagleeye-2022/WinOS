@@ -19,6 +19,7 @@ import {
   Settings,
   UserCheck,
   Calendar,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -118,6 +119,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     activeModuleTitle = "Projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleTitle = "Sales";
+  } else if (pathname.startsWith("/settings") || activeModule === "settings") {
+    activeModuleTitle = "Settings";
   }
 
   // Dynamic items based on active module & user role
@@ -139,6 +142,11 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = [
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
       { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
+    ];
+  } else if (activeModuleTitle === "Settings") {
+    navItems = [
+      { label: "User", href: ROUTES.settingsUsers, icon: User },
+      // { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
     ];
   } else {
     // Standup Module
@@ -214,19 +222,25 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
         {/* Footer / Secondary navigation */}
         <div className="border-t p-2 flex gap-1">
-          {[
-            { label: "Archive", icon: Archive },
-            { label: "Settings", icon: Settings },
-          ].map(({ label, icon: Icon }) => (
-            <span
-              key={label}
-              title="Coming soon"
-              className="flex-1 flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground/40 select-none hover:bg-accent/30"
-            >
-              <Icon size={14} strokeWidth={1.75} />
-              {label}
-            </span>
-          ))}
+          <span
+            title="Coming soon"
+            className="flex-1 flex cursor-not-allowed items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground/40 select-none hover:bg-accent/30"
+          >
+            <Archive size={14} strokeWidth={1.75} />
+            Archive
+          </span>
+          <Link
+            href={ROUTES.settingsUsers}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs select-none transition-colors",
+              activeModuleTitle === "Settings"
+                ? "text-primary font-semibold"
+                : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+            )}
+          >
+            <Settings size={14} strokeWidth={1.75} />
+            Settings
+          </Link>
         </div>
       </div>
     </aside>

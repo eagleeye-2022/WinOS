@@ -18,7 +18,7 @@ type Props = {
 
 type Period = "AM" | "PM";
 
-const QUICK_HOURS_24 = [11, 12, 13, 14, 15, 16]; // 11AM, 12PM, 1PM, 2PM, 3PM, 4PM
+const QUICK_HOURS_24 = [11, 12, 13, 14, 15, 16, 17]; // 11AM, 12PM, 1PM, 2PM, 3PM, 4PM, 5PM, 6PM, 7PM, 8PM
 const HOUR_MS = 60 * 60 * 1000;
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
 
@@ -331,22 +331,20 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
               onClick={() => selectQuick(opt.date, opt.id)}
               aria-disabled={opt.disabled}
               title={opt.disabled ? "This time has already passed" : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all ${
-                opt.disabled
+              className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all ${opt.disabled
                   ? "cursor-not-allowed border-border bg-muted/30 text-muted-foreground/50"
                   : selected === opt.id
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-foreground hover:bg-accent"
-              }`}
+                }`}
             >
               <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                  opt.disabled
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${opt.disabled
                     ? "border-input"
                     : selected === opt.id
                       ? "border-primary bg-primary"
                       : "border-input"
-                }`}
+                  }`}
               >
                 {selected === opt.id && !opt.disabled && <Check size={10} className="text-primary-foreground" />}
               </span>
@@ -358,16 +356,14 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
           <button
             type="button"
             onClick={() => setSelected("custom")}
-            className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all ${
-              selected === "custom"
+            className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all ${selected === "custom"
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-background text-foreground hover:bg-accent"
-            }`}
+              }`}
           >
             <span
-              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                selected === "custom" ? "border-primary bg-primary" : "border-input"
-              }`}
+              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected === "custom" ? "border-primary bg-primary" : "border-input"
+                }`}
             >
               {selected === "custom" && <Check size={10} className="text-primary-foreground" />}
             </span>

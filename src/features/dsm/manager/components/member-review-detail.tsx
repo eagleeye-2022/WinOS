@@ -17,6 +17,7 @@ import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-
 import { editTask, type EditTaskState } from "../actions/edit-task";
 import { deleteTask, type DeleteTaskState } from "../actions/delete-task";
 import { addTask, type AddTaskState } from "../actions/add-task";
+import { updateLearningText, type UpdateLearningState } from "../actions/update-learning";
 import { editBlocker, type EditBlockerState } from "@/features/blockers/actions/edit-blocker";
 import { deleteBlocker, type DeleteBlockerState } from "@/features/blockers/actions/delete-blocker";
 import { addBlocker, type AddBlockerState } from "@/features/blockers/actions/add-blocker";
@@ -140,7 +141,7 @@ function EditTaskRow({ taskId, text }: { taskId: string; text: string }) {
         type="button"
         onClick={() => setEditing(true)}
         title="Edit task"
-        className="rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover/task:opacity-100 hover:bg-accent hover:text-foreground"
+        className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
       >
         <Pencil size={13} />
       </button>
@@ -195,7 +196,7 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
         type="submit"
         disabled={pending}
         title="Remove task"
-        className="rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover/task:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
       >
         {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
@@ -238,6 +239,18 @@ function AddTaskRow({ entryId }: { entryId: string }) {
           name="text"
           placeholder="Type new task description..."
           autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && inputRef.current?.value.trim()) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val && e.currentTarget.form) {
+              e.currentTarget.form.requestSubmit();
+            }
+          }}
           className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
         <button
@@ -317,8 +330,10 @@ function EditBlockerRow({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border px-2 py-1 text-xs font-medium text-destructive/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
+            title="Edit blocker"
+            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
           >
+            <Pencil size={12} />
             Edit
           </button>
         </div>
@@ -388,7 +403,7 @@ function DeleteBlockerButton({ blockerId }: { blockerId: string }) {
         type="submit"
         disabled={pending}
         title="Remove blocker"
-        className="rounded p-1 text-destructive/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+        className="rounded p-1 text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
       >
         {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
@@ -400,6 +415,7 @@ function DeleteBlockerButton({ blockerId }: { blockerId: string }) {
 function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMembers?: TeamMember[] }) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddBlockerState, FormData>(addBlocker, {});
+  const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
 
   if (!adding) {
@@ -419,7 +435,13 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       action={async (fd) => {
         await action(fd);
         setAdding(false);
+        setText("");
         setMentionedUserIds([]);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget) && text.trim()) {
+          e.currentTarget.requestSubmit();
+        }
       }}
       className="mt-2 flex items-center gap-1.5"
     >
@@ -429,7 +451,10 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       <div className="flex-1 rounded-md border bg-card px-2.5 py-1.5">
         <MentionInput
           name="text"
-          onChange={(text, ids) => setMentionedUserIds(ids)}
+          onChange={(v, ids) => {
+            setText(v);
+            setMentionedUserIds(ids);
+          }}
           autoFocus
           placeholder="Describe blocker... (@ to mention team members)"
           teamMembers={teamMembers}
@@ -515,8 +540,10 @@ function EditSupportRow({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border px-2 py-1 text-xs font-medium text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
+            title="Edit support need"
+            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-info/80 hover:bg-info/10 hover:text-info transition-colors dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
           >
+            <Pencil size={12} />
             Edit
           </button>
         </div>
@@ -586,7 +613,7 @@ function DeleteSupportButton({ supportId }: { supportId: string }) {
         type="submit"
         disabled={pending}
         title="Remove support need"
-        className="rounded p-1 text-info/70 opacity-0 transition-opacity group-hover/item:opacity-100 hover:bg-info/10 hover:text-info"
+        className="rounded p-1 text-info/70 hover:bg-info/10 hover:text-info transition-colors"
       >
         {pending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
       </button>
@@ -628,6 +655,11 @@ function AddSupportRow({
         setAdding(false);
         setText("");
         setMentionedUserIds([]);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget) && text.trim()) {
+          e.currentTarget.requestSubmit();
+        }
       }}
       className="mt-2 flex flex-col gap-2 rounded-lg border border-info/30 bg-card p-3 shadow-xs"
     >
@@ -1029,6 +1061,212 @@ function TodayTasksSection({
   );
 }
 
+// ── Manager: Learning section (Editable & Addable) ────────────────────────────
+
+function LearningSection({
+  entryId,
+  learningText,
+  isLocked,
+}: {
+  entryId: string;
+  learningText: string | null;
+  isLocked: boolean;
+}) {
+  const [, action, pending] = useActionState<UpdateLearningState, FormData>(updateLearningText, {});
+  const [, startTransition] = useTransition();
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newText, setNewText] = useState("");
+  const [editText, setEditText] = useState("");
+
+  const lines = learningText
+    ? learningText.split("\n").map((l) => l.trim()).filter(Boolean)
+    : [];
+
+  const handleSaveAll = (newLines: string[]) => {
+    const fd = new FormData();
+    fd.set("entryId", entryId);
+    fd.set("learningText", newLines.join("\n"));
+    startTransition(() => {
+      action(fd);
+    });
+  };
+
+  const handleEdit = (index: number) => {
+    if (!editText.trim()) return;
+    const updated = [...lines];
+    updated[index] = editText.trim();
+    handleSaveAll(updated);
+    setEditingIndex(null);
+    setEditText("");
+  };
+
+  const handleDelete = (index: number) => {
+    const updated = lines.filter((_, i) => i !== index);
+    handleSaveAll(updated);
+  };
+
+  const handleAdd = () => {
+    if (!newText.trim()) return;
+    const updated = [...lines, newText.trim()];
+    handleSaveAll(updated);
+    setNewText("");
+    setAdding(false);
+  };
+
+  if (isLocked && lines.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-primary">
+        <span className="flex items-center gap-2">
+          <GraduationCap size={15} className="text-primary" />
+          What Will You Learn Today( WhyFi )?
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {lines.length}
+          </span>
+        </span>
+      </h3>
+
+      <div className="space-y-1.5 mt-3">
+        {lines.map((line, i) => {
+          if (editingIndex === i) {
+            return (
+              <div key={i} className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
+                <input
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleEdit(i);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (editText.trim()) handleEdit(i);
+                    else setEditingIndex(null);
+                  }}
+                  className="flex-1 rounded border px-2 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleEdit(i)}
+                  disabled={pending}
+                  className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingIndex(null)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={i}
+              className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40"
+            >
+              <div className="flex items-start gap-2 text-sm leading-relaxed text-foreground/80 flex-1 min-w-0">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+                <span className="truncate">{line}</span>
+              </div>
+
+              {!isLocked && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingIndex(i);
+                      setEditText(line);
+                    }}
+                    title="Edit learning item"
+                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(i)}
+                    title="Delete learning item"
+                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {lines.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No learning items logged for today.</p>
+        )}
+      </div>
+
+      {!isLocked && (
+        <div className="mt-2.5">
+          {adding ? (
+            <div className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
+              <input
+                type="text"
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                autoFocus
+                placeholder="Describe what will be learned (WhyFi)..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
+                onBlur={() => {
+                  if (newText.trim()) handleAdd();
+                  else setAdding(false);
+                }}
+                className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={pending}
+                className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors"
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdding(false);
+                  setNewText("");
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+            >
+              <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Day entry expanded (full review form) ─────────────────────────────────────
 
 function EntryExpanded({
@@ -1096,15 +1334,11 @@ function EntryExpanded({
       )}
 
       {/* What will you learn today */}
-      {entry.learningText && (
-        <div className="rounded-xl border bg-card p-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
-            <GraduationCap size={15} className="text-primary" />
-            What Will You Learn Today( WhyFi )?
-          </h3>
-          <p className="text-sm leading-relaxed text-foreground/80">{entry.learningText}</p>
-        </div>
-      )}
+      <LearningSection
+        entryId={entry.id}
+        learningText={entry.learningText}
+        isLocked={isLocked}
+      />
 
       {/* Blockers */}
       {(entry.blockers.length > 0 || !isLocked) && (
@@ -1248,6 +1482,11 @@ function EntryExpanded({
         <EventDialog
           mode="create"
           defaultTitle={scheduleModal.title}
+          defaultStart={(() => {
+            const d = new Date();
+            d.setHours(17, 0, 0, 0);
+            return d;
+          })()}
           defaultParticipantIds={scheduleModal.participantIds}
           internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
           currentUserId=""

@@ -11,6 +11,7 @@ import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase, validateEventDa
 export type CreateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
   message?: string;
+  eventId?: string;
 };
 
 const TITLE_MAX = 200;
@@ -208,7 +209,7 @@ export async function createCalendarEvent(
 
   revalidatePath("/calendar");
   revalidatePath("/zohocalendar");
-  return { message: "created" };
+  return { message: "created", eventId: createdDbEvent.id };
 }
 
 

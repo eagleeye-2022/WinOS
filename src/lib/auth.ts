@@ -37,14 +37,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email.endsWith(`@${COMPANY_DOMAIN}`)) return null;
 
         try {
+          // Look up existing user or auto-provision on first login.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let user = await (db as any).user.findUnique({ where: { email } });
+
+          if (user && !user.isActive) {
+            return null;
+          }
+
           // OTP validation: verify code, check expiry, mark consumed (single-use).
           // This is the final TOCTOU-safe gate — runs after validateOtp in the action.
           const valid = await verifyAndConsumeOtp(email, otp);
           if (!valid) return null;
-
-          // Look up existing user or auto-provision on first login.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let user = await (db as any).user.findUnique({ where: { email } });
 
           if (!user) {
             const role = MANAGER_EMAILS.has(email) ? "MANAGER" : "TEAM_MEMBER";
@@ -87,18 +91,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    session({ session, token }) {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[auth:session] session.user.id from token:", token.id);
+    async session({ session, token }) {
+      if (token?.id) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const dbUser = await (db as any).user.findUnique({
+            where: { id: token.id as string },
+            select: { isActive: true, role: true },
+          });
+
+          if (!dbUser || !dbUser.isActive) {
+            return {
+              ...session,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              user: undefined as any,
+            };
+          }
+
+          return {
+            ...session,
+            user: {
+              ...session.user,
+              id: token.id as string,
+              role: dbUser.role ?? token.role,
+            },
+          };
+        } catch (err) {
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[auth:session] DB error checking session active state:", err);
+          }
+        }
       }
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          role: token.role,
-        },
-      };
+      return session;
     },
   },
 });

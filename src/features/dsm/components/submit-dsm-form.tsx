@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect, useRef } from "react";
-import { Plus, X, ChevronRight, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
+import { Plus, X, ChevronRight, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import type { EntryWithDetails, TeamMember } from "../queries";
@@ -9,6 +9,7 @@ import { MentionInput } from "@/components/shared/mention-input";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { formatTime } from "@/features/calendar/utils";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
+import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -72,6 +73,7 @@ function TaskRows({
                 name="taskText"
                 defaultValue={task.text}
                 onChange={(v) => updateField(i, "text", v)}
+                onEnterSubmit={i === tasks.length - 1 && task.text.trim() ? add : undefined}
                 placeholder="Add task details... (Type @ for people, @file: for files)"
                 teamMembers={teamMembers}
               />
@@ -156,6 +158,7 @@ function LearningRows({
             name="learningItemText"
             defaultValue={item.text}
             onChange={(v) => updateText(i, v)}
+            onEnterSubmit={i === items.length - 1 && item.text.trim() ? add : undefined}
             placeholder="Add learning task details..."
             teamMembers={teamMembers}
           />
@@ -223,6 +226,7 @@ function BlockerRows({
                   defaultValue={b.text}
                   defaultMentions={initialMentions}
                   onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                  onEnterSubmit={i === blockers.length - 1 && b.text.trim() ? add : undefined}
                   placeholder="Describe the blocker... (@ to mention people)"
                   teamMembers={teamMembers}
                   className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
@@ -295,16 +299,70 @@ function BlockerRows({
 
 // ── Support rows ──────────────────────────────────────────────────────────────
 
+type SupportItem = {
+  id: string;
+  text: string;
+  mentionedUserIds: string[];
+  scheduledEvent?: CalendarEventView | null;
+};
+
+function ScheduledMeetingActions({
+  event,
+  onEdit,
+  onDeleted,
+}: {
+  event: CalendarEventView;
+  onEdit: () => void;
+  onDeleted: () => void;
+}) {
+  const [state, action, pending] = useActionState<DeleteEventState, FormData>(deleteCalendarEvent, {});
+
+  useEffect(() => {
+    if (state.message === "deleted") onDeleted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.message]);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px]" title={event.title}>
+        {event.title}
+      </span>
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Edit meeting"
+        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2 py-1 text-[11px] font-semibold transition-all"
+      >
+        <Pencil size={11} />
+        Edit
+      </button>
+      <form action={action}>
+        <input type="hidden" name="eventId" value={event.id} />
+        <input type="hidden" name="etag" value={String(event.etag)} />
+        <button
+          type="submit"
+          disabled={pending}
+          title="Delete meeting"
+          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50"
+        >
+          {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+          Delete
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function SupportRows({
   supports,
   teamMembers,
   onChange,
   onScheduleMeeting,
 }: {
-  supports: { id: string; text: string; mentionedUserIds: string[] }[];
+  supports: SupportItem[];
   teamMembers: TeamMember[];
-  onChange: (s: { id: string; text: string; mentionedUserIds: string[] }[]) => void;
-  onScheduleMeeting?: (title: string, participantIds: string[]) => void;
+  onChange: (s: SupportItem[]) => void;
+  onScheduleMeeting?: (index: number) => void;
 }) {
   const updateMentions = (i: number, text: string, mentionedUserIds: string[]) => {
     const n = [...supports];
@@ -313,6 +371,11 @@ function SupportRows({
   };
   const remove = (i: number) => onChange(supports.filter((_, j) => j !== i));
   const add = () => onChange([...supports, { id: crypto.randomUUID(), text: "", mentionedUserIds: [] }]);
+  const clearScheduledEvent = (i: number) => {
+    const n = [...supports];
+    n[i] = { ...n[i], scheduledEvent: null };
+    onChange(n);
+  };
 
   const memberById = (id: string) => teamMembers.find((m) => m.id === id);
 
@@ -334,6 +397,7 @@ function SupportRows({
                   defaultValue={s.text}
                   defaultMentions={initialMentions}
                   onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                  onEnterSubmit={i === supports.length - 1 && s.text.trim() ? add : undefined}
                   placeholder="Add support details... (@ to mention people)"
                   teamMembers={teamMembers}
                   className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
@@ -342,21 +406,28 @@ function SupportRows({
 
               {/* Bottom: Schedule Meeting Action */}
               <div className="flex items-center justify-between border-t px-3 py-1.5 bg-muted/20">
-                <span className="text-[11px] text-muted-foreground font-medium">
-                  {s.mentionedUserIds.length > 0 ? `${s.mentionedUserIds.length} tagged for meeting` : "Tag people (@) to invite"}
-                </span>
-                {onScheduleMeeting && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
-                      onScheduleMeeting(titleText, s.mentionedUserIds);
-                    }}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
-                  >
-                    <CalendarIcon size={12} className="text-muted-foreground" />
-                    Schedule Meeting
-                  </button>
+                {s.scheduledEvent ? (
+                  <ScheduledMeetingActions
+                    event={s.scheduledEvent}
+                    onEdit={() => onScheduleMeeting?.(i)}
+                    onDeleted={() => clearScheduledEvent(i)}
+                  />
+                ) : (
+                  <>
+                    <span className="text-[11px] text-muted-foreground font-medium">
+                      {s.mentionedUserIds.length > 0 ? `${s.mentionedUserIds.length} tagged for meeting` : "Tag people (@) to invite"}
+                    </span>
+                    {onScheduleMeeting && (
+                      <button
+                        type="button"
+                        onClick={() => onScheduleMeeting(i)}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <CalendarIcon size={12} className="text-muted-foreground" />
+                        Schedule Meeting
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -483,8 +554,15 @@ export function SubmitDsmForm({
     return [{ id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [] }];
   });
 
-  const [supports, setSupports] = useState<{ id: string; text: string; mentionedUserIds: string[] }[]>(() => {
-    if (savedDraft?.supports?.length) return savedDraft.supports;
+  const [supports, setSupports] = useState<SupportItem[]>(() => {
+    if (savedDraft?.supports?.length) {
+      // Dates come back from localStorage as strings — revive them.
+      return (savedDraft.supports as SupportItem[]).map((s) =>
+        s.scheduledEvent
+          ? { ...s, scheduledEvent: { ...s.scheduledEvent, start: new Date(s.scheduledEvent.start), end: new Date(s.scheduledEvent.end) } }
+          : s,
+      );
+    }
     return entry?.supportNeeds.map((s) => ({
       id: crypto.randomUUID(),
       text: s.text,
@@ -508,7 +586,13 @@ export function SubmitDsmForm({
     }
     return [{ id: crypto.randomUUID(), text: "" }];
   });
-  const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{
+    index: number;
+    mode: "create" | "edit";
+    title: string;
+    participantIds: string[];
+    event?: CalendarEventView;
+  } | null>(null);
 
   useEffect(() => {
     isLoadedRef.current = true;
@@ -686,7 +770,21 @@ export function SubmitDsmForm({
             supports={supports}
             teamMembers={teamMembers}
             onChange={setSupports}
-            onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
+            onScheduleMeeting={(index) => {
+              const s = supports[index];
+              if (s.scheduledEvent) {
+                setScheduleModal({
+                  index,
+                  mode: "edit",
+                  title: s.scheduledEvent.title,
+                  participantIds: s.mentionedUserIds,
+                  event: s.scheduledEvent,
+                });
+              } else {
+                const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
+                setScheduleModal({ index, mode: "create", title: titleText, participantIds: s.mentionedUserIds });
+              }
+            }}
           />
         </Section>
 
@@ -731,12 +829,22 @@ export function SubmitDsmForm({
       {/* Direct Meeting Scheduler Modal */}
       {scheduleModal && (
         <EventDialog
-          mode="create"
+          mode={scheduleModal.mode}
+          event={scheduleModal.event}
           defaultTitle={scheduleModal.title}
+          defaultStart={scheduleModal.mode === "create" ? (() => {
+            const d = new Date();
+            d.setHours(17, 0, 0, 0);
+            return d;
+          })() : undefined}
           defaultParticipantIds={scheduleModal.participantIds}
           internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
           currentUserId=""
           onClose={() => setScheduleModal(null)}
+          onSaved={(view) => {
+            const idx = scheduleModal.index;
+            setSupports((prev) => prev.map((s, i) => (i === idx ? { ...s, scheduledEvent: view } : s)));
+          }}
         />
       )}
     </div>

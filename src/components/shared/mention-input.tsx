@@ -32,6 +32,7 @@ type MentionInputProps = {
   teamMembers?: MentionMember[];
   required?: boolean;
   autoFocus?: boolean;
+  onEnterSubmit?: () => void;
 };
 
 function memberLabel(m: { name: string | null; email: string }): string {
@@ -98,6 +99,7 @@ export function MentionInput({
   teamMembers = [],
   required,
   autoFocus,
+  onEnterSubmit,
 }: MentionInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"people" | "file">("people");
@@ -347,8 +349,18 @@ export function MentionInput({
           selectFile(filteredFiles[selectedIndex]);
         }
       } else {
-        // Single-line field: text wraps naturally, no manual line breaks.
-        e.preventDefault();
+        if (onEnterSubmit) {
+          e.preventDefault();
+          onEnterSubmit();
+        } else {
+          const form = editorRef.current?.closest("form");
+          if (form) {
+            e.preventDefault();
+            form.requestSubmit();
+          } else {
+            e.preventDefault();
+          }
+        }
       }
       return;
     }

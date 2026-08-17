@@ -59,8 +59,17 @@ export async function saveDsm(
   if (learningItemTexts.length > 0) {
     learningText = learningItemTexts.join("\n");
   }
-  const taskTexts = (formData.getAll("taskText") as string[]).map((t) => t.trim()).filter(Boolean);
-  const taskPriorities = formData.getAll("taskPriority") as string[];
+  const rawTaskTexts = formData.getAll("taskText") as string[];
+  const rawTaskPriorities = formData.getAll("taskPriority") as string[];
+  const tasksToCreate: { text: string; priority: string | null }[] = [];
+  for (let i = 0; i < rawTaskTexts.length; i++) {
+    const t = rawTaskTexts[i]?.trim();
+    if (t) {
+      tasksToCreate.push({ text: t, priority: rawTaskPriorities[i] || null });
+    }
+  }
+  const taskTexts = tasksToCreate.map((t) => t.text);
+
   const blockerTexts = (formData.getAll("blockerText") as string[]).map((t) => t.trim());
   const blockerPriorities = formData.getAll("blockerPriority") as string[];
   // Each blockerUserId value is a comma-separated list of mentioned user IDs
@@ -119,13 +128,13 @@ export async function saveDsm(
 
     // Sync TODAY tasks (replace)
     await d.standupTask.deleteMany({ where: { entryId: entry.id, kind: "TODAY" } });
-    if (taskTexts.length > 0) {
+    if (tasksToCreate.length > 0) {
       await d.standupTask.createMany({
-        data: taskTexts.map((text: string, i: number) => ({
-          text,
+        data: tasksToCreate.map((item, i: number) => ({
+          text: item.text,
           kind: "TODAY",
           order: i,
-          priority: taskPriorities[i] || null,
+          priority: item.priority,
           entryId: entry.id,
         })),
       });

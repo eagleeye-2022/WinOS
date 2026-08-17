@@ -41,8 +41,8 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
     return null;
   }
 
-  // Format Date Badge (e.g. Month: "July", Day: "31")
-  const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(event.start);
+  // Format Date Badge (e.g. Month: "AUGUST", Day: "17")
+  const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(event.start).toUpperCase();
   const dayNum = event.start.getDate();
 
   // Format Time Range (e.g. "Today (04:30 PM to 05:30 PM)")
@@ -110,10 +110,10 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
               {/* Date Box with Accent Bar */}
               <div className="relative flex flex-col items-center justify-center rounded-lg bg-card border border-border px-4 py-2.5 min-w-[64px] overflow-hidden shadow-2xs">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
-                <span className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">
                   {monthName}
                 </span>
-                <span className="text-xl font-bold text-foreground leading-tight">
+                <span className="text-xl font-extrabold text-foreground leading-tight">
                   {dayNum}
                 </span>
               </div>
@@ -124,11 +124,13 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                   {event.title}
                 </h3>
 
-                {/* Organizer Profile Pill */}
+                {/* Organizer Profile Pill / Tag */}
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs text-foreground">
                   <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
                   <span className="font-medium truncate max-w-[150px]">
-                    {event.organizerEmail ? event.organizerEmail.split("@")[0] : currentUserEmail.split("@")[0]}
+                    {event.description?.startsWith("Location: ")
+                      ? event.description.replace("Location: ", "")
+                      : event.description || "test"}
                   </span>
                 </div>
               </div>
@@ -215,8 +217,8 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                       </div>
 
                       {/* Status pill */}
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground capitalize">
-                        {a.status || "Yet to decide"}
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-border bg-muted/80 text-muted-foreground uppercase tracking-wider">
+                        {a.status || "NEEDS_ACTION"}
                       </span>
                     </div>
                   );

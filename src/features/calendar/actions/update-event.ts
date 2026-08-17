@@ -10,6 +10,7 @@ import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils
 export type UpdateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
   message?: string;
+  eventId?: string;
 };
 
 const TITLE_MAX = 200;
