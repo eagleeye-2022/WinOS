@@ -22,6 +22,24 @@ export async function deleteCalendarEvent(
 
   console.log(`[calendar:delete] Deleting event ID: ${eventId}...`);
 
+  // 0. If this event was scheduled from a support-need row, unlink it first.
+  const supportNeedId = getStr(formData, "supportNeedId");
+  if (supportNeedId) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).standupSupportNeed.update({
+        where: { id: supportNeedId },
+        data: { eventId: null },
+      });
+      revalidatePath("/support");
+      revalidatePath("/dsm");
+      revalidatePath("/dsm/all");
+      revalidatePath("/dsm/my");
+    } catch (err) {
+      console.warn("[calendar:delete] Failed to unlink support need:", err);
+    }
+  }
+
   // 1. Delete DB event
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

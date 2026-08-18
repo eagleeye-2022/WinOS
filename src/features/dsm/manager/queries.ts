@@ -33,7 +33,10 @@ export type AllDsmStats = {
   totalExpected: number;
   pendingCount: number;
   blockerCount: number;
-  projectStatus: "On Track" | "At Risk" | "Needs Attention";
+  pendingReviewCount: number;
+  supportNeededCount: number;
+  /** No live data source yet — always 0 until an overtime feature exists. */
+  pendingOtCount: number;
 };
 
 export type TeamWithMembers = {
@@ -65,7 +68,29 @@ export type MemberReviewEntry = {
   learningText: string | null;
   tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null }[];
   blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser?: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null }[];
-  supportNeeds: { id: string; text: string; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null; order: number; resolved?: boolean }[];
+  supportNeeds: {
+    id: string;
+    text: string;
+    mentionedUserId?: string | null;
+    mentionedUserIds?: string | null;
+    mentionedUser: { id: string; name: string | null; email: string } | null;
+    mentionedUsers?: { id: string; name: string | null; email: string }[];
+    editedBy?: { id: string; name: string | null; email: string } | null;
+    order: number;
+    resolved?: boolean;
+    eventId?: string | null;
+    event?: {
+      id: string;
+      title: string;
+      description: string | null;
+      start: Date;
+      end: Date;
+      isAllDay: boolean;
+      updatedAt: Date;
+      organizer: { email: string } | null;
+      attendees: { email: string; status: string }[];
+    } | null;
+  }[];
 };
 
 export type AllUser = {
@@ -153,7 +178,9 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
       totalExpected: 0,
       pendingCount: 0,
       blockerCount: 0,
-      projectStatus: "On Track",
+      pendingReviewCount: 0,
+      supportNeededCount: 0,
+      pendingOtCount: 0,
     };
   }
 
@@ -162,7 +189,11 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
       userId: { in: memberIds },
       date: targetDate,
     },
-    select: { status: true, blockers: { select: { resolved: true, priority: true } } },
+    select: {
+      status: true,
+      blockers: { select: { resolved: true, priority: true } },
+      supportNeeds: { select: { resolved: true } },
+    },
   });
 
   const submittedEntries = todayEntries.filter(
@@ -179,14 +210,24 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
       sum + e.blockers.filter((b) => !b.resolved).length,
     0
   );
+  const pendingReviewCount = todayEntries.filter(
+    (e: { status: string }) => e.status === "SUBMITTED" || e.status === "PENDING_REVIEW"
+  ).length;
+  const supportNeededCount = todayEntries.reduce(
+    (sum: number, e: { supportNeeds: { resolved: boolean }[] }) =>
+      sum + e.supportNeeds.filter((s) => !s.resolved).length,
+    0
+  );
 
-  const projectStatus: AllDsmStats["projectStatus"] =
-    blockerCount > 1 ? "Needs Attention"
-      : blockerCount === 1 ? "At Risk"
-        : pendingCount > 0 ? "At Risk"
-          : "On Track";
-
-  return { totalSubmitted, totalExpected, pendingCount, blockerCount, projectStatus };
+  return {
+    totalSubmitted,
+    totalExpected,
+    pendingCount,
+    blockerCount,
+    pendingReviewCount,
+    supportNeededCount,
+    pendingOtCount: 0,
+  };
 }
 
 /** Team-grouped DSM submissions for today. */
@@ -321,6 +362,19 @@ export async function getMemberReview(
         include: {
           mentionedUser: { select: { id: true, name: true, email: true } },
           editedBy: { select: { id: true, name: true, email: true } },
+          event: {
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              start: true,
+              end: true,
+              isAllDay: true,
+              updatedAt: true,
+              organizer: { select: { email: true } },
+              attendees: { select: { email: true, status: true } },
+            },
+          },
         },
       },
       reviewedBy: { select: { name: true, email: true } },
@@ -352,6 +406,19 @@ export async function getMemberReview(
             include: {
               mentionedUser: { select: { id: true, name: true, email: true } },
               editedBy: { select: { id: true, name: true, email: true } },
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                  description: true,
+                  start: true,
+                  end: true,
+                  isAllDay: true,
+                  updatedAt: true,
+                  organizer: { select: { email: true } },
+                  attendees: { select: { email: true, status: true } },
+                },
+              },
             },
           },
           reviewedBy: { select: { name: true, email: true } },

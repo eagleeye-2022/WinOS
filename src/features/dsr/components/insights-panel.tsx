@@ -144,18 +144,18 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
           </div>
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-sm text-primary">
-                <Star size={13} className="fill-primary" />
+              <div className="flex items-center gap-1.5 text-sm text-success">
+                <Star size={13} className="fill-success" />
                 Breakthrough Days
               </div>
-              <span className="text-sm font-bold text-primary">{breakthroughDays}</span>
+              <span className="text-sm font-bold text-success">{breakthroughDays}</span>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-sm text-destructive">
                 <TrendingDown size={13} />
                 Breakdown Days
               </div>
-              <span className="text-sm font-bold text-muted-foreground">{breakdownDays}</span>
+              <span className="text-sm font-bold text-destructive">{breakdownDays}</span>
             </div>
             {insightQuote && (
               <blockquote className="mt-1 rounded-md border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-xs italic text-muted-foreground leading-relaxed">

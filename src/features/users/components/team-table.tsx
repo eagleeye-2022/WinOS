@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2, Pencil } from "lucide-react";
 import {
   Table,
@@ -14,10 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ROUTES } from "@/constants/routes";
 
-function getAvatarUrl(image?: string | null, id?: string, name?: string) {
+function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
   if (image && image.trim()) return image;
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(id || name || "user")}`;
+  return "/default-avatar.png";
 }
 import {
   Select,
@@ -33,16 +35,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type {
-  TeamMemberRow,
-  DepartmentOption,
-  ManagerOption,
-} from "@/features/users/actions/user-actions";
+import type { TeamMemberRow } from "@/features/users/actions/user-actions";
 import {
   toggleUserLoginAction,
   deleteTeamMemberAction,
 } from "@/features/users/actions/user-actions";
-import { EditMemberDialog } from "./edit-member-dialog";
 
 const ROLE_BADGE: Record<string, string> = {
   MANAGER: "bg-info/10 text-info border-transparent",
@@ -56,22 +53,15 @@ const ROLE_LABEL: Record<string, string> = {
 
 interface TeamTableProps {
   members: TeamMemberRow[];
-  departments?: DepartmentOption[];
-  managers?: ManagerOption[];
   onSelectUser: (id: string) => void;
 }
 
-export function TeamTable({
-  members,
-  departments = [],
-  managers = [],
-  onSelectUser,
-}: TeamTableProps) {
+export function TeamTable({ members, onSelectUser }: TeamTableProps) {
+  const router = useRouter();
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TeamMemberRow | null>(null);
-  const [editTarget, setEditTarget] = useState<TeamMemberRow | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -132,104 +122,110 @@ export function TeamTable({
         </span>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Member</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Date of Joining</TableHead>
-            <TableHead>Login (Enable/Disable)</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.length === 0 ? (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                No team members found.
-              </TableCell>
+              <TableHead className="text-center">Profile</TableHead>
+              <TableHead className="text-center">Member</TableHead>
+              <TableHead className="text-center">Role</TableHead>
+              <TableHead className="text-center">Department</TableHead>
+              <TableHead className="text-center">Age</TableHead>
+              <TableHead className="text-center">Date of Joining</TableHead>
+              <TableHead className="text-center">Login (Enable/Disable)</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          ) : (
-            filtered.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  <button
-                    type="button"
-                    onClick={() => onSelectUser(member.id)}
-                    className="flex items-center gap-3 text-left hover:opacity-80"
-                  >
-                    <Avatar className="h-9 w-9 border shadow-2xs">
-                      <AvatarImage
-                        src={getAvatarUrl(member.image, member.id, member.name)}
-                        alt={member.name}
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                        {member.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">{member.name}</span>
-                      <span className="text-xs text-muted-foreground">{member.email}</span>
-                    </div>
-                  </button>
-                </TableCell>
-                <TableCell>
-                  <Badge className={ROLE_BADGE[member.role] ?? ""} variant="outline">
-                    {ROLE_LABEL[member.role] ?? member.role}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {member.department || "—"}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {member.dateOfJoining || "—"}
-                </TableCell>
-                <TableCell>
-                  <Switch
-                    checked={member.isActive}
-                    disabled={isPending && pendingToggleId === member.id}
-                    onCheckedChange={(checked) => handleToggle(member, checked)}
-                  />
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => setEditTarget(member)}
-                      title="Edit member"
-                    >
-                      <Pencil size={15} />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteTarget(member)}
-                      title="Remove member"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  No team members found.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-
-      <EditMemberDialog
-        member={editTarget}
-        isOpen={!!editTarget}
-        onClose={() => setEditTarget(null)}
-        departments={departments}
-        managers={managers}
-      />
+            ) : (
+              filtered.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => onSelectUser(member.id)}
+                      className="mx-auto flex hover:opacity-80"
+                    >
+                      <Avatar className="h-11 w-11 border shadow-2xs">
+                        <AvatarImage
+                          src={getAvatarUrl(member.image, member.id, member.name)}
+                          alt={member.name}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => onSelectUser(member.id)}
+                      className="mx-auto flex flex-col items-center text-center hover:opacity-80"
+                    >
+                      <span className="font-medium text-foreground">{member.name}</span>
+                      <span className="text-xs text-muted-foreground">{member.email}</span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={ROLE_BADGE[member.role] ?? ""} variant="outline">
+                      {ROLE_LABEL[member.role] ?? member.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center text-muted-foreground">
+                    {member.department || "—"}
+                  </TableCell>
+                  <TableCell className="text-center text-muted-foreground">
+                    {member.age !== null ? member.age : "—"}
+                  </TableCell>
+                  <TableCell className="text-center text-muted-foreground">
+                    {member.dateOfJoining || "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      className="mx-auto"
+                      checked={member.isActive}
+                      disabled={isPending && pendingToggleId === member.id}
+                      onCheckedChange={(checked) => handleToggle(member, checked)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="mx-auto flex w-fit items-center justify-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={() => router.push(ROUTES.settingsUsersEdit(member.id))}
+                        title="Edit member"
+                      >
+                        <Pencil size={15} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeleteTarget(member)}
+                        title="Remove member"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent>

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, updateZohoEvent } from "@/lib/zoho-calendar";
 import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils";
+import { parseRule, serializeRule } from "../recurrence";
 
 export type UpdateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -36,6 +37,7 @@ export async function updateCalendarEvent(
   const meetingLink = getStr(formData, "meetingLink");
   const alertType = getStr(formData, "alertType") || "zia";
   const isRecording = getStr(formData, "isRecording") === "true";
+  const recurrenceRule = serializeRule(parseRule(getStr(formData, "recurrenceRule")));
   const participantIds = formData.getAll("participantIds") as string[];
   const previousParticipantIds = new Set(formData.getAll("previousParticipantIds") as string[]);
 
@@ -74,6 +76,7 @@ export async function updateCalendarEvent(
         start,
         end,
         isAllDay,
+        recurrenceRule,
       },
     });
 

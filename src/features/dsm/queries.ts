@@ -418,6 +418,80 @@ export async function getYesterdayBlockers(): Promise<{ text: string; priority: 
   }));
 }
 
+/**
+ * Unresolved support needs from the most recent *submitted* entry before today.
+ * Carrying these forward mirrors getYesterdayBlockers() for the support-needed section.
+ */
+export async function getYesterdaySupportNeeds(): Promise<{ text: string; mentionedUserId?: string | null }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const today = toUtcDate();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: today },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    include: { supportNeeds: { where: { resolved: false } } },
+    orderBy: { date: "desc" },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (entry?.supportNeeds ?? []).map((s: any) => ({
+    text: s.text,
+    mentionedUserId: s.mentionedUserId,
+  }));
+}
+
+/**
+ * Yesterday's learning items that were NOT marked complete.
+ * Completion state for a DSM learning item doesn't live on StandupEntry itself — it's
+ * recorded on that same day's evening DsrEntry.learningItems (matched by text, no FK
+ * between them). Mirrors getYesterdayIncompleteTasks() for the learning section.
+ */
+export async function getYesterdayIncompleteLearningItems(): Promise<string[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const today = toUtcDate();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: today },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    select: { date: true, learningText: true },
+    orderBy: { date: "desc" },
+  });
+
+  const lines: string[] = entry?.learningText
+    ? entry.learningText.split("\n").map((l: string) => l.trim()).filter(Boolean)
+    : [];
+  if (lines.length === 0) return [];
+
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date: entry.date } },
+    include: { learningItems: { select: { text: true, completed: true } } },
+  });
+
+  if (!dsr) return lines;
+
+  const completedTexts = new Set(
+    dsr.learningItems
+      .filter((l: { completed: boolean }) => l.completed)
+      .map((l: { text: string }) => l.text)
+  );
+
+  return lines.filter((text) => !completedTexts.has(text));
+}
+
 // ── Internal helper ───────────────────────────────────────────────────────────
 
 function countWeekdays(start: Date, end: Date): number {

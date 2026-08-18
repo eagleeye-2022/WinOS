@@ -7,6 +7,7 @@ import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, createZohoEvent } from "@/lib/zoho-calendar";
 import { sendCalendarInviteEmail } from "@/lib/email";
 import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
+import { parseRule, serializeRule } from "../recurrence";
 
 export type CreateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -38,6 +39,7 @@ export async function createCalendarEvent(
   const meetingLink = getStr(formData, "meetingLink");
   const alertType = getStr(formData, "alertType") || "zia";
   const isRecording = getStr(formData, "isRecording") === "true";
+  const recurrenceRule = serializeRule(parseRule(getStr(formData, "recurrenceRule")));
 
   const participantIds = formData.getAll("participantIds") as string[];
   const rawParticipantEmail = getStr(formData, "participantEmail");
@@ -136,6 +138,7 @@ export async function createCalendarEvent(
       start,
       end,
       isAllDay,
+      recurrenceRule,
       organizerId: userId,
       attendees: {
         createMany: {

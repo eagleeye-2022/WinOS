@@ -23,7 +23,9 @@ import { updateCalendarEvent, type UpdateEventState } from "../actions/update-ev
 import { ParticipantPicker } from "./participant-picker";
 import { EventDateTimePicker } from "./event-date-time-picker";
 import { EventDetailPopover } from "./event-detail-popover";
+import { RecurrencePicker } from "./recurrence-picker";
 import { toDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
+import { localWeekday, withLocalWeekday, type RecurrenceRule } from "../recurrence";
 import type { CalendarEventView } from "../queries";
 
 type InternalUser = { id: string; name: string | null; email: string };
@@ -104,7 +106,37 @@ export function EventDialog({
     d.setHours(18, 0, 0, 0);
     return d;
   });
-  const [repeatEvent, setRepeatEvent] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | null>(event?.recurrenceRule ?? null);
+
+  // Keep the date and a single-weekday WEEKLY rule (e.g. "Weekly on Wednesday")
+  // in sync in both directions. Monthly/Yearly rules already derive their
+  // day-of-month straight from `start`, so only WEEKLY's explicit `byDay`
+  // needs this. Both handlers below update the two states together in one
+  // event, rather than reacting to a state change after the fact.
+
+  // Direction A: the date changes (via the date/time picker) — the rule follows to the new weekday.
+  function handleStartChange(newStart: Date) {
+    setStart(newStart);
+    setRecurrenceRule((prev) => {
+      if (!prev || prev.freq !== "WEEKLY" || !prev.byDay || prev.byDay.length !== 1) return prev;
+      const currentWeekday = localWeekday(newStart);
+      if (prev.byDay[0] === currentWeekday) return prev;
+      return { ...prev, byDay: [currentWeekday] };
+    });
+  }
+
+  // Direction B: a different single weekday is picked directly in the recurrence
+  // dropdown (Custom → Week tab) — the event's own date moves to that weekday.
+  function handleRecurrenceChange(rule: RecurrenceRule | null) {
+    if (rule && rule.freq === "WEEKLY" && rule.byDay && rule.byDay.length === 1 && rule.byDay[0] !== localWeekday(start)) {
+      const newStart = withLocalWeekday(start, rule.byDay[0]);
+      const duration = end.getTime() - start.getTime();
+      setStart(newStart);
+      setEnd(new Date(newStart.getTime() + duration));
+    }
+    setRecurrenceRule(rule);
+  }
+
   const [location, setLocation] = useState(
     event?.description?.startsWith("Location: ")
       ? event.description.replace("Location: ", "")
@@ -180,6 +212,7 @@ export function EventDialog({
       isAllDay: false,
       organizerEmail: currentUser?.email ?? "mohit.thakre@zylker.com",
       attendees: attendeesList,
+      recurrenceRule,
     };
 
     if (onEventCreatedLocally) {
@@ -221,6 +254,7 @@ export function EventDialog({
           .filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
           .map((email) => ({ email, status: "NEEDS_ACTION" })),
       ],
+      recurrenceRule,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.message]);
@@ -249,6 +283,7 @@ export function EventDialog({
       isAllDay: false,
       organizerEmail: userEmail,
       attendees: attendeesList,
+      recurrenceRule,
     };
 
     return (
@@ -383,12 +418,15 @@ export function EventDialog({
           <EventDateTimePicker
             start={start}
             end={end}
-            onStartChange={setStart}
+            onStartChange={handleStartChange}
             onEndChange={setEnd}
             now={now}
             startError={dtErrors.start ?? state.errors?.start?.[0]}
             endError={dtErrors.end ?? state.errors?.end?.[0]}
           />
+
+          {/* Recurrence */}
+          <RecurrencePicker value={recurrenceRule} onChange={handleRecurrenceChange} start={start} />
 
           {/* Location / Room */}
           <div className="space-y-1.5">

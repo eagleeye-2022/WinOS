@@ -58,20 +58,6 @@ function StatusBadge({ status }: { status: EntryStatus }) {
   );
 }
 
-function ProjectBadge({ status }: { status: "On Track" | "At Risk" | "Needs Attention" }) {
-  if (status === "At Risk") return null;
-  const styles = {
-    "On Track":        "bg-success/10 text-success",
-    "At Risk":         "bg-warning/10 text-warning",
-    "Needs Attention": "bg-danger/10 text-danger",
-  };
-  return (
-    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", styles[status])}>
-      {status}
-    </span>
-  );
-}
-
 // ── Manager dashboard ─────────────────────────────────────────────────────────
 
 function ManagerDashboard({
@@ -90,20 +76,17 @@ function ManagerDashboard({
         <p className="mt-0.5 text-sm text-muted-foreground">{todayLabel()}</p>
       </div>
 
-      {/* Overview cards */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Overview + pending-review cards */}
+      <div className="grid gap-4 items-stretch sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href={ROUTES.dsmAll}
-          className="group rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
+          className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <ClipboardList size={15} strokeWidth={1.75} />
-              Today&apos;s Team DSM
-            </div>
-            {dsmStats && <ProjectBadge status={dsmStats.projectStatus} />}
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <ClipboardList size={15} strokeWidth={1.75} />
+            Today&apos;s Team DSM
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex-1">
             {dsmStats ? (
               <>
                 <p className="text-3xl font-bold tabular-nums">
@@ -131,16 +114,13 @@ function ManagerDashboard({
 
         <Link
           href={ROUTES.dsrManage}
-          className="group rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
+          className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <BarChart2 size={15} strokeWidth={1.75} />
-              Evening Reviews (DSR)
-            </div>
-            {dsrStats && <ProjectBadge status={dsrStats.projectStatus} />}
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <BarChart2 size={15} strokeWidth={1.75} />
+            Evening Reviews (DSR)
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex-1">
             {dsrStats ? (
               <>
                 <p className="text-3xl font-bold tabular-nums">
@@ -163,6 +143,52 @@ function ManagerDashboard({
           </div>
           <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
             Review DSR Submissions <ArrowRight size={12} />
+          </div>
+        </Link>
+
+        <Link
+          href={ROUTES.dsmAll}
+          className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <ClipboardList size={15} strokeWidth={1.75} />
+            Pending DSM Review
+          </div>
+          <div className="mt-3 flex-1">
+            <p className="text-3xl font-bold tabular-nums">{dsmStats?.pendingReviewCount ?? 0}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {dsmStats
+                ? dsmStats.pendingReviewCount === 0
+                  ? "All Caught Up"
+                  : `${dsmStats.pendingReviewCount} Awaiting Review`
+                : "No Data"}
+            </p>
+          </div>
+          <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+            Review Now <ArrowRight size={12} />
+          </div>
+        </Link>
+
+        <Link
+          href={ROUTES.dsrManage}
+          className="group flex h-full flex-col rounded-lg border bg-card p-5 transition-colors hover:border-primary/30 hover:bg-accent/30"
+        >
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <BarChart2 size={15} strokeWidth={1.75} />
+            Pending DSR Review
+          </div>
+          <div className="mt-3 flex-1">
+            <p className="text-3xl font-bold tabular-nums">{dsrStats?.pendingReviewCount ?? 0}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {dsrStats
+                ? dsrStats.pendingReviewCount === 0
+                  ? "All Caught Up"
+                  : `${dsrStats.pendingReviewCount} Awaiting Review`
+                : "No Data"}
+            </p>
+          </div>
+          <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+            Review Now <ArrowRight size={12} />
           </div>
         </Link>
       </div>

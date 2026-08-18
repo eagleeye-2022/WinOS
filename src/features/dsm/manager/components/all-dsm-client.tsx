@@ -100,6 +100,33 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     );
   }, [groups]);
 
+  const supportNeededMembers: StatMember[] = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.supportCount > 0)
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+          meta: `${m.supportCount} request${m.supportCount > 1 ? "s" : ""}`,
+        }))
+    );
+  }, [groups]);
+
+  const pendingReviewMembers: StatMember[] = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+        }))
+    );
+  }, [groups]);
+
   // Extract unique departments for the filter dropdown
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -279,6 +306,8 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
           submittedMembers={submittedMembers}
           pendingMembers={pendingMembers}
           blockerMembers={blockerMembers}
+          supportNeededMembers={supportNeededMembers}
+          pendingReviewMembers={pendingReviewMembers}
         />
       )}
     </div>

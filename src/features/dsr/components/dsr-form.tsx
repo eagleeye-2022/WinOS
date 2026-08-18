@@ -368,7 +368,7 @@ function DayReflection({
 
       <div className="flex flex-col gap-4">
         <div>
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-success">
             Sentiment
           </label>
           <div className="flex gap-4 w-full">
@@ -379,12 +379,12 @@ function DayReflection({
               className={cn(
                 "flex items-center w-fit justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-2xs active:scale-[0.99]",
                 sentiment === "BREAKTHROUGH"
-                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                  ? "border-success bg-success text-success-foreground shadow-xs"
                   : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
                 readOnly && "cursor-not-allowed opacity-80"
               )}
             >
-              <Zap size={16} className={sentiment === "BREAKTHROUGH" ? "text-primary-foreground fill-current" : "text-amber-500"} />
+              <Zap size={16} className={sentiment === "BREAKTHROUGH" ? "text-success-foreground fill-current" : "text-success"} />
               <span>Breakthrough</span>
             </button>
 
@@ -395,12 +395,12 @@ function DayReflection({
               className={cn(
                 "flex items-center w-fit justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer shadow-2xs active:scale-[0.99]",
                 sentiment === "BREAKDOWN"
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 shadow-xs"
+                  ? "border-destructive/40 bg-destructive/10 text-destructive shadow-xs"
                   : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
                 readOnly && "cursor-not-allowed opacity-80"
               )}
             >
-              <TrendingDown size={16} className={sentiment === "BREAKDOWN" ? "text-amber-600 dark:text-amber-400" : "text-amber-500"} />
+              <TrendingDown size={16} className={sentiment === "BREAKDOWN" ? "text-destructive" : "text-destructive"} />
               <span>Breakdown</span>
             </button>
           </div>

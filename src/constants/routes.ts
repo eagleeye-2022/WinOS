@@ -17,6 +17,8 @@ export const ROUTES = {
   support: "/support",
   needsHelp: "/needs-help",
   settingsUsers: "/settings/users",
+  settingsUsersNew: "/settings/users/member/new",
+  settingsUsersEdit: (userId: string) => `/settings/users/member/${userId}/edit` as const,
   settingsProfileAccess: "/settings/profile-access",
 } as const;
 

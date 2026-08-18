@@ -27,12 +27,7 @@ export async function POST(request: NextRequest) {
     // Save to server disk
     await fs.writeFile(filePath, buffer);
 
-    // Determine host protocol and domain
-    const host = request.headers.get("host") || "localhost:3000";
-    const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
-    const siteUrl = `${protocol}://${host}`;
-
-    const fileUrl = `${siteUrl.replace(/\/$/, "")}/api/uploads/${uniqueFileName}`;
+    const fileUrl = `/api/uploads/${uniqueFileName}`;
 
     return NextResponse.json({
       success: true,

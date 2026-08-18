@@ -97,6 +97,19 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
     );
   }, [groups]);
 
+  const pendingReviewMembers = useMemo(() => {
+    return groups.flatMap((group) =>
+      group.members
+        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW")
+        .map((m) => ({
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          teamName: group.teamName,
+        }))
+    );
+  }, [groups]);
+
   // Extract unique departments for the filter dropdown
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -282,6 +295,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
           submittedMembers={submittedMembers}
           pendingMembers={pendingMembers}
           blockerMembers={blockerMembers}
+          pendingReviewMembers={pendingReviewMembers}
         />
       )}
     </div>
