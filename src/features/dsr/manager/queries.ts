@@ -33,7 +33,10 @@ export type AllDsrStats = {
   totalExpected: number;
   pendingCount: number;
   highPriorityBlockers: number;
-  projectStatus: "On Track" | "At Risk" | "Needs Attention";
+  pendingReviewCount: number;
+  supportNeededCount: number;
+  /** No live data source yet — always 0 until an overtime feature exists. */
+  pendingOtCount: number;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -83,26 +86,36 @@ export async function getAllDsrStats(date?: Date): Promise<AllDsrStats | null> {
   );
   const totalSubmitted = submittedEntries.length;
   const pendingCount = totalExpected - totalSubmitted;
+  const pendingReviewCount = todayEntries.filter(
+    (e: { status: string }) => e.status === "SUBMITTED" || e.status === "PENDING_REVIEW"
+  ).length;
 
-  // High-priority unresolved blockers from DSM (StandupBlocker)
-  const standupEntryIds = await d.standupEntry.findMany({
+  // High-priority unresolved blockers + open support needs from DSM (same-day standup entries)
+  const standupEntries = await d.standupEntry.findMany({
     where: { userId: { in: memberIds }, date: targetDate },
     select: { id: true },
   });
-  const eIds = standupEntryIds.map((e: { id: string }) => e.id);
+  const eIds = standupEntries.map((e: { id: string }) => e.id);
   const highPriorityBlockers = eIds.length > 0
     ? await d.standupBlocker.count({
         where: { entryId: { in: eIds }, priority: "HIGH", resolved: false },
       })
     : 0;
+  const supportNeededCount = eIds.length > 0
+    ? await d.standupSupportNeed.count({
+        where: { entryId: { in: eIds }, resolved: false },
+      })
+    : 0;
 
-  const projectStatus: AllDsrStats["projectStatus"] =
-    highPriorityBlockers > 1 ? "Needs Attention"
-    : highPriorityBlockers === 1 ? "At Risk"
-    : pendingCount > 0 ? "At Risk"
-    : "On Track";
-
-  return { totalSubmitted, totalExpected, pendingCount, highPriorityBlockers, projectStatus };
+  return {
+    totalSubmitted,
+    totalExpected,
+    pendingCount,
+    highPriorityBlockers,
+    pendingReviewCount,
+    supportNeededCount,
+    pendingOtCount: 0,
+  };
 }
 
 /** Team-grouped DSR submissions for a given date. */

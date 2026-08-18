@@ -8,9 +8,9 @@ import type {
   DepartmentTreeMember,
 } from "@/features/users/actions/user-actions";
 
-function getAvatarUrl(image?: string | null, id?: string, name?: string) {
+function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
   if (image && image.trim()) return image;
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(id || name || "user")}`;
+  return "/default-avatar.png";
 }
 
 function getInitials(name: string) {
@@ -255,7 +255,7 @@ const DepartmentMemberCard = React.forwardRef<
       <Avatar className="h-11 w-11 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
         <AvatarImage src={avatarUrl} alt={member.name} className="object-cover" />
         <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
-          {getInitials(member.name)}
+          <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
         </AvatarFallback>
       </Avatar>
 

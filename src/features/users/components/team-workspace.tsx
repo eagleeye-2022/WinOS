@@ -1,38 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/constants/routes";
 import type {
   TeamMemberRow,
-  DepartmentOption,
-  ManagerOption,
   EmployeeTreeNode,
   DepartmentTreeGroup,
 } from "@/features/users/actions/user-actions";
 import { TeamTable } from "./team-table";
 import { EmployeeTree } from "./employee-tree";
 import { DepartmentTree } from "./department-tree";
-import { AddMemberForm } from "./add-member-form";
 import { UserProfileCard } from "./user-profile-card";
 
 interface TeamWorkspaceProps {
   members: TeamMemberRow[];
-  departments: DepartmentOption[];
-  managers: ManagerOption[];
   employeeTree: EmployeeTreeNode[];
   departmentTree: DepartmentTreeGroup[];
 }
 
 export function TeamWorkspace({
   members,
-  departments,
-  managers,
   employeeTree,
   departmentTree,
 }: TeamWorkspaceProps) {
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const profileUser = members.find((m) => m.id === profileUserId) || null;
@@ -47,19 +41,16 @@ export function TeamWorkspace({
             <TabsTrigger value="department-tree">Department Tree</TabsTrigger>
           </TabsList>
 
-          <Button onClick={() => setIsAddOpen(true)} className="gap-1.5">
-            <Plus size={16} />
-            Add Member
+          <Button asChild className="gap-1.5">
+            <Link href={ROUTES.settingsUsersNew}>
+              <Plus size={16} />
+              Add Member
+            </Link>
           </Button>
         </div>
 
         <TabsContent value="my-team" className="mt-0">
-          <TeamTable
-            members={members}
-            departments={departments}
-            managers={managers}
-            onSelectUser={setProfileUserId}
-          />
+          <TeamTable members={members} onSelectUser={setProfileUserId} />
         </TabsContent>
 
         <TabsContent value="employee-tree" className="mt-0">
@@ -70,13 +61,6 @@ export function TeamWorkspace({
           <DepartmentTree groups={departmentTree} onSelectUser={setProfileUserId} />
         </TabsContent>
       </Tabs>
-
-      <AddMemberForm
-        isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
-        departments={departments}
-        managers={managers}
-      />
 
       <UserProfileCard
         member={profileUser}

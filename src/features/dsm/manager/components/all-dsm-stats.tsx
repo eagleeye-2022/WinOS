@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Users, Clock, AlertCircle, TrendingUp, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, Clock, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import type { AllDsmStats } from "../queries";
@@ -20,6 +20,8 @@ type Props = {
   submittedMembers?: StatMember[];
   pendingMembers?: StatMember[];
   blockerMembers?: StatMember[];
+  supportNeededMembers?: StatMember[];
+  pendingReviewMembers?: StatMember[];
 };
 
 function displayNameOf(member: Pick<StatMember, "name" | "email">) {
@@ -76,15 +78,27 @@ function MemberListDropdown({
 
 // ── Stats row ─────────────────────────────────────────────────────────────────
 
+// DSM Status card is commented out below — kept for re-enabling later.
+// type DsmStatusLabel = "Pending Submission" | "Pending Review" | "Support Needed (Meeting)" | "Pending OT";
+//
+// function primaryDsmStatus(stats: AllDsmStats): DsmStatusLabel {
+//   if (stats.pendingCount > 0) return "Pending Submission";
+//   if (stats.pendingReviewCount > 0) return "Pending Review";
+//   if (stats.supportNeededCount > 0) return "Support Needed (Meeting)";
+//   return "Pending OT";
+// }
+
 export function AllDsmStatsRow({
   stats,
   submittedMembers = [],
   pendingMembers = [],
   blockerMembers = [],
+  supportNeededMembers = [],
+  pendingReviewMembers = [],
 }: Props) {
-  const { totalSubmitted, totalExpected, pendingCount, blockerCount, projectStatus } = stats;
+  const { totalSubmitted, totalExpected, blockerCount, pendingCount, pendingReviewCount, supportNeededCount } = stats;
 
-  const [openCard, setOpenCard] = useState<"submitted" | "pending" | "blockers" | "status" | null>(null);
+  const [openCard, setOpenCard] = useState<"submitted" | "pending" | "blockers" | "supportNeeded" | "pendingReview" | "status" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -98,11 +112,11 @@ export function AllDsmStatsRow({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openCard]);
 
-  const toggle = (card: "submitted" | "pending" | "blockers" | "status") =>
+  const toggle = (card: "submitted" | "pending" | "blockers" | "supportNeeded" | "pendingReview" | "status") =>
     setOpenCard((v) => (v === card ? null : card));
 
   return (
-    <div ref={containerRef} className="grid grid-cols-4 gap-4 items-stretch">
+    <div ref={containerRef} className="grid grid-cols-3 lg:grid-cols-5 gap-4 items-stretch">
       {/* Submitted */}
       <div className="relative flex">
         <button
@@ -132,7 +146,7 @@ export function AllDsmStatsRow({
         )}
       </div>
 
-      {/* Pending */}
+      {/* Pending Submission */}
       <div className="relative flex">
         <button
           type="button"
@@ -143,7 +157,7 @@ export function AllDsmStatsRow({
             <Clock size={18} className="text-warning" />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Pending</p>
+            <p className="text-xs text-muted-foreground">Pending Submission</p>
             <p className="text-2xl font-bold">{pendingCount}</p>
             <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
               <Clock size={8} /> 10:10 AM CUTOFF
@@ -156,6 +170,58 @@ export function AllDsmStatsRow({
             members={pendingMembers}
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
+            iconClassName="text-warning"
+          />
+        )}
+      </div>
+
+      {/* Support Needed (Meeting) */}
+      <div className="relative flex">
+        <button
+          type="button"
+          onClick={() => toggle("supportNeeded")}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
+            <AlertTriangle size={18} className="text-info" />
+          </span>
+          <div>
+            <p className="text-xs text-muted-foreground">Support Needed (Meeting)</p>
+            <p className="text-2xl font-bold">{supportNeededCount}</p>
+          </div>
+        </button>
+        {openCard === "supportNeeded" && (
+          <MemberListDropdown
+            title="Support Needed (Meeting)"
+            members={supportNeededMembers}
+            emptyLabel="No Open Support Requests."
+            icon={AlertTriangle}
+            iconClassName="text-info"
+          />
+        )}
+      </div>
+
+      {/* Pending Review */}
+      <div className="relative flex">
+        <button
+          type="button"
+          onClick={() => toggle("pendingReview")}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning/10">
+            <Clock size={18} className="text-warning" />
+          </span>
+          <div>
+            <p className="text-xs text-muted-foreground">Pending Review</p>
+            <p className="text-2xl font-bold">{pendingReviewCount}</p>
+          </div>
+        </button>
+        {openCard === "pendingReview" && (
+          <MemberListDropdown
+            title="Pending Review"
+            members={pendingReviewMembers}
+            emptyLabel="No Submissions Awaiting Review."
+            icon={Clock}
             iconClassName="text-warning"
           />
         )}
@@ -189,7 +255,7 @@ export function AllDsmStatsRow({
         )}
       </div>
 
-      {/* Project status */}
+      {/* DSM status — commented out
       <div className="relative flex">
         <button
           type="button"
@@ -198,17 +264,17 @@ export function AllDsmStatsRow({
         >
           <span className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            projectStatus === "On Track" ? "bg-success/10" : "bg-warning/10"
+            status === "Pending OT" ? "bg-success/10" : "bg-warning/10"
           )}>
-            <TrendingUp size={18} className={projectStatus === "On Track" ? "text-success" : "text-warning"} />
+            <TrendingUp size={18} className={status === "Pending OT" ? "text-success" : "text-warning"} />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Project Status</p>
+            <p className="text-xs text-muted-foreground">DSM Status</p>
             <p className={cn(
               "text-lg font-bold",
-              projectStatus === "On Track" ? "text-success" : "text-warning"
+              status === "Pending OT" ? "text-success" : "text-warning"
             )}>
-              {projectStatus}
+              {status}
             </p>
           </div>
         </button>
@@ -219,12 +285,20 @@ export function AllDsmStatsRow({
             </p>
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Pending Submissions</span>
+                <span className="text-muted-foreground">Pending Submission</span>
                 <span className="font-semibold">{pendingCount}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Open Blockers (Dependencies)</span>
-                <span className="font-semibold">{blockerCount}</span>
+                <span className="text-muted-foreground">Pending Review</span>
+                <span className="font-semibold">{pendingReviewCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Support Needed (Meeting)</span>
+                <span className="font-semibold">{supportNeededCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Pending OT</span>
+                <span className="font-semibold">{pendingOtCount}</span>
               </div>
             </div>
             <p className="mt-2.5 border-t pt-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -239,6 +313,7 @@ export function AllDsmStatsRow({
           </div>
         )}
       </div>
+      */}
     </div>
   );
 }

@@ -90,14 +90,16 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
         {entry.sentiment && (
           <span
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
-              "border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              "flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide border",
+              isBreakthrough
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-destructive/30 bg-destructive/10 text-destructive"
             )}
           >
             {isBreakthrough ? (
-              <Zap size={12} className="fill-current text-amber-500" />
+              <Zap size={12} className="fill-current text-success" />
             ) : (
-              <TrendingDown size={12} className="text-amber-500" />
+              <TrendingDown size={12} className="text-destructive" />
             )}
             <span>{isBreakthrough ? "Breakthrough" : "Breakdown"}</span>
           </span>
@@ -399,22 +401,27 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500">
+          <span className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+            isBreakthrough ? "bg-success" : "bg-destructive"
+          )}>
             {isBreakthrough ? (
               <Zap size={11} className="fill-white text-white" />
             ) : (
               <TrendingDown size={11} className="text-white" />
             )}
           </span>
-          <h3 className="text-sm font-semibold">
+          <h3 className={cn("text-sm font-semibold", isBreakthrough ? "text-success" : "text-destructive")}>
             {isBreakthrough ? "Breakthrough" : "Breakdown"}
           </h3>
         </div>
         {sentiment && (
           <span
             className={cn(
-              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
-              "border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide border",
+              isBreakthrough
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-destructive/30 bg-destructive/10 text-destructive"
             )}
           >
             {isBreakthrough ? "Breakthrough" : "Breakdown"}

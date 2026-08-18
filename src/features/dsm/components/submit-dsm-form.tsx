@@ -131,9 +131,9 @@ function LearningRows({
   teamMembers,
   onChange,
 }: {
-  items: { id: string; text: string }[];
+  items: { id: string; text: string; carried?: boolean }[];
   teamMembers: TeamMember[];
-  onChange: (items: { id: string; text: string }[]) => void;
+  onChange: (items: { id: string; text: string; carried?: boolean }[]) => void;
 }) {
   const updateText = (i: number, v: string) => {
     const n = [...items];
@@ -162,7 +162,12 @@ function LearningRows({
             placeholder="Add learning task details..."
             teamMembers={teamMembers}
           />
-          {items.length > 1 && (
+          {item.carried && (
+            <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+              Carried over
+            </span>
+          )}
+          {(items.length > 1 || item.carried) && (
             <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
               <X size={14} />
             </button>
@@ -182,15 +187,17 @@ function LearningRows({
 
 // ── Blocker rows ──────────────────────────────────────────────────────────────
 
+type BlockerItem = { id: string; text: string; priority: string; mentionedUserIds: string[]; carried?: boolean };
+
 function BlockerRows({
   blockers,
   teamMembers,
   onChange,
   onScheduleMeeting,
 }: {
-  blockers: { id: string; text: string; priority: string; mentionedUserIds: string[] }[];
+  blockers: BlockerItem[];
   teamMembers: TeamMember[];
-  onChange: (b: { id: string; text: string; priority: string; mentionedUserIds: string[] }[]) => void;
+  onChange: (b: BlockerItem[]) => void;
   onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
   const updateField = (i: number, field: "text" | "priority", v: string) => {
@@ -219,18 +226,25 @@ function BlockerRows({
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-              <div className="px-3 py-2">
-                <MentionInput
-                  key={b.id}
-                  name="blockerText"
-                  defaultValue={b.text}
-                  defaultMentions={initialMentions}
-                  onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
-                  onEnterSubmit={i === blockers.length - 1 && b.text.trim() ? add : undefined}
-                  placeholder="Describe the blocker... (@ to mention people)"
-                  teamMembers={teamMembers}
-                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
-                />
+              <div className="flex items-center gap-2 px-3 py-2">
+                <div className="flex-1">
+                  <MentionInput
+                    key={b.id}
+                    name="blockerText"
+                    defaultValue={b.text}
+                    defaultMentions={initialMentions}
+                    onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                    onEnterSubmit={i === blockers.length - 1 && b.text.trim() ? add : undefined}
+                    placeholder="Describe the blocker... (@ to mention people)"
+                    teamMembers={teamMembers}
+                    className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
+                  />
+                </div>
+                {b.carried && (
+                  <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                    Carried over
+                  </span>
+                )}
               </div>
 
               {/* Bottom: priority picker & schedule meeting action */}
@@ -304,6 +318,7 @@ type SupportItem = {
   text: string;
   mentionedUserIds: string[];
   scheduledEvent?: CalendarEventView | null;
+  carried?: boolean;
 };
 
 function ScheduledMeetingActions({
@@ -390,18 +405,25 @@ function SupportRows({
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
-              <div className="px-3 py-2">
-                <MentionInput
-                  key={s.id}
-                  name="supportText"
-                  defaultValue={s.text}
-                  defaultMentions={initialMentions}
-                  onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
-                  onEnterSubmit={i === supports.length - 1 && s.text.trim() ? add : undefined}
-                  placeholder="Add support details... (@ to mention people)"
-                  teamMembers={teamMembers}
-                  className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
-                />
+              <div className="flex items-center gap-2 px-3 py-2">
+                <div className="flex-1">
+                  <MentionInput
+                    key={s.id}
+                    name="supportText"
+                    defaultValue={s.text}
+                    defaultMentions={initialMentions}
+                    onChange={(text, mentionedUserIds) => updateMentions(i, text, mentionedUserIds)}
+                    onEnterSubmit={i === supports.length - 1 && s.text.trim() ? add : undefined}
+                    placeholder="Add support details... (@ to mention people)"
+                    teamMembers={teamMembers}
+                    className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm"
+                  />
+                </div>
+                {s.carried && (
+                  <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                    Carried over
+                  </span>
+                )}
               </div>
 
               {/* Bottom: Schedule Meeting Action */}
@@ -483,6 +505,8 @@ type SubmitDsmFormProps = {
   yesterdayTasks: string[];
   yesterdayIncompleteTasks: string[];
   yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
+  yesterdaySupportNeeds: { text: string; mentionedUserId?: string | null }[];
+  yesterdayIncompleteLearningItems: string[];
   teamMembers: TeamMember[];
   todayDateStr: string; // "YYYY-MM-DD"
   todayCalendarEvents?: CalendarEventView[];
@@ -496,6 +520,8 @@ export function SubmitDsmForm({
   yesterdayTasks,
   yesterdayIncompleteTasks,
   yesterdayBlockers,
+  yesterdaySupportNeeds,
+  yesterdayIncompleteLearningItems,
   teamMembers,
   todayDateStr,
   todayCalendarEvents,
@@ -529,7 +555,7 @@ export function SubmitDsmForm({
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false }, { id: crypto.randomUUID(), text: "", priority: "", carried: false }];
   });
 
-  const [blockers, setBlockers] = useState<{ id: string; text: string; priority: string; mentionedUserIds: string[] }[]>(() => {
+  const [blockers, setBlockers] = useState<BlockerItem[]>(() => {
     if (savedDraft?.blockers?.length) return savedDraft.blockers;
     if (entry?.blockers && entry.blockers.length > 0) {
       return entry.blockers.map((b) => ({
@@ -541,6 +567,7 @@ export function SubmitDsmForm({
           : b.mentionedUserId
             ? [b.mentionedUserId]
             : [],
+        carried: false,
       }));
     }
     if (yesterdayBlockers && yesterdayBlockers.length > 0) {
@@ -549,9 +576,10 @@ export function SubmitDsmForm({
         text: b.text,
         priority: b.priority,
         mentionedUserIds: b.mentionedUserId ? [b.mentionedUserId] : [],
+        carried: true,
       }));
     }
-    return [{ id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [] }];
+    return [{ id: crypto.randomUUID(), text: "", priority: "", mentionedUserIds: [], carried: false }];
   });
 
   const [supports, setSupports] = useState<SupportItem[]>(() => {
@@ -563,18 +591,30 @@ export function SubmitDsmForm({
           : s,
       );
     }
-    return entry?.supportNeeds.map((s) => ({
-      id: crypto.randomUUID(),
-      text: s.text,
-      mentionedUserIds: s.mentionedUserIds
-        ? s.mentionedUserIds.split(",").filter(Boolean)
-        : s.mentionedUser?.id
-          ? [s.mentionedUser.id]
-          : [],
-    })) ?? [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [] }];
+    if (entry?.supportNeeds && entry.supportNeeds.length > 0) {
+      return entry.supportNeeds.map((s) => ({
+        id: crypto.randomUUID(),
+        text: s.text,
+        mentionedUserIds: s.mentionedUserIds
+          ? s.mentionedUserIds.split(",").filter(Boolean)
+          : s.mentionedUser?.id
+            ? [s.mentionedUser.id]
+            : [],
+        carried: false,
+      }));
+    }
+    if (yesterdaySupportNeeds && yesterdaySupportNeeds.length > 0) {
+      return yesterdaySupportNeeds.map((s) => ({
+        id: crypto.randomUUID(),
+        text: s.text,
+        mentionedUserIds: s.mentionedUserId ? [s.mentionedUserId] : [],
+        carried: true,
+      }));
+    }
+    return [{ id: crypto.randomUUID(), text: "", mentionedUserIds: [], carried: false }];
   });
 
-  const [learningItems, setLearningItems] = useState<{ id: string; text: string }[]>(() => {
+  const [learningItems, setLearningItems] = useState<{ id: string; text: string; carried?: boolean }[]>(() => {
     if (savedDraft?.learningItems?.length) return savedDraft.learningItems;
     if (savedDraft?.learningText) {
       const lines = savedDraft.learningText.split("\n").map((t: string) => t.trim()).filter(Boolean);
@@ -583,6 +623,9 @@ export function SubmitDsmForm({
     if (entry?.learningText) {
       const lines = entry.learningText.split("\n").map((t) => t.trim()).filter(Boolean);
       if (lines.length > 0) return lines.map((text) => ({ id: crypto.randomUUID(), text }));
+    }
+    if (yesterdayIncompleteLearningItems && yesterdayIncompleteLearningItems.length > 0) {
+      return yesterdayIncompleteLearningItems.map((text) => ({ id: crypto.randomUUID(), text, carried: true }));
     }
     return [{ id: crypto.randomUUID(), text: "" }];
   });

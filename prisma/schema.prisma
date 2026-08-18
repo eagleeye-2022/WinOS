@@ -17,6 +17,8 @@ model User {
   role                  UserRole              @default(TEAM_MEMBER)
   title                 String?
   employeeId            String?               @unique
+  department            String?
+  location              String?
   employmentType        String?
   dateOfJoining         DateTime?
   dateOfConfirmation    DateTime?
@@ -195,6 +197,7 @@ model StandupSupportNeed {
   mentionedUserId String?
   mentionedUserIds String?
   editedById      String?
+  eventId         String?
   order           Int                         @default(0)
   resolved        Boolean                     @default(false)
   createdAt       DateTime                    @default(now())
@@ -203,6 +206,7 @@ model StandupSupportNeed {
   entry           StandupEntry                @relation(fields: [entryId], references: [id], onDelete: Cascade)
   mentionedUser   User?                       @relation("SupportMentions", fields: [mentionedUserId], references: [id])
   editedBy        User?                       @relation("SupportEditedBy", fields: [editedById], references: [id])
+  event           CalendarEvent?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
   comments        SupportNeedComment[]
 }
 
@@ -698,9 +702,12 @@ model CalendarEvent {
   start          DateTime
   end            DateTime
   isAllDay       Boolean                 @default(false)
+  /// JSON-serialized RecurrenceRule (see src/features/calendar/recurrence.ts). Null = one-off event.
+  recurrenceRule String?
   organizerId    String
   organizer      User                    @relation("OrganizedEvents", fields: [organizerId], references: [id], onDelete: Cascade)
   attendees      CalendarEventAttendee[]
+  supportNeeds   StandupSupportNeed[]
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
 }

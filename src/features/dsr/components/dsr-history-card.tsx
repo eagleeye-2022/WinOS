@@ -254,7 +254,16 @@ export function DsrHistoryCard({
 
           {(entry.sentiment || entry.reflection) && (
             <div className="mt-3 rounded-lg border bg-muted/30 p-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <p
+                className={cn(
+                  "mb-1 text-xs font-semibold uppercase tracking-widest",
+                  entry.sentiment === "BREAKDOWN"
+                    ? "text-destructive"
+                    : entry.sentiment === "BREAKTHROUGH"
+                      ? "text-success"
+                      : "text-muted-foreground"
+                )}
+              >
                 {entry.sentiment ? `${entry.sentiment} Sentiment & Key Learnings` : "Day Reflection"}
               </p>
               {entry.reflection && (

@@ -8,43 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { EmployeeTreeNode } from "@/features/users/actions/user-actions";
 
-// Palette of colors for badges & connecting lines matching the reference design
+// Palette of colors for badges & connecting lines, cycling per depth level
+// so each generation of the org chart reads as a distinct branch.
 const COLOR_THEMES = [
-  {
-    bg: "bg-pink-500 hover:bg-pink-600",
-    text: "text-pink-500",
-    line: "bg-pink-400 dark:bg-pink-500",
-    border: "border-pink-400 dark:border-pink-500",
-    hex: "#ec4899",
-  },
-  {
-    bg: "bg-blue-500 hover:bg-blue-600",
-    text: "text-blue-500",
-    line: "bg-blue-400 dark:bg-blue-500",
-    border: "border-blue-400 dark:border-blue-500",
-    hex: "#3b82f6",
-  },
-  {
-    bg: "bg-emerald-500 hover:bg-emerald-600",
-    text: "text-emerald-500",
-    line: "bg-emerald-400 dark:bg-emerald-500",
-    border: "border-emerald-400 dark:border-emerald-500",
-    hex: "#10b981",
-  },
-  {
-    bg: "bg-purple-500 hover:bg-purple-600",
-    text: "text-purple-500",
-    line: "bg-purple-400 dark:bg-purple-500",
-    border: "border-purple-400 dark:border-purple-500",
-    hex: "#a855f7",
-  },
-  {
-    bg: "bg-amber-500 hover:bg-amber-600",
-    text: "text-amber-500",
-    line: "bg-amber-400 dark:bg-amber-500",
-    border: "border-amber-400 dark:border-amber-500",
-    hex: "#f59e0b",
-  },
+  { bg: "bg-teal-500 hover:bg-teal-600", hex: "#14b8a6" },
+  { bg: "bg-emerald-500 hover:bg-emerald-600", hex: "#10b981" },
+  { bg: "bg-blue-500 hover:bg-blue-600", hex: "#3b82f6" },
+  { bg: "bg-purple-500 hover:bg-purple-600", hex: "#a855f7" },
+  { bg: "bg-amber-500 hover:bg-amber-600", hex: "#f59e0b" },
 ];
 
 function getInitials(name: string) {
@@ -59,9 +30,9 @@ function getInitials(name: string) {
   );
 }
 
-function getAvatarUrl(image?: string | null, id?: string, name?: string) {
+function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
   if (image && image.trim()) return image;
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(id || name || "user")}`;
+  return "/default-avatar.png";
 }
 
 function getAllParentIds(nodes: EmployeeTreeNode[]): string[] {
@@ -110,7 +81,7 @@ function EmployeeCard({
   hasChildren,
   isExpanded,
   childCount,
-  colorTheme = COLOR_THEMES[1],
+  colorTheme = COLOR_THEMES[0],
   searchQuery = "",
   onSelect,
   onToggleExpand,
@@ -127,17 +98,17 @@ function EmployeeCard({
       <div
         onClick={() => onSelect(node.id)}
         className={cn(
-          "w-64 cursor-pointer rounded-2xl border p-3.5 transition-all duration-200 flex items-center gap-3.5 bg-card shadow-xs hover:shadow-md",
+          "w-60 cursor-pointer rounded-2xl border p-3 transition-all duration-200 flex items-center gap-3 bg-card shadow-xs hover:shadow-md",
           highlighted
-            ? "border-2 border-blue-500 bg-blue-50/20 dark:bg-blue-950/30 shadow-md ring-4 ring-blue-500/10"
-            : "border-slate-200/90 dark:border-slate-800 hover:border-blue-400/70 dark:hover:border-blue-500/70",
+            ? "border-2 border-teal-500 bg-teal-50/20 dark:bg-teal-950/30 shadow-md ring-4 ring-teal-500/10"
+            : "border-slate-200/90 dark:border-slate-800 hover:border-teal-400/70 dark:hover:border-teal-500/70",
           matchesSearch && "ring-4 ring-amber-400/50 border-amber-500 bg-amber-50/30"
         )}
       >
-        <Avatar className="h-11 w-11 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
+        <Avatar className="h-10 w-10 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
           <AvatarImage src={avatarUrl} alt={node.name} className="object-cover" />
           <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
-            {getInitials(node.name)}
+            <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
           </AvatarFallback>
         </Avatar>
 
@@ -145,7 +116,7 @@ function EmployeeCard({
           <span
             className={cn(
               "text-sm font-bold truncate leading-tight tracking-tight",
-              highlighted ? "text-blue-900 dark:text-blue-100" : "text-slate-900 dark:text-slate-100"
+              highlighted ? "text-teal-900 dark:text-teal-100" : "text-slate-900 dark:text-slate-100"
             )}
           >
             {node.name}
@@ -153,15 +124,15 @@ function EmployeeCard({
           <span
             className={cn(
               "text-xs truncate font-medium mt-0.5",
-              highlighted ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"
+              highlighted ? "text-teal-600 dark:text-teal-400" : "text-slate-500 dark:text-slate-400"
             )}
           >
-            {node.title || (node.role === "MANAGER" ? "Super Admin" : "Team Member")}
+            {node.title || (node.role === "MANAGER" ? "Manager" : "Team Member")}
           </span>
         </div>
       </div>
 
-      {/* Child Count Badge (Pink, Blue, Green, etc.) matching reference image */}
+      {/* Child Count Badge — sits on the connecting edge, click to expand/collapse */}
       {hasChildren && childCount && childCount > 0 && (
         <button
           type="button"
@@ -235,12 +206,7 @@ function TreeNodeBranch({
     const minY = Math.min(yParent, yChildren[0]);
     const maxY = Math.max(yParent, yChildren[yChildren.length - 1]);
 
-    setLayout({
-      yParent,
-      yChildren,
-      spineMinY: minY,
-      spineMaxY: maxY,
-    });
+    setLayout({ yParent, yChildren, spineMinY: minY, spineMaxY: maxY });
   }, []);
 
   useEffect(() => {
@@ -324,7 +290,7 @@ function TreeNodeBranch({
           </div>
 
           {/* Children Cards Column */}
-          <div className="flex flex-col gap-3.5 py-1">
+          <div className="flex flex-col gap-3 py-1">
             {node.children.map((child, idx) => (
               <div
                 key={child.id}
@@ -400,13 +366,11 @@ export function EmployeeTree({ nodes, onSelectUser }: EmployeeTreeProps) {
     );
   }
 
-  const rootNodes = nodes;
-
   return (
     <div className="rounded-2xl border bg-card/60 backdrop-blur-xs p-6 space-y-6 shadow-xs">
-      {/* Top Header Bar with Search & Zoom controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-4">
-        <div className="flex items-center gap-3">
+      {/* Top Header Bar with Zoom controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* <div className="flex items-center gap-3">
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
             <Input
@@ -420,10 +384,10 @@ export function EmployeeTree({ nodes, onSelectUser }: EmployeeTreeProps) {
           <span className="text-xs text-muted-foreground font-medium px-2 py-1 bg-accent/50 rounded-lg">
             {totalCount} Total Members
           </span>
-        </div>
+        </div> */}
 
-        <div className="flex items-center gap-2">
-          <Button
+        <div className="flex items-center gap-2 ml-auto">
+          {/* <Button
             type="button"
             variant="outline"
             size="sm"
@@ -442,7 +406,7 @@ export function EmployeeTree({ nodes, onSelectUser }: EmployeeTreeProps) {
             Collapse All
           </Button>
 
-          <div className="h-4 w-px bg-border mx-1" />
+          <div className="h-4 w-px bg-border mx-1" /> */}
 
           <Button
             type="button"
@@ -480,64 +444,24 @@ export function EmployeeTree({ nodes, onSelectUser }: EmployeeTreeProps) {
         </div>
       </div>
 
-      {/* Main Employee Tree Canvas */}
+      {/* Main Employee Tree Canvas — root(s) on the left, branches flowing right */}
       <div className="overflow-x-auto overflow-y-visible pb-8 pt-2 min-h-[500px]">
         <div
           className="transition-transform duration-200 origin-top-left flex flex-col items-start gap-8 min-w-max p-4"
           style={{ transform: `scale(${zoomLevel})` }}
         >
-          {rootNodes.map((root) => {
-            const hasRootChildren = root.children && root.children.length > 0;
-            const isRootExpanded = expandedIds.has(root.id);
-
-            return (
-              <div key={root.id} className="flex flex-col items-start">
-                {/* Root Manager Card Header */}
-                <div className="flex flex-col items-start">
-                  <EmployeeCard
-                    node={root}
-                    isSelected={selectedId === root.id}
-                    isRoot
-                    hasChildren={hasRootChildren}
-                    isExpanded={isRootExpanded}
-                    childCount={root.children.length}
-                    colorTheme={COLOR_THEMES[1]}
-                    searchQuery={searchQuery}
-                    onSelect={handleSelect}
-                    onToggleExpand={(e) => {
-                      e.stopPropagation();
-                      handleToggleExpand(root.id);
-                    }}
-                  />
-
-                  {/* Vertical Line going down from Root card to Level 1 team members */}
-                  {hasRootChildren && isRootExpanded && (
-                    <div className="w-0.5 h-7 bg-blue-500 ml-32 relative">
-                      <div className="absolute bottom-0 left-0 w-8 h-0.5 bg-blue-500" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Level 1 Direct Reports & Sub-trees */}
-                {hasRootChildren && isRootExpanded && (
-                  <div className="flex flex-col gap-3.5 pl-8 border-l-2 border-blue-500 pt-1">
-                    {root.children.map((child) => (
-                      <TreeNodeBranch
-                        key={child.id}
-                        node={child}
-                        depth={0}
-                        selectedId={selectedId}
-                        expandedIds={expandedIds}
-                        searchQuery={searchQuery}
-                        onSelectUser={handleSelect}
-                        onToggleExpand={handleToggleExpand}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {nodes.map((root) => (
+            <TreeNodeBranch
+              key={root.id}
+              node={root}
+              depth={0}
+              selectedId={selectedId}
+              expandedIds={expandedIds}
+              searchQuery={searchQuery}
+              onSelectUser={handleSelect}
+              onToggleExpand={handleToggleExpand}
+            />
+          ))}
         </div>
       </div>
     </div>

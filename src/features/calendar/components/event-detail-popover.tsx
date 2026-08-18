@@ -2,13 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Pencil, Trash2, Clock, Crown, User as UserIcon, Loader2 } from "lucide-react";
+import { X, Pencil, Trash2, Clock, Crown, User as UserIcon, Loader2, Repeat } from "lucide-react";
 import { deleteCalendarEvent, type DeleteEventState } from "../actions/delete-event";
 import {
   respondToCalendarInvite,
   type RespondToInviteState,
 } from "../actions/respond-to-invite";
 import { formatFullDate } from "../utils";
+import { describeRule } from "../recurrence";
 import type { CalendarEventView } from "../queries";
 
 type Props = {
@@ -144,6 +145,13 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
               </span>
               <span className="text-muted-foreground font-semibold">Asia/Calcutta</span>
             </div>
+
+            {event.recurrenceRule && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Repeat size={14} className="text-muted-foreground shrink-0" />
+                <span>{describeRule(event.recurrenceRule, event.start)}</span>
+              </div>
+            )}
 
             {/* Host Indicator */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -308,7 +316,10 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
               </button>
               <form
                 action={async (formData) => {
-                  if (confirm("Are you sure you want to delete this event?")) {
+                  const confirmMessage = event.recurrenceRule
+                    ? "This is a recurring event. Deleting it will remove the entire series. Continue?"
+                    : "Are you sure you want to delete this event?";
+                  if (confirm(confirmMessage)) {
                     await deleteAction(formData);
                     router.refresh();
                     onClose();

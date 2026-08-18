@@ -6,6 +6,8 @@ import {
   getYesterdayTasks,
   getYesterdayIncompleteTasks,
   getYesterdayBlockers,
+  getYesterdaySupportNeeds,
+  getYesterdayIncompleteLearningItems,
   getWeekEntries,
   getKpiStats,
   getTeamMembers,
@@ -32,12 +34,14 @@ export default async function DSMPage({ searchParams }: Props) {
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
   if (session?.user?.role === "MANAGER") redirect("/dsm/all");
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
       getYesterdayIncompleteTasks(),
       getYesterdayBlockers(),
+      getYesterdaySupportNeeds(),
+      getYesterdayIncompleteLearningItems(),
       getWeekEntries(weekOffset),
       getKpiStats(weekOffset),
       getTeamMembers(),
@@ -77,6 +81,8 @@ export default async function DSMPage({ searchParams }: Props) {
           yesterdayTasks={yesterdayTasks}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
           yesterdayBlockers={yesterdayBlockers}
+          yesterdaySupportNeeds={yesterdaySupportNeeds}
+          yesterdayIncompleteLearningItems={yesterdayIncompleteLearningItems}
           teamMembers={teamMembers}
           todayDateStr={todayDateStr}
           weekEntries={weekEntries}

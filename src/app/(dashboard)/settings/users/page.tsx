@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import {
   getTeamMembersAction,
-  getDepartmentOptionsAction,
-  getManagerOptionsAction,
   getEmployeeTreeAction,
   getDepartmentTreeAction,
 } from "@/features/users/actions/user-actions";
@@ -14,10 +12,8 @@ export default async function SettingsUsersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
 
-  const [members, departments, managers, employeeTree, departmentTree] = await Promise.all([
+  const [members, employeeTree, departmentTree] = await Promise.all([
     getTeamMembersAction(),
-    getDepartmentOptionsAction(),
-    getManagerOptionsAction(),
     getEmployeeTreeAction(),
     getDepartmentTreeAction(),
   ]);
@@ -25,8 +21,6 @@ export default async function SettingsUsersPage() {
   return (
     <TeamWorkspace
       members={members}
-      departments={departments}
-      managers={managers}
       employeeTree={employeeTree}
       departmentTree={departmentTree}
     />

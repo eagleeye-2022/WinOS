@@ -11,9 +11,9 @@ const ROLE_LABEL: Record<string, string> = {
   TEAM_MEMBER: "Team Member",
 };
 
-function getAvatarUrl(image?: string | null, id?: string, name?: string) {
+function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
   if (image && image.trim()) return image;
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(id || name || "user")}`;
+  return "/default-avatar.png";
 }
 
 interface UserProfileCardProps {
@@ -39,7 +39,7 @@ export function UserProfileCard({ member, onClose }: UserProfileCardProps) {
     <Dialog open={!!member} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 border shadow-sm">
+          <Avatar className="h-20 w-20 border shadow-sm">
             <AvatarImage src={avatarUrl} alt={member.name} className="object-cover" />
             <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
               {member.initials}

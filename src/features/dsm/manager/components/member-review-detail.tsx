@@ -30,7 +30,34 @@ import type { TeamMember } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
+import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
+import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
+import type { CalendarEventView } from "@/features/calendar/queries";
 
+
+function supportEventToView(event: {
+  id: string;
+  title: string;
+  description: string | null;
+  start: Date;
+  end: Date;
+  isAllDay: boolean;
+  updatedAt: Date;
+  organizer: { email: string } | null;
+  attendees: { email: string; status: string }[];
+}): CalendarEventView {
+  return {
+    id: event.id,
+    etag: new Date(event.updatedAt).getTime(),
+    title: event.title,
+    description: event.description ?? "",
+    start: new Date(event.start),
+    end: new Date(event.end),
+    isAllDay: event.isAllDay,
+    organizerEmail: event.organizer?.email,
+    attendees: event.attendees,
+  };
+}
 
 // ── Priority helpers ──────────────────────────────────────────────────────────
 
@@ -604,6 +631,56 @@ function EditSupportRow({
   );
 }
 
+function ScheduledMeetingActions({
+  event,
+  supportId,
+  onEdit,
+  onDeleted,
+}: {
+  event: CalendarEventView;
+  supportId: string;
+  onEdit: () => void;
+  onDeleted: () => void;
+}) {
+  const [state, action, pending] = useActionState<DeleteEventState, FormData>(deleteCalendarEvent, {});
+
+  useEffect(() => {
+    if (state.message === "deleted") onDeleted();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.message]);
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[120px]" title={event.title}>
+        {event.title}
+      </span>
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Edit meeting"
+        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2 py-1 text-[11px] font-semibold transition-all"
+      >
+        <Pencil size={11} />
+        Edit
+      </button>
+      <form action={action}>
+        <input type="hidden" name="eventId" value={event.id} />
+        <input type="hidden" name="etag" value={String(event.etag)} />
+        <input type="hidden" name="supportNeedId" value={supportId} />
+        <button
+          type="submit"
+          disabled={pending}
+          title="Delete meeting"
+          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50"
+        >
+          {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+          Delete
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function DeleteSupportButton({ supportId }: { supportId: string }) {
   const [, action, pending] = useActionState<DeleteSupportState, FormData>(deleteSupport, {});
   return (
@@ -812,6 +889,47 @@ function isTaskCarriedOver(
   return prevTodayTasksText.includes(taskText.trim().toLowerCase());
 }
 
+/** Find the most recent *submitted* entry strictly before the given entry's date. */
+function getPrevEntry(entry: MemberReviewEntry, allEntries: MemberReviewEntry[] = []): MemberReviewEntry | undefined {
+  const entryTime = new Date(entry.date).getTime();
+  return allEntries
+    .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+}
+
+function isBlockerCarriedOver(
+  blockerText: string,
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): boolean {
+  const prevEntry = getPrevEntry(entry, allEntries);
+  if (!prevEntry) return false;
+  const prevBlockerText = prevEntry.blockers.map((b) => b.text.trim().toLowerCase());
+  return prevBlockerText.includes(blockerText.trim().toLowerCase());
+}
+
+function isSupportCarriedOver(
+  supportText: string,
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): boolean {
+  const prevEntry = getPrevEntry(entry, allEntries);
+  if (!prevEntry) return false;
+  const prevSupportText = prevEntry.supportNeeds.map((s) => s.text.trim().toLowerCase());
+  return prevSupportText.includes(supportText.trim().toLowerCase());
+}
+
+function isLearningCarriedOver(
+  learningLine: string,
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): boolean {
+  const prevEntry = getPrevEntry(entry, allEntries);
+  if (!prevEntry?.learningText) return false;
+  const prevLines = prevEntry.learningText.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean);
+  return prevLines.includes(learningLine.trim().toLowerCase());
+}
+
 // ── Compact entry preview (collapsed state) ───────────────────────────────────
 
 function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEntry; allEntries?: MemberReviewEntry[] }) {
@@ -893,6 +1011,11 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                     <li key={s.id} className="text-xs leading-snug text-foreground/80">
                       {i + 1}){" "}
                       {renderTextWithMentions(s.text, mentioned, "font-semibold text-primary")}
+                      {isSupportCarriedOver(s.text, entry, allEntries) && (
+                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                          CO
+                        </span>
+                      )}
                       {s.editedBy && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                           (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
@@ -919,6 +1042,11 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                     <li key={b.id} className="text-xs leading-snug text-destructive/90">
                       {i + 1}){" "}
                       {renderTextWithMentions(b.text, mentioned, "font-semibold text-destructive")}
+                      {isBlockerCarriedOver(b.text, entry, allEntries) && (
+                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                          CO
+                        </span>
+                      )}
                       {b.editedBy && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
                           (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
@@ -1067,10 +1195,14 @@ function LearningSection({
   entryId,
   learningText,
   isLocked,
+  entry,
+  allEntries = [],
 }: {
   entryId: string;
   learningText: string | null;
   isLocked: boolean;
+  entry: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
 }) {
   const [, action, pending] = useActionState<UpdateLearningState, FormData>(updateLearningText, {});
   const [, startTransition] = useTransition();
@@ -1177,6 +1309,11 @@ function LearningSection({
               <div className="flex items-start gap-2 text-sm leading-relaxed text-foreground/80 flex-1 min-w-0">
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
                 <span className="truncate">{line}</span>
+                {isLearningCarriedOver(line, entry, allEntries) && (
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                    CO
+                  </span>
+                )}
               </div>
 
               {!isLocked && (
@@ -1278,11 +1415,18 @@ function EntryExpanded({
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
 }) {
+  const router = useRouter();
   const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
   const isReviewable = entry.status !== "REVIEWED";
   const isLocked = entry.status === "REVIEWED";
-  const [scheduleModal, setScheduleModal] = useState<{ title: string; participantIds: string[] } | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{
+    supportId?: string;
+    mode: "create" | "edit";
+    title: string;
+    participantIds: string[];
+    event?: CalendarEventView;
+  } | null>(null);
 
   return (
     <div className="space-y-4">
@@ -1338,6 +1482,8 @@ function EntryExpanded({
         entryId={entry.id}
         learningText={entry.learningText}
         isLocked={isLocked}
+        entry={entry}
+        allEntries={allEntries}
       />
 
       {/* Blockers */}
@@ -1376,6 +1522,11 @@ function EntryExpanded({
                         <span className={cn("flex-1 text-sm leading-snug", b.resolved ? "line-through text-muted-foreground" : "text-destructive/90")}>
                           {renderTextWithMentions(b.text, members, "font-semibold text-destructive")}
                         </span>
+                        {isBlockerCarriedOver(b.text, entry, allEntries) && (
+                          <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                            CO
+                          </span>
+                        )}
                       </div>
                       {b.editedBy && (
                         <span className="text-[10px] text-muted-foreground/70">
@@ -1429,6 +1580,11 @@ function EntryExpanded({
                         <span className="flex-1 text-sm leading-snug text-foreground/90">
                           {renderTextWithMentions(s.text, members, "font-medium text-primary")}
                         </span>
+                        {isSupportCarriedOver(s.text, entry, allEntries) && (
+                          <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                            CO
+                          </span>
+                        )}
                       </div>
                       {s.editedBy && (
                         <span className="text-[10px] text-muted-foreground/70">
@@ -1437,17 +1593,29 @@ function EntryExpanded({
                       )}
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
-                      setScheduleModal({ title: titleText, participantIds: uIds });
-                    }}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
-                  >
-                    <Calendar size={12} className="text-muted-foreground" />
-                    Schedule Meeting
-                  </button>
+                  {s.eventId && s.event ? (
+                    <ScheduledMeetingActions
+                      event={supportEventToView(s.event)}
+                      supportId={s.id}
+                      onEdit={() => {
+                        const view = supportEventToView(s.event!);
+                        setScheduleModal({ supportId: s.id, mode: "edit", title: view.title, participantIds: uIds, event: view });
+                      }}
+                      onDeleted={() => router.refresh()}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
+                        setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: uIds });
+                      }}
+                      className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                    >
+                      <Calendar size={12} className="text-muted-foreground" />
+                      Schedule Meeting
+                    </button>
+                  )}
                   {!isLocked && <DeleteSupportButton supportId={s.id} />}
                 </div>
               );
@@ -1457,7 +1625,7 @@ function EntryExpanded({
             <AddSupportRow
               entryId={entry.id}
               teamMembers={teamMembers}
-              onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
+              onScheduleMeeting={(title, participantIds) => setScheduleModal({ mode: "create", title, participantIds })}
             />
           )}
         </div>
@@ -1480,17 +1648,23 @@ function EntryExpanded({
       {/* Event Scheduler Modal */}
       {scheduleModal && (
         <EventDialog
-          mode="create"
+          mode={scheduleModal.mode}
+          event={scheduleModal.event}
           defaultTitle={scheduleModal.title}
-          defaultStart={(() => {
+          defaultStart={scheduleModal.mode === "create" ? (() => {
             const d = new Date();
             d.setHours(17, 0, 0, 0);
             return d;
-          })()}
+          })() : undefined}
           defaultParticipantIds={scheduleModal.participantIds}
           internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
           currentUserId=""
           onClose={() => setScheduleModal(null)}
+          onSaved={(view) => {
+            if (scheduleModal.supportId && scheduleModal.mode === "create") {
+              void linkSupportNeedEvent(scheduleModal.supportId, view.id).then(() => router.refresh());
+            }
+          }}
         />
       )}
     </div>
