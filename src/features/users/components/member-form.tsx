@@ -242,6 +242,12 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
     e.preventDefault();
     setError(null);
 
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (form.dateOfBirth && form.dateOfBirth > todayStr) {
+      setError("Date of Birth cannot be greater than the current date.");
+      return;
+    }
+
     if (!isValid) {
       setError(`Please fill in all required fields: ${missingRequired.join(", ")}.`);
       return;
@@ -495,7 +501,21 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
 
         <Section title="Personal Details">
           <Field label="Date of Birth" required>
-            <Input type="date" value={form.dateOfBirth} onChange={(e) => update("dateOfBirth", e.target.value)} />
+            <Input
+              type="date"
+              max={new Date().toISOString().split("T")[0]}
+              value={form.dateOfBirth}
+              onChange={(e) => {
+                const val = e.target.value;
+                const todayStr = new Date().toISOString().split("T")[0];
+                if (val && val > todayStr) {
+                  setError("Date of Birth cannot be greater than the current date.");
+                } else {
+                  setError(null);
+                }
+                update("dateOfBirth", val);
+              }}
+            />
           </Field>
           <Field label="Gender" required>
             <Select value={form.gender} onValueChange={(v) => update("gender", v)}>

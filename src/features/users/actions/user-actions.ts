@@ -137,6 +137,15 @@ function toDate(value?: string) {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
+function safeToIsoDate(d: Date | null | undefined): string {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  try {
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+}
+
 function assertRequiredFields(input: MemberFormInput) {
   const missing: string[] = [];
   if (!input.employeeId?.trim()) missing.push("Employee ID");
@@ -152,6 +161,15 @@ function assertRequiredFields(input: MemberFormInput) {
   if (!input.location?.trim()) missing.push("Location");
   if (missing.length > 0) {
     throw new Error(`Missing required field(s): ${missing.join(", ")}`);
+  }
+
+  if (input.dateOfBirth) {
+    const dob = toDate(input.dateOfBirth);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (dob && dob > today) {
+      throw new Error("Date of Birth cannot be greater than the current date.");
+    }
   }
 }
 
@@ -248,9 +266,34 @@ export async function updateTeamMemberAction(input: UpdateTeamMemberInput): Prom
   revalidatePath(ROUTES.settingsUsers);
 }
 
-export interface MemberDetails extends MemberFormInput {
+export interface MemberDetails {
   id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: UserRole;
   image: string | null;
+  designation: string;
+  employeeId: string;
+  employmentType: string;
+  department: string;
+  location: string;
+  dateOfJoining: string;
+  dateOfConfirmation: string;
+  reportingToId: string;
+  secondaryReportingToId: string;
+  dateOfBirth: string;
+  gender: string;
+  maritalStatus: string;
+  workMobile: string;
+  personalMobile: string;
+  parentGuardianName: string;
+  parentGuardianMobile: string;
+  permanentAddress: string;
+  personalEmail: string;
+  aadharNumber: string;
+  bankAccountNumber: string;
+  ifscCode: string;
   documents: { kind: string; fileName: string; fileUrl: string }[];
 }
 
@@ -275,11 +318,11 @@ export async function getUserDetailsAction(userId: string): Promise<MemberDetail
     employmentType: user.employmentType || "",
     department: user.department || "",
     location: user.location || "",
-    dateOfJoining: user.dateOfJoining ? user.dateOfJoining.toISOString().split("T")[0] : "",
-    dateOfConfirmation: user.dateOfConfirmation ? user.dateOfConfirmation.toISOString().split("T")[0] : "",
+    dateOfJoining: safeToIsoDate(user.dateOfJoining),
+    dateOfConfirmation: safeToIsoDate(user.dateOfConfirmation),
     reportingToId: user.reportingToId || "",
     secondaryReportingToId: user.secondaryReportingToId || "",
-    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().split("T")[0] : "",
+    dateOfBirth: safeToIsoDate(user.dateOfBirth),
     gender: user.gender || "",
     maritalStatus: user.maritalStatus || "",
     workMobile: user.workMobile || "",
