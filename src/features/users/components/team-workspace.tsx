@@ -32,12 +32,12 @@ export function TeamWorkspace({
   const profileUser = members.find((m) => m.id === profileUserId) || null;
 
   return (
-    <div className="p-6">
+    <div className="p-6 w-full pb-8">
       <Tabs defaultValue="my-team">
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="my-team">My Team</TabsTrigger>
-            <TabsTrigger value="employee-tree">Employee Tree</TabsTrigger>
+            <TabsTrigger value="employee-tree">Organization Tree</TabsTrigger>
             <TabsTrigger value="department-tree">Department Tree</TabsTrigger>
           </TabsList>
 

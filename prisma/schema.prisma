@@ -134,21 +134,33 @@ model StandupEntry {
   user          User                 @relation("UserStandups", fields: [userId], references: [id], onDelete: Cascade)
   supportNeeds  StandupSupportNeed[]
   tasks         StandupTask[]
+  timelineEvents StandupTimelineEvent[]
 
   @@unique([userId, date])
 }
 
 model StandupTask {
-  id              String        @id @default(cuid())
-  entryId         String
-  kind            TaskKind
-  text            String
-  order           Int           @default(0)
-  priority        String?
-  managerPriority String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  entry           StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  entryId          String
+  kind             TaskKind
+  text             String
+  order            Int           @default(0)
+  priority         String?
+  managerPriority  String?
+  addedAfterReview Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+}
+
+model StandupTimelineEvent {
+  id         String       @id @default(cuid())
+  entryId    String
+  type       String
+  label      String
+  occurredAt DateTime
+  createdAt  DateTime     @default(now())
+  entry      StandupEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
 model StandupBlocker {
@@ -390,15 +402,16 @@ model DsrEntry {
 }
 
 model DsrPlannedTask {
-  id         String   @id @default(cuid())
-  dsrEntryId String
-  text       String
-  priority   String?
-  completed  Boolean  @default(false)
-  order      Int           @default(0)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  dsrEntry   DsrEntry      @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  dsrEntryId       String
+  text             String
+  priority         String?
+  completed        Boolean       @default(false)
+  addedAfterReview Boolean       @default(false)
+  order            Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  dsrEntry         DsrEntry      @relation(fields: [dsrEntryId], references: [id], onDelete: Cascade)
 }
 
 model DsrAdditionalWork {

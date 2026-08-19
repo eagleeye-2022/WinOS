@@ -42,6 +42,8 @@ type Props = {
   onEventCreatedLocally?: (event: CalendarEventView) => void;
   /** Fired once, after the server confirms the event was created/updated. */
   onSaved?: (event: CalendarEventView) => void;
+  /** In "create" mode, atomically links the new event back to this support-need row server-side. */
+  linkSupportNeedId?: string;
 };
 
 const ROOM_OPTIONS = [
@@ -63,6 +65,7 @@ export function EventDialog({
   onClose,
   onEventCreatedLocally,
   onSaved,
+  linkSupportNeedId,
 }: Props) {
   const router = useRouter();
   const [createState, createAction, createPending] = useActionState<CreateEventState, FormData>(
@@ -74,9 +77,18 @@ export function EventDialog({
     {},
   );
 
-  const state = mode === "create" ? createState : updateState;
-  const action = mode === "create" ? createAction : updateAction;
-  const pending = mode === "create" ? createPending : updatePending;
+  // After a fresh "create", clicking "Edit" on the success confirmation must
+  // switch to actually *updating* the just-created event — otherwise
+  // resubmitting the form would call createCalendarEvent again and produce a
+  // duplicate event.
+  const [isEditingAfterSuccess, setIsEditingAfterSuccess] = useState(false);
+  const [createdEventId, setCreatedEventId] = useState<string | undefined>(undefined);
+  const effectiveMode: "create" | "edit" = mode === "create" && isEditingAfterSuccess ? "edit" : mode;
+  const effectiveEventId = mode === "create" ? createdEventId : event?.id;
+
+  const state = effectiveMode === "create" ? createState : updateState;
+  const action = effectiveMode === "create" ? createAction : updateAction;
+  const pending = effectiveMode === "create" ? createPending : updatePending;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isLoading = pending || isSubmitting;
@@ -179,7 +191,7 @@ export function EventDialog({
 
   // Only newly-created events must start in the future — editing an existing
   // (possibly already-past) event shouldn't be blocked by this.
-  const dtErrors = mode === "create" ? validateEventDateTime(start, end, now) : {};
+  const dtErrors = effectiveMode === "create" ? validateEventDateTime(start, end, now) : {};
   const isDateTimeValid = !dtErrors.start && !dtErrors.end;
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -220,9 +232,7 @@ export function EventDialog({
     }
   }
 
-  const [isEditingAfterSuccess, setIsEditingAfterSuccess] = useState(false);
-
-  const successMessage = mode === "create" ? "created" : "updated";
+  const successMessage = effectiveMode === "create" ? "created" : "updated";
 
   const onSavedFiredRef = useRef(false);
   useEffect(() => {
@@ -240,7 +250,7 @@ export function EventDialog({
     const userEmail = currentUser?.email ?? "mohit.thakre@zylker.com";
 
     onSaved?.({
-      id: state.eventId || event?.id || `local-evt-${Date.now()}`,
+      id: state.eventId || effectiveEventId || event?.id || `local-evt-${Date.now()}`,
       etag: Date.now(),
       title: toTitleCase(title) || "Scheduled Event",
       description: location ? `Location: ${location}` : meetingType === "online" ? `Online Meeting` : "",
@@ -259,7 +269,7 @@ export function EventDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.message]);
 
-  if (state.message === successMessage && !isEditingAfterSuccess) {
+  if (state.message === successMessage) {
     const selectedUsers = internalUsers.filter((u) => selectedIds.includes(u.id));
     const attendeeEmails = new Set<string>();
     selectedUsers.forEach((u) => attendeeEmails.add(u.email));
@@ -274,7 +284,7 @@ export function EventDialog({
     ];
 
     const createdEventView: CalendarEventView = {
-      id: state.eventId || event?.id || "local-evt-created",
+      id: state.eventId || effectiveEventId || event?.id || "local-evt-created",
       etag: 1,
       title: toTitleCase(title) || "Scheduled Event",
       description: location ? `Location: ${location}` : meetingType === "online" ? `Online Meeting` : "",
@@ -295,6 +305,7 @@ export function EventDialog({
           onClose();
         }}
         onEdit={() => {
+          setCreatedEventId(state.eventId || effectiveEventId);
           setIsEditingAfterSuccess(true);
         }}
       />
@@ -312,7 +323,7 @@ export function EventDialog({
             <span>All Events</span>
             <span>&gt;</span>
             <span className="font-semibold text-foreground">
-              {mode === "create" ? "Create Event" : "Edit Event"}
+              {effectiveMode === "create" ? "Create Event" : "Edit Event"}
             </span>
           </div>
 
@@ -351,14 +362,18 @@ export function EventDialog({
             <input key={id} type="hidden" name="participantIds" value={id} />
           ))}
 
-          {mode === "edit" && event && (
+          {effectiveMode === "edit" && effectiveEventId && (
             <>
-              <input type="hidden" name="eventId" value={event.id} />
-              <input type="hidden" name="etag" value={event.etag} />
+              <input type="hidden" name="eventId" value={effectiveEventId} />
+              <input type="hidden" name="etag" value={event?.etag ?? 1} />
               {initialParticipantIds.map((id) => (
                 <input key={id} type="hidden" name="previousParticipantIds" value={id} />
               ))}
             </>
+          )}
+
+          {effectiveMode === "create" && linkSupportNeedId && (
+            <input type="hidden" name="supportNeedId" value={linkSupportNeedId} />
           )}
 
           {/* Meeting Type Selector (Face to Face vs Online Meeting) */}
@@ -635,7 +650,7 @@ export function EventDialog({
                 className="flex items-center gap-1.5 rounded-full bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
               >
                 {isLoading && <Loader2 size={13} className="animate-spin" />}
-                {isLoading ? (mode === "create" ? "Creating…" : "Saving…") : mode === "create" ? "Create" : "Save"}
+                {isLoading ? (effectiveMode === "create" ? "Creating…" : "Saving…") : effectiveMode === "create" ? "Create" : "Save"}
               </button>
             </div>
           </div>

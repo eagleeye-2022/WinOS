@@ -18,12 +18,9 @@ export async function deleteCalendarEvent(
   if (!session?.user?.id) return { message: "Unauthorized" };
 
   const eventId = getStr(formData, "eventId");
-  if (!eventId) return { message: "Missing eventId" };
-
-  console.log(`[calendar:delete] Deleting event ID: ${eventId}...`);
+  const supportNeedId = getStr(formData, "supportNeedId");
 
   // 0. If this event was scheduled from a support-need row, unlink it first.
-  const supportNeedId = getStr(formData, "supportNeedId");
   if (supportNeedId) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,10 +32,15 @@ export async function deleteCalendarEvent(
       revalidatePath("/dsm");
       revalidatePath("/dsm/all");
       revalidatePath("/dsm/my");
+      revalidatePath("/dsm/member", "layout");
     } catch (err) {
       console.warn("[calendar:delete] Failed to unlink support need:", err);
     }
   }
+
+  if (!eventId) return { message: "deleted" };
+
+  console.log(`[calendar:delete] Deleting event ID: ${eventId}...`);
 
   // 1. Delete DB event
   try {

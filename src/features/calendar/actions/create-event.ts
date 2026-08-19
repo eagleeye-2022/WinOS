@@ -122,6 +122,7 @@ export async function createCalendarEvent(
   });
 
   const attendeeData = Array.from(attendeeDataMap.values());
+  const supportNeedId = getStr(formData, "supportNeedId");
 
   // 2. Save event in PostgreSQL Database for cross-user collaboration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,6 +148,36 @@ export async function createCalendarEvent(
       },
     },
   });
+
+  // 2b. If this event was scheduled from a support-need row, link it back
+  // atomically here rather than in a separate client round-trip after the
+  // fact — a two-step version was racy and could silently leave the
+  // support-need row unlinked.
+  if (supportNeedId) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await (db as any).standupSupportNeed.findUnique({
+        where: { id: supportNeedId },
+        select: { entry: { select: { userId: true } } },
+      });
+      const isOwnerOrManager =
+        existing && (existing.entry.userId === userId || session.user.role === "MANAGER");
+      if (isOwnerOrManager) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db as any).standupSupportNeed.update({
+          where: { id: supportNeedId },
+          data: { eventId: createdDbEvent.id },
+        });
+        revalidatePath("/support");
+        revalidatePath("/dsm");
+        revalidatePath(`/dsm/member/${existing.entry.userId}`);
+        revalidatePath("/dsm/all");
+        revalidatePath("/dsm/my");
+      }
+    } catch (err) {
+      console.warn("[calendar] Failed to link support need to new event:", err);
+    }
+  }
 
   // 3. Send notifications & emails to invited participants
   if (invitees.length > 0) {

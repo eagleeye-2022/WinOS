@@ -6,6 +6,7 @@ import { TodaysFocusCard } from "./today-focus-card";
 import { SubmitDsmForm } from "./submit-dsm-form";
 import { WeekHistory } from "./week-history";
 import { KpiCards } from "./kpi-cards";
+import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import type { EntryWithDetails, KpiStats, TeamMember } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
 
@@ -71,17 +72,22 @@ export function DsmSelfPanel({
         weekOffset={weekOffset}
         basePath={basePath}
         headerAction={
-          canEdit ? (
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              title="Edit Today's DSM"
-              aria-label="Edit Today's DSM"
-              className="rounded-full border bg-card p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
-            >
-              <Pencil size={16} className="dark:text-[#93C5FD]" />
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {entry?.status === "REVIEWED" && (
+              <AddTaskAfterReviewRow entryId={entry.id} />
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                title="Edit Today's DSM"
+                aria-label="Edit Today's DSM"
+                className="rounded-full border bg-card p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+              >
+                <Pencil size={16} className="dark:text-[#93C5FD]" />
+              </button>
+            )}
+          </div>
         }
       />
       <KpiCards stats={kpiStats} />

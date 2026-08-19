@@ -130,8 +130,6 @@ export function TeamTable({ members, onSelectUser }: TeamTableProps) {
               <TableHead className="text-center">Member</TableHead>
               <TableHead className="text-center">Role</TableHead>
               <TableHead className="text-center">Department</TableHead>
-              <TableHead className="text-center">Age</TableHead>
-              <TableHead className="text-center">Date of Joining</TableHead>
               <TableHead className="text-center">Login (Enable/Disable)</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
@@ -139,7 +137,7 @@ export function TeamTable({ members, onSelectUser }: TeamTableProps) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   No team members found.
                 </TableCell>
               </TableRow>
@@ -181,12 +179,6 @@ export function TeamTable({ members, onSelectUser }: TeamTableProps) {
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
                     {member.department || "—"}
-                  </TableCell>
-                  <TableCell className="text-center text-muted-foreground">
-                    {member.age !== null ? member.age : "—"}
-                  </TableCell>
-                  <TableCell className="text-center text-muted-foreground">
-                    {member.dateOfJoining || "—"}
                   </TableCell>
                   <TableCell className="text-center">
                     <Switch

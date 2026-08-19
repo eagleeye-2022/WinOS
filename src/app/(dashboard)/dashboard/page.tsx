@@ -133,8 +133,8 @@ function ManagerDashboard({
                   {dsrStats.pendingCount === 0
                     ? "All Members Submitted"
                     : `${dsrStats.pendingCount} Pending Submission${dsrStats.pendingCount !== 1 ? "s" : ""}`}
-                  {dsrStats.highPriorityBlockers > 0 &&
-                    ` · ${dsrStats.highPriorityBlockers} High-Priority Blocker${dsrStats.highPriorityBlockers !== 1 ? "s" : ""}`}
+                  {dsrStats.highPriorityBlockersCount > 0 &&
+                    ` · ${dsrStats.highPriorityBlockersCount} High-Priority Blocker${dsrStats.highPriorityBlockersCount !== 1 ? "s" : ""}`}
                 </p>
               </>
             ) : (

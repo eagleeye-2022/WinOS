@@ -10,6 +10,7 @@ export type DsrPlannedTaskData = {
   priority: string | null;
   completed: boolean;
   order: number;
+  addedAfterReview?: boolean;
 };
 
 export type DsrAdditionalWorkData = { id: string; text: string; order: number };

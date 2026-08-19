@@ -38,9 +38,46 @@ export async function reviewStandup(
     },
   });
 
+  const existingApproved = await d.standupTimelineEvent.findFirst({
+    where: { entryId, type: "APPROVED" },
+  });
+  if (!existingApproved) {
+    await d.standupTimelineEvent.create({
+      data: {
+        entryId,
+        type: "APPROVED",
+        label: "Manager Approved",
+        occurredAt: new Date(),
+      },
+    });
+  }
+
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
   revalidatePath("/dsm/all");
   revalidatePath(`/dsm/member/${entry.userId}`);
   return { message: "reviewed" };
+}
+
+/** Create an OPENED event when a manager first views a standup entry. */
+export async function createStandupOpenedEvent(entryId: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "MANAGER") return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const existing = await d.standupTimelineEvent.findFirst({
+    where: { entryId, type: "OPENED" },
+  });
+  if (existing) return;
+
+  await d.standupTimelineEvent.create({
+    data: {
+      entryId,
+      type: "OPENED",
+      label: "Manager Opened",
+      occurredAt: new Date(),
+    },
+  });
 }
