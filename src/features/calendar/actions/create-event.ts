@@ -7,7 +7,7 @@ import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, createZohoEvent } from "@/lib/zoho-calendar";
 import { sendCalendarInviteEmail } from "@/lib/email";
 import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
-import { parseRule, serializeRule } from "../recurrence";
+import { parseRule, serializeRule, toRRuleString } from "../recurrence";
 
 export type CreateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -224,6 +224,9 @@ export async function createCalendarEvent(
     const token = await getValidZohoAccessToken(userId);
     if (token && token.calendarUid) {
       console.log(`[calendar] Syncing event "${title}" to Zoho Calendar (UID: ${token.calendarUid})...`);
+      const parsedRule = parseRule(recurrenceRule);
+      const rruleStr = toRRuleString(parsedRule, start);
+
       const zohoRes = await createZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, {
         title,
         description,
@@ -232,8 +235,14 @@ export async function createCalendarEvent(
         isAllDay,
         timezone: CALENDAR_TIMEZONE,
         attendeeEmails: Array.from(attendeeDataMap.keys()),
+        rrule: rruleStr,
       });
       console.log(`[calendar] Successfully created Zoho event ID: ${zohoRes.id}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (db as any).calendarEvent.update({
+        where: { id: createdDbEvent.id },
+        data: { zohoEventId: zohoRes.id },
+      });
     } else {
       console.warn(`[calendar] Zoho sync skipped for user ${userId}: No valid token or primary calendarUid found.`);
     }

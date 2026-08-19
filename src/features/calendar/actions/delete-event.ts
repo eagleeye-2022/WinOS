@@ -42,8 +42,16 @@ export async function deleteCalendarEvent(
 
   console.log(`[calendar:delete] Deleting event ID: ${eventId}...`);
 
-  // 1. Delete DB event
+  // 1. Look up the Zoho-side ID before the DB row is gone, then delete DB event
+  let zohoEventId: string | null = null;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbEvent = await (db as any).calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { zohoEventId: true },
+    });
+    zohoEventId = dbEvent?.zohoEventId ?? null;
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await (db as any).calendarEvent.deleteMany({
       where: { id: eventId },
@@ -53,14 +61,14 @@ export async function deleteCalendarEvent(
     console.warn("[calendar:delete] DB event delete error:", err);
   }
 
-  // 2. Delete from Zoho if connected
+  // 2. Delete from Zoho if connected and this event was actually synced there
   try {
     const etagStr = getStr(formData, "etag");
     const etagNum = etagStr ? Number(etagStr) : 1;
     const token = await getValidZohoAccessToken(session.user.id);
-    if (token && token.calendarUid) {
-      console.log(`[calendar:delete] Deleting event ${eventId} from Zoho Calendar (UID: ${token.calendarUid})...`);
-      await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, eventId, isNaN(etagNum) ? 1 : etagNum);
+    if (token && token.calendarUid && zohoEventId) {
+      console.log(`[calendar:delete] Deleting event ${zohoEventId} from Zoho Calendar (UID: ${token.calendarUid})...`);
+      await deleteZohoEvent(token.accessToken, token.apiDomain, token.calendarUid, zohoEventId, isNaN(etagNum) ? 1 : etagNum);
       console.log(`[calendar:delete] Successfully deleted event from Zoho Calendar`);
     }
   } catch (err) {

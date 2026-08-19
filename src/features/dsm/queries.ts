@@ -44,6 +44,18 @@ export type EntrySupportNeed = {
   order: number;
   editedById?: string | null;
   editedBy?: { id: string; name: string | null; email: string } | null;
+  eventId?: string | null;
+  event?: {
+    id: string;
+    title: string;
+    description: string | null;
+    start: Date;
+    end: Date;
+    isAllDay: boolean;
+    updatedAt: Date;
+    organizer: { email: string } | null;
+    attendees: { email: string; status: string }[];
+  } | null;
 };
 
 export type EntryWithDetails = {
@@ -100,6 +112,19 @@ const entryInclude = {
     include: {
       mentionedUser: { select: { id: true, name: true, email: true } },
       editedBy: { select: { id: true, name: true, email: true } },
+      event: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          start: true,
+          end: true,
+          isAllDay: true,
+          updatedAt: true,
+          organizer: { select: { email: true } },
+          attendees: { select: { email: true, status: true } },
+        },
+      },
     },
   },
   reviewedBy: { select: { name: true, email: true } },

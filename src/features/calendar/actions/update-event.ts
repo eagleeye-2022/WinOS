@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
 import { getValidZohoAccessToken, updateZohoEvent } from "@/lib/zoho-calendar";
 import { CALENDAR_TIMEZONE, fromDateTimeLocalValue, toTitleCase } from "../utils";
-import { parseRule, serializeRule } from "../recurrence";
+import { parseRule, serializeRule, toRRuleString } from "../recurrence";
 
 export type UpdateEventState = {
   errors?: { title?: string[]; start?: string[]; end?: string[] };
@@ -132,12 +132,23 @@ export async function updateCalendarEvent(
     const etagStr = getStr(formData, "etag");
     const etag = etagStr ? Number(etagStr) : Date.now();
     const token = await getValidZohoAccessToken(session.user.id);
-    if (token && token.calendarUid) {
-      await updateZohoEvent(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbEvent = await (db as any).calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { zohoEventId: true },
+    });
+
+    const targetZohoId = dbEvent?.zohoEventId || eventId;
+
+    if (token && token.calendarUid && targetZohoId) {
+      const parsedRule = parseRule(recurrenceRule);
+      const rruleStr = toRRuleString(parsedRule, start);
+
+      const zohoRes = await updateZohoEvent(
         token.accessToken,
         token.apiDomain,
         token.calendarUid,
-        eventId,
+        targetZohoId,
         {
           title,
           description,
@@ -147,9 +158,18 @@ export async function updateCalendarEvent(
           timezone: CALENDAR_TIMEZONE,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           attendeeEmails: invitees.map((u: any) => u.email),
+          rrule: rruleStr,
         },
         etag,
       );
+
+      if (zohoRes.id && dbEvent && !dbEvent.zohoEventId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (db as any).calendarEvent.update({
+          where: { id: eventId },
+          data: { zohoEventId: zohoRes.id },
+        });
+      }
     }
   } catch (err) {
     console.warn("[calendar] Zoho update skipped/failed:", err);

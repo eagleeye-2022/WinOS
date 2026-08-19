@@ -222,20 +222,83 @@ export function serializeRule(rule: RecurrenceRule | null): string | null {
   return rule ? JSON.stringify(rule) : null;
 }
 
+/** Convert RecurrenceRule into an RFC5545 RRULE string suitable for Zoho Calendar API. */
+export function toRRuleString(rule: RecurrenceRule | null, start: Date): string | undefined {
+  if (!rule) return undefined;
+  const parts: string[] = [`FREQ=${rule.freq}`];
+
+  if (rule.interval && rule.interval > 1) {
+    parts.push(`INTERVAL=${rule.interval}`);
+  }
+
+  if (rule.freq === "WEEKLY") {
+    const days = rule.byDay && rule.byDay.length > 0 ? rule.byDay : [localWeekday(start)];
+    parts.push(`BYDAY=${days.join(",")}`);
+  } else if (rule.freq === "MONTHLY") {
+    const { day } = toLocalParts(start);
+    if (rule.monthlyMode === "DAY") {
+      const wkday = localWeekday(start);
+      const nth = weekdayOccurrenceIndex(day);
+      parts.push(`BYDAY=${nth}${wkday}`);
+    } else {
+      parts.push(`BYMONTHDAY=${day}`);
+    }
+  }
+
+  if (rule.until) {
+    const cleanUntil = rule.until.replace(/-/g, "");
+    parts.push(`UNTIL=${cleanUntil}T235959Z`);
+  }
+
+  return parts.join(";");
+}
+
 export function parseRule(json: string | null | undefined): RecurrenceRule | null {
   if (!json) return null;
-  try {
-    const obj = JSON.parse(json);
-    if (
-      obj && typeof obj === "object" &&
-      typeof obj.freq === "string" && ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(obj.freq) &&
-      typeof obj.interval === "number" && obj.interval >= 1
-    ) {
-      return obj as RecurrenceRule;
-    }
-  } catch {
-    // malformed/legacy value — treat as no recurrence
+
+  if (typeof json === "object") {
+    return json as RecurrenceRule;
   }
+
+  if (typeof json === "string" && json.trim().startsWith("{")) {
+    try {
+      const obj = JSON.parse(json);
+      if (
+        obj && typeof obj === "object" &&
+        typeof obj.freq === "string" && ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(obj.freq) &&
+        typeof obj.interval === "number" && obj.interval >= 1
+      ) {
+        return obj as RecurrenceRule;
+      }
+    } catch {
+      // invalid JSON fallback
+    }
+  }
+
+  if (typeof json === "string" && (json.includes("FREQ=") || json.toUpperCase().startsWith("RRULE:"))) {
+    const clean = json.replace(/^RRULE:/i, "");
+    const parts = clean.split(";").reduce((acc, part) => {
+      const [k, v] = part.split("=");
+      if (k && v) acc[k.toUpperCase()] = v.toUpperCase();
+      return acc;
+    }, {} as Record<string, string>);
+
+    const freq = parts["FREQ"] as RecurrenceFreq;
+    if (freq && ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(freq)) {
+      const interval = parseInt(parts["INTERVAL"] || "1", 10) || 1;
+      const byDayStr = parts["BYDAY"];
+      const byDay = byDayStr
+        ? (byDayStr.split(",").map((d) => d.replace(/^[0-9-]+/, "")).filter((d) => WEEKDAYS.includes(d as Weekday)) as Weekday[])
+        : undefined;
+      const untilStr = parts["UNTIL"];
+      let until: string | null = null;
+      if (untilStr && untilStr.length >= 8) {
+        until = `${untilStr.slice(0, 4)}-${untilStr.slice(4, 6)}-${untilStr.slice(6, 8)}`;
+      }
+      return { freq, interval, byDay: byDay && byDay.length > 0 ? byDay : undefined, until };
+    }
+  }
+
   return null;
 }
 

@@ -77,6 +77,8 @@ export async function saveDsm(
   const supportTexts = (formData.getAll("supportText") as string[]).map((t) => t.trim());
   // Each supportUserId value is a comma-separated list of mentioned user IDs
   const supportUserIdRaw = formData.getAll("supportUserId") as string[];
+  // Each supportEventId value links the row to a previously scheduled calendar event
+  const supportEventIdRaw = formData.getAll("supportEventId") as string[];
 
   // Validate on submit only
   if (action === "submit") {
@@ -169,6 +171,7 @@ export async function saveDsm(
       const text = supportTexts[i];
       if (!text) continue;
       const rawIds = supportUserIdRaw[i] ? supportUserIdRaw[i].split(",").filter(Boolean) : [];
+      const eventId = supportEventIdRaw[i]?.trim() || null;
       const support = await d.standupSupportNeed.create({
         data: {
           entryId: entry.id,
@@ -177,6 +180,7 @@ export async function saveDsm(
           resolved: false,
           mentionedUserId: rawIds[0] ?? null,
           mentionedUserIds: rawIds.length > 0 ? rawIds.join(",") : null,
+          eventId,
         },
       });
       if (rawIds.length > 0 && d.standupSupportNeedMention) {

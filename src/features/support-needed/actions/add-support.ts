@@ -43,7 +43,8 @@ export async function addSupport(
   const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
   const order = maxOrder + 1;
 
-  const rawIds = formData.getAll("mentionedUserIds").map(String).filter(Boolean);
+  const rawIds = ((formData.get("mentionedUserId") as string) || "").split(",").filter(Boolean);
+  const eventId = (formData.get("eventId") as string)?.trim() || null;
 
   const support = await d.standupSupportNeed.create({
     data: {
@@ -51,6 +52,9 @@ export async function addSupport(
       resolved: false,
       order,
       entryId,
+      mentionedUserId: rawIds[0] ?? null,
+      mentionedUserIds: rawIds.length > 0 ? rawIds.join(",") : null,
+      eventId,
     },
   });
   if (rawIds.length > 0 && d.standupSupportNeedMention) {

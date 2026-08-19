@@ -157,17 +157,31 @@ export async function getCalendarEvents(
       zohoEvents.forEach((e) => {
         if (!seenIds.has(e.id)) {
           seenIds.add(e.id);
-          results.push({
+          const rule = parseRule(e.rrule);
+          const eventStart = new Date(e.start);
+          const eventEnd = new Date(e.end);
+          const base = {
             id: e.id,
             etag: e.etag,
             title: e.title,
             description: e.description ?? "",
-            start: new Date(e.start),
-            end: new Date(e.end),
             isAllDay: e.isAllDay,
             organizerEmail: e.organizerEmail,
             attendees: e.attendees,
-          });
+            recurrenceRule: rule,
+          };
+
+          if (!rule) {
+            results.push({ ...base, start: eventStart, end: eventEnd });
+          } else {
+            const occurrences = expandOccurrences(eventStart, eventEnd, rule, rangeStart, rangeEnd);
+            occurrences.forEach((occ) => {
+              results.push({ ...base, start: occ.start, end: occ.end, isRecurringInstance: true });
+            });
+            if (occurrences.length === 0) {
+              results.push({ ...base, start: eventStart, end: eventEnd });
+            }
+          }
         }
       });
     }

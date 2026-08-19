@@ -39,9 +39,9 @@ model User {
   secondaryReportingToId String?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
-  reportingTo           User?                   @relation("ReportsTo", fields: [reportingToId], references: [id])
+  reportingTo           User?                   @relation("ReportsTo", fields: [reportingToId], references: [id], onDelete: SetNull)
   directReports         User[]                  @relation("ReportsTo")
-  secondaryReportingTo  User?                   @relation("SecondaryReportsTo", fields: [secondaryReportingToId], references: [id])
+  secondaryReportingTo  User?                   @relation("SecondaryReportsTo", fields: [secondaryReportingToId], references: [id], onDelete: SetNull)
   secondaryReports      User[]                  @relation("SecondaryReportsTo")
   documents             UserDocument[]
   accounts              Account[]
@@ -130,7 +130,7 @@ model StandupEntry {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   blockers      StandupBlocker[]
-  reviewedBy    User?                @relation("ReviewedStandups", fields: [reviewedById], references: [id])
+  reviewedBy    User?                @relation("ReviewedStandups", fields: [reviewedById], references: [id], onDelete: SetNull)
   user          User                 @relation("UserStandups", fields: [userId], references: [id], onDelete: Cascade)
   supportNeeds  StandupSupportNeed[]
   tasks         StandupTask[]
@@ -177,8 +177,8 @@ model StandupBlocker {
   comments        BlockerComment[]
   mentions        StandupBlockerMention[]
   entry           StandupEntry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  mentionedUser   User?                   @relation("BlockerMentions", fields: [mentionedUserId], references: [id])
-  editedBy        User?                   @relation("BlockerEditedBy", fields: [editedById], references: [id])
+  mentionedUser   User?                   @relation("BlockerMentions", fields: [mentionedUserId], references: [id], onDelete: SetNull)
+  editedBy        User?                   @relation("BlockerEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
 }
 
 model StandupBlockerMention {
@@ -216,8 +216,8 @@ model StandupSupportNeed {
   updatedAt       DateTime                    @updatedAt
   mentions        StandupSupportNeedMention[]
   entry           StandupEntry                @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  mentionedUser   User?                       @relation("SupportMentions", fields: [mentionedUserId], references: [id])
-  editedBy        User?                       @relation("SupportEditedBy", fields: [editedById], references: [id])
+  mentionedUser   User?                       @relation("SupportMentions", fields: [mentionedUserId], references: [id], onDelete: SetNull)
+  editedBy        User?                       @relation("SupportEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
   event           CalendarEvent?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
   comments        SupportNeedComment[]
 }
@@ -278,7 +278,7 @@ model Notification {
   teamId         String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  createdBy      User             @relation("SentNotifications", fields: [createdById], references: [id])
+  createdBy      User             @relation("SentNotifications", fields: [createdById], references: [id], onDelete: Cascade)
   user           User             @relation("ReceivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -293,7 +293,7 @@ model Team {
   leadId          String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-  lead            User?        @relation("TeamLead", fields: [leadId], references: [id])
+  lead            User?        @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
   members         TeamMember[]
 }
 
@@ -390,7 +390,7 @@ model DsrEntry {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   additionalWorks    DsrAdditionalWork[]
-  reviewedBy         User?                @relation("DsrReviewedBy", fields: [reviewedById], references: [id])
+  reviewedBy         User?                @relation("DsrReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
   user               User                 @relation("UserDsrEntries", fields: [userId], references: [id], onDelete: Cascade)
   followUpsDone      DsrFollowUpDone[]
   learningItems      DsrLearningItem[]
@@ -717,6 +717,8 @@ model CalendarEvent {
   isAllDay       Boolean                 @default(false)
   /// JSON-serialized RecurrenceRule (see src/features/calendar/recurrence.ts). Null = one-off event.
   recurrenceRule String?
+  /// The event's ID in Zoho Calendar, if it was synced there. Null when Zoho wasn't connected at creation time.
+  zohoEventId    String?
   organizerId    String
   organizer      User                    @relation("OrganizedEvents", fields: [organizerId], references: [id], onDelete: Cascade)
   attendees      CalendarEventAttendee[]
