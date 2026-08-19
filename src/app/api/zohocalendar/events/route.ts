@@ -6,6 +6,7 @@ import { getCalendarEvents } from "@/features/calendar/queries";
 import { getValidZohoAccessToken, createZohoEvent } from "@/lib/zoho-calendar";
 import { sendCalendarInviteEmail } from "@/lib/email";
 import { CALENDAR_TIMEZONE } from "@/features/calendar/utils";
+import { parseRule, serializeRule, toRRuleString } from "@/features/calendar/recurrence";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
       isRecording = false,
       attendees: rawAttendees = [],
       attendeeEmails: rawAttendeeEmails = [],
+      recurrenceRule: rawRecurrenceRule,
     } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -201,6 +203,9 @@ export async function POST(request: NextRequest) {
     try {
       const tokenInfo = await getValidZohoAccessToken(userId);
       if (tokenInfo && tokenInfo.calendarUid) {
+        const parsedRule = parseRule(rawRecurrenceRule ? serializeRule(parseRule(rawRecurrenceRule)) : null);
+        const rruleStr = toRRuleString(parsedRule, event.start);
+
         const zohoRes = await createZohoEvent(
           tokenInfo.accessToken,
           tokenInfo.apiDomain,
@@ -213,10 +218,18 @@ export async function POST(request: NextRequest) {
             isAllDay: event.isAllDay,
             timezone: CALENDAR_TIMEZONE,
             attendeeEmails: Array.from(attendeeDataMap.keys()),
+            rrule: rruleStr,
           },
         );
         zohoSynced = true;
         zohoEventId = zohoRes.id;
+        if (zohoRes.id && event.id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (db as any).calendarEvent.update({
+            where: { id: event.id },
+            data: { zohoEventId: zohoRes.id },
+          });
+        }
       }
     } catch (zohoErr) {
       console.warn("[api:zoho:events] Zoho sync skipped/failed:", zohoErr);

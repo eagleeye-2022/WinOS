@@ -681,7 +681,7 @@ function ScheduledMeetingActions({
         <Pencil size={11} className="text-muted-foreground" />
         Edit Meeting
       </button>
-      <form action={action}>
+      {/* <form action={action}>
         <input type="hidden" name="eventId" value={event?.id ?? ""} />
         <input type="hidden" name="etag" value={String(event?.etag ?? 1)} />
         <input type="hidden" name="supportNeedId" value={supportId} />
@@ -694,7 +694,7 @@ function ScheduledMeetingActions({
         >
           {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
         </button>
-      </form>
+      </form> */}
     </div>
   );
 }
@@ -1617,74 +1617,78 @@ function EntryExpanded({
               const hasMeeting = Boolean(s.eventId || s.event || localEvents[s.id]);
 
               return (
-                <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-info/10">
-                  {!isLocked ? (
-                    <EditSupportRow
-                      supportId={s.id}
-                      initialText={s.text}
-                      initialMentionedUserId={s.mentionedUserIds ?? s.mentionedUserId}
-                      initialMentionedUser={s.mentionedUser}
-                      editedBy={s.editedBy}
-                      teamMembers={teamMembers}
-                    />
-                  ) : (
-                    <div className="flex flex-1 flex-col gap-0.5">
-                      <div className="flex flex-1 items-center gap-1.5">
-                        <span className="flex-1 text-sm leading-snug text-foreground/90">
-                          {renderTextWithMentions(s.text, members, "font-medium text-primary")}
-                        </span>
-                        {isSupportCarriedOver(s.text, entry, allEntries) && (
-                          <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
-                            CO
+                <div key={s.id} className="group/item flex flex-col gap-1.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-info/10">
+                  <div className="flex items-center justify-between gap-2">
+                    {!isLocked ? (
+                      <EditSupportRow
+                        supportId={s.id}
+                        initialText={s.text}
+                        initialMentionedUserId={s.mentionedUserIds ?? s.mentionedUserId}
+                        initialMentionedUser={s.mentionedUser}
+                        editedBy={s.editedBy}
+                        teamMembers={teamMembers}
+                      />
+                    ) : (
+                      <div className="flex flex-1 flex-col gap-0.5">
+                        <div className="flex flex-1 items-center gap-1.5">
+                          <span className="flex-1 text-sm leading-snug text-foreground/90">
+                            {renderTextWithMentions(s.text, members, "font-medium text-primary")}
+                          </span>
+                          {isSupportCarriedOver(s.text, entry, allEntries) && (
+                            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                              CO
+                            </span>
+                          )}
+                        </div>
+                        {s.editedBy && (
+                          <span className="text-[10px] text-muted-foreground/70">
+                            Edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]}
                           </span>
                         )}
                       </div>
-                      {s.editedBy && (
-                        <span className="text-[10px] text-muted-foreground/70">
-                          Edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {hasMeeting ? (
-                    <ScheduledMeetingActions
-                      event={activeEvent}
-                      supportId={s.id}
-                      fallbackTitle={s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting"}
-                      onEdit={() => {
-                        const view = activeEvent ?? undefined;
-                        const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
-                        setScheduleModal({
-                          supportId: s.id,
-                          mode: view ? "edit" : "create",
-                          title: view?.title ?? titleText,
-                          participantIds: uIds,
-                          event: view,
-                        });
-                      }}
-                      onDeleted={() => {
-                        setLocalEvents((prev) => {
-                          const next = { ...prev };
-                          delete next[s.id];
-                          return next;
-                        });
-                        router.refresh();
-                      }}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
-                        setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: uIds });
-                      }}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
-                    >
-                      <Calendar size={12} className="text-muted-foreground" />
-                      Schedule Meeting
-                    </button>
-                  )}
-                  {!isLocked && <DeleteSupportButton supportId={s.id} />}
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 pl-0.5 pt-0.5">
+                    {hasMeeting ? (
+                      <ScheduledMeetingActions
+                        event={activeEvent}
+                        supportId={s.id}
+                        fallbackTitle={s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting"}
+                        onEdit={() => {
+                          const view = activeEvent ?? undefined;
+                          const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
+                          setScheduleModal({
+                            supportId: s.id,
+                            mode: view ? "edit" : "create",
+                            title: view?.title ?? titleText,
+                            participantIds: uIds,
+                            event: view,
+                          });
+                        }}
+                        onDeleted={() => {
+                          setLocalEvents((prev) => {
+                            const next = { ...prev };
+                            delete next[s.id];
+                            return next;
+                          });
+                          router.refresh();
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
+                          setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: uIds });
+                        }}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                      >
+                        <Calendar size={12} className="text-muted-foreground" />
+                        Schedule Meeting
+                      </button>
+                    )}
+                  </div>
+                  {/* {!isLocked && <DeleteSupportButton supportId={s.id} />} */}
                 </div>
               );
             })}

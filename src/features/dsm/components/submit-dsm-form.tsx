@@ -12,6 +12,20 @@ import { EventDialog } from "@/features/calendar/components/event-dialog";
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 
+function supportEventToView(event: NonNullable<EntryWithDetails["supportNeeds"][number]["event"]>): CalendarEventView {
+  return {
+    id: event.id,
+    etag: new Date(event.updatedAt).getTime(),
+    title: event.title,
+    description: event.description ?? "",
+    start: new Date(event.start),
+    end: new Date(event.end),
+    isAllDay: event.isAllDay,
+    organizerEmail: event.organizer?.email,
+    attendees: event.attendees,
+  };
+}
+
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
 type Priority = (typeof PRIORITIES)[number];
 
@@ -368,7 +382,7 @@ function ScheduledMeetingActions({
         <Pencil size={11} className="text-muted-foreground" />
         Edit Meeting
       </button>
-      <button
+      {/* <button
         type="button"
         disabled={isDeleting}
         title="Delete meeting"
@@ -377,7 +391,7 @@ function ScheduledMeetingActions({
       >
         {isDeleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
         Delete
-      </button>
+      </button> */}
     </div>
   );
 }
@@ -416,6 +430,7 @@ function SupportRows({
           <div key={s.id} className="flex items-start gap-2">
             {/* Emit comma-separated user IDs in a single hidden input to preserve row-index alignment */}
             <input type="hidden" name="supportUserId" value={s.mentionedUserIds.join(",")} />
+            <input type="hidden" name="supportEventId" value={s.scheduledEvent?.id ?? ""} />
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring min-h-[38px]">
@@ -469,13 +484,13 @@ function SupportRows({
             </div>
 
             {/* Remove row button */}
-            <button
+            {/* <button
               type="button"
               onClick={() => remove(i)}
               className="mt-2 shrink-0 text-muted-foreground hover:text-destructive transition-colors"
             >
               <X size={14} />
-            </button>
+            </button> */}
           </div>
         );
       })}
@@ -619,6 +634,7 @@ export function SubmitDsmForm({
           : s.mentionedUser?.id
             ? [s.mentionedUser.id]
             : [],
+        scheduledEvent: s.event ? supportEventToView(s.event) : null,
         carried: yesterdaySupportNeeds.some((ys) => ys.text.trim().toLowerCase() === s.text.trim().toLowerCase()),
       }));
     }

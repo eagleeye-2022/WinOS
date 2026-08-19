@@ -61,6 +61,7 @@ export type ZohoEvent = {
   timezone?: string;
   isAllDay: boolean;
   organizerEmail?: string;
+  rrule?: string;
   attendees: ZohoEventAttendee[];
 };
 
@@ -72,6 +73,7 @@ export type NewZohoEventInput = {
   isAllDay: boolean;
   timezone: string;
   attendeeEmails: string[];
+  rrule?: string;
 };
 
 type ZohoAccountRow = {
@@ -428,6 +430,10 @@ function buildEventData(input: NewZohoEventInput) {
     isallday: input.isAllDay,
   };
 
+  if (input.rrule) {
+    eventdata.rrule = input.rrule;
+  }
+
   if (input.attendeeEmails && input.attendeeEmails.length > 0) {
     eventdata.attendees = input.attendeeEmails.map((email) => ({ email, status: "NEEDS-ACTION" }));
   }
@@ -557,6 +563,7 @@ function normalizeZohoEvent(raw: any): ZohoEvent {
     timezone: raw.dateandtime?.timezone,
     isAllDay: Boolean(raw.isallday),
     organizerEmail: raw.organizer?.email,
+    rrule: raw.rrule || raw.recurrence || undefined,
     attendees: (raw.attendees ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (a: any) => ({ email: a.email, status: a.status }),

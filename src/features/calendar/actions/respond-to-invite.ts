@@ -54,12 +54,17 @@ export async function respondToCalendarInvite(
   // Update Zoho Calendar if connected
   try {
     const token = await getValidZohoAccessToken(userId);
-    if (token && token.calendarUid && userEmail) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbEvent = await (db as any).calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { zohoEventId: true },
+    });
+    if (token && token.calendarUid && userEmail && dbEvent?.zohoEventId) {
       await respondToZohoEvent(
         token.accessToken,
         token.apiDomain,
         token.calendarUid,
-        eventId,
+        dbEvent.zohoEventId,
         userEmail,
         response,
       );
