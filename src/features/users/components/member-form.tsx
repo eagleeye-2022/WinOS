@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Camera, Upload, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Camera, Upload, Check, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import {
   uploadUserDocumentAction,
   uploadProfileImageAction,
   updateUserImageAction,
+  saveUserDocumentRecordAction,
 } from "@/features/users/actions/user-actions";
 
 // Sentinel for "no reporting manager" (top of the org hierarchy, e.g. the
@@ -147,6 +148,9 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdMemberName, setCreatedMemberName] = useState("");
 
   function update<K extends keyof ReturnType<typeof emptyForm>>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -288,12 +292,26 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
         for (const [kind, file] of Object.entries(files)) {
           if (!file) continue;
           const fd = new FormData();
-          fd.set("file", file);
-          await uploadUserDocumentAction(targetId, kind, fd);
+          fd.append("file", file);
+          const response = await fetch("/api/uploads", {
+            method: "POST",
+            body: fd,
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.fileUrl) {
+              await saveUserDocumentRecordAction(targetId, kind, data.fileName || file.name, data.fileUrl);
+            }
+          }
         }
 
-        router.push(ROUTES.settingsUsers);
-        router.refresh();
+        if (mode === "create") {
+          setCreatedMemberName(`${form.firstName} ${form.lastName}`.trim());
+          setShowSuccessModal(true);
+        } else {
+          router.push(ROUTES.settingsUsers);
+          router.refresh();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save team member");
       }
@@ -610,6 +628,55 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
           </Button>
         </div>
       </form>
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-2xl space-y-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 size={32} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-foreground">Member Created Successfully!</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <span className="font-semibold text-foreground">{createdMemberName || "Team member"}</span> has been added to your organization.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  router.push(ROUTES.settingsUsers);
+                  router.refresh();
+                }}
+                className="w-full font-semibold"
+              >
+                Go to Team Management
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setForm(emptyForm());
+                  setFiles({});
+                  setImageFile(null);
+                  setImagePreview(null);
+                  setImageUploadSuccess(false);
+                  setImageUploadError(null);
+                  setError(null);
+                  router.refresh();
+                }}
+                className="w-full text-xs"
+              >
+                Add Another Member
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

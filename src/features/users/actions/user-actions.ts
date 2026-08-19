@@ -364,6 +364,17 @@ export async function uploadUserDocumentAction(userId: string, kind: string, for
   });
 }
 
+export async function saveUserDocumentRecordAction(
+  userId: string,
+  kind: string,
+  fileName: string,
+  fileUrl: string
+): Promise<void> {
+  await db.userDocument.create({
+    data: { userId, kind, fileName, fileUrl },
+  });
+}
+
 export async function uploadProfileImageAction(userId: string, formData: FormData): Promise<{ url: string }> {
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("No file provided");
