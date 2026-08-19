@@ -12,38 +12,51 @@ export async function createSupport(
   formData: FormData
 ): Promise<CreateSupportState> {
   const session = await auth();
-  if (!session?.user?.id) return { message: "Unauthorized" };
+  if (!session?.user?.id) {
+    return { message: "Unauthorized" };
+  }
+  const currentUserId = session.user.id;
 
   const text = (formData.get("text") as string)?.trim();
-
-  if (!text) return { errors: { text: ["Description is required"] } };
+  if (!text) return { message: "Support description cannot be empty" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
-  const today = toUtcDate();
 
-  const entry = await d.standupEntry.upsert({
-    where: { userId_date: { userId: session.user.id, date: today } },
-    create: { userId: session.user.id, date: today, status: "DRAFT" },
-    update: {},
+  // Get or create today's DSR entry for current user
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let entry = await d.standupEntry.findFirst({
+    where: {
+      userId: currentUserId,
+      date: { gte: today },
+    },
+    select: { id: true, supportNeeds: { select: { order: true } } },
   });
 
-  if (entry.status === "REVIEWED") {
-    return { message: "Today's standup is already reviewed." };
+  if (!entry) {
+    entry = await d.standupEntry.create({
+      data: {
+        userId: currentUserId,
+        date: today,
+        status: "DRAFT",
+        workText: "",
+        learningText: "",
+      },
+      select: { id: true, supportNeeds: { select: { order: true } } },
+    });
   }
 
-  const rawMention = (formData.get("mentionedUserId") as string) || null;
-  const rawIds = rawMention ? rawMention.split(",").filter(Boolean) : [];
-  const primaryUserId = rawIds[0] ?? null;
-  const allUserIdsStr = rawIds.length > 0 ? rawIds.join(",") : null;
+  const existingOrders = (entry.supportNeeds || []).map((s: { order: number }) => s.order);
+  const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
+  const order = maxOrder + 1;
 
-  const order = await d.standupSupportNeed.count({ where: { entryId: entry.id } });
+  const rawIds = formData.getAll("mentionedUserIds").map(String).filter(Boolean);
 
   const support = await d.standupSupportNeed.create({
     data: {
       text,
-      mentionedUserId: primaryUserId,
-      mentionedUserIds: allUserIdsStr,
       resolved: false,
       order,
       entryId: entry.id,
@@ -52,6 +65,20 @@ export async function createSupport(
   if (rawIds.length > 0 && d.standupSupportNeedMention) {
     await d.standupSupportNeedMention.createMany({
       data: rawIds.map((userId: string) => ({ supportNeedId: support.id, userId })),
+    });
+  }
+
+  const notifyIds = rawIds.filter((id: string) => id !== currentUserId);
+  if (notifyIds.length > 0) {
+    await d.notification.createMany({
+      data: notifyIds.map((userId: string) => ({
+        type: "DSM_REMINDER",
+        title: "Support Needed (Meeting) Request",
+        message: `You were tagged for support: "${text.slice(0, 80)}".`,
+        userId,
+        createdById: currentUserId,
+        relatedEntryId: entry.id,
+      })),
     });
   }
 

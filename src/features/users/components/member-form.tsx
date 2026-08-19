@@ -52,7 +52,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-bold text-foreground">{title}</h3>
-      <div className="grid grid-cols-2 gap-4">{children}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{children}</div>
     </div>
   );
 }
@@ -299,23 +299,18 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
     `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase().trim() || "U";
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-6 w-full pb-8">
+      <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center justify-between gap-3 bg-background/95 px-6 py-2.5 backdrop-blur-xs border-b">
         <Button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-muted-foreground shadow-2xs"
           onClick={() => router.push(ROUTES.settingsUsers)}
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
+          Back to Settings
         </Button>
-        <div>
-          <h1 className="text-lg font-bold text-foreground">{title}</h1>
-          <p className="text-xs text-muted-foreground">
-            {mode === "create" ? "Fill in the details below to add a new team member." : "Update the team member's details below."}
-          </p>
-        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 text-sm rounded-lg border bg-card p-6">
@@ -459,10 +454,10 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
           </Field>
           <Field label="Employment Type">
             <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v)}>
-              <SelectTrigger><SelectValue placeholder="Select (Permanent/Intern)" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select (Permanent/Trainee)" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Permanent">Permanent</SelectItem>
-                <SelectItem value="Intern">Intern</SelectItem>
+                <SelectItem value="Trainee">Trainee</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -475,7 +470,7 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
         </Section>
 
         <Section title="Hierarchy Information">
-          <Field label="Reporting Manager (Employee Tree)" required>
+          <Field label="Reporting Manager (Organization Tree)" required>
             <Select value={form.reportingToId} onValueChange={(v) => update("reportingToId", v)}>
               <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
               <SelectContent>
@@ -579,11 +574,11 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">{error}</p>
         )}
 
-        {!error && !isValid && (
+        {/* {!error && !isValid && (
           <p className="text-xs text-muted-foreground">
             Still missing: <span className="font-medium text-foreground">{missingRequired.join(", ")}</span>
           </p>
-        )}
+        )} */}
 
         <div className="flex items-center justify-end gap-3 border-t pt-4">
           <Button type="button" variant="outline" onClick={() => router.push(ROUTES.settingsUsers)}>

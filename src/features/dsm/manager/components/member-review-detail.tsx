@@ -235,6 +235,7 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
 
 function AddTaskRow({ entryId }: { entryId: string }) {
   const [adding, setAdding] = useState(false);
+  const [priority, setPriority] = useState<string>("P1");
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -260,6 +261,8 @@ function AddTaskRow({ entryId }: { entryId: string }) {
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value="TODAY" />
+      <input type="hidden" name="priority" value={priority} />
+
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
@@ -272,14 +275,23 @@ function AddTaskRow({ entryId }: { entryId: string }) {
               e.currentTarget.form?.requestSubmit();
             }
           }}
-          onBlur={(e) => {
-            const val = e.target.value.trim();
-            if (val && e.currentTarget.form) {
-              e.currentTarget.form.requestSubmit();
-            }
-          }}
           className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
+
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+          className="rounded-md border bg-card px-2 py-1 text-xs font-semibold text-foreground outline-none cursor-pointer"
+          title="Select Priority"
+        >
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM">Med</option>
+          <option value="LOW">Low</option>
+        </select>
+
         <button
           type="submit"
           disabled={pending}
@@ -634,11 +646,13 @@ function EditSupportRow({
 function ScheduledMeetingActions({
   event,
   supportId,
+  fallbackTitle,
   onEdit,
   onDeleted,
 }: {
-  event: CalendarEventView;
+  event?: CalendarEventView | null;
   supportId: string;
+  fallbackTitle?: string;
   onEdit: () => void;
   onDeleted: () => void;
 }) {
@@ -649,32 +663,36 @@ function ScheduledMeetingActions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.message]);
 
+  const displayTitle = event?.title || fallbackTitle;
+
   return (
-    <div className="flex items-center gap-1 shrink-0">
-      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[120px]" title={event.title}>
-        {event.title}
-      </span>
+    <div className="flex items-center gap-1.5 shrink-0">
+      {displayTitle && (
+        <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px]" title={displayTitle}>
+          {displayTitle}
+        </span>
+      )}
       <button
         type="button"
         onClick={onEdit}
         title="Edit meeting"
-        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2 py-1 text-[11px] font-semibold transition-all"
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
       >
-        <Pencil size={11} />
-        Edit
+        <Pencil size={11} className="text-muted-foreground" />
+        Edit Meeting
       </button>
       <form action={action}>
-        <input type="hidden" name="eventId" value={event.id} />
-        <input type="hidden" name="etag" value={String(event.etag)} />
+        <input type="hidden" name="eventId" value={event?.id ?? ""} />
+        <input type="hidden" name="etag" value={String(event?.etag ?? 1)} />
         <input type="hidden" name="supportNeedId" value={supportId} />
         <button
           type="submit"
           disabled={pending}
+          onClick={onDeleted}
           title="Delete meeting"
-          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50 cursor-pointer"
         >
           {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-          Delete
         </button>
       </form>
     </div>
@@ -706,12 +724,17 @@ function AddSupportRow({
 }: {
   entryId: string;
   teamMembers?: TeamMember[];
-  onScheduleMeeting?: (title: string, participantIds: string[]) => void;
+  onScheduleMeeting?: (
+    title: string,
+    participantIds: string[],
+    onCreated?: (eventView: CalendarEventView) => void
+  ) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddSupportState, FormData>(addSupport, {});
   const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const [scheduledEvent, setScheduledEvent] = useState<CalendarEventView | null>(null);
 
   if (!adding) {
     return (
@@ -732,6 +755,7 @@ function AddSupportRow({
         setAdding(false);
         setText("");
         setMentionedUserIds([]);
+        setScheduledEvent(null);
       }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget) && text.trim()) {
@@ -742,6 +766,7 @@ function AddSupportRow({
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="mentionedUserId" value={mentionedUserIds.join(",")} />
+      {scheduledEvent?.id && <input type="hidden" name="eventId" value={scheduledEvent.id} />}
 
       <div className="rounded-md border bg-background px-2.5 py-1.5">
         <MentionInput
@@ -759,18 +784,31 @@ function AddSupportRow({
 
       <div className="flex items-center justify-between border-t pt-2 border-info/20">
         <div className="flex items-center gap-2">
-          {onScheduleMeeting && (
-            <button
-              type="button"
-              onClick={() => {
+          {scheduledEvent ? (
+            <ScheduledMeetingActions
+              event={scheduledEvent}
+              supportId=""
+              fallbackTitle={text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting"}
+              onEdit={() => {
                 const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
-                onScheduleMeeting(titleText, mentionedUserIds);
+                onScheduleMeeting?.(titleText, mentionedUserIds, (createdView) => setScheduledEvent(createdView));
               }}
-              className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <Calendar size={12} className="text-muted-foreground" />
-              Schedule Meeting
-            </button>
+              onDeleted={() => setScheduledEvent(null)}
+            />
+          ) : (
+            onScheduleMeeting && (
+              <button
+                type="button"
+                onClick={() => {
+                  const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
+                  onScheduleMeeting(titleText, mentionedUserIds, (createdView) => setScheduledEvent(createdView));
+                }}
+                className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                <Calendar size={12} className="text-muted-foreground" />
+                Schedule Meeting
+              </button>
+            )
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -788,6 +826,7 @@ function AddSupportRow({
               setAdding(false);
               setText("");
               setMentionedUserIds([]);
+              setScheduledEvent(null);
             }}
             title="Cancel"
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
@@ -904,7 +943,9 @@ function isBlockerCarriedOver(
 ): boolean {
   const prevEntry = getPrevEntry(entry, allEntries);
   if (!prevEntry) return false;
-  const prevBlockerText = prevEntry.blockers.map((b) => b.text.trim().toLowerCase());
+  const prevBlockerText = prevEntry.blockers
+    .filter((b) => !b.resolved)
+    .map((b) => b.text.trim().toLowerCase());
   return prevBlockerText.includes(blockerText.trim().toLowerCase());
 }
 
@@ -915,7 +956,9 @@ function isSupportCarriedOver(
 ): boolean {
   const prevEntry = getPrevEntry(entry, allEntries);
   if (!prevEntry) return false;
-  const prevSupportText = prevEntry.supportNeeds.map((s) => s.text.trim().toLowerCase());
+  const prevSupportText = prevEntry.supportNeeds
+    .filter((s) => !s.resolved)
+    .map((s) => s.text.trim().toLowerCase());
   return prevSupportText.includes(supportText.trim().toLowerCase());
 }
 
@@ -1108,6 +1151,11 @@ function TaskRow({
             CO
           </span>
         )}
+        {task.addedAfterReview && (
+          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary shrink-0" title="Added After Review">
+            NT
+          </span>
+        )}
       </span>
 
       {/* Manager controls — hidden once reviewed */}
@@ -1183,8 +1231,8 @@ function TodayTasksSection({
         ))}
       </div>
 
-      {/* Admin / Manager can add tasks */}
-      {!isLocked && <AddTaskRow entryId={entryId} />}
+      {/* Manager can add tasks — still allowed after review */}
+      <AddTaskRow entryId={entryId} />
     </div>
   );
 }
@@ -1426,7 +1474,9 @@ function EntryExpanded({
     title: string;
     participantIds: string[];
     event?: CalendarEventView;
+    onCreated?: (eventView: CalendarEventView) => void;
   } | null>(null);
+  const [localEvents, setLocalEvents] = useState<Record<string, CalendarEventView>>({});
 
   return (
     <div className="space-y-4">
@@ -1563,6 +1613,9 @@ function EntryExpanded({
                 ? s.mentionedUsers
                 : uIds.map((id) => teamMembers.find((m) => m.id === id) ?? (s.mentionedUser?.id === id ? s.mentionedUser : null)).filter((m): m is NonNullable<typeof m> => m !== null && m !== undefined);
 
+              const activeEvent = s.event ? supportEventToView(s.event) : localEvents[s.id] ?? null;
+              const hasMeeting = Boolean(s.eventId || s.event || localEvents[s.id]);
+
               return (
                 <div key={s.id} className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-info/10">
                   {!isLocked ? (
@@ -1593,15 +1646,30 @@ function EntryExpanded({
                       )}
                     </div>
                   )}
-                  {s.eventId && s.event ? (
+                  {hasMeeting ? (
                     <ScheduledMeetingActions
-                      event={supportEventToView(s.event)}
+                      event={activeEvent}
                       supportId={s.id}
+                      fallbackTitle={s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting"}
                       onEdit={() => {
-                        const view = supportEventToView(s.event!);
-                        setScheduleModal({ supportId: s.id, mode: "edit", title: view.title, participantIds: uIds, event: view });
+                        const view = activeEvent ?? undefined;
+                        const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
+                        setScheduleModal({
+                          supportId: s.id,
+                          mode: view ? "edit" : "create",
+                          title: view?.title ?? titleText,
+                          participantIds: uIds,
+                          event: view,
+                        });
                       }}
-                      onDeleted={() => router.refresh()}
+                      onDeleted={() => {
+                        setLocalEvents((prev) => {
+                          const next = { ...prev };
+                          delete next[s.id];
+                          return next;
+                        });
+                        router.refresh();
+                      }}
                     />
                   ) : (
                     <button
@@ -1625,7 +1693,9 @@ function EntryExpanded({
             <AddSupportRow
               entryId={entry.id}
               teamMembers={teamMembers}
-              onScheduleMeeting={(title, participantIds) => setScheduleModal({ mode: "create", title, participantIds })}
+              onScheduleMeeting={(title, participantIds, onCreated) =>
+                setScheduleModal({ mode: "create", title, participantIds, onCreated })
+              }
             />
           )}
         </div>
@@ -1661,8 +1731,19 @@ function EntryExpanded({
           currentUserId=""
           onClose={() => setScheduleModal(null)}
           onSaved={(view) => {
-            if (scheduleModal.supportId && scheduleModal.mode === "create") {
-              void linkSupportNeedEvent(scheduleModal.supportId, view.id).then(() => router.refresh());
+            if (scheduleModal.supportId) {
+              const sId = scheduleModal.supportId;
+              setLocalEvents((prev) => ({ ...prev, [sId]: view }));
+              if (scheduleModal.mode === "create") {
+                void linkSupportNeedEvent(sId, view.id).then(() => router.refresh());
+              } else {
+                router.refresh();
+              }
+            } else if (scheduleModal.onCreated) {
+              scheduleModal.onCreated(view);
+              router.refresh();
+            } else {
+              router.refresh();
             }
           }}
         />

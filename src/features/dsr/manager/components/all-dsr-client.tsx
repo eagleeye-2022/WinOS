@@ -9,15 +9,17 @@ import { useDragScroll } from "@/hooks/use-drag-scroll";
 import { toIsoDateStr, toUtcDate, sortTeamGroups } from "@/features/dsm/utils";
 import { AllDsrStatsRow } from "./all-dsr-stats";
 import { DsrTeamColumn } from "./dsr-team-column";
-import type { AllDsrStats, DsrTeamGroup } from "../queries";
+import type { AllDsrStats, DsrStatMember, DsrTeamGroup } from "../queries";
 
 type Props = {
   stats: AllDsrStats | null;
   groups: DsrTeamGroup[];
   selectedDateStr: string;
+  blockerMembers?: DsrStatMember[];
+  supportNeededMembers?: DsrStatMember[];
 };
 
-export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
+export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = [], supportNeededMembers = [] }: Props) {
   const router = useRouter();
   const dateInputRef = useRef<HTMLInputElement>(null);
   const columnsScrollRef = useRef<HTMLDivElement>(null);
@@ -53,61 +55,68 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
     }).format(dateObj);
   }, [dateObj]);
 
-  // Flatten members across all teams for the stat card dropdowns
+  // Flatten members across all teams for the stat card dropdowns (deduplicated by userId)
   const submittedMembers = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-          meta: m.submittedAt
-            ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-            : undefined,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: DsrStatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if (
+          (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED") &&
+          !seen.has(m.userId)
+        ) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+            meta: m.submittedAt
+              ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+              : undefined,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   const pendingMembers = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => !m.status || m.status === "DRAFT" || m.status === "MISSED")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-        }))
-    );
-  }, [groups]);
-
-  const blockerMembers = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "MISSED" || (m.plannedTaskCount > 0 && m.completedTaskCount < m.plannedTaskCount))
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-          meta: m.status === "MISSED" ? "Missed DSR" : `${m.plannedTaskCount - m.completedTaskCount} pending tasks`,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: DsrStatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if ((!m.status || m.status === "DRAFT" || m.status === "MISSED") && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   const pendingReviewMembers = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: DsrStatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if ((m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   // Extract unique departments for the filter dropdown
@@ -295,6 +304,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr }: Props) {
           submittedMembers={submittedMembers}
           pendingMembers={pendingMembers}
           blockerMembers={blockerMembers}
+          supportNeededMembers={supportNeededMembers}
           pendingReviewMembers={pendingReviewMembers}
         />
       )}

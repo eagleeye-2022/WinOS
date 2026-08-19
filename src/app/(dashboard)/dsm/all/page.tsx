@@ -5,6 +5,7 @@ import {
   getTeamDsmGroups,
   getAllTeams,
   getAllUsers,
+  getBlockerAndSupportNeedMembers,
 } from "@/features/dsm/manager/queries";
 import { AllDsmClient } from "@/features/dsm/manager/components/all-dsm-client";
 
@@ -29,11 +30,12 @@ export default async function AllDsmPage({ searchParams }: Props) {
     filterDate = new Date(year, month - 1, day);
   }
 
-  const [stats, groups, teams, allUsers] = await Promise.all([
+  const [stats, groups, teams, allUsers, blockerAndSupport] = await Promise.all([
     getAllDsmStats(filterDate),
     getTeamDsmGroups(filterDate),
     getAllTeams(),
     getAllUsers(),
+    getBlockerAndSupportNeedMembers(filterDate),
   ]);
 
   const todayStr = toIsoDateStr(toUtcDate());
@@ -46,6 +48,8 @@ export default async function AllDsmPage({ searchParams }: Props) {
       teams={teams}
       allUsers={allUsers}
       selectedDateStr={selectedDateStr}
+      serverBlockerMembers={blockerAndSupport.blockerMembers}
+      serverSupportNeededMembers={blockerAndSupport.supportNeededMembers}
     />
   );
 }

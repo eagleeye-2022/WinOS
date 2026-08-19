@@ -15,6 +15,18 @@ export function toIsoDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+export function formatEventTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(date));
+}
+
 /** ISO week number (1–53). */
 export function isoWeek(d: Date): number {
   const jan4 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));

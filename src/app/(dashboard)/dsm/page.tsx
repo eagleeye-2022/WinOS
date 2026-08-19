@@ -15,6 +15,7 @@ import {
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
+import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
 import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
@@ -94,11 +95,18 @@ export default async function DSMPage({ searchParams }: Props) {
       </div>
 
       {/* ── Workspace Notes right panel ───────────────────────────────────────── */}
-      <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
-        <WorkspaceNotesPanel
-          sharedNotes={sharedItems?.notes || []}
-          userRole={session?.user?.role}
-        />
+      <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l xl:w-96">
+        <div className="shrink-0 border-b">
+          <WorkspaceNotesPanel
+            sharedNotes={sharedItems?.notes || []}
+            userRole={session?.user?.role}
+          />
+        </div>
+        {todayEntry && (
+          <div className="p-4">
+            <StandupTimeline entry={todayEntry} events={todayEntry.timelineEvents} />
+          </div>
+        )}
       </aside>
     </div>
   );

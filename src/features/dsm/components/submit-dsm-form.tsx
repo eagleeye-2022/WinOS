@@ -330,12 +330,29 @@ function ScheduledMeetingActions({
   onEdit: () => void;
   onDeleted: () => void;
 }) {
-  const [state, action, pending] = useActionState<DeleteEventState, FormData>(deleteCalendarEvent, {});
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    if (state.message === "deleted") onDeleted();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.message]);
+  const handleDelete = () => {
+    setIsDeleting(true);
+    // 1. Immediately remove from local state so UI updates
+    onDeleted();
+
+    // 2. Dispatch background delete action if event ID exists
+    if (event.id) {
+      import("react").then(({ startTransition }) => {
+        startTransition(async () => {
+          try {
+            const fd = new FormData();
+            fd.set("eventId", event.id);
+            fd.set("etag", String(event.etag ?? 1));
+            await deleteCalendarEvent({}, fd);
+          } catch (err) {
+            console.warn("Failed to delete calendar event:", err);
+          }
+        });
+      });
+    }
+  };
 
   return (
     <div className="flex items-center gap-1.5">
@@ -346,24 +363,21 @@ function ScheduledMeetingActions({
         type="button"
         onClick={onEdit}
         title="Edit meeting"
-        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2 py-1 text-[11px] font-semibold transition-all"
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer"
       >
-        <Pencil size={11} />
-        Edit
+        <Pencil size={11} className="text-muted-foreground" />
+        Edit Meeting
       </button>
-      <form action={action}>
-        <input type="hidden" name="eventId" value={event.id} />
-        <input type="hidden" name="etag" value={String(event.etag)} />
-        <button
-          type="submit"
-          disabled={pending}
-          title="Delete meeting"
-          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50"
-        >
-          {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-          Delete
-        </button>
-      </form>
+      <button
+        type="button"
+        disabled={isDeleting}
+        title="Delete meeting"
+        onClick={handleDelete}
+        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50"
+      >
+        {isDeleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+        Delete
+      </button>
     </div>
   );
 }
@@ -547,7 +561,12 @@ export function SubmitDsmForm({
     if (savedDraft?.tasks?.length) return savedDraft.tasks;
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
-      return existingToday.map((t) => ({ id: crypto.randomUUID(), text: t.text, priority: t.priority ?? "", carried: false }));
+      return existingToday.map((t) => ({
+        id: crypto.randomUUID(),
+        text: t.text,
+        priority: t.priority ?? "",
+        carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
+      }));
     }
     if (yesterdayIncompleteTasks.length > 0) {
       return yesterdayIncompleteTasks.map((text) => ({ id: crypto.randomUUID(), text, priority: "", carried: true }));
@@ -567,7 +586,7 @@ export function SubmitDsmForm({
           : b.mentionedUserId
             ? [b.mentionedUserId]
             : [],
-        carried: false,
+        carried: yesterdayBlockers.some((yb) => yb.text.trim().toLowerCase() === b.text.trim().toLowerCase()),
       }));
     }
     if (yesterdayBlockers && yesterdayBlockers.length > 0) {
@@ -600,7 +619,7 @@ export function SubmitDsmForm({
           : s.mentionedUser?.id
             ? [s.mentionedUser.id]
             : [],
-        carried: false,
+        carried: yesterdaySupportNeeds.some((ys) => ys.text.trim().toLowerCase() === s.text.trim().toLowerCase()),
       }));
     }
     if (yesterdaySupportNeeds && yesterdaySupportNeeds.length > 0) {
@@ -618,16 +637,16 @@ export function SubmitDsmForm({
     if (savedDraft?.learningItems?.length) return savedDraft.learningItems;
     if (savedDraft?.learningText) {
       const lines = savedDraft.learningText.split("\n").map((t: string) => t.trim()).filter(Boolean);
-      if (lines.length > 0) return lines.map((text: string) => ({ id: crypto.randomUUID(), text }));
+      if (lines.length > 0) return lines.map((text: string) => ({ id: crypto.randomUUID(), text, carried: yesterdayIncompleteLearningItems.some((yl) => yl.trim().toLowerCase() === text.trim().toLowerCase()) }));
     }
     if (entry?.learningText) {
       const lines = entry.learningText.split("\n").map((t) => t.trim()).filter(Boolean);
-      if (lines.length > 0) return lines.map((text) => ({ id: crypto.randomUUID(), text }));
+      if (lines.length > 0) return lines.map((text) => ({ id: crypto.randomUUID(), text, carried: yesterdayIncompleteLearningItems.some((yl) => yl.trim().toLowerCase() === text.trim().toLowerCase()) }));
     }
     if (yesterdayIncompleteLearningItems && yesterdayIncompleteLearningItems.length > 0) {
       return yesterdayIncompleteLearningItems.map((text) => ({ id: crypto.randomUUID(), text, carried: true }));
     }
-    return [{ id: crypto.randomUUID(), text: "" }];
+    return [{ id: crypto.randomUUID(), text: "", carried: false }];
   });
   const [scheduleModal, setScheduleModal] = useState<{
     index: number;

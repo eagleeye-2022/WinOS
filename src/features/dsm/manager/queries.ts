@@ -66,7 +66,8 @@ export type MemberReviewEntry = {
   reviewedBy: { name: string | null; email: string } | null;
   reviewComment: string | null;
   learningText: string | null;
-  tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null }[];
+  tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null; addedAfterReview?: boolean }[];
+  timelineEvents: { id: string; type: string; label: string; occurredAt: Date }[];
   blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser?: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null }[];
   supportNeeds: {
     id: string;
@@ -230,6 +231,119 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
   };
 }
 
+export type DsmStatMember = {
+  userId: string;
+  name: string | null;
+  email: string;
+  teamName: string;
+  meta?: string;
+};
+
+/** Members with active blockers & support needs for DSM overview stats dropdowns. */
+export async function getBlockerAndSupportNeedMembers(
+  date?: Date
+): Promise<{ blockerMembers: DsmStatMember[]; supportNeededMembers: DsmStatMember[] }> {
+  const managerId = await requireManager();
+  if (!managerId) return { blockerMembers: [], supportNeededMembers: [] };
+
+  const targetDate = toUtcDate(date ?? new Date());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const teamMemberships = await d.teamMember.findMany({
+    include: { team: { select: { name: true } } },
+  });
+  const memberIds = Array.from(new Set(teamMemberships.map((m: { userId: string }) => m.userId)));
+  if (memberIds.length === 0) return { blockerMembers: [], supportNeededMembers: [] };
+
+  const teamNameByUserId = new Map<string, string>(
+    teamMemberships.map((tm: { userId: string; team: { name: string } }) => [tm.userId, tm.team.name])
+  );
+
+  const standupEntries = await d.standupEntry.findMany({
+    where: { userId: { in: memberIds }, date: targetDate },
+    select: { id: true, userId: true, user: { select: { id: true, name: true, email: true } } },
+  });
+  const entryById = new Map(standupEntries.map((e: { id: string }) => [e.id, e]));
+  const eIds = standupEntries.map((e: { id: string }) => e.id);
+
+  if (eIds.length === 0) return { blockerMembers: [], supportNeededMembers: [] };
+
+  const blockers = await d.standupBlocker.findMany({
+    where: { entryId: { in: eIds }, resolved: false },
+    select: { id: true, entryId: true, text: true, priority: true },
+  });
+  const supportNeeds = await d.standupSupportNeed.findMany({
+    where: { entryId: { in: eIds }, resolved: false },
+    select: { id: true, entryId: true, text: true },
+  });
+
+  const blockerMap = new Map<string, { id: string; texts: string[]; priority: string }>();
+  for (const b of blockers) {
+    const entry = entryById.get(b.entryId) as
+      | { userId: string; user: { id: string; name: string | null; email: string } }
+      | undefined;
+    if (!entry) continue;
+    const uid = entry.user.id;
+    const bText = b.priority === "HIGH" ? `${b.text} (High)` : b.text;
+    if (!blockerMap.has(uid)) {
+      blockerMap.set(uid, { id: b.id, texts: [bText], priority: b.priority });
+    } else {
+      const existing = blockerMap.get(uid)!;
+      existing.texts.push(bText);
+      if (b.priority === "HIGH") existing.priority = "HIGH";
+    }
+  }
+
+  const blockerMembers: DsmStatMember[] = [];
+  for (const [userId, data] of blockerMap.entries()) {
+    const entry = standupEntries.find((e: { userId: string }) => e.userId === userId);
+    if (!entry) continue;
+    const meta = data.texts.length === 1
+      ? data.texts[0]
+      : `${data.texts.length} blockers: ${data.texts.join(" • ")}`;
+    blockerMembers.push({
+      userId: entry.user.id,
+      name: entry.user.name,
+      email: entry.user.email,
+      teamName: teamNameByUserId.get(entry.user.id) ?? "Unassigned",
+      meta,
+    });
+  }
+
+  const supportMap = new Map<string, { id: string; texts: string[] }>();
+  for (const s of supportNeeds) {
+    const entry = entryById.get(s.entryId) as
+      | { userId: string; user: { id: string; name: string | null; email: string } }
+      | undefined;
+    if (!entry) continue;
+    const uid = entry.user.id;
+    if (!supportMap.has(uid)) {
+      supportMap.set(uid, { id: s.id, texts: [s.text] });
+    } else {
+      supportMap.get(uid)!.texts.push(s.text);
+    }
+  }
+
+  const supportNeededMembers: DsmStatMember[] = [];
+  for (const [userId, data] of supportMap.entries()) {
+    const entry = standupEntries.find((e: { userId: string }) => e.userId === userId);
+    if (!entry) continue;
+    const meta = data.texts.length === 1
+      ? data.texts[0]
+      : `${data.texts.length} support needs: ${data.texts.join(" • ")}`;
+    supportNeededMembers.push({
+      userId: entry.user.id,
+      name: entry.user.name,
+      email: entry.user.email,
+      teamName: teamNameByUserId.get(entry.user.id) ?? "Unassigned",
+      meta,
+    });
+  }
+
+  return { blockerMembers, supportNeededMembers };
+}
+
 /** Team-grouped DSM submissions for today. */
 export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
   const managerId = await requireManager();
@@ -378,6 +492,7 @@ export async function getMemberReview(
         },
       },
       reviewedBy: { select: { name: true, email: true } },
+      timelineEvents: { orderBy: { occurredAt: "asc" } },
     },
     orderBy: { date: "desc" },
   });
@@ -422,6 +537,7 @@ export async function getMemberReview(
             },
           },
           reviewedBy: { select: { name: true, email: true } },
+          timelineEvents: { orderBy: { occurredAt: "asc" } },
         },
       });
       entriesRaw.unshift(newTodayEntry);

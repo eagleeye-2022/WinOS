@@ -8,6 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import type { AllDsrStats } from "../queries";
 
 export type StatMember = {
+  id?: string;
   userId: string;
   name: string | null;
   email: string;
@@ -37,37 +38,49 @@ function MemberListDropdown({
   emptyLabel,
   icon,
   iconClassName,
+  alignRight = false,
 }: {
   title: string;
   members: StatMember[];
   emptyLabel: string;
   icon: React.ElementType;
   iconClassName: string;
+  alignRight?: boolean;
 }) {
   const Icon = icon;
   return (
-    <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-xl border bg-card p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
-      <p className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        {title}
+    <div
+      className={cn(
+        "absolute top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-2 shadow-xl animate-in fade-in slide-in-from-top-1 duration-150",
+        alignRight ? "right-0" : "left-0"
+      )}
+    >
+      <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-snug">
+        {title} ({members.length})
       </p>
-      <div className="max-h-72 overflow-y-auto">
+      <div className="max-h-72 overflow-y-auto space-y-1">
         {members.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
-          members.map((m) => (
+          members.map((m, idx) => (
             <Link
-              key={m.userId}
+              key={m.id || `${m.userId}-${idx}`}
               href={ROUTES.dsrMember(m.userId)}
-              className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-accent"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors hover:bg-accent min-w-0"
             >
-              <Icon size={13} className={cn("shrink-0", iconClassName)} />
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+              <Icon size={14} className={cn("shrink-0", iconClassName)} />
+              <span className="shrink-0 font-semibold text-foreground">
                 {displayNameOf(m)}
               </span>
               {m.meta && (
-                <span className="shrink-0 text-xs text-muted-foreground">{m.meta}</span>
+                <span
+                  className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground font-normal"
+                  title={m.meta}
+                >
+                  {m.meta}
+                </span>
               )}
-              <span className="shrink-0 text-xs text-muted-foreground/70">{m.teamName}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground/70 font-medium">{m.teamName}</span>
             </Link>
           ))
         )}
@@ -96,7 +109,7 @@ export function AllDsrStatsRow({
   supportNeededMembers = [],
   pendingReviewMembers = [],
 }: Props) {
-  const { totalSubmitted, totalExpected, pendingCount, highPriorityBlockers, pendingReviewCount, supportNeededCount } = stats;
+  const { totalSubmitted, totalExpected, pendingCount, blockersCount, highPriorityBlockersCount, pendingReviewCount, supportNeededCount } = stats;
 
   const [openCard, setOpenCard] = useState<"submitted" | "pending" | "blockers" | "supportNeeded" | "pendingReview" | "status" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -146,7 +159,7 @@ export function AllDsrStatsRow({
         )}
       </div>
 
-      {/* Pending */}
+      {/* Pending Submission */}
       <div className="relative flex">
         <button
           type="button"
@@ -157,7 +170,7 @@ export function AllDsrStatsRow({
             <Clock size={18} className="text-warning" />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Pending</p>
+            <p className="text-xs text-muted-foreground">Pending Submission</p>
             <p className="text-2xl font-bold">{pendingCount}</p>
           </div>
         </button>
@@ -168,32 +181,6 @@ export function AllDsrStatsRow({
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
             iconClassName="text-warning"
-          />
-        )}
-      </div>
-
-      {/* Support Needed (Meeting) */}
-      <div className="relative flex">
-        <button
-          type="button"
-          onClick={() => toggle("supportNeeded")}
-          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
-            <AlertTriangle size={18} className="text-info" />
-          </span>
-          <div>
-            <p className="text-xs text-muted-foreground">Support Needed (Meeting)</p>
-            <p className="text-2xl font-bold">{supportNeededCount}</p>
-          </div>
-        </button>
-        {openCard === "supportNeeded" && (
-          <MemberListDropdown
-            title="Support Needed (Meeting)"
-            members={supportNeededMembers}
-            emptyLabel="No Open Support Requests."
-            icon={AlertTriangle}
-            iconClassName="text-info"
           />
         )}
       </div>
@@ -224,6 +211,33 @@ export function AllDsrStatsRow({
         )}
       </div>
 
+      {/* Support Needed (Meeting) */}
+      <div className="relative flex">
+        <button
+          type="button"
+          onClick={() => toggle("supportNeeded")}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
+            <AlertTriangle size={18} className="text-info" />
+          </span>
+          <div>
+            <p className="text-xs text-muted-foreground">Support Needed (Meeting)</p>
+            <p className="text-2xl font-bold">{supportNeededCount}</p>
+          </div>
+        </button>
+        {openCard === "supportNeeded" && (
+          <MemberListDropdown
+            title="Support Needed (Meeting)"
+            members={supportNeededMembers}
+            emptyLabel="No Open Support Requests."
+            icon={AlertTriangle}
+            iconClassName="text-info"
+            alignRight
+          />
+        )}
+      </div>
+
       {/* Blockers */}
       <div className="relative flex">
         <button
@@ -236,10 +250,10 @@ export function AllDsrStatsRow({
           </span>
           <div>
             <p className="text-xs text-muted-foreground">Blockers (Dependencies)</p>
-            <p className={cn("text-2xl font-bold", highPriorityBlockers > 0 && "text-destructive")}>
-              {highPriorityBlockers}
-              {highPriorityBlockers > 0 && (
-                <span className="ml-1 text-xs font-semibold">High Priority</span>
+            <p className={cn("text-2xl font-bold", blockersCount > 0 && "text-destructive")}>
+              {blockersCount}
+              {highPriorityBlockersCount > 0 && (
+                <span className="ml-1 text-xs font-semibold">{highPriorityBlockersCount} High Priority</span>
               )}
             </p>
           </div>
@@ -251,6 +265,7 @@ export function AllDsrStatsRow({
             emptyLabel="No Active Blockers."
             icon={AlertCircle}
             iconClassName="text-destructive"
+            alignRight
           />
         )}
       </div>

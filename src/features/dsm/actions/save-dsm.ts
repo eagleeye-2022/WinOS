@@ -196,6 +196,23 @@ export async function saveDsm(
     return { message: "Failed to save — please try again." };
   }
 
+  // Create SUBMITTED timeline event on first submit
+  if (finalStatus === "SUBMITTED") {
+    const existingEvent = await d.standupTimelineEvent.findFirst({
+      where: { entryId: entry.id, type: "SUBMITTED" },
+    });
+    if (!existingEvent) {
+      await d.standupTimelineEvent.create({
+        data: {
+          entryId: entry.id,
+          type: "SUBMITTED",
+          label: "Report Submitted",
+          occurredAt: new Date(),
+        },
+      });
+    }
+  }
+
   revalidatePath(selfPath);
 
   if (action === "submit") {

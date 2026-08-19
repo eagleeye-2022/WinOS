@@ -14,6 +14,7 @@ export async function addSupport(
   if (!session?.user?.id) {
     return { message: "Unauthorized" };
   }
+  const currentUserId = session.user.id;
 
   const entryId = formData.get("entryId") as string;
   const text = (formData.get("text") as string)?.trim();
@@ -31,39 +32,44 @@ export async function addSupport(
 
   if (!entry) return { message: "Entry not found" };
 
-  const isManager = session.user.role === "MANAGER";
-  const isOwner = session.user.id === entry.userId;
+  const isOwner = entry.userId === currentUserId;
+  const isManager = (session.user as { role?: string })?.role === "MANAGER";
 
-  if (!isManager && !isOwner) {
-    return { message: "Unauthorized" };
+  if (!isOwner && !isManager) {
+    return { message: "Forbidden" };
   }
 
-  if (entry.status === "REVIEWED" && !isManager) {
-    return { message: "This entry has already been reviewed and cannot be changed." };
-  }
+  const existingOrders = (entry.supportNeeds || []).map((s: { order: number }) => s.order);
+  const maxOrder = existingOrders.length > 0 ? Math.max(...existingOrders) : 0;
+  const order = maxOrder + 1;
 
-  const maxOrder = entry.supportNeeds.reduce(
-    (max: number, s: { order: number }) => Math.max(max, s.order ?? 0),
-    -1
-  );
-
-  const rawMention = (formData.get("mentionedUserId") as string) || null;
-  const rawIds = rawMention ? rawMention.split(",").filter(Boolean) : [];
-  const primaryUserId = rawIds[0] ?? null;
-  const allUserIdsStr = rawIds.length > 0 ? rawIds.join(",") : null;
+  const rawIds = formData.getAll("mentionedUserIds").map(String).filter(Boolean);
 
   const support = await d.standupSupportNeed.create({
     data: {
-      entryId,
       text,
-      order: maxOrder + 1,
-      mentionedUserId: primaryUserId,
-      mentionedUserIds: allUserIdsStr,
+      resolved: false,
+      order,
+      entryId,
     },
   });
   if (rawIds.length > 0 && d.standupSupportNeedMention) {
     await d.standupSupportNeedMention.createMany({
       data: rawIds.map((userId: string) => ({ supportNeedId: support.id, userId })),
+    });
+  }
+
+  const notifyIds = rawIds.filter((id: string) => id !== currentUserId);
+  if (notifyIds.length > 0) {
+    await d.notification.createMany({
+      data: notifyIds.map((userId: string) => ({
+        type: "DSM_REMINDER",
+        title: "Support Needed (Meeting) Request",
+        message: `You were tagged for support: "${text.slice(0, 80)}".`,
+        userId,
+        createdById: currentUserId,
+        relatedEntryId: entryId,
+      })),
     });
   }
 

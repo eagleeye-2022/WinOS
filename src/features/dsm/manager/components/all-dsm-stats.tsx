@@ -37,20 +37,27 @@ function MemberListDropdown({
   emptyLabel,
   icon,
   iconClassName,
+  alignRight = false,
 }: {
   title: string;
   members: StatMember[];
   emptyLabel: string;
   icon: React.ElementType;
   iconClassName: string;
+  alignRight?: boolean;
 }) {
   const Icon = icon;
   return (
-    <div className="absolute left-0 top-full z-20 mt-2 w-72 rounded-xl border bg-card p-2 shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
-      <p className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+    <div
+      className={cn(
+        "absolute top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-2 shadow-xl animate-in fade-in slide-in-from-top-1 duration-150",
+        alignRight ? "right-0" : "left-0"
+      )}
+    >
+      <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-snug">
         {title}
       </p>
-      <div className="max-h-72 overflow-y-auto">
+      <div className="max-h-72 overflow-y-auto space-y-1">
         {members.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
@@ -58,16 +65,20 @@ function MemberListDropdown({
             <Link
               key={m.userId}
               href={ROUTES.dsmMember(m.userId)}
-              className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-accent"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors hover:bg-accent min-w-0"
             >
-              <Icon size={13} className={cn("shrink-0", iconClassName)} />
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+              <Icon size={14} className={cn("shrink-0", iconClassName)} />
+              <span className="shrink-0 font-semibold text-foreground">
                 {displayNameOf(m)}
               </span>
               {m.meta && (
-                <span className="shrink-0 text-xs text-muted-foreground">{m.meta}</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground font-normal" title={m.meta}>
+                  {m.meta}
+                </span>
               )}
-              <span className="shrink-0 text-xs text-muted-foreground/70">{m.teamName}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground/70 font-medium">
+                {m.teamName}
+              </span>
             </Link>
           ))
         )}
@@ -159,9 +170,9 @@ export function AllDsmStatsRow({
           <div>
             <p className="text-xs text-muted-foreground">Pending Submission</p>
             <p className="text-2xl font-bold">{pendingCount}</p>
-            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
+            {/* <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning">
               <Clock size={8} /> 10:10 AM CUTOFF
-            </span>
+            </span> */}
           </div>
         </button>
         {openCard === "pending" && (
@@ -171,32 +182,6 @@ export function AllDsmStatsRow({
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
             iconClassName="text-warning"
-          />
-        )}
-      </div>
-
-      {/* Support Needed (Meeting) */}
-      <div className="relative flex">
-        <button
-          type="button"
-          onClick={() => toggle("supportNeeded")}
-          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
-            <AlertTriangle size={18} className="text-info" />
-          </span>
-          <div>
-            <p className="text-xs text-muted-foreground">Support Needed (Meeting)</p>
-            <p className="text-2xl font-bold">{supportNeededCount}</p>
-          </div>
-        </button>
-        {openCard === "supportNeeded" && (
-          <MemberListDropdown
-            title="Support Needed (Meeting)"
-            members={supportNeededMembers}
-            emptyLabel="No Open Support Requests."
-            icon={AlertTriangle}
-            iconClassName="text-info"
           />
         )}
       </div>
@@ -227,6 +212,33 @@ export function AllDsmStatsRow({
         )}
       </div>
 
+      {/* Support Needed (Meeting) */}
+      <div className="relative flex">
+        <button
+          type="button"
+          onClick={() => toggle("supportNeeded")}
+          className="flex h-full w-full items-center gap-4 rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:bg-accent cursor-pointer"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/10">
+            <AlertTriangle size={18} className="text-info" />
+          </span>
+          <div>
+            <p className="text-xs text-muted-foreground">Support Needed (Meeting)</p>
+            <p className="text-2xl font-bold">{supportNeededCount}</p>
+          </div>
+        </button>
+        {openCard === "supportNeeded" && (
+          <MemberListDropdown
+            title="Support Needed (Meeting)"
+            members={supportNeededMembers}
+            emptyLabel="No Open Support Requests."
+            icon={AlertTriangle}
+            iconClassName="text-info"
+            alignRight
+          />
+        )}
+      </div>
+
       {/* Blockers */}
       <div className="relative flex">
         <button
@@ -251,6 +263,7 @@ export function AllDsmStatsRow({
             emptyLabel="No Active Blockers."
             icon={AlertCircle}
             iconClassName="text-destructive"
+            alignRight
           />
         )}
       </div>

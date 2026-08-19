@@ -17,9 +17,19 @@ type Props = {
   teams: TeamWithMembers[];
   allUsers: AllUser[];
   selectedDateStr: string;
+  serverBlockerMembers?: StatMember[];
+  serverSupportNeededMembers?: StatMember[];
 };
 
-export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }: Props) {
+export function AllDsmClient({
+  stats,
+  groups,
+  teams,
+  allUsers,
+  selectedDateStr,
+  serverBlockerMembers,
+  serverSupportNeededMembers,
+}: Props) {
   const router = useRouter();
   const dateInputRef = useRef<HTMLInputElement>(null);
   const columnsScrollRef = useRef<HTMLDivElement>(null);
@@ -56,75 +66,107 @@ export function AllDsmClient({ stats, groups, teams, allUsers, selectedDateStr }
     }).format(dateObj);
   }, [dateObj]);
 
-  // Flatten members across all teams for the stat card dropdowns
+  // Flatten & deduplicate members across all teams for the stat card dropdowns
   const submittedMembers: StatMember[] = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-          meta: m.submittedAt
-            ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-            : undefined,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: StatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if ((m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED") && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+            meta: m.submittedAt
+              ? new Date(m.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+              : undefined,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   const pendingMembers: StatMember[] = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "DRAFT" || m.status === null || m.status === "MISSED")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: StatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if ((m.status === "DRAFT" || m.status === null || m.status === "MISSED") && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   const blockerMembers: StatMember[] = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.blockerCount > 0)
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-          meta: `${m.blockerCount} blocker${m.blockerCount > 1 ? "s" : ""}`,
-        }))
-    );
-  }, [groups]);
+    if (serverBlockerMembers && serverBlockerMembers.length > 0) return serverBlockerMembers;
+    const seen = new Set<string>();
+    const result: StatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if (m.blockerCount > 0 && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+            meta: `${m.blockerCount} blocker${m.blockerCount > 1 ? "s" : ""}`,
+          });
+        }
+      }
+    }
+    return result;
+  }, [groups, serverBlockerMembers]);
 
   const supportNeededMembers: StatMember[] = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.supportCount > 0)
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-          meta: `${m.supportCount} request${m.supportCount > 1 ? "s" : ""}`,
-        }))
-    );
-  }, [groups]);
+    if (serverSupportNeededMembers && serverSupportNeededMembers.length > 0) return serverSupportNeededMembers;
+    const seen = new Set<string>();
+    const result: StatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if (m.supportCount > 0 && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+            meta: `${m.supportCount} request${m.supportCount > 1 ? "s" : ""}`,
+          });
+        }
+      }
+    }
+    return result;
+  }, [groups, serverSupportNeededMembers]);
 
   const pendingReviewMembers: StatMember[] = useMemo(() => {
-    return groups.flatMap((group) =>
-      group.members
-        .filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW")
-        .map((m) => ({
-          userId: m.userId,
-          name: m.name,
-          email: m.email,
-          teamName: group.teamName,
-        }))
-    );
+    const seen = new Set<string>();
+    const result: StatMember[] = [];
+    for (const group of groups) {
+      for (const m of group.members) {
+        if ((m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !seen.has(m.userId)) {
+          seen.add(m.userId);
+          result.push({
+            userId: m.userId,
+            name: m.name,
+            email: m.email,
+            teamName: group.teamName,
+          });
+        }
+      }
+    }
+    return result;
   }, [groups]);
 
   // Extract unique departments for the filter dropdown

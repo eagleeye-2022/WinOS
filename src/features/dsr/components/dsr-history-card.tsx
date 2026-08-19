@@ -8,6 +8,7 @@ import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
 
 import { renderTextWithMentions } from "./dsr-form";
+import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 
 export function DsrHistoryCard({
   entry,
@@ -271,6 +272,12 @@ export function DsrHistoryCard({
                   {renderTextWithMentions(entry.reflection)}
                 </p>
               )}
+            </div>
+          )}
+
+          {entry.status === "REVIEWED" && (
+            <div className="mt-3">
+              <AddTaskAfterReviewRow entryId={entry.id} />
             </div>
           )}
 

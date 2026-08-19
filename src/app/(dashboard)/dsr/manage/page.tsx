@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
-import { getAllDsrStats, getTeamGroupedDsrSubmissions } from "@/features/dsr/manager/queries";
+import { getAllDsrStats, getBlockerAndSupportNeedMembers, getTeamGroupedDsrSubmissions } from "@/features/dsr/manager/queries";
 import { getSharedWorkspaceNotes } from "@/features/dsm/queries";
 import { AllDsrClient } from "@/features/dsr/manager/components/all-dsr-client";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -28,17 +28,24 @@ export default async function AllDsrPage({ searchParams }: Props) {
   const todayStr = toIsoDateStr(toUtcDate());
   const selectedDateStr = dateParam || todayStr;
 
-  const [stats, groups, sharedItems] = await Promise.all([
+  const [stats, groups, sharedItems, { blockerMembers, supportNeededMembers }] = await Promise.all([
     getAllDsrStats(targetDate),
     getTeamGroupedDsrSubmissions(targetDate),
     getSharedWorkspaceNotes(),
+    getBlockerAndSupportNeedMembers(targetDate),
   ]);
 
   return (
     <div className="flex h-full overflow-hidden">
 
       <div className="flex-1 min-w-0 overflow-hidden">
-        <AllDsrClient stats={stats} groups={groups} selectedDateStr={selectedDateStr} />
+        <AllDsrClient
+          stats={stats}
+          groups={groups}
+          selectedDateStr={selectedDateStr}
+          blockerMembers={blockerMembers}
+          supportNeededMembers={supportNeededMembers}
+        />
       </div>
       {/* <aside className="w-80 shrink-0 overflow-hidden border-l xl:w-96">
         <WorkspaceNotesPanel

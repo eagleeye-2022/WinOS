@@ -11,6 +11,14 @@ export type EntryTask = {
   order: number;
   priority?: string | null;
   managerPriority?: string | null;
+  addedAfterReview?: boolean;
+};
+
+export type EntryTimelineEvent = {
+  id: string;
+  type: string;
+  label: string;
+  occurredAt: Date;
 };
 
 export type EntryBlocker = {
@@ -49,6 +57,7 @@ export type EntryWithDetails = {
   tasks: EntryTask[];
   blockers: EntryBlocker[];
   supportNeeds: EntrySupportNeed[];
+  timelineEvents: EntryTimelineEvent[];
 };
 
 export type WorkspaceNoteData = {
@@ -94,6 +103,7 @@ const entryInclude = {
     },
   },
   reviewedBy: { select: { name: true, email: true } },
+  timelineEvents: { orderBy: { occurredAt: "asc" } },
 };
 
 /**
@@ -410,12 +420,27 @@ export async function getYesterdayBlockers(): Promise<{ text: string; priority: 
     orderBy: { date: "desc" },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (entry?.blockers ?? []).map((b: any) => ({
-    text: b.text,
-    priority: b.priority as "LOW" | "MEDIUM" | "HIGH",
-    mentionedUserId: b.mentionedUserId,
-  }));
+  if (!entry || !entry.blockers || entry.blockers.length === 0) return [];
+
+  // Check if DSR exists for that date and if any blocker was marked resolved in DSR
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date: entry.date } },
+    include: { resolvedBlockers: { select: { text: true, resolved: true } } },
+  });
+
+  const resolvedInDsrTexts = new Set(
+    (dsr?.resolvedBlockers ?? [])
+      .filter((rb: { resolved: boolean }) => rb.resolved)
+      .map((rb: { text: string }) => rb.text.trim().toLowerCase())
+  );
+
+  return (entry.blockers ?? [])
+    .filter((b: { resolved: boolean; text: string; priority: string; mentionedUserId?: string | null }) => !b.resolved && !resolvedInDsrTexts.has(b.text.trim().toLowerCase()))
+    .map((b: { text: string; priority: string; mentionedUserId?: string | null }) => ({
+      text: b.text,
+      priority: b.priority as "LOW" | "MEDIUM" | "HIGH",
+      mentionedUserId: b.mentionedUserId,
+    }));
 }
 
 /**
@@ -440,17 +465,32 @@ export async function getYesterdaySupportNeeds(): Promise<{ text: string; mentio
     orderBy: { date: "desc" },
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (entry?.supportNeeds ?? []).map((s: any) => ({
-    text: s.text,
-    mentionedUserId: s.mentionedUserId,
-  }));
+  if (!entry || !entry.supportNeeds || entry.supportNeeds.length === 0) return [];
+
+  // Check if DSR exists for that date and if any support need/follow-up was completed in DSR
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date: entry.date } },
+    include: { followUpsDone: { select: { text: true, completed: true } } },
+  });
+
+  const completedInDsrTexts = new Set(
+    (dsr?.followUpsDone ?? [])
+      .filter((fu: { completed: boolean }) => fu.completed)
+      .map((fu: { text: string }) => fu.text.trim().toLowerCase())
+  );
+
+  return (entry.supportNeeds ?? [])
+    .filter((s: { resolved: boolean; text: string; mentionedUserId?: string | null }) => !s.resolved && !completedInDsrTexts.has(s.text.trim().toLowerCase()))
+    .map((s: { text: string; mentionedUserId?: string | null }) => ({
+      text: s.text,
+      mentionedUserId: s.mentionedUserId,
+    }));
 }
 
 /**
  * Yesterday's learning items that were NOT marked complete.
  * Completion state for a DSM learning item doesn't live on StandupEntry itself — it's
- * recorded on that same day's evening DsrEntry.learningItems (matched by text, no FK
+ * recorded on that same day's evening DsrEntry.additionalWorks (matched by text, no FK
  * between them). Mirrors getYesterdayIncompleteTasks() for the learning section.
  */
 export async function getYesterdayIncompleteLearningItems(): Promise<string[]> {
@@ -478,18 +518,16 @@ export async function getYesterdayIncompleteLearningItems(): Promise<string[]> {
 
   const dsr = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date: entry.date } },
-    include: { learningItems: { select: { text: true, completed: true } } },
+    include: { additionalWorks: { select: { text: true } } },
   });
 
   if (!dsr) return lines;
 
   const completedTexts = new Set(
-    dsr.learningItems
-      .filter((l: { completed: boolean }) => l.completed)
-      .map((l: { text: string }) => l.text)
+    (dsr.additionalWorks ?? []).map((w: { text: string }) => w.text.trim().toLowerCase())
   );
 
-  return lines.filter((text) => !completedTexts.has(text));
+  return lines.filter((text) => !completedTexts.has(text.trim().toLowerCase()));
 }
 
 // ── Internal helper ───────────────────────────────────────────────────────────

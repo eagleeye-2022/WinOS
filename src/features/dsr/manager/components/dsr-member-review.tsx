@@ -1,17 +1,18 @@
 "use client";
 
-import { useActionState, useState, useTransition, useEffect } from "react";
+import { useActionState, useState, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2,
+  Star, Clock3, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2, Plus, Check, X,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
 import { toggleDsrLearning, type ToggleDsrLearningState } from "../actions/toggle-dsr-learning";
+import { addDsrTask, type AddDsrTaskState } from "../actions/add-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
 import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
 import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
@@ -157,6 +158,81 @@ function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][numb
           {task.priority.toUpperCase()}
         </span>
       )}
+      {task.addedAfterReview && (
+        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
+          NT
+        </span>
+      )}
+    </form>
+  );
+}
+
+function AddDsrTaskRow({ entryId }: { entryId: string }) {
+  const [adding, setAdding] = useState(false);
+  const [state, action, pending] = useActionState<AddDsrTaskState, FormData>(addDsrTask, {});
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  if (!adding) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAdding(true)}
+        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+      >
+        <Plus size={13} /> Add Task
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={async (fd) => {
+        await action(fd);
+        setAdding(false);
+      }}
+      className="mt-1 flex flex-col gap-1.5 rounded-lg border p-2 bg-background"
+    >
+      <input type="hidden" name="entryId" value={entryId} />
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          name="text"
+          placeholder="Type new task description..."
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && inputRef.current?.value.trim()) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            if (val && e.currentTarget.form) {
+              e.currentTarget.form.requestSubmit();
+            }
+          }}
+          className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+        />
+        <button
+          type="submit"
+          disabled={pending}
+          title="Add task"
+          className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+        >
+          {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAdding(false)}
+          title="Cancel"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+        >
+          <X size={16} strokeWidth={2} />
+        </button>
+      </div>
+      {state.message && state.message !== "created" && (
+        <p className="text-xs text-destructive">{state.message}</p>
+      )}
     </form>
   );
 }
@@ -189,6 +265,7 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
           <TaskItemRow key={task.id} task={task} locked={locked} />
         ))}
       </div>
+      <AddDsrTaskRow entryId={entry.id} />
     </div>
   );
 }
@@ -453,6 +530,9 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
     (lastIdx, step, i) => (events.find((e) => e.type === step.type) ? i : lastIdx),
     -1
   );
+  const fixedTypes = new Set<string>(TIMELINE_STEPS.map((s) => s.type));
+  const extraEvents = events.filter((e) => !fixedTypes.has(e.type));
+  const isLastFixed = extraEvents.length === 0;
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -466,7 +546,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
           const event = events.find((e) => e.type === step.type);
           const isComplete = !!event;
           const isCurrent = i === lastCompletedIndex;
-          const isLast = i === TIMELINE_STEPS.length - 1;
+          const isLast = i === TIMELINE_STEPS.length - 1 && isLastFixed;
 
           return (
             <div key={step.type} className="flex gap-3">
@@ -496,6 +576,26 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
                     {formatEventTime(event.occurredAt)}
                   </p>
                 )}
+              </div>
+            </div>
+          );
+        })}
+
+        {extraEvents.map((event, i) => {
+          const isLast = i === extraEvents.length - 1;
+          return (
+            <div key={event.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <span className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-success" />
+                {!isLast && (
+                  <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: "16px" }} />
+                )}
+              </div>
+              <div className={cn(!isLast && "pb-4")}>
+                <p className="text-xs font-semibold leading-tight">{event.label}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {formatEventTime(event.occurredAt)}
+                </p>
               </div>
             </div>
           );

@@ -4,16 +4,15 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export type AddTaskState = { message?: string };
+export type AddTaskAfterReviewState = { message?: string };
 
-export async function addTask(
-  _prev: AddTaskState,
+/** Lets a team member add a task to their own standup entry after a manager has reviewed it. */
+export async function addTaskAfterReview(
+  _prev: AddTaskAfterReviewState,
   formData: FormData
-): Promise<AddTaskState> {
+): Promise<AddTaskAfterReviewState> {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "MANAGER") {
-    return { message: "Unauthorized" };
-  }
+  if (!session?.user?.id) return { message: "Unauthorized" };
 
   const entryId = formData.get("entryId") as string;
   const text = (formData.get("text") as string)?.trim();
@@ -32,8 +31,12 @@ export async function addTask(
   });
 
   if (!entry) return { message: "Entry not found" };
-
-  const addedAfterReview = entry.status === "REVIEWED";
+  const isOwner = entry.userId === session.user.id;
+  const isManager = (session.user as { role?: string })?.role === "MANAGER";
+  if (!isOwner && !isManager) return { message: "Unauthorized" };
+  if (entry.status !== "REVIEWED") {
+    return { message: "This entry has not been reviewed yet." };
+  }
 
   const maxOrder = entry.tasks.reduce(
     (max: number, t: { order: number }) => Math.max(max, t.order ?? 0),
@@ -46,9 +49,8 @@ export async function addTask(
       kind: kind as "TODAY" | "YESTERDAY",
       text,
       priority,
-      managerPriority: priority,
       order: maxOrder + 1,
-      addedAfterReview,
+      addedAfterReview: true,
     },
   });
 
@@ -56,13 +58,13 @@ export async function addTask(
     data: {
       entryId,
       type: "TASK_ADDED",
-      label: "Manager added a task",
+      label: "Member added a task",
       occurredAt: new Date(),
     },
   });
 
   revalidatePath("/dsm");
+  revalidatePath("/dsm/my");
   revalidatePath(`/dsm/member/${entry.userId}`);
-  revalidatePath("/dsm/all");
   return { message: "created" };
 }

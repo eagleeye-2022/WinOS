@@ -1,22 +1,15 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ZoomIn, ZoomOut, RotateCcw, Search, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Users, ChevronRight } from "lucide-react";
 import type { EmployeeTreeNode } from "@/features/users/actions/user-actions";
 
-// Palette of colors for badges & connecting lines, cycling per depth level
-// so each generation of the org chart reads as a distinct branch.
-const COLOR_THEMES = [
-  { bg: "bg-teal-500 hover:bg-teal-600", hex: "#14b8a6" },
-  { bg: "bg-emerald-500 hover:bg-emerald-600", hex: "#10b981" },
-  { bg: "bg-blue-500 hover:bg-blue-600", hex: "#3b82f6" },
-  { bg: "bg-purple-500 hover:bg-purple-600", hex: "#a855f7" },
-  { bg: "bg-amber-500 hover:bg-amber-600", hex: "#f59e0b" },
-];
+function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
+  if (image && image.trim()) return image;
+  return "/default-avatar.png";
+}
 
 function getInitials(name: string) {
   return (
@@ -30,290 +23,24 @@ function getInitials(name: string) {
   );
 }
 
-function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
-  if (image && image.trim()) return image;
-  return "/default-avatar.png";
-}
+/** Flatten all managers/leads that have direct reports */
+function getAllManagers(nodes: EmployeeTreeNode[]): EmployeeTreeNode[] {
+  const result: EmployeeTreeNode[] = [];
+  const visited = new Set<string>();
 
-function getAllParentIds(nodes: EmployeeTreeNode[]): string[] {
-  const ids: string[] = [];
   function traverse(list: EmployeeTreeNode[]) {
     for (const node of list) {
+      if (!visited.has(node.id)) {
+        visited.add(node.id);
+        result.push(node);
+      }
       if (node.children && node.children.length > 0) {
-        ids.push(node.id);
         traverse(node.children);
       }
     }
   }
   traverse(nodes);
-  return ids;
-}
-
-function countTotalEmployees(nodes: EmployeeTreeNode[]): number {
-  let count = 0;
-  function traverse(list: EmployeeTreeNode[]) {
-    for (const node of list) {
-      count++;
-      if (node.children) traverse(node.children);
-    }
-  }
-  traverse(nodes);
-  return count;
-}
-
-interface EmployeeCardProps {
-  node: EmployeeTreeNode;
-  isSelected?: boolean;
-  isRoot?: boolean;
-  hasChildren?: boolean;
-  isExpanded?: boolean;
-  childCount?: number;
-  colorTheme?: (typeof COLOR_THEMES)[0];
-  searchQuery?: string;
-  onSelect: (id: string) => void;
-  onToggleExpand?: (e: React.MouseEvent) => void;
-}
-
-function EmployeeCard({
-  node,
-  isSelected,
-  isRoot,
-  hasChildren,
-  isExpanded,
-  childCount,
-  colorTheme = COLOR_THEMES[0],
-  searchQuery = "",
-  onSelect,
-  onToggleExpand,
-}: EmployeeCardProps) {
-  const avatarUrl = getAvatarUrl(node.image, node.id, node.name);
-  const highlighted = isSelected || isRoot || (hasChildren && isExpanded);
-  const matchesSearch =
-    searchQuery.trim().length > 0 &&
-    (node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (node.title && node.title.toLowerCase().includes(searchQuery.toLowerCase())));
-
-  return (
-    <div className="relative group shrink-0 py-1">
-      <div
-        onClick={() => onSelect(node.id)}
-        className={cn(
-          "w-60 cursor-pointer rounded-2xl border p-3 transition-all duration-200 flex items-center gap-3 bg-card shadow-xs hover:shadow-md",
-          highlighted
-            ? "border-2 border-teal-500 bg-teal-50/20 dark:bg-teal-950/30 shadow-md ring-4 ring-teal-500/10"
-            : "border-slate-200/90 dark:border-slate-800 hover:border-teal-400/70 dark:hover:border-teal-500/70",
-          matchesSearch && "ring-4 ring-amber-400/50 border-amber-500 bg-amber-50/30"
-        )}
-      >
-        <Avatar className="h-10 w-10 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
-          <AvatarImage src={avatarUrl} alt={node.name} className="object-cover" />
-          <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
-            <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="flex flex-col min-w-0 flex-1">
-          <span
-            className={cn(
-              "text-sm font-bold truncate leading-tight tracking-tight",
-              highlighted ? "text-teal-900 dark:text-teal-100" : "text-slate-900 dark:text-slate-100"
-            )}
-          >
-            {node.name}
-          </span>
-          <span
-            className={cn(
-              "text-xs truncate font-medium mt-0.5",
-              highlighted ? "text-teal-600 dark:text-teal-400" : "text-slate-500 dark:text-slate-400"
-            )}
-          >
-            {node.title || (node.role === "MANAGER" ? "Manager" : "Team Member")}
-          </span>
-        </div>
-      </div>
-
-      {/* Child Count Badge — sits on the connecting edge, click to expand/collapse */}
-      {hasChildren && childCount && childCount > 0 && (
-        <button
-          type="button"
-          onClick={onToggleExpand}
-          title={isExpanded ? "Collapse team branch" : "Expand team branch"}
-          className={cn(
-            "absolute -right-3.5 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-lg text-xs font-extrabold text-white shadow-md transition-all duration-200 hover:scale-115 active:scale-95 ring-2 ring-background",
-            colorTheme.bg
-          )}
-        >
-          {childCount}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function TreeNodeBranch({
-  node,
-  depth = 0,
-  selectedId,
-  expandedIds,
-  searchQuery,
-  onSelectUser,
-  onToggleExpand,
-}: {
-  node: EmployeeTreeNode;
-  depth?: number;
-  selectedId: string | null;
-  expandedIds: Set<string>;
-  searchQuery: string;
-  onSelectUser: (id: string) => void;
-  onToggleExpand: (id: string) => void;
-}) {
-  const hasChildren = node.children && node.children.length > 0;
-  const isExpanded = expandedIds.has(node.id);
-  const colorTheme = COLOR_THEMES[depth % COLOR_THEMES.length];
-
-  const parentCardRef = useRef<HTMLDivElement>(null);
-  const connectorBoxRef = useRef<HTMLDivElement>(null);
-  const childCardRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  const [layout, setLayout] = useState<{
-    yParent: number;
-    yChildren: number[];
-    spineMinY: number;
-    spineMaxY: number;
-  } | null>(null);
-
-  const updateLayout = useCallback(() => {
-    if (!parentCardRef.current || !connectorBoxRef.current) return;
-
-    const connectorRect = connectorBoxRef.current.getBoundingClientRect();
-    const parentRect = parentCardRef.current.getBoundingClientRect();
-
-    const yParent = parentRect.top - connectorRect.top + parentRect.height / 2;
-
-    const yChildren: number[] = [];
-    childCardRefs.current.forEach((el) => {
-      if (el) {
-        const r = el.getBoundingClientRect();
-        yChildren.push(r.top - connectorRect.top + r.height / 2);
-      }
-    });
-
-    if (yChildren.length === 0) {
-      setLayout({ yParent, yChildren: [], spineMinY: yParent, spineMaxY: yParent });
-      return;
-    }
-
-    const minY = Math.min(yParent, yChildren[0]);
-    const maxY = Math.max(yParent, yChildren[yChildren.length - 1]);
-
-    setLayout({ yParent, yChildren, spineMinY: minY, spineMaxY: maxY });
-  }, []);
-
-  useEffect(() => {
-    if (hasChildren && isExpanded) {
-      updateLayout();
-      const timer = setTimeout(updateLayout, 50);
-      window.addEventListener("resize", updateLayout);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener("resize", updateLayout);
-      };
-    }
-  }, [hasChildren, isExpanded, node.children, updateLayout]);
-
-  return (
-    <div className="flex items-center gap-0">
-      {/* Node Card */}
-      <div ref={parentCardRef} className="relative">
-        <EmployeeCard
-          node={node}
-          isSelected={selectedId === node.id}
-          hasChildren={hasChildren}
-          isExpanded={isExpanded}
-          childCount={node.children.length}
-          colorTheme={colorTheme}
-          searchQuery={searchQuery}
-          onSelect={onSelectUser}
-          onToggleExpand={(e) => {
-            e.stopPropagation();
-            onToggleExpand(node.id);
-          }}
-        />
-      </div>
-
-      {/* Dynamic SVG Connector lines and Children column */}
-      {hasChildren && isExpanded && (
-        <div className="flex items-stretch">
-          {/* Connector SVG Block */}
-          <div ref={connectorBoxRef} className="relative w-14 shrink-0 min-h-[64px]">
-            {layout && (
-              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                {/* Horizontal line from parent badge to center spine */}
-                <line
-                  x1="0"
-                  y1={layout.yParent}
-                  x2="28"
-                  y2={layout.yParent}
-                  stroke={colorTheme.hex}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Vertical spine line connecting first child to last child */}
-                {layout.yChildren.length > 0 && (
-                  <line
-                    x1="28"
-                    y1={layout.spineMinY}
-                    x2="28"
-                    y2={layout.spineMaxY}
-                    stroke={colorTheme.hex}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                )}
-
-                {/* Horizontal branch lines to each child card */}
-                {layout.yChildren.map((y, idx) => (
-                  <line
-                    key={idx}
-                    x1="28"
-                    y1={y}
-                    x2="56"
-                    y2={y}
-                    stroke={colorTheme.hex}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                ))}
-              </svg>
-            )}
-          </div>
-
-          {/* Children Cards Column */}
-          <div className="flex flex-col gap-3 py-1">
-            {node.children.map((child, idx) => (
-              <div
-                key={child.id}
-                ref={(el) => {
-                  childCardRefs.current[idx] = el;
-                }}
-              >
-                <TreeNodeBranch
-                  node={child}
-                  depth={depth + 1}
-                  selectedId={selectedId}
-                  expandedIds={expandedIds}
-                  searchQuery={searchQuery}
-                  onSelectUser={onSelectUser}
-                  onToggleExpand={onToggleExpand}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return result;
 }
 
 interface EmployeeTreeProps {
@@ -322,148 +49,276 @@ interface EmployeeTreeProps {
 }
 
 export function EmployeeTree({ nodes, onSelectUser }: EmployeeTreeProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [zoomLevel, setZoomLevel] = useState(1);
+  // Collect all managers/nodes in hierarchy that have direct reports (or root nodes)
+  const allManagers = useMemo(() => {
+    const list = getAllManagers(nodes);
+    return list.filter((m) => (m.children && m.children.length > 0) || nodes.some((r) => r.id === m.id));
+  }, [nodes]);
 
-  const allParentIds = useMemo(() => getAllParentIds(nodes), [nodes]);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(allParentIds));
+  const [activeManagerId, setActiveManagerId] = useState<string | null>(
+    allManagers[0]?.id ?? null
+  );
 
-  const totalCount = useMemo(() => countTotalEmployees(nodes), [nodes]);
+  const activeManager =
+    allManagers.find((m) => m.id === activeManagerId) ?? allManagers[0] ?? null;
 
-  function handleSelect(id: string) {
-    setSelectedId(id);
-    onSelectUser(id);
-  }
+  // Measurement & SVG Connector Layout state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeManagerRef = useRef<HTMLButtonElement>(null);
+  const memberRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const connectorBoxRef = useRef<HTMLDivElement>(null);
 
-  function handleToggleExpand(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+  const [layout, setLayout] = useState<{
+    yParent: number;
+    yMembers: number[];
+    spineMinY: number;
+    spineMaxY: number;
+  } | null>(null);
+
+  const updateConnectorLayout = useCallback(() => {
+    if (!containerRef.current || !activeManagerRef.current || !connectorBoxRef.current) return;
+
+    const connectorRect = connectorBoxRef.current.getBoundingClientRect();
+    const activeRect = activeManagerRef.current.getBoundingClientRect();
+
+    const yParent = activeRect.top - connectorRect.top + activeRect.height / 2;
+
+    const yMembers: number[] = [];
+    memberRefs.current.forEach((el) => {
+      if (el) {
+        const r = el.getBoundingClientRect();
+        yMembers.push(r.top - connectorRect.top + r.height / 2);
       }
-      return next;
     });
-  }
 
-  function handleExpandAll() {
-    setExpandedIds(new Set(allParentIds));
-  }
+    if (yMembers.length === 0) {
+      setLayout({ yParent, yMembers: [], spineMinY: yParent, spineMaxY: yParent });
+      return;
+    }
 
-  function handleCollapseAll() {
-    setExpandedIds(new Set());
-  }
+    const minY = Math.min(yParent, yMembers[0]);
+    const maxY = Math.max(yParent, yMembers[yMembers.length - 1]);
+
+    setLayout({
+      yParent,
+      yMembers,
+      spineMinY: minY,
+      spineMaxY: maxY,
+    });
+  }, []);
+
+  useEffect(() => {
+    updateConnectorLayout();
+    const timer = setTimeout(updateConnectorLayout, 50);
+    window.addEventListener("resize", updateConnectorLayout);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", updateConnectorLayout);
+    };
+  }, [activeManagerId, nodes, updateConnectorLayout]);
 
   if (nodes.length === 0) {
     return (
       <div className="rounded-2xl border bg-card p-12 text-center text-muted-foreground shadow-xs">
         <Users size={32} className="mx-auto mb-3 text-muted-foreground/50" />
         <p className="font-semibold text-foreground">No reporting hierarchy set up yet.</p>
-        <p className="text-xs text-muted-foreground mt-1">Assign reporting managers to employees in team management to build the org tree.</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Assign reporting managers to employees in team management to build the organization tree.
+        </p>
       </div>
     );
   }
 
+  const directReports = activeManager?.children ?? [];
+
   return (
-    <div className="rounded-2xl border bg-card/60 backdrop-blur-xs p-6 space-y-6 shadow-xs">
-      {/* Top Header Bar with Zoom controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-            <Input
-              type="text"
-              placeholder="Search member or title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-xs rounded-xl bg-background"
-            />
-          </div>
-          <span className="text-xs text-muted-foreground font-medium px-2 py-1 bg-accent/50 rounded-lg">
-            {totalCount} Total Members
-          </span>
-        </div> */}
+    <div ref={containerRef} className="relative flex items-start gap-0 min-h-[600px] p-2 overflow-x-auto">
+      {/* ── Left Sidebar Panel: MANAGERS & LEADS ───────────────────────────── */}
+      <div className="w-72 shrink-0 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-card p-4 space-y-3 shadow-xs">
+        <h3 className="text-xs font-extrabold tracking-wider text-slate-500 dark:text-slate-400 uppercase px-1">
+          MANAGERS & LEADS
+        </h3>
 
-        <div className="flex items-center gap-2 ml-auto">
-          {/* <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleExpandAll}
-            className="h-8 text-xs rounded-lg"
-          >
-            Expand All
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleCollapseAll}
-            className="h-8 text-xs rounded-lg"
-          >
-            Collapse All
-          </Button>
+        <div className="space-y-2">
+          {allManagers.map((manager) => {
+            const isActive = manager.id === activeManager?.id;
+            const avatarUrl = getAvatarUrl(manager.image, manager.id, manager.name);
+            const reportCount = manager.children?.length ?? 0;
 
-          <div className="h-4 w-px bg-border mx-1" /> */}
+            return (
+              <button
+                key={manager.id}
+                ref={isActive ? activeManagerRef : null}
+                type="button"
+                onClick={() => setActiveManagerId(manager.id)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-all duration-200 group relative",
+                  isActive
+                    ? "border-2 border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 shadow-xs"
+                    : "border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 bg-card"
+                )}
+              >
+                {/* Manager Avatar */}
+                <Avatar className="h-9 w-9 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                  <AvatarImage src={avatarUrl} alt={manager.name} className="object-cover" />
+                  <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
+                    {getInitials(manager.name)}
+                  </AvatarFallback>
+                </Avatar>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setZoomLevel((z) => Math.max(0.7, z - 0.1))}
-            title="Zoom Out"
-            className="h-8 w-8 rounded-lg"
-          >
-            <ZoomOut size={15} />
-          </Button>
-          <span className="text-xs font-mono font-medium text-muted-foreground w-10 text-center">
-            {Math.round(zoomLevel * 100)}%
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
-            title="Zoom In"
-            className="h-8 w-8 rounded-lg"
-          >
-            <ZoomIn size={15} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setZoomLevel(1)}
-            title="Reset Zoom"
-            className="h-8 w-8 rounded-lg"
-          >
-            <RotateCcw size={15} />
-          </Button>
+                {/* Name & Title */}
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      "text-sm font-bold truncate leading-tight",
+                      isActive ? "text-blue-900 dark:text-blue-200" : "text-slate-900 dark:text-slate-100"
+                    )}
+                  >
+                    {manager.name}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                    {manager.title || (manager.role === "MANAGER" ? "Manager" : "Team Member")}
+                  </span>
+                </div>
+
+                {/* Count Pill Badge */}
+                {reportCount > 0 && (
+                  <span
+                    className={cn(
+                      "flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold shadow-2xs shrink-0",
+                      isActive
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    )}
+                  >
+                    {reportCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Main Employee Tree Canvas — root(s) on the left, branches flowing right */}
-      <div className="overflow-x-auto overflow-y-visible pb-8 pt-2 min-h-[500px]">
-        <div
-          className="transition-transform duration-200 origin-top-left flex flex-col items-start gap-8 min-w-max p-4"
-          style={{ transform: `scale(${zoomLevel})` }}
-        >
-          {nodes.map((root) => (
-            <TreeNodeBranch
-              key={root.id}
-              node={root}
-              depth={0}
-              selectedId={selectedId}
-              expandedIds={expandedIds}
-              searchQuery={searchQuery}
-              onSelectUser={handleSelect}
-              onToggleExpand={handleToggleExpand}
+      {/* ── Connector Gap with Pixel-Perfect SVG Lines ────────────────────── */}
+      <div ref={connectorBoxRef} className="relative w-14 shrink-0 self-stretch min-h-[500px]">
+        {layout && directReports.length > 0 && (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+            {/* Horizontal Line coming out directly from active Manager Card */}
+            <line
+              x1="0"
+              y1={layout.yParent}
+              x2="28"
+              y2={layout.yParent}
+              stroke="#3b82f6"
+              strokeWidth="2.5"
+              strokeLinecap="round"
             />
-          ))}
-        </div>
+
+            {/* Vertical Spine Line */}
+            {layout.yMembers.length > 0 && (
+              <line
+                x1="28"
+                y1={layout.spineMinY}
+                x2="28"
+                y2={layout.spineMaxY}
+                stroke="#3b82f6"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            )}
+
+            {/* Horizontal Branch Lines to Member Cards */}
+            {layout.yMembers.map((y, idx) => (
+              <line
+                key={idx}
+                x1="28"
+                y1={y}
+                x2="56"
+                y2={y}
+                stroke="#3b82f6"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            ))}
+          </svg>
+        )}
       </div>
+
+      {/* ── Right Panel: Direct Reports List ──────────────────────────────── */}
+      {activeManager && (
+        <div className="flex flex-col gap-3.5 py-1 flex-1 min-w-0">
+          {directReports.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground text-sm my-auto w-64">
+              No direct reports for {activeManager.name}.
+            </div>
+          ) : (
+            directReports.map((member, idx) => {
+              const hasSubTeam = member.children && member.children.length > 0;
+
+              return (
+                <div
+                  key={member.id}
+                  ref={(el) => {
+                    memberRefs.current[idx] = el;
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <EmployeeMemberCard
+                    member={member}
+                    onSelectUser={onSelectUser}
+                  />
+
+                  {hasSubTeam && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveManagerId(member.id)}
+                      title={`View ${member.name}'s team`}
+                      className="flex items-center gap-1 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/40 px-2.5 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors shrink-0 shadow-2xs"
+                    >
+                      Team ({member.children.length})
+                      <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+const EmployeeMemberCard = React.forwardRef<
+  HTMLDivElement,
+  { member: EmployeeTreeNode; onSelectUser: (id: string) => void }
+>(({ member, onSelectUser }, ref) => {
+  const avatarUrl = getAvatarUrl(member.image, member.id, member.name);
+
+  return (
+    <div
+      ref={ref}
+      onClick={() => onSelectUser(member.id)}
+      className="w-64 cursor-pointer rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-card p-3.5 shadow-xs hover:shadow-md hover:border-blue-400/80 dark:hover:border-blue-500/80 transition-all duration-200 flex items-center gap-3.5 group shrink-0"
+    >
+      <Avatar className="h-11 w-11 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
+        <AvatarImage src={avatarUrl} alt={member.name} className="object-cover" />
+        <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
+          {getInitials(member.name)}
+        </AvatarFallback>
+      </Avatar>
+
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate leading-tight tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          {member.name}
+        </span>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+          {member.title || (member.role === "MANAGER" ? "Manager" : "Team Member")}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+EmployeeMemberCard.displayName = "EmployeeMemberCard";
