@@ -478,3 +478,80 @@ export async function getUsersAction(): Promise<ProjectUser[]> {
     return INITIAL_MOCK_USERS;
   }
 }
+
+/**
+ * ----------------------------------------------------
+ * OWNER & ASSOCIATED TEAM FETCH ACTION FOR NEW PROJECT
+ * ----------------------------------------------------
+ */
+
+export async function getOwnersAndTeamsAction(): Promise<{
+  owners: { id: string; name: string; email: string; department?: string | null }[];
+  teams: string[];
+}> {
+  try {
+    const [users, dbTasks, dbProjects] = await Promise.all([
+      db.user.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          department: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      db.projectTask.findMany({
+        select: { associatedTeam: true },
+      }),
+      db.project.findMany({
+        select: { associatedTeam: true },
+      }),
+    ]);
+
+    const owners = users.map((u) => ({
+      id: u.id,
+      name: u.name || u.email.split("@")[0],
+      email: u.email,
+      department: u.department,
+    }));
+
+    // Extract unique team names from DB columns
+    const userDepartments = users.map((u) => u.department);
+    const taskTeams = dbTasks.map((t) => t.associatedTeam);
+    const projectTeams = dbProjects.map((p) => p.associatedTeam);
+
+    const rawTeams = [...userDepartments, ...taskTeams, ...projectTeams];
+
+    const teamsFromDb = Array.from(
+      new Set(
+        rawTeams.filter(
+          (t): t is string => Boolean(t && typeof t === "string" && t.trim().length > 0)
+        )
+      )
+    );
+
+    const defaultTeams = [
+      "Engineering",
+      "UI/UX Design",
+      "Marketing",
+      "QA & Testing",
+      "Product Management",
+    ];
+
+    const teams = Array.from(new Set([...teamsFromDb, ...defaultTeams]));
+
+    return { owners, teams };
+  } catch (error) {
+    console.error("Error in getOwnersAndTeamsAction:", error);
+    return {
+      owners: [
+        { id: "u-1", name: "Dhruv Patidar", email: "dhruv@winos.com" },
+        { id: "u-2", name: "Vaishnavi Shivhare", email: "vaishnavi@winos.com" },
+        { id: "u-3", name: "Alex Johnson", email: "alex@winos.com" },
+        { id: "u-4", name: "Sarah Miller", email: "sarah@winos.com" },
+      ],
+      teams: ["Engineering", "UI/UX Design", "Marketing", "QA & Testing"],
+    };
+  }
+}

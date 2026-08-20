@@ -6,11 +6,55 @@ export type BillingType = "Fixed Rate" | "Hourly Rate" | "Non Billable" | "None"
 
 export type WorkspaceRole = "ADMIN" | "TEAM_MEMBER";
 
+export type UserRole = "Admin" | "Manager" | "Member" | "Client";
+
+export type UserDepartment = "SEO" | "Design" | "Content" | "Development" | "Management";
+
 export interface ProjectPhase {
   id: string;
   code: string;
   name: string;
   isCompleted?: boolean;
+}
+
+export interface TaskList {
+  id: string;
+  name: string;
+  flag: "internal" | "external"; // external = client-visible
+  status: "Active" | "Completed";
+  sequence: number;
+  phaseCode: string;
+}
+
+export interface SOPTaskSeed {
+  title: string;
+  duration: string;
+  priority: ProjectPriority;
+  departmentAlias: string;
+  description?: string;
+}
+
+export interface SOPTaskListTemplate {
+  name: string;
+  flag: "internal" | "external";
+  sequence: number;
+  defaultTasks: SOPTaskSeed[];
+}
+
+export interface SOPPhaseTemplate {
+  code: string;
+  name: string;
+  departmentAlias: string;
+  taskLists: SOPTaskListTemplate[];
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  isDefault?: boolean;
+  category: "Client Delivery" | "Internal Product" | "Custom";
+  phases: SOPPhaseTemplate[];
 }
 
 export interface ProjectOwner {
@@ -34,12 +78,18 @@ export interface ProjectTaskInfo {
   billingType?: BillingType;
 }
 
+export type ProjectType = "CLIENT_DELIVERY" | "INTERNAL_BUILD";
+
 export interface Project {
   id: string; // e.g. EEDP-81
   name: string;
   progressPercent: number; // e.g. 49%
   owner: ProjectOwner;
   status: ProjectStatus;
+  projectCategory?: ProjectType; // CLIENT_DELIVERY (7-Phase SOP) or INTERNAL_BUILD (Flat)
+  departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
+  templateUsed?: string; // e.g. "T2T 7-Phase SOP Delivery Template"
+  isClientVisible?: boolean;
   totalHours: string; // e.g. "05:07" or "00:00 h"
   billableHours: string; // e.g. "00:00 h"
   nonBillableHours: string; // e.g. "01:00 h"
@@ -51,13 +101,17 @@ export interface Project {
   completedPhasesCount: number; // e.g. 3
   totalPhasesCount: number; // e.g. 7
   phases?: ProjectPhase[];
+  taskLists?: TaskList[];
   description?: string;
   tags?: string[];
+  aiSummary?: string;
   createdAt: string;
 }
 
 export interface NewProjectFormData {
   name: string;
+  projectCategory?: ProjectType;
+  templateUsed?: string;
   phases: ProjectPhase[];
   associatedTeam: string;
   owner: string;
@@ -80,6 +134,8 @@ export interface ProjectUser {
   email: string;
   userType: UserType;
   role: string;
+  department?: UserDepartment;
+  departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
   portalProfile?: string;
   projects?: string;
   statusText?: string;
@@ -127,10 +183,15 @@ export interface TaskItem {
   title: string;
   phaseCode: string; // e.g. "2.1"
   phaseName: string; // e.g. "IDEATION & CONCEPTUALIZATION" or "UI/UX DESIGNING"
+  taskListId?: string;
+  taskListName?: string;
+  isExternal?: boolean; // Client visible flag
   status: TaskStatus;
   authorName: string; // e.g. "Dhruv Patidar"
   associatedTeam?: string;
+  departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
   owner?: string;
+  owners?: string[];
   workHours?: string;
   startDate?: string;
   duration?: string; // e.g. "2 days/hrs"
@@ -147,6 +208,23 @@ export interface TaskItem {
   activities?: TaskActivityLog[];
   assignees?: { id: string; name: string; initials: string; avatarColor?: string }[];
   isWarning?: boolean;
+  staleAlert?: boolean;
+  lastActivityDate?: string;
+  hasAttachments?: boolean;
+  hasComments?: boolean;
+  hasReminder?: boolean;
+  hasRecurrence?: boolean;
+}
+
+export interface ProjectIssue {
+  id: string;
+  title: string;
+  description: string;
+  severity: "Low" | "Medium" | "High" | "Critical";
+  status: "Open" | "In Progress" | "Resolved" | "Closed";
+  assignee?: string;
+  reporter: string;
+  createdAt: string;
 }
 
 export interface TimeLogEntry {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
   List,
   Kanban,
@@ -26,6 +27,9 @@ import { ChecklistWorkspaceView } from "./checklist-workspace-view";
 import { PhasesTableView } from "./phases-table-view";
 import { TimeTrackerView } from "./time-tracker-view";
 import { INITIAL_MOCK_TIME_GROUPS } from "../../data/mock-time-logs";
+import { TimerWidget } from "../timer-widget";
+import { analyzeTaskStaleness } from "../../manager/ai-project-assistant";
+import { AlertTriangle, Sparkles } from "lucide-react";
 
 interface TasksBoardViewProps {
   tasks: TaskItem[];
@@ -53,10 +57,18 @@ export function TasksBoardView({
   // Filter & Options Popover States
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("ALL");
+
+  const router = useRouter();
+  const params = useParams();
+  const currentProjectId = (params?.projectId as string) || "EEDP-82";
+
+  // Stale Task Analysis
+  const stalenessAnalysis = analyzeTaskStaleness(tasks);
 
   const handleOpenTask = (task: TaskItem) => {
-    setSelectedTask(task);
-    setIsDetailDrawerOpen(true);
+    const taskId = task.code || task.id;
+    router.push(`/projects/${currentProjectId}/tasks/${taskId}`);
   };
 
   const handleExportTasksCSV = () => {
@@ -76,8 +88,15 @@ export function TasksBoardView({
   };
 
   const filteredTasks = tasks.filter((t) => {
-    if (selectedStatusFilter === "ALL") return true;
-    return t.status.toLowerCase() === selectedStatusFilter.toLowerCase();
+    const matchesStatus =
+      selectedStatusFilter === "ALL" ||
+      t.status.toLowerCase() === selectedStatusFilter.toLowerCase();
+
+    const matchesDept =
+      selectedDepartmentFilter === "ALL" ||
+      t.departmentAlias === selectedDepartmentFilter;
+
+    return matchesStatus && matchesDept;
   });
 
   // 10 Status Columns (matching Image 1)
@@ -301,7 +320,8 @@ export function TasksBoardView({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-muted-foreground">
+        {/* <div className="flex items-center gap-3 text-muted-foreground">
+          <TimerWidget />
           <button
             type="button"
             className="p-1 hover:bg-accent rounded hover:text-foreground transition-colors"
@@ -316,7 +336,7 @@ export function TasksBoardView({
           >
             <HelpCircle size={16} />
           </button>
-        </div>
+        </div> */}
       </div>
 
       {activeSubTab === "CHECKLIST" ? (
@@ -327,6 +347,19 @@ export function TasksBoardView({
         <TimeTrackerView initialGroups={INITIAL_MOCK_TIME_GROUPS} />
       ) : (
         <>
+          {/* Stale Task Alert Banner (AI Augmentation Layer) */}
+          {stalenessAnalysis.staleCount > 0 && (
+            <div className="flex items-center justify-between bg-amber-500/10 border-b border-amber-500/30 px-6 py-2 text-xs text-amber-700 dark:text-amber-300">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle size={15} className="text-amber-500 shrink-0" />
+                <span>{stalenessAnalysis.recommendation}</span>
+              </div>
+              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold">
+                {stalenessAnalysis.staleCount} Stale Task(s) Detected
+              </span>
+            </div>
+          )}
+
           {/* Action Toolbar */}
           <div className="flex items-center justify-between border-b px-6 py-2.5 bg-muted/20 relative">
             <div className="flex items-center gap-2">
@@ -335,11 +368,10 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={() => setViewMode("STATUS_COLUMNS")}
-                  className={`p-1.5 rounded transition-colors ${
-                    viewMode === "STATUS_COLUMNS"
+                  className={`p-1.5 rounded transition-colors ${viewMode === "STATUS_COLUMNS"
                       ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                   title="Vertical Status Columns"
                 >
                   <Columns size={15} />
@@ -347,11 +379,10 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={() => setViewMode("PHASE_COLUMNS")}
-                  className={`p-1.5 rounded transition-colors ${
-                    viewMode === "PHASE_COLUMNS"
+                  className={`p-1.5 rounded transition-colors ${viewMode === "PHASE_COLUMNS"
                       ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                   title="17 Phase Vertical Columns"
                 >
                   <Layers size={15} />
@@ -359,16 +390,29 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={() => setViewMode("KANBAN")}
-                  className={`p-1.5 rounded transition-colors ${
-                    viewMode === "KANBAN"
+                  className={`p-1.5 rounded transition-colors ${viewMode === "KANBAN"
                       ? "bg-info/10 text-info font-bold"
                       : "text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                   title="Kanban Board View"
                 >
                   <Kanban size={15} />
                 </button>
               </div>
+
+              {/* Department Filter Select */}
+              <select
+                value={selectedDepartmentFilter}
+                onChange={(e) => setSelectedDepartmentFilter(e.target.value)}
+                className="rounded border border-input bg-background px-2 py-1 text-xs font-semibold text-foreground outline-none cursor-pointer"
+              >
+                <option value="ALL">All Departments</option>
+                <option value="digitalproducts@">digitalproducts@</option>
+                <option value="design@">design@</option>
+                <option value="dev@">dev@</option>
+                <option value="seo@">seo@</option>
+                <option value="qa@">qa@</option>
+              </select>
             </div>
 
             <div className="flex items-center gap-3">

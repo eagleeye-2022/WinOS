@@ -19,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
+import { TimerWidget } from "../timer-widget";
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
@@ -218,6 +219,14 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
 
         {/* Action Buttons & Filter Icons */}
         <div className="flex items-center gap-3 text-xs">
+          {/* Live Start/Pause Timer Widget */}
+          <TimerWidget
+            onStopTimer={(_sec, formatted) => {
+              setLogDuration(formatted);
+              setShowAddLogModal(true);
+            }}
+          />
+
           {/* Add Time Log Split Button */}
           <div className="inline-flex rounded-md bg-primary text-primary-foreground shadow-xs">
             <button

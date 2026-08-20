@@ -16,8 +16,14 @@ import {
   AlignLeft,
   Loader2,
 } from "lucide-react";
-import { DEFAULT_PROJECT_PHASES } from "../../data/mock-projects";
-import { Project, ProjectPhase } from "../../types";
+import {
+  DEFAULT_PROJECT_TEMPLATES,
+  scaffoldPhasesFromTemplate,
+  scaffoldTaskListsFromTemplate,
+  scaffoldTasksFromTemplate,
+} from "../../data/sop-templates";
+import { Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
+import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 
 interface AddProjectDrawerProps {
   isOpen: boolean;
@@ -30,17 +36,36 @@ export function AddProjectDrawer({
   onClose,
   onAddProject,
 }: AddProjectDrawerProps) {
-  const [projectName, setProjectName] = useState("WinOS");
-  const [phases, setPhases] = useState<ProjectPhase[]>(DEFAULT_PROJECT_PHASES);
+  const [projectName, setProjectName] = useState("EagleEye Client Website");
+  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate>(
+    DEFAULT_PROJECT_TEMPLATES[0]
+  );
+  const [projectCategory, setProjectCategory] = useState<ProjectType>("CLIENT_DELIVERY");
+  const [departmentAlias, setDepartmentAlias] = useState("digitalproducts@");
+  const [phases, setPhases] = useState<ProjectPhase[]>(
+    scaffoldPhasesFromTemplate(DEFAULT_PROJECT_TEMPLATES[0])
+  );
 
   // Accordion Section Toggle States
   const [phasesOpen, setPhasesOpen] = useState(true);
   const [taskInfoOpen, setTaskInfoOpen] = useState(true);
   const [descriptionOpen, setDescriptionOpen] = useState(true);
 
+  // Switch phases based on Project Template Selection
+  const handleTemplateSelect = (templateId: string) => {
+    const tmpl = DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === templateId) || DEFAULT_PROJECT_TEMPLATES[0];
+    setSelectedTemplate(tmpl);
+    setPhases(scaffoldPhasesFromTemplate(tmpl));
+    if (tmpl.category === "Client Delivery") {
+      setProjectCategory("CLIENT_DELIVERY");
+    } else {
+      setProjectCategory("INTERNAL_BUILD");
+    }
+  };
+
   // Task Information Form Fields
   const [associatedTeam, setAssociatedTeam] = useState("");
-  const [owner, setOwner] = useState("Dhruv Patidar");
+  const [owner, setOwner] = useState("");
   const [workHours, setWorkHours] = useState("0:00");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -49,6 +74,32 @@ export function AddProjectDrawer({
   const [tags, setTags] = useState<string[]>([]);
   const [reminder, setReminder] = useState("");
   const [billingType, setBillingType] = useState("Fixed Rate");
+
+  // Dynamic DB Options for Owner and Associated Team
+  const [ownersList, setOwnersList] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [teamsList, setTeamsList] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    async function loadOptions() {
+      try {
+        const res = await getOwnersAndTeamsAction();
+        if (res.owners && res.owners.length > 0) {
+          setOwnersList(res.owners);
+          if (!owner) {
+            setOwner(res.owners[0].name);
+          }
+        }
+        if (res.teams && res.teams.length > 0) {
+          setTeamsList(res.teams);
+        }
+      } catch (err) {
+        console.error("Failed to load owners/teams from DB:", err);
+      }
+    }
+    if (isOpen) {
+      loadOptions();
+    }
+  }, [isOpen]);
 
   // Description & Attachments
   const [description, setDescription] = useState("");
@@ -117,6 +168,9 @@ export function AddProjectDrawer({
     const newProject: Project = {
       id: `EEDP-${Math.floor(10 + Math.random() * 90)}`,
       name: projectName,
+      projectCategory,
+      departmentAlias,
+      templateUsed: selectedTemplate.name,
       progressPercent: 0,
       owner: {
         id: `u-${Date.now()}`,
@@ -131,11 +185,15 @@ export function AddProjectDrawer({
       startDate: startDate || new Date().toLocaleDateString("en-GB"),
       deadline: dueDate || "01/01/2027",
       completedTasksCount: 0,
-      totalTasksCount: 0,
+      totalTasksCount: selectedTemplate.phases.reduce(
+        (acc, p) => acc + p.taskLists.reduce((tAcc, tl) => tAcc + tl.defaultTasks.length, 0),
+        0
+      ),
       taskProgressPercent: 0,
       completedPhasesCount: 0,
       totalPhasesCount: phases.length,
       phases: phases,
+      taskLists: scaffoldTaskListsFromTemplate(selectedTemplate),
       description,
       tags,
       createdAt: new Date().toISOString().split("T")[0],
@@ -166,30 +224,63 @@ export function AddProjectDrawer({
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm"
         >
+          {/* First-Class SOP Project Template Selector */}
+          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Select Project Template (Auto-Scaffold SOP)
+              </label>
+              <span className="text-[10px] font-semibold text-primary">
+                Instant 17-Task-List Scaffolding
+              </span>
+            </div>
+
+            <select
+              value={selectedTemplate.id}
+              onChange={(e) => handleTemplateSelect(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {DEFAULT_PROJECT_TEMPLATES.map((tmpl) => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name} ({tmpl.category})
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground pt-0.5">
+              {selectedTemplate.description}
+            </p>
+          </div>
+
+          {/* Department Alias Assignment */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">
+              Department Alias Tag
+            </label>
+            <select
+              value={departmentAlias}
+              onChange={(e) => setDepartmentAlias(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="digitalproducts@">digitalproducts@ (Digital Products / PM)</option>
+              <option value="design@">design@ (UI/UX & Graphic Design)</option>
+              <option value="dev@">dev@ (Full-Stack Engineering)</option>
+              <option value="seo@">seo@ (SEO & Performance Marketing)</option>
+              <option value="qa@">qa@ (Quality Assurance & Testing)</option>
+            </select>
+          </div>
+
           {/* Project Name Field */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground">
               Project Name <span className="text-destructive">*</span>
             </label>
             <div className="relative">
-              <select
+              <input
+                type="text"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none cursor-pointer"
-              >
-                <option value="WinOS">WinOS</option>
-                <option value="Untitled OMS">Untitled OMS</option>
-                <option value="Super Kids Academy">Super Kids Academy</option>
-                <option value="Pamas">Pamas</option>
-                <option value="SAP : Safari Adventure Park">
-                  SAP : Safari Adventure Park
-                </option>
-                <option value="TCBI">TCBI</option>
-                <option value="EED Website">EED Website</option>
-              </select>
-              <ChevronDown
-                size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                placeholder="Enter Project Name (e.g. EED Website, NES HRMS...)"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
           </div>
@@ -312,10 +403,11 @@ export function AddProjectDrawer({
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="">Select Team</option>
-                    <option value="Engineering">Engineering Team</option>
-                    <option value="Design">UI/UX Design Team</option>
-                    <option value="Marketing">Marketing Team</option>
-                    <option value="QA">QA & Testing Team</option>
+                    {teamsList.map((teamName) => (
+                      <option key={teamName} value={teamName}>
+                        {teamName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -329,10 +421,12 @@ export function AddProjectDrawer({
                     onChange={(e) => setOwner(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="Dhruv Patidar">Dhruv Patidar</option>
-                    <option value="Vaishnavi Shivhare">Vaishnavi Shivhare</option>
-                    <option value="Alex Johnson">Alex Johnson</option>
-                    <option value="Sarah Miller">Sarah Miller</option>
+                    <option value="">Select Owner</option>
+                    {ownersList.map((u) => (
+                      <option key={u.id} value={u.name}>
+                        {u.name} ({u.email})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
