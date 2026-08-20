@@ -24,6 +24,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-81",
     name: "Untitled OMS",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "digitalproducts@",
     progressPercent: 0,
     owner: {
       id: "u1",
@@ -47,6 +49,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-82",
     name: "Super Kids Academy",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "design@",
     progressPercent: 7,
     owner: {
       id: "u1",
@@ -70,6 +74,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-83",
     name: "WinOS",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "dev@",
     progressPercent: 49,
     owner: {
       id: "u1",
@@ -91,8 +97,36 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
     createdAt: "2026-07-11",
   },
   {
+    id: "EEDP-88",
+    name: "NES HRMS (Internal Product)",
+    projectCategory: "INTERNAL_BUILD",
+    departmentAlias: "dev@",
+    progressPercent: 65,
+    owner: {
+      id: "u2",
+      name: "Vaishnavi Shivhare",
+      initials: "VS",
+      avatarColor: "bg-primary text-primary-foreground",
+    },
+    status: "ACTIVE",
+    totalHours: "12:30 h",
+    billableHours: "00:00 h",
+    nonBillableHours: "12:30 h",
+    startDate: "01/06/2026",
+    deadline: "30/11/2026",
+    completedTasksCount: 18,
+    totalTasksCount: 28,
+    taskProgressPercent: 65,
+    completedPhasesCount: 0,
+    totalPhasesCount: 1,
+    description: "Internal product engine skipping 7-phase SOP for agile flat task tracking.",
+    createdAt: "2026-06-01",
+  },
+  {
     id: "EEDP-84",
     name: "Pamas",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "seo@",
     progressPercent: 53,
     owner: {
       id: "u1",
@@ -116,6 +150,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-85",
     name: "SAP : Safari Adventure Park",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "digitalproducts@",
     progressPercent: 55,
     owner: {
       id: "u1",
@@ -139,6 +175,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-86",
     name: "TCBI",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "design@",
     progressPercent: 38,
     owner: {
       id: "u1",
@@ -162,6 +200,8 @@ export const INITIAL_MOCK_PROJECTS: Project[] = [
   {
     id: "EEDP-87",
     name: "EED Website",
+    projectCategory: "CLIENT_DELIVERY",
+    departmentAlias: "seo@",
     progressPercent: 12,
     owner: {
       id: "u2",

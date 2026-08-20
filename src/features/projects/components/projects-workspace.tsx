@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import {
   Home,
   FolderKanban,
@@ -31,10 +32,17 @@ import { AllProjectsTableView } from "./views/all-projects-table-view";
 import { UsersTableView } from "./views/users-table-view";
 import { TasksBoardView } from "./views/tasks-board-view";
 import { TimeTrackerView } from "./views/time-tracker-view";
+import { GanttTimelineView } from "./views/gantt-timeline-view";
+import { ReportsView } from "./views/reports-view";
+import { ClientPortalView } from "./views/client-portal-view";
+import { AdminSettingsView } from "./views/admin-settings-view";
 import { AddProjectDrawer } from "./modals/add-project-drawer";
 import { InviteMemberModal } from "./modals/invite-member-modal";
+import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 
 export function ProjectsWorkspace() {
+  const pathname = usePathname();
+
   const [userRole, setUserRole] = useState<WorkspaceRole>("TEAM_MEMBER"); // Defaults to Team Member View per user request
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -45,23 +53,53 @@ export function ProjectsWorkspace() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeNav, setActiveNav] = useState<
+  const [selectedRecentProject, setSelectedRecentProject] = useState("");
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [inviteUserType, setInviteUserType] = useState<UserType>("PORTAL");
+
+  // Determine activeNav view based on current route pathname
+  let activeNav:
     | "HOME"
     | "ALL_PROJECTS"
     | "USERS"
     | "COLLABORATION"
     | "MY_TASKS"
     | "TIME_TRACKER"
+    | "TIMELINE"
+    | "REPORTS"
+    | "CLIENT_PORTAL"
     | "RECENT_PROJECT"
     | "ARCHIVE"
-    | "SETTINGS"
-  >("MY_TASKS"); // Active on My Tasks per uploaded screenshot
+    | "SETTINGS" = "ALL_PROJECTS";
 
-  const [selectedRecentProject, setSelectedRecentProject] = useState("");
-
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteUserType, setInviteUserType] = useState<UserType>("PORTAL");
+  if (pathname === "/projects/home") {
+    activeNav = "HOME";
+  } else if (pathname === "/projects/users") {
+    activeNav = "USERS";
+  } else if (pathname === "/projects/collaboration") {
+    activeNav = "COLLABORATION";
+  } else if (pathname === "/projects/my-tasks" || pathname === "/projects/tasks") {
+    activeNav = "MY_TASKS";
+  } else if (pathname === "/projects/time-tracker") {
+    activeNav = "TIME_TRACKER";
+  } else if (pathname === "/projects/timeline") {
+    activeNav = "TIMELINE";
+  } else if (pathname === "/projects/reports") {
+    activeNav = "REPORTS";
+  } else if (pathname === "/projects/portal" || pathname === "/projects/client-portal") {
+    activeNav = "CLIENT_PORTAL";
+  } else if (pathname === "/projects/recent") {
+    activeNav = "RECENT_PROJECT";
+  } else if (pathname === "/projects/archive") {
+    activeNav = "ARCHIVE";
+  } else if (pathname === "/projects/settings") {
+    activeNav = "SETTINGS";
+  } else {
+    activeNav = "ALL_PROJECTS";
+  }
 
   // Load dynamic data from PostgreSQL Database via Server Actions
   useEffect(() => {
@@ -143,228 +181,12 @@ export function ProjectsWorkspace() {
 
   const handleSelectRecentProject = (name: string) => {
     setSelectedRecentProject(name);
-    setActiveNav("RECENT_PROJECT");
   };
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Left Sidebar Navigation */}
-      <aside className="w-64 border-r border-border bg-card flex flex-col justify-between select-none shrink-0">
-        <div className="flex flex-col py-4">
-          {/* Sidebar Header & Role Switcher Toggle */}
-          <div className="px-5 pb-3 border-b space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-foreground tracking-wide">
-                  Projects
-                </h2>
-                <span className="text-[11px] text-muted-foreground">Workspace</span>
-              </div>
 
-              {/* Interactive View Role Switcher */}
-              <button
-                type="button"
-                onClick={() =>
-                  setUserRole(userRole === "ADMIN" ? "TEAM_MEMBER" : "ADMIN")
-                }
-                className="flex items-center gap-1 rounded-full border border-info/30 bg-info/10 px-2.5 py-1 text-[10px] font-bold text-info hover:bg-info/15 transition-colors"
-                title="Click to toggle Admin / Team Member perspective"
-              >
-                {userRole === "ADMIN" ? (
-                  <>
-                    <Shield size={11} className="text-amber-500" /> Admin View
-                  </>
-                ) : (
-                  <>
-                    <UserCheck size={11} className="text-primary" /> Member View
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Primary Nav Items */}
-          <nav className="px-2 pt-3 space-y-1">
-            {/* Home (Admin View only) */}
-            {userRole === "ADMIN" && (
-              <button
-                type="button"
-                onClick={() => setActiveNav("HOME")}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-xs font-medium transition-all ${
-                  activeNav === "HOME"
-                    ? "bg-accent text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                <Home size={16} />
-                <span>Home</span>
-              </button>
-            )}
-
-            {/* All Projects */}
-            <button
-              type="button"
-              onClick={() => setActiveNav("ALL_PROJECTS")}
-              className={`flex w-full items-center gap-3 rounded-r-md px-3 py-2 text-xs font-semibold transition-all relative ${
-                activeNav === "ALL_PROJECTS"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {activeNav === "ALL_PROJECTS" && (
-                <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
-              )}
-              <FolderKanban size={16} />
-              <span>All Projects</span>
-            </button>
-
-            {/* Users (Admin View only) */}
-            {userRole === "ADMIN" && (
-              <button
-                type="button"
-                onClick={() => setActiveNav("USERS")}
-                className={`flex w-full items-center gap-3 rounded-r-md px-3 py-2 text-xs font-semibold transition-all relative ${
-                  activeNav === "USERS"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {activeNav === "USERS" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
-                )}
-                <Users size={16} />
-                <span>Users</span>
-              </button>
-            )}
-
-            {/* Collaboration */}
-            <button
-              type="button"
-              onClick={() => setActiveNav("COLLABORATION")}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-xs font-medium transition-all ${
-                activeNav === "COLLABORATION"
-                  ? "bg-accent text-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              <Share2 size={16} />
-              <span>Collaboration</span>
-            </button>
-          </nav>
-
-          {/* Section: Overview */}
-          <div className="mt-6 px-4">
-            <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase mb-2">
-              Overview
-            </h3>
-            <div className="space-y-1">
-              {/* My Tasks (Matching Image 1) */}
-              <button
-                type="button"
-                onClick={() => setActiveNav("MY_TASKS")}
-                className={`flex w-full items-center gap-3 rounded-r-md px-3 py-1.5 text-xs font-semibold transition-all relative ${
-                  activeNav === "MY_TASKS"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {activeNav === "MY_TASKS" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
-                )}
-                <CheckSquare size={15} />
-                <span>My Tasks</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveNav("TIME_TRACKER")}
-                className={`flex w-full items-center gap-3 rounded-r-md px-3 py-1.5 text-xs font-semibold transition-all relative ${
-                  activeNav === "TIME_TRACKER"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {activeNav === "TIME_TRACKER" && (
-                  <span className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r" />
-                )}
-                <Clock size={15} />
-                <span>Time Tracker</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section: Recent Projects */}
-          <div className="mt-6 px-4">
-            <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground/70 uppercase mb-2">
-              Recent Projects
-            </h3>
-            <div className="space-y-1">
-              {["ABCD", "EFGH", "IJKL", "MNOP"].map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => handleSelectRecentProject(item)}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                    activeNav === "RECENT_PROJECT" && selectedRecentProject === item
-                      ? "bg-accent text-foreground font-semibold"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  <FileText size={14} />
-                  <span>{item}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Footer Section */}
-        <div className="p-4 space-y-4 border-t">
-          {/* Steve Jobs Quote Card */}
-          <div className="relative overflow-hidden rounded-xl border border-info/20 bg-info/5 p-3.5">
-            <div className="flex items-start gap-2">
-              <Quote size={16} className="text-primary shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-[11px] leading-tight text-foreground/80 font-medium italic">
-                  &ldquo;Great things in business are never done by one person. They&apos;re done by a team of people.&rdquo;
-                </p>
-                <span className="block text-[10px] font-semibold text-info">
-                  — Steve Jobs
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Archive & Settings */}
-          <div className="space-y-1 pt-1">
-            <button
-              type="button"
-              onClick={() => setActiveNav("ARCHIVE")}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                activeNav === "ARCHIVE"
-                  ? "bg-accent text-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              <Archive size={15} />
-              <span>Archive</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveNav("SETTINGS")}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                activeNav === "SETTINGS"
-                  ? "bg-accent text-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              <Settings size={15} />
-              <span>Settings</span>
-            </button>
-          </div>
-        </div>
-      </aside>
 
       {/* Right Main Content Area */}
       <main className="flex-1 overflow-hidden bg-background">
@@ -391,7 +213,7 @@ export function ProjectsWorkspace() {
               />
             )}
 
-            {activeNav === "USERS" && userRole === "ADMIN" && (
+            {activeNav === "USERS" && (
               <UsersTableView
                 users={users}
                 onOpenInviteModal={handleOpenInviteModal}
@@ -409,6 +231,14 @@ export function ProjectsWorkspace() {
             {activeNav === "TIME_TRACKER" && (
               <TimeTrackerView initialGroups={timeGroups} />
             )}
+
+            {activeNav === "TIMELINE" && <GanttTimelineView />}
+
+            {activeNav === "REPORTS" && <ReportsView />}
+
+            {activeNav === "CLIENT_PORTAL" && <ClientPortalView />}
+
+            {activeNav === "SETTINGS" && <AdminSettingsView />}
 
             {activeNav === "HOME" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
@@ -476,6 +306,12 @@ export function ProjectsWorkspace() {
         onClose={() => setIsInviteModalOpen(false)}
         onInviteUser={handleInviteUser}
         defaultUserType={inviteUserType}
+      />
+
+      {/* Project Templates Library Modal */}
+      <ProjectTemplatesModal
+        isOpen={isTemplatesModalOpen}
+        onClose={() => setIsTemplatesModalOpen(false)}
       />
     </div>
   );

@@ -20,6 +20,10 @@ import {
   UserCheck,
   Calendar,
   ShieldCheck,
+  FolderKanban,
+  Share2,
+  CheckSquare,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -83,6 +87,27 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "ICA Agreements") {
     return pathname.startsWith("/people/ica");
   }
+  if (label === "Home" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/home";
+  }
+  if (label === "All Projects" && pathname.startsWith("/projects")) {
+    return pathname === "/projects" || pathname === "/projects/all";
+  }
+  if (label === "Users" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/users";
+  }
+  if (label === "Collaboration" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/collaboration";
+  }
+  if (label === "My Tasks" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/my-tasks" || pathname === "/projects/tasks";
+  }
+  if (label === "Time Tracker" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/time-tracker";
+  }
+  if (label === "Recent Projects" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/recent";
+  }
   if (label === "Projects Dashboard") {
     return pathname.startsWith("/projects");
   }
@@ -134,10 +159,23 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
   } else if (activeModuleTitle === "Projects") {
-    navItems = [
-      { label: "Projects Dashboard", href: "/projects", icon: LayoutDashboard },
-      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
-    ];
+    navItems = isManager
+      ? [
+          { label: "Home", href: "/projects/home", icon: Home },
+          { label: "All Projects", href: "/projects", icon: FolderKanban },
+          { label: "Users", href: "/projects/users", icon: Users2 },
+          { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
+          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare },
+          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock },
+          { label: "Recent Projects", href: "/projects/recent", icon: FileText },
+        ]
+      : [
+          { label: "All Projects", href: "/projects", icon: FolderKanban },
+          { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
+          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare },
+          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock },
+          { label: "Recent Projects", href: "/projects/recent", icon: FileText },
+        ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
