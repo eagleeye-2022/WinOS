@@ -42,7 +42,7 @@ export function SendReminderButton({ userId, teamId }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning/20 disabled:opacity-60"
+        className="flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning/20 border border-warning/20 disabled:opacity-60"
       >
         {pending ? (
           <Loader2 size={11} className="animate-spin" />

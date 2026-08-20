@@ -52,11 +52,12 @@ export async function addTask(
     },
   });
 
+  const managerName = session.user.name ?? "Manager";
   await d.standupTimelineEvent.create({
     data: {
       entryId,
       type: "TASK_ADDED",
-      label: "Manager added a task",
+      label: `${managerName} added a task`,
       occurredAt: new Date(),
     },
   });

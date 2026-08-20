@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { getMemberDsrReview } from "@/features/dsr/manager/queries";
+import { getMemberReview } from "@/features/dsm/manager/queries";
 import { getMemberWorkspaceNote, getSharedWorkspaceNotes } from "@/features/dsm/queries";
-import { createDsrOpenedEvent } from "@/features/dsr/manager/actions/review-dsr";
 import { DsrMemberReview } from "@/features/dsr/manager/components/dsr-member-review";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
+import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
 import { InsightsPanel } from "@/features/dsr/components/insights-panel";
 import { getDsrInsights } from "@/features/dsr/queries";
+import { relativeDayLabel } from "@/features/dsm/utils";
 
 type Props = {
   params: Promise<{ userId: string }>;
@@ -25,23 +27,17 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justReviewed = sp.reviewed === "1";
 
-  const [review, workspaceNote, sharedItems] = await Promise.all([
+  const [review, workspaceNote, sharedItems, dsmReview] = await Promise.all([
     getMemberDsrReview(userId, weekOffset),
     getMemberWorkspaceNote(userId),
     getSharedWorkspaceNotes(userId),
+    getMemberReview(userId, 0),
   ]);
 
   if (!review) redirect(ROUTES.dsrManage);
 
   const insights = await getDsrInsights(review.todayEntry ?? null, userId);
-
-  // Create OPENED event when manager first views a submitted/pending entry
-  if (
-    review.todayEntry &&
-    (review.todayEntry.status === "SUBMITTED" || review.todayEntry.status === "PENDING_REVIEW")
-  ) {
-    await createDsrOpenedEvent(review.todayEntry.id);
-  }
+  const dsmTodayEntry = dsmReview?.entries.find((e) => relativeDayLabel(e.date) === "Today");
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -52,18 +48,25 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
           showHistory={justReviewed}
         />
       </div>
-      <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l bg-card xl:w-96">
-        <div className="shrink-0 border-b">
+      <aside className="flex h-full min-h-0 w-80  flex-col overflow-y-auto border-l bg-card xl:w-96">
+        <div className=" shrink-0 overflow-y-auto border-b">
           <WorkspaceNotesPanel
             sharedNotes={sharedItems?.notes || []}
             userRole={session?.user?.role}
           />
         </div>
-        <div className="flex-1 min-h-0">
-          <InsightsPanel
-            insights={insights}
-            entry={review.todayEntry ?? null}
-          />
+        {dsmTodayEntry && (
+          <div className="shrink-0 border-b p-4">
+            <h2 className="text-lg font-bold">Standup Timeline</h2>
+            <StandupTimeline entry={dsmTodayEntry} events={dsmTodayEntry.timelineEvents} />
+            <InsightsPanel
+              insights={insights}
+              entry={review.todayEntry ?? null}
+            />
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+
         </div>
       </aside>
     </div>

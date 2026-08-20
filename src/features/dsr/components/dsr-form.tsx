@@ -638,7 +638,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
       />
 
       <CheckSection
-        title="What Will You Learn Today( WhyFi )?"
+        title="What Will You Learn Today( Whyfi School )?"
         badge={`${learningItems.filter((l) => l.completed).length}/${learningItems.length} LEARNED`}
         items={learningItems}
         onChange={setLearningItems}

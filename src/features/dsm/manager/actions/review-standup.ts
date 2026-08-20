@@ -42,11 +42,12 @@ export async function reviewStandup(
     where: { entryId, type: "APPROVED" },
   });
   if (!existingApproved) {
+    const managerName = dbUser?.name ?? session.user.name ?? "Manager";
     await d.standupTimelineEvent.create({
       data: {
         entryId,
         type: "APPROVED",
-        label: "Manager Approved",
+        label: `${managerName} Reviewed`,
         occurredAt: new Date(),
       },
     });
@@ -72,11 +73,12 @@ export async function createStandupOpenedEvent(entryId: string): Promise<void> {
   });
   if (existing) return;
 
+  const managerName = session.user.name ?? "Manager";
   await d.standupTimelineEvent.create({
     data: {
       entryId,
       type: "OPENED",
-      label: "Manager Opened",
+      label: `${managerName} Opened`,
       occurredAt: new Date(),
     },
   });

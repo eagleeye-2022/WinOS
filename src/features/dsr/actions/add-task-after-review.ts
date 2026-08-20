@@ -63,11 +63,12 @@ export async function addTaskAfterReview(
     data: { plannedTaskCount, completedTaskCount, completionPercent },
   });
 
+  const userName = session.user.name ?? "Member";
   await d.dsrTimelineEvent.create({
     data: {
       dsrEntryId: entryId,
       type: "TASK_ADDED",
-      label: "Member added a task",
+      label: `${userName} added a task`,
       occurredAt: new Date(),
     },
   });

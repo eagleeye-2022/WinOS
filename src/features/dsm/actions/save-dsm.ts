@@ -206,11 +206,12 @@ export async function saveDsm(
       where: { entryId: entry.id, type: "SUBMITTED" },
     });
     if (!existingEvent) {
+      const userName = session.user.name ?? "User";
       await d.standupTimelineEvent.create({
         data: {
           entryId: entry.id,
           type: "SUBMITTED",
-          label: "Report Submitted",
+          label: `${userName} Submitted Report`,
           occurredAt: new Date(),
         },
       });

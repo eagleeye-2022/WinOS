@@ -345,7 +345,7 @@ export function WorkspaceNotesPanel({
       </div>
 
       {/* Shared items list */}
-      <div className="px-4 py-4 flex flex-col gap-3.5">
+      <div className="px-4 py-4 flex flex-col gap-3.5 max-h-[320px] overflow-y-auto">
         {sharedNotes.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-base text-foreground my-auto">
             <Share2 size={36} className="text-muted-foreground mb-3" />

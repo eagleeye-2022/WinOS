@@ -238,11 +238,12 @@ export async function saveDsr(
       where: { dsrEntryId: entry.id, type: "SUBMITTED" },
     });
     if (!existingEvent) {
+      const userName = session.user.name ?? "User";
       await d.dsrTimelineEvent.create({
         data: {
           dsrEntryId: entry.id,
           type: "SUBMITTED",
-          label: "Report Submitted",
+          label: `${userName} Submitted DSR`,
           occurredAt: new Date(),
         },
       });

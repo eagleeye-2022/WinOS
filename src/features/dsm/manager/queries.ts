@@ -10,6 +10,7 @@ export type MemberSubmissionCard = {
   userId: string;
   name: string | null;
   email: string;
+  image?: string | null;
   title: string | null;
   entryId: string | null;
   status: "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "DRAFT" | "MISSED" | null;
@@ -359,7 +360,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
       members: {
         include: {
           user: {
-            select: { id: true, name: true, email: true, title: true },
+            select: { id: true, name: true, email: true, title: true, image: true },
           },
         },
       },
@@ -388,7 +389,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
     );
 
     const cards: MemberSubmissionCard[] = team.members.map(
-      (m: { user: { id: string; name: string | null; email: string; title: string | null } }) => {
+      (m: { user: { id: string; name: string | null; email: string; title: string | null; image?: string | null } }) => {
         const entry = entryByUserId.get(m.user.id) as {
           id: string;
           status: string;
@@ -407,6 +408,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
           userId: m.user.id,
           name: m.user.name,
           email: m.user.email,
+          image: m.user.image || null,
           title: m.user.title,
           entryId: entry?.id ?? null,
           status: (entry?.status as MemberSubmissionCard["status"]) ?? null,

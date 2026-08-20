@@ -452,7 +452,7 @@ function LearningCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
           <Star size={11} className="fill-white text-white" />
         </span>
-        What Will You Learn Today( WhyFi )?
+        What Will You Learn Today( Whyfi School )?
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {learningItems.filter((l) => l.completed).length}/{learningItems.length} Learned
         </span>
@@ -521,8 +521,7 @@ function SentimentCard({ entry }: { entry: DsrEntryData }) {
 
 const TIMELINE_STEPS = [
   { type: "SUBMITTED", label: "Report Submitted" },
-  { type: "OPENED", label: "Manager Opened" },
-  { type: "APPROVED", label: "Manager Approved" },
+  { type: "APPROVED", label: "Manager Reviewed" },
 ] as const;
 
 function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
@@ -531,7 +530,7 @@ function TimelineCard({ events }: { events: DsrEntryData["timelineEvents"] }) {
     -1
   );
   const fixedTypes = new Set<string>(TIMELINE_STEPS.map((s) => s.type));
-  const extraEvents = events.filter((e) => !fixedTypes.has(e.type));
+  const extraEvents = events.filter((e) => !fixedTypes.has(e.type) && e.type !== "OPENED");
   const isLastFixed = extraEvents.length === 0;
 
   return (
