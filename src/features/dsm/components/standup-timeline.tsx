@@ -8,7 +8,7 @@ import type { EntryTimelineEvent } from "../queries";
 const TIMELINE_STEPS = [
   { type: "SUBMITTED", label: "Report Submitted" },
   // { type: "OPENED", label: "Manager Opened" },
-  { type: "APPROVED", label: "Manager Approved" },
+  { type: "APPROVED", label: "Manager Reviewed" },
 ] as const;
 
 type StandupTimelineProps = {
@@ -19,6 +19,8 @@ type StandupTimelineProps = {
     reviewedAt?: Date | null;
     createdAt?: Date | null;
     timelineEvents?: EntryTimelineEvent[];
+    user?: { name: string | null; email: string } | null;
+    reviewedBy?: { name: string | null; email: string } | null;
   } | null;
 };
 
@@ -34,7 +36,7 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
   const lastCompletedIndex = isApproved ? 1 : isSubmitted ? 0 : -1;
 
   const fixedTypes = new Set<string>(TIMELINE_STEPS.map((s) => s.type));
-  const extraEvents = safeEvents.filter((e) => !fixedTypes.has(e.type));
+  const extraEvents = safeEvents.filter((e) => !fixedTypes.has(e.type) && e.type !== "OPENED");
   const isLastFixed = extraEvents.length === 0;
 
   return (
@@ -65,6 +67,13 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
           let awaitingLabel = "Awaiting Action";
           if (step.type === "APPROVED") awaitingLabel = "Awaiting Manager Review";
 
+          let defaultCompletedLabel: string = step.label;
+          if (step.type === "SUBMITTED" && entry?.user?.name) {
+            defaultCompletedLabel = `${entry.user.name} Submitted Report`;
+          } else if (step.type === "APPROVED" && entry?.reviewedBy?.name) {
+            defaultCompletedLabel = `${entry.reviewedBy.name} Reviewed`;
+          }
+
           return (
             <div key={step.type} className="flex gap-3">
               {/* Dot + vertical connecting line */}
@@ -92,7 +101,7 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
                     !isComplete && "italic text-muted-foreground/50 font-normal"
                   )}
                 >
-                  {isComplete ? (dbEvent?.label || step.label) : awaitingLabel}
+                  {isComplete ? (dbEvent?.label || defaultCompletedLabel) : awaitingLabel}
                 </p>
                 {isComplete && eventTime && (
                   <p className="mt-0.5 text-xs text-muted-foreground font-medium">

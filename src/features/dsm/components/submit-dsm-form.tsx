@@ -818,7 +818,7 @@ export function SubmitDsmForm({
         {/* What will you learn today */}
         <Section
           icon={<GraduationCap size={16} className="text-primary" />}
-          title="What Will You Learn Today( WhyFi )?"
+          title="What Will You Learn Today( Whyfi School )?"
           required
         >
           <input

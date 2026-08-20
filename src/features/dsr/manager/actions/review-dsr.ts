@@ -59,11 +59,12 @@ export async function reviewDsr(
     where: { dsrEntryId: entryId, type: "APPROVED" },
   });
   if (!existingApproved) {
+    const managerName = dbUser?.name ?? session.user.name ?? "Manager";
     await d.dsrTimelineEvent.create({
       data: {
         dsrEntryId: entryId,
         type: "APPROVED",
-        label: "Manager Approved",
+        label: `${managerName} Reviewed`,
         occurredAt: new Date(),
       },
     });
@@ -89,11 +90,12 @@ export async function createDsrOpenedEvent(entryId: string): Promise<void> {
   });
   if (existing) return;
 
+  const managerName = session.user.name ?? "Manager";
   await d.dsrTimelineEvent.create({
     data: {
       dsrEntryId: entryId,
       type: "OPENED",
-      label: "Manager Opened",
+      label: `${managerName} Opened`,
       occurredAt: new Date(),
     },
   });

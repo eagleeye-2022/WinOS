@@ -1301,7 +1301,7 @@ function LearningSection({
       <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-primary">
         <span className="flex items-center gap-2">
           <GraduationCap size={15} className="text-primary" />
-          What Will You Learn Today( WhyFi )?
+          What Will You Learn Today( Whyfi School )?
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             {lines.length}
           </span>
@@ -1405,7 +1405,7 @@ function LearningSection({
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 autoFocus
-                placeholder="Describe what will be learned (WhyFi)..."
+                placeholder="Describe what will be learned (Whyfi School)..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

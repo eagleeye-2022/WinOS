@@ -118,7 +118,7 @@ export function InsightsPanel({ insights, entry, showSubmitButton, onSubmit }: P
   return (
     <div className="flex h-full w-full flex-col min-h-0">
       {/* Scrollable Insights Content */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      <div className="flex-1 overflow-y-auto py-5 space-y-4">
         <h2 className="text-lg font-bold">Insights Panel</h2>
 
         {/* Day Summary */}

@@ -62,11 +62,12 @@ export async function addDsrTask(
     data: { plannedTaskCount, completedTaskCount, completionPercent },
   });
 
+  const managerName = session.user.name ?? "Manager";
   await d.dsrTimelineEvent.create({
     data: {
       dsrEntryId: entryId,
       type: "TASK_ADDED",
-      label: "Manager added a task",
+      label: `${managerName} added a task`,
       occurredAt: new Date(),
     },
   });

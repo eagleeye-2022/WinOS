@@ -54,11 +54,12 @@ export async function addTaskAfterReview(
     },
   });
 
+  const userName = session.user.name ?? "Member";
   await d.standupTimelineEvent.create({
     data: {
       entryId,
       type: "TASK_ADDED",
-      label: "Member added a task",
+      label: `${userName} added a task`,
       occurredAt: new Date(),
     },
   });

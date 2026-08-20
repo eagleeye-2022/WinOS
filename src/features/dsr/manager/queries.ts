@@ -10,6 +10,7 @@ export type DsrMemberCard = {
   userId: string;
   name: string | null;
   email: string;
+  image?: string | null;
   title: string | null;
   entryId: string | null;
   status: "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "DRAFT" | "MISSED" | null;
@@ -276,7 +277,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
     include: {
       members: {
         include: {
-          user: { select: { id: true, name: true, email: true, title: true } },
+          user: { select: { id: true, name: true, email: true, title: true, image: true } },
         },
       },
     },
@@ -301,7 +302,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
     const entryByUserId = new Map(entries.map((e: { userId: string }) => [e.userId, e]));
 
     const cards: DsrMemberCard[] = team.members.map(
-      (m: { user: { id: string; name: string | null; email: string; title: string | null } }) => {
+      (m: { user: { id: string; name: string | null; email: string; title: string | null; image?: string | null } }) => {
         const entry = entryByUserId.get(m.user.id) as {
           id: string; status: string; submittedAt: Date | null;
           resultOfDay: string | null; completedTaskCount: number; plannedTaskCount: number;
@@ -311,6 +312,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           userId: m.user.id,
           name: m.user.name,
           email: m.user.email,
+          image: m.user.image || null,
           title: m.user.title,
           entryId: entry?.id ?? null,
           status: (entry?.status as DsrMemberCard["status"]) ?? null,

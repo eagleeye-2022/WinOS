@@ -67,11 +67,16 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold ring-1 ring-border dark:ring-white/10",
-              gradient
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
+              !card.image && "bg-gradient-to-br",
+              !card.image && gradient
             )}
           >
-            {initials}
+            {card.image ? (
+              <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="flex flex-col min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground">
@@ -119,24 +124,28 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
   return (
     <Link
       href={ROUTES.dsrMember(card.userId)}
-      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed bg-danger/10 p-4 transition-all duration-200 hover:border-destructive/40 hover:bg-danger/15 hover:shadow-md cursor-pointer"
+      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed border-border bg-transparent p-4 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-xs font-bold text-destructive ring-1 ring-border dark:ring-white/10">
-            {initials}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold ring-1 ring-border overflow-hidden">
+            {card.image ? (
+              <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="flex flex-col min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
               {displayName}
             </p>
-            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-destructive">
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
             </span>
           </div>
         </div>
       </div>
-      <div className="mt-3.5 pt-3 border-t border-destructive/20 flex items-center justify-between">
+      <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
           Review <ChevronRight size={13} />
