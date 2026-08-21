@@ -2,19 +2,39 @@
 
 import React, { useState } from "react";
 import { Clock, Settings, UserPlus, ArrowUpDown } from "lucide-react";
-import { ProjectUser, UserType } from "../../types";
+import { MemberRoleTier, ProfileRoleValue, ProjectUser, UserType } from "../../types";
+
+const ROLE_BADGE_CONFIG: Record<MemberRoleTier, { label: string; className: string }> = {
+  ADMIN: { label: "ADMINISTRATOR", className: "bg-info/10 text-info" },
+  MANAGER: { label: "REPORTING MANAGER", className: "bg-warning/10 text-warning" },
+  TEAM_MEMBER: { label: "TEAM MEMBER", className: "bg-success/10 text-success" },
+};
+
+const PROFILE_ROLE_OPTIONS: ProfileRoleValue[] = [
+  "EMPLOYEE",
+  "CONTRACTOR",
+  "GUEST",
+  "DEVELOPER",
+  "SUPPORT",
+  "PORTAL_OWNER",
+  "ADMIN",
+  "MANAGER",
+];
 
 interface UsersTableViewProps {
   users: ProjectUser[];
   onOpenInviteModal: (type: UserType) => void;
+  onUpdateUserRole: (userId: string, role: MemberRoleTier, profileRole: ProfileRoleValue) => void;
 }
 
 export function UsersTableView({
   users,
   onOpenInviteModal,
+  onUpdateUserRole,
 }: UsersTableViewProps) {
   const [activeTab, setActiveTab] = useState<UserType>("PORTAL");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   const filteredUsers = users.filter((u) => u.userType === activeTab);
 
@@ -209,21 +229,26 @@ export function UsersTableView({
                   {activeTab === "PORTAL" ? (
                     <>
                       {/* ROLE */}
-                      <td className="py-3 px-4 border-r whitespace-nowrap">
-                        {user.role === "REPORTING MANAGER 1" && (
-                          <span className="inline-block rounded bg-warning/10 px-2.5 py-0.5 text-[10px] font-bold text-warning">
-                            REPORTING MANAGER 1
-                          </span>
-                        )}
-                        {user.role === "TEAM MEMBER" && (
-                          <span className="inline-block rounded bg-success/10 px-2.5 py-0.5 text-[10px] font-bold text-success">
-                            TEAM MEMBER
-                          </span>
-                        )}
-                        {user.role === "ADMINISTRATOR" && (
-                          <span className="inline-block rounded bg-info/10 px-2.5 py-0.5 text-[10px] font-bold text-info">
-                            ADMINISTRATOR
-                          </span>
+                      <td className="py-3 px-4 border-r whitespace-nowrap relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingUserId(editingUserId === user.id ? null : user.id)
+                          }
+                          className={`inline-block rounded px-2.5 py-0.5 text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${ROLE_BADGE_CONFIG[user.role].className}`}
+                        >
+                          {ROLE_BADGE_CONFIG[user.role].label}
+                        </button>
+
+                        {editingUserId === user.id && (
+                          <RoleEditorPopover
+                            user={user}
+                            onClose={() => setEditingUserId(null)}
+                            onSave={(role, profileRole) => {
+                              onUpdateUserRole(user.id, role, profileRole);
+                              setEditingUserId(null);
+                            }}
+                          />
                         )}
                       </td>
 
@@ -256,9 +281,67 @@ export function UsersTableView({
 
       {/* Footer Bar */}
       <div className="flex items-center justify-between border-t px-6 py-3 bg-muted/20 text-xs text-muted-foreground font-medium">
-        <span>Total Count: 15</span>
-        <span>Rows per page: 15</span>
+        <span>Total Count: {filteredUsers.length}</span>
+        <span>Rows per page: {filteredUsers.length}</span>
       </div>
     </div>
+  );
+}
+
+function RoleEditorPopover({
+  user,
+  onClose,
+  onSave,
+}: {
+  user: ProjectUser;
+  onClose: () => void;
+  onSave: (role: MemberRoleTier, profileRole: ProfileRoleValue) => void;
+}) {
+  const [role, setRole] = useState<MemberRoleTier>(user.role);
+  const [profileRole, setProfileRole] = useState<ProfileRoleValue>(user.profileRole);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-md border bg-popover p-3 shadow-lg text-left">
+        <div className="space-y-2">
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as MemberRoleTier)}
+              className="mt-1 w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="TEAM_MEMBER">Team Member</option>
+              <option value="MANAGER">Reporting Manager</option>
+              <option value="ADMIN">Administrator</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-muted-foreground">
+              Portal Profile
+            </label>
+            <select
+              value={profileRole}
+              onChange={(e) => setProfileRole(e.target.value as ProfileRoleValue)}
+              className="mt-1 w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {PROFILE_ROLE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt.charAt(0) + opt.slice(1).toLowerCase().replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => onSave(role, profileRole)}
+            className="w-full rounded bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

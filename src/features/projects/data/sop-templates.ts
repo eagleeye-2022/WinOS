@@ -445,12 +445,34 @@ export const DEFAULT_PROJECT_TEMPLATES: ProjectTemplate[] = [
 ];
 
 export function scaffoldPhasesFromTemplate(template: ProjectTemplate): ProjectPhase[] {
-  return template.phases.map((p, idx) => ({
-    id: `phase-${idx + 1}`,
-    code: p.code,
-    name: p.name,
-    isCompleted: false,
-  }));
+  const phases: ProjectPhase[] = [];
+  
+  template.phases.forEach((p, pIdx) => {
+    if (p.taskLists && p.taskLists.length > 0) {
+      p.taskLists.forEach((tl, tlIdx) => {
+        const firstWord = tl.name.split(" ")[0];
+        const hasSubCode = /^\d+\.\d+$/.test(firstWord);
+        const code = hasSubCode ? firstWord : `${pIdx + 1}.${tlIdx + 1}`;
+        const name = hasSubCode ? tl.name.substring(firstWord.length).trim() : tl.name;
+
+        phases.push({
+          id: `phase-${tl.sequence || `${pIdx + 1}-${tlIdx + 1}`}`,
+          code: code,
+          name: name || tl.name,
+          isCompleted: false,
+        });
+      });
+    } else {
+      phases.push({
+        id: `phase-${pIdx + 1}`,
+        code: p.code,
+        name: p.name,
+        isCompleted: false,
+      });
+    }
+  });
+
+  return phases;
 }
 
 export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskList[] {

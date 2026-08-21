@@ -16,25 +16,22 @@ import {
   AlignLeft,
   Loader2,
 } from "lucide-react";
-import {
-  DEFAULT_PROJECT_TEMPLATES,
-  scaffoldPhasesFromTemplate,
-  scaffoldTaskListsFromTemplate,
-  scaffoldTasksFromTemplate,
-} from "../../data/sop-templates";
-import { Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
+import { DEFAULT_PROJECT_TEMPLATES, scaffoldPhasesFromTemplate } from "../../data/sop-templates";
+import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
 import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 
 interface AddProjectDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddProject: (project: Project) => void;
+  onAddProject: (data: NewProjectFormData) => Promise<void>;
+  projects: Project[];
 }
 
 export function AddProjectDrawer({
   isOpen,
   onClose,
   onAddProject,
+  projects,
 }: AddProjectDrawerProps) {
   const [projectName, setProjectName] = useState("EagleEye Client Website");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate>(
@@ -74,6 +71,15 @@ export function AddProjectDrawer({
   const [tags, setTags] = useState<string[]>([]);
   const [reminder, setReminder] = useState("");
   const [billingType, setBillingType] = useState("Fixed Rate");
+  const [projectGroup, setProjectGroup] = useState("");
+  const [businessHours, setBusinessHours] = useState("Standard Business Hours");
+  const [taskLayout, setTaskLayout] = useState("New Project Template");
+  const [projectAccess, setProjectAccess] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
+  const [notifyAddedUsers, setNotifyAddedUsers] = useState(true);
+
+  const existingGroups = Array.from(
+    new Set(projects.map((p) => p.group).filter((g): g is string => Boolean(g)))
+  );
 
   // Dynamic DB Options for Owner and Associated Team
   const [ownersList, setOwnersList] = useState<{ id: string; name: string; email: string }[]>([]);
@@ -104,6 +110,13 @@ export function AddProjectDrawer({
   // Description & Attachments
   const [description, setDescription] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
+
+  // Expanded Phase Sub-Accordion State
+  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
+
+  const toggleExpandPhase = (phaseId: string) => {
+    setExpandedPhaseId((prev) => (prev === phaseId ? null : phaseId));
+  };
 
   // New Phase Add Inline State
   const [showAddPhaseModal, setShowAddPhaseModal] = useState(false);
@@ -150,58 +163,42 @@ export function AddProjectDrawer({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectName.trim()) return;
 
     setIsSubmitting(true);
 
-    const initials = owner
-      ? owner
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
-      : "DP";
-
-    const newProject: Project = {
-      id: `EEDP-${Math.floor(10 + Math.random() * 90)}`,
+    const formData: NewProjectFormData = {
       name: projectName,
       projectCategory,
-      departmentAlias,
       templateUsed: selectedTemplate.name,
-      progressPercent: 0,
-      owner: {
-        id: `u-${Date.now()}`,
-        name: owner || "Dhruv Patidar",
-        initials: initials || "DP",
-        avatarColor: "bg-amber-500 text-white",
-      },
-      status: "ACTIVE",
-      totalHours: workHours ? `${workHours} h` : "00:00 h",
-      billableHours: billingType === "Non Billable" ? "00:00 h" : "00:00 h",
-      nonBillableHours: billingType === "Non Billable" ? workHours || "01:00 h" : "00:00 h",
-      startDate: startDate || new Date().toLocaleDateString("en-GB"),
-      deadline: dueDate || "01/01/2027",
-      completedTasksCount: 0,
-      totalTasksCount: selectedTemplate.phases.reduce(
-        (acc, p) => acc + p.taskLists.reduce((tAcc, tl) => tAcc + tl.defaultTasks.length, 0),
-        0
-      ),
-      taskProgressPercent: 0,
-      completedPhasesCount: 0,
-      totalPhasesCount: phases.length,
-      phases: phases,
-      taskLists: scaffoldTaskListsFromTemplate(selectedTemplate),
+      templateId: selectedTemplate.id,
+      phases,
+      associatedTeam,
+      owner,
+      workHours,
+      startDate,
+      dueDate,
+      priority: priority as NewProjectFormData["priority"],
+      tags: tags.join(", "),
+      reminder,
+      billingType: billingType as NewProjectFormData["billingType"],
       description,
-      tags,
-      createdAt: new Date().toISOString().split("T")[0],
+      attachments,
+      group: projectGroup || undefined,
+      businessHours,
+      taskLayout,
+      isClientVisible: projectAccess === "PUBLIC",
+      notifyAddedUsers,
     };
 
-    onAddProject(newProject);
-    onClose();
-    setIsSubmitting(false);
+    try {
+      await onAddProject(formData);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -228,7 +225,7 @@ export function AddProjectDrawer({
           <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Select Project Template (Auto-Scaffold SOP)
+                Select Project Template
               </label>
               <span className="text-[10px] font-semibold text-primary">
                 Instant 17-Task-List Scaffolding
@@ -252,7 +249,7 @@ export function AddProjectDrawer({
           </div>
 
           {/* Department Alias Assignment */}
-          <div className="space-y-1.5">
+          {/* <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground">
               Department Alias Tag
             </label>
@@ -267,7 +264,7 @@ export function AddProjectDrawer({
               <option value="seo@">seo@ (SEO & Performance Marketing)</option>
               <option value="qa@">qa@ (Quality Assurance & Testing)</option>
             </select>
-          </div>
+          </div> */}
 
           {/* Project Name Field */}
           <div className="space-y-1.5">
@@ -295,9 +292,8 @@ export function AddProjectDrawer({
               <div className="flex items-center gap-2">
                 <ChevronDown
                   size={16}
-                  className={`text-muted-foreground transition-transform duration-200 ${
-                    phasesOpen ? "" : "-rotate-90"
-                  }`}
+                  className={`text-muted-foreground transition-transform duration-200 ${phasesOpen ? "" : "-rotate-90"
+                    }`}
                 />
                 <span>Phases</span>
               </div>
@@ -305,27 +301,97 @@ export function AddProjectDrawer({
 
             {phasesOpen && (
               <div className="border-t px-4 py-3 space-y-2">
-                <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-                  {phases.map((phase) => (
-                    <div
-                      key={phase.id}
-                      className="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-2 text-xs text-foreground hover:border-primary/40 transition-colors cursor-pointer"
-                    >
-                      <span className="font-medium">
-                        {phase.code} {phase.name}
-                      </span>
-                      <ChevronDown size={14} className="text-muted-foreground" />
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground pb-1">
+                  <span>Scaffolded SOP Pipeline ({phases.length} Phases)</span>
+                  <span className="font-mono text-[10px]">1.1 → 7.7 SOP Pipeline</span>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+                  {phases.map((phase) => {
+                    const isExpanded = expandedPhaseId === phase.id;
+
+                    // Find matching default tasks for this phase from template
+                    const matchingTaskLists = selectedTemplate.phases
+                      .flatMap((p) => p.taskLists)
+                      .filter((tl) => tl.name.startsWith(phase.code) || tl.name.includes(phase.name));
+
+                    const defaultTasks = matchingTaskLists.flatMap((tl) => tl.defaultTasks);
+
+                    return (
+                      <div
+                        key={phase.id}
+                        className="rounded-md border border-border/70 bg-background overflow-hidden transition-colors"
+                      >
+                        <div
+                          onClick={() => toggleExpandPhase(phase.id)}
+                          className="flex items-center justify-between px-3 py-2 text-xs text-foreground hover:bg-accent/40 cursor-pointer select-none"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+                              {phase.code}
+                            </span>
+                            <span className="font-semibold text-foreground">
+                              {phase.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {defaultTasks.length > 0 && (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                                {defaultTasks.length} task(s)
+                              </span>
+                            )}
+                            <ChevronDown
+                              size={14}
+                              className={`text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+                                }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Expanded Sub-Task Details */}
+                        {isExpanded && (
+                          <div className="border-t bg-muted/20 px-3 py-2 space-y-1.5 text-[11px]">
+                            <div className="font-bold text-muted-foreground uppercase text-[10px] tracking-wide pb-0.5">
+                              Starter Tasks in Phase {phase.code}:
+                            </div>
+                            {defaultTasks.length > 0 ? (
+                              defaultTasks.map((t, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between py-1 border-b border-border/40 last:border-0"
+                                >
+                                  <span className="font-medium text-foreground">
+                                    • {t.title}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                      {t.duration}
+                                    </span>
+                                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-mono text-secondary-foreground">
+                                      {t.departmentAlias}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-muted-foreground italic py-1">
+                                No starter tasks pre-configured for custom phase.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Add New Phase Button */}
                 <button
                   type="button"
                   onClick={() => setShowAddPhaseModal(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-info/30 bg-info/10 py-2.5 text-xs font-semibold text-info hover:bg-info/15 transition-colors"
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-info/30 bg-info/10 py-2 text-xs font-semibold text-info hover:bg-info/15 transition-colors"
                 >
-                  Add New Phase <Plus size={15} />
+                  Add Custom Phase <Plus size={15} />
                 </button>
 
                 {/* Inline Add Phase Input if toggled */}
@@ -382,9 +448,8 @@ export function AddProjectDrawer({
               <div className="flex items-center gap-2">
                 <ChevronDown
                   size={16}
-                  className={`text-muted-foreground transition-transform duration-200 ${
-                    taskInfoOpen ? "" : "-rotate-90"
-                  }`}
+                  className={`text-muted-foreground transition-transform duration-200 ${taskInfoOpen ? "" : "-rotate-90"
+                    }`}
                 />
                 <span>Task Information</span>
               </div>
@@ -409,6 +474,28 @@ export function AddProjectDrawer({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Project Group */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-muted-foreground font-medium">
+                      Project Group
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    list="project-group-options"
+                    value={projectGroup}
+                    onChange={(e) => setProjectGroup(e.target.value)}
+                    placeholder="Select or type a new group"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <datalist id="project-group-options">
+                    {existingGroups.map((g) => (
+                      <option key={g} value={g} />
+                    ))}
+                  </datalist>
                 </div>
 
                 {/* Owner */}
@@ -442,6 +529,40 @@ export function AddProjectDrawer({
                     placeholder="0:00"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                </div>
+
+                {/* Business Hours & Task Layout */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium">
+                      Business Hours <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={businessHours}
+                      onChange={(e) => setBusinessHours(e.target.value)}
+                      required
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="Standard Business Hours">Standard Business Hours</option>
+                      <option value="Extended Business Hours">Extended Business Hours</option>
+                      <option value="24/7 Coverage">24/7 Coverage</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                      Task Layout
+                    </label>
+                    <select
+                      value={taskLayout}
+                      onChange={(e) => setTaskLayout(e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="New Project Template">New Project Template</option>
+                      <option value="Kanban Board">Kanban Board</option>
+                      <option value="Flat List">Flat List</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Start Date & Due Date */}
@@ -584,9 +705,8 @@ export function AddProjectDrawer({
               <div className="flex items-center gap-2">
                 <ChevronDown
                   size={16}
-                  className={`text-muted-foreground transition-transform duration-200 ${
-                    descriptionOpen ? "" : "-rotate-90"
-                  }`}
+                  className={`text-muted-foreground transition-transform duration-200 ${descriptionOpen ? "" : "-rotate-90"
+                    }`}
                 />
                 <span>Add Description</span>
               </div>
@@ -595,7 +715,7 @@ export function AddProjectDrawer({
             {descriptionOpen && (
               <div className="border-t p-4 space-y-3">
                 {/* Rich Editor Toolbar */}
-                <div className="flex flex-wrap items-center gap-1.5 border-b pb-2 text-muted-foreground">
+                {/* <div className="flex flex-wrap items-center gap-1.5 border-b pb-2 text-muted-foreground">
                   <button
                     type="button"
                     className="p-1 hover:bg-accent rounded text-foreground font-bold"
@@ -630,7 +750,7 @@ export function AddProjectDrawer({
                   <div className="h-3 w-3 rounded bg-black dark:bg-white border cursor-pointer" />
                   <AlignLeft size={14} className="cursor-pointer hover:text-foreground" />
                   <Maximize2 size={14} className="ml-auto cursor-pointer hover:text-foreground" />
-                </div>
+                </div> */}
 
                 {/* Description Textarea */}
                 <textarea
@@ -642,7 +762,7 @@ export function AddProjectDrawer({
                 />
 
                 {/* Drop Files Zone */}
-                <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                {/* <div className="relative border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                   <input
                     type="file"
                     multiple
@@ -658,7 +778,7 @@ export function AddProjectDrawer({
                       Maximum 30 files
                     </span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Uploaded Files List */}
                 {attachments.length > 0 && (
@@ -691,23 +811,71 @@ export function AddProjectDrawer({
             )}
           </div>
 
+          {/* Project Access */}
+          <div className="space-y-2 pt-1">
+            <label className="text-xs font-semibold text-foreground">Project Access</label>
+            <div className="space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="projectAccess"
+                  checked={projectAccess === "PRIVATE"}
+                  onChange={() => setProjectAccess("PRIVATE")}
+                  className="mt-0.5 text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-foreground">Private</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Only project users can view and access this project.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="projectAccess"
+                  checked={projectAccess === "PUBLIC"}
+                  onChange={() => setProjectAccess("PUBLIC")}
+                  className="mt-0.5 text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-foreground">Public</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Portal users can only view, follow, and comment whereas, project users will have complete access.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Form Actions Footer */}
-          <div className="flex items-center justify-start gap-3 pt-3 pb-4">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
-            >
-              {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-between pt-3 pb-4 border-t">
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={notifyAddedUsers}
+                onChange={(e) => setNotifyAddedUsers(e.target.checked)}
+                className="rounded border-input text-primary focus:ring-primary h-3.5 w-3.5"
+              />
+              Notify added users
+            </label>
           </div>
         </form>
       </div>

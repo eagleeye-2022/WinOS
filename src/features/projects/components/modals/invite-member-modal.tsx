@@ -10,33 +10,38 @@ import {
   Search,
   Loader2,
 } from "lucide-react";
-import { ProjectUser, UserType } from "../../types";
+import { MemberRoleTier, Project, UserType } from "../../types";
+
+export interface InviteFormSubmission {
+  name: string;
+  email: string;
+  role: MemberRoleTier;
+  projectIds: string[];
+}
 
 interface InviteMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onInviteUser: (user: ProjectUser) => void;
+  onInviteUser: (data: InviteFormSubmission) => Promise<void>;
   defaultUserType?: UserType;
+  projects: Project[];
+  portalUserCount: number;
+  clientUserCount: number;
 }
-
-const AVAILABLE_PROJECTS = [
-  { id: "EEDP-5", name: "JTG: Joytree Global" },
-  { id: "EEDP-6", name: "JRE Global" },
-  { id: "EEDP-8", name: "FNTC : Fantacy Bakery" },
-  { id: "EEDP-10", name: "Sales Department" },
-  { id: "EEDP-15", name: "ATCA" },
-];
 
 export function InviteMemberModal({
   isOpen,
   onClose,
   onInviteUser,
   defaultUserType = "PORTAL",
+  projects,
+  portalUserCount,
+  clientUserCount,
 }: InviteMemberModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [userRole, setUserRole] = useState(
-    defaultUserType === "CLIENT" ? "Client" : ""
+  const [userRole, setUserRole] = useState<MemberRoleTier | "">(
+    defaultUserType === "CLIENT" ? "TEAM_MEMBER" : ""
   );
   const [associatedProjectsOpen, setAssociatedProjectsOpen] = useState(true);
   const [projectTab, setProjectTab] = useState<"ALL" | "WORKING">("ALL");
@@ -46,6 +51,8 @@ export function InviteMemberModal({
 
   if (!isOpen) return null;
 
+  const isClient = defaultUserType === "CLIENT";
+
   const handleToggleProject = (projectId: string) => {
     if (selectedProjects.includes(projectId)) {
       setSelectedProjects(selectedProjects.filter((id) => id !== projectId));
@@ -54,44 +61,29 @@ export function InviteMemberModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
 
     setIsSubmitting(true);
-
-    const initials = name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
-    const isClient = defaultUserType === "CLIENT" || userRole === "Client";
-
-    const newUser: ProjectUser = {
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      userType: isClient ? "CLIENT" : "PORTAL",
-      role: isClient ? "Client" : userRole || "TEAM MEMBER",
-      portalProfile: isClient ? undefined : "Employee",
-      projects: selectedProjects.length > 0
-        ? AVAILABLE_PROJECTS.filter((p) => selectedProjects.includes(p.id))
-            .map((p) => p.name)
-            .join(", ")
-        : "None",
-      statusText: "Active 1m ago",
-      initials: initials || "U",
-      avatarColor: "bg-primary text-primary-foreground",
-    };
-
-    onInviteUser(newUser);
-    onClose();
-    setIsSubmitting(false);
+    try {
+      await onInviteUser({
+        name,
+        email,
+        role: isClient ? "TEAM_MEMBER" : userRole || "TEAM_MEMBER",
+        projectIds: selectedProjects,
+      });
+      setName("");
+      setEmail("");
+      setUserRole(isClient ? "TEAM_MEMBER" : "");
+      setSelectedProjects([]);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const filteredProjects = AVAILABLE_PROJECTS.filter(
+  const filteredProjects = projects.filter(
     (p) =>
       p.id.toLowerCase().includes(projectSearch.toLowerCase()) ||
       p.name.toLowerCase().includes(projectSearch.toLowerCase())
@@ -103,7 +95,7 @@ export function InviteMemberModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-bold text-foreground">
-            {defaultUserType === "CLIENT" ? "Invite Client" : "Invite New Member"}
+            {isClient ? "Invite Client" : "Invite New Member"}
           </h2>
           <div className="flex items-center gap-2 text-muted-foreground">
             <button
@@ -177,26 +169,29 @@ export function InviteMemberModal({
               User Role
             </label>
             <div className="relative">
-              <select
-                value={userRole}
-                onChange={(e) => setUserRole(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
-              >
-                <option value="">Select Role</option>
-                {defaultUserType === "CLIENT" ? (
-                  <option value="Client">Client</option>
-                ) : (
-                  <>
-                    <option value="TEAM MEMBER">TEAM MEMBER</option>
-                    <option value="REPORTING MANAGER 1">REPORTING MANAGER 1</option>
-                    <option value="ADMINISTRATOR">ADMINISTRATOR</option>
-                  </>
-                )}
-              </select>
-              <ChevronDown
-                size={16}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-              />
+              {isClient ? (
+                <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-foreground">
+                  Client
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value as MemberRoleTier)}
+                    required
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Role</option>
+                    <option value="TEAM_MEMBER">TEAM MEMBER</option>
+                    <option value="MANAGER">REPORTING MANAGER</option>
+                    <option value="ADMIN">ADMINISTRATOR</option>
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -265,23 +260,29 @@ export function InviteMemberModal({
 
                 {/* Projects Checkbox List */}
                 <div className="max-h-48 overflow-y-auto space-y-2 border rounded-md p-3 bg-background">
-                  {filteredProjects.map((project) => (
-                    <label
-                      key={project.id}
-                      className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer hover:bg-accent/40 p-1 rounded transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedProjects.includes(project.id)}
-                        onChange={() => handleToggleProject(project.id)}
-                        className="rounded border-input text-primary focus:ring-primary h-4 w-4"
-                      />
-                      <span className="font-mono text-muted-foreground text-[11px]">
-                        {project.id}
-                      </span>
-                      <span className="font-medium">{project.name}</span>
-                    </label>
-                  ))}
+                  {filteredProjects.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">
+                      No projects found.
+                    </p>
+                  ) : (
+                    filteredProjects.map((project) => (
+                      <label
+                        key={project.id}
+                        className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer hover:bg-accent/40 p-1 rounded transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedProjects.includes(project.id)}
+                          onChange={() => handleToggleProject(project.id)}
+                          className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                        />
+                        <span className="font-mono text-muted-foreground text-[11px]">
+                          {project.id}
+                        </span>
+                        <span className="font-medium">{project.name}</span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -307,7 +308,10 @@ export function InviteMemberModal({
               </button>
             </div>
             <span className="text-xs text-muted-foreground font-medium">
-              User Licences <span className="font-bold text-foreground">(1/20)</span>
+              {isClient ? "Client Users" : "Portal Users"}{" "}
+              <span className="font-bold text-foreground">
+                ({isClient ? clientUserCount : portalUserCount})
+              </span>
             </span>
           </div>
         </form>

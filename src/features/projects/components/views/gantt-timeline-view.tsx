@@ -1,24 +1,50 @@
 "use client";
 
-import React, { useState } from "react";
-import { Calendar, Clock, Layers, ChevronRight, Filter, Plus, ChevronDown } from "lucide-react";
-import { VERBATIM_T2T_7_PHASE_TEMPLATE } from "../../data/sop-templates";
+import React, { useState, useEffect } from "react";
+import { Calendar, Clock, Layers, ChevronRight, Filter, Plus, ChevronDown, Loader2 } from "lucide-react";
+import { getProjectsAction } from "../../actions/project-actions";
+import { Project } from "../../types";
 
 export function GanttTimelineView() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<"MONTHS" | "WEEKS">("WEEKS");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sample Timeline Milestone Bars
-  const timelinePhases = VERBATIM_T2T_7_PHASE_TEMPLATE.phases.map((p, idx) => ({
-    code: p.code,
-    name: p.name,
-    departmentAlias: p.departmentAlias,
-    startWeek: idx * 2 + 1,
-    durationWeeks: 2 + (idx % 3),
-    progress: idx === 0 ? 100 : idx === 1 ? 80 : idx === 2 ? 40 : 0,
-    taskListsCount: p.taskLists.length,
-  }));
+  useEffect(() => {
+    async function loadProjects() {
+      setIsLoading(true);
+      try {
+        const fetchedProjects = await getProjectsAction();
+        setProjects(fetchedProjects);
+      } catch (err) {
+        console.error("Failed to load timeline projects:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadProjects();
+  }, []);
 
   const weeks = Array.from({ length: 14 }, (_, i) => `W${i + 1}`);
+
+  // Build dynamic timeline items from database projects
+  const timelinePhases = projects.map((p, idx) => ({
+    code: p.id,
+    name: p.name,
+    departmentAlias: p.departmentAlias || "digitalproducts@",
+    startWeek: ((idx * 2) % 10) + 1,
+    durationWeeks: Math.max(2, Math.min(8, Math.round((p.totalTasksCount || 4) / 2))),
+    progress: p.progressPercent || 0,
+    taskListsCount: p.totalPhasesCount || p.phases?.length || 1,
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-8">
+        <Loader2 size={28} className="animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">

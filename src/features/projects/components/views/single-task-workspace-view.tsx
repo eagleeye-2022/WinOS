@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -43,6 +43,8 @@ import {
 } from "lucide-react";
 import { TaskItem, TaskStatus } from "../../types";
 import { TimerWidget } from "../timer-widget";
+import { NewTimeLogModal } from "../modals/new-time-log-modal";
+import { getTasksAction, updateTaskAction } from "../../actions/project-actions";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -55,186 +57,29 @@ export function SingleTaskWorkspaceView({
 }: SingleTaskWorkspaceViewProps) {
   const router = useRouter();
 
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+
   // Selected phase filter for left sidebar task list
-  const [selectedPhase, setSelectedPhase] = useState("1.1 Client On Boarding");
+  const [selectedPhase, setSelectedPhase] = useState("ALL");
 
-  // Comprehensive task items pool organized across project phases
-  const leftTaskItems: TaskItem[] = [
-    // Phase 1.1: Client On Boarding
-    {
-      id: "WI1-T1",
-      code: "WI1-T1",
-      title: "WhatsApp Group Creation",
-      phaseCode: "1.1",
-      phaseName: "Client On Boarding",
-      status: "Closed",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      owner: "Unassigned",
-    },
-    {
-      id: "WI1-T2",
-      code: "WI1-T2",
-      title: "Project Meeting with Team",
-      phaseCode: "1.1",
-      phaseName: "Client On Boarding",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      staleAlert: true,
-      owner: "Dhruv Patidar,Yogesh Kumar,Rud...",
-    },
-    {
-      id: "WI1-T3",
-      code: "WI1-T3",
-      title: "Project Requirement and Expectation collection from Client",
-      phaseCode: "1.1",
-      phaseName: "Client On Boarding",
-      status: "Closed",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      owner: "Unassigned",
-    },
-    {
-      id: "WI1-T4",
-      code: "WI1-T4",
-      title: "Roadmap & Deliverables Document",
-      phaseCode: "1.1",
-      phaseName: "Client On Boarding",
-      status: "Closed",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      owner: "Unassigned",
-    },
-    {
-      id: "WI1-T5",
-      code: "WI1-T5",
-      title: "Client Zoho Project Board Creation",
-      phaseCode: "1.1",
-      phaseName: "Client On Boarding",
-      status: "Closed",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      owner: "Dhruv Patidar",
-    },
+  useEffect(() => {
+    async function loadTasks() {
+      setIsLoading(true);
+      try {
+        const fetchedTasks = await getTasksAction(projectId);
+        setTasks(fetchedTasks);
+      } catch (err) {
+        console.error("Failed to load tasks for single task view:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadTasks();
+  }, [projectId]);
 
-    // Phase 1.2: Requirement Collection & Documentation
-    {
-      id: "WI1-T8",
-      code: "WI1-T8",
-      title: "Functional specification document signoff",
-      phaseCode: "1.2",
-      phaseName: "Requirement Collection & Documentation",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "digitalproducts@",
-      owner: "Dhruv Patidar",
-    },
-
-    // Phase 2.1: UX Research & Discovery
-    {
-      id: "WI1-T11",
-      code: "WI1-T11",
-      title: "V1 Keyword Research by UI/UX",
-      phaseCode: "2.1",
-      phaseName: "UX Research & Discovery",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      departmentAlias: "seo@",
-      staleAlert: true,
-      owner: "Vaishnavi Shivhare",
-    },
-    {
-      id: "WI1-T12",
-      code: "WI1-T12",
-      title: "Competitor Analysis and Feature Matrix",
-      phaseCode: "2.1",
-      phaseName: "UX Research & Discovery",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      owner: "Dhruv Patidar",
-    },
-    {
-      id: "WI1-T13",
-      code: "WI1-T13",
-      title: "Stakeholder Interview & Surveys",
-      phaseCode: "2.1",
-      phaseName: "UX Research & Discovery",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      owner: "Unassigned",
-    },
-
-    // Phase 2.2: Ideation & Conceptualization
-    {
-      id: "WI1-T02",
-      code: "WI1-T02",
-      title: "Market analysis for Q4 expansion strategy",
-      phaseCode: "2.2",
-      phaseName: "Ideation & Conceptualization",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      owner: "Dhruv Patidar",
-    },
-    {
-      id: "WI1-T25",
-      code: "WI1-T25",
-      title: "Initial wireframes for customer dashboard",
-      phaseCode: "2.2",
-      phaseName: "Ideation & Conceptualization",
-      status: "In Progress",
-      authorName: "Dhruv Patidar",
-      owner: "Dhruv Patidar",
-    },
-
-    // Phase 3.1: UI/UX Designing
-    {
-      id: "WI1-T22",
-      code: "WI1-T22",
-      title: "Dark mode color system refinement and accessibility check",
-      phaseCode: "3.1",
-      phaseName: "UI/UX Designing",
-      status: "In Progress",
-      authorName: "Dhruv Patidar",
-      owner: "Vaishnavi Shivhare",
-    },
-
-    // Phase 3.2: Graphic Designing
-    {
-      id: "WI1-T31",
-      code: "WI1-T31",
-      title: "Annual report infographics and data visualization assets",
-      phaseCode: "3.2",
-      phaseName: "Graphic Designing",
-      status: "Closed",
-      authorName: "Dhruv Patidar",
-      owner: "Vaishnavi Shivhare",
-    },
-
-    // Phase 3.3: Content Writing
-    {
-      id: "WI1-T35",
-      code: "WI1-T35",
-      title: "Draft technical documentation API v2.0 release",
-      phaseCode: "3.3",
-      phaseName: "Content Writing",
-      status: "Open",
-      authorName: "Dhruv Patidar",
-      owner: "Dhruv Patidar",
-    },
-
-    // Phase 4.1: Development
-    {
-      id: "WI1-T40",
-      code: "WI1-T40",
-      title: "Next.js App Router sub-routes and sidebar active states",
-      phaseCode: "4.1",
-      phaseName: "Development",
-      status: "In Progress",
-      authorName: "Dhruv Patidar",
-      owner: "Dhruv Patidar",
-    },
-  ];
+  const leftTaskItems = tasks;
 
   // Current active task matching route taskId parameter
   const activeTask =
@@ -243,8 +88,21 @@ export function SingleTaskWorkspaceView({
         t.code.toLowerCase() === taskId.toLowerCase() ||
         t.id.toLowerCase() === taskId.toLowerCase()
     ) ||
-    leftTaskItems.find((t) => t.code === "WI1-T2") ||
-    leftTaskItems[0];
+    leftTaskItems[0] || {
+      id: taskId,
+      code: taskId,
+      title: "Task " + taskId,
+      phaseCode: "1.1",
+      phaseName: "General",
+      status: "Open",
+      authorName: "System",
+      owner: "Unassigned",
+      description: "",
+      completionPercentage: 0,
+      subtasks: [],
+      remarks: [],
+      activities: [],
+    };
 
   // Active Task Form & Section States
   const [taskStatus, setTaskStatus] = useState<TaskStatus>(
@@ -462,6 +320,14 @@ export function SingleTaskWorkspaceView({
 
           {/* Right Header Action Icons */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTimeLogModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
+            >
+              <Plus size={14} />
+              <span>Time Log</span>
+            </button>
             <button
               type="button"
               className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300"
@@ -724,6 +590,14 @@ export function SingleTaskWorkspaceView({
           </div>
         </div>
       </main>
+
+      {/* New Time Log Modal */}
+      <NewTimeLogModal
+        isOpen={isTimeLogModalOpen}
+        onClose={() => setIsTimeLogModalOpen(false)}
+        initialProject="WinOS"
+        initialTaskCode={activeTask.code}
+      />
     </div>
   );
 }

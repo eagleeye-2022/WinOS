@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Clock,
   Settings,
@@ -17,50 +17,51 @@ import {
   X,
   Check,
   Loader2,
+  Search,
+  Bell,
+  SlidersHorizontal,
+  Sparkles,
+  Grid,
+  User as UserIcon,
+  List,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
+import { NewTimeLogModal } from "../modals/new-time-log-modal";
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
+  projectId?: string;
+  projectName?: string;
 }
 
-export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
-  const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
-  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 6, 11)); // 11/07/2026
-  const [groupBy, setGroupBy] = useState("Group By User");
-  const [timeSheetView, setTimeSheetView] = useState("My Time Sheet");
+export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeTrackerViewProps) {
+  // `initialGroups` can arrive after mount (the in-board Time Logs tab fetches
+  // asynchronously) — read it directly rather than mirroring it into local state,
+  // since nothing here needs to mutate the group list independently of the prop.
+  const userGroups = initialGroups;
+
+  // Default views matching the user screenshot
+  const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
+  const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("My Time Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
   // Add Time Log Modal State
   const [showAddLogModal, setShowAddLogModal] = useState(false);
-  const [logTitle, setLogTitle] = useState("");
-  const [logProject, setLogProject] = useState("EED Core");
-  const [logDuration, setLogDuration] = useState("00:30");
-  const [logBillingType, setLogBillingType] = useState<"NON BILLABLE" | "BILLABLE">("NON BILLABLE");
-  const [logRemarks, setLogRemarks] = useState("");
-  const [isSubmittingLog, setIsSubmittingLog] = useState(false);
+  const [modalTargetDate, setModalTargetDate] = useState("");
+  const [modalTargetProject, setModalTargetProject] = useState("");
 
-  const formattedDate = currentDate.toLocaleDateString("en-GB");
+  // Date range navigator string
+  const [dateRangeStr, setDateRangeStr] = useState("17/08/2026 to 23/08/2026 (WEEK - 34)");
 
-  const handlePrevDate = () => {
-    const prev = new Date(currentDate);
-    prev.setDate(prev.getDate() - 1);
-    setCurrentDate(prev);
-  };
+  // Collapsible date sections state
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
 
-  const handleNextDate = () => {
-    const next = new Date(currentDate);
-    next.setDate(next.getDate() + 1);
-    setCurrentDate(next);
-  };
-
-  const toggleGroupExpand = (userId: string) => {
-    setUserGroups((prev) =>
-      prev.map((g) =>
-        g.userId === userId ? { ...g, isExpanded: !g.isExpanded } : g
-      )
-    );
+  const toggleDateCollapse = (dateKey: string) => {
+    setCollapsedDates((prev) => ({
+      ...prev,
+      [dateKey]: !prev[dateKey],
+    }));
   };
 
   const handleToggleSelectLog = (id: string) => {
@@ -71,190 +72,175 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
     }
   };
 
-  const handleToggleApprovalStatus = (groupId: string, logId: string) => {
-    setUserGroups((prev) =>
-      prev.map((group) => {
-        if (group.userId !== groupId) return group;
+  const handleOpenAddModalForDate = (dateStr: string) => {
+    setModalTargetDate(dateStr);
+    setShowAddLogModal(true);
+  };
+
+  // Duration helpers, shared by the footer totals and the real date-grouping below.
+  const parseDurationMinutes = (duration: string): number => {
+    const match = duration.match(/(\d+):(\d+)/);
+    if (!match) return 0;
+    return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  };
+  const formatMinutes = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
+  };
+  const formatMinutesShort = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  const allLogs = userGroups.flatMap((g) => g.timeLogs);
+  const billableMinutes = allLogs
+    .filter((l) => l.billingType === "BILLABLE")
+    .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+  const nonBillableMinutes = allLogs
+    .filter((l) => l.billingType !== "BILLABLE")
+    .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+
+  // Real "Group By Date" data — logs from every user group, grouped by date, with
+  // real per-date totals (previously a fully hardcoded mock array).
+  const dateGroupsData = React.useMemo(() => {
+    const byDate = new Map<
+      string,
+      { date: string; logs: (TimeLogEntry & { userName: string })[] }
+    >();
+    for (const group of userGroups) {
+      for (const log of group.timeLogs) {
+        if (!byDate.has(log.date)) byDate.set(log.date, { date: log.date, logs: [] });
+        byDate.get(log.date)!.logs.push({ ...log, userName: group.userName });
+      }
+    }
+    return Array.from(byDate.values())
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((g) => {
+        const billable = g.logs
+          .filter((l) => l.billingType === "BILLABLE")
+          .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+        const nonBillable = g.logs
+          .filter((l) => l.billingType !== "BILLABLE")
+          .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
         return {
-          ...group,
-          timeLogs: group.timeLogs.map((log) => {
-            if (log.id !== logId) return log;
-            const nextStatus =
-              log.approvalStatus === "Approved" ? "Pending" : "Approved";
-            return { ...log, approvalStatus: nextStatus };
-          }),
+          date: g.date,
+          totalHours: formatMinutesShort(billable + nonBillable),
+          billableHours: formatMinutesShort(billable),
+          nonBillableHours: formatMinutesShort(nonBillable),
+          logs: g.logs,
         };
-      })
-    );
-  };
-
-  const handleCreateTimeLog = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!logTitle.trim()) return;
-
-    setIsSubmittingLog(true);
-
-    const newLog: TimeLogEntry = {
-      id: `tl-${Date.now()}`,
-      code: `EC2-T${Math.floor(3000 + Math.random() * 900)}`,
-      title: logTitle,
-      project: logProject,
-      duration: logDuration || "00:30",
-      timePeriod: "11:00 AM - 11:30 AM",
-      date: formattedDate,
-      billingType: logBillingType,
-      remarks: logRemarks || "Log entry added",
-      approvalStatus: "Pending",
-    };
-
-    setUserGroups((prev) =>
-      prev.map((g) =>
-        g.userName === "Dhruv Patidar"
-          ? { ...g, isExpanded: true, timeLogs: [newLog, ...g.timeLogs] }
-          : g
-      )
-    );
-
-    setShowAddLogModal(false);
-    setLogTitle("");
-    setLogRemarks("");
-    setIsSubmittingLog(false);
-  };
-
-  // Flattened entries for Group By Date mode (Matching Image 3)
-  const allLogsFlat = userGroups.flatMap((g) =>
-    g.timeLogs.map((l) => ({
-      ...l,
-      userInitials: g.userInitials,
-      userName: g.userName,
-      avatarColor: g.avatarColor,
-    }))
-  );
+      });
+  }, [userGroups]);
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-xl font-bold tracking-tight text-info">
-          Time Tracker
+    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative text-xs">
+      {/* ── Top App Title Bar ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
+        <h1 className="text-base font-bold tracking-wide text-foreground">
+          Time Logs
         </h1>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent"
-            title="Timer Logs"
-          >
-            <Clock size={18} />
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent"
-            title="Settings"
-          >
-            <Settings size={18} />
-          </button>
-        </div>
+
+        {/* Top Right Action Icons */}
+
       </div>
 
-      {/* Control Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b px-6 py-3 bg-muted/20 gap-3">
-        <div className="flex items-center gap-3 text-xs">
-          {/* Group By dropdown */}
-          <div className="relative">
+      {/* ── Secondary Control Bar (Breadcrumbs, Date Range & Actions) ──────────── */}
+      <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-muted/40 text-foreground gap-3">
+        {/* Left Sub-Nav Filters */}
+        <div className="flex items-center gap-2 text-xs">
+          {/* Group By Select */}
+          <div className="relative inline-flex items-center gap-1 text-primary font-semibold cursor-pointer hover:underline">
             <select
               value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value)}
-              className="rounded border border-input bg-background px-3 py-1.5 font-medium text-foreground outline-none focus:ring-1 focus:ring-primary appearance-none pr-8 cursor-pointer"
+              onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+              className="bg-transparent text-primary font-semibold outline-none cursor-pointer appearance-none pr-4"
             >
-              <option value="Group By User">Group By User</option>
-              <option value="Group By Date">Group By Date</option>
-              <option value="Group By Project">Group By Project</option>
+              <option value="Group By Date" className="bg-card text-foreground">Group By Date</option>
+              <option value="Group By User" className="bg-card text-foreground">Group By User</option>
+              <option value="Group By Project" className="bg-card text-foreground">Group By Project</option>
             </select>
-            <ChevronDown
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            />
+            <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
           </div>
 
-          {/* My Time Sheet dropdown */}
-          <div className="relative">
+          <span className="text-muted-foreground font-bold">&gt;</span>
+
+          {/* Time Sheet View Select */}
+          <div className="relative inline-flex items-center gap-1 text-primary font-semibold cursor-pointer hover:underline">
             <select
               value={timeSheetView}
-              onChange={(e) => setTimeSheetView(e.target.value)}
-              className="rounded border border-input bg-background px-3 py-1.5 font-medium text-foreground outline-none focus:ring-1 focus:ring-primary appearance-none pr-8 cursor-pointer"
+              onChange={(e) => setTimeSheetView(e.target.value as typeof timeSheetView)}
+              className="bg-transparent text-primary font-semibold outline-none cursor-pointer appearance-none pr-4"
             >
-              <option value="My Time Sheet">My Time Sheet</option>
-              <option value="All Members">All Members</option>
+              <option value="My Time Logs" className="bg-card text-foreground">My Time Logs</option>
+              <option value="All Time Logs" className="bg-card text-foreground">All Time Logs</option>
+              <option value="Team Time Logs" className="bg-card text-foreground">Team Time Logs</option>
             </select>
-            <ChevronDown
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            />
-          </div>
-
-          {/* Date Navigator */}
-          <div className="flex items-center gap-1 border rounded bg-background px-2 py-1">
-            <button
-              type="button"
-              onClick={handlePrevDate}
-              className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
-              title="Previous Date"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <div className="flex items-center gap-1.5 font-medium px-1.5 text-xs">
-              <CalendarIcon size={14} className="text-info" />
-              <span>{formattedDate}</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleNextDate}
-              className="p-0.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
-              title="Next Date"
-            >
-              <ChevronRight size={15} />
-            </button>
+            <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
           </div>
         </div>
 
-        {/* Action Buttons & Filter Icons */}
-        <div className="flex items-center gap-3 text-xs">
-          {/* Live Start/Pause Timer Widget */}
-          <TimerWidget
-            onStopTimer={(_sec, formatted) => {
-              setLogDuration(formatted);
-              setShowAddLogModal(true);
-            }}
-          />
+        {/* Center Date Range Navigator */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground bg-card border border-border px-3 py-1 rounded-md shadow-2xs">
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Previous Week"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <CalendarIcon size={13} className="text-primary" />
+          <span>{dateRangeStr}</span>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Next Week"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {/* Right Action Buttons */}
+        <div className="flex items-center gap-2.5 text-xs">
+          {/* List Layout Dropdown Button */}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded border border-border bg-card text-foreground font-medium cursor-pointer hover:bg-accent shadow-2xs">
+            <List size={14} className="text-primary" />
+            <span>List</span>
+            <Sparkles size={12} className="text-warning ml-0.5" />
+          </div>
 
           {/* Add Time Log Split Button */}
-          <div className="inline-flex rounded-md bg-primary text-primary-foreground shadow-xs">
+          <div className="inline-flex rounded bg-primary text-primary-foreground shadow-xs font-semibold overflow-hidden">
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-4 py-1.5 font-semibold text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/30"
+              className="px-3.5 py-1 text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/20"
             >
               Add Time Log
             </button>
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-2 py-1.5 hover:bg-primary/90 transition-colors"
+              className="px-2 py-1 hover:bg-primary/90 transition-colors"
             >
               <ChevronDown size={14} />
             </button>
           </div>
 
+          {/* Filter Icon */}
           <button
             type="button"
-            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
             title="Filter"
           >
             <Filter size={15} />
           </button>
+
+          {/* More Options */}
           <button
             type="button"
-            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground"
+            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
             title="More Options"
           >
             <MoreVertical size={15} />
@@ -262,181 +248,245 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
         </div>
       </div>
 
-      {/* Main Data Table */}
+      {/* ── Main Data Table (Group By Date View) ─────────────────────────────────── */}
       <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
         {groupBy === "Group By Date" ? (
-          /* Mode: Group By Date (Matching Image 3) */
-          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border">
+          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
             <thead>
-              <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                <th className="py-3 px-3 border-r w-10 text-center">
-                  <input
-                    type="checkbox"
-                    className="rounded border-input text-primary h-4 w-4"
-                  />
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">ID</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[160px]">
-                  LOG TITLE
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
-                  PROJECT
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
-                  DAILY LOG HOURS
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
-                  TIME PERIOD
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">DATE</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[160px]">
-                  USER
-                </th>
-                <th className="py-3 px-4 whitespace-nowrap">BILLING TYPE</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {/* Date Header Row */}
-              <tr className="bg-muted/30 font-medium">
-                <td className="py-3 px-3 border-r text-center" />
-                <td colSpan={3} className="py-3 px-4 border-r whitespace-nowrap font-bold">
-                  05:07 | 01:51 | 03:16
-                </td>
-                <td colSpan={5} className="py-3 px-4" />
-              </tr>
-
-              <tr className="border-b bg-background">
-                <td className="py-2.5 px-3 border-r text-center" />
-                <td
-                  colSpan={8}
-                  onClick={() => setShowAddLogModal(true)}
-                  className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
-                >
-                  Add Time Log...
-                </td>
-              </tr>
-
-              {allLogsFlat.map((log) => (
-                <tr
-                  key={log.id}
-                  className="hover:bg-accent/20 transition-colors border-b"
-                >
-                  <td className="py-3 px-3 border-r text-center">
+              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                <th className="py-2.5 px-3 border-r border-border w-10 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <ChevronDown size={13} className="text-muted-foreground" />
                     <input
                       type="checkbox"
-                      checked={selectedLogIds.includes(log.id)}
-                      onChange={() => handleToggleSelectLog(log.id)}
-                      className="rounded border-input text-primary h-4 w-4"
+                      className="rounded border-input bg-background text-primary h-3.5 w-3.5"
                     />
-                  </td>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                  ID
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px] text-foreground font-bold">
+                  Log Title
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px] text-foreground font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <Folder size={13} className="text-muted-foreground" />
+                    <span>Project</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={13} className="text-muted-foreground" />
+                    <span>Daily Log Hours</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={13} className="text-muted-foreground" />
+                    <span>Time Period</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px] text-foreground font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <UserIcon size={13} className="text-muted-foreground" />
+                    <span>User</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                  Billing Type
+                </th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-foreground font-bold">
+                  Approval Status
+                </th>
+              </tr>
+            </thead>
 
-                  <td className="py-3 px-4 border-r font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-                    {log.code}
-                  </td>
+            <tbody className="divide-y divide-border">
+              {dateGroupsData.map((group) => {
+                const isCollapsed = collapsedDates[group.date];
 
-                  <td className="py-3 px-4 border-r font-semibold text-foreground whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList size={14} className="text-muted-foreground" />
-                      <span>{log.title}</span>
-                    </div>
-                  </td>
+                return (
+                  <React.Fragment key={group.date}>
+                    {/* Date Header Row - Adaptive Theme Styling */}
+                    <tr className="bg-muted/80 font-bold border-b border-border text-foreground hover:bg-muted transition-colors">
+                      <td className="py-2.5 px-3 border-r border-border text-center">
+                        <button
+                          type="button"
+                          onClick={() => toggleDateCollapse(group.date)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {isCollapsed ? (
+                            <ChevronRight size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          )}
+                        </button>
+                      </td>
+                      <td colSpan={3} className="py-2.5 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon size={14} className="text-muted-foreground" />
+                          <span className="text-foreground font-bold">{group.date}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-foreground font-bold">{group.totalHours}</span>
+                          <span className="text-info font-bold">{group.billableHours}</span>
+                          <span className="text-warning font-bold">{group.nonBillableHours}</span>
+                        </div>
+                      </td>
+                      <td colSpan={4} className="py-2.5 px-4" />
+                    </tr>
 
-                  <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      <Folder size={14} className="text-muted-foreground" />
-                      <span>{log.project}</span>
-                    </div>
-                  </td>
+                    {!isCollapsed && (
+                      <>
+                        {/* Quick Add Time Log Row Under Date */}
+                        <tr className="border-b border-border bg-muted/20 hover:bg-accent/40 transition-colors">
+                          <td className="py-2 px-3 border-r border-border text-center" />
+                          <td
+                            colSpan={8}
+                            onClick={() => handleOpenAddModalForDate(group.date)}
+                            className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors flex items-center justify-between"
+                          >
+                            <span>Add Time Log</span>
+                            <Plus size={14} className="text-primary" />
+                          </td>
+                        </tr>
 
-                  <td className="py-3 px-4 border-r font-mono font-bold text-foreground whitespace-nowrap">
-                    {log.duration}
-                  </td>
+                        {/* Log Rows */}
+                        {group.logs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="hover:bg-accent/20 transition-colors border-b border-border bg-card text-foreground"
+                          >
+                            <td className="py-2.5 px-3 border-r border-border text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedLogIds.includes(log.id)}
+                                onChange={() => handleToggleSelectLog(log.id)}
+                                className="rounded border-input bg-background text-primary h-3.5 w-3.5"
+                              />
+                            </td>
 
-                  <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                    {log.timePeriod}
-                  </td>
+                            <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                              {log.code}
+                            </td>
 
-                  <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                    {log.date}
-                  </td>
+                            <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <ClipboardList size={14} className="text-muted-foreground shrink-0" />
+                                <span>{log.title}</span>
+                              </div>
+                            </td>
 
-                  {/* USER Column (Matching Image 3) */}
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${log.avatarColor}`}
-                      >
-                        {log.userInitials}
-                      </span>
-                      <span className="font-semibold text-foreground">
-                        {log.userName}
-                      </span>
-                    </div>
-                  </td>
+                            <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <Folder size={14} className="text-muted-foreground shrink-0" />
+                                <span>{log.project}</span>
+                              </div>
+                            </td>
 
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="inline-block rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning">
-                      {log.billingType}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                            <td className="py-2.5 px-4 border-r border-border font-mono font-bold text-foreground whitespace-nowrap">
+                              {log.duration}
+                            </td>
+
+                            <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                              {log.timePeriod}
+                            </td>
+
+                            {/* User Column */}
+                            <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-muted-foreground text-[11px]">↑</span>
+                                <span className="font-semibold text-foreground">
+                                  {log.userName}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Billing Type Column */}
+                            <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                              <span
+                                className={`font-semibold ${log.billingType === "BILLABLE"
+                                    ? "text-info"
+                                    : "text-warning"
+                                  }`}
+                              >
+                                {log.billingType}
+                              </span>
+                            </td>
+
+                            {/* Approval Status Column */}
+                            <td className="py-2.5 px-4 whitespace-nowrap">
+                              <span className="inline-block rounded-md bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border">
+                                {log.approvalStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         ) : (
-          /* Mode: Group By User (Matching Image 1) */
-          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border">
+          /* Mode: Group By User */
+          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
             <thead>
-              <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                <th className="py-3 px-3 border-r w-10 text-center">
+              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                <th className="py-3 px-3 border-r border-border w-10 text-center">
                   <input
                     type="checkbox"
-                    className="rounded border-input text-primary h-4 w-4"
+                    className="rounded border-input text-primary h-3.5 w-3.5"
                   />
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">ID</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[160px]">
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
                   LOG TITLE
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   PROJECT
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   DAILY LOG HOURS
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   TIME PERIOD
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">DATE</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   BILLING TYPE
                 </th>
-                <th className="py-3 px-4 whitespace-nowrap min-w-[140px]">
-                  REMARKS
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
+                  APPROVAL STATUS
                 </th>
+                <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {userGroups.map((group) => (
+              {userGroups.map((group) => {
+                const [totalStr, billableStr, nonBillableStr] = group.dailyLogHours.split(" | ");
+                return (
                 <React.Fragment key={group.userId}>
-                  {/* User Row Header */}
-                  <tr className="bg-muted/30 hover:bg-accent/40 transition-colors font-medium">
-                    <td className="py-3 px-3 border-r text-center">
+                  <tr className="bg-muted/80 hover:bg-muted transition-colors font-medium">
+                    <td className="py-3 px-3 border-r border-border text-center">
                       <button
                         type="button"
-                        onClick={() => toggleGroupExpand(group.userId)}
+                        onClick={() => toggleDateCollapse(group.userId)}
                         className="p-1 text-muted-foreground hover:text-foreground rounded"
                       >
-                        {group.isExpanded ? (
-                          <ChevronUp size={15} />
-                        ) : (
+                        {collapsedDates[group.userId] ? (
                           <ChevronDown size={15} />
+                        ) : (
+                          <ChevronUp size={15} />
                         )}
                       </button>
                     </td>
 
-                    {/* User Avatar + Name */}
-                    <td colSpan={3} className="py-3 px-4 border-r whitespace-nowrap">
+                    <td colSpan={3} className="py-3 px-4 border-r border-border whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <span
                           className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${group.avatarColor}`}
@@ -449,234 +499,127 @@ export function TimeTrackerView({ initialGroups }: TimeTrackerViewProps) {
                       </div>
                     </td>
 
-                    {/* DAILY LOG HOURS (Matching Image 1) */}
-                    <td className="py-3 px-4 border-r font-mono font-bold whitespace-nowrap">
-                      <span className="text-foreground">05:07</span> |{" "}
-                      <span className="text-info">01:51</span> |{" "}
-                      <span className="text-warning">03:16</span>
+                    <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
+                      <span className="text-foreground">{totalStr}</span> |{" "}
+                      <span className="text-info">{billableStr}</span> |{" "}
+                      <span className="text-warning">{nonBillableStr}</span>
                     </td>
 
-                    <td colSpan={4} className="py-3 px-4" />
+                    <td colSpan={5} className="py-3 px-4" />
                   </tr>
 
-                  {/* Expanded Time Log Sub-Rows */}
-                  {group.isExpanded && (
+                  {!collapsedDates[group.userId] && (
                     <>
-                      <tr className="border-b bg-background">
-                        <td className="py-2.5 px-3 border-r text-center" />
-                        <td
-                          colSpan={8}
-                          onClick={() => setShowAddLogModal(true)}
-                          className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
-                        >
-                          Add Time Log...
-                        </td>
-                      </tr>
-
                       {group.timeLogs.map((log) => (
                         <tr
                           key={log.id}
-                          className="hover:bg-accent/20 transition-colors border-b"
+                          className="hover:bg-accent/30 transition-colors border-b border-border text-foreground"
                         >
-                          <td className="py-3 px-3 border-r text-center">
+                          <td className="py-3 px-3 border-r border-border text-center">
                             <input
                               type="checkbox"
                               checked={selectedLogIds.includes(log.id)}
                               onChange={() => handleToggleSelectLog(log.id)}
-                              className="rounded border-input text-primary h-4 w-4"
+                              className="rounded border-input text-primary h-3.5 w-3.5"
                             />
                           </td>
 
-                          <td className="py-3 px-4 border-r font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
                             {log.code}
                           </td>
 
-                          <td className="py-3 px-4 border-r font-semibold text-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <ClipboardList size={14} className="text-muted-foreground" />
                               <span>{log.title}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Folder size={14} className="text-muted-foreground" />
                               <span>{log.project}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 border-r font-mono font-bold text-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border font-mono font-bold text-foreground whitespace-nowrap">
                             {log.duration}
                           </td>
 
-                          <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                             {log.timePeriod}
                           </td>
 
-                          <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                             {log.date}
                           </td>
 
-                          <td className="py-3 px-4 border-r whitespace-nowrap">
-                            <span className="inline-block rounded border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-[10px] font-bold text-warning">
+                          <td className="py-3 px-4 border-r border-border whitespace-nowrap">
+                            <span className="font-semibold text-info">
                               {log.billingType}
                             </span>
                           </td>
 
-                          <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
-                            {log.remarks}
+                          <td className="py-3 px-4 border-r border-border whitespace-nowrap">
+                            <span className="inline-block rounded-md bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border">
+                              {log.approvalStatus || "Pending"}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
+                            {log.remarks || "—"}
                           </td>
                         </tr>
                       ))}
                     </>
                   )}
                 </React.Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Bottom Summary Bar */}
-      <div className="flex items-center justify-between border-t px-6 py-3 bg-muted/20 text-xs font-semibold shrink-0">
+      {/* ── Bottom Summary Footer Bar ────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-t border-border px-6 py-2.5 bg-muted/40 text-xs font-semibold shrink-0 text-foreground">
         <div className="flex items-center gap-6">
           <div>
             <span className="text-muted-foreground font-normal">Billable</span>{" "}
-            <strong className="text-info ml-1">
-              00:00 h
-            </strong>
+            <strong className="text-info ml-1 font-bold">{formatMinutes(billableMinutes)}</strong>
           </div>
 
           <div className="h-4 w-px bg-border" />
 
           <div>
-            <span className="text-muted-foreground font-normal">
-              Non Billable
-            </span>{" "}
-            <strong className="text-warning ml-1">
-              01:00 h
-            </strong>
+            <span className="text-muted-foreground font-normal">Non Billable</span>{" "}
+            <strong className="text-warning ml-1 font-bold">{formatMinutes(nonBillableMinutes)}</strong>
           </div>
 
           <div className="h-4 w-px bg-border" />
 
           <div>
             <span className="text-muted-foreground font-normal">Total</span>{" "}
-            <strong className="text-foreground ml-1">01:00 h</strong>
+            <strong className="text-foreground ml-1 font-bold">{formatMinutes(billableMinutes + nonBillableMinutes)}</strong>
           </div>
         </div>
 
         <div className="text-muted-foreground font-normal">
-          Total Count: <strong className="text-foreground font-semibold">3</strong>
+          Total Count: <strong className="text-foreground font-semibold">{allLogs.length}</strong>
         </div>
       </div>
 
       {/* Add Time Log Modal Dialog */}
-      {showAddLogModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-xl space-y-4 text-xs animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-sm font-bold text-foreground">Add New Time Log</h3>
-              <button
-                type="button"
-                onClick={() => setShowAddLogModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTimeLog} className="space-y-3">
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">
-                  Log Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={logTitle}
-                  onChange={(e) => setLogTitle(e.target.value)}
-                  placeholder="e.g. DSMA / Bug fix"
-                  className="w-full rounded border px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">
-                  Project
-                </label>
-                <input
-                  type="text"
-                  value={logProject}
-                  onChange={(e) => setLogProject(e.target.value)}
-                  className="w-full rounded border px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">
-                    Duration (hh:mm)
-                  </label>
-                  <input
-                    type="text"
-                    value={logDuration}
-                    onChange={(e) => setLogDuration(e.target.value)}
-                    placeholder="00:30"
-                    className="w-full rounded border px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-muted-foreground">
-                    Billing Type
-                  </label>
-                  <select
-                    value={logBillingType}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onChange={(e) => setLogBillingType(e.target.value as any)}
-                    className="w-full rounded border px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                  >
-                    <option value="NON BILLABLE">NON BILLABLE</option>
-                    <option value="BILLABLE">BILLABLE</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-muted-foreground">
-                  Remarks
-                </label>
-                <textarea
-                  rows={2}
-                  value={logRemarks}
-                  onChange={(e) => setLogRemarks(e.target.value)}
-                  placeholder="Notes or comments..."
-                  className="w-full rounded border p-2 text-xs outline-none focus:ring-1 focus:ring-primary resize-y"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowAddLogModal(false)}
-                  className="rounded border px-4 py-1.5 text-xs hover:bg-accent"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingLog}
-                  className="flex items-center gap-1.5 rounded bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {isSubmittingLog && <Loader2 size={12} className="animate-spin" />}
-                  Save Log
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <NewTimeLogModal
+        isOpen={showAddLogModal}
+        onClose={() => setShowAddLogModal(false)}
+        initialProject={modalTargetProject}
+        projectId={projectId}
+        projectName={projectName}
+        onLogAdded={(newLog) => {
+          console.log("New Log Added:", newLog);
+        }}
+      />
     </div>
   );
 }

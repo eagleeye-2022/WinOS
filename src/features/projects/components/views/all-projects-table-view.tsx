@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Clock,
@@ -23,23 +23,49 @@ import {
 } from "lucide-react";
 import { Project, WorkspaceRole } from "../../types";
 import { TimerWidget } from "../timer-widget";
+import { NewTimeLogModal } from "../modals/new-time-log-modal";
+import { getCurrentUserRoleAction } from "../../actions/project-actions";
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
+import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 
 interface AllProjectsTableViewProps {
   projects: Project[];
   onOpenAddModal: () => void;
   onDeleteProject?: (id: string) => void;
   userRole?: WorkspaceRole;
+  assignedToMeCount?: number;
+  onOpenTemplatesModal?: () => void;
 }
 
 export function AllProjectsTableView({
   projects,
   onOpenAddModal,
   onDeleteProject,
-  userRole = "ADMIN",
+  userRole: propUserRole,
+  assignedToMeCount = 0,
+  onOpenTemplatesModal,
 }: AllProjectsTableViewProps) {
-  const [activeTab, setActiveTab] = useState<"ACTIVE" | "COMPLETED">("ACTIVE");
+  const [effectiveUserRole, setEffectiveUserRole] = useState<WorkspaceRole>(
+    propUserRole || "TEAM_MEMBER"
+  );
+
+  useEffect(() => {
+    if (!propUserRole) {
+      async function fetchRole() {
+        try {
+          const role = await getCurrentUserRoleAction();
+          setEffectiveUserRole(role);
+        } catch (err) {
+          console.error("Failed to fetch user role from DB:", err);
+        }
+      }
+      fetchRole();
+    }
+  }, [propUserRole]);
+
+  const userRole = propUserRole || effectiveUserRole;
+  const [activeTab, setActiveTab] = useState<"ACTIVE" | "COMPLETED" | "TEMPLATES">("ACTIVE");
   const [viewLayout, setViewLayout] = useState<"LIST" | "GRID">("LIST");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -54,6 +80,7 @@ export function AllProjectsTableView({
 
   // AI Client Report Modal State
   const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
 
   // Filter projects
   const filteredProjects = projects.filter((project) => {
@@ -108,7 +135,17 @@ export function AllProjectsTableView({
         </div>
 
         <div className="flex items-center gap-2 relative">
-          <TimerWidget />
+          {/* <TimerWidget
+            onStopTimer={() => setIsTimeLogModalOpen(true)}
+          />
+          <button
+            type="button"
+            onClick={() => setIsTimeLogModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
+          >
+            <Plus size={14} />
+            <span>Time Log</span>
+          </button> */}
           {userRole === "TEAM_MEMBER" ? (
             /* Team Member Mode Header Actions (matching Image 1) */
             <>
@@ -140,7 +177,7 @@ export function AllProjectsTableView({
           ) : (
             /* Admin Mode Header Actions */
             <>
-              <button
+              {/* <button
                 type="button"
                 onClick={() => setShowTimelinePopover(!showTimelinePopover)}
                 className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-accent"
@@ -156,14 +193,14 @@ export function AllProjectsTableView({
                 title="Project Settings"
               >
                 <Settings size={18} />
-              </button>
+              </button> */}
 
               <button
                 type="button"
-                onClick={onOpenAddModal}
+                onClick={activeTab === "TEMPLATES" ? onOpenTemplatesModal : onOpenAddModal}
                 className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
               >
-                <Plus size={16} /> Add New Project
+                <Plus size={16} /> {activeTab === "TEMPLATES" ? "Add New Template" : "Add New Project"}
               </button>
             </>
           )}
@@ -217,28 +254,71 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setActiveTab("ACTIVE")}
-            className={`pb-3 transition-colors relative ${
-              activeTab === "ACTIVE"
-                ? "text-info border-b-2 border-info"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`pb-3 transition-colors relative ${activeTab === "ACTIVE"
+              ? "text-info border-b-2 border-info"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             Active Projects
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("COMPLETED")}
-            className={`pb-3 transition-colors relative ${
-              activeTab === "COMPLETED"
-                ? "text-info border-b-2 border-info"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`pb-3 transition-colors relative ${activeTab === "COMPLETED"
+              ? "text-info border-b-2 border-info"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
           >
             Completed Projects
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("TEMPLATES")}
+            className={`pb-3 transition-colors relative ${activeTab === "TEMPLATES"
+              ? "text-info border-b-2 border-info"
+              : "text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            Project Templates
           </button>
         </div>
       </div>
 
+      {activeTab === "TEMPLATES" ? (
+        /* Project Templates Tab */
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
+                <th className="py-3 px-4 border-r whitespace-nowrap">Project ID</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">Project Name</th>
+                <th className="py-3 px-4 whitespace-nowrap">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {DEFAULT_PROJECT_TEMPLATES.map((template, idx) => (
+                <tr key={template.id} className="hover:bg-accent/30 transition-colors">
+                  <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    EEDP-{81 + idx}
+                  </td>
+                  <td className="py-3 px-4 border-r whitespace-nowrap">
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      <Layers size={14} className="text-primary" />
+                      {template.name}
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 whitespace-nowrap">
+                    <span className="inline-block rounded bg-success/10 px-2.5 py-0.5 text-[10px] font-bold text-success">
+                      Active
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+      <>
       {/* Table Action Filter Bar */}
       <div className="flex items-center justify-between border-b px-6 py-2.5 bg-muted/20 relative">
         <div className="flex items-center gap-3">
@@ -281,11 +361,10 @@ export function AllProjectsTableView({
             <button
               type="button"
               onClick={() => setViewLayout("LIST")}
-              className={`p-1 rounded transition-colors ${
-                viewLayout === "LIST"
-                  ? "bg-primary/10 text-primary font-bold"
-                  : "hover:bg-accent text-muted-foreground"
-              }`}
+              className={`p-1 rounded transition-colors ${viewLayout === "LIST"
+                ? "bg-primary/10 text-primary font-bold"
+                : "hover:bg-accent text-muted-foreground"
+                }`}
               title="Table List View"
             >
               <List size={14} />
@@ -293,11 +372,10 @@ export function AllProjectsTableView({
             <button
               type="button"
               onClick={() => setViewLayout("GRID")}
-              className={`p-1 rounded transition-colors ${
-                viewLayout === "GRID"
-                  ? "bg-primary/10 text-primary font-bold"
-                  : "hover:bg-accent text-muted-foreground"
-              }`}
+              className={`p-1 rounded transition-colors ${viewLayout === "GRID"
+                ? "bg-primary/10 text-primary font-bold"
+                : "hover:bg-accent text-muted-foreground"
+                }`}
               title="Card Grid View"
             >
               <LayoutGrid size={14} />
@@ -364,11 +442,10 @@ export function AllProjectsTableView({
                       {project.id}
                     </span>
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        project.projectCategory === "INTERNAL_BUILD"
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                          : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                      }`}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
+                        }`}
                     >
                       {project.projectCategory === "INTERNAL_BUILD"
                         ? "Internal Build"
@@ -421,9 +498,8 @@ export function AllProjectsTableView({
                 <div className="flex items-center justify-between pt-2 border-t text-xs">
                   <div className="flex items-center gap-1.5">
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                        project.owner.avatarColor || "bg-amber-500 text-white"
-                      }`}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
+                        }`}
                     >
                       {project.owner.initials}
                     </span>
@@ -451,232 +527,231 @@ export function AllProjectsTableView({
         /* Main Responsive Table */
         <div className="flex-1 overflow-x-auto overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
-              <th className="py-3 px-4 border-r whitespace-nowrap">Project ID</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap min-w-[240px]">
-                Project Name & Category
-              </th>
-              <th className="py-3 px-2 border-r text-center whitespace-nowrap w-10">
-                📎
-              </th>
-              <th className="py-3 px-3 border-r whitespace-nowrap text-center">%</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">
-                <span className="flex items-center gap-1">👤 Owner</span>
-              </th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">
-                <span className="flex items-center gap-1">
-                  ℹ Status <ArrowUpDown size={12} />
-                </span>
-              </th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">⏱ Total Hours</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">📅 Start Date</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap">📅 Deadline</th>
-              <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
-                <span className="flex items-center gap-1">
-                  <ListTodo size={13} /> Tasks
-                </span>
-              </th>
-              <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
-                <span className="flex items-center gap-1">
-                  <Layers size={13} /> Phases
-                </span>
-              </th>
-              {userRole === "ADMIN" && <th className="py-3 px-3 text-center">Action</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filteredProjects.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={userRole === "ADMIN" ? 15 : 14}
-                  className="py-12 text-center text-muted-foreground"
-                >
-                  No projects found matching current department or status filter.
-                </td>
+            <thead>
+              <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
+                <th className="py-3 px-4 border-r whitespace-nowrap">Project ID</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[240px]">
+                  Project Name & Category
+                </th>
+                <th className="py-3 px-2 border-r text-center whitespace-nowrap w-10">
+                  📎
+                </th>
+                <th className="py-3 px-3 border-r whitespace-nowrap text-center">%</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">
+                  <span className="flex items-center gap-1">👤 Owner</span>
+                </th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">
+                  <span className="flex items-center gap-1">
+                    ℹ Status <ArrowUpDown size={12} />
+                  </span>
+                </th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">⏱ Total Hours</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">📅 Start Date</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap">📅 Deadline</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
+                  <span className="flex items-center gap-1">
+                    <ListTodo size={13} /> Tasks
+                  </span>
+                </th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
+                  <span className="flex items-center gap-1">
+                    <Layers size={13} /> Phases
+                  </span>
+                </th>
+                {userRole === "ADMIN" && <th className="py-3 px-3 text-center">Action</th>}
               </tr>
-            ) : (
-              filteredProjects.map((project) => (
-                <tr
-                  key={project.id}
-                  className="hover:bg-accent/30 transition-colors group"
-                >
-                  <td className="py-3 px-4 border-r font-medium text-foreground whitespace-nowrap">
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="hover:text-primary hover:underline transition-colors"
-                    >
-                      {project.id}
-                    </Link>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredProjects.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={userRole === "ADMIN" ? 15 : 14}
+                    className="py-12 text-center text-muted-foreground"
+                  >
+                    No projects found matching current department or status filter.
                   </td>
-
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <div className="flex flex-col gap-1">
+                </tr>
+              ) : (
+                filteredProjects.map((project) => (
+                  <tr
+                    key={project.id}
+                    className="hover:bg-accent/30 transition-colors group"
+                  >
+                    <td className="py-3 px-4 border-r font-medium text-foreground whitespace-nowrap">
                       <Link
                         href={`/projects/${project.id}`}
-                        className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
+                        className="hover:text-primary hover:underline transition-colors"
                       >
-                        {project.name}
+                        {project.id}
                       </Link>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            project.projectCategory === "INTERNAL_BUILD"
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
+                        >
+                          {project.name}
+                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
                               ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                               : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                          }`}
-                        >
-                          {project.projectCategory === "INTERNAL_BUILD"
-                            ? "Internal Build"
-                            : "7-Phase SOP"}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-2 border-r text-center whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyLink(project.id)}
-                      className="p-1 text-muted-foreground hover:text-primary transition-colors rounded"
-                      title="Copy Project Link"
-                    >
-                      {copiedId === project.id ? (
-                        <Check size={14} className="text-success" />
-                      ) : (
-                        <Copy size={14} />
-                      )}
-                    </button>
-                  </td>
-
-                  <td className="py-3 px-3 border-r text-center font-medium text-muted-foreground whitespace-nowrap">
-                    {project.progressPercent}%
-                  </td>
-
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
-                          project.owner.avatarColor || "bg-amber-500 text-white"
-                        }`}
-                      >
-                        {project.owner.initials}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {project.owner.name}
-                      </span>
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 rounded bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                      {project.status === "ACTIVE" ? "Active" : "Completed"}
-                    </span>
-                  </td>
-
-                  {/* Department Alias Tag */}
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono text-secondary-foreground">
-                      {project.departmentAlias || "digitalproducts@"}
-                    </span>
-                  </td>
-
-                  {/* AI Status Report Generator Button */}
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const report = generateAIClientStatusReport(project, []);
-                        setActiveAIReport(report);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                      title="Generate Client Status Report via AI"
-                    >
-                      <Sparkles size={12} className="text-amber-500 animate-pulse" /> AI Report
-                    </button>
-                  </td>
-
-                  <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap">
-                    {project.totalHours}
-                  </td>
-
-                  <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
-                    {project.startDate}
-                  </td>
-
-                  <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
-                    {project.deadline}
-                  </td>
-
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 text-right font-medium">
-                        {project.completedTasksCount}
-                      </span>
-                      <div className="flex-1 min-w-[70px] bg-muted rounded-full h-3 overflow-hidden flex items-center p-0.5">
-                        <div
-                          className="bg-success h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-success-foreground font-bold px-1"
-                          style={{
-                            width: `${Math.max(
-                              project.taskProgressPercent,
-                              project.completedTasksCount > 0 ? 15 : 0
-                            )}%`,
-                          }}
-                        >
-                          {project.taskProgressPercent > 0 &&
-                            `${project.taskProgressPercent}%`}
+                              }`}
+                          >
+                            {project.projectCategory === "INTERNAL_BUILD"
+                              ? "Internal Build"
+                              : "7-Phase SOP"}
+                          </span>
                         </div>
                       </div>
-                      <span className="w-7 text-muted-foreground text-[11px]">
-                        {project.totalTasksCount}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 font-medium">
-                        {project.completedPhasesCount}
-                      </span>
-                      <div className="flex-1 min-w-[70px] bg-muted rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-success h-full rounded-full transition-all duration-300"
-                          style={{
-                            width: `${
-                              (project.completedPhasesCount /
-                                (project.totalPhasesCount || 7)) *
-                              100
-                            }%`,
-                          }}
-                        />
-                      </div>
-                      <span className="w-4 text-muted-foreground text-[11px]">
-                        {project.totalPhasesCount}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Delete Action (Admin mode only) */}
-                  {userRole === "ADMIN" && (
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                    <td className="py-3 px-2 border-r text-center whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => onDeleteProject && onDeleteProject(project.id)}
-                        className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
-                        title="Delete Project"
+                        onClick={() => handleCopyLink(project.id)}
+                        className="p-1 text-muted-foreground hover:text-primary transition-colors rounded"
+                        title="Copy Project Link"
                       >
-                        <Trash2 size={14} />
+                        {copiedId === project.id ? (
+                          <Check size={14} className="text-success" />
+                        ) : (
+                          <Copy size={14} />
+                        )}
                       </button>
                     </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+
+                    <td className="py-3 px-3 border-r text-center font-medium text-muted-foreground whitespace-nowrap">
+                      {project.progressPercent}%
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
+                            }`}
+                        >
+                          {project.owner.initials}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {project.owner.name}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 rounded bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
+                        {project.status === "ACTIVE" ? "Active" : "Completed"}
+                      </span>
+                    </td>
+
+                    {/* Department Alias Tag */}
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono text-secondary-foreground">
+                        {project.departmentAlias || "digitalproducts@"}
+                      </span>
+                    </td>
+
+                    {/* AI Status Report Generator Button */}
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const report = generateAIClientStatusReport(project, []);
+                          setActiveAIReport(report);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
+                        title="Generate Client Status Report via AI"
+                      >
+                        <Sparkles size={12} className="text-amber-500 animate-pulse" /> AI Report
+                      </button>
+                    </td>
+
+                    <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap">
+                      {project.totalHours}
+                    </td>
+
+                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
+                      {project.startDate}
+                    </td>
+
+                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
+                      {project.deadline}
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 text-right font-medium">
+                          {project.completedTasksCount}
+                        </span>
+                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-3 overflow-hidden flex items-center p-0.5">
+                          <div
+                            className="bg-success h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-success-foreground font-bold px-1"
+                            style={{
+                              width: `${Math.max(
+                                project.taskProgressPercent,
+                                project.completedTasksCount > 0 ? 15 : 0
+                              )}%`,
+                            }}
+                          >
+                            {project.taskProgressPercent > 0 &&
+                              `${project.taskProgressPercent}%`}
+                          </div>
+                        </div>
+                        <span className="w-7 text-muted-foreground text-[11px]">
+                          {project.totalTasksCount}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-4 font-medium">
+                          {project.completedPhasesCount}
+                        </span>
+                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-success h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(project.completedPhasesCount /
+                                (project.totalPhasesCount || 7)) *
+                                100
+                                }%`,
+                            }}
+                          />
+                        </div>
+                        <span className="w-4 text-muted-foreground text-[11px]">
+                          {project.totalPhasesCount}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Delete Action (Admin mode only) */}
+                    {userRole === "ADMIN" && (
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => onDeleteProject && onDeleteProject(project.id)}
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                          title="Delete Project"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      </>
       )}
 
       {/* AI Client Report Modal */}
@@ -722,18 +797,37 @@ export function AllProjectsTableView({
         </div>
       )}
 
-      {/* Bottom Sprint Footer Bar */}
-      {userRole === "TEAM_MEMBER" && (
-        <div className="flex items-center justify-between border-t px-6 py-2 bg-background text-xs text-muted-foreground font-medium shrink-0">
-          <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-0.5 text-info font-semibold text-[11px]">
-            • ACTIVE SPRINT: 68% COMPLETE
+      {/* Bottom Stats Footer Bar */}
+      {userRole === "TEAM_MEMBER" && (() => {
+        const activeProjects = projects.filter((p) => p.status === "ACTIVE");
+        const avgCompletion =
+          activeProjects.length > 0
+            ? Math.round(
+                activeProjects.reduce((sum, p) => sum + p.taskProgressPercent, 0) /
+                  activeProjects.length
+              )
+            : 0;
+        const totalTaskCount = projects.reduce((sum, p) => sum + p.totalTasksCount, 0);
+
+        return (
+          <div className="flex items-center justify-between border-t px-6 py-2 bg-background text-xs text-muted-foreground font-medium shrink-0">
+            <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-0.5 text-info font-semibold text-[11px]">
+              • PROJECTS: {avgCompletion}% COMPLETE
+            </div>
+            <div className="flex items-center gap-4 text-[11px]">
+              <span>TOTAL COUNT: <strong className="text-foreground">{totalTaskCount} TASKS</strong></span>
+              <span>ASSIGNED TO ME: <strong className="text-foreground">{assignedToMeCount}</strong></span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span>TOTAL COUNT: <strong className="text-foreground">124 TASKS</strong></span>
-            <span>ASSIGNED TO ME: <strong className="text-foreground">12</strong></span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* New Time Log Modal */}
+      <NewTimeLogModal
+        isOpen={isTimeLogModalOpen}
+        onClose={() => setIsTimeLogModalOpen(false)}
+        initialProject="EED Core"
+      />
     </div>
   );
 }

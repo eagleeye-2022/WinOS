@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { Settings, Users, Layers, Clock, Shield, Plus, Edit3, Trash2, Check, Globe } from "lucide-react";
-import { INITIAL_MOCK_USERS } from "../../data/mock-users";
+import React, { useState, useEffect } from "react";
+import { Settings, Users, Layers, Clock, Shield, Plus, Edit3, Trash2, Check, Globe, Loader2 } from "lucide-react";
+import { getUsersAction } from "../../actions/project-actions";
+import { ProjectUser } from "../../types";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { ProjectTemplatesModal } from "../modals/project-templates-modal";
 
@@ -10,13 +11,43 @@ export function AdminSettingsView() {
   const [activeTab, setActiveTab] = useState<"DEPARTMENTS" | "TEMPLATES" | "HOURS">("DEPARTMENTS");
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
 
-  const departments = [
-    { name: "SEO & Performance Marketing", alias: "seo@", usersCount: 4, manager: "Dhruv Patidar" },
-    { name: "UI/UX & Graphic Design", alias: "design@", usersCount: 6, manager: "Vaishnavi Shivhare" },
-    { name: "Full-Stack Development", alias: "dev@", usersCount: 8, manager: "Ujjawal Mandloi" },
-    { name: "Digital Products / Management", alias: "digitalproducts@", usersCount: 5, manager: "Dhruv Patidar" },
-    { name: "Quality Assurance & QA", alias: "qa@", usersCount: 3, manager: "Vaishnavi Shivhare" },
+  const [users, setUsers] = useState<ProjectUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+  useEffect(() => {
+    async function loadUsers() {
+      setIsLoadingUsers(true);
+      try {
+        const fetchedUsers = await getUsersAction();
+        setUsers(fetchedUsers);
+      } catch (err) {
+        console.error("Failed to load users for settings:", err);
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    }
+    loadUsers();
+  }, []);
+
+  const departmentAliases = [
+    { name: "SEO & Performance Marketing", alias: "seo@", deptKey: "Development" },
+    { name: "UI/UX & Graphic Design", alias: "design@", deptKey: "Design" },
+    { name: "Full-Stack Development", alias: "dev@", deptKey: "Development" },
+    { name: "Digital Products / Management", alias: "digitalproducts@", deptKey: "Management" },
+    { name: "Quality Assurance & QA", alias: "qa@", deptKey: "QA" },
   ];
+
+  const departments = departmentAliases.map((dept) => {
+    const matchingUsers = users.filter((u) => u.department === dept.deptKey || u.departmentAlias === dept.alias);
+    const leadUser = matchingUsers.find((u) => u.role === "MANAGER" || u.role === "ADMIN") || matchingUsers[0];
+    return {
+      name: dept.name,
+      alias: dept.alias,
+      usersCount: matchingUsers.length,
+      manager: leadUser?.name || "Unassigned Lead",
+    };
+  });
+
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-6 space-y-6">
