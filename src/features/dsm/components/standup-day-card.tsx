@@ -133,7 +133,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                       <span>{task.text}</span>
                       {p && (
                         <span className={cn(
-                          "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                          "rounded px-1.5 py-0.5 text-xs font-bold uppercase",
                           p.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
                           p.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
                           p.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
