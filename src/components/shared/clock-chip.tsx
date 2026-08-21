@@ -33,7 +33,7 @@ export function ClockChip() {
           <span>{time}</span>
         </div>
 
-        <button
+        {/* <button
           type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-1.5 rounded-full bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
@@ -41,7 +41,7 @@ export function ClockChip() {
         >
           <Plus size={13} />
           <span>Time Log</span>
-        </button>
+        </button> */}
       </div>
 
       <NewTimeLogModal
