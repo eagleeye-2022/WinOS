@@ -59,7 +59,7 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
     <Link
       href={ROUTES.dsrMember(card.userId)}
       className={cn(
-        "group relative flex min-h-[100px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
+        "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
       )}
     >
@@ -67,7 +67,7 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
         <div className="flex min-w-0 items-center gap-2">
           <div
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
+              "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
               !card.image && "bg-gradient-to-br",
               !card.image && gradient
             )}
@@ -79,36 +79,36 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-xs font-semibold leading-tight text-foreground">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground">
               {displayName}
             </p>
             {card.submittedAt && (
-              <span className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Clock size={9} /> {formatTime(card.submittedAt)}
+              <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock size={10} /> {formatTime(card.submittedAt)}
               </span>
             )}
           </div>
         </div>
         {isReviewed && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-900 dark:text-indigo-950">
-            <ClipboardCheck size={10} /> Reviewed
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-900 dark:text-indigo-950">
+            <ClipboardCheck size={11} /> Reviewed
           </span>
         )}
       </div>
 
       {card.resultOfDay && (
-        <div className="mt-2 pt-2 border-t border-border/50">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="mt-2.5 pt-2 border-t border-border/50">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Outcome of the Day
           </p>
-          <p className="text-[11px] leading-relaxed text-foreground/80 line-clamp-2">
+          <p className="text-xs leading-relaxed text-foreground/80 line-clamp-2">
             {card.resultOfDay}
           </p>
         </div>
       )}
 
       <ChevronRight
-        size={12}
+        size={13}
         className="absolute bottom-2.5 right-2.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
       />
     </Link>
@@ -124,11 +124,11 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
   return (
     <Link
       href={ROUTES.dsrMember(card.userId)}
-      className="group relative flex min-h-[100px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
+      className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold ring-1 ring-border overflow-hidden">
+          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold ring-1 ring-border overflow-hidden">
             {card.image ? (
               <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
             ) : (
@@ -136,19 +136,19 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-xs font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
               {displayName}
             </p>
-            <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-              <AlertTriangle size={9} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
             </span>
           </div>
         </div>
       </div>
-      <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+      <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
-        <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
-          Review <ChevronRight size={12} />
+        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
+          Review <ChevronRight size={13} />
         </span>
       </div>
     </Link>
@@ -161,17 +161,17 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
 
   return (
-    <div className="flex h-full min-h-[420px] flex-1 min-w-[220px] max-w-[420px] flex-col gap-2.5">
+    <div className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5">
       {/* Column header (fixed) */}
       <div className="flex shrink-0 items-center gap-2 pr-2">
-        <span className={cn("h-2 w-2 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />
-        <span className="text-xs font-bold truncate">{group.teamName}</span>
+        <span className={cn("h-2.5 w-2.5 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />
+        <span className="text-sm font-bold truncate">{group.teamName}</span>
         {allSubmitted ? (
-          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-            <CheckCircle2 size={10} /> All Submitted
+          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+            <CheckCircle2 size={11} /> All Submitted
           </span>
         ) : (
-          <span className="ml-auto text-[11px] text-muted-foreground font-semibold">
+          <span className="ml-auto text-xs text-muted-foreground font-semibold">
             {group.submittedCount}/{group.totalMembers}
           </span>
         )}
