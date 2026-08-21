@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { TaskItem, TaskRemark, TaskStatus, TaskSubtask } from "../../types";
 import { PickTemplateModal } from "./pick-template-modal";
+import { NewTimeLogModal } from "./new-time-log-modal";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -56,6 +57,7 @@ export function TaskDetailDrawer({
   const [taskInfoOpen, setTaskInfoOpen] = useState(true);
   const [showAiSummary, setShowAiSummary] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
 
   // Left split-pane task list
   const [selectedTaskCode, setSelectedTaskCode] = useState("WI1-T11");
@@ -347,6 +349,14 @@ export function TaskDetailDrawer({
               </div>
 
               <div className="flex items-center gap-2 text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => setIsTimeLogModalOpen(true)}
+                  className="flex items-center gap-1 rounded bg-[#0088ff] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors mr-1"
+                >
+                  <Plus size={13} />
+                  <span>Time Log</span>
+                </button>
                 <button
                   type="button"
                   className="p-1 hover:bg-accent rounded hover:text-foreground"
@@ -676,6 +686,14 @@ export function TaskDetailDrawer({
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onAddTemplates={handleAddTemplate}
+      />
+
+      {/* New Time Log Modal */}
+      <NewTimeLogModal
+        isOpen={isTimeLogModalOpen}
+        onClose={() => setIsTimeLogModalOpen(false)}
+        initialProject="EED Core"
+        initialTaskCode={task.code}
       />
     </div>
   );

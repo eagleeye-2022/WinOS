@@ -4,6 +4,12 @@
 > **CONFIRMED** (directly read in source), **INFERRED** (reasonable deduction
 > from naming/structure but not directly verified), or **UNCLEAR** (could not
 > determine). File paths are relative to the `WinOS/` project root.
+>
+> **Updated 2026-08-21**: targeted refresh of the Projects module sections
+> (§3, §5, §6, §8, §19) after it moved from partially-mocked/SPA-state to
+> fully DB-backed with real per-route pages — see those sections for current
+> facts. The rest of the document (auth, DSM/DSR, permissions, etc.) was not
+> re-verified in this pass and may have continued to drift since 08-17.
 
 ---
 
@@ -25,7 +31,7 @@ Beyond the README's stated feature list, the actual directory structure
 (`src/features/*`) shows the product has grown well past DSM/DSR into a
 broader internal-ops suite: notes, calendar (with Zoho Calendar integration),
 user/team management with a granular permission matrix, and an
-in-progress/partially-mocked Projects module. See §5 for the full module
+in-progress Projects module (now DB-backed, see §5). See §5 for the full module
 inventory (**CONFIRMED** from directory listing).
 
 Git history (`git log --oneline -20`) shows recent commits like "add user
@@ -94,6 +100,12 @@ WinOS/
 │   │   │   ├── blockers/, calendar/, dashboard/, dsm/, dsr/, needs-help/,
 │   │   │     notes/, people/, projects/, sales/, settings/, support/,
 │   │   │     users/, zohocalendar/
+│   │   │   ├── projects/ (updated 08-21) — now a full set of real sub-routes,
+│   │   │     each its own `page.tsx` fetching live data via Server Actions:
+│   │   │     `home`, `users`, `collaboration`, `my-tasks`, `tasks`,
+│   │   │     `time-tracker`, `timeline`, `reports`, `portal`, `settings`,
+│   │   │     `recent`, plus `[projectId]/` (detail, `tasks/[taskId]`,
+│   │   │     `phases`, `checklists`, `time-tracker`)
 │   │   ├── api/                — Route Handlers (auth, boards, captcha, debug, notes, uploads, users, zohocalendar)
 │   │   ├── simple/, synergy/   — smaller/experimental pages
 │   │   ├── layout.tsx, page.tsx, globals.css
@@ -174,7 +186,7 @@ business domain:
 | `org-calendar/` | Separate org-level calendar feature (actions + components) — relationship to `calendar/` not fully disambiguated (**UNCLEAR**) |
 | `notifications/` | In-app notification bell, mark-read, send-reminder (DSM reminders per README) |
 | `users/` | Team/employee management: department tree, employee tree, permission matrix, add/edit member, team table — backs the `settings/users` and `settings/profile-access` pages and the granular `PermissionModule/Action/Rule` Prisma models |
-| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists) — **notably backed partly by mock data** (`src/features/projects/data/mock-projects.ts`, `mock-tasks.ts`, `mock-time-logs.ts`, `mock-users.ts`) even though real Prisma models (`Project`, `ProjectPhase`, `ProjectTask`, etc.) exist — suggests this module is mid-migration from mock/demo data to live DB-backed data (**CONFIRMED** mock files exist; degree of live-wiring not fully traced) |
+| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists, users/invites). **(Updated 08-21, CONFIRMED)** Now fully DB-backed via `src/features/projects/actions/project-actions.ts` — every list/detail view (`getProjectsAction`, `getTasksAction`, `getMyTasksAction`, `getUsersAction`, `getTimeLogsAction`, `getCurrentUserRoleAction`) reads real Prisma rows, and writes (`createProjectAction`, `inviteUserAction`, `updateUserRoleAction`, etc.) persist to the DB and `revalidatePath(...)`. The `src/features/projects/data/mock-*.ts` files still exist on disk but are **no longer imported anywhere** (confirmed via grep) — dead code, safe to ignore or remove. Role for this module (`WorkspaceRole`: `ADMIN`/`TEAM_MEMBER`) is derived server-side from the real `User.role`/`profileRole` fields, not a client toggle. |
 | `dashboard/` | Landing dashboard after login (components dir present but currently only a `.gitkeep` + `index.ts` — likely minimal/placeholder, **INFERRED**) |
 
 Additional top-level app routes without a dedicated `features/` folder:
@@ -199,8 +211,17 @@ document workspace, `people-workspace.tsx`, `ica-workspace.tsx`), `sales/`
 - Dashboard layout renders: top bar (brand, clock chip, module switcher,
   notification bell, theme toggle, sign-out form posting to
   `logoutAction`), a left sidebar (`AppSidebar`, receives `userRole` and
-  `userId` — role-aware navigation, **CONFIRMED** prop passing, sidebar
-  internals not read), and a `<main>` content area.
+  `userId` — role-aware navigation), and a `<main>` content area.
+- **`AppSidebar`** (`src/components/shared/app-sidebar.tsx`, **CONFIRMED**,
+  updated 08-21): a single component whose nav items are recomputed per
+  request based on which top-level module the current `pathname` (or a
+  `?module=` query param) falls under — People/Projects/Sales/Settings/
+  Standup. Each module has its own `navItems` array with real `next/link`
+  hrefs (not client-only tab state); `isSubItemActive()` has one bespoke
+  active-match rule per label (e.g. `/projects` vs `/projects/my-tasks` are
+  matched separately so they don't both light up together). For the
+  Projects module specifically, `isManager` (from `userRole === "MANAGER"`)
+  gates whether "Users" and "My Tasks" links even render.
 - A `RouteDarkScope` component wraps sections conditionally matched against
   `/dsm` — suggests per-route theme overrides exist (**CONFIRMED** usage,
   internals not inspected).
@@ -317,16 +338,15 @@ token, expiry, domains, primary calendar UID), `CalendarEvent`,
 **Notifications**: `Notification` (type enum `DSM_REMINDER|CALENDAR_INVITE`,
 sender/receiver relations).
 
-**Projects** (largely disconnected from the rest of the schema — no
-relation to `User`; most fields are plain strings with hardcoded defaults
-like `ownerName String? @default("Dhruv Patidar")`, `startDate String?
-@default("11/07/2026")`): `Project`, `ProjectPhase`, `ProjectTask`,
-`ProjectSubtask`, `ProjectTaskRemark`, `ProjectTaskActivity`,
-`ProjectTimeLog`. The presence of hardcoded person-name/date defaults in the
-schema itself, plus parallel mock-data files in `src/features/projects/
-data/`, strongly suggests this module was scaffolded from a static design/
-demo and is **not yet fully wired to real users or dynamic dates**
-(**INFERRED**, but strongly evidenced).
+**Projects** (**Updated 08-21, CONFIRMED**): `Project`, `ProjectPhase`,
+`ProjectTask`, `ProjectSubtask`, `ProjectTaskRemark`, `ProjectTaskActivity`,
+`ProjectTimeLog`, plus `ProjectTaskList`, `ProjectMember` (join table for
+project↔user assignment). `Project.ownerId`/`ProjectTask.ownerId`/`.authorId`
+now have real relations to `User`, and the placeholder string defaults have
+been genericized (`ownerName String? @default("Unassigned")`, `startDate
+String? @default("--")`) — the earlier hardcoded person-name/future-date
+defaults are gone. The module is live-DB-backed end to end (see §5); the
+`src/features/projects/data/mock-*.ts` files are unused leftovers.
 
 Migrations: only one migration folder present, `prisma/migrations/0_init/`
 (**CONFIRMED** via `find`), meaning schema evolution has mostly happened via
@@ -777,13 +797,9 @@ sync (also non-fatal on failure) → `revalidatePath("/calendar")` and
    different, richer `ProfileRole` enum. How (or whether) these two systems
    are reconciled at runtime was not established in this exploration —
    worth clarifying before extending permission logic.
-4. **Projects module appears partially mocked**: real Prisma models exist
-   with suspiciously specific hardcoded defaults (e.g.
-   `ownerName @default("Dhruv Patidar")`, `startDate @default("11/07/2026")`),
-   alongside separate static mock-data files
-   (`src/features/projects/data/mock-*.ts`). Anyone extending this module
-   should first determine how much of the UI is live-DB-backed versus still
-   reading mocks.
+4. **(Resolved 08-21)** Projects module is now fully DB-backed — see §5/§8.
+   The old `src/features/projects/data/mock-*.ts` files are unused dead code
+   (nothing imports them); safe to delete but harmless to leave as-is.
 5. **`auth.ts` auto-provisions users on first OTP login** using a hardcoded
    in-code `MANAGER_EMAILS` set — adding a new manager requires a code
    change/deploy, not a DB/admin-panel update, unless the newer permission

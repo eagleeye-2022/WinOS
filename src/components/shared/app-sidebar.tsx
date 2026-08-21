@@ -87,9 +87,6 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "ICA Agreements") {
     return pathname.startsWith("/people/ica");
   }
-  if (label === "Home" && pathname.startsWith("/projects")) {
-    return pathname === "/projects/home";
-  }
   if (label === "All Projects" && pathname.startsWith("/projects")) {
     return pathname === "/projects" || pathname === "/projects/all";
   }
@@ -104,9 +101,6 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   }
   if (label === "Time Tracker" && pathname.startsWith("/projects")) {
     return pathname === "/projects/time-tracker";
-  }
-  if (label === "Recent Projects" && pathname.startsWith("/projects")) {
-    return pathname === "/projects/recent";
   }
   if (label === "Projects Dashboard") {
     return pathname.startsWith("/projects");
@@ -127,12 +121,24 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
 
   const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [recentProjects, setRecentProjects] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mod = params.get("module");
     setTimeout(() => {
       setActiveModule(mod);
+    }, 0);
+  }, [pathname]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      try {
+        const stored = window.localStorage.getItem("winos:recentProjects");
+        setRecentProjects(stored ? JSON.parse(stored) : []);
+      } catch {
+        setRecentProjects([]);
+      }
     }, 0);
   }, [pathname]);
 
@@ -149,7 +155,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   }
 
   // Dynamic items based on active module & user role
-  let navItems: Array<{ label: string; href: string; icon: React.ElementType }> = [];
+  let navItems: Array<{ label: string; href: string; icon: React.ElementType; section?: string }> = [];
 
   if (activeModuleTitle === "People") {
     navItems = [
@@ -161,20 +167,17 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   } else if (activeModuleTitle === "Projects") {
     navItems = isManager
       ? [
-          { label: "Home", href: "/projects/home", icon: Home },
           { label: "All Projects", href: "/projects", icon: FolderKanban },
           { label: "Users", href: "/projects/users", icon: Users2 },
           { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
-          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare },
-          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock },
-          { label: "Recent Projects", href: "/projects/recent", icon: FileText },
+          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
+          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock, section: "OVERVIEW" },
         ]
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
           { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
-          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare },
-          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock },
-          { label: "Recent Projects", href: "/projects/recent", icon: FileText },
+          { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
+          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [
@@ -227,27 +230,56 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
         {/* Navigation links */}
         <nav className="flex flex-col gap-1.5 px-3 py-2 text-sm">
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
             const active = isSubItemActive(pathname, item.href, item.label);
             const Icon = item.icon;
+            const prevSection = idx > 0 ? navItems[idx - 1].section : undefined;
+            const showSectionHeader = Boolean(item.section) && item.section !== prevSection;
 
             return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
-                  active
-                    ? "bg-primary/10 text-primary font-semibold shadow-2xs border-l-4 border-primary"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+              <div key={item.label} className="contents">
+                {showSectionHeader && (
+                  <p className="px-3 pt-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+                    {item.section}
+                  </p>
                 )}
-              >
-                <Icon size={item.label.startsWith("Support Needed") ? 20 : 18} strokeWidth={2} className="shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </Link>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
+                    active
+                      ? "bg-primary/10 text-primary font-semibold shadow-2xs border-l-4 border-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  )}
+                >
+                  <Icon size={item.label.startsWith("Support Needed") ? 20 : 18} strokeWidth={2} className="shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              </div>
             );
           })}
         </nav>
+
+        {/* Recent Projects shortcuts (Projects module only) */}
+        {activeModuleTitle === "Projects" && recentProjects.length > 0 && (
+          <div className="px-3 py-2">
+            <p className="px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+              Recent Projects
+            </p>
+            <div className="flex flex-col gap-1">
+              {recentProjects.map((rp) => (
+                <Link
+                  key={rp.id}
+                  href={`/projects/${rp.id}`}
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium min-w-0 text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-all"
+                >
+                  <FolderKanban size={16} strokeWidth={2} className="shrink-0" />
+                  <span className="truncate">{rp.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div>

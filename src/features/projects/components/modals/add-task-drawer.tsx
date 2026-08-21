@@ -1,24 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { TaskItem, TaskStatus } from "../../types";
+import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 
 interface AddTaskDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onAddTask: (task: TaskItem) => void;
+  availablePhases: { code: string; name: string }[];
 }
+
+const FALLBACK_PHASE = { code: "1.1", name: "GENERAL" };
 
 export function AddTaskDrawer({
   isOpen,
   onClose,
   onAddTask,
+  availablePhases,
 }: AddTaskDrawerProps) {
   const [title, setTitle] = useState("");
-  const [phaseName, setPhaseName] = useState("IDEATION & CONCEPTUALIZATION");
+  const [phaseCode, setPhaseCode] = useState(availablePhases[0]?.code || FALLBACK_PHASE.code);
   const [status, setStatus] = useState<TaskStatus>("Open");
-  const [owner, setOwner] = useState("Dhruv Patidar");
+  const [owner, setOwner] = useState("Unassigned");
   const [associatedTeam, setAssociatedTeam] = useState("Engineering");
   const [priority, setPriority] = useState("None");
   const [duration, setDuration] = useState("2 days/hrs");
@@ -26,6 +31,33 @@ export function AddTaskDrawer({
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ownersList, setOwnersList] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [teamsList, setTeamsList] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        const res = await getOwnersAndTeamsAction();
+        if (res.owners && res.owners.length > 0) {
+          setOwnersList(res.owners);
+          if (!owner || owner === "Unassigned") {
+            setOwner(res.owners[0].name);
+          }
+        }
+        if (res.teams && res.teams.length > 0) {
+          setTeamsList(res.teams);
+          if (!associatedTeam) {
+            setAssociatedTeam(res.teams[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user options:", err);
+      }
+    }
+    if (isOpen) {
+      loadUsers();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -49,17 +81,26 @@ export function AddTaskDrawer({
 
     setIsSubmitting(true);
 
+    const selectedPhase =
+      availablePhases.find((p) => p.code === phaseCode) || FALLBACK_PHASE;
+
+    let derivedDeptAlias = "digitalproducts@";
+    if (selectedPhase.code === "3.1" || selectedPhase.code === "3.2") derivedDeptAlias = "design@";
+    else if (selectedPhase.code === "4.1") derivedDeptAlias = "dev@";
+    else if (selectedPhase.code === "5.1") derivedDeptAlias = "qa@";
+
     const taskCode = `WI1-T${Math.floor(40 + Math.random() * 50)}`;
 
     const newTask: TaskItem = {
       id: `t-${Date.now()}`,
       code: taskCode,
       title,
-      phaseCode: "2.2",
-      phaseName,
+      phaseCode: selectedPhase.code,
+      phaseName: selectedPhase.name,
       status,
       authorName: "Dhruv Patidar",
       associatedTeam,
+      departmentAlias: derivedDeptAlias,
       owner,
       workHours: "00:00",
       startDate: new Date().toLocaleDateString("en-GB"),
@@ -136,18 +177,19 @@ export function AddTaskDrawer({
             </label>
             <div className="relative">
               <select
-                value={phaseName}
-                onChange={(e) => setPhaseName(e.target.value)}
+                value={phaseCode}
+                onChange={(e) => setPhaseCode(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
-                <option value="IDEATION & CONCEPTUALIZATION">
-                  IDEATION & CONCEPTUALIZATION
-                </option>
-                <option value="UI/UX DESIGNING">UI/UX DESIGNING</option>
-                <option value="GRAPHIC DESIGNING">GRAPHIC DESIGNING</option>
-                <option value="CONTENT WRITING">CONTENT WRITING</option>
-                <option value="DEVELOPMENT">DEVELOPMENT</option>
-                <option value="TESTING">TESTING</option>
+                {availablePhases.length === 0 ? (
+                  <option value={FALLBACK_PHASE.code}>{FALLBACK_PHASE.name}</option>
+                ) : (
+                  availablePhases.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))
+                )}
               </select>
               <ChevronDown
                 size={16}
@@ -195,26 +237,38 @@ export function AddTaskDrawer({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="font-semibold text-muted-foreground">
-                Owner
+                Task Owner
               </label>
-              <input
-                type="text"
+              <select
                 value={owner}
                 onChange={(e) => setOwner(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+              >
+                <option value="Unassigned">Unassigned</option>
+                {ownersList.map((u) => (
+                  <option key={u.id} value={u.name}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1.5">
               <label className="font-semibold text-muted-foreground">
                 Associated Team
               </label>
-              <input
-                type="text"
+              <select
                 value={associatedTeam}
                 onChange={(e) => setAssociatedTeam(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+              >
+                <option value="">Select Team</option>
+                {teamsList.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -1,9 +1,16 @@
-import React from "react";
+"use client";
 
-export default function PhasesPage() {
+import React, { use } from "react";
+import { PhasesTableView } from "@/features/projects/components/views/phases-table-view";
+
+export default function PhasesPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const resolvedParams = use(params);
+  const projectId = resolvedParams.projectId;
+
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-bold">Project Phases</h1>
+    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+      <PhasesTableView projectId={projectId} />
     </div>
   );
 }
+

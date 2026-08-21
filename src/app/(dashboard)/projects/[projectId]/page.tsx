@@ -2,11 +2,33 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle } from "lucide-react";
-import { getProjectsAction, getTasksAction, updateTaskAction } from "@/features/projects/actions/project-actions";
+import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check } from "lucide-react";
+import {
+  getProjectByIdAction,
+  getTasksAction,
+  updateTaskAction,
+  createTaskAction,
+  getMyTaskCountAction,
+} from "@/features/projects/actions/project-actions";
 import { Project, TaskItem } from "@/features/projects/types";
 import { TasksBoardView } from "@/features/projects/components/views/tasks-board-view";
-import { TimerWidget } from "@/features/projects/components/timer-widget";
+
+const RECENT_PROJECTS_KEY = "winos:recentProjects";
+const RECENT_PROJECTS_LIMIT = 4;
+
+function rememberRecentProject(project: Project) {
+  try {
+    const stored = window.localStorage.getItem(RECENT_PROJECTS_KEY);
+    const existing: { id: string; name: string }[] = stored ? JSON.parse(stored) : [];
+    const next = [
+      { id: project.id, name: project.name },
+      ...existing.filter((p) => p.id !== project.id),
+    ].slice(0, RECENT_PROJECTS_LIMIT);
+    window.localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage unavailable — recent-projects shortcuts are a soft nicety, not critical path.
+  }
+}
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const resolvedParams = use(params);
@@ -14,47 +36,33 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [assignedToMeCount, setAssignedToMeCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     async function loadProjectData() {
       setIsLoading(true);
       setError(null);
       try {
-        const [allProjects, allTasks] = await Promise.all([
-          getProjectsAction(),
-          getTasksAction(),
+        const [foundProject, projectTasks, myTaskCount] = await Promise.all([
+          getProjectByIdAction(projectId),
+          getTasksAction(projectId),
+          getMyTaskCountAction(projectId),
         ]);
-        const found = allProjects.find(
-          (p) => p.id.toLowerCase() === projectId.toLowerCase() || p.name.toLowerCase() === projectId.toLowerCase()
-        );
-        if (found) {
-          setProject(found);
+
+        if (foundProject) {
+          setProject(foundProject);
+          setTasks(projectTasks);
+          setAssignedToMeCount(myTaskCount);
+          rememberRecentProject(foundProject);
         } else {
-          setProject({
-            id: projectId,
-            name: projectId,
-            progressPercent: 0,
-            owner: { id: "user-default", name: "Project Lead", initials: "PL", avatarColor: "bg-primary" },
-            status: "ACTIVE",
-            totalHours: "00:00 h",
-            billableHours: "00:00 h",
-            nonBillableHours: "00:00 h",
-            startDate: new Date().toISOString().split("T")[0],
-            deadline: new Date().toISOString().split("T")[0],
-            completedTasksCount: 0,
-            totalTasksCount: 0,
-            taskProgressPercent: 0,
-            completedPhasesCount: 0,
-            totalPhasesCount: 0,
-            createdAt: new Date().toISOString(),
-          });
+          setError(`Project "${projectId}" not found.`);
         }
-        setTasks(allTasks);
       } catch (err) {
         console.error("Failed to load project details:", err);
-        setError("Failed to load project details");
+        setError("Failed to load project details.");
       } finally {
         setIsLoading(false);
       }
@@ -62,13 +70,42 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
     loadProjectData();
   }, [projectId]);
 
-  const handleAddTask = (newTask: TaskItem) => {
+  const completedTasksCount = tasks.filter((t) => t.status === "Closed").length;
+  const totalTasksCount = tasks.length;
+  const progressPercent =
+    totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const handleAddTask = async (newTask: TaskItem) => {
     setTasks((prev) => [newTask, ...prev]);
+    try {
+      await createTaskAction({
+        title: newTask.title,
+        phaseCode: newTask.phaseCode,
+        phaseName: newTask.phaseName,
+        status: newTask.status,
+        owner: newTask.owner,
+        associatedTeam: newTask.associatedTeam,
+        departmentAlias: newTask.departmentAlias,
+        priority: newTask.priority,
+        tags: newTask.tags,
+        description: newTask.description,
+      });
+    } catch (err) {
+      console.error("Failed to persist task in DB:", err);
+    }
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     await updateTaskAction(updatedTask.id, updatedTask);
+  };
+
+  const handleCopyProjectLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
   };
 
   if (isLoading) {
@@ -103,19 +140,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-foreground">{project.name}</h1>
-              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary font-mono">
                 {project.id}
               </span>
+              <span className="rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground font-mono">
+                {project.departmentAlias}
+              </span>
             </div>
-
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Owner: <span className="font-medium text-foreground">{project.owner.name}</span> &bull; Status:{" "}
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">{project.status}</span> &bull;{" "}
+              {completedTasksCount}/{totalTasksCount} Tasks Completed ({progressPercent}%)
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs">
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Owner: <span className="font-medium text-foreground">{project.owner.name}</span> &bull; Status:{" "}
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{project.status}</span>
-          </p>
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={handleCopyProjectLink}
+            className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 font-semibold hover:bg-accent text-foreground transition-colors"
+          >
+            {copiedLink ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+            <span>{copiedLink ? "Link Copied!" : "Copy Project Link"}</span>
+          </button>
         </div>
       </div>
 
@@ -125,6 +173,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           tasks={tasks}
           onAddTask={handleAddTask}
           onUpdateTask={handleUpdateTask}
+          assignedToMeCount={assignedToMeCount}
+          projectCode={project.id}
+          projectName={project.name}
         />
       </div>
     </div>

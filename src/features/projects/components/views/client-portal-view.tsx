@@ -1,18 +1,62 @@
 "use client";
 
-import React, { useState } from "react";
-import { ShieldCheck, Eye, Lock, CheckCircle2, FileText, ExternalLink, Sparkles } from "lucide-react";
-import { VERBATIM_T2T_7_PHASE_TEMPLATE } from "../../data/sop-templates";
+import React, { useState, useEffect } from "react";
+import { ShieldCheck, Eye, Lock, CheckCircle2, FileText, ExternalLink, Sparkles, Loader2 } from "lucide-react";
+import { getProjectsAction, getTasksAction } from "../../actions/project-actions";
+import { Project, TaskItem } from "../../types";
 
 export function ClientPortalView() {
-  const [selectedProject, setSelectedProject] = useState("EagleEye Client Website (EEDP-87)");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filter ONLY external client-visible task lists from the T2T SOP
-  const clientVisiblePhases = VERBATIM_T2T_7_PHASE_TEMPLATE.phases.map((phase) => ({
-    code: phase.code,
-    name: phase.name,
-    taskLists: phase.taskLists.filter((tl) => tl.flag === "external"),
-  })).filter((phase) => phase.taskLists.length > 0);
+  useEffect(() => {
+    async function loadClientData() {
+      setIsLoading(true);
+      try {
+        const [fetchedProjects, fetchedTasks] = await Promise.all([
+          getProjectsAction(),
+          getTasksAction(),
+        ]);
+        const clientProjects = fetchedProjects.filter((p) => p.isClientVisible);
+        setProjects(clientProjects);
+        setTasks(fetchedTasks.filter((t) => t.isExternal));
+        if (clientProjects.length > 0) {
+          setSelectedProjectId(clientProjects[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load client portal data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadClientData();
+  }, []);
+
+  const currentProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
+  const clientVisibleTasks = tasks.filter((t) => t.isExternal);
+
+  // Group tasks by phase for current project
+  const phaseMap: Record<string, { code: string; name: string; tasks: TaskItem[] }> = {};
+  clientVisibleTasks.forEach((t) => {
+    const code = t.phaseCode || "1.1";
+    const name = t.phaseName || "Client Deliverables";
+    if (!phaseMap[code]) {
+      phaseMap[code] = { code, name, tasks: [] };
+    }
+    phaseMap[code].tasks.push(t);
+  });
+
+  const clientVisiblePhases = Object.values(phaseMap);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-8">
+        <Loader2 size={28} className="animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-6 space-y-6">
@@ -28,21 +72,28 @@ export function ClientPortalView() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Showing strictly client-visible task lists (<code>flag: external</code>). Internal engineering task lists are automatically filtered out.
+              Showing strictly client-visible task lists (<code>isExternal: true</code>). Internal engineering task lists are automatically filtered out.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-muted-foreground">Viewing Project:</span>
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            className="rounded border border-input bg-background px-3 py-1.5 text-xs font-bold text-foreground outline-none"
-          >
-            <option value="EagleEye Client Website (EEDP-87)">EagleEye Client Website (EEDP-87)</option>
-            <option value="Super Kids Academy (EEDP-82)">Super Kids Academy (EEDP-82)</option>
-          </select>
+          {projects.length === 0 ? (
+            <span className="text-xs text-muted-foreground">No client projects available</span>
+          ) : (
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="rounded border border-input bg-background px-3 py-1.5 text-xs font-bold text-foreground outline-none"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.id})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -76,23 +127,15 @@ export function ClientPortalView() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                {phase.taskLists.map((tl) => (
-                  <div key={tl.name} className="rounded-md border bg-background p-3.5 space-y-2">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <span className="font-bold text-xs text-foreground">{tl.name}</span>
+              <div className="space-y-1.5 pt-1">
+                {phase.tasks.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/50 last:border-none">
+                    <span className="text-foreground font-medium">• {t.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-mono">{t.duration || "1 day"}</span>
                       <span className="rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-bold">
-                        Client Visible
+                        {t.status}
                       </span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      {tl.defaultTasks.map((t, tIdx) => (
-                        <div key={tIdx} className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-none">
-                          <span className="text-foreground font-medium">• {t.title}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">{t.duration}</span>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 ))}

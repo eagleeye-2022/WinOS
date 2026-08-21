@@ -6,7 +6,21 @@ export type BillingType = "Fixed Rate" | "Hourly Rate" | "Non Billable" | "None"
 
 export type WorkspaceRole = "ADMIN" | "TEAM_MEMBER";
 
-export type UserRole = "Admin" | "Manager" | "Member" | "Client";
+// The 3-tier role shown on the Projects "Users" screen. Derived server-side from the
+// global User.role (TEAM_MEMBER|MANAGER) plus an ADMIN override from User.profileRole.
+export type MemberRoleTier = "TEAM_MEMBER" | "MANAGER" | "ADMIN";
+
+// Mirrors the Prisma `ProfileRole` enum (prisma/schema.prisma) — the "Portal Profile" value.
+export type ProfileRoleValue =
+  | "EMPLOYEE"
+  | "MANAGER"
+  | "CONTRACTOR"
+  | "CLIENT"
+  | "GUEST"
+  | "DEVELOPER"
+  | "SUPPORT"
+  | "ADMIN"
+  | "PORTAL_OWNER";
 
 export type UserDepartment = "SEO" | "Design" | "Content" | "Development" | "Management";
 
@@ -105,6 +119,9 @@ export interface Project {
   description?: string;
   tags?: string[];
   aiSummary?: string;
+  group?: string;
+  businessHours?: string;
+  taskLayout?: string;
   createdAt: string;
 }
 
@@ -112,6 +129,7 @@ export interface NewProjectFormData {
   name: string;
   projectCategory?: ProjectType;
   templateUsed?: string;
+  templateId?: string;
   phases: ProjectPhase[];
   associatedTeam: string;
   owner: string;
@@ -124,6 +142,11 @@ export interface NewProjectFormData {
   billingType: BillingType;
   description: string;
   attachments?: File[];
+  group?: string;
+  businessHours?: string;
+  taskLayout?: string;
+  isClientVisible?: boolean;
+  notifyAddedUsers?: boolean;
 }
 
 export type UserType = "PORTAL" | "CLIENT";
@@ -133,9 +156,11 @@ export interface ProjectUser {
   name: string;
   email: string;
   userType: UserType;
-  role: string;
+  role: MemberRoleTier;
+  profileRole: ProfileRoleValue;
   department?: UserDepartment;
   departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
+  title?: string;
   portalProfile?: string;
   projects?: string;
   statusText?: string;

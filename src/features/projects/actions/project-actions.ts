@@ -1,557 +1,1109 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { Project, ProjectPhase, TaskItem, TimeLogEntry, UserTimeGroup, ProjectUser } from "../types";
-import { DEFAULT_PROJECT_PHASES, INITIAL_MOCK_PROJECTS } from "../data/mock-projects";
-import { INITIAL_MOCK_TASKS } from "../data/mock-tasks";
-import { INITIAL_MOCK_TIME_GROUPS } from "../data/mock-time-logs";
-import { INITIAL_MOCK_USERS } from "../data/mock-users";
+import {
+  Project,
+  TaskItem,
+  TimeLogEntry,
+  UserTimeGroup,
+  ProjectUser,
+  NewProjectFormData,
+  ProjectPriority,
+  UserDepartment,
+  BillingType,
+  TaskStatus,
+  WorkspaceRole,
+  MemberRoleTier,
+  ProfileRoleValue,
+} from "../types";
+import {
+  DEFAULT_PROJECT_TEMPLATES,
+  scaffoldPhasesFromTemplate,
+  scaffoldTaskListsFromTemplate,
+  scaffoldTasksFromTemplate,
+} from "../data/sop-templates";
+
+/**
+ * Display label for each Prisma `ProfileRole` value — backs the "Portal Profile" column.
+ */
+const PROFILE_ROLE_LABELS: Record<ProfileRoleValue, string> = {
+  EMPLOYEE: "Employee",
+  MANAGER: "Manager",
+  CONTRACTOR: "Contractor",
+  CLIENT: "Client",
+  GUEST: "Guest",
+  DEVELOPER: "Developer",
+  SUPPORT: "Support",
+  ADMIN: "Admin",
+  PORTAL_OWNER: "Portal Owner",
+};
+
+/**
+ * Derives the 3-tier role badge shown on the Users screen from the global
+ * `User.role` (TEAM_MEMBER|MANAGER, used site-wide for manager route gating — left untouched)
+ * plus an ADMIN override from `User.profileRole`.
+ */
+function deriveMemberRoleTier(
+  userRole: string | null | undefined,
+  profileRole: string | null | undefined
+): MemberRoleTier {
+  if (profileRole === "ADMIN") return "ADMIN";
+  if (userRole === "MANAGER") return "MANAGER";
+  return "TEAM_MEMBER";
+}
+
+/**
+ * Helper to ensure the current user is authenticated.
+ */
+async function requireAuth() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized: Please sign in to access WinOS Projects.");
+  }
+  return {
+    user: {
+      id: session.user.id,
+      name: session.user.name || "User",
+      email: session.user.email || "",
+    },
+  };
+}
 
 /**
  * ----------------------------------------------------
- * PROJECTS CRUD ACTIONS
+ * PROJECTS CRUD ACTIONS (AUTHENTICATED, NO MOCK SEEDING)
  * ----------------------------------------------------
  */
+
+function toProject(p: {
+  id: string;
+  code: string | null;
+  name: string;
+  progressPercent: number;
+  projectCategory: string | null;
+  departmentAlias: string | null;
+  templateUsed: string | null;
+  isClientVisible: boolean;
+  group: string | null;
+  businessHours: string | null;
+  taskLayout: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  ownerAvatarColor: string | null;
+  owner: { id: string; name: string | null } | null;
+  status: string;
+  totalHours: string | null;
+  billableHours: string | null;
+  nonBillableHours: string | null;
+  startDate: string | null;
+  deadline: string | null;
+  description: string | null;
+  tags: string[];
+  createdAt: Date;
+  phases: { id: string; code: string; name: string; isCompleted: boolean }[];
+  tasks: { status: string }[];
+}): Project {
+  const completedPhases = p.phases.filter((ph) => ph.isCompleted).length;
+  const completedTasks = p.tasks.filter(
+    (t) => t.status === "Closed" || t.status === "CLOSED"
+  ).length;
+  const totalTasks = p.tasks.length;
+
+  const ownerName = p.owner?.name || p.ownerName || "Unassigned";
+  const initials = ownerName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  return {
+    id: p.code || p.id,
+    name: p.name,
+    progressPercent: p.progressPercent,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    projectCategory: (p.projectCategory as any) || "CLIENT_DELIVERY",
+    departmentAlias: p.departmentAlias || "digitalproducts@",
+    templateUsed: p.templateUsed || undefined,
+    isClientVisible: p.isClientVisible,
+    group: p.group || undefined,
+    businessHours: p.businessHours || undefined,
+    taskLayout: p.taskLayout || undefined,
+    owner: {
+      id: p.owner?.id || p.ownerId || "u-default",
+      name: ownerName,
+      initials: initials || "UN",
+      avatarColor: p.ownerAvatarColor || "bg-primary text-primary-foreground",
+    },
+    status: p.status as "ACTIVE" | "COMPLETED" | "ARCHIVED",
+    totalHours: p.totalHours || "00:00 h",
+    billableHours: p.billableHours || "00:00 h",
+    nonBillableHours: p.nonBillableHours || "00:00 h",
+    startDate: p.startDate || new Date().toISOString().split("T")[0],
+    deadline: p.deadline || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+    completedTasksCount: completedTasks,
+    totalTasksCount: totalTasks,
+    taskProgressPercent: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+    completedPhasesCount: completedPhases,
+    totalPhasesCount: p.phases.length,
+    phases: p.phases.map((ph) => ({
+      id: ph.id,
+      code: ph.code,
+      name: ph.name,
+      isCompleted: ph.isCompleted,
+    })),
+    description: p.description || undefined,
+    tags: p.tags,
+    createdAt: p.createdAt.toISOString().split("T")[0],
+  };
+}
+
+const PROJECT_INCLUDE = {
+  owner: {
+    select: { id: true, name: true, email: true, image: true, department: true },
+  },
+  phases: {
+    orderBy: { order: "asc" as const },
+  },
+  tasks: { select: { status: true } },
+};
 
 export async function getProjectsAction(): Promise<Project[]> {
-  try {
-    let dbProjects = await db.project.findMany({
-      include: {
-        phases: {
-          orderBy: { order: "asc" },
-        },
-        tasks: true,
+  await requireAuth();
+
+  const dbProjects = await db.project.findMany({
+    include: PROJECT_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return dbProjects.map(toProject);
+}
+
+export async function getProjectByIdAction(projectId: string): Promise<Project | null> {
+  await requireAuth();
+
+  const p = await db.project.findFirst({
+    where: {
+      OR: [{ id: projectId }, { code: projectId }],
+    },
+    include: PROJECT_INCLUDE,
+  });
+
+  if (!p) return null;
+
+  return toProject(p);
+}
+
+async function nextProjectCode(): Promise<string> {
+  const rows = await db.project.findMany({ select: { code: true } });
+  let max = 0;
+  for (const row of rows) {
+    const match = row.code?.match(/^EEDP-(\d+)$/);
+    if (match) max = Math.max(max, parseInt(match[1], 10));
+  }
+  return `EEDP-${max + 1}`;
+}
+
+function incrementProjectCode(code: string): string {
+  const match = code.match(/^EEDP-(\d+)$/);
+  const n = match ? parseInt(match[1], 10) : 0;
+  return `EEDP-${n + 1}`;
+}
+
+export async function createProjectAction(data: NewProjectFormData): Promise<Project> {
+  const session = await requireAuth();
+
+  let ownerUser = null;
+  if (data.owner) {
+    ownerUser = await db.user.findFirst({
+      where: {
+        OR: [{ id: data.owner }, { name: data.owner }, { email: data.owner }],
       },
-      orderBy: { createdAt: "desc" },
     });
+  }
+  if (!ownerUser) {
+    ownerUser = await db.user.findUnique({ where: { id: session.user.id } });
+  }
 
-    // Seed mock data if table is completely empty
-    if (dbProjects.length === 0) {
-      for (const p of INITIAL_MOCK_PROJECTS) {
-        await db.project.create({
-          data: {
-            code: p.id,
-            name: p.name,
-            progressPercent: p.progressPercent,
-            ownerName: p.owner.name,
-            ownerInitials: p.owner.initials,
-            ownerAvatarColor: p.owner.avatarColor,
-            status: p.status,
-            totalHours: p.totalHours,
-            billableHours: p.billableHours,
-            nonBillableHours: p.nonBillableHours,
-            startDate: p.startDate,
-            deadline: p.deadline,
-            phases: {
-              create: DEFAULT_PROJECT_PHASES.map((ph, idx) => ({
-                code: ph.code,
-                name: ph.name,
-                isCompleted: ph.isCompleted || false,
-                order: idx,
-              })),
-            },
-          },
-        });
-      }
+  const ownerName = ownerUser?.name || session.user.name || "Project Owner";
+  const initials = ownerName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
 
-      dbProjects = await db.project.findMany({
-        include: {
-          phases: { orderBy: { order: "asc" } },
-          tasks: true,
+  let nextCode = await nextProjectCode();
+  let newProject: Awaited<ReturnType<typeof db.project.create>> | undefined;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      newProject = await db.project.create({
+        data: {
+          code: nextCode,
+          name: data.name,
+          projectCategory: data.projectCategory || "CLIENT_DELIVERY",
+          departmentAlias: "digitalproducts@",
+          templateUsed: data.templateUsed || undefined,
+          isClientVisible: data.isClientVisible ?? true,
+          group: data.group || undefined,
+          businessHours: data.businessHours || "Standard Business Hours",
+          taskLayout: data.taskLayout || "New Project Template",
+          ownerId: ownerUser?.id || session.user.id,
+          createdByUserId: session.user.id,
+          ownerName: ownerName,
+          ownerInitials: initials,
+          ownerAvatarColor: "bg-primary text-primary-foreground",
+          status: "ACTIVE",
+          totalHours: "00:00 h",
+          billableHours: "00:00 h",
+          nonBillableHours: "00:00 h",
+          startDate: data.startDate || new Date().toISOString().split("T")[0],
+          deadline: data.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+          description: data.description || "",
+          associatedTeam: data.associatedTeam || "",
+          priority: data.priority || "None",
+          tags: typeof data.tags === "string" ? data.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+          reminder: data.reminder || "",
+          billingType: data.billingType || "Fixed Rate",
         },
-        orderBy: { createdAt: "desc" },
+      });
+      break;
+    } catch (err: unknown) {
+      // P2002 = unique constraint violation on `code` (a concurrent create won the race).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((err as any)?.code === "P2002") {
+        nextCode = incrementProjectCode(nextCode);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!newProject) {
+    throw new Error("Failed to create project: could not generate a unique project code.");
+  }
+
+  // Scaffold real ProjectPhase/ProjectTaskList/ProjectTask rows from the selected template
+  // (previously this data was computed client-side and silently discarded).
+  let createdPhaseCount = 0;
+  let createdTaskCount = 0;
+  const template = data.templateId
+    ? DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === data.templateId)
+    : undefined;
+
+  if (template) {
+    const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
+    const scaffoldedTaskLists = scaffoldTaskListsFromTemplate(template);
+    const scaffoldedTasks = scaffoldTasksFromTemplate(template, newProject.code || newProject.id);
+
+    if (scaffoldedPhases.length > 0) {
+      await db.projectPhase.createMany({
+        data: scaffoldedPhases.map((ph, idx) => ({
+          code: ph.code,
+          name: ph.name,
+          isCompleted: false,
+          order: idx,
+          projectId: newProject.id,
+        })),
+      });
+      createdPhaseCount = scaffoldedPhases.length;
+    }
+
+    if (scaffoldedTaskLists.length > 0) {
+      await db.projectTaskList.createMany({
+        data: scaffoldedTaskLists.map((tl) => ({
+          name: tl.name,
+          flag: tl.flag,
+          status: tl.status,
+          sequence: tl.sequence,
+          phaseCode: tl.phaseCode,
+          projectId: newProject.id,
+        })),
       });
     }
 
-    return dbProjects.map((p) => {
-      const completedPhases = p.phases.filter((ph) => ph.isCompleted).length;
-      const completedTasks = p.tasks.filter((t) => t.status === "Closed" || t.status === "CLOSED").length;
-      const totalTasks = p.tasks.length || 50;
-
-      return {
-        id: p.code || p.id,
-        name: p.name,
-        progressPercent: p.progressPercent,
-        owner: {
-          id: p.ownerId || "u-default",
-          name: p.ownerName || "Dhruv Patidar",
-          initials: p.ownerInitials || "DP",
-          avatarColor: p.ownerAvatarColor || "bg-warning text-warning-foreground",
-        },
-        status: p.status as "ACTIVE" | "COMPLETED" | "ARCHIVED",
-        totalHours: p.totalHours,
-        billableHours: p.billableHours,
-        nonBillableHours: p.nonBillableHours,
-        startDate: p.startDate || "11/07/2026",
-        deadline: p.deadline || "01/01/2027",
-        completedTasksCount: completedTasks,
-        totalTasksCount: totalTasks,
-        taskProgressPercent: Math.round((completedTasks / (totalTasks || 1)) * 100),
-        completedPhasesCount: completedPhases,
-        totalPhasesCount: p.phases.length || 7,
-        phases: p.phases.map((ph) => ({
-          id: ph.id,
-          code: ph.code,
-          name: ph.name,
-          isCompleted: ph.isCompleted,
+    if (scaffoldedTasks.length > 0) {
+      await db.projectTask.createMany({
+        data: scaffoldedTasks.map((t) => ({
+          code: t.code,
+          title: t.title,
+          phaseCode: t.phaseCode,
+          phaseName: t.phaseName,
+          taskListName: t.taskListName,
+          isExternal: t.isExternal ?? true,
+          status: "Open",
+          authorName: t.authorName,
+          departmentAlias: t.departmentAlias,
+          duration: t.duration,
+          priority: t.priority,
+          description: t.description,
+          projectId: newProject.id,
         })),
-        createdAt: p.createdAt.toISOString().split("T")[0],
-      };
-    });
-  } catch (error) {
-    console.error("Error in getProjectsAction:", error);
-    return INITIAL_MOCK_PROJECTS;
+      });
+      createdTaskCount = scaffoldedTasks.length;
+    }
   }
-}
 
-export async function createProjectAction(data: {
-  name: string;
-  phases?: ProjectPhase[];
-  owner?: string;
-  associatedTeam?: string;
-  workHours?: string;
-  startDate?: string;
-  dueDate?: string;
-  priority?: string;
-  billingType?: string;
-  description?: string;
-}): Promise<{ success: boolean; project?: Project; error?: string }> {
-  try {
-    const nextNum = Math.floor(80 + Math.random() * 20);
-    const projectCode = `EEDP-${nextNum}`;
-
-    const ownerName = data.owner || "Dhruv Patidar";
-    const initials = ownerName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
-    const phasesToCreate =
-      data.phases && data.phases.length > 0
-        ? data.phases
-        : DEFAULT_PROJECT_PHASES;
-
-    const created = await db.project.create({
+  if (data.notifyAddedUsers && ownerUser) {
+    await db.notification.create({
       data: {
-        code: projectCode,
-        name: data.name,
-        progressPercent: 0,
-        ownerName: ownerName,
-        ownerInitials: initials,
-        ownerAvatarColor: "bg-warning text-warning-foreground",
-        status: "ACTIVE",
-        totalHours: data.workHours ? `${data.workHours} h` : "00:00 h",
-        billableHours: data.billingType === "Non Billable" ? "00:00 h" : "00:00 h",
-        nonBillableHours: data.billingType === "Non Billable" ? data.workHours || "01:00 h" : "00:00 h",
-        startDate: data.startDate || new Date().toLocaleDateString("en-GB"),
-        deadline: data.dueDate || "01/01/2027",
-        description: data.description,
-        associatedTeam: data.associatedTeam,
-        priority: data.priority,
-        billingType: data.billingType,
-        phases: {
-          create: phasesToCreate.map((ph, idx) => ({
-            code: ph.code,
-            name: ph.name,
-            isCompleted: false,
-            order: idx,
-          })),
-        },
-      },
-      include: {
-        phases: true,
+        type: "PROJECT_ASSIGNED",
+        title: "New project assigned",
+        message: `You were assigned as owner of "${newProject.name}".`,
+        userId: ownerUser.id,
+        createdById: session.user.id,
+        relatedEntryId: newProject.id,
       },
     });
-
-    revalidatePath("/projects");
-
-    const formatted: Project = {
-      id: created.code || created.id,
-      name: created.name,
-      progressPercent: 0,
-      owner: {
-        id: "u-owner",
-        name: ownerName,
-        initials,
-        avatarColor: "bg-warning text-warning-foreground",
-      },
-      status: "ACTIVE",
-      totalHours: created.totalHours,
-      billableHours: created.billableHours,
-      nonBillableHours: created.nonBillableHours,
-      startDate: created.startDate || "",
-      deadline: created.deadline || "",
-      completedTasksCount: 0,
-      totalTasksCount: 0,
-      taskProgressPercent: 0,
-      completedPhasesCount: 0,
-      totalPhasesCount: created.phases.length,
-      phases: created.phases.map((ph) => ({
-        id: ph.id,
-        code: ph.code,
-        name: ph.name,
-        isCompleted: ph.isCompleted,
-      })),
-      createdAt: created.createdAt.toISOString().split("T")[0],
-    };
-
-    return { success: true, project: formatted };
-  } catch (error) {
-    console.error("Error in createProjectAction:", error);
-    return { success: false, error: "Failed to create project in database." };
   }
+
+  revalidatePath("/projects");
+
+  return {
+    id: newProject.code || newProject.id,
+    name: newProject.name,
+    progressPercent: 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    projectCategory: (newProject.projectCategory as any) || "CLIENT_DELIVERY",
+    departmentAlias: newProject.departmentAlias || "digitalproducts@",
+    templateUsed: newProject.templateUsed || undefined,
+    isClientVisible: newProject.isClientVisible,
+    group: newProject.group || undefined,
+    businessHours: newProject.businessHours || undefined,
+    taskLayout: newProject.taskLayout || undefined,
+    owner: {
+      id: ownerUser?.id || session.user.id,
+      name: ownerName,
+      initials: initials,
+      avatarColor: "bg-primary text-primary-foreground",
+    },
+    status: "ACTIVE",
+    totalHours: "00:00 h",
+    billableHours: "00:00 h",
+    nonBillableHours: "00:00 h",
+    startDate: newProject.startDate || "",
+    deadline: newProject.deadline || "",
+    completedTasksCount: 0,
+    totalTasksCount: createdTaskCount,
+    taskProgressPercent: 0,
+    completedPhasesCount: 0,
+    totalPhasesCount: createdPhaseCount,
+    phases: [],
+    createdAt: newProject.createdAt.toISOString().split("T")[0],
+  };
 }
 
-export async function deleteProjectAction(id: string): Promise<{ success: boolean }> {
-  try {
-    await db.project.deleteMany({
-      where: {
-        OR: [{ id }, { code: id }],
-      },
-    });
-    revalidatePath("/projects");
-    return { success: true };
-  } catch (error) {
-    console.error("Error in deleteProjectAction:", error);
-    return { success: false };
-  }
+export async function deleteProjectAction(projectId: string): Promise<boolean> {
+  await requireAuth();
+
+  await db.project.deleteMany({
+    where: {
+      OR: [{ id: projectId }, { code: projectId }],
+    },
+  });
+
+  revalidatePath("/projects");
+  return true;
 }
 
 /**
  * ----------------------------------------------------
- * TASKS CRUD ACTIONS
+ * TASKS CRUD & MY TASKS ACTIONS
  * ----------------------------------------------------
  */
 
-export async function getTasksAction(): Promise<TaskItem[]> {
-  try {
-    let dbTasks = await db.projectTask.findMany({
-      include: {
-        subtasks: true,
-        remarks: true,
-        activities: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
+  await requireAuth();
 
-    // Seed mock tasks if empty
-    if (dbTasks.length === 0) {
-      for (const t of INITIAL_MOCK_TASKS) {
-        await db.projectTask.create({
-          data: {
-            code: t.code,
-            title: t.title,
-            phaseCode: t.phaseCode,
-            phaseName: t.phaseName,
-            status: t.status,
-            authorName: t.authorName,
-            associatedTeam: t.associatedTeam,
-            owner: t.owner,
-            workHours: t.workHours,
-            startDate: t.startDate,
-            dueDate: t.dueDate,
-            duration: t.duration,
-            completionPercentage: t.completionPercentage || 0,
-            recurrence: t.recurrence,
-            priority: t.priority,
-            tags: t.tags || [],
-            reminder: t.reminder,
-            billingType: t.billingType,
-            description: t.description,
-            isWarning: t.isWarning || false,
-            subtasks: {
-              create: (t.subtasks || []).map((st) => ({
-                code: st.code,
-                title: st.title,
-                status: st.status,
-                ownerName: st.ownerName,
-                startDate: st.startDate,
-                dueDate: st.dueDate,
-                completed: st.completed,
-                hasLink: st.hasLink || false,
-              })),
-            },
-            remarks: {
-              create: (t.remarks || []).map((r) => ({
-                authorName: r.authorName,
-                authorInitials: r.authorInitials,
-                authorAvatarColor: r.authorAvatarColor,
-                content: r.content,
-              })),
-            },
-            activities: {
-              create: (t.activities || []).map((act) => ({
-                userName: act.userName,
-                userInitials: act.userInitials || "YK",
-                actionText: act.actionText,
-              })),
-            },
-          },
-        });
+  const whereCondition = projectId
+    ? {
+        OR: [
+          { projectId },
+          { project: { code: projectId } },
+        ],
       }
+    : {};
 
-      dbTasks = await db.projectTask.findMany({
-        include: { subtasks: true, remarks: true, activities: true },
-        orderBy: { createdAt: "desc" },
-      });
-    }
+  const dbTasks = await db.projectTask.findMany({
+    where: whereCondition,
+    include: {
+      ownerUser: {
+        select: { id: true, name: true, email: true, image: true },
+      },
+      author: {
+        select: { id: true, name: true, email: true },
+      },
+      subtasks: true,
+      remarks: true,
+      activities: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-    return dbTasks.map((t) => ({
-      id: t.id,
-      code: t.code,
-      title: t.title,
-      phaseCode: t.phaseCode || "2.1",
-      phaseName: t.phaseName || "UI/UX DESIGNING",
-      status: t.status as "Open" | "In Progress" | "Closed",
-      authorName: t.authorName,
-      associatedTeam: t.associatedTeam || undefined,
-      owner: t.owner || undefined,
-      workHours: t.workHours || undefined,
-      startDate: t.startDate || undefined,
-      duration: t.duration || undefined,
-      completionPercentage: t.completionPercentage,
-      recurrence: t.recurrence || undefined,
-      dueDate: t.dueDate || undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      priority: t.priority as any,
-      tags: t.tags,
-      reminder: t.reminder || undefined,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      billingType: t.billingType as any,
-      description: t.description || undefined,
-      isWarning: t.isWarning,
-      subtasks: t.subtasks.map((st) => ({
-        id: st.id,
-        code: st.code,
-        title: st.title,
-        status: st.status as "Open" | "In Progress" | "Closed",
-        ownerName: st.ownerName || "Unassigned",
-        startDate: st.startDate || "--",
-        dueDate: st.dueDate || "--",
-        completed: st.completed,
-        hasLink: st.hasLink,
-      })),
-      remarks: t.remarks.map((r) => ({
-        id: r.id,
-        authorName: r.authorName,
-        authorInitials: r.authorInitials,
-        authorAvatarColor: r.authorAvatarColor || "bg-primary text-primary-foreground",
-        content: r.content,
-        createdAt: r.createdAt.toLocaleDateString("en-GB"),
-      })),
-      activities: t.activities.map((act) => ({
-        id: act.id,
-        date: act.createdAt.toLocaleDateString("en-GB"),
-        time: act.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        userName: act.userName,
-        userInitials: act.userInitials,
-        actionText: act.actionText,
-      })),
-      assignees: [
-        { id: "u-default", name: t.authorName, initials: "DP", avatarColor: "bg-warning text-warning-foreground" },
+  return dbTasks.map((t) => ({
+    id: t.code || t.id,
+    code: t.code || t.id,
+    title: t.title,
+    phaseCode: t.phaseCode || "1.1",
+    phaseName: t.phaseName || "CLIENT ONBOARDING",
+    taskListId: t.taskListId || undefined,
+    taskListName: t.taskListName || undefined,
+    isExternal: t.isExternal,
+    status: (t.status as TaskStatus) || "Open",
+    authorName: t.author?.name || t.authorName || "System",
+    associatedTeam: t.associatedTeam || undefined,
+    departmentAlias: t.departmentAlias || "digitalproducts@",
+    owner: t.ownerUser?.name || t.owner || "Unassigned",
+    owners: t.ownerUser?.name ? [t.ownerUser.name] : t.owner ? [t.owner] : [],
+    workHours: t.workHours || "00:00",
+    startDate: t.startDate || "--",
+    dueDate: t.dueDate || "--",
+    duration: t.duration || "1 day",
+    completionPercentage: t.completionPercentage,
+    recurrence: t.recurrence || "None",
+    priority: (t.priority as ProjectPriority) || "None",
+    tags: t.tags || [],
+    reminder: t.reminder || "None",
+    billingType: (t.billingType as BillingType) || "None",
+    description: t.description || "",
+    isWarning: t.isWarning,
+    staleAlert: t.staleAlert,
+    hasAttachments: t.hasAttachments,
+    hasComments: t.hasComments,
+    hasReminder: t.hasReminder,
+    hasRecurrence: t.hasRecurrence,
+    subtasks: t.subtasks.map((st) => ({
+      id: st.id,
+      code: st.code,
+      title: st.title,
+      status: (st.status as TaskStatus) || "Open",
+      ownerName: st.ownerName || "Unassigned",
+      startDate: st.startDate || "--",
+      dueDate: st.dueDate || "--",
+      completed: st.completed,
+      hasLink: st.hasLink,
+    })),
+    remarks: t.remarks.map((r) => ({
+      id: r.id,
+      authorName: r.authorName,
+      authorInitials: r.authorInitials,
+      authorAvatarColor: r.authorAvatarColor || undefined,
+      content: r.content,
+      createdAt: r.createdAt.toISOString(),
+    })),
+    activities: t.activities.map((act) => ({
+      id: act.id,
+      date: act.createdAt.toISOString().split("T")[0],
+      time: act.createdAt.toISOString().split("T")[1]?.substring(0, 5) || "00:00",
+      userName: act.userName,
+      userInitials: act.userInitials,
+      actionText: act.actionText,
+    })),
+  }));
+}
+
+export async function getMyTasksAction(): Promise<TaskItem[]> {
+  const session = await requireAuth();
+
+  const user = await db.user.findUnique({ where: { id: session.user.id } });
+  const userName = user?.name || session.user.name || "";
+
+  const dbTasks = await db.projectTask.findMany({
+    where: {
+      OR: [
+        { ownerId: session.user.id },
+        { owner: userName },
+        { authorId: session.user.id },
       ],
-    }));
-  } catch (error) {
-    console.error("Error in getTasksAction:", error);
-    return INITIAL_MOCK_TASKS;
+    },
+    include: {
+      ownerUser: true,
+      subtasks: true,
+      remarks: true,
+      activities: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return dbTasks.map((t) => ({
+    id: t.code || t.id,
+    code: t.code || t.id,
+    title: t.title,
+    phaseCode: t.phaseCode || "1.1",
+    phaseName: t.phaseName || "CLIENT ONBOARDING",
+    taskListId: t.taskListId || undefined,
+    taskListName: t.taskListName || undefined,
+    isExternal: t.isExternal,
+    status: (t.status as TaskStatus) || "Open",
+    authorName: t.authorName || "System",
+    associatedTeam: t.associatedTeam || undefined,
+    departmentAlias: t.departmentAlias || "digitalproducts@",
+    owner: t.ownerUser?.name || t.owner || "Unassigned",
+    owners: t.ownerUser?.name ? [t.ownerUser.name] : t.owner ? [t.owner] : [],
+    workHours: t.workHours || "00:00",
+    startDate: t.startDate || "--",
+    dueDate: t.dueDate || "--",
+    duration: t.duration || "1 day",
+    completionPercentage: t.completionPercentage,
+    recurrence: t.recurrence || "None",
+    priority: (t.priority as ProjectPriority) || "None",
+    tags: t.tags || [],
+    reminder: t.reminder || "None",
+    billingType: (t.billingType as BillingType) || "None",
+    description: t.description || "",
+    isWarning: t.isWarning,
+    staleAlert: t.staleAlert,
+    hasAttachments: t.hasAttachments,
+    hasComments: t.hasComments,
+    hasReminder: t.hasReminder,
+    hasRecurrence: t.hasRecurrence,
+    subtasks: t.subtasks.map((st) => ({
+      id: st.id,
+      code: st.code,
+      title: st.title,
+      status: (st.status as TaskStatus) || "Open",
+      ownerName: st.ownerName || "Unassigned",
+      startDate: st.startDate || "--",
+      dueDate: st.dueDate || "--",
+      completed: st.completed,
+      hasLink: st.hasLink,
+    })),
+    remarks: [],
+    activities: [],
+  }));
+}
+
+export async function getMyTaskCountAction(projectId?: string): Promise<number> {
+  const session = await requireAuth();
+
+  const user = await db.user.findUnique({ where: { id: session.user.id } });
+  const userName = user?.name || session.user.name || "";
+
+  return db.projectTask.count({
+    where: {
+      AND: [
+        {
+          OR: [
+            { ownerId: session.user.id },
+            { owner: userName },
+            { authorId: session.user.id },
+          ],
+        },
+        projectId
+          ? { OR: [{ projectId }, { project: { code: projectId } }] }
+          : {},
+      ],
+    },
+  });
+}
+
+export async function createTaskAction(taskData: Partial<TaskItem>): Promise<TaskItem> {
+  const session = await requireAuth();
+
+  const count = await db.projectTask.count();
+  const nextCode = `EEDP-89-T${count + 1}`;
+
+  let ownerUser = null;
+  if (taskData.owner) {
+    ownerUser = await db.user.findFirst({
+      where: {
+        OR: [{ id: taskData.owner }, { name: taskData.owner }, { email: taskData.owner }],
+      },
+    });
   }
+
+  const createdTask = await db.projectTask.create({
+    data: {
+      code: nextCode,
+      title: taskData.title || "New Task",
+      phaseCode: taskData.phaseCode || "1.1",
+      phaseName: taskData.phaseName || "CLIENT ONBOARDING",
+      taskListId: taskData.taskListId || undefined,
+      taskListName: taskData.taskListName || undefined,
+      isExternal: taskData.isExternal ?? true,
+      status: taskData.status || "Open",
+      authorId: session.user.id,
+      authorName: session.user.name || "User",
+      associatedTeam: taskData.associatedTeam || "Engineering",
+      departmentAlias: taskData.departmentAlias || "digitalproducts@",
+      ownerId: ownerUser?.id || undefined,
+      owner: ownerUser?.name || taskData.owner || "Unassigned",
+      workHours: taskData.workHours || "00:00",
+      startDate: taskData.startDate || "--",
+      dueDate: taskData.dueDate || "--",
+      duration: taskData.duration || "1 day",
+      completionPercentage: taskData.completionPercentage || 0,
+      priority: taskData.priority || "None",
+      tags: taskData.tags || [],
+      description: taskData.description || "",
+    },
+  });
+
+  revalidatePath("/projects");
+
+  return {
+    id: createdTask.code || createdTask.id,
+    code: createdTask.code || createdTask.id,
+    title: createdTask.title,
+    phaseCode: createdTask.phaseCode || "1.1",
+    phaseName: createdTask.phaseName || "CLIENT ONBOARDING",
+    taskListId: createdTask.taskListId || undefined,
+    taskListName: createdTask.taskListName || undefined,
+    isExternal: createdTask.isExternal,
+    status: (createdTask.status as TaskStatus) || "Open",
+    authorName: createdTask.authorName || "User",
+    associatedTeam: createdTask.associatedTeam || undefined,
+    departmentAlias: createdTask.departmentAlias || "digitalproducts@",
+    owner: createdTask.owner || "Unassigned",
+    owners: ownerUser?.name ? [ownerUser.name] : [],
+    workHours: createdTask.workHours || "00:00",
+    startDate: createdTask.startDate || "--",
+    dueDate: createdTask.dueDate || "--",
+    duration: createdTask.duration || "1 day",
+    completionPercentage: createdTask.completionPercentage,
+    recurrence: "None",
+    priority: (createdTask.priority as ProjectPriority) || "None",
+    tags: createdTask.tags || [],
+    reminder: "None",
+    billingType: "None",
+    description: createdTask.description || "",
+    isWarning: false,
+    staleAlert: false,
+    hasAttachments: false,
+    hasComments: false,
+    hasReminder: false,
+    hasRecurrence: false,
+    subtasks: [],
+    remarks: [],
+    activities: [],
+  };
 }
 
 export async function updateTaskAction(
-  id: string,
-  updatedData: Partial<TaskItem>
-): Promise<{ success: boolean }> {
-  try {
-    await db.projectTask.update({
-      where: { id },
-      data: {
-        status: updatedData.status,
-        owner: updatedData.owner,
-        description: updatedData.description,
-        duration: updatedData.duration,
-        completionPercentage: updatedData.completionPercentage,
+  taskId: string,
+  updates: Partial<TaskItem>
+): Promise<boolean> {
+  await requireAuth();
+
+  let ownerUserId: string | undefined = undefined;
+  if (updates.owner) {
+    const ownerUser = await db.user.findFirst({
+      where: {
+        OR: [{ id: updates.owner }, { name: updates.owner }, { email: updates.owner }],
       },
     });
-    revalidatePath("/projects");
-    return { success: true };
-  } catch (error) {
-    console.error("Error in updateTaskAction:", error);
-    return { success: false };
+    if (ownerUser) ownerUserId = ownerUser.id;
   }
+
+  await db.projectTask.updateMany({
+    where: {
+      OR: [{ id: taskId }, { code: taskId }],
+    },
+    data: {
+      ...(updates.title && { title: updates.title }),
+      ...(updates.status && { status: updates.status }),
+      ...(updates.priority && { priority: updates.priority }),
+      ...(updates.owner && { owner: updates.owner, ownerId: ownerUserId }),
+      ...(updates.completionPercentage !== undefined && {
+        completionPercentage: updates.completionPercentage,
+      }),
+      ...(updates.description && { description: updates.description }),
+      lastActivityDate: new Date(),
+    },
+  });
+
+  revalidatePath("/projects");
+  return true;
+}
+
+export async function deleteTaskAction(taskId: string): Promise<boolean> {
+  await requireAuth();
+
+  await db.projectTask.deleteMany({
+    where: {
+      OR: [{ id: taskId }, { code: taskId }],
+    },
+  });
+
+  revalidatePath("/projects");
+  return true;
 }
 
 /**
  * ----------------------------------------------------
- * TIME LOGS CRUD ACTIONS
+ * REAL USER MANAGEMENT & INVITES ACTIONS
  * ----------------------------------------------------
  */
 
-export async function getTimeLogsAction(): Promise<UserTimeGroup[]> {
-  try {
-    let dbLogs = await db.projectTimeLog.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (dbLogs.length === 0) {
-      for (const group of INITIAL_MOCK_TIME_GROUPS) {
-        for (const log of group.timeLogs) {
-          await db.projectTimeLog.create({
-            data: {
-              code: log.code,
-              title: log.title,
-              project: log.project,
-              duration: log.duration,
-              timePeriod: log.timePeriod,
-              date: log.date,
-              billingType: log.billingType,
-              remarks: log.remarks,
-              userName: group.userName,
-              userInitials: group.userInitials,
-              avatarColor: group.avatarColor,
-            },
-          });
-        }
-      }
-
-      dbLogs = await db.projectTimeLog.findMany({
-        orderBy: { createdAt: "desc" },
-      });
-    }
-
-    // Group logs by user
-    const userMap = new Map<string, UserTimeGroup>();
-
-    INITIAL_MOCK_TIME_GROUPS.forEach((g) => {
-      userMap.set(g.userName, {
-        ...g,
-        timeLogs: [],
-      });
-    });
-
-    dbLogs.forEach((log) => {
-      const group = userMap.get(log.userName) || {
-        userId: `u-${log.userName}`,
-        userName: log.userName,
-        userInitials: log.userInitials,
-        avatarColor: log.avatarColor || "bg-primary text-primary-foreground",
-        dailyLogHours: "05:07 | 01:51 | 03:16",
-        isExpanded: true,
-        timeLogs: [],
-      };
-
-      group.timeLogs.push({
-        id: log.id,
-        code: log.code,
-        title: log.title,
-        project: log.project,
-        duration: log.duration,
-        timePeriod: log.timePeriod,
-        date: log.date,
-        billingType: log.billingType as "NON BILLABLE" | "BILLABLE",
-        remarks: log.remarks || "",
-      });
-
-      userMap.set(log.userName, group);
-    });
-
-    return Array.from(userMap.values());
-  } catch (error) {
-    console.error("Error in getTimeLogsAction:", error);
-    return INITIAL_MOCK_TIME_GROUPS;
-  }
+function toInitials(name: string): string {
+  return (
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase() || "U"
+  );
 }
 
-/**
- * ----------------------------------------------------
- * USERS FETCH ACTION
- * ----------------------------------------------------
- */
+function toProjectUser(u: {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string | null;
+  profileRole: string | null;
+  department: string | null;
+  title: string | null;
+  isActive: boolean;
+  projectMemberships: { project: { id: string; name: string } }[];
+}): ProjectUser {
+  const name = u.name || u.email.split("@")[0];
+  const profileRole = (u.profileRole as ProfileRoleValue) || "EMPLOYEE";
+  const roleTier = deriveMemberRoleTier(u.role, profileRole);
+
+  return {
+    id: u.id,
+    name,
+    email: u.email,
+    userType: profileRole === "CLIENT" ? "CLIENT" : "PORTAL",
+    initials: toInitials(name),
+    avatarColor: "bg-primary text-primary-foreground",
+    role: roleTier,
+    profileRole,
+    department: (u.department as UserDepartment) || "Development",
+    departmentAlias: "digitalproducts@",
+    title: u.title || "Team Member",
+    portalProfile: PROFILE_ROLE_LABELS[profileRole],
+    projects: u.projectMemberships.map((m) => m.project.name).join(", ") || undefined,
+    statusText: u.isActive ? "Active" : "Invited",
+  };
+}
 
 export async function getUsersAction(): Promise<ProjectUser[]> {
-  try {
-    return INITIAL_MOCK_USERS;
-  } catch (error) {
-    console.error("Error in getUsersAction:", error);
-    return INITIAL_MOCK_USERS;
-  }
+  await requireAuth();
+
+  const users = await db.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      profileRole: true,
+      department: true,
+      title: true,
+      isActive: true,
+      createdAt: true,
+      projectMemberships: {
+        select: { project: { select: { id: true, name: true } } },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return users.map(toProjectUser);
 }
 
-/**
- * ----------------------------------------------------
- * OWNER & ASSOCIATED TEAM FETCH ACTION FOR NEW PROJECT
- * ----------------------------------------------------
- */
+export async function inviteUserAction(
+  email: string,
+  name: string,
+  role: MemberRoleTier = "TEAM_MEMBER",
+  department: string = "Development",
+  profileRole?: ProfileRoleValue,
+  projectIds: string[] = []
+): Promise<ProjectUser> {
+  await requireAuth();
+
+  // The underlying Prisma `User.role` enum only has TEAM_MEMBER|MANAGER (used site-wide for
+  // manager route gating). "Administrator" is represented as MANAGER + profileRole ADMIN.
+  const dbRole = role === "TEAM_MEMBER" ? "TEAM_MEMBER" : "MANAGER";
+  const resolvedProfileRole: ProfileRoleValue =
+    profileRole ?? (role === "ADMIN" ? "ADMIN" : "EMPLOYEE");
+
+  const upsertedUser = await db.user.upsert({
+    where: { email },
+    update: {
+      name,
+      department,
+      role: dbRole,
+      profileRole: resolvedProfileRole,
+      title: role === "MANAGER" ? "Project Manager" : role === "ADMIN" ? "Administrator" : "Team Member",
+    },
+    create: {
+      email,
+      name,
+      department,
+      role: dbRole,
+      profileRole: resolvedProfileRole,
+      title: role === "MANAGER" ? "Project Manager" : role === "ADMIN" ? "Administrator" : "Team Member",
+      isActive: true,
+    },
+  });
+
+  if (projectIds.length > 0) {
+    await db.projectMember.createMany({
+      data: projectIds.map((projectId) => ({ projectId, userId: upsertedUser.id })),
+      skipDuplicates: true,
+    });
+  }
+
+  const memberships = await db.projectMember.findMany({
+    where: { userId: upsertedUser.id },
+    select: { project: { select: { id: true, name: true } } },
+  });
+
+  revalidatePath("/projects/users");
+
+  return toProjectUser({ ...upsertedUser, projectMemberships: memberships });
+}
+
+export async function updateUserRoleAction(
+  userId: string,
+  role: MemberRoleTier,
+  profileRole: ProfileRoleValue
+): Promise<ProjectUser> {
+  await requireAuth();
+
+  const dbRole = role === "TEAM_MEMBER" ? "TEAM_MEMBER" : "MANAGER";
+
+  const updatedUser = await db.user.update({
+    where: { id: userId },
+    data: { role: dbRole, profileRole },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      profileRole: true,
+      department: true,
+      title: true,
+      isActive: true,
+      projectMemberships: {
+        select: { project: { select: { id: true, name: true } } },
+      },
+    },
+  });
+
+  revalidatePath("/projects/users");
+
+  return toProjectUser(updatedUser);
+}
 
 export async function getOwnersAndTeamsAction(): Promise<{
   owners: { id: string; name: string; email: string; department?: string | null }[];
   teams: string[];
 }> {
-  try {
-    const [users, dbTasks, dbProjects] = await Promise.all([
-      db.user.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          department: true,
-        },
-        orderBy: { name: "asc" },
-      }),
-      db.projectTask.findMany({
-        select: { associatedTeam: true },
-      }),
-      db.project.findMany({
-        select: { associatedTeam: true },
-      }),
-    ]);
+  await requireAuth();
 
-    const owners = users.map((u) => ({
-      id: u.id,
-      name: u.name || u.email.split("@")[0],
-      email: u.email,
-      department: u.department,
-    }));
+  const users = await db.user.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      department: true,
+    },
+    orderBy: { name: "asc" },
+  });
 
-    // Extract unique team names from DB columns
-    const userDepartments = users.map((u) => u.department);
-    const taskTeams = dbTasks.map((t) => t.associatedTeam);
-    const projectTeams = dbProjects.map((p) => p.associatedTeam);
+  const owners = users.map((u) => ({
+    id: u.id,
+    name: u.name || u.email.split("@")[0],
+    email: u.email,
+    department: u.department,
+  }));
 
-    const rawTeams = [...userDepartments, ...taskTeams, ...projectTeams];
+  const defaultTeams = [
+    "Engineering",
+    "UI/UX Design",
+    "Marketing",
+    "QA & Testing",
+    "Product Management",
+    "SEO & Content",
+  ];
+  const dbDepartments = Array.from(
+    new Set(users.map((u) => u.department).filter(Boolean) as string[])
+  );
+  const teams = Array.from(new Set([...defaultTeams, ...dbDepartments]));
 
-    const teamsFromDb = Array.from(
-      new Set(
-        rawTeams.filter(
-          (t): t is string => Boolean(t && typeof t === "string" && t.trim().length > 0)
-        )
-      )
-    );
+  return { owners, teams };
+}
 
-    const defaultTeams = [
-      "Engineering",
-      "UI/UX Design",
-      "Marketing",
-      "QA & Testing",
-      "Product Management",
-    ];
+/**
+ * ----------------------------------------------------
+ * TIME LOGS ACTIONS
+ * ----------------------------------------------------
+ */
 
-    const teams = Array.from(new Set([...teamsFromDb, ...defaultTeams]));
+/** Extracts "H:MM" (any digit width) from a free-text duration like "00:08" or "01:00 h". */
+function parseDurationMinutes(duration: string): number {
+  const match = duration.match(/(\d+):(\d+)/);
+  if (!match) return 0;
+  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+}
 
-    return { owners, teams };
-  } catch (error) {
-    console.error("Error in getOwnersAndTeamsAction:", error);
-    return {
-      owners: [
-        { id: "u-1", name: "Dhruv Patidar", email: "dhruv@winos.com" },
-        { id: "u-2", name: "Vaishnavi Shivhare", email: "vaishnavi@winos.com" },
-        { id: "u-3", name: "Alex Johnson", email: "alex@winos.com" },
-        { id: "u-4", name: "Sarah Miller", email: "sarah@winos.com" },
-      ],
-      teams: ["Engineering", "UI/UX Design", "Marketing", "QA & Testing"],
-    };
+function formatMinutes(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGroup[]> {
+  const session = await requireAuth();
+
+  let resolvedProjectId: string | undefined;
+  if (projectId) {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+    resolvedProjectId = project?.id;
   }
+
+  const dbLogs = await db.projectTimeLog.findMany({
+    where: resolvedProjectId ? { projectId: resolvedProjectId } : {},
+    orderBy: { createdAt: "desc" },
+  });
+
+  const userMap = new Map<string, UserTimeGroup>();
+
+  dbLogs.forEach((log) => {
+    const userName = log.userName || session.user.name || "User";
+    const initials = userName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+
+    if (!userMap.has(userName)) {
+      userMap.set(userName, {
+        userId: log.id,
+        userName: userName,
+        userInitials: initials,
+        avatarColor: log.avatarColor || "bg-primary text-primary-foreground",
+        dailyLogHours: "00:00 | 00:00 | 00:00",
+        timeLogs: [],
+      });
+    }
+
+    const group = userMap.get(userName)!;
+    group.timeLogs.push({
+      id: log.id,
+      code: log.code,
+      title: log.title,
+      project: log.project,
+      duration: log.duration,
+      timePeriod: log.timePeriod,
+      date: log.date,
+      billingType: log.billingType as "NON BILLABLE" | "BILLABLE",
+      remarks: log.remarks || "",
+      approvalStatus: (log.approvalStatus as "Pending" | "Approved" | "Rejected") || "Pending",
+    });
+  });
+
+  // Real per-user "Total | Billable | Non-billable" summary, derived from their actual logs.
+  for (const group of userMap.values()) {
+    let billableMinutes = 0;
+    let nonBillableMinutes = 0;
+    for (const log of group.timeLogs) {
+      const minutes = parseDurationMinutes(log.duration);
+      if (log.billingType === "BILLABLE") billableMinutes += minutes;
+      else nonBillableMinutes += minutes;
+    }
+    group.dailyLogHours = `${formatMinutes(billableMinutes + nonBillableMinutes)} | ${formatMinutes(billableMinutes)} | ${formatMinutes(nonBillableMinutes)}`;
+  }
+
+  return Array.from(userMap.values());
+}
+
+export async function createTimeLogAction(
+  logData: Partial<TimeLogEntry>,
+  projectId?: string
+): Promise<TimeLogEntry> {
+  const session = await requireAuth();
+
+  const count = await db.projectTimeLog.count();
+  const nextCode = `EEDP-89-TL${count + 1}`;
+
+  const userName = session.user.name || "User";
+  const initials = userName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  let resolvedProjectId: string | undefined;
+  if (projectId) {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+    resolvedProjectId = project?.id;
+  }
+
+  const newLog = await db.projectTimeLog.create({
+    data: {
+      code: nextCode,
+      title: logData.title || "Logged Work",
+      project: logData.project || "EagleEye DP Portal",
+      projectId: resolvedProjectId,
+      duration: logData.duration || "01:00 h",
+      timePeriod: logData.timePeriod || "10:00 AM - 11:00 AM",
+      date: logData.date || new Date().toISOString().split("T")[0],
+      billingType: logData.billingType || "NON BILLABLE",
+      remarks: logData.remarks || "",
+      approvalStatus: logData.approvalStatus || "Pending",
+      userName: userName,
+      userInitials: initials,
+      avatarColor: "bg-primary text-primary-foreground",
+    },
+  });
+
+  revalidatePath("/projects/time-tracker");
+
+  return {
+    id: newLog.id,
+    code: newLog.code,
+    title: newLog.title,
+    project: newLog.project,
+    duration: newLog.duration,
+    timePeriod: newLog.timePeriod,
+    date: newLog.date,
+    billingType: newLog.billingType as "NON BILLABLE" | "BILLABLE",
+    remarks: newLog.remarks || "",
+    approvalStatus: newLog.approvalStatus as "Pending" | "Approved" | "Rejected",
+  };
+}
+
+export async function getCurrentUserRoleAction(): Promise<WorkspaceRole> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return "TEAM_MEMBER";
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, profileRole: true },
+  });
+
+  if (!user || !user.role) {
+    return "TEAM_MEMBER";
+  }
+
+  const roleStr = String(user.role).toUpperCase();
+  if (
+    roleStr === "ADMIN" ||
+    roleStr === "SUPER_ADMIN" ||
+    roleStr === "PROJECT_MANAGER" ||
+    roleStr === "MANAGER" ||
+    user.profileRole === "ADMIN"
+  ) {
+    return "ADMIN";
+  }
+
+  return "TEAM_MEMBER";
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChevronDown,
   Filter,
@@ -13,6 +13,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { getProjectByIdAction, getProjectsAction } from "../../actions/project-actions";
 
 interface PhaseRow {
   id: string;
@@ -25,89 +26,63 @@ interface PhaseRow {
   overdueDaysText: string;
 }
 
-const INITIAL_PHASES: PhaseRow[] = [
-  {
-    id: "ph-1",
-    name: "Client Onboarding and Requirement Gathering",
-    progressPercent: 40,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-  {
-    id: "ph-2",
-    name: "Research and Planning",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "23/05/2026",
-    endDate: "23/05/2026",
-    overdueDaysText: "(60 days ago)",
-  },
-  {
-    id: "ph-3",
-    name: "Product Design",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-  {
-    id: "ph-4",
-    name: "Product Development",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-  {
-    id: "ph-5",
-    name: "Testing",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-  {
-    id: "ph-6",
-    name: "Deployment and SEO",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-  {
-    id: "ph-7",
-    name: "Maintenance and Support",
-    progressPercent: 0,
-    status: "Active",
-    ownerName: "Mohit Nagpure",
-    startDate: "22/05/2026",
-    endDate: "22/05/2026",
-    overdueDaysText: "(61 days ago)",
-  },
-];
-
 interface PhasesTableViewProps {
+  projectId?: string;
   onOpenAddModal?: () => void;
 }
 
-export function PhasesTableView({ onOpenAddModal }: PhasesTableViewProps) {
-  const [phases, setPhases] = useState<PhaseRow[]>(INITIAL_PHASES);
+export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewProps) {
+  const [phases, setPhases] = useState<PhaseRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState("All Phases");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showAddPhaseForm, setShowAddPhaseForm] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState("");
+
+  useEffect(() => {
+    async function loadPhases() {
+      setIsLoading(true);
+      try {
+        if (projectId) {
+          const proj = await getProjectByIdAction(projectId);
+          if (proj && proj.phases) {
+            const mappedPhases: PhaseRow[] = (proj.phases || []).map((ph) => ({
+              id: ph.id,
+              name: ph.name,
+              progressPercent: ph.isCompleted ? 100 : 0,
+              status: ph.isCompleted ? "Completed" : "Active",
+              ownerName: proj.owner.name,
+              startDate: proj.startDate || "--",
+              endDate: proj.deadline || "--",
+              overdueDaysText: "",
+            }));
+            setPhases(mappedPhases);
+          }
+        } else {
+          const projects = await getProjectsAction();
+          if (projects.length > 0) {
+            const firstProj = projects[0];
+            const mappedPhases: PhaseRow[] = (firstProj.phases || []).map((ph) => ({
+              id: ph.id,
+              name: ph.name,
+              progressPercent: ph.isCompleted ? 100 : 0,
+              status: ph.isCompleted ? "Completed" : "Active",
+              ownerName: firstProj.owner.name,
+              startDate: firstProj.startDate || "--",
+              endDate: firstProj.deadline || "--",
+              overdueDaysText: "",
+            }));
+            setPhases(mappedPhases);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load project phases:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadPhases();
+  }, [projectId]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toggleSelectAll = () => {

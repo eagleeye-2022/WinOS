@@ -78,7 +78,7 @@ export default async function DashboardLayout({
       <SessionGuard />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">
-        <header className="flex h-14 shrink-0 items-center border-b bg-card z-10 mb-2">
+        <header className="relative flex h-14 shrink-0 items-center border-b bg-card z-50 mb-2">
           {/* Brand — same visual width as the sidebar */}
           <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
             <WinOSBrand />

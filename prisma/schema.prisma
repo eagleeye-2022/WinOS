@@ -15,6 +15,7 @@ model User {
   image                 String?
   password              String?
   role                  UserRole              @default(TEAM_MEMBER)
+  profileRole           ProfileRole?          @default(EMPLOYEE)
   title                 String?
   employeeId            String?               @unique
   department            String?
@@ -79,6 +80,11 @@ model User {
   threadShares          ThreadShare[]
   organizedEvents       CalendarEvent[]        @relation("OrganizedEvents")
   eventAttending        CalendarEventAttendee[]
+  ownedProjects         Project[]              @relation("ProjectOwner")
+  createdProjects       Project[]              @relation("ProjectCreator")
+  ownedTasks            ProjectTask[]          @relation("TaskOwner")
+  authoredTasks         ProjectTask[]          @relation("TaskAuthor")
+  projectMemberships    ProjectMember[]
 }
 
 model Account {
@@ -316,6 +322,8 @@ enum ProfileRole {
   GUEST
   DEVELOPER
   SUPPORT
+  ADMIN
+  PORTAL_OWNER
 }
 
 enum PermissionScope {
@@ -715,9 +723,7 @@ model CalendarEvent {
   start          DateTime
   end            DateTime
   isAllDay       Boolean                 @default(false)
-  /// JSON-serialized RecurrenceRule (see src/features/calendar/recurrence.ts). Null = one-off event.
   recurrenceRule String?
-  /// The event's ID in Zoho Calendar, if it was synced there. Null when Zoho wasn't connected at creation time.
   zohoEventId    String?
   organizerId    String
   organizer      User                    @relation("OrganizedEvents", fields: [organizerId], references: [id], onDelete: Cascade)
@@ -779,6 +785,7 @@ enum TaskPriority {
 enum NotificationType {
   DSM_REMINDER
   CALENDAR_INVITE
+  PROJECT_ASSIGNED
 }
 
 enum DsrStatus {
@@ -810,31 +817,54 @@ enum CompetencyStatus {
 
 model Project {
   id               String            @id @default(cuid())
-  code             String?           @default("EEDP-81")
+  code             String?           @unique
   name             String
   progressPercent  Int               @default(0)
   ownerId          String?
-  ownerName        String?           @default("Dhruv Patidar")
-  ownerInitials    String?           @default("DP")
-  ownerAvatarColor String?           @default("bg-amber-500 text-white")
+  createdByUserId  String?
+  ownerName        String?
+  ownerInitials    String?
+  ownerAvatarColor String?
   status           String            @default("ACTIVE")
+  projectCategory  String?           @default("CLIENT_DELIVERY")
+  departmentAlias  String?           @default("digitalproducts@")
+  templateUsed     String?
+  isClientVisible  Boolean           @default(true)
   totalHours       String            @default("00:00 h")
   billableHours    String            @default("00:00 h")
   nonBillableHours String            @default("00:00 h")
-  startDate        String?           @default("11/07/2026")
-  deadline         String?           @default("01/01/2027")
+  startDate        String?
+  deadline         String?
   description      String?
   associatedTeam   String?
   priority         String?           @default("None")
   tags             String[]          @default([])
   reminder         String?
   billingType      String?           @default("Fixed Rate")
+  group            String?
+  businessHours    String?           @default("Standard Business Hours")
+  taskLayout       String?           @default("New Project Template")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  owner            User?             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdByUser    User?             @relation("ProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   phases           ProjectPhase[]
+  taskLists        ProjectTaskList[]
   tasks            ProjectTask[]
   timeLogs         ProjectTimeLog[]
+  members          ProjectMember[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
 }
 
 model ProjectPhase {
@@ -848,15 +878,34 @@ model ProjectPhase {
   createdAt   DateTime @default(now())
 }
 
+model ProjectTaskList {
+  id        String        @id @default(cuid())
+  name      String
+  flag      String        @default("external") // "internal" | "external"
+  status    String        @default("Active")
+  sequence  Int           @default(1)
+  phaseCode String?
+  projectId String
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  tasks     ProjectTask[]
+}
+
 model ProjectTask {
   id                   String                @id @default(cuid())
   code                 String
   title                String
   phaseCode            String?
   phaseName            String?
+  taskListId           String?
+  taskListName         String?
+  isExternal           Boolean               @default(true)
   status               String                @default("Open")
-  authorName           String                @default("Dhruv Patidar")
+  authorId             String?
+  authorName           String?
   associatedTeam       String?
+  departmentAlias      String?               @default("digitalproducts@")
+  ownerId              String?
   owner                String?               @default("Unassigned")
   workHours            String?               @default("00:00")
   startDate            String?               @default("--")
@@ -870,8 +919,17 @@ model ProjectTask {
   billingType          String?               @default("None")
   description          String?
   isWarning            Boolean               @default(false)
+  staleAlert           Boolean               @default(false)
+  lastActivityDate     DateTime?
+  hasAttachments       Boolean               @default(false)
+  hasComments          Boolean               @default(false)
+  hasReminder          Boolean               @default(false)
+  hasRecurrence        Boolean               @default(false)
   projectId            String?
   project              Project?              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskList             ProjectTaskList?      @relation(fields: [taskListId], references: [id], onDelete: SetNull)
+  ownerUser            User?                 @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  author               User?                 @relation("TaskAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
@@ -926,11 +984,11 @@ model ProjectTimeLog {
   date         String   @default("11/07/2026")
   billingType  String   @default("NON BILLABLE")
   remarks      String?
-  userName     String   @default("Dhruv Patidar")
-  userInitials String   @default("DP")
-  avatarColor  String?  @default("bg-amber-500 text-white")
+  approvalStatus String @default("Pending")
+  userName     String?
+  userInitials String?
+  avatarColor  String?
   projectId    String?
   projectRel   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 }
-

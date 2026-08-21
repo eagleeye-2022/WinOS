@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
-  Home,
   FolderKanban,
   Users,
   Share2,
@@ -26,8 +25,22 @@ import {
   updateTaskAction,
   getTimeLogsAction,
   getUsersAction,
+  getCurrentUserRoleAction,
+  inviteUserAction,
+  updateUserRoleAction,
+  getMyTaskCountAction,
 } from "../actions/project-actions";
-import { Project, ProjectUser, TaskItem, UserTimeGroup, UserType, WorkspaceRole } from "../types";
+import {
+  MemberRoleTier,
+  NewProjectFormData,
+  Project,
+  ProfileRoleValue,
+  ProjectUser,
+  TaskItem,
+  UserTimeGroup,
+  UserType,
+  WorkspaceRole,
+} from "../types";
 import { AllProjectsTableView } from "./views/all-projects-table-view";
 import { UsersTableView } from "./views/users-table-view";
 import { TasksBoardView } from "./views/tasks-board-view";
@@ -37,7 +50,7 @@ import { ReportsView } from "./views/reports-view";
 import { ClientPortalView } from "./views/client-portal-view";
 import { AdminSettingsView } from "./views/admin-settings-view";
 import { AddProjectDrawer } from "./modals/add-project-drawer";
-import { InviteMemberModal } from "./modals/invite-member-modal";
+import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-modal";
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 
 export function ProjectsWorkspace() {
@@ -49,11 +62,10 @@ export function ProjectsWorkspace() {
   const [users, setUsers] = useState<ProjectUser[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);
+  const [myTaskCount, setMyTaskCount] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [selectedRecentProject, setSelectedRecentProject] = useState("");
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -62,7 +74,6 @@ export function ProjectsWorkspace() {
 
   // Determine activeNav view based on current route pathname
   let activeNav:
-    | "HOME"
     | "ALL_PROJECTS"
     | "USERS"
     | "COLLABORATION"
@@ -71,13 +82,10 @@ export function ProjectsWorkspace() {
     | "TIMELINE"
     | "REPORTS"
     | "CLIENT_PORTAL"
-    | "RECENT_PROJECT"
     | "ARCHIVE"
     | "SETTINGS" = "ALL_PROJECTS";
 
-  if (pathname === "/projects/home") {
-    activeNav = "HOME";
-  } else if (pathname === "/projects/users") {
+  if (pathname === "/projects/users") {
     activeNav = "USERS";
   } else if (pathname === "/projects/collaboration") {
     activeNav = "COLLABORATION";
@@ -91,8 +99,6 @@ export function ProjectsWorkspace() {
     activeNav = "REPORTS";
   } else if (pathname === "/projects/portal" || pathname === "/projects/client-portal") {
     activeNav = "CLIENT_PORTAL";
-  } else if (pathname === "/projects/recent") {
-    activeNav = "RECENT_PROJECT";
   } else if (pathname === "/projects/archive") {
     activeNav = "ARCHIVE";
   } else if (pathname === "/projects/settings") {
@@ -107,18 +113,22 @@ export function ProjectsWorkspace() {
       setIsLoading(true);
       setError(null);
       try {
-        const [fetchedProjects, fetchedTasks, fetchedLogs, fetchedUsers] =
+        const [fetchedProjects, fetchedTasks, fetchedLogs, fetchedUsers, fetchedRole, fetchedMyTaskCount] =
           await Promise.all([
             getProjectsAction(),
             getTasksAction(),
             getTimeLogsAction(),
             getUsersAction(),
+            getCurrentUserRoleAction(),
+            getMyTaskCountAction(),
           ]);
 
         setProjects(fetchedProjects);
         setTasks(fetchedTasks);
         setTimeGroups(fetchedLogs);
         setUsers(fetchedUsers);
+        setUserRole(fetchedRole);
+        setMyTaskCount(fetchedMyTaskCount);
       } catch (err) {
         console.error("Failed to load project data from database:", err);
         setError("Failed to connect to database. Please refresh.");
@@ -130,22 +140,13 @@ export function ProjectsWorkspace() {
     loadData();
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAddProject = async (newProjData: any) => {
+  const handleAddProject = async (data: NewProjectFormData) => {
     setIsLoading(true);
     try {
-      const res = await createProjectAction({
-        name: newProjData.name,
-        phases: newProjData.phases,
-        owner: newProjData.owner?.name || newProjData.owner,
-        workHours: newProjData.totalHours,
-        startDate: newProjData.startDate,
-        dueDate: newProjData.deadline,
-        description: newProjData.description,
-      });
+      const createdProject = await createProjectAction(data);
 
-      if (res.success && res.project) {
-        setProjects((prev) => [res.project!, ...prev]);
+      if (createdProject) {
+        setProjects((prev) => [createdProject, ...prev]);
       }
     } catch (err) {
       console.error("Failed to create project:", err);
@@ -159,8 +160,25 @@ export function ProjectsWorkspace() {
     await deleteProjectAction(id);
   };
 
-  const handleInviteUser = (newUser: ProjectUser) => {
-    setUsers((prev) => [newUser, ...prev]);
+  const handleInviteUser = async (data: InviteFormSubmission) => {
+    const createdUser = await inviteUserAction(
+      data.email,
+      data.name,
+      data.role,
+      "Development",
+      undefined,
+      data.projectIds
+    );
+    setUsers((prev) => [createdUser, ...prev]);
+  };
+
+  const handleUpdateUserRole = async (
+    userId: string,
+    role: MemberRoleTier,
+    profileRole: ProfileRoleValue
+  ) => {
+    const updatedUser = await updateUserRoleAction(userId, role, profileRole);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
   };
 
   const handleAddTask = (newTask: TaskItem) => {
@@ -177,10 +195,6 @@ export function ProjectsWorkspace() {
   const handleOpenInviteModal = (type: UserType) => {
     setInviteUserType(type);
     setIsInviteModalOpen(true);
-  };
-
-  const handleSelectRecentProject = (name: string) => {
-    setSelectedRecentProject(name);
   };
 
   return (
@@ -210,6 +224,8 @@ export function ProjectsWorkspace() {
                 onOpenAddModal={() => setIsAddModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
                 userRole={userRole}
+                assignedToMeCount={myTaskCount}
+                onOpenTemplatesModal={() => setIsTemplatesModalOpen(true)}
               />
             )}
 
@@ -217,6 +233,7 @@ export function ProjectsWorkspace() {
               <UsersTableView
                 users={users}
                 onOpenInviteModal={handleOpenInviteModal}
+                onUpdateUserRole={handleUpdateUserRole}
               />
             )}
 
@@ -240,32 +257,12 @@ export function ProjectsWorkspace() {
 
             {activeNav === "SETTINGS" && <AdminSettingsView />}
 
-            {activeNav === "HOME" && (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Home size={32} className="text-primary mb-2" />
-                <h3 className="text-lg font-bold text-foreground">Projects Home Overview</h3>
-                <p className="text-xs max-w-sm mt-1">
-                  Welcome to WinOS Projects Workspace. Select All Projects, Tasks, Users, or Time Tracker to get started.
-                </p>
-              </div>
-            )}
-
             {activeNav === "COLLABORATION" && (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
                 <Share2 size={32} className="text-primary mb-2" />
                 <h3 className="text-lg font-bold text-foreground">Team Collaboration</h3>
                 <p className="text-xs max-w-sm mt-1">
                   Share project updates, discuss milestones, and collaborate in real-time.
-                </p>
-              </div>
-            )}
-
-            {activeNav === "RECENT_PROJECT" && (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <FileText size={32} className="text-primary mb-2" />
-                <h3 className="text-lg font-bold text-foreground">Recent Project: {selectedRecentProject}</h3>
-                <p className="text-xs max-w-sm mt-1">
-                  Viewing workspace board and task details for project {selectedRecentProject}.
                 </p>
               </div>
             )}
@@ -298,6 +295,7 @@ export function ProjectsWorkspace() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddProject={handleAddProject}
+        projects={projects}
       />
 
       {/* Invite Member Modal */}
@@ -306,6 +304,9 @@ export function ProjectsWorkspace() {
         onClose={() => setIsInviteModalOpen(false)}
         onInviteUser={handleInviteUser}
         defaultUserType={inviteUserType}
+        projects={projects}
+        portalUserCount={users.filter((u) => u.userType === "PORTAL").length}
+        clientUserCount={users.filter((u) => u.userType === "CLIENT").length}
       />
 
       {/* Project Templates Library Modal */}
