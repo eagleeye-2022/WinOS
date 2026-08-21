@@ -364,7 +364,7 @@ export function AllDsmClient({
         onClickCapture={dragScroll.onClickCapture}
         className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab active:cursor-grabbing select-none dsm-columns-scrollbar"
       >
-        <div className="flex h-full min-w-full items-start gap-6 ">
+        <div className="flex h-full w-full min-w-full items-start gap-3.5">
           {filteredGroups.map((group, index) => (
             <TeamColumn key={group.teamId} group={group} colorIndex={index} />
           ))}

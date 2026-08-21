@@ -61,16 +61,16 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
     <Link
       href={ROUTES.dsmMember(card.userId)}
       className={cn(
-        "group relative flex min-h-[132px] shrink-0 flex-col rounded-2xl border bg-card p-4 shadow-xs",
+        "group relative flex min-h-[100px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
       )}
     >
       {/* Top row: avatar + name & time (left) | status badges (right) */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
               !card.image && "bg-gradient-to-br",
               !card.image && gradient
             )}
@@ -82,11 +82,11 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight text-foreground">
+            <p className="truncate text-xs font-semibold leading-tight text-foreground">
               {displayName}
             </p>
             {timeStr && (
-              <span className="mt-0.5 text-xs text-muted-foreground">
+              <span className="mt-0.5 text-[10px] text-muted-foreground">
                 {timeStr}
               </span>
             )}
@@ -96,7 +96,7 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
           {timeStr && (
             <span
               className={cn(
-                "rounded-full border bg-transparent px-2 py-0.5 text-xs font-semibold shadow-2xs",
+                "rounded-full border bg-transparent px-1.5 py-0.5 text-[10px] font-semibold shadow-2xs",
                 isOnTime
                   ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
                   : "border-rose-500/50 text-rose-600 dark:text-rose-400"
@@ -105,36 +105,34 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
               {isOnTime ? "On Time" : "Delayed"}
             </span>
           )}
-
         </div>
       </div>
 
       {card.todayTasks.length > 0 && (
-        <div className="mt-3.5 pt-3 border-t border-border/50">
-          <div className="flex items-center justify-between gap-1.5 flex-wrap">
-            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              <ListChecks size={11} /> Today&apos;s Task
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between gap-1 flex-wrap">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <ListChecks size={10} /> Today&apos;s Task
             </p>
             <p>
               {isReviewed && (
-                <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-2  text-xs font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
-                  <ClipboardCheck size={11} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
+                <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-1.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
+                  <ClipboardCheck size={10} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
                 </span>
               )}
             </p>
-
           </div>
-          <ul className="space-y-1 pt-2">
+          <ul className="space-y-0.5 pt-1.5">
             {card.todayTasks.slice(0, 3).map((task, i) => {
               const p = task.managerPriority ?? task.priority;
               return (
-                <li key={i} className="flex items-center justify-between gap-1.5 text-xs text-foreground/80">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                <li key={i} className="flex items-center justify-between gap-1 text-[11px] text-foreground/80">
+                  <div className="flex items-center gap-1 min-w-0">
                     <span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60" />
                     <span className="line-clamp-1 leading-snug">{task.text}</span>
                   </div>
                   {p && (
-                    <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                    <span className="shrink-0 rounded px-1 py-0.2 text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
                       {p}
                     </span>
                   )}
@@ -146,23 +144,23 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
       )}
 
       {card.todayTasks.length === 0 && (
-        <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between">
+        <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
           {isReviewed ? (
-            <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
-              <ClipboardCheck size={11} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
+            <span className="flex items-center gap-1 rounded-full border border-indigo-500/50 bg-transparent px-1.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 shadow-2xs">
+              <ClipboardCheck size={10} className="text-indigo-600 dark:text-indigo-400" /> Reviewed
             </span>
           ) : (
             <span />
           )}
-          <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
-            Add Task <ChevronRight size={13} className="dark:text-[#93C5FD]" />
+          <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
+            Add Task <ChevronRight size={12} className="dark:text-[#93C5FD]" />
           </span>
         </div>
       )}
 
       <ChevronRight
-        size={14}
-        className="absolute bottom-3.5 right-3.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
+        size={12}
+        className="absolute bottom-2.5 right-2.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
       />
     </Link>
   );
@@ -177,11 +175,11 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
   return (
     <Link
       href={ROUTES.dsmMember(card.userId)}
-      className="group relative flex min-h-[132px] shrink-0 flex-col justify-between rounded-2xl border border-dashed border-border bg-transparent p-4 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
+      className="group relative flex min-h-[100px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold ring-1 ring-border overflow-hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold ring-1 ring-border overflow-hidden">
             {card.image ? (
               <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
             ) : (
@@ -189,19 +187,19 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
             )}
           </div>
           <div className="flex flex-col min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
+            <p className="truncate text-xs font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
               {displayName}
             </p>
-            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
+            <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+              <AlertTriangle size={9} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
             </span>
           </div>
         </div>
       </div>
-      <div className="mt-3.5 pt-3 border-t border-border/50 flex items-center justify-between">
+      <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} />
-        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
-          Add Task <ChevronRight size={13} />
+        <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
+          Add Task <ChevronRight size={12} />
         </span>
       </div>
     </Link>
@@ -217,24 +215,24 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
   const dotColor = DOT_COLORS[colorIndex % DOT_COLORS.length];
 
   return (
-    <div className="flex h-full min-h-[420px] w-80 md:w-96 min-w-[320px] shrink-0 flex-col gap-3">
+    <div className="flex h-full min-h-[420px] flex-1 min-w-[220px] max-w-[420px] flex-col gap-2.5">
       {/* Column header (fixed) */}
-      <div className="flex shrink-0 items-center gap-2 pr-3">
+      <div className="flex shrink-0 items-center gap-2 pr-2">
         <span className={cn("h-2 w-2 rounded-full", dotColor)} />
-        <span className="text-sm font-semibold">{group.teamName}</span>
+        <span className="text-xs font-bold truncate">{group.teamName}</span>
         {allSubmitted ? (
-          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-            <CheckCircle2 size={11} /> All Submitted
+          <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+            <CheckCircle2 size={10} /> All Submitted
           </span>
         ) : (
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto text-[11px] text-muted-foreground font-semibold">
             {group.submittedCount}/{group.totalMembers}
           </span>
         )}
       </div>
 
       {/* Member cards (internal scroll — keeps the column height fixed) */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 dsm-columns-scrollbar">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1.5 dsm-columns-scrollbar">
         {group.members.map((card) => {
           const isSubmitted =
             card.status === "SUBMITTED" ||
