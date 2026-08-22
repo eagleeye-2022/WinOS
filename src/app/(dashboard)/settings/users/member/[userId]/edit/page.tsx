@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import {
+  getAllUserOptionsAction,
   getManagerOptionsAction,
   getUserDetailsAction,
 } from "@/features/users/actions/user-actions";
@@ -17,8 +18,9 @@ export default async function EditMemberPage({ params }: Props) {
 
   const { userId } = await params;
 
-  const [managers, initialData] = await Promise.all([
+  const [managers, allUsers, initialData] = await Promise.all([
     getManagerOptionsAction(),
+    getAllUserOptionsAction(),
     getUserDetailsAction(userId),
   ]);
 
@@ -30,6 +32,7 @@ export default async function EditMemberPage({ params }: Props) {
       userId={userId}
       initialData={initialData}
       managers={managers}
+      allUsers={allUsers}
     />
   );
 }

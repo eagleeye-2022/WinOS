@@ -49,6 +49,7 @@ export async function addTask(
       managerPriority: priority,
       order: maxOrder + 1,
       addedAfterReview,
+      addedById: session.user.id,
     },
   });
 

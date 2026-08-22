@@ -12,6 +12,10 @@ export type EntryTask = {
   priority?: string | null;
   managerPriority?: string | null;
   addedAfterReview?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  addedBy?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
+  editedBy?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
 };
 
 export type EntryTimelineEvent = {
@@ -65,6 +69,7 @@ export type EntryWithDetails = {
   submittedAt: Date | null;
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
+  user?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
   learningText: string | null;
   tasks: EntryTask[];
   blockers: EntryBlocker[];
@@ -100,7 +105,14 @@ export type TeamMember = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const entryInclude = {
-  tasks: { orderBy: { order: "asc" } },
+  user: { select: { id: true, name: true, email: true, image: true, role: true } },
+  tasks: {
+    orderBy: { order: "asc" },
+    include: {
+      addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+      editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+    },
+  },
   blockers: {
     include: {
       mentionedUser: { select: { id: true, name: true, email: true } },

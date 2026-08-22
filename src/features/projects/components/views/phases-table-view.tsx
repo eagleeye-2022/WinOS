@@ -171,7 +171,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
             <RotateCw size={15} />
           </button>
 
-          <div className="h-4 w-px bg-border mx-0.5" />
+          {/* <div className="h-4 w-px bg-border mx-0.5" />
 
           <button
             type="button"
@@ -179,7 +179,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
             className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
           >
             <Plus size={16} /> Add Task
-          </button>
+          </button> */}
         </div>
       </div>
 

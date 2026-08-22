@@ -21,8 +21,6 @@ import type { ManagerOption, MemberDetails } from "@/features/users/actions/user
 import {
   addTeamMemberAction,
   updateTeamMemberAction,
-  uploadUserDocumentAction,
-  uploadProfileImageAction,
   updateUserImageAction,
   saveUserDocumentRecordAction,
 } from "@/features/users/actions/user-actions";
@@ -37,6 +35,7 @@ interface MemberFormProps {
   userId?: string;
   initialData?: MemberDetails;
   managers: ManagerOption[];
+  allUsers?: ManagerOption[];
 }
 
 const DOCUMENT_FIELDS: { key: string; label: string }[] = [
@@ -137,7 +136,7 @@ function formFromDetails(details: MemberDetails) {
   };
 }
 
-export function MemberForm({ mode, userId, initialData, managers }: MemberFormProps) {
+export function MemberForm({ mode, userId, initialData, managers, allUsers }: MemberFormProps) {
   const router = useRouter();
   const [form, setForm] = useState(initialData ? formFromDetails(initialData) : emptyForm());
   const [files, setFiles] = useState<Record<string, File | null>>({});
@@ -164,6 +163,7 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
     if (!form.lastName.trim()) missing.push("Last Name");
     if (!form.email.trim()) missing.push("Work Email");
     if (!form.employeeId.trim()) missing.push("Employee ID");
+    if (!form.designation.trim()) missing.push("Designation");
     if (!form.department) missing.push("Department");
     if (!form.reportingToId) missing.push("Reporting Manager");
     if (!form.gender) missing.push("Gender");
@@ -318,10 +318,6 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
     });
   }
 
-  const title = mode === "create" ? "Add Member" : "Edit Member";
-  const initials =
-    `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase().trim() || "U";
-
   return (
     <div className="p-6 w-full pb-8">
       <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center justify-between gap-3 bg-background/95 px-6 py-2.5 backdrop-blur-xs border-b">
@@ -447,13 +443,10 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Age">
-            <Input value={age !== null ? String(age) : ""} readOnly disabled placeholder="Calculated from Date of Birth" />
-          </Field>
         </Section>
 
         <Section title="Work Information">
-          <Field label="Designation">
+          <Field label="Designation" required>
             <Input value={form.designation} onChange={(e) => update("designation", e.target.value)} placeholder="e.g. Jr. SDE" />
           </Field>
           <Field label="Department" required>
@@ -507,9 +500,9 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
           </Field>
           <Field label="Secondary Reporting To">
             <Select value={form.secondaryReportingToId} onValueChange={(v) => update("secondaryReportingToId", v)}>
-              <SelectTrigger><SelectValue placeholder="Select manager (if any)" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select manager/member (if any)" /></SelectTrigger>
               <SelectContent>
-                {managers.filter((m) => m.id !== userId).map((m) => (
+                {(allUsers || managers).filter((m) => m.id !== userId).map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -534,6 +527,9 @@ export function MemberForm({ mode, userId, initialData, managers }: MemberFormPr
                 update("dateOfBirth", val);
               }}
             />
+          </Field>
+          <Field label="Age">
+            <Input value={age !== null ? String(age) : ""} readOnly disabled placeholder="Calculated from Date of Birth" />
           </Field>
           <Field label="Gender" required>
             <Select value={form.gender} onValueChange={(v) => update("gender", v)}>

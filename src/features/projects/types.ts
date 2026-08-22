@@ -257,12 +257,15 @@ export interface TimeLogEntry {
   code: string; // e.g. EC2-T3312
   title: string; // e.g. DSMA
   project: string; // e.g. EED Core
+  taskCode?: string; // e.g. WI1-T70 — links the log to a specific ProjectTask
   duration: string; // e.g. 00:08
   timePeriod: string; // e.g. 10:52 AM - 11:00 AM
   date: string; // e.g. 11/07/2026
   billingType: "NON BILLABLE" | "BILLABLE";
   remarks: string;
   approvalStatus?: "Pending" | "Approved" | "Rejected";
+  rejectionReason?: string;
+  approvedBy?: string;
 }
 
 export interface UserTimeGroup {

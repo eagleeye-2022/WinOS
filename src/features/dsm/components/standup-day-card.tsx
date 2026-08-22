@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
+import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
 
 type StandupDayCardProps = {
   entry: EntryWithDetails;
@@ -142,6 +143,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                           {p.toUpperCase()}
                         </span>
                       )}
+                      <TaskAuditHistoryPopover task={task} memberUser={entry.user} />
                     </div>
                   );
                 })}

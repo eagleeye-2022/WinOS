@@ -36,7 +36,7 @@ export async function editTask(
 
   const task = await d.standupTask.update({
     where: { id: taskId },
-    data: { text },
+    data: { text, editedById: session.user.id },
     select: { entry: { select: { userId: true } } },
   });
 

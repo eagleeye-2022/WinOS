@@ -69,6 +69,8 @@ model User {
   blockerMultiMentions  StandupBlockerMention[]     @relation("BlockerMultiMentions")
   reviewedStandups      StandupEntry[]              @relation("ReviewedStandups")
   standupEntries        StandupEntry[]              @relation("UserStandups")
+  taskAdds              StandupTask[]               @relation("TaskAddedBy")
+  taskEdits             StandupTask[]               @relation("TaskEditedBy")
   supportMentions       StandupSupportNeed[]        @relation("SupportMentions")
   supportEdits          StandupSupportNeed[]        @relation("SupportEditedBy")
   supportMultiMentions  StandupSupportNeedMention[]   @relation("SupportMultiMentions")
@@ -154,9 +156,13 @@ model StandupTask {
   priority         String?
   managerPriority  String?
   addedAfterReview Boolean       @default(false)
+  addedById        String?
+  editedById       String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  addedBy          User?         @relation("TaskAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+  editedBy         User?         @relation("TaskEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
 }
 
 model StandupTimelineEvent {
@@ -907,6 +913,7 @@ model ProjectTask {
   departmentAlias      String?               @default("digitalproducts@")
   ownerId              String?
   owner                String?               @default("Unassigned")
+  owners               String[]              @default([])
   workHours            String?               @default("00:00")
   startDate            String?               @default("--")
   dueDate              String?               @default("--")
@@ -979,6 +986,7 @@ model ProjectTimeLog {
   code         String
   title        String
   project      String
+  taskCode     String?
   duration     String
   timePeriod   String
   date         String   @default("11/07/2026")

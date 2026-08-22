@@ -51,6 +51,7 @@ export async function addTaskAfterReview(
       priority,
       order: maxOrder + 1,
       addedAfterReview: true,
+      addedById: session.user.id,
     },
   });
 

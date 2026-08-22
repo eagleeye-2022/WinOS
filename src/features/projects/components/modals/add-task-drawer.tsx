@@ -4,12 +4,14 @@ import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { TaskItem, TaskStatus } from "../../types";
 import { getOwnersAndTeamsAction } from "../../actions/project-actions";
+import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 
 interface AddTaskDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onAddTask: (task: TaskItem) => void;
   availablePhases: { code: string; name: string }[];
+  initialPhaseCode?: string;
 }
 
 const FALLBACK_PHASE = { code: "1.1", name: "GENERAL" };
@@ -19,11 +21,25 @@ export function AddTaskDrawer({
   onClose,
   onAddTask,
   availablePhases,
+  initialPhaseCode,
 }: AddTaskDrawerProps) {
   const [title, setTitle] = useState("");
-  const [phaseCode, setPhaseCode] = useState(availablePhases[0]?.code || FALLBACK_PHASE.code);
+  const [phaseCode, setPhaseCode] = useState(
+    initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialPhaseCode) {
+        setPhaseCode(initialPhaseCode);
+      } else if (availablePhases.length > 0) {
+        setPhaseCode(availablePhases[0].code);
+      }
+    }
+  }, [isOpen, initialPhaseCode, availablePhases]);
   const [status, setStatus] = useState<TaskStatus>("Open");
-  const [owner, setOwner] = useState("Unassigned");
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
   const [associatedTeam, setAssociatedTeam] = useState("Engineering");
   const [priority, setPriority] = useState("None");
   const [duration, setDuration] = useState("2 days/hrs");
@@ -40,8 +56,8 @@ export function AddTaskDrawer({
         const res = await getOwnersAndTeamsAction();
         if (res.owners && res.owners.length > 0) {
           setOwnersList(res.owners);
-          if (!owner || owner === "Unassigned") {
-            setOwner(res.owners[0].name);
+          if (selectedOwners.length === 0) {
+            setSelectedOwners([res.owners[0].name]);
           }
         }
         if (res.teams && res.teams.length > 0) {
@@ -90,6 +106,13 @@ export function AddTaskDrawer({
     else if (selectedPhase.code === "5.1") derivedDeptAlias = "qa@";
 
     const taskCode = `WI1-T${Math.floor(40 + Math.random() * 50)}`;
+    const primaryOwner = selectedOwners.length > 0 ? selectedOwners.join(", ") : "Unassigned";
+    const assigneesList = selectedOwners.map((oName) => ({
+      id: `u-${oName}`,
+      name: oName,
+      initials: oName.slice(0, 2).toUpperCase(),
+      avatarColor: "bg-primary text-primary-foreground",
+    }));
 
     const newTask: TaskItem = {
       id: `t-${Date.now()}`,
@@ -101,7 +124,8 @@ export function AddTaskDrawer({
       authorName: "Dhruv Patidar",
       associatedTeam,
       departmentAlias: derivedDeptAlias,
-      owner,
+      owner: primaryOwner,
+      owners: selectedOwners,
       workHours: "00:00",
       startDate: new Date().toLocaleDateString("en-GB"),
       dueDate: "01/01/2027",
@@ -123,9 +147,7 @@ export function AddTaskDrawer({
           actionText: "created task",
         },
       ],
-      assignees: [
-        { id: "u-dp", name: owner, initials: "DP", avatarColor: "bg-amber-500 text-white" },
-      ],
+      assignees: assigneesList,
     };
 
     onAddTask(newTask);
@@ -233,47 +255,35 @@ export function AddTaskDrawer({
             </div>
           </div>
 
-          {/* Owner & Team */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="font-semibold text-muted-foreground">
-                Task Owner
-              </label>
-              <select
-                value={owner}
-                onChange={(e) => setOwner(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
-              >
-                <option value="Unassigned">Unassigned</option>
-                {ownersList.map((u) => (
-                  <option key={u.id} value={u.name}>
-                    {u.name} ({u.email})
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Task Owner Multi-Select matching user reference design */}
+          <TaskMultiOwnerSelect
+            label="Owner"
+            selectedOwners={selectedOwners}
+            onChangeOwners={setSelectedOwners}
+            ownersList={ownersList}
+          />
 
-            <div className="space-y-1.5">
-              <label className="font-semibold text-muted-foreground">
-                Associated Team
-              </label>
-              <select
-                value={associatedTeam}
-                onChange={(e) => setAssociatedTeam(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
-              >
-                <option value="">Select Team</option>
-                {teamsList.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Associated Team */}
+          {/* <div className="space-y-1.5">
+            <label className="font-semibold text-muted-foreground">
+              Associated Team
+            </label>
+            <select
+              value={associatedTeam}
+              onChange={(e) => setAssociatedTeam(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+            >
+              <option value="">Select Team</option>
+              {teamsList.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div> */}
 
           {/* Tags */}
-          <div className="space-y-1.5">
+          {/* <div className="space-y-1.5">
             <label className="font-semibold text-muted-foreground">
               Tags
             </label>
@@ -298,7 +308,7 @@ export function AddTaskDrawer({
               placeholder="Type tag and press Enter"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
-          </div>
+          </div> */}
 
           {/* Description */}
           <div className="space-y-1.5">
