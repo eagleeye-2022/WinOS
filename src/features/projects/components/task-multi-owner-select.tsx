@@ -49,10 +49,12 @@ export function TaskMultiOwnerSelect({
 
   // Internal state for immediate responsive UI feedback
   const [internalSelected, setInternalSelected] = useState<string[]>(selectedOwners || []);
+  const [prevSelectedOwners, setPrevSelectedOwners] = useState(selectedOwners);
 
-  useEffect(() => {
+  if (selectedOwners !== prevSelectedOwners) {
+    setPrevSelectedOwners(selectedOwners);
     setInternalSelected(selectedOwners || []);
-  }, [selectedOwners]);
+  }
 
   // Close dropdown on outside click
   useEffect(() => {

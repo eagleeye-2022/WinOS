@@ -20,14 +20,36 @@ interface TimerStoppedModalProps {
   }) => void;
 }
 
+// Format date time for display (e.g., 30/07/2026 04:04 pm)
+function formatDisplayDateTime(d: Date) {
+  const day = d.getDate().toString().padStart(2, "0");
+  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+  const year = d.getFullYear();
+
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, "0");
+  const ampm = hours >= 12 ? "pm" : "am";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const formattedHours = hours.toString().padStart(2, "0");
+
+  return `${day}/${month}/${year} ${formattedHours}:${minutes} ${ampm}`;
+}
+
+// Format for <input type="datetime-local">
+function formatDateTimeForInput(d: Date) {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
 export function TimerStoppedModal({
   isOpen,
   onClose,
   initialStartTime,
   initialEndTime,
   elapsedSeconds = 0,
-  taskTitle,
-  taskCode,
   onSaveLog,
 }: TimerStoppedModalProps) {
   const now = new Date();
@@ -44,8 +66,9 @@ export function TimerStoppedModal({
   const [endInput, setEndInput] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Sync state when modal opens
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       const end = initialEndTime || new Date();
       const start =
@@ -58,33 +81,9 @@ export function TimerStoppedModal({
       setErrorMsg("");
       setIsEditingTimes(false);
     }
-  }, [isOpen, initialStartTime, initialEndTime, elapsedSeconds]);
+  }
 
   if (!isOpen) return null;
-
-  // Format date time for display (e.g., 30/07/2026 04:04 pm)
-  function formatDisplayDateTime(d: Date) {
-    const day = d.getDate().toString().padStart(2, "0");
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    const year = d.getFullYear();
-
-    let hours = d.getHours();
-    const minutes = d.getMinutes().toString().padStart(2, "0");
-    const ampm = hours >= 12 ? "pm" : "am";
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const formattedHours = hours.toString().padStart(2, "0");
-
-    return `${day}/${month}/${year} ${formattedHours}:${minutes} ${ampm}`;
-  }
-
-  // Format for <input type="datetime-local">
-  function formatDateTimeForInput(d: Date) {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-      d.getHours()
-    )}:${pad(d.getMinutes())}`;
-  }
 
   // Calculate duration string (HH:MM format)
   function calculateDuration(start: Date, end: Date) {

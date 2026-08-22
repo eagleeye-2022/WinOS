@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Clock,
   Settings,
@@ -47,10 +47,12 @@ interface TimeTrackerViewProps {
 
 export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers }: TimeTrackerViewProps) {
   const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
+  const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
 
-  useEffect(() => {
+  if (initialGroups !== prevInitialGroups) {
+    setPrevInitialGroups(initialGroups);
     setUserGroups(initialGroups);
-  }, [initialGroups]);
+  }
 
   // Role Perspective Switcher
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("ADMIN");

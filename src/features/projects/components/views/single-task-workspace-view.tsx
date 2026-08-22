@@ -215,9 +215,11 @@ export function SingleTaskWorkspaceView({
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isAddSubtaskDrawerOpen, setIsAddSubtaskDrawerOpen] = useState(false);
 
-  useEffect(() => {
+  const [prevSubtaskTaskId, setPrevSubtaskTaskId] = useState(activeTask.id);
+  if (activeTask.id !== prevSubtaskTaskId) {
+    setPrevSubtaskTaskId(activeTask.id);
     setSubtasks(activeTask.subtasks || []);
-  }, [activeTask.id, activeTask.subtasks]);
+  }
 
   const handleAddSubtaskSubmit = async (customTitle?: string) => {
     const titleToUse = (customTitle || newSubtaskTitle).trim();
@@ -291,7 +293,9 @@ export function SingleTaskWorkspaceView({
     deleteSubtaskAction(id).catch((err) => console.error("Failed to delete subtask in DB:", err));
   };
 
-  useEffect(() => {
+  const [prevCommentsTaskId, setPrevCommentsTaskId] = useState(activeTask.id);
+  if (activeTask.id !== prevCommentsTaskId) {
+    setPrevCommentsTaskId(activeTask.id);
     if (activeTask && activeTask.remarks && activeTask.remarks.length > 0) {
       setCommentsList(
         activeTask.remarks.map((r, idx) => ({
@@ -304,7 +308,7 @@ export function SingleTaskWorkspaceView({
     } else {
       setCommentsList([]);
     }
-  }, [activeTask.id, activeTask.remarks, project?.owner.name]);
+  }
 
   // Dynamic Time Logs State & Calculations for this specific task — loaded from the DB
   const [taskTimeLogs, setTaskTimeLogs] = useState<TimeLogEntry[]>([]);

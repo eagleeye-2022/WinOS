@@ -69,6 +69,7 @@ export function NewTimeLogModal({
   const [projectAssignees, setProjectAssignees] = useState<string[]>([]);
   const [projectTasksList, setProjectTasksList] = useState<{ code: string; title: string }[]>([]);
   const [selectedTaskOption, setSelectedTaskOption] = useState("");
+  const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
 
   const FALLBACK_TASK_OPTIONS = [
     { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
@@ -129,12 +130,11 @@ export function NewTimeLogModal({
     if (assignedUsers && assignedUsers.length > 0) return assignedUsers;
     if (projectAssignees.length > 0) return projectAssignees;
     return defaultUserList;
-  }, [assignedUsers, projectAssignees]);
+  }, [assignedUsers, projectAssignees, defaultUserList]);
 
   const allTaskOptions = projectTasksList.length > 0 ? projectTasksList : FALLBACK_TASK_OPTIONS;
 
   const [isGeneralLog, setIsGeneralLog] = useState(false);
-  const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
   const [logTitle, setLogTitle] = useState("");
   
   // Section toggle
@@ -149,13 +149,14 @@ export function NewTimeLogModal({
     return `${dd}/${mm}/${yyyy}`;
   });
 
-  const [selectedUser, setSelectedUser] = useState(userList[0] || "M Thakre");
-
-  React.useEffect(() => {
+  const [selectedUser, setSelectedUser] = useState(() => userList[0] || "M Thakre");
+  const [prevUserList, setPrevUserList] = useState(userList);
+  if (userList !== prevUserList) {
+    setPrevUserList(userList);
     if (userList.length > 0 && (!selectedUser || !userList.includes(selectedUser))) {
       setSelectedUser(userList[0]);
     }
-  }, [userList]);
+  }
   const [useHoursMode, setUseHoursMode] = useState(false);
   const [startTime, setStartTime] = useState("10:27 am");
   const [endTime, setEndTime] = useState("10:27 am");

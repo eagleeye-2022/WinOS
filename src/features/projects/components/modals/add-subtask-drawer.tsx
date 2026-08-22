@@ -22,10 +22,10 @@ export function AddSubtaskDrawer({
   nextSubtaskNumber,
 }: AddSubtaskDrawerProps) {
   const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState(
+  const [startDate, setStartDate] = useState(() =>
     new Date().toISOString().split("T")[0]
   );
-  const [dueDate, setDueDate] = useState(
+  const [dueDate, setDueDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);

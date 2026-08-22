@@ -28,15 +28,13 @@ export function AddTaskDrawer({
     initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code
   );
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
-      if (initialPhaseCode) {
-        setPhaseCode(initialPhaseCode);
-      } else if (availablePhases.length > 0) {
-        setPhaseCode(availablePhases[0].code);
-      }
+      setPhaseCode(initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code);
     }
-  }, [isOpen, initialPhaseCode, availablePhases]);
+  }
   const [status, setStatus] = useState<TaskStatus>("Open");
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
   const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
