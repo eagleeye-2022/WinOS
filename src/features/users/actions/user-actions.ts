@@ -100,6 +100,14 @@ export async function getManagerOptionsAction(): Promise<ManagerOption[]> {
   return users.map((u) => ({ id: u.id, name: u.name || u.email }));
 }
 
+export async function getAllUserOptionsAction(): Promise<ManagerOption[]> {
+  const users = await db.user.findMany({
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+  return users.map((u) => ({ id: u.id, name: u.name || u.email }));
+}
+
 export interface MemberFormInput {
   firstName: string;
   lastName: string;
@@ -149,6 +157,7 @@ function safeToIsoDate(d: Date | null | undefined): string {
 function assertRequiredFields(input: MemberFormInput) {
   const missing: string[] = [];
   if (!input.employeeId?.trim()) missing.push("Employee ID");
+  if (!input.designation?.trim()) missing.push("Designation");
   if (!input.department?.trim()) missing.push("Department");
   // reportingToId isn't required at the DB level: a top-of-hierarchy user
   // (e.g. the CEO) legitimately has no manager. The client form still forces

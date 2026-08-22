@@ -367,9 +367,9 @@ export function AddProjectDrawer({
                                     <span className="font-mono text-[10px] text-muted-foreground">
                                       {t.duration}
                                     </span>
-                                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-mono text-secondary-foreground">
+                                    {/* <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-mono text-secondary-foreground">
                                       {t.departmentAlias}
-                                    </span>
+                                    </span> */}
                                   </div>
                                 </div>
                               ))
@@ -458,7 +458,7 @@ export function AddProjectDrawer({
             {taskInfoOpen && (
               <div className="border-t px-4 py-4 space-y-4">
                 {/* Associated Team */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Associated Team
                   </label>
@@ -474,10 +474,10 @@ export function AddProjectDrawer({
                       </option>
                     ))}
                   </select>
-                </div>
+                </div> */}
 
                 {/* Project Group */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs text-muted-foreground font-medium">
                       Project Group
@@ -496,10 +496,10 @@ export function AddProjectDrawer({
                       <option key={g} value={g} />
                     ))}
                   </datalist>
-                </div>
+                </div> */}
 
                 {/* Owner */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Owner
                   </label>
@@ -515,10 +515,10 @@ export function AddProjectDrawer({
                       </option>
                     ))}
                   </select>
-                </div>
+                </div> */}
 
                 {/* Work Hours */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Work Hours
                   </label>
@@ -529,41 +529,40 @@ export function AddProjectDrawer({
                     placeholder="0:00"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                </div> */}
+
+                {/* Business Hours */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">
+                    Business Hours <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    value={businessHours}
+                    onChange={(e) => setBusinessHours(e.target.value)}
+                    required
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="Standard Business Hours">Standard Business Hours</option>
+                    <option value="Extended Business Hours">Extended Business Hours</option>
+                    <option value="24/7 Coverage">24/7 Coverage</option>
+                  </select>
                 </div>
 
-                {/* Business Hours & Task Layout */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium">
-                      Business Hours <span className="text-destructive">*</span>
-                    </label>
-                    <select
-                      value={businessHours}
-                      onChange={(e) => setBusinessHours(e.target.value)}
-                      required
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="Standard Business Hours">Standard Business Hours</option>
-                      <option value="Extended Business Hours">Extended Business Hours</option>
-                      <option value="24/7 Coverage">24/7 Coverage</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                      Task Layout
-                    </label>
-                    <select
-                      value={taskLayout}
-                      onChange={(e) => setTaskLayout(e.target.value)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="New Project Template">New Project Template</option>
-                      <option value="Kanban Board">Kanban Board</option>
-                      <option value="Flat List">Flat List</option>
-                    </select>
-                  </div>
-                </div>
+                {/* Task Layout */}
+                {/* <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                    Task Layout
+                  </label>
+                  <select
+                    value={taskLayout}
+                    onChange={(e) => setTaskLayout(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="New Project Template">New Project Template</option>
+                    <option value="Kanban Board">Kanban Board</option>
+                    <option value="Flat List">Flat List</option>
+                  </select>
+                </div> */}
 
                 {/* Start Date & Due Date */}
                 <div className="grid grid-cols-2 gap-3">
@@ -631,7 +630,7 @@ export function AddProjectDrawer({
                 </div>
 
                 {/* Tags */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Tags
                   </label>
@@ -660,10 +659,10 @@ export function AddProjectDrawer({
                     placeholder="Enter a tag name and press Enter"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                </div>
+                </div> */}
 
                 {/* Reminder & Billing Type */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs text-muted-foreground font-medium">
                       Reminder
@@ -690,7 +689,7 @@ export function AddProjectDrawer({
                       <option value="Non Billable">Non Billable</option>
                     </select>
                   </div>
-                </div>
+                </div> */}
               </div>
             )}
           </div>

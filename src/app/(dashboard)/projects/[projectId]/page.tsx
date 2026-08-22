@@ -78,18 +78,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const handleAddTask = async (newTask: TaskItem) => {
     setTasks((prev) => [newTask, ...prev]);
     try {
-      await createTaskAction({
-        title: newTask.title,
-        phaseCode: newTask.phaseCode,
-        phaseName: newTask.phaseName,
-        status: newTask.status,
-        owner: newTask.owner,
-        associatedTeam: newTask.associatedTeam,
-        departmentAlias: newTask.departmentAlias,
-        priority: newTask.priority,
-        tags: newTask.tags,
-        description: newTask.description,
-      });
+      await createTaskAction(
+        {
+          title: newTask.title,
+          phaseCode: newTask.phaseCode,
+          phaseName: newTask.phaseName,
+          status: newTask.status,
+          owner: newTask.owner,
+          owners: newTask.owners,
+          associatedTeam: newTask.associatedTeam,
+          departmentAlias: newTask.departmentAlias,
+          priority: newTask.priority,
+          tags: newTask.tags,
+          description: newTask.description,
+        },
+        projectId
+      );
     } catch (err) {
       console.error("Failed to persist task in DB:", err);
     }
@@ -143,9 +147,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
               <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary font-mono">
                 {project.id}
               </span>
-              <span className="rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground font-mono">
+              {/* <span className="rounded bg-secondary px-2 py-0.5 text-xs font-semibold text-muted-foreground font-mono">
                 {project.departmentAlias}
-              </span>
+              </span> */}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Owner: <span className="font-medium text-foreground">{project.owner.name}</span> &bull; Status:{" "}
@@ -156,14 +160,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <button
+          {/* <button
             type="button"
             onClick={handleCopyProjectLink}
             className="flex items-center gap-1.5 rounded border border-input bg-background px-3 py-1.5 font-semibold hover:bg-accent text-foreground transition-colors"
           >
             {copiedLink ? <Check size={14} className="text-success" /> : <Copy size={14} />}
             <span>{copiedLink ? "Link Copied!" : "Copy Project Link"}</span>
-          </button>
+          </button> */}
         </div>
       </div>
 

@@ -138,6 +138,7 @@ export async function saveDsm(
           order: i,
           priority: item.priority,
           entryId: entry.id,
+          addedById: userId,
         })),
       });
     }

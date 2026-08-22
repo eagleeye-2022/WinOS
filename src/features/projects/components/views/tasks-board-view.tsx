@@ -202,7 +202,13 @@ export function TasksBoardView({
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [isAddTaskDrawerOpen, setIsAddTaskDrawerOpen] = useState(false);
+  const [selectedAddTaskPhase, setSelectedAddTaskPhase] = useState<string | undefined>(undefined);
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+
+  const handleOpenAddTaskForPhase = (phaseCode?: string) => {
+    setSelectedAddTaskPhase(phaseCode);
+    setIsAddTaskDrawerOpen(true);
+  };
 
   // Filter & Options Popover States
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -228,14 +234,25 @@ export function TasksBoardView({
   }, [activeSubTab, realProjectId]);
 
   // Combine user tasks with fallback tasks so added tasks show immediately alongside sample tasks
+  // Demo filler tasks are shown ONLY when the project has zero real tasks (empty-state visual
+  // polish). Mixing them into a project that already has real tasks made decorative, non-existent
+  // task cards clickable — navigating to a task URL that doesn't belong to this project and
+  // silently displaying a different real task's data instead.
   const displayTasks = React.useMemo(() => {
     if (!tasks || tasks.length === 0) return FALLBACK_PROJECT_TASKS;
-    const userCodes = new Set(tasks.map((t) => t.code || t.id));
-    const uniqueFallbacks = FALLBACK_PROJECT_TASKS.filter(
-      (ft) => !userCodes.has(ft.code) && !userCodes.has(ft.id)
-    );
-    return [...tasks, ...uniqueFallbacks];
+    return tasks;
   }, [tasks]);
+
+  // Compute unique assignees/owners for this project
+  const projectAssignees = React.useMemo(() => {
+    const set = new Set<string>();
+    displayTasks.forEach((t) => {
+      if (t.owner && t.owner.trim() && t.owner !== "Unassigned") {
+        set.add(t.owner.trim());
+      }
+    });
+    return Array.from(set);
+  }, [displayTasks]);
 
   // Stale Task Analysis
   const stalenessAnalysis = analyzeTaskStaleness(displayTasks);
@@ -384,19 +401,19 @@ export function TasksBoardView({
       {/* Top Header Breadcrumb & Subtabs */}
       <div className="flex items-center justify-between border-b px-6 py-3 bg-background">
         <div className="flex items-center gap-4 text-xs font-semibold">
-          {projectName && (
+          {/* {projectName && (
             <span className="text-muted-foreground">
               {projectCode} <strong className="text-foreground">{projectName}</strong>
             </span>
-          )}
+          )} */}
           <div className="flex items-center gap-4">
-            <button
+            {/* <button
               type="button"
               onClick={() => setActiveSubTab("DASHBOARD")}
               className={`pb-0.5 ${activeSubTab === "DASHBOARD" ? "text-primary border-b-2 border-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
             >
               Dashboard
-            </button>
+            </button> */}
             <button
               type="button"
               onClick={() => setActiveSubTab("TASKS")}
@@ -452,6 +469,7 @@ export function TasksBoardView({
           initialGroups={projectTimeGroups}
           projectId={realProjectId}
           projectName={projectName}
+          assignedUsers={projectAssignees}
         />
       ) : (
         <>
@@ -727,7 +745,17 @@ export function TasksBoardView({
                           {col.count}
                         </span>
                       </div>
-                      <MoreHorizontal size={14} className="text-muted-foreground cursor-pointer" />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddTaskForPhase(col.code)}
+                          className="p-1 text-muted-foreground hover:text-primary rounded hover:bg-accent transition-colors"
+                          title={`Add task to ${col.name}`}
+                        >
+                          <Plus size={14} />
+                        </button>
+                        <MoreHorizontal size={14} className="text-muted-foreground cursor-pointer" />
+                      </div>
                     </div>
 
                     <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-[200px]">
@@ -736,7 +764,7 @@ export function TasksBoardView({
                           <span className="text-[11px] font-medium">No tasks in this phase</span>
                           <button
                             type="button"
-                            onClick={() => setIsAddTaskDrawerOpen(true)}
+                            onClick={() => handleOpenAddTaskForPhase(col.code)}
                             className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                           >
                             <Plus size={12} /> Add Task
@@ -831,12 +859,17 @@ export function TasksBoardView({
       {/* Add Task Drawer */}
       <AddTaskDrawer
         isOpen={isAddTaskDrawerOpen}
-        onClose={() => setIsAddTaskDrawerOpen(false)}
+        onClose={() => {
+          setIsAddTaskDrawerOpen(false);
+          setSelectedAddTaskPhase(undefined);
+        }}
         onAddTask={(newTask) => {
           onAddTask(newTask);
           setIsAddTaskDrawerOpen(false);
+          setSelectedAddTaskPhase(undefined);
         }}
         availablePhases={phaseColumns.map(({ code, name }) => ({ code, name }))}
+        initialPhaseCode={selectedAddTaskPhase}
       />
 
       {/* New Time Log Modal */}
@@ -845,6 +878,7 @@ export function TasksBoardView({
         onClose={() => setIsTimeLogModalOpen(false)}
         projectId={realProjectId}
         projectName={projectName}
+        assignedUsers={projectAssignees}
       />
     </div>
   );

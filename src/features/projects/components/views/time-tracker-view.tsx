@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Clock,
   Settings,
@@ -24,6 +24,15 @@ import {
   Grid,
   User as UserIcon,
   List,
+  ShieldCheck,
+  UserCheck,
+  CheckCircle2,
+  XCircle,
+  FileSpreadsheet,
+  Printer,
+  BarChart3,
+  TrendingUp,
+  Trash2,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
@@ -33,18 +42,40 @@ interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
   projectId?: string;
   projectName?: string;
+  assignedUsers?: string[];
 }
 
-export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeTrackerViewProps) {
-  // `initialGroups` can arrive after mount (the in-board Time Logs tab fetches
-  // asynchronously) — read it directly rather than mirroring it into local state,
-  // since nothing here needs to mutate the group list independently of the prop.
-  const userGroups = initialGroups;
+export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers }: TimeTrackerViewProps) {
+  const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
+  const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
+
+  if (initialGroups !== prevInitialGroups) {
+    setPrevInitialGroups(initialGroups);
+    setUserGroups(initialGroups);
+  }
+
+  // Role Perspective Switcher
+  const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("ADMIN");
 
   // Default views matching the user screenshot
   const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
-  const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("My Time Logs");
+  const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("All Time Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
+
+  // Filters State
+  const [showFilterBar, setShowFilterBar] = useState(false);
+  const [filterUser, setFilterUser] = useState("ALL");
+  const [filterProject, setFilterProject] = useState("ALL");
+  const [filterBilling, setFilterBilling] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Report Modal State
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // Rejection Reason Modal State
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [rejectionReasonText, setRejectionReasonText] = useState("");
 
   // Add Time Log Modal State
   const [showAddLogModal, setShowAddLogModal] = useState(false);
@@ -72,48 +103,148 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
     }
   };
 
+  const handleSelectAllLogs = (logsToSelect: TimeLogEntry[]) => {
+    const allIds = logsToSelect.map((l) => l.id);
+    const allSelected = allIds.every((id) => selectedLogIds.includes(id));
+    if (allSelected) {
+      setSelectedLogIds(selectedLogIds.filter((id) => !allIds.includes(id)));
+    } else {
+      setSelectedLogIds(Array.from(new Set([...selectedLogIds, ...allIds])));
+    }
+  };
+
+  // Approvals & Status Actions
+  const handleApproveSelected = () => {
+    if (selectedLogIds.length === 0) return;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) =>
+          selectedLogIds.includes(l.id)
+            ? { ...l, approvalStatus: "Approved" }
+            : l
+        ),
+      }))
+    );
+    setSelectedLogIds([]);
+  };
+
+  const handleRejectSelected = () => {
+    if (selectedLogIds.length === 0) return;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) =>
+          selectedLogIds.includes(l.id)
+            ? {
+                ...l,
+                approvalStatus: "Rejected",
+                rejectionReason: rejectionReasonText.trim() || "Does not meet timesheet criteria",
+              }
+            : l
+        ),
+      }))
+    );
+    setSelectedLogIds([]);
+    setShowRejectionModal(false);
+    setRejectionReasonText("");
+  };
+
+  const handleSubmitTimesheet = () => {
+    if (selectedLogIds.length === 0) return;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) =>
+          selectedLogIds.includes(l.id)
+            ? { ...l, approvalStatus: "Pending" }
+            : l
+        ),
+      }))
+    );
+    setSelectedLogIds([]);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedLogIds.length === 0) return;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.filter((l) => !selectedLogIds.includes(l.id)),
+      }))
+    );
+    setSelectedLogIds([]);
+  };
+
   const handleOpenAddModalForDate = (dateStr: string) => {
     setModalTargetDate(dateStr);
     setShowAddLogModal(true);
   };
 
-  // Duration helpers, shared by the footer totals and the real date-grouping below.
+  // Duration helpers
   const parseDurationMinutes = (duration: string): number => {
     const match = duration.match(/(\d+):(\d+)/);
     if (!match) return 0;
     return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
   };
+
   const formatMinutes = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
   };
+
   const formatMinutesShort = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
-  const allLogs = userGroups.flatMap((g) => g.timeLogs);
-  const billableMinutes = allLogs
+  // Extract all logs for calculation and filtering
+  const rawAllLogs = userGroups.flatMap((g) =>
+    g.timeLogs.map((l) => ({ ...l, userName: g.userName }))
+  );
+
+  // Applied Filtering
+  const filteredAllLogs = rawAllLogs.filter((l) => {
+    if (filterUser !== "ALL" && l.userName.toLowerCase() !== filterUser.toLowerCase()) return false;
+    if (filterProject !== "ALL" && l.project.toLowerCase() !== filterProject.toLowerCase()) return false;
+    if (filterBilling !== "ALL" && l.billingType !== filterBilling) return false;
+    if (filterStatus !== "ALL" && (l.approvalStatus || "Pending") !== filterStatus) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = l.title.toLowerCase().includes(q);
+      const matchCode = l.code.toLowerCase().includes(q);
+      const matchRemarks = l.remarks.toLowerCase().includes(q);
+      if (!matchTitle && !matchCode && !matchRemarks) return false;
+    }
+    return true;
+  });
+
+  const billableMinutes = filteredAllLogs
     .filter((l) => l.billingType === "BILLABLE")
     .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
-  const nonBillableMinutes = allLogs
+
+  const nonBillableMinutes = filteredAllLogs
     .filter((l) => l.billingType !== "BILLABLE")
     .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
 
-  // Real "Group By Date" data — logs from every user group, grouped by date, with
-  // real per-date totals (previously a fully hardcoded mock array).
+  const pendingApprovalsCount = filteredAllLogs.filter(
+    (l) => (l.approvalStatus || "Pending") === "Pending"
+  ).length;
+
+  const totalMinutesAll = billableMinutes + nonBillableMinutes;
+  const billablePercentage = totalMinutesAll > 0 ? Math.round((billableMinutes / totalMinutesAll) * 100) : 0;
+
+  // Real "Group By Date" data
   const dateGroupsData = React.useMemo(() => {
     const byDate = new Map<
       string,
       { date: string; logs: (TimeLogEntry & { userName: string })[] }
     >();
-    for (const group of userGroups) {
-      for (const log of group.timeLogs) {
-        if (!byDate.has(log.date)) byDate.set(log.date, { date: log.date, logs: [] });
-        byDate.get(log.date)!.logs.push({ ...log, userName: group.userName });
-      }
+    for (const log of filteredAllLogs) {
+      if (!byDate.has(log.date)) byDate.set(log.date, { date: log.date, logs: [] });
+      byDate.get(log.date)!.logs.push(log);
     }
     return Array.from(byDate.values())
       .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -132,19 +263,129 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
           logs: g.logs,
         };
       });
-  }, [userGroups]);
+  }, [filteredAllLogs]);
+
+  // Unique list options for filters
+  const uniqueUsers = Array.from(new Set(rawAllLogs.map((l) => l.userName)));
+  const uniqueProjects = Array.from(new Set(rawAllLogs.map((l) => l.project)));
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative text-xs">
-      {/* ── Top App Title Bar ────────────────────────────────────────── */}
+      {/* ── Top App Title Bar with Role Switcher ────────────────────────────────── */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
-        <h1 className="text-base font-bold tracking-wide text-foreground">
-          Time Logs
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-bold tracking-wide text-foreground">
+            Time Logs
+          </h1>
+          <span className="text-muted-foreground">•</span>
+          {/* Role Perspective Switcher Toggle */}
+          <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setRoleMode("ADMIN");
+                setTimeSheetView("All Time Logs");
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+                roleMode === "ADMIN"
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ShieldCheck size={13} />
+              <span>Admin View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRoleMode("USER");
+                setTimeSheetView("My Time Logs");
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+                roleMode === "USER"
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <UserCheck size={13} />
+              <span>User View</span>
+            </button>
+          </div>
+        </div>
 
-        {/* Top Right Action Icons */}
-
+        {/* Right Header Action Icons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowReportModal(true)}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-card hover:bg-accent px-3 py-1.5 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
+          >
+            <BarChart3 size={14} className="text-primary" />
+            <span>Generate Report</span>
+          </button>
+        </div>
       </div>
+
+      {/* ── Admin Dashboard Summary Cards (Visible in Admin Mode) ──────────────── */}
+      {roleMode === "ADMIN" && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3 border-b border-border bg-muted/20">
+          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Total Hours Logged
+              </span>
+              <span className="text-base font-extrabold text-foreground font-mono mt-0.5 block">
+                {formatMinutes(totalMinutesAll)}
+              </span>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Clock size={16} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Billable Ratio
+              </span>
+              <span className="text-base font-extrabold text-info font-mono mt-0.5 block">
+                {billablePercentage}% <span className="text-xs font-normal text-muted-foreground">({formatMinutes(billableMinutes)})</span>
+              </span>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-info/10 flex items-center justify-center text-info">
+              <TrendingUp size={16} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Non-Billable Hours
+              </span>
+              <span className="text-base font-extrabold text-warning font-mono mt-0.5 block">
+                {formatMinutes(nonBillableMinutes)}
+              </span>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+              <Clock size={16} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Pending Approvals
+              </span>
+              <span className="text-base font-extrabold text-amber-500 font-mono mt-0.5 block">
+                {pendingApprovalsCount} Logs
+              </span>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <ShieldCheck size={16} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Secondary Control Bar (Breadcrumbs, Date Range & Actions) ──────────── */}
       <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-muted/40 text-foreground gap-3">
@@ -185,7 +426,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground bg-card border border-border px-3 py-1 rounded-md shadow-2xs">
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="Previous Week"
           >
             <ChevronLeft size={14} />
@@ -194,35 +435,74 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
           <span>{dateRangeStr}</span>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="Next Week"
           >
             <ChevronRight size={14} />
           </button>
         </div>
 
-        {/* Right Action Buttons */}
+        {/* Right Action Buttons & Batch Operations */}
         <div className="flex items-center gap-2.5 text-xs">
-          {/* List Layout Dropdown Button */}
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded border border-border bg-card text-foreground font-medium cursor-pointer hover:bg-accent shadow-2xs">
-            <List size={14} className="text-primary" />
-            <span>List</span>
-            <Sparkles size={12} className="text-warning ml-0.5" />
-          </div>
+          {/* Selected Action Buttons */}
+          {selectedLogIds.length > 0 && (
+            <div className="flex items-center gap-1.5 animate-in fade-in-0 duration-150 pr-2 border-r border-border">
+              <span className="text-[11px] font-bold text-muted-foreground mr-1">
+                {selectedLogIds.length} Selected:
+              </span>
+              {roleMode === "ADMIN" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleApproveSelected}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Approve</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectionModal(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <XCircle size={13} />
+                    <span>Reject</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmitTimesheet}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>Submit Approval</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                className="p-1 rounded text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                title="Delete Selected Logs"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
 
           {/* Add Time Log Split Button */}
           <div className="inline-flex rounded bg-primary text-primary-foreground shadow-xs font-semibold overflow-hidden">
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-3.5 py-1 text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/20"
+              className="px-3.5 py-1 text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/20 cursor-pointer"
             >
               Add Time Log
             </button>
             <button
               type="button"
               onClick={() => setShowAddLogModal(true)}
-              className="px-2 py-1 hover:bg-primary/90 transition-colors"
+              className="px-2 py-1 hover:bg-primary/90 transition-colors cursor-pointer"
             >
               <ChevronDown size={14} />
             </button>
@@ -231,22 +511,105 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
           {/* Filter Icon */}
           <button
             type="button"
-            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="Filter"
+            onClick={() => setShowFilterBar(!showFilterBar)}
+            className={`p-1.5 rounded transition-colors cursor-pointer ${
+              showFilterBar || filterUser !== "ALL" || filterProject !== "ALL" || filterBilling !== "ALL" || filterStatus !== "ALL"
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+            title="Toggle Filters"
           >
             <Filter size={15} />
           </button>
-
-          {/* More Options */}
-          <button
-            type="button"
-            className="p-1.5 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
-            title="More Options"
-          >
-            <MoreVertical size={15} />
-          </button>
         </div>
       </div>
+
+      {/* ── Expandable Filter Bar ────────────────────────────────────────── */}
+      {showFilterBar && (
+        <div className="flex flex-wrap items-center gap-3 px-6 py-2.5 bg-card border-b border-border text-xs animate-in slide-in-from-top-2 duration-150">
+          <div className="relative flex-1 min-w-[160px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, code, remarks..."
+              className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
+            />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground font-medium">User:</span>
+            <select
+              value={filterUser}
+              onChange={(e) => setFilterUser(e.target.value)}
+              className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
+            >
+              <option value="ALL">All Users</option>
+              {uniqueUsers.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground font-medium">Project:</span>
+            <select
+              value={filterProject}
+              onChange={(e) => setFilterProject(e.target.value)}
+              className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
+            >
+              <option value="ALL">All Projects</option>
+              {uniqueProjects.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground font-medium">Billing:</span>
+            <select
+              value={filterBilling}
+              onChange={(e) => setFilterBilling(e.target.value)}
+              className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
+            >
+              <option value="ALL">All Types</option>
+              <option value="BILLABLE">BILLABLE</option>
+              <option value="NON BILLABLE">NON BILLABLE</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground font-medium">Status:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          {(filterUser !== "ALL" || filterProject !== "ALL" || filterBilling !== "ALL" || filterStatus !== "ALL" || searchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterUser("ALL");
+                setFilterProject("ALL");
+                setFilterBilling("ALL");
+                setFilterStatus("ALL");
+                setSearchQuery("");
+              }}
+              className="text-xs text-destructive hover:underline font-semibold cursor-pointer ml-auto"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Main Data Table (Group By Date View) ─────────────────────────────────── */}
       <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
@@ -419,9 +782,22 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
 
                             {/* Approval Status Column */}
                             <td className="py-2.5 px-4 whitespace-nowrap">
-                              <span className="inline-block rounded-md bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border">
-                                {log.approvalStatus}
-                              </span>
+                              {log.approvalStatus === "Approved" ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold">
+                                  <CheckCircle2 size={12} /> Approved
+                                </span>
+                              ) : log.approvalStatus === "Rejected" ? (
+                                <span
+                                  title={log.rejectionReason ? `Reason: ${log.rejectionReason}` : "Rejected"}
+                                  className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold cursor-help"
+                                >
+                                  <XCircle size={12} /> Rejected
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold">
+                                  <Clock size={12} /> Pending Approval
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -440,7 +816,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
                   <input
                     type="checkbox"
-                    className="rounded border-input text-primary h-3.5 w-3.5"
+                    className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
+                    onChange={(e) => handleSelectAllLogs(filteredAllLogs)}
                   />
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
@@ -476,26 +853,20 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
                       <button
                         type="button"
                         onClick={() => toggleDateCollapse(group.userId)}
-                        className="p-1 text-muted-foreground hover:text-foreground rounded"
+                        className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
                       >
                         {collapsedDates[group.userId] ? (
-                          <ChevronDown size={15} />
+                          <ChevronRight size={14} />
                         ) : (
-                          <ChevronUp size={15} />
+                          <ChevronDown size={14} />
                         )}
                       </button>
                     </td>
 
-                    <td colSpan={3} className="py-3 px-4 border-r border-border whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${group.avatarColor}`}
-                        >
-                          {group.userInitials}
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {group.userName}
-                        </span>
+                    <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <UserIcon size={14} className="text-muted-foreground" />
+                        <span className="text-foreground font-bold">{group.userName}</span>
                       </div>
                     </td>
 
@@ -520,7 +891,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
                               type="checkbox"
                               checked={selectedLogIds.includes(log.id)}
                               onChange={() => handleToggleSelectLog(log.id)}
-                              className="rounded border-input text-primary h-3.5 w-3.5"
+                              className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
                             />
                           </td>
 
@@ -555,15 +926,28 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
                           </td>
 
                           <td className="py-3 px-4 border-r border-border whitespace-nowrap">
-                            <span className="font-semibold text-info">
+                            <span className={`font-semibold ${log.billingType === "BILLABLE" ? "text-info" : "text-warning"}`}>
                               {log.billingType}
                             </span>
                           </td>
 
                           <td className="py-3 px-4 border-r border-border whitespace-nowrap">
-                            <span className="inline-block rounded-md bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground border border-border">
-                              {log.approvalStatus || "Pending"}
-                            </span>
+                            {log.approvalStatus === "Approved" ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold">
+                                <CheckCircle2 size={12} /> Approved
+                              </span>
+                            ) : log.approvalStatus === "Rejected" ? (
+                              <span
+                                title={log.rejectionReason ? `Reason: ${log.rejectionReason}` : "Rejected"}
+                                className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold cursor-help"
+                              >
+                                <XCircle size={12} /> Rejected
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold">
+                                <Clock size={12} /> Pending Approval
+                              </span>
+                            )}
                           </td>
 
                           <td className="py-3 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
@@ -605,7 +989,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
         </div>
 
         <div className="text-muted-foreground font-normal">
-          Total Count: <strong className="text-foreground font-semibold">{allLogs.length}</strong>
+          Total Count: <strong className="text-foreground font-semibold">{filteredAllLogs.length}</strong>
         </div>
       </div>
 
@@ -616,10 +1000,131 @@ export function TimeTrackerView({ initialGroups, projectId, projectName }: TimeT
         initialProject={modalTargetProject}
         projectId={projectId}
         projectName={projectName}
+        assignedUsers={assignedUsers}
         onLogAdded={(newLog) => {
           console.log("New Log Added:", newLog);
         }}
       />
+
+      {/* Generate Time Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-0 duration-150">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4 font-sans text-xs">
+            <div className="flex items-center justify-between border-b pb-3 border-border">
+              <div className="flex items-center gap-2">
+                <BarChart3 size={20} className="text-primary" />
+                <h3 className="text-base font-bold text-foreground">Time Tracking Productivity & Billing Report</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Total Logged Time</span>
+                <span className="text-sm font-bold text-foreground font-mono">{formatMinutes(totalMinutesAll)}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Billable Ratio</span>
+                <span className="text-sm font-bold text-info font-mono">{billablePercentage}% ({formatMinutes(billableMinutes)})</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Non-Billable Time</span>
+                <span className="text-sm font-bold text-warning font-mono">{formatMinutes(nonBillableMinutes)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-foreground">Project Time Distribution</h4>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+                {uniqueProjects.map((p) => {
+                  const pLogs = filteredAllLogs.filter((l) => l.project === p);
+                  const pMinutes = pLogs.reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+                  const pBillable = pLogs.filter((l) => l.billingType === "BILLABLE").reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+                  return (
+                    <div key={p} className="flex items-center justify-between p-2.5">
+                      <span className="font-semibold text-foreground">{p}</span>
+                      <div className="flex items-center gap-3 font-mono font-bold">
+                        <span className="text-foreground">{formatMinutes(pMinutes)}</span>
+                        <span className="text-info text-[11px]">({formatMinutes(pBillable)} Billable)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-card hover:bg-accent font-semibold text-foreground cursor-pointer"
+              >
+                <Printer size={14} />
+                <span>Print Report</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-1.5 rounded-md bg-primary text-primary-foreground font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Input Modal */}
+      {showRejectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-0 duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4 font-sans text-xs">
+            <div className="flex items-center justify-between border-b pb-2 border-border">
+              <h3 className="text-sm font-bold text-foreground">Reject Selected Timesheets</h3>
+              <button
+                type="button"
+                onClick={() => setShowRejectionModal(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block font-semibold text-foreground">Rejection Reason</label>
+              <textarea
+                rows={3}
+                value={rejectionReasonText}
+                onChange={(e) => setRejectionReasonText(e.target.value)}
+                placeholder="Provide a reason for rejecting the timesheet..."
+                className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary font-sans"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRejectionModal(false)}
+                className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectSelected}
+                className="px-4 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

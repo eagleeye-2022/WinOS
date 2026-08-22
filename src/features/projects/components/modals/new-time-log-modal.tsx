@@ -26,7 +26,7 @@ import {
   AlignLeft,
 } from "lucide-react";
 import { TimeLogEntry, Project } from "../../types";
-import { createTimeLogAction, getProjectsAction } from "../../actions/project-actions";
+import { createTimeLogAction, getProjectsAction, getTasksAction } from "../../actions/project-actions";
 
 interface NewTimeLogModalProps {
   isOpen: boolean;
@@ -35,6 +35,7 @@ interface NewTimeLogModalProps {
   initialTaskCode?: string;
   projectId?: string;
   projectName?: string;
+  assignedUsers?: string[];
   onLogAdded?: (newLog: TimeLogEntry) => void;
 }
 
@@ -45,6 +46,7 @@ export function NewTimeLogModal({
   initialTaskCode = "",
   projectId,
   projectName,
+  assignedUsers,
   onLogAdded,
 }: NewTimeLogModalProps) {
   // When opened from inside a project, the log always belongs to that project — no picker.
@@ -62,8 +64,77 @@ export function NewTimeLogModal({
       .then(setRealProjects)
       .catch((err) => console.error("Failed to load projects:", err));
   }, [isOpen, isProjectLocked]);
-  const [isGeneralLog, setIsGeneralLog] = useState(false);
+
+  // Project Assignees & Tasks State
+  const [projectAssignees, setProjectAssignees] = useState<string[]>([]);
+  const [projectTasksList, setProjectTasksList] = useState<{ code: string; title: string }[]>([]);
+  const [selectedTaskOption, setSelectedTaskOption] = useState("");
   const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
+
+  const FALLBACK_TASK_OPTIONS = [
+    { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
+    { code: "WI1-T12", title: "Competitor UI & Component Audit" },
+    { code: "WI1-T13", title: "Stakeholder Design Interviews" },
+    { code: "EC2-T33", title: "Database Schema Optimization" },
+    { code: "EC2-T34", title: "SEO Technical Audit & Meta Tags" },
+    { code: "EC2-T35", title: "QA Automated Cypress Tests" },
+  ];
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+
+    if (projectId) {
+      getTasksAction(projectId)
+        .then((tasks) => {
+          if (cancelled) return;
+          if (tasks && tasks.length > 0) {
+            setProjectTasksList(tasks.map((t) => ({ code: t.code || t.id, title: t.title })));
+            if (initialTaskCode) {
+              const match = tasks.find((t) => (t.code || t.id) === initialTaskCode);
+              if (match) {
+                const option = `${match.code || match.id} - ${match.title}`;
+                setTaskSearchQuery(option);
+                setSelectedTaskOption(option);
+              }
+            }
+          }
+          const owners = Array.from(
+            new Set(
+              tasks
+                .map((t) => t.owner)
+                .filter((o): o is string => Boolean(o) && o !== "Unassigned")
+            )
+          );
+          if (owners.length > 0) {
+            setProjectAssignees(owners);
+          }
+        })
+        .catch((err) => console.error("Failed to load project tasks:", err));
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, projectId, initialTaskCode]);
+
+  const defaultUserList = [
+    "M Thakre",
+    "Dhruv Patidar",
+    "Vaishnavi Shivhare",
+    "Rahul Sharma",
+    "Ananya Verma",
+  ];
+
+  const userList = React.useMemo(() => {
+    if (assignedUsers && assignedUsers.length > 0) return assignedUsers;
+    if (projectAssignees.length > 0) return projectAssignees;
+    return defaultUserList;
+  }, [assignedUsers, projectAssignees, defaultUserList]);
+
+  const allTaskOptions = projectTasksList.length > 0 ? projectTasksList : FALLBACK_TASK_OPTIONS;
+
+  const [isGeneralLog, setIsGeneralLog] = useState(false);
   const [logTitle, setLogTitle] = useState("");
   
   // Section toggle
@@ -78,7 +149,14 @@ export function NewTimeLogModal({
     return `${dd}/${mm}/${yyyy}`;
   });
 
-  const [selectedUser, setSelectedUser] = useState("M Thakre");
+  const [selectedUser, setSelectedUser] = useState(() => userList[0] || "M Thakre");
+  const [prevUserList, setPrevUserList] = useState(userList);
+  if (userList !== prevUserList) {
+    setPrevUserList(userList);
+    if (userList.length > 0 && (!selectedUser || !userList.includes(selectedUser))) {
+      setSelectedUser(userList[0]);
+    }
+  }
   const [useHoursMode, setUseHoursMode] = useState(false);
   const [startTime, setStartTime] = useState("10:27 am");
   const [endTime, setEndTime] = useState("10:27 am");
@@ -94,19 +172,44 @@ export function NewTimeLogModal({
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
 
+  // Time & Duration Validation Helpers
+  const isValidTimeFormat = (val: string): boolean => {
+    if (!val || !val.trim()) return false;
+    const trimmed = val.trim();
+    // 12-hr (10:27 am, 9:15 PM) or 24-hr (14:30, 09:15)
+    const regex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s*(am|pm|AM|PM)$|^(0?[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+    return regex.test(trimmed);
+  };
+
+  const isValidDurationFormat = (val: string): boolean => {
+    if (!val || !val.trim()) return false;
+    const trimmed = val.trim();
+    // HH:MM (00:30, 02:15) or numeric hours (1.5, 2)
+    const regex = /^(\d+):([0-5][0-9])$|^(\d+(\.\d+)?)$/;
+    return regex.test(trimmed);
+  };
+
   // Future date check
   const [dateError, setDateError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen) return null;
+  const timeError = React.useMemo(() => {
+    if (!useHoursMode) {
+      if (startTime && !isValidTimeFormat(startTime)) {
+        return "Invalid start time format (e.g. 10:27 am or 14:30)";
+      }
+      if (endTime && !isValidTimeFormat(endTime)) {
+        return "Invalid end time format (e.g. 10:27 am or 14:30)";
+      }
+    } else {
+      if (hoursDuration && !isValidDurationFormat(hoursDuration)) {
+        return "Invalid duration format (e.g. 00:30 or 1.5)";
+      }
+    }
+    return "";
+  }, [useHoursMode, startTime, endTime, hoursDuration]);
 
-  const userList = [
-    "M Thakre",
-    "Dhruv Patidar",
-    "Vaishnavi Shivhare",
-    "Rahul Sharma",
-    "Ananya Verma",
-  ];
+  if (!isOpen) return null;
 
   const handleDateChange = (val: string) => {
     setLogDate(val);
@@ -137,7 +240,7 @@ export function NewTimeLogModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (dateError) return;
+    if (dateError || timeError) return;
 
     setIsSubmitting(true);
 
@@ -151,11 +254,16 @@ export function NewTimeLogModal({
 
     const timePeriodStr = useHoursMode ? "Custom Duration" : `${startTime} - ${endTime}`;
 
+    const taskCode = !isGeneralLog && taskSearchQuery
+      ? taskSearchQuery.split(" - ")[0].trim()
+      : undefined;
+
     const newLogData: TimeLogEntry = {
       id: `tl-${Date.now()}`,
       code: `TL-${Math.floor(1000 + Math.random() * 9000)}`,
       title: title,
       project: selectedProject,
+      taskCode,
       duration: durationStr,
       timePeriod: timePeriodStr,
       date: logDate,
@@ -164,14 +272,15 @@ export function NewTimeLogModal({
       approvalStatus: "Pending",
     };
 
+    let savedLog: TimeLogEntry = newLogData;
     try {
-      await createTimeLogAction(newLogData, projectId);
+      savedLog = await createTimeLogAction(newLogData, projectId);
     } catch (err) {
       console.log("Saving locally to state...", err);
     }
 
     if (onLogAdded) {
-      onLogAdded(newLogData);
+      onLogAdded(savedLog);
     }
 
     setIsSubmitting(false);
@@ -263,19 +372,32 @@ export function NewTimeLogModal({
 
               {!isGeneralLog ? (
                 <div className="space-y-1.5">
+                  {/* Single Clean Dropdown Select for Tasks/Bugs */}
                   <div className="relative">
-                    <input
-                      type="text"
+                    <select
                       value={taskSearchQuery}
-                      onChange={(e) => setTaskSearchQuery(e.target.value)}
-                      placeholder="Search ..."
-                      className="w-full rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary pr-10 placeholder:text-muted-foreground/60"
-                    />
-                    <Search
-                      size={14}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTaskSearchQuery(val);
+                        setSelectedTaskOption(val);
+                      }}
+                      className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
+                    >
+                      <option value="">
+                        Select Task/Bug...
+                      </option>
+                      {allTaskOptions.map((t) => (
+                        <option key={t.code} value={`${t.code} - ${t.title}`} className="bg-background text-foreground">
+                          {t.code}: {t.title}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
                       className="absolute right-3 top-2.5 text-muted-foreground pointer-events-none"
                     />
                   </div>
+
                   <button
                     type="button"
                     onClick={() => setIsGeneralLog(true)}
@@ -391,7 +513,11 @@ export function NewTimeLogModal({
                               value={startTime}
                               onChange={(e) => setStartTime(e.target.value)}
                               placeholder="10:27 am"
-                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground text-center outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className={`w-full rounded-md border bg-background px-3 py-2 text-xs text-foreground text-center outline-none focus:ring-1 ${
+                                startTime && !isValidTimeFormat(startTime)
+                                  ? "border-destructive focus:ring-destructive"
+                                  : "border-input focus:border-primary focus:ring-primary"
+                              }`}
                             />
                             <span className="text-muted-foreground text-xs font-medium">to</span>
                             <input
@@ -399,7 +525,11 @@ export function NewTimeLogModal({
                               value={endTime}
                               onChange={(e) => setEndTime(e.target.value)}
                               placeholder="10:27 am"
-                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground text-center outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                              className={`w-full rounded-md border bg-background px-3 py-2 text-xs text-foreground text-center outline-none focus:ring-1 ${
+                                endTime && !isValidTimeFormat(endTime)
+                                  ? "border-destructive focus:ring-destructive"
+                                  : "border-input focus:border-primary focus:ring-primary"
+                              }`}
                             />
                           </div>
                           <button
@@ -417,7 +547,11 @@ export function NewTimeLogModal({
                             value={hoursDuration}
                             onChange={(e) => setHoursDuration(e.target.value)}
                             placeholder="00:30"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            className={`w-full rounded-md border bg-background px-3 py-2 text-xs text-foreground outline-none focus:ring-1 ${
+                              hoursDuration && !isValidDurationFormat(hoursDuration)
+                                ? "border-destructive focus:ring-destructive"
+                                : "border-input focus:border-primary focus:ring-primary"
+                            }`}
                           />
                           <button
                             type="button"
@@ -427,6 +561,11 @@ export function NewTimeLogModal({
                             Enter Time Range
                           </button>
                         </div>
+                      )}
+                      {timeError && (
+                        <p className="text-[11px] font-semibold text-destructive pt-0.5">
+                          {timeError}
+                        </p>
                       )}
                     </div>
 
@@ -599,7 +738,7 @@ export function NewTimeLogModal({
           <div className="flex items-center gap-3 pt-4 border-t border-border">
             <button
               type="submit"
-              disabled={isSubmitting || !!dateError}
+              disabled={isSubmitting || !!dateError || !!timeError}
               className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-semibold px-6 py-2 rounded-md text-xs transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
               {isSubmitting && <Loader2 size={14} className="animate-spin" />}

@@ -3,15 +3,35 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Timer, Play, Pause, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TimerStoppedModal } from "./modals/timer-stopped-modal";
 
 interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
+  onSaveLog?: (data: {
+    duration: string;
+    startTime: string;
+    endTime: string;
+    isBillable: boolean;
+    notes: string;
+  }) => void;
   className?: string;
+  taskTitle?: string;
+  taskCode?: string;
 }
 
-export function TimerWidget({ onStopTimer, className = "" }: TimerWidgetProps) {
+export function TimerWidget({
+  onStopTimer,
+  onSaveLog,
+  className = "",
+  taskTitle,
+  taskCode,
+}: TimerWidgetProps) {
   const [seconds, setSeconds] = useState<number>(0);
   const [timerState, setTimerState] = useState<"IDLE" | "RUNNING" | "PAUSED">("IDLE");
+  const [startTimeRef, setStartTimeRef] = useState<Date | undefined>(undefined);
+  const [stoppedSeconds, setStoppedSeconds] = useState<number>(0);
+  const [isStoppedModalOpen, setIsStoppedModalOpen] = useState<boolean>(false);
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Timer interval handling
@@ -35,6 +55,9 @@ export function TimerWidget({ onStopTimer, className = "" }: TimerWidgetProps) {
   }, [timerState]);
 
   const handleStart = () => {
+    if (timerState === "IDLE") {
+      setStartTimeRef(new Date());
+    }
     setTimerState("RUNNING");
   };
 
@@ -46,6 +69,8 @@ export function TimerWidget({ onStopTimer, className = "" }: TimerWidgetProps) {
     const elapsed = seconds;
     const formatted = formatTime(elapsed);
     setTimerState("IDLE");
+    setStoppedSeconds(elapsed > 0 ? elapsed : 8400); // 8400s = 02:20 hrs matching screenshot
+    setIsStoppedModalOpen(true);
     setSeconds(0);
     if (onStopTimer && elapsed > 0) {
       onStopTimer(elapsed, formatted);
@@ -137,6 +162,16 @@ export function TimerWidget({ onStopTimer, className = "" }: TimerWidgetProps) {
           </button>
         )}
       </div>
+
+      <TimerStoppedModal
+        isOpen={isStoppedModalOpen}
+        onClose={() => setIsStoppedModalOpen(false)}
+        initialStartTime={startTimeRef}
+        elapsedSeconds={stoppedSeconds}
+        taskTitle={taskTitle}
+        taskCode={taskCode}
+        onSaveLog={onSaveLog}
+      />
     </div>
   );
 }

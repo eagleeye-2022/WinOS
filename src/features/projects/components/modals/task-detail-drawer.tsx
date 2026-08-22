@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   ChevronDown,
@@ -35,6 +35,8 @@ import {
 import { TaskItem, TaskRemark, TaskStatus, TaskSubtask } from "../../types";
 import { PickTemplateModal } from "./pick-template-modal";
 import { NewTimeLogModal } from "./new-time-log-modal";
+import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -87,9 +89,24 @@ export function TaskDetailDrawer({
   const [associatedTeam, setAssociatedTeam] = useState(
     task?.associatedTeam || "--"
   );
-  const [ownerName, setOwnerName] = useState<string>(
-    task?.owner || "Vaishnavi Shivhare"
+  const [selectedOwners, setSelectedOwners] = useState<string[]>(
+    task?.owners && task.owners.length > 0
+      ? task.owners
+      : task?.owner && task.owner !== "Unassigned"
+      ? task.owner.split(",").map((s) => s.trim()).filter(Boolean)
+      : []
   );
+  const [ownersList, setOwnersList] = useState<
+    { id: string; name: string; email: string }[]
+  >([]);
+
+  useEffect(() => {
+    getOwnersAndTeamsAction()
+      .then((res) => {
+        if (res.owners) setOwnersList(res.owners);
+      })
+      .catch((err) => console.error("Failed to load owners for detail drawer:", err));
+  }, []);
   const [workHours, setWorkHours] = useState("00:00");
   const [startDate, setStartDate] = useState(task?.startDate || "--");
   const [dueDate, setDueDate] = useState(task?.dueDate || "--");
@@ -219,8 +236,8 @@ export function TaskDetailDrawer({
   };
 
   const handleRemoveOwner = () => {
-    setOwnerName("");
-    onUpdateTask({ ...task, owner: "" });
+    setSelectedOwners([]);
+    onUpdateTask({ ...task, owner: "", owners: [] });
   };
 
   const handleAddRemark = () => {
@@ -431,6 +448,20 @@ export function TaskDetailDrawer({
               <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">
                 STATUS
               </span>
+            </div>
+
+            {/* Owner Section matching user reference screenshot */}
+            <div className="rounded-lg border p-3 bg-card shadow-2xs">
+              <TaskMultiOwnerSelect
+                label="Owner"
+                selectedOwners={selectedOwners}
+                onChangeOwners={(newOwners) => {
+                  setSelectedOwners(newOwners);
+                  const primaryOwner = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
+                  onUpdateTask({ ...task, owners: newOwners, owner: primaryOwner });
+                }}
+                ownersList={ownersList}
+              />
             </div>
 
             {/* Description Section */}

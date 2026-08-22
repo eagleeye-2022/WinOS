@@ -143,6 +143,34 @@ export function formatFullDate(date: Date): string {
   }).format(new Date(date));
 }
 
+/** Format a date+time like "May 28, 2026, 4:05 PM" (local time zone). */
+export function formatDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(date));
+}
+
+/** Format a date+time like "22 August 2026 at 10:30 AM" (local time zone). */
+export function formatFullDateTime(date: Date): string {
+  const d = new Date(date);
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(d);
+  const timePart = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+  return `${datePart} at ${timePart}`;
+}
+
 // ── Team & Member Sequence Helpers ──────────────────────────────────────────
 
 export function getTeamRank(teamName: string, department?: string | null): number {

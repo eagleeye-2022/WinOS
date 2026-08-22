@@ -334,7 +334,7 @@ export function AllProjectsTableView({
           </select>
 
           {/* Department Alias Filter */}
-          <select
+          {/* <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
             className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer outline-none"
@@ -344,7 +344,7 @@ export function AllProjectsTableView({
             <option value="design@">design@</option>
             <option value="dev@">dev@</option>
             <option value="seo@">seo@</option>
-          </select>
+          </select> */}
 
           <input
             type="text"
@@ -545,8 +545,8 @@ export function AllProjectsTableView({
                     ℹ Status <ArrowUpDown size={12} />
                   </span>
                 </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th>
+                {/* <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th> */}
+                {/* <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th> */}
                 <th className="py-3 px-4 border-r whitespace-nowrap">⏱ Total Hours</th>
                 <th className="py-3 px-4 border-r whitespace-nowrap">📅 Start Date</th>
                 <th className="py-3 px-4 border-r whitespace-nowrap">📅 Deadline</th>
@@ -567,7 +567,7 @@ export function AllProjectsTableView({
               {filteredProjects.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={userRole === "ADMIN" ? 15 : 14}
+                    colSpan={userRole === "ADMIN" ? 13 : 12}
                     className="py-12 text-center text-muted-foreground"
                   >
                     No projects found matching current department or status filter.
@@ -651,14 +651,14 @@ export function AllProjectsTableView({
                     </td>
 
                     {/* Department Alias Tag */}
-                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                    {/* <td className="py-3 px-4 border-r whitespace-nowrap">
                       <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono text-secondary-foreground">
                         {project.departmentAlias || "digitalproducts@"}
                       </span>
-                    </td>
+                    </td> */}
 
                     {/* AI Status Report Generator Button */}
-                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                    {/* <td className="py-3 px-4 border-r whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => {
@@ -670,7 +670,7 @@ export function AllProjectsTableView({
                       >
                         <Sparkles size={12} className="text-amber-500 animate-pulse" /> AI Report
                       </button>
-                    </td>
+                    </td> */}
 
                     <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap">
                       {project.totalHours}

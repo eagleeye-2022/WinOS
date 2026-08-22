@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
-  PenIcon, GraduationCap, Loader2,
+  PenIcon, GraduationCap, Loader2, Info,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -24,12 +24,13 @@ import { addBlocker, type AddBlockerState } from "@/features/blockers/actions/ad
 import { editSupport, type EditSupportState } from "@/features/support-needed/actions/edit-support";
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
-import { reviewStatus, relativeDayLabel, formatShortDate, getWeekRange, formatWeekRange } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
+import { TaskAuditHistoryPopover } from "@/features/dsm/components/task-audit-history-popover";
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
@@ -936,6 +937,39 @@ function getPrevEntry(entry: MemberReviewEntry, allEntries: MemberReviewEntry[] 
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 }
 
+export type TaskCarryLink = { date: Date; task: MemberReviewEntry["tasks"][number] };
+
+/**
+ * Walk backwards day-by-day through carried-over occurrences of the same TODAY
+ * task text and return the full chain, oldest first, ending with today's own
+ * row. Each day's carried-over task is a distinct DB row (its own
+ * createdAt/addedBy/editedBy), so the chain is reconstructed by text match —
+ * this lets the UI preserve "originally created" info even though the current
+ * row's own createdAt reflects only the day it was last (re)submitted.
+ */
+function getTaskCarryChain(
+  taskText: string,
+  entry: MemberReviewEntry,
+  allEntries: MemberReviewEntry[] = []
+): TaskCarryLink[] {
+  const norm = taskText.trim().toLowerCase();
+  const matchIn = (e: MemberReviewEntry) =>
+    e.tasks.find((t) => t.kind === "TODAY" && t.text.trim().toLowerCase() === norm);
+
+  const chain: TaskCarryLink[] = [];
+  let currentEntry: MemberReviewEntry | undefined = entry;
+  let currentMatch = matchIn(entry);
+  while (currentEntry && currentMatch) {
+    chain.unshift({ date: currentEntry.date, task: currentMatch });
+    const prevEntry = getPrevEntry(currentEntry, allEntries);
+    const prevMatch = prevEntry ? matchIn(prevEntry) : undefined;
+    if (!prevEntry || !prevMatch) break;
+    currentEntry = prevEntry;
+    currentMatch = prevMatch;
+  }
+  return chain;
+}
+
 function isBlockerCarriedOver(
   blockerText: string,
   entry: MemberReviewEntry,
@@ -1113,21 +1147,43 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
 
 type TaskItem = MemberReviewEntry["tasks"][number];
 
+/** Renders a full name, prefixed with "Manager" when the actor holds that role. */
+function actorLabel(actor?: { name: string | null; email: string; role?: "TEAM_MEMBER" | "MANAGER" } | null): string | null {
+  if (!actor) return null;
+  const name = actor.name ?? actor.email.split("@")[0];
+  return actor.role === "MANAGER" ? `Manager ${name}` : name;
+}
+
+function TaskHistoryIcon({
+  task,
+  chain,
+  memberUser,
+}: {
+  task: TaskItem;
+  chain: TaskCarryLink[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+}) {
+  return <TaskAuditHistoryPopover task={task} chain={chain} memberUser={memberUser} />;
+}
+
 function TaskRow({
   task,
   rank,
   isLocked,
   takenPriorities,
   totalTasks,
-  isCarriedOver,
+  carryChain,
+  memberUser,
 }: {
   task: TaskItem;
   rank: number;
   isLocked: boolean;
   takenPriorities: string[];
   totalTasks: number;
-  isCarriedOver?: boolean;
+  carryChain: TaskCarryLink[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
+  const isCarriedOver = carryChain.length > 1;
   return (
     <div className="group/task flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
       {/* Rank badge */}
@@ -1156,6 +1212,7 @@ function TaskRow({
             NT
           </span>
         )}
+        <TaskHistoryIcon task={task} chain={carryChain} memberUser={memberUser} />
       </span>
 
       {/* Manager controls — hidden once reviewed */}
@@ -1191,12 +1248,14 @@ function TodayTasksSection({
   entryId,
   entry,
   allEntries = [],
+  memberUser,
 }: {
   tasks: TaskItem[];
   isLocked: boolean;
   entryId: string;
   entry?: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   // Sort: P1 first, unassigned last
   const sorted = sortByPriority(tasks);
@@ -1226,7 +1285,8 @@ function TodayTasksSection({
             isLocked={isLocked}
             takenPriorities={takenFor(task.id)}
             totalTasks={tasks.length}
-            isCarriedOver={entry ? isTaskCarriedOver(task.text, entry, allEntries) : false}
+            carryChain={entry ? getTaskCarryChain(task.text, entry, allEntries) : [{ date: task.createdAt, task }]}
+            memberUser={memberUser}
           />
         ))}
       </div>
@@ -1458,10 +1518,12 @@ function EntryExpanded({
   entry,
   allEntries = [],
   teamMembers = [],
+  memberUser,
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const router = useRouter();
   const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
@@ -1524,6 +1586,7 @@ function EntryExpanded({
           entryId={entry.id}
           entry={entry}
           allEntries={allEntries}
+          memberUser={memberUser}
         />
       )}
 
@@ -1762,10 +1825,12 @@ function TodayEntryCard({
   entry,
   allEntries = [],
   teamMembers = [],
+  memberUser,
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const [expanded, setExpanded] = useState(true);
   const review = reviewStatus({
@@ -1828,7 +1893,7 @@ function TodayEntryCard({
         <div className="border-t">
           {expanded ? (
             <div className="px-4 pb-4 pt-3">
-              <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} />
+              <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} memberUser={memberUser} />
             </div>
           ) : (
             <CompactEntryPreview entry={entry} allEntries={allEntries} />
@@ -1845,10 +1910,12 @@ function DayCardCollapsed({
   entry,
   allEntries = [],
   teamMembers = [],
+  memberUser,
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
+  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
   const review = reviewStatus({
@@ -1933,7 +2000,7 @@ function DayCardCollapsed({
 
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-4 pb-4 pt-3">
-          <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} />
+          <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} memberUser={memberUser} />
         </div>
       )}
     </div>
@@ -2025,11 +2092,11 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
       <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
         <div className="flex flex-col gap-5">
           {/* Today entry — expanded by default */}
-          {todayEntry && <TodayEntryCard entry={todayEntry} allEntries={entries} teamMembers={teamMembers} />}
+          {todayEntry && <TodayEntryCard entry={todayEntry} allEntries={entries} teamMembers={teamMembers} memberUser={user} />}
 
           {/* Previous days — collapsed by default */}
           {otherEntries.map((entry) => (
-            <DayCardCollapsed key={entry.id} entry={entry} allEntries={entries} teamMembers={teamMembers} />
+            <DayCardCollapsed key={entry.id} entry={entry} allEntries={entries} teamMembers={teamMembers} memberUser={user} />
           ))}
 
           {displayedEntries.length === 0 && (

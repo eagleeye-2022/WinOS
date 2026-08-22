@@ -67,7 +67,19 @@ export type MemberReviewEntry = {
   reviewedBy: { name: string | null; email: string } | null;
   reviewComment: string | null;
   learningText: string | null;
-  tasks: { id: string; kind: "YESTERDAY" | "TODAY"; text: string; order: number; priority?: string | null; managerPriority: string | null; addedAfterReview?: boolean }[];
+  tasks: {
+    id: string;
+    kind: "YESTERDAY" | "TODAY";
+    text: string;
+    order: number;
+    priority?: string | null;
+    managerPriority: string | null;
+    addedAfterReview?: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    addedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
+    editedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
+  }[];
   timelineEvents: { id: string; type: string; label: string; occurredAt: Date }[];
   blockers: { id: string; text: string; priority: "LOW" | "MEDIUM" | "HIGH"; resolved: boolean; mentionedUserId?: string | null; mentionedUserIds?: string | null; mentionedUser?: { id: string; name: string | null; email: string } | null; mentionedUsers?: { id: string; name: string | null; email: string }[]; editedBy?: { id: string; name: string | null; email: string } | null }[];
   supportNeeds: {
@@ -466,7 +478,13 @@ export async function getMemberReview(
   const entriesRaw = await d.standupEntry.findMany({
     where: { userId: memberId, date: { gte: extendedStart, lte: end } },
     include: {
-      tasks: { orderBy: { order: "asc" } },
+      tasks: {
+        orderBy: { order: "asc" },
+        include: {
+          addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+          editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+        },
+      },
       blockers: {
         include: {
           mentionedUser: { select: { id: true, name: true, email: true } },
@@ -511,7 +529,13 @@ export async function getMemberReview(
           status: "DRAFT",
         },
         include: {
-          tasks: { orderBy: { order: "asc" } },
+          tasks: {
+        orderBy: { order: "asc" },
+        include: {
+          addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+          editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+        },
+      },
           blockers: {
             include: {
               mentionedUser: { select: { id: true, name: true, email: true } },
