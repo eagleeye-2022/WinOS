@@ -39,6 +39,23 @@ interface NewTimeLogModalProps {
   onLogAdded?: (newLog: TimeLogEntry) => void;
 }
 
+const DEFAULT_USER_LIST = [
+  "M Thakre",
+  "Dhruv Patidar",
+  "Vaishnavi Shivhare",
+  "Rahul Sharma",
+  "Ananya Verma",
+];
+
+const FALLBACK_TASK_OPTIONS = [
+  { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
+  { code: "WI1-T12", title: "Competitor UI & Component Audit" },
+  { code: "WI1-T13", title: "Stakeholder Design Interviews" },
+  { code: "EC2-T33", title: "Database Schema Optimization" },
+  { code: "EC2-T34", title: "SEO Technical Audit & Meta Tags" },
+  { code: "EC2-T35", title: "QA Automated Cypress Tests" },
+];
+
 export function NewTimeLogModal({
   isOpen,
   onClose,
@@ -70,15 +87,6 @@ export function NewTimeLogModal({
   const [projectTasksList, setProjectTasksList] = useState<{ code: string; title: string }[]>([]);
   const [selectedTaskOption, setSelectedTaskOption] = useState("");
   const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
-
-  const FALLBACK_TASK_OPTIONS = [
-    { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
-    { code: "WI1-T12", title: "Competitor UI & Component Audit" },
-    { code: "WI1-T13", title: "Stakeholder Design Interviews" },
-    { code: "EC2-T33", title: "Database Schema Optimization" },
-    { code: "EC2-T34", title: "SEO Technical Audit & Meta Tags" },
-    { code: "EC2-T35", title: "QA Automated Cypress Tests" },
-  ];
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -118,19 +126,11 @@ export function NewTimeLogModal({
     };
   }, [isOpen, projectId, initialTaskCode]);
 
-  const defaultUserList = [
-    "M Thakre",
-    "Dhruv Patidar",
-    "Vaishnavi Shivhare",
-    "Rahul Sharma",
-    "Ananya Verma",
-  ];
-
   const userList = React.useMemo(() => {
     if (assignedUsers && assignedUsers.length > 0) return assignedUsers;
     if (projectAssignees.length > 0) return projectAssignees;
-    return defaultUserList;
-  }, [assignedUsers, projectAssignees, defaultUserList]);
+    return DEFAULT_USER_LIST;
+  }, [assignedUsers, projectAssignees]);
 
   const allTaskOptions = projectTasksList.length > 0 ? projectTasksList : FALLBACK_TASK_OPTIONS;
 
@@ -150,9 +150,11 @@ export function NewTimeLogModal({
   });
 
   const [selectedUser, setSelectedUser] = useState(() => userList[0] || "M Thakre");
-  const [prevUserList, setPrevUserList] = useState(userList);
-  if (userList !== prevUserList) {
-    setPrevUserList(userList);
+  const [prevUserListKey, setPrevUserListKey] = useState(() => userList.join(","));
+
+  const userListKey = userList.join(",");
+  if (userListKey !== prevUserListKey) {
+    setPrevUserListKey(userListKey);
     if (userList.length > 0 && (!selectedUser || !userList.includes(selectedUser))) {
       setSelectedUser(userList[0]);
     }
