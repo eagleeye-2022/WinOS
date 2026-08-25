@@ -26,7 +26,7 @@ import {
   AlignLeft,
 } from "lucide-react";
 import { TimeLogEntry, Project } from "../../types";
-import { createTimeLogAction, getProjectsAction, getTasksAction } from "../../actions/project-actions";
+import { createTimeLogAction, getProjectsAction, getTasksAction, getCurrentUserContextAction } from "../../actions/project-actions";
 
 interface NewTimeLogModalProps {
   isOpen: boolean;
@@ -38,14 +38,6 @@ interface NewTimeLogModalProps {
   assignedUsers?: string[];
   onLogAdded?: (newLog: TimeLogEntry) => void;
 }
-
-const DEFAULT_USER_LIST = [
-  "M Thakre",
-  "Dhruv Patidar",
-  "Vaishnavi Shivhare",
-  "Rahul Sharma",
-  "Ananya Verma",
-];
 
 const FALLBACK_TASK_OPTIONS = [
   { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
@@ -63,7 +55,6 @@ export function NewTimeLogModal({
   initialTaskCode = "",
   projectId,
   projectName,
-  assignedUsers,
   onLogAdded,
 }: NewTimeLogModalProps) {
   // When opened from inside a project, the log always belongs to that project — no picker.
@@ -82,57 +73,53 @@ export function NewTimeLogModal({
       .catch((err) => console.error("Failed to load projects:", err));
   }, [isOpen, isProjectLocked]);
 
-  // Project Assignees & Tasks State
-  const [projectAssignees, setProjectAssignees] = useState<string[]>([]);
+  // Tasks State
   const [projectTasksList, setProjectTasksList] = useState<{ code: string; title: string }[]>([]);
   const [selectedTaskOption, setSelectedTaskOption] = useState("");
   const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
 
+  // Resolve the active project's real id: locked projects pass it in directly,
+  // otherwise look it up from the loaded project list by the selected name.
+  const activeProjectId = projectId || realProjects.find((p) => p.name === selectedProject)?.id;
+
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !activeProjectId) {
+      return;
+    }
     let cancelled = false;
 
-    if (projectId) {
-      getTasksAction(projectId)
-        .then((tasks) => {
-          if (cancelled) return;
-          if (tasks && tasks.length > 0) {
-            setProjectTasksList(tasks.map((t) => ({ code: t.code || t.id, title: t.title })));
-            if (initialTaskCode) {
-              const match = tasks.find((t) => (t.code || t.id) === initialTaskCode);
-              if (match) {
-                const option = `${match.code || match.id} - ${match.title}`;
-                setTaskSearchQuery(option);
-                setSelectedTaskOption(option);
-              }
-            }
+    getTasksAction(activeProjectId)
+      .then((tasks) => {
+        if (cancelled) return;
+        setProjectTasksList(tasks.map((t) => ({ code: t.code || t.id, title: t.title })));
+        if (initialTaskCode) {
+          const match = tasks.find((t) => (t.code || t.id) === initialTaskCode);
+          if (match) {
+            const option = `${match.code || match.id} - ${match.title}`;
+            setTaskSearchQuery(option);
+            setSelectedTaskOption(option);
           }
-          const owners = Array.from(
-            new Set(
-              tasks
-                .map((t) => t.owner)
-                .filter((o): o is string => Boolean(o) && o !== "Unassigned")
-            )
-          );
-          if (owners.length > 0) {
-            setProjectAssignees(owners);
-          }
-        })
-        .catch((err) => console.error("Failed to load project tasks:", err));
-    }
+        }
+      })
+      .catch((err) => console.error("Failed to load project tasks:", err));
 
     return () => {
       cancelled = true;
     };
-  }, [isOpen, projectId, initialTaskCode]);
+  }, [isOpen, activeProjectId, initialTaskCode]);
 
-  const userList = React.useMemo(() => {
-    if (assignedUsers && assignedUsers.length > 0) return assignedUsers;
-    if (projectAssignees.length > 0) return projectAssignees;
-    return DEFAULT_USER_LIST;
-  }, [assignedUsers, projectAssignees]);
+  // Clear a stale task selection when the user switches projects manually.
+  const [prevActiveProjectId, setPrevActiveProjectId] = useState(activeProjectId);
+  if (activeProjectId !== prevActiveProjectId) {
+    setPrevActiveProjectId(activeProjectId);
+    setSelectedTaskOption("");
+    setTaskSearchQuery(initialTaskCode || "");
+    if (!activeProjectId) {
+      setProjectTasksList([]);
+    }
+  }
 
-  const allTaskOptions = projectTasksList.length > 0 ? projectTasksList : FALLBACK_TASK_OPTIONS;
+  const allTaskOptions = activeProjectId ? projectTasksList : FALLBACK_TASK_OPTIONS;
 
   const [isGeneralLog, setIsGeneralLog] = useState(false);
   const [logTitle, setLogTitle] = useState("");
@@ -149,16 +136,17 @@ export function NewTimeLogModal({
     return `${dd}/${mm}/${yyyy}`;
   });
 
-  const [selectedUser, setSelectedUser] = useState(() => userList[0] || "M Thakre");
-  const [prevUserListKey, setPrevUserListKey] = useState(() => userList.join(","));
+  // The log always belongs to whoever is signed in and adding it — the server
+  // attributes it to the session user regardless, so this just mirrors that.
+  const [currentUserName, setCurrentUserName] = useState("");
 
-  const userListKey = userList.join(",");
-  if (userListKey !== prevUserListKey) {
-    setPrevUserListKey(userListKey);
-    if (userList.length > 0 && (!selectedUser || !userList.includes(selectedUser))) {
-      setSelectedUser(userList[0]);
-    }
-  }
+  React.useEffect(() => {
+    if (!isOpen) return;
+    getCurrentUserContextAction()
+      .then((ctx) => setCurrentUserName(ctx?.name || ""))
+      .catch((err) => console.error("Failed to load current user:", err));
+  }, [isOpen]);
+
   const [useHoursMode, setUseHoursMode] = useState(false);
   const [startTime, setStartTime] = useState("10:27 am");
   const [endTime, setEndTime] = useState("10:27 am");
@@ -183,6 +171,25 @@ export function NewTimeLogModal({
     return regex.test(trimmed);
   };
 
+  // Parses "10:27 am" or "14:30" into minutes-since-midnight
+  const parseTimeToMinutes = (val: string): number | null => {
+    const trimmed = val.trim();
+    const match12 = trimmed.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(am|pm)$/i);
+    if (match12) {
+      let h = parseInt(match12[1], 10);
+      const m = parseInt(match12[2], 10);
+      const period = match12[3].toLowerCase();
+      if (period === "pm" && h !== 12) h += 12;
+      if (period === "am" && h === 12) h = 0;
+      return h * 60 + m;
+    }
+    const match24 = trimmed.match(/^([01]?[0-9]|2[0-3]):([0-5][0-9])$/);
+    if (match24) {
+      return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
+    }
+    return null;
+  };
+
   const isValidDurationFormat = (val: string): boolean => {
     if (!val || !val.trim()) return false;
     const trimmed = val.trim();
@@ -194,6 +201,7 @@ export function NewTimeLogModal({
   // Future date check
   const [dateError, setDateError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const timeError = React.useMemo(() => {
     if (!useHoursMode) {
@@ -210,6 +218,17 @@ export function NewTimeLogModal({
     }
     return "";
   }, [useHoursMode, startTime, endTime, hoursDuration]);
+
+  // Daily Log Hours, derived live from Start/End Time whenever the time period changes
+  const computedRangeDuration = React.useMemo(() => {
+    if (useHoursMode) return null;
+    const startMin = parseTimeToMinutes(startTime);
+    const endMin = parseTimeToMinutes(endTime);
+    if (startMin === null || endMin === null) return null;
+    let diff = endMin - startMin;
+    if (diff < 0) diff += 24 * 60;
+    return `${String(Math.floor(diff / 60)).padStart(2, "0")}:${String(diff % 60).padStart(2, "0")}`;
+  }, [useHoursMode, startTime, endTime]);
 
   if (!isOpen) return null;
 
@@ -252,7 +271,7 @@ export function NewTimeLogModal({
 
     const durationStr = useHoursMode
       ? hoursDuration
-      : `${startTime} to ${endTime}`;
+      : computedRangeDuration || "00:00";
 
     const timePeriodStr = useHoursMode ? "Custom Duration" : `${startTime} - ${endTime}`;
 
@@ -274,19 +293,18 @@ export function NewTimeLogModal({
       approvalStatus: "Pending",
     };
 
-    let savedLog: TimeLogEntry = newLogData;
     try {
-      savedLog = await createTimeLogAction(newLogData, projectId);
+      const savedLog = await createTimeLogAction(newLogData, projectId);
+      if (onLogAdded) {
+        onLogAdded(savedLog);
+      }
+      setIsSubmitting(false);
+      onClose();
     } catch (err) {
-      console.log("Saving locally to state...", err);
+      console.error("Failed to save time log:", err);
+      setSubmitError("Failed to add time log. Please try again.");
+      setIsSubmitting(false);
     }
-
-    if (onLogAdded) {
-      onLogAdded(savedLog);
-    }
-
-    setIsSubmitting(false);
-    onClose();
   };
 
   return (
@@ -400,6 +418,7 @@ export function NewTimeLogModal({
                     />
                   </div>
 
+                  {/* Enter General Log toggle (Commented out per user request)
                   <button
                     type="button"
                     onClick={() => setIsGeneralLog(true)}
@@ -407,6 +426,7 @@ export function NewTimeLogModal({
                   >
                     Enter General Log
                   </button>
+                  */}
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -418,6 +438,7 @@ export function NewTimeLogModal({
                     placeholder="Enter general log title..."
                     className="w-full rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/60"
                   />
+                  {/* Select Task/Bug Log toggle (Commented out per user request)
                   <button
                     type="button"
                     onClick={() => setIsGeneralLog(false)}
@@ -425,6 +446,7 @@ export function NewTimeLogModal({
                   >
                     Select Task/Bug Log
                   </button>
+                  */}
                 </div>
               )}
             </div>
@@ -479,22 +501,9 @@ export function NewTimeLogModal({
                         <span className="text-destructive">*</span>
                         <Info size={13} className="text-info shrink-0" />
                       </label>
-                      <div className="relative">
-                        <select
-                          value={selectedUser}
-                          onChange={(e) => setSelectedUser(e.target.value)}
-                          className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
-                        >
-                          {userList.map((u) => (
-                            <option key={u} value={u} className="bg-background text-foreground">
-                              {u}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown
-                          size={16}
-                          className="absolute right-3 top-2.5 text-muted-foreground pointer-events-none"
-                        />
+                      <div className="flex items-center gap-2 rounded-md border border-input bg-muted/40 px-3.5 py-2 text-xs text-foreground">
+                        <Lock size={13} className="text-muted-foreground shrink-0" />
+                        <span>{currentUserName || "Loading..."}</span>
                       </div>
                     </div>
                   </div>
@@ -534,6 +543,11 @@ export function NewTimeLogModal({
                               }`}
                             />
                           </div>
+                          {computedRangeDuration && (
+                            <p className="text-[11px] font-semibold text-foreground">
+                              Daily Log Hours: <span className="font-mono text-primary">{computedRangeDuration} h</span>
+                            </p>
+                          )}
                           <button
                             type="button"
                             onClick={() => setUseHoursMode(true)}
@@ -602,7 +616,7 @@ export function NewTimeLogModal({
                     </label>
 
                     <div className="rounded-md border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                      {/* Editor Toolbar */}
+                      {/* Editor Toolbar (Commented out per user request) ────────────────
                       <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-border bg-muted/40">
                         <button
                           type="button"
@@ -650,7 +664,6 @@ export function NewTimeLogModal({
 
                         <div className="h-4 w-px bg-border mx-0.5" />
 
-                        {/* Font Family */}
                         <select
                           value={fontFamily}
                           onChange={(e) => setFontFamily(e.target.value)}
@@ -661,7 +674,6 @@ export function NewTimeLogModal({
                           <option value="Roboto" className="bg-background text-foreground">Roboto</option>
                         </select>
 
-                        {/* Font Size */}
                         <select
                           value={fontSize}
                           onChange={(e) => setFontSize(e.target.value)}
@@ -700,7 +712,6 @@ export function NewTimeLogModal({
 
                         <div className="h-4 w-px bg-border mx-0.5" />
 
-                        {/* AI Assist Sparkle Button */}
                         <button
                           type="button"
                           className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 text-[10px] font-semibold hover:bg-purple-500/30"
@@ -720,6 +731,7 @@ export function NewTimeLogModal({
                           <Maximize2 size={13} />
                         </button>
                       </div>
+                      ──────────────────────────────────────────────────────────────────────────── */}
 
                       {/* Text Area */}
                       <textarea

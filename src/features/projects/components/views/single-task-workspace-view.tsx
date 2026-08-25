@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   UserPlus,
   Maximize2,
+  Minimize2,
   AlertCircle,
   Info,
   Bold,
@@ -50,6 +51,8 @@ import {
   Square,
   Check,
   Edit2,
+  Copy,
+  CopyCheck,
 } from "lucide-react";
 import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
@@ -59,6 +62,8 @@ import { TimerStoppedModal } from "../modals/timer-stopped-modal";
 import {
   getTasksAction,
   updateTaskAction,
+  createTaskAction,
+  deleteTaskAction,
   getProjectByIdAction,
   getOwnersAndTeamsAction,
   getTaskTimeLogsAction,
@@ -72,6 +77,8 @@ import {
   getCurrentUserContextAction,
 } from "../../actions/project-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { TaskDocumentsTab } from "../task-documents-tab";
+import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -103,6 +110,67 @@ export function SingleTaskWorkspaceView({
   // Selected phase filter for left sidebar task list
   const [selectedPhase, setSelectedPhase] = useState("ALL");
 
+  // Header Actions States & Handlers
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isExpandedView, setIsExpandedView] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCopyTaskLink = () => {
+    setIsMoreMenuOpen(false);
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      showToast("Task link copied to clipboard!");
+    }
+  };
+
+  const handleDuplicateTask = async () => {
+    setIsMoreMenuOpen(false);
+    try {
+      const created = await createTaskAction(
+        {
+          title: `${activeTask.title} (Copy)`,
+          status: "Open",
+          priority: activeTask.priority,
+          description: activeTask.description,
+          startDate: activeTask.startDate,
+          dueDate: activeTask.dueDate,
+          phaseCode: activeTask.phaseCode,
+          phaseName: activeTask.phaseName,
+        },
+        projectId
+      );
+      if (created) {
+        showToast(`Task duplicated as ${created.code || created.id}`);
+        router.push(`/projects/${projectId}/tasks/${created.code || created.id}`);
+      }
+    } catch (err) {
+      console.error("Failed to duplicate task:", err);
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    setIsMoreMenuOpen(false);
+    if (!confirm(`Are you sure you want to delete task ${activeTask.code}?`)) return;
+    try {
+      const success = await deleteTaskAction(activeTask.id);
+      if (success) {
+        router.push(`/projects/${projectId}`);
+      }
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    setIsExpandedView((prev) => !prev);
+  };
+
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
@@ -110,7 +178,7 @@ export function SingleTaskWorkspaceView({
         const [fetchedProj, fetchedTasks, fetchedOwnersRes, fetchedUser] = await Promise.all([
           getProjectByIdAction(projectId),
           getTasksAction(projectId),
-          getOwnersAndTeamsAction(),
+          getOwnersAndTeamsAction(projectId),
           getCurrentUserContextAction(),
         ]);
         if (fetchedProj) setProject(fetchedProj);
@@ -143,24 +211,21 @@ export function SingleTaskWorkspaceView({
     [leftTaskItems, taskId]
   );
 
-  const activeTask = React.useMemo<TaskItem>(() => {
-    if (foundTask) return foundTask;
-    return {
-      id: taskId,
-      code: taskId,
-      title: "Task " + taskId,
-      phaseCode: "1.1",
-      phaseName: "General",
-      status: "Open" as TaskStatus,
-      authorName: project?.owner.name || "System",
-      owner: project?.owner.name || "Unassigned",
-      description: "",
-      completionPercentage: 0,
-      subtasks: [],
-      remarks: [],
-      activities: [],
-    };
-  }, [foundTask, taskId, project?.owner.name]);
+  const activeTask: TaskItem = foundTask || {
+    id: taskId,
+    code: taskId,
+    title: "Task " + taskId,
+    phaseCode: "1.1",
+    phaseName: "General",
+    status: "Open" as TaskStatus,
+    authorName: project?.owner.name || "System",
+    owner: project?.owner.name || "Unassigned",
+    description: "",
+    completionPercentage: 0,
+    subtasks: [],
+    remarks: [],
+    activities: [],
+  };
 
   const taskNotFound = !isLoading && !foundTask;
 
@@ -313,18 +378,22 @@ export function SingleTaskWorkspaceView({
   const [commentsList, setCommentsList] = useState<
     { id: string; author: string; text: string; time: string }[]
   >([]);
+  const [isSavingComment, setIsSavingComment] = useState(false);
 
   // Subtasks State & Handlers matching reference design
-  const [subtasks, setSubtasks] = useState<TaskSubtask[]>(activeTask.subtasks || []);
-  const [subtaskFilter, setSubtaskFilter] = useState("Only Subtasks");
+  const formatSubtaskCode = (st: TaskSubtask, index: number) => {
+    return `${activeTask.code}.${index + 1}`;
+  };
+
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isAddSubtaskDrawerOpen, setIsAddSubtaskDrawerOpen] = useState(false);
 
-  const [prevSubtaskTaskId, setPrevSubtaskTaskId] = useState(activeTask.id);
-  if (activeTask.id !== prevSubtaskTaskId) {
-    setPrevSubtaskTaskId(activeTask.id);
-    setSubtasks(activeTask.subtasks || []);
-  }
+  const subtasks = React.useMemo(() => {
+    return (activeTask.subtasks || []).map((st, i) => ({
+      ...st,
+      code: st.code || `${activeTask.code}.${i + 1}`,
+    }));
+  }, [activeTask.subtasks, activeTask.code]);
 
   const handleAddSubtaskSubmit = async (customTitle?: string) => {
     const titleToUse = (customTitle || newSubtaskTitle).trim();
@@ -343,7 +412,6 @@ export function SingleTaskWorkspaceView({
       });
       if (created) {
         const updatedSubtasks = [...subtasks, created];
-        setSubtasks(updatedSubtasks);
         const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
         setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
       }
@@ -361,7 +429,6 @@ export function SingleTaskWorkspaceView({
     const updatedSubtasks = subtasks.map((st) =>
       st.id === id ? { ...st, completed: newCompleted, status: newStatus } : st
     );
-    setSubtasks(updatedSubtasks);
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
 
@@ -380,7 +447,6 @@ export function SingleTaskWorkspaceView({
           }
         : st
     );
-    setSubtasks(updatedSubtasks);
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
 
@@ -391,7 +457,6 @@ export function SingleTaskWorkspaceView({
 
   const handleDeleteSubtask = (id: string) => {
     const updatedSubtasks = subtasks.filter((st) => st.id !== id);
-    setSubtasks(updatedSubtasks);
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
 
@@ -625,22 +690,25 @@ export function SingleTaskWorkspaceView({
     const text = commentText.trim();
     if (!text) return;
     setCommentText("");
+    setIsSavingComment(true);
 
     try {
       const created = await createTaskRemarkAction(activeTask.id, text);
       if (created) {
         setCommentsList((prev) => [
-          ...prev,
           {
             id: created.id,
             author: created.authorName,
             text: created.content,
             time: "Just now",
           },
+          ...prev,
         ]);
       }
     } catch (err) {
       console.error("Failed to save comment:", err);
+    } finally {
+      setIsSavingComment(false);
     }
   };
 
@@ -728,106 +796,108 @@ export function SingleTaskWorkspaceView({
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] dark:text-neutral-100">
-      {/* ── Left Sidebar Task List Column ────────────────────────────────────────── */}
-      <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d]">
-        {/* Phase Header Selector */}
-        <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-neutral-800">
-          <div className="relative flex-1 mr-2">
-            <select
-              value={selectedPhase}
-              onChange={(e) => setSelectedPhase(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-bold text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:border-neutral-700 dark:bg-[#1c1e24] dark:text-neutral-200"
-            >
-              {availablePhases.map((phaseLabel) => (
-                <option key={phaseLabel} value={phaseLabel}>
-                  {phaseLabel}
-                </option>
-              ))}
-              <option value="ALL">All Phases</option>
-            </select>
-            <ChevronDown
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-neutral-400"
-            />
-          </div>
-          <button
-            type="button"
-            className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-info transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800"
-            title="Filter List"
-          >
-            <SlidersHorizontal size={14} />
-          </button>
-        </div>
-
-        {/* Task Cards Stack */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-          {filteredLeftTasks.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground dark:text-neutral-400">
-              No tasks found in this phase.
+      {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
+      {!isExpandedView && (
+        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d]">
+          {/* Phase Header Selector */}
+          <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-neutral-800">
+            <div className="relative flex-1 mr-2">
+              <select
+                value={selectedPhase}
+                onChange={(e) => setSelectedPhase(e.target.value)}
+                className="w-full appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-bold text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:border-neutral-700 dark:bg-[#1c1e24] dark:text-neutral-200"
+              >
+                {availablePhases.map((phaseLabel) => (
+                  <option key={phaseLabel} value={phaseLabel}>
+                    {phaseLabel}
+                  </option>
+                ))}
+                <option value="ALL">All Phases</option>
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-neutral-400"
+              />
             </div>
-          ) : (
-            filteredLeftTasks.map((item) => {
-              const isSelected =
-                item.code.toLowerCase() === taskId.toLowerCase() ||
-                item.id.toLowerCase() === taskId.toLowerCase();
+            <button
+              type="button"
+              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-info transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800"
+              title="Filter List"
+            >
+              <SlidersHorizontal size={14} />
+            </button>
+          </div>
 
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelectTaskCard(item.code)}
-                  className={`rounded-xl border p-3 cursor-pointer transition-all duration-150 relative ${
-                    isSelected
-                      ? "border-info bg-info/10 ring-1 ring-info/40 shadow-2xs dark:border-sky-500 dark:bg-[#1e222a] dark:ring-sky-500/40"
-                      : "border-border bg-card hover:border-border/80 hover:bg-accent/40 dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:border-neutral-700 dark:hover:bg-[#20232b]"
-                  }`}
-                >
-                  {/* Top Badge Row */}
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-[11px] font-mono text-muted-foreground dark:text-neutral-400">
-                      {item.code}
-                    </span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                        item.status === "Closed"
-                          ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
-                          : item.status === "In Progress"
-                            ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300"
-                            : "bg-info/15 text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-300"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
+          {/* Task Cards Stack */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+            {filteredLeftTasks.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground dark:text-neutral-400">
+                No tasks found in this phase.
+              </div>
+            ) : (
+              filteredLeftTasks.map((item) => {
+                const isSelected =
+                  item.code.toLowerCase() === taskId.toLowerCase() ||
+                  item.id.toLowerCase() === taskId.toLowerCase();
 
-                  {/* Title */}
-                  <h4
-                    className={`text-xs font-semibold leading-snug line-clamp-2 ${
-                      item.status === "Closed"
-                        ? "line-through text-muted-foreground dark:text-neutral-400"
-                        : "text-foreground dark:text-neutral-100"
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectTaskCard(item.code)}
+                    className={`rounded-xl border p-3 cursor-pointer transition-all duration-150 relative ${
+                      isSelected
+                        ? "border-info bg-info/10 ring-1 ring-info/40 shadow-2xs dark:border-sky-500 dark:bg-[#1e222a] dark:ring-sky-500/40"
+                        : "border-border bg-card hover:border-border/80 hover:bg-accent/40 dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:border-neutral-700 dark:hover:bg-[#20232b]"
                     }`}
                   >
-                    {item.title}
-                  </h4>
+                    {/* Top Badge Row */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] font-mono text-muted-foreground dark:text-neutral-400">
+                        {item.code}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          item.status === "Closed"
+                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
+                            : item.status === "In Progress"
+                              ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300"
+                              : "bg-info/15 text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-300"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
 
-                  {/* Footer Owner & Badges */}
-                  <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground dark:border-neutral-800/80 dark:text-neutral-400">
-                    <span className="truncate max-w-[170px]">
-                      {item.owner || "Unassigned"}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isSelected && (
-                        <Timer size={12} className="text-info animate-pulse dark:text-sky-400" />
-                      )}
-                      <AlertCircle size={12} className="text-muted-foreground/60 dark:text-neutral-500" />
+                    {/* Title */}
+                    <h4
+                      className={`text-xs font-semibold leading-snug line-clamp-2 ${
+                        item.status === "Closed"
+                          ? "line-through text-muted-foreground dark:text-neutral-400"
+                          : "text-foreground dark:text-neutral-100"
+                      }`}
+                    >
+                      {item.title}
+                    </h4>
+
+                    {/* Footer Owner & Badges */}
+                    <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground dark:border-neutral-800/80 dark:text-neutral-400">
+                      <span className="truncate max-w-[170px]">
+                        {item.owner || "Unassigned"}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isSelected && (
+                          <Timer size={12} className="text-info animate-pulse dark:text-sky-400" />
+                        )}
+                        <AlertCircle size={12} className="text-muted-foreground/60 dark:text-neutral-500" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </aside>
+                );
+              })
+            )}
+          </div>
+        </aside>
+      )}
 
       {/* ── Main Right Task Workspace Area ───────────────────────────────────────── */}
       <main className="flex-1 flex flex-col bg-background text-foreground overflow-hidden dark:bg-[#121316] dark:text-neutral-100">
@@ -841,6 +911,9 @@ export function SingleTaskWorkspaceView({
               <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground font-semibold dark:bg-neutral-800 dark:text-neutral-300">
                 {activeTask.code}
               </span>
+              {/* <span className="flex items-center gap-1.5 rounded bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300">
+                <Clock size={12} /> Logged: {formattedTotalTaskHours} h
+              </span> */}
             </div>
             {isEditingTitle ? (
               <input
@@ -875,7 +948,7 @@ export function SingleTaskWorkspaceView({
               <span className="flex items-center gap-1 text-foreground font-medium dark:text-neutral-300">
                 <Folder size={12} className="text-info dark:text-sky-400" /> {project?.name || projectId}
               </span>
-              <span>💬 📎</span>
+              {/* <span>💬 📎</span> */}
               <span>|</span>
 
               {/* Embedded Live Timer Widget */}
@@ -891,39 +964,123 @@ export function SingleTaskWorkspaceView({
           </div>
 
           {/* Right Header Action Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            {toastMessage && (
+              <div className="absolute -bottom-10 right-0 z-50 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background shadow-lg animate-in fade-in-0 duration-200">
+                {toastMessage}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => setIsTimeLogModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
+              className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer"
             >
               <Plus size={14} />
               <span>Time Log</span>
             </button>
+
+            {/* Button 1: More Actions (...) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMoreMenuOpen(!isMoreMenuOpen);
+                  setIsAssignModalOpen(false);
+                }}
+                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+                  isMoreMenuOpen ? "ring-2 ring-primary bg-accent" : ""
+                }`}
+                title="More Actions"
+              >
+                <MoreHorizontal size={16} />
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+                  <button
+                    type="button"
+                    onClick={handleCopyTaskLink}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-neutral-200"
+                  >
+                    <Copy size={14} className="text-primary" />
+                    <span>Copy Task Link</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDuplicateTask}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-neutral-200"
+                  >
+                    <CopyCheck size={14} className="text-info" />
+                    <span>Duplicate Task</span>
+                  </button>
+                  <div className="my-1 border-t border-border dark:border-neutral-800" />
+                  <button
+                    type="button"
+                    onClick={handleDeleteTask}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete Task</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Button 2: Assign User (UserPlus) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAssignModalOpen(!isAssignModalOpen);
+                  setIsMoreMenuOpen(false);
+                }}
+                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+                  isAssignModalOpen ? "ring-2 ring-primary bg-accent" : ""
+                }`}
+                title="Assign User"
+              >
+                <UserPlus size={16} />
+              </button>
+
+              {isAssignModalOpen && (
+                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-border bg-card p-3 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+                  <TaskMultiOwnerSelect
+                    label="Assign Task Members"
+                    selectedOwners={
+                      activeTask.owners && activeTask.owners.length > 0
+                        ? activeTask.owners
+                        : activeTask.owner && activeTask.owner !== "Unassigned"
+                        ? activeTask.owner.split(",").map((s) => s.trim()).filter(Boolean)
+                        : []
+                    }
+                    onChangeOwners={(newOwners) => {
+                      const primaryOwner = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
+                      handleUpdateTaskField({ owners: newOwners, owner: primaryOwner });
+                      showToast("Task assigned members updated");
+                    }}
+                    ownersList={ownersOptions}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Button 3: Expand View (Maximize2 / Minimize2) */}
             <button
               type="button"
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300"
-              title="More Actions"
+              onClick={handleToggleFullscreen}
+              className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+                isExpandedView ? "bg-primary/20 text-primary border-primary" : ""
+              }`}
+              title={isExpandedView ? "Restore Sidebar View" : "Full Width Maximize View"}
             >
-              <MoreHorizontal size={16} />
+              {isExpandedView ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
-            <button
-              type="button"
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300"
-              title="Assign User"
-            >
-              <UserPlus size={16} />
-            </button>
-            <button
-              type="button"
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300"
-              title="Expand View"
-            >
-              <Maximize2 size={16} />
-            </button>
+
+            {/* Button 4: Close (X) */}
             <Link
               href={`/projects/${projectId}`}
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground hover:text-destructive transition-colors ml-1 dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 dark:hover:text-rose-400"
+              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground hover:text-destructive transition-colors ml-1 cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 dark:hover:text-rose-400"
               title="Close Task Detail"
             >
               <X size={16} />
@@ -1058,7 +1215,7 @@ export function SingleTaskWorkspaceView({
           </div>
 
           {/* Task Information Collapsible Section */}
-          <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-neutral-800 dark:bg-[#16181d]">
+          <div className="border border-border rounded-xl bg-card dark:border-neutral-800 dark:bg-[#16181d]">
             <button
               type="button"
               onClick={() => setTaskInfoOpen(!taskInfoOpen)}
@@ -1100,7 +1257,13 @@ export function SingleTaskWorkspaceView({
                         owner: primaryOwnerStr,
                       })
                         .then((result) => {
-                          if (!result.success) {
+                          if (result.success) {
+                            console.log("[DB SAVE SUCCESS] Task owners saved in DB:", {
+                              taskId: activeTask.id,
+                              owners: newOwners,
+                              primaryOwner: primaryOwnerStr,
+                            });
+                          } else {
                             setTasks((prev) =>
                               prev.map((t) => (t.id === activeTask.id ? activeTask : t))
                             );
@@ -1173,6 +1336,10 @@ export function SingleTaskWorkspaceView({
                   <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Duration</span>
                   <span className="font-medium text-foreground dark:text-neutral-100">{activeTask.duration || "2 days"}</span>
                 </div>
+                <div>
+                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Total Logged Hours</span>
+                  <span className="font-bold text-info font-mono text-xs dark:text-sky-400">{formattedTotalTaskHours} h</span>
+                </div>
               </div>
             )}
           </div>
@@ -1212,87 +1379,52 @@ export function SingleTaskWorkspaceView({
             <div className="p-4 space-y-4">
               {activeTab === "COMMENTS" && (
                 <div className="space-y-4">
-                  {/* Rich Text Editor Toolbar Bar */}
-                  <div className="flex flex-wrap items-center gap-1.5 rounded-t-xl border border-border bg-muted/40 p-2 text-xs text-foreground dark:border-neutral-800 dark:bg-[#1c1e24] dark:text-neutral-300">
-                    <button
-                      type="button"
-                      onClick={handleAddComment}
-                      className="p-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors mr-1 dark:bg-sky-500 dark:text-white"
-                      title="Send Comment"
-                    >
-                      <Send size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Bold size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Italic size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Underline size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Strikethrough size={13} />
-                    </button>
+                  {/* Clean Comment Input Box with explicit Save button */}
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs dark:border-neutral-800 dark:bg-[#16181d]">
+                    <textarea
+                      rows={3}
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Write a comment or update on this task..."
+                      className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-neutral-100 dark:placeholder-neutral-500"
+                    />
 
-                    <div className="h-4 w-px bg-border mx-1 dark:bg-neutral-800" />
-
-                    <span className="text-[11px] font-medium text-muted-foreground px-1 dark:text-neutral-400">Puvi</span>
-                    <span className="text-[11px] font-medium text-muted-foreground px-1 dark:text-neutral-400">13</span>
-
-                    <div className="h-4 w-px bg-border mx-1 dark:bg-neutral-800" />
-
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <List size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <ListOrdered size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <LinkIcon size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <ImageIcon size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Code size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <TableIcon size={13} />
-                    </button>
-                    <button type="button" className="p-1 hover:bg-accent rounded dark:hover:bg-neutral-800">
-                      <Quote size={13} />
-                    </button>
-                  </div>
-
-                  {/* Comment Input Textarea */}
-                  <textarea
-                    rows={4}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a comment or update on this task..."
-                    className="w-full rounded-b-xl border border-t-0 border-border bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary resize-none font-sans dark:border-neutral-800 dark:bg-[#121316] dark:text-neutral-100 dark:placeholder-neutral-500 dark:focus:ring-sky-500"
-                  />
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-info hover:underline cursor-pointer dark:text-sky-400">
-                    <Mail size={12} />
-                    <span>To add Task Comment via email</span>
+                    <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-neutral-800/60">
+                      {/* <span className="text-[11px] text-muted-foreground">
+                        Comments are saved to the database and shared with task members.
+                      </span> */}
+                      <button
+                        type="button"
+                        onClick={handleAddComment}
+                        disabled={!commentText.trim() || isSavingComment}
+                        className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0077ee] transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {isSavingComment ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                        <span>Save Comment</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Comments Feed */}
-                  <div className="space-y-3 pt-2">
-                    {commentsList.map((c) => (
-                      <div
-                        key={c.id}
-                        className="rounded-xl border border-border/80 bg-muted/30 p-3 space-y-1 text-xs dark:border-neutral-800/80 dark:bg-[#1c1e24]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-foreground dark:text-neutral-200">{c.author}</span>
-                          <span className="text-[10px] text-muted-foreground dark:text-neutral-400">{c.time}</span>
-                        </div>
-                        <p className="text-foreground/90 leading-relaxed dark:text-neutral-300">{c.text}</p>
+                  <div className="space-y-3 pt-1">
+                    {commentsList.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-muted-foreground italic dark:text-neutral-400">
+                        No comments yet. Post a comment above to start the discussion!
                       </div>
-                    ))}
+                    ) : (
+                      commentsList.map((c) => (
+                        <div
+                          key={c.id}
+                          className="rounded-xl border border-border/80 bg-card p-3.5 space-y-1 text-xs shadow-2xs dark:border-neutral-800/80 dark:bg-[#16181d]"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-foreground dark:text-neutral-200">{c.author}</span>
+                            <span className="text-[10px] text-muted-foreground dark:text-neutral-400">{c.time}</span>
+                          </div>
+                          <p className="text-foreground/90 leading-relaxed dark:text-neutral-300">{c.text}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -1301,19 +1433,10 @@ export function SingleTaskWorkspaceView({
                 <div className="space-y-4 text-xs font-sans">
                   {/* Top Bar matching screenshot */}
                   <div className="flex items-center justify-between pb-2 border-b border-border dark:border-neutral-800">
-                    <div className="flex items-center gap-2">
+                    {/* <div className="flex items-center gap-2 font-bold text-foreground text-xs dark:text-neutral-200">
                       <Layers size={14} className="text-info dark:text-sky-400" />
-                      <select
-                        value={subtaskFilter}
-                        onChange={(e) => setSubtaskFilter(e.target.value)}
-                        className="bg-transparent font-bold text-foreground text-xs outline-none cursor-pointer dark:text-neutral-200"
-                      >
-                        <option value="Only Subtasks">Only Subtasks</option>
-                        <option value="All Subtasks">All Subtasks</option>
-                        <option value="Open Subtasks">Open Subtasks</option>
-                        <option value="Completed Subtasks">Completed Subtasks</option>
-                      </select>
-                    </div>
+                      <span>Only Subtasks</span>
+                    </div> */}
 
                     <button
                       type="button"
@@ -1337,11 +1460,11 @@ export function SingleTaskWorkspaceView({
                               <CheckSquare size={12} /> Status
                             </span>
                           </th>
-                          <th className="py-2.5 px-3 border-r border-border w-40 dark:border-neutral-800">
+                          {/* <th className="py-2.5 px-3 border-r border-border w-40 dark:border-neutral-800">
                             <span className="inline-flex items-center gap-1">
                               <User size={12} /> Owner
                             </span>
-                          </th>
+                          </th> */}
                           <th className="py-2.5 px-3 border-r border-border w-32 dark:border-neutral-800">
                             <span className="inline-flex items-center gap-1">
                               <Calendar size={12} /> Start Date
@@ -1360,7 +1483,7 @@ export function SingleTaskWorkspaceView({
                       <tbody className="divide-y divide-border/60 dark:divide-neutral-800/60">
                         {subtasks.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="py-6 text-center text-muted-foreground italic">
+                            <td colSpan={6} className="py-6 text-center text-muted-foreground italic">
                               No subtasks added yet. Click &quot;Add Subtask&quot; below to create one.
                             </td>
                           </tr>
@@ -1401,9 +1524,9 @@ export function SingleTaskWorkspaceView({
                                   <option value="Closed">Closed</option>
                                 </select>
                               </td>
-                              <td className="py-2 px-3 border-r border-border truncate text-muted-foreground dark:border-neutral-800 dark:text-neutral-300">
-                                {st.ownerName || activeTask.owner || "Unassigned"}
-                              </td>
+                              {/* <td className="py-2 px-3 border-r border-border truncate text-muted-foreground dark:border-neutral-800 dark:text-neutral-300 font-medium">
+                                {activeTask.owner || "Unassigned"}
+                              </td> */}
                               <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-neutral-800 dark:text-neutral-400">
                                 {st.startDate || "--"}
                               </td>
@@ -1432,7 +1555,7 @@ export function SingleTaskWorkspaceView({
                           <td className="py-2.5 px-3 border-r border-border text-muted-foreground font-mono text-[11px] dark:border-neutral-800">
                             {activeTask.code}.{subtasks.length + 1}
                           </td>
-                          <td colSpan={6} className="py-2 px-4">
+                          <td colSpan={5} className="py-2 px-4">
                             <form
                               onSubmit={(e) => {
                                 e.preventDefault();
@@ -1448,7 +1571,7 @@ export function SingleTaskWorkspaceView({
                                 className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 outline-none font-medium"
                               />
 
-                              <button
+                              {/* <button
                                 type="button"
                                 onClick={() => {
                                   const suggestions = [
@@ -1465,7 +1588,7 @@ export function SingleTaskWorkspaceView({
                               >
                                 <Sparkles size={13} />
                                 <span>Suggestions</span>
-                              </button>
+                              </button> */}
 
                               {newSubtaskTitle.trim() && (
                                 <button
@@ -1544,10 +1667,10 @@ export function SingleTaskWorkspaceView({
 
                   {/* Top Header Bar matching reference image */}
                   <div className="flex items-center justify-between pb-2 border-b border-border dark:border-neutral-800">
-                    <h3 className="text-sm font-bold text-foreground dark:text-neutral-100">Time Log Entries</h3>
+                    {/* <h3 className="text-sm font-bold text-foreground dark:text-neutral-100">Time Log Entries</h3> */}
 
-                    <div className="flex items-center gap-2">
-                      {activeTimerStatus === "IDLE" && (
+                    <div className="flex items-center justify-end w-full gap-2">
+                      {/* {activeTimerStatus === "IDLE" && (
                         <button
                           type="button"
                           onClick={handleStartTimer}
@@ -1558,7 +1681,7 @@ export function SingleTaskWorkspaceView({
                           <Play size={13} fill="currentColor" />
                           <span>Start Task Timer</span>
                         </button>
-                      )}
+                      )} */}
 
                       <button
                         type="button"
@@ -1772,9 +1895,10 @@ export function SingleTaskWorkspaceView({
                                         <select
                                           value={log.approvalStatus || "Pending"}
                                           onChange={(e) => handleAutoSaveField(log.id, { approvalStatus: e.target.value as "Pending" | "Approved" | "Rejected" })}
-                                          className="px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors dark:bg-transparent"
+                                          className="px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors dark:bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
                                           onClick={(e) => e.stopPropagation()}
-                                          title="Click to change approval status. Auto-saves automatically."
+                                          disabled={!isProjectOwner}
+                                          title={isProjectOwner ? "Click to change approval status. Auto-saves automatically." : "Only the project owner can change the approval status"}
                                         >
                                           <option value="Pending" className="dark:bg-[#16181d]">Pending</option>
                                           <option value="Approved" className="dark:bg-[#16181d]">Approved</option>
@@ -1900,6 +2024,14 @@ export function SingleTaskWorkspaceView({
                       ))
                   )}
                 </div>
+              )}
+
+              {activeTab === "DOCUMENTS" && (
+                <TaskDocumentsTab taskId={activeTask.id} projectId={projectId} />
+              )}
+
+              {activeTab === "STATUS_TIMELINE" && (
+                <TaskStatusTimelineTab taskId={activeTask.id} />
               )}
 
               {activeTab === "CHECKLIST" && (

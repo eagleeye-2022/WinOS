@@ -114,7 +114,8 @@ export function EditTimeLogModal({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              disabled={!isAdmin}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -126,7 +127,8 @@ export function EditTimeLogModal({
                 required
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={!isAdmin}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
@@ -140,7 +142,8 @@ export function EditTimeLogModal({
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
                 placeholder="01:30"
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={!isAdmin}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           </div>
@@ -153,7 +156,8 @@ export function EditTimeLogModal({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={!isAdmin}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
@@ -162,7 +166,8 @@ export function EditTimeLogModal({
               <select
                 value={billingType}
                 onChange={(e) => setBillingType(e.target.value as "NON BILLABLE" | "BILLABLE")}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={!isAdmin}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="NON BILLABLE">Non-Billable</option>
                 <option value="BILLABLE">Billable</option>
@@ -192,7 +197,8 @@ export function EditTimeLogModal({
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Describe work performed..."
-              className="w-full rounded-lg border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              disabled={!isAdmin}
+              className="w-full rounded-lg border border-input bg-background p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 

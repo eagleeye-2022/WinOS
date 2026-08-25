@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from "next/server";
+import fs from "fs/promises";
+import path from "path";
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = (formData.get("file") || formData.get("attachment")) as File | null;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Ensure upload directory exists
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    // Generate safe unique filename
+    const fileExtension = path.extname(file.name);
+    const baseName = path.basename(file.name, fileExtension).replace(/[^a-zA-Z0-9]/g, "_");
+    const uniqueFileName = `${Date.now()}-${baseName}${fileExtension}`;
+    const filePath = path.join(uploadDir, uniqueFileName);
+
+    // Save to server disk
+    await fs.writeFile(filePath, buffer);
+
+    const fileUrl = `/api/uploads/${uniqueFileName}`;
+
+    return NextResponse.json({
+      success: true,
+      fileName: file.name,
+      storedFileName: uniqueFileName,
+      fileSize: file.size,
+      fileType: file.type,
+      fileUrl,
+    });
+  } catch (error) {
+    console.error("Error processing file upload to /api/upload:", error);
+    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+  }
+}

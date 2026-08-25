@@ -319,10 +319,10 @@ export function AddProjectDrawer({
 
                     // Find matching default tasks for this phase from template
                     const matchingTaskLists = selectedTemplate.phases
-                      .flatMap((p) => p.taskLists)
-                      .filter((tl) => tl.name.startsWith(phase.code) || tl.name.includes(phase.name));
+                      .flatMap((p) => p.taskLists || [])
+                      .filter((tl) => tl && (tl.name.startsWith(phase.code) || tl.name.includes(phase.name)));
 
-                    const defaultTasks = matchingTaskLists.flatMap((tl) => tl.defaultTasks);
+                    const defaultTasks = matchingTaskLists.flatMap((tl) => tl?.defaultTasks || []);
 
                     return (
                       <div

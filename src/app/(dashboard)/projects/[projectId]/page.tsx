@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check, Users, ListTodo } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check, Users, ListTodo, Paperclip, History } from "lucide-react";
 import {
   getProjectByIdAction,
   getTasksAction,
@@ -13,6 +13,8 @@ import {
 import { Project, TaskItem } from "@/features/projects/types";
 import { TasksBoardView } from "@/features/projects/components/views/tasks-board-view";
 import { ProjectUsersView } from "@/features/projects/components/views/project-users-view";
+import { ProjectDocumentsView } from "@/features/projects/components/views/project-documents-view";
+import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
 
 const RECENT_PROJECTS_KEY = "winos:recentProjects";
 const RECENT_PROJECTS_LIMIT = 4;
@@ -38,7 +40,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [assignedToMeCount, setAssignedToMeCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<"TASKS" | "USERS">("TASKS");
+  const [activeTab, setActiveTab] = useState<"TASKS" | "USERS" | "DOCUMENTS" | "TIMELINE">("TASKS");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -143,11 +145,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             <ArrowLeft size={18} />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-foreground">{project.name}</h1>
-              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary font-mono">
-                {project.id}
-              </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-sm font-bold text-muted-foreground">{project.id}</span>
+              <h1 className="text-base font-bold tracking-tight text-foreground">{project.name}</h1>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Owner: <span className="font-medium text-foreground">{project.owner.name}</span> &bull; Status:{" "}
@@ -184,6 +184,32 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             <Users size={14} />
             <span>Project Users</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("DOCUMENTS")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
+              activeTab === "DOCUMENTS"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            }`}
+          >
+            <Paperclip size={14} />
+            <span>Documents</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("TIMELINE")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
+              activeTab === "TIMELINE"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            }`}
+          >
+            <History size={14} />
+            <span>Status Timeline</span>
+          </button>
         </div>
       </div>
 
@@ -202,6 +228,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
         {activeTab === "USERS" && (
           <ProjectUsersView projectId={project.id} projectName={project.name} />
+        )}
+
+        {activeTab === "DOCUMENTS" && (
+          <ProjectDocumentsView projectId={project.id} projectName={project.name} />
+        )}
+
+        {activeTab === "TIMELINE" && (
+          <ProjectStatusTimelineView projectId={project.id} projectName={project.name} />
         )}
       </div>
     </div>

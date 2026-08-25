@@ -58,6 +58,53 @@ interface TimeTrackerViewProps {
   assignedUsers?: string[];
 }
 
+function InlineTextCell({
+  value,
+  onSave,
+  className = "",
+  placeholder = "",
+  mono = false,
+  title = "Click to edit inline",
+}: {
+  value: string;
+  onSave: (val: string) => void;
+  className?: string;
+  placeholder?: string;
+  mono?: boolean;
+  title?: string;
+}) {
+  const [val, setVal] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
+
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setVal(value);
+  }
+
+  return (
+    <input
+      type="text"
+      value={val}
+      placeholder={placeholder}
+      title={title}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={() => {
+        if (val !== value) {
+          onSave(val);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        }
+      }}
+      className={`w-full bg-transparent hover:bg-muted/40 focus:bg-background focus:ring-1 focus:ring-primary rounded px-1.5 py-0.5 border border-transparent focus:border-input outline-hidden transition-all ${
+        mono ? "font-mono" : ""
+      } ${className}`}
+    />
+  );
+}
+
 export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers }: TimeTrackerViewProps) {
   const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
   const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
@@ -67,8 +114,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     setUserGroups(initialGroups);
   }
 
-  // Role Perspective Switcher
-  const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("ADMIN");
+  // Role Perspective Switcher — derived from the signed-in user's real workspace role.
+  const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
+
+  useEffect(() => {
+    getCurrentUserRoleAction().then((role) => {
+      setRoleMode(role === "ADMIN" ? "ADMIN" : "USER");
+    });
+  }, []);
 
   // Default views matching the user screenshot
   const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
@@ -95,8 +148,52 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   const [modalTargetDate, setModalTargetDate] = useState("");
   const [modalTargetProject, setModalTargetProject] = useState("");
 
-  // Date range navigator string
-  const [dateRangeStr, setDateRangeStr] = useState("17/08/2026 to 23/08/2026 (WEEK - 34)");
+  // Date range navigator — weekOffset 0 is the week containing today
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const getMondayOfWeek = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const formatDDMMYYYY = (date: Date): string => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${date.getFullYear()}`;
+  };
+
+  const getISOWeekNumber = (date: Date): number => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  };
+
+  const currentWeekStart = React.useMemo(() => {
+    const monday = getMondayOfWeek(new Date());
+    monday.setDate(monday.getDate() + weekOffset * 7);
+    return monday;
+  }, [weekOffset]);
+
+  const currentWeekEnd = React.useMemo(() => {
+    const end = new Date(currentWeekStart);
+    end.setDate(end.getDate() + 6);
+    return end;
+  }, [currentWeekStart]);
+
+  const dateRangeStr = `${formatDDMMYYYY(currentWeekStart)} to ${formatDDMMYYYY(currentWeekEnd)} (WEEK - ${getISOWeekNumber(currentWeekStart)})`;
+
+  const parseDDMMYYYYToDate = (dateStr: string): Date | null => {
+    const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    return new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+  };
 
   // Collapsible date sections state
   const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
@@ -285,6 +382,83 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     }
   };
 
+  const handleInlineApprovalChange = async (logId: string, approvalStatus: "Pending" | "Approved" | "Rejected") => {
+    const previousGroups = userGroups;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) => (l.id === logId ? { ...l, approvalStatus } : l)),
+      }))
+    );
+    try {
+      await updateTimeLogAction(logId, { approvalStatus });
+    } catch (err) {
+      console.error("Failed to update approval status:", err);
+      setUserGroups(previousGroups);
+    }
+  };
+
+  const handleInlineFieldChange = async (
+    logId: string,
+    field: keyof TimeLogEntry,
+    value: string
+  ) => {
+    const previousGroups = userGroups;
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) => (l.id === logId ? { ...l, [field]: value } : l)),
+      }))
+    );
+    try {
+      await updateTimeLogAction(logId, { [field]: value });
+    } catch (err) {
+      console.error(`Failed to update ${field}:`, err);
+      setUserGroups(previousGroups);
+    }
+  };
+
+  const handleAddInlineTimeLog = async (dateStr?: string) => {
+    const targetDate = dateStr || new Date().toISOString().split("T")[0];
+    try {
+      const createdLog = await createTimeLogAction(
+        {
+          title: "Test",
+          project: projectName || "gas",
+          duration: "00:01",
+          timePeriod: "03:00 - 03:01",
+          date: targetDate,
+          billingType: "BILLABLE",
+          approvalStatus: "Pending",
+          remarks: "",
+        },
+        projectId
+      );
+
+      setUserGroups((prev) => {
+        const next = [...prev];
+        if (next.length > 0) {
+          next[0] = {
+            ...next[0],
+            timeLogs: [createdLog, ...next[0].timeLogs],
+          };
+        } else {
+          next.push({
+            userId: createdLog.userId || "user-1",
+            userName: createdLog.userName || "User",
+            userInitials: createdLog.userInitials || "US",
+            avatarColor: "bg-primary text-primary-foreground",
+            dailyLogHours: "00:01 | 00:01 | 00:00",
+            timeLogs: [createdLog],
+          });
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to add inline time log:", err);
+    }
+  };
+
   const handleDeleteSingleLog = async (logId: string) => {
     if (!confirm("Are you sure you want to delete this time log?")) return;
     try {
@@ -348,6 +522,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Applied Filtering
   const filteredAllLogs = rawAllLogs.filter((l) => {
+    const normalizedLogDate = parseDDMMYYYYToDate(normalizeDateStr(l.date));
+    if (normalizedLogDate && (normalizedLogDate < currentWeekStart || normalizedLogDate > currentWeekEnd)) return false;
     if (filterUser !== "ALL" && l.userName.toLowerCase() !== filterUser.toLowerCase()) return false;
     if (filterProject !== "ALL" && l.project.toLowerCase() !== filterProject.toLowerCase()) return false;
     if (filterBilling !== "ALL" && l.billingType !== filterBilling) return false;
@@ -627,6 +803,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground bg-card border border-border px-3 py-1 rounded-md shadow-2xs">
           <button
             type="button"
+            onClick={() => setWeekOffset((w) => w - 1)}
             className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="Previous Week"
           >
@@ -636,11 +813,22 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           <span>{dateRangeStr}</span>
           <button
             type="button"
+            onClick={() => setWeekOffset((w) => w + 1)}
             className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="Next Week"
           >
             <ChevronRight size={14} />
           </button>
+          {weekOffset !== 0 && (
+            <button
+              type="button"
+              onClick={() => setWeekOffset(0)}
+              className="ml-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              title="Jump to current week"
+            >
+              Today
+            </button>
+          )}
         </div>
 
         {/* Right Action Buttons & Batch Operations */}
@@ -913,11 +1101,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <td className="py-2 px-3 border-r border-border text-center" />
                           <td
                             colSpan={9}
-                            onClick={() => handleOpenAddModalForDate(group.date)}
+                            onClick={() => handleAddInlineTimeLog(group.date)}
                             className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors flex items-center justify-between"
                           >
-                            <span>Add Time Log</span>
-                            <Plus size={14} className="text-primary" />
+                            <div className="flex items-center gap-1.5 text-primary font-semibold">
+                              <Plus size={14} />
+                              <span>Add Time Log</span>
+                            </div>
+                            {/* <span className="text-[10px] text-muted-foreground font-normal">Click to add new inline editable row</span> */}
                           </td>
                         </tr>
 
@@ -932,7 +1123,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 type="checkbox"
                                 checked={selectedLogIds.includes(log.id)}
                                 onChange={() => handleToggleSelectLog(log.id)}
-                                className="rounded border-input bg-background text-primary h-3.5 w-3.5"
+                                className="rounded border-input bg-background text-primary h-3.5 w-3.5 cursor-pointer"
                               />
                             </td>
 
@@ -954,12 +1145,28 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               </div>
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-border font-mono font-bold text-foreground whitespace-nowrap">
-                              {log.duration}
+                            {/* Daily Log Hours Column — INLINE EDITABLE */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                              <InlineTextCell
+                                value={log.duration}
+                                onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                                mono
+                                placeholder="00:00"
+                                className="font-mono font-bold text-foreground min-w-[70px]"
+                                title="Click to edit Daily Log Hours inline"
+                              />
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                              {log.timePeriod}
+                            {/* Time Period Column — INLINE EDITABLE */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                              <InlineTextCell
+                                value={log.timePeriod}
+                                onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
+                                mono
+                                placeholder="00:00 - 00:00"
+                                className="text-[11px] text-muted-foreground min-w-[110px]"
+                                title="Click to edit Time Period inline"
+                              />
                             </td>
 
                             {/* User Column */}
@@ -972,36 +1179,61 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               </div>
                             </td>
 
-                            {/* Billing Type Column */}
-                            <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
-                              <span
-                                className={`font-semibold ${log.billingType === "BILLABLE"
-                                    ? "text-info"
-                                    : "text-warning"
-                                  }`}
+                            {/* Billing Type Column — INLINE EDITABLE */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                              <select
+                                value={log.billingType}
+                                onChange={(e) =>
+                                  handleInlineFieldChange(
+                                    log.id,
+                                    "billingType",
+                                    e.target.value as "BILLABLE" | "NON BILLABLE"
+                                  )
+                                }
+                                className={`rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold cursor-pointer outline-hidden transition-all ${
+                                  log.billingType === "BILLABLE" ? "text-info font-bold" : "text-warning font-bold"
+                                }`}
+                                title="Click to edit Billing Type inline"
                               >
-                                {log.billingType}
-                              </span>
+                                <option value="BILLABLE" className="bg-card text-info font-bold">
+                                  BILLABLE
+                                </option>
+                                <option value="NON BILLABLE" className="bg-card text-warning font-bold">
+                                  NON BILLABLE
+                                </option>
+                              </select>
                             </td>
 
-                            {/* Approval Status Column */}
-                            <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
-                              {log.approvalStatus === "Approved" ? (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold">
-                                  <CheckCircle2 size={12} /> Approved
-                                </span>
-                              ) : log.approvalStatus === "Rejected" ? (
-                                <span
-                                  title={log.rejectionReason ? `Reason: ${log.rejectionReason}` : "Rejected"}
-                                  className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold cursor-help"
-                                >
-                                  <XCircle size={12} /> Rejected
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold">
-                                  <Clock size={12} /> Pending Approval
-                                </span>
-                              )}
+                            {/* Approval Status Column — INLINE EDITABLE */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                              <select
+                                value={log.approvalStatus || "Pending"}
+                                onChange={(e) =>
+                                  handleInlineFieldChange(
+                                    log.id,
+                                    "approvalStatus",
+                                    e.target.value as "Pending" | "Approved" | "Rejected"
+                                  )
+                                }
+                                title="Click to change approval status inline"
+                                className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                                  log.approvalStatus === "Approved"
+                                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                    : log.approvalStatus === "Rejected"
+                                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                    : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                                }`}
+                              >
+                                <option value="Pending" className="bg-card text-amber-600 font-bold">
+                                  Pending Approval
+                                </option>
+                                <option value="Approved" className="bg-card text-emerald-600 font-bold">
+                                  Approved
+                                </option>
+                                <option value="Rejected" className="bg-card text-rose-600 font-bold">
+                                  Rejected
+                                </option>
+                              </select>
                             </td>
 
                             {/* Actions Column */}
@@ -1014,7 +1246,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                     setIsEditModalOpen(true);
                                   }}
                                   className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                  title="Edit Time Log"
+                                  title="Edit Details Modal"
                                 >
                                   <Edit2 size={13} />
                                 </button>
@@ -1115,7 +1347,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           key={log.id}
                           className="hover:bg-accent/30 transition-colors border-b border-border text-foreground"
                         >
-                          <td className="py-3 px-3 border-r border-border text-center">
+                          <td className="py-2.5 px-3 border-r border-border text-center">
                             <input
                               type="checkbox"
                               checked={selectedLogIds.includes(log.id)}
@@ -1124,62 +1356,110 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             />
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
                             {log.code}
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <ClipboardList size={14} className="text-muted-foreground" />
+                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                               <span>{log.title}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border text-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
-                              <Folder size={14} className="text-muted-foreground" />
+                              <Folder size={14} className="text-muted-foreground shrink-0" />
                               <span>{log.project}</span>
                             </div>
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border font-mono font-bold text-foreground whitespace-nowrap">
-                            {log.duration}
+                          {/* Daily Log Hours Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.duration}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                              mono
+                              placeholder="00:00"
+                              className="font-mono font-bold text-foreground min-w-[70px]"
+                              title="Click to edit Daily Log Hours inline"
+                            />
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                            {log.timePeriod}
+                          {/* Time Period Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.timePeriod}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
+                              mono
+                              placeholder="00:00 - 00:00"
+                              className="text-[11px] text-muted-foreground min-w-[110px]"
+                              title="Click to edit Time Period inline"
+                            />
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                             {log.date}
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border whitespace-nowrap">
-                            <span className={`font-semibold ${log.billingType === "BILLABLE" ? "text-info" : "text-warning"}`}>
-                              {log.billingType}
-                            </span>
+                          {/* Billing Type Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <select
+                              value={log.billingType}
+                              onChange={(e) =>
+                                handleInlineFieldChange(
+                                  log.id,
+                                  "billingType",
+                                  e.target.value as "BILLABLE" | "NON BILLABLE"
+                                )
+                              }
+                              className={`rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold cursor-pointer outline-hidden transition-all ${
+                                log.billingType === "BILLABLE" ? "text-info font-bold" : "text-warning font-bold"
+                              }`}
+                              title="Click to edit Billing Type inline"
+                            >
+                              <option value="BILLABLE" className="bg-card text-info font-bold">
+                                BILLABLE
+                              </option>
+                              <option value="NON BILLABLE" className="bg-card text-warning font-bold">
+                                NON BILLABLE
+                              </option>
+                            </select>
                           </td>
 
-                          <td className="py-3 px-4 border-r border-border whitespace-nowrap">
-                            {log.approvalStatus === "Approved" ? (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold">
-                                <CheckCircle2 size={12} /> Approved
-                              </span>
-                            ) : log.approvalStatus === "Rejected" ? (
-                              <span
-                                title={log.rejectionReason ? `Reason: ${log.rejectionReason}` : "Rejected"}
-                                className="inline-flex items-center gap-1 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-bold cursor-help"
-                              >
-                                <XCircle size={12} /> Rejected
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold">
-                                <Clock size={12} /> Pending Approval
-                              </span>
-                            )}
+                          {/* Approval Status Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <select
+                              value={log.approvalStatus || "Pending"}
+                              onChange={(e) =>
+                                handleInlineFieldChange(
+                                  log.id,
+                                  "approvalStatus",
+                                  e.target.value as "Pending" | "Approved" | "Rejected"
+                                )
+                              }
+                              title="Click to change approval status inline"
+                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                                log.approvalStatus === "Approved"
+                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                  : log.approvalStatus === "Rejected"
+                                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              }`}
+                            >
+                              <option value="Pending" className="bg-card text-amber-600 font-bold">
+                                Pending Approval
+                              </option>
+                              <option value="Approved" className="bg-card text-emerald-600 font-bold">
+                                Approved
+                              </option>
+                              <option value="Rejected" className="bg-card text-rose-600 font-bold">
+                                Rejected
+                              </option>
+                            </select>
                           </td>
 
-                          <td className="py-3 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
+                          <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
                             {log.remarks || "—"}
                           </td>
                         </tr>

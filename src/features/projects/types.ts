@@ -60,7 +60,8 @@ export interface SOPPhaseTemplate {
   code: string;
   name: string;
   departmentAlias: string;
-  taskLists: SOPTaskListTemplate[];
+  tasks?: SOPTaskSeed[];
+  taskLists?: SOPTaskListTemplate[];
 }
 
 export interface ProjectTemplate {
@@ -208,6 +209,7 @@ export interface TaskItem {
   code: string; // e.g. WI1-T11
   title: string;
   parentTaskId?: string; // set when this task is really a subtask of another ProjectTask
+  projectId?: string; // the owning Project's id — needed to build /projects/:projectId links from cross-project views
   phaseCode: string; // e.g. "2.1"
   phaseName: string; // e.g. "IDEATION & CONCEPTUALIZATION" or "UI/UX DESIGNING"
   taskListId?: string;
@@ -288,4 +290,26 @@ export interface UserTimeGroup {
   dailyLogHours: string; // e.g. "05:07 | 01:51 | 03:16" or "Total: 01:00"
   isExpanded?: boolean;
   timeLogs: TimeLogEntry[];
+}
+
+export interface ProjectDocument {
+  id: string;
+  projectId: string;
+  name: string;
+  fileUrl: string;
+  sizeBytes: number;
+  mimeType: string;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export interface ProjectTimelineEvent {
+  id: string;
+  projectId: string;
+  type: "CREATED" | "UPDATED" | "STATUS_CHANGE" | "TASK_ADDED" | "PHASE_COMPLETED" | "USER_ASSIGNED" | "DOCUMENT_UPLOADED";
+  title: string;
+  description: string;
+  actorName: string;
+  actorAvatarColor?: string;
+  timestamp: string;
 }
