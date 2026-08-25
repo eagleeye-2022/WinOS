@@ -7,6 +7,9 @@ import { PermissionAccessWorkspace } from "@/features/users/components/permissio
 export default async function ProfileAccessPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
+  if ((session.user as { role?: string })?.role !== "MANAGER") {
+    redirect(ROUTES.dashboard);
+  }
 
   const [userModules, clientModules, systemModules] = await Promise.all([
     getPermissionMatrixAction("USER"),

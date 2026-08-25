@@ -186,10 +186,17 @@ export function ProjectsWorkspace() {
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
+    const previous = tasks.find((t) => t.id === updatedTask.id);
     setTasks((prev) =>
       prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
     );
-    await updateTaskAction(updatedTask.id, updatedTask);
+    const result = await updateTaskAction(updatedTask.id, updatedTask);
+    if (!result.success) {
+      if (previous) {
+        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
+      }
+      alert(result.error || "You do not have permission to edit this task.");
+    }
   };
 
   const handleOpenInviteModal = (type: UserType) => {

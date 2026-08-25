@@ -347,13 +347,16 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
 export type MemberDsrReview = {
   user: { id: string; name: string | null; email: string; title: string | null };
   todayEntry: DsrEntryData | null;
+  focusedEntry: DsrEntryData | null;
   weekEntries: DsrEntryData[];
   todayDsmReviewed: boolean;
+  focusedDsmReviewed: boolean;
 };
 
 export async function getMemberDsrReview(
   memberId: string,
-  weekOffset = 0
+  weekOffset = 0,
+  targetDate?: Date
 ): Promise<MemberDsrReview | null> {
   const managerId = await requireManager();
   if (!managerId) return null;
@@ -375,6 +378,26 @@ export async function getMemberDsrReview(
     include: dsrInclude,
   });
 
+  let focusedEntry = todayEntry;
+  let focusedDsmStandup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: memberId, date: today } },
+    select: { status: true },
+  });
+
+  if (targetDate) {
+    const utcTarget = toUtcDate(targetDate);
+    if (utcTarget.getTime() !== today.getTime()) {
+      focusedEntry = await d.dsrEntry.findUnique({
+        where: { userId_date: { userId: memberId, date: utcTarget } },
+        include: dsrInclude,
+      });
+      focusedDsmStandup = await d.standupEntry.findUnique({
+        where: { userId_date: { userId: memberId, date: utcTarget } },
+        select: { status: true },
+      });
+    }
+  }
+
   const weekEntries = await d.dsrEntry.findMany({
     where: { userId: memberId, date: { gte: start, lte: end } },
     include: dsrInclude,
@@ -389,7 +412,9 @@ export async function getMemberDsrReview(
   return {
     user,
     todayEntry: todayEntry as DsrEntryData | null,
+    focusedEntry: focusedEntry as DsrEntryData | null,
     weekEntries: weekEntries as DsrEntryData[],
     todayDsmReviewed: todayStandup?.status === "REVIEWED",
+    focusedDsmReviewed: focusedDsmStandup?.status === "REVIEWED",
   };
 }

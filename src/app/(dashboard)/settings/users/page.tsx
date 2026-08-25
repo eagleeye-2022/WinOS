@@ -11,6 +11,9 @@ import { TeamWorkspace } from "@/features/users/components/team-workspace";
 export default async function SettingsUsersPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
+  if ((session.user as { role?: string })?.role !== "MANAGER") {
+    redirect(ROUTES.dashboard);
+  }
 
   const [members, employeeTree, departmentTree] = await Promise.all([
     getTeamMembersAction(),

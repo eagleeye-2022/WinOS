@@ -33,8 +33,15 @@ export default function MyTasksPage() {
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
+    const previous = tasks.find((t) => t.id === updatedTask.id);
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
-    await updateTaskAction(updatedTask.id, updatedTask);
+    const result = await updateTaskAction(updatedTask.id, updatedTask);
+    if (!result.success) {
+      if (previous) {
+        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
+      }
+      alert(result.error || "You do not have permission to edit this task.");
+    }
   };
 
   const unassignedCount = tasks.filter((t) => !t.owner || t.owner === "Unassigned").length;
@@ -55,9 +62,9 @@ export default function MyTasksPage() {
           <ListTodo size={22} className="text-primary" />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">My Assigned Tasks</h1>
-            <p className="text-xs text-muted-foreground">
+            {/* <p className="text-xs text-muted-foreground">
               Cross-project task list filtered by your active user assignment.
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -88,6 +95,7 @@ export default function MyTasksPage() {
           onAddTask={handleAddTask}
           onUpdateTask={handleUpdateTask}
           assignedToMeCount={tasks.length}
+          disableDemoFallback
         />
       </div>
     </div>

@@ -101,12 +101,13 @@ export function TaskDetailDrawer({
   >([]);
 
   useEffect(() => {
-    getOwnersAndTeamsAction()
+    const pCode = (task as { projectId?: string } | null)?.projectId || (task?.code ? task.code.split("-T")[0] : undefined);
+    getOwnersAndTeamsAction(pCode)
       .then((res) => {
         if (res.owners) setOwnersList(res.owners);
       })
       .catch((err) => console.error("Failed to load owners for detail drawer:", err));
-  }, []);
+  }, [task?.id, task?.code]);
   const [workHours, setWorkHours] = useState("00:00");
   const [startDate, setStartDate] = useState(task?.startDate || "--");
   const [dueDate, setDueDate] = useState(task?.dueDate || "--");

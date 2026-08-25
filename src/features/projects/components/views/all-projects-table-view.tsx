@@ -131,7 +131,14 @@ export function AllProjectsTableView({
       {/* Top Main Bar: Title & Action Button */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight">All Projects</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {userRole === "TEAM_MEMBER" ? "My Assigned Projects" : "All Projects"}
+          </h1>
+          {userRole === "TEAM_MEMBER" && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              Assigned to you
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 relative">

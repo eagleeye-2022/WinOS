@@ -24,7 +24,7 @@ import { addBlocker, type AddBlockerState } from "@/features/blockers/actions/ad
 import { editSupport, type EditSupportState } from "@/features/support-needed/actions/edit-support";
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
-import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -234,7 +234,7 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
 
 // ── Manager: Add task ─────────────────────────────────────────────────────────
 
-function AddTaskRow({ entryId }: { entryId: string }) {
+function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODAY" | "YESTERDAY" }) {
   const [adding, setAdding] = useState(false);
   const [priority, setPriority] = useState<string>("P1");
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
@@ -261,7 +261,7 @@ function AddTaskRow({ entryId }: { entryId: string }) {
       className="mt-2 flex flex-col gap-1.5 rounded-lg border p-2 bg-background"
     >
       <input type="hidden" name="entryId" value={entryId} />
-      <input type="hidden" name="kind" value="TODAY" />
+      <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="priority" value={priority} />
 
       <div className="flex items-center gap-2">
@@ -1242,6 +1242,66 @@ function TaskRow({
   );
 }
 
+// ── Yesterday tasks section (priority & edit aware) ───────────────────────────
+
+function YesterdayTasksSection({
+  tasks,
+  isLocked,
+  entryId,
+}: {
+  tasks: { id?: string; text: string; isCompleted: boolean }[];
+  isLocked: boolean;
+  entryId: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+        <CheckCircle2 size={15} className="text-primary" />
+        What Did You Do Yesterday?
+        <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+          {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+        </span>
+      </h3>
+      {tasks.length > 0 ? (
+        <div className="space-y-1.5">
+          {tasks.map((task, i) => (
+            <div key={task.id || i} className="group/task flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
+              <div className="flex flex-1 items-center gap-2 min-w-0">
+                {task.isCompleted ? (
+                  <CheckCircle2 size={16} className="shrink-0 text-success" />
+                ) : (
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-warning/50 bg-warning/10 text-[10px] font-bold text-warning">
+                    •
+                  </span>
+                )}
+                <span className={cn("text-sm leading-snug truncate flex-1", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
+                  {task.text}
+                </span>
+                {!task.isCompleted && (
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
+                    CO
+                  </span>
+                )}
+              </div>
+              {!isLocked && task.id && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <EditTaskRow taskId={task.id} text={task.text} />
+                  <DeleteTaskButton taskId={task.id} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground italic">No tasks logged for yesterday.</p>
+      )}
+
+      {/* Manager can add yesterday tasks */}
+      <AddTaskRow entryId={entryId} kind="YESTERDAY" />
+    </div>
+  );
+}
+
 function TodayTasksSection({
   tasks,
   isLocked,
@@ -1543,40 +1603,11 @@ function EntryExpanded({
   return (
     <div className="space-y-4">
       {/* Yesterday completed */}
-      <div className="rounded-xl border bg-card p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-          <CheckCircle2 size={15} className="text-primary" />
-          What Did You Do Yesterday?
-          <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-            {yesterdayTasks.length} task{yesterdayTasks.length !== 1 ? "s" : ""}
-          </span>
-        </h3>
-        {yesterdayTasks.length > 0 ? (
-          <div className="space-y-2">
-            {yesterdayTasks.map((task, i) => (
-              <div key={task.id || i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
-                {task.isCompleted ? (
-                  <CheckCircle2 size={16} className="shrink-0 text-success" />
-                ) : (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-warning/50 bg-warning/10 text-[10px] font-bold text-warning">
-                    •
-                  </span>
-                )}
-                <span className={cn("text-sm leading-snug truncate", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
-                  {task.text}
-                </span>
-                {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
-                    CO
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground italic">No tasks logged for yesterday.</p>
-        )}
-      </div>
+      <YesterdayTasksSection
+        tasks={yesterdayTasks}
+        isLocked={isLocked}
+        entryId={entry.id}
+      />
 
       {/* Today tasks + priority */}
       {(todayTasks.length > 0 || !isLocked) && (
@@ -1911,13 +1942,15 @@ function DayCardCollapsed({
   allEntries = [],
   teamMembers = [],
   memberUser,
+  defaultOpen = false,
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
   memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const review = reviewStatus({
     status: entry.status,
     date: entry.date,
@@ -2013,9 +2046,10 @@ type Props = {
   review: MemberReview;
   weekOffset: number;
   teamMembers?: TeamMember[];
+  selectedDateStr?: string;
 };
 
-export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Props) {
+export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr }: Props) {
   const router = useRouter();
   const { user, entries } = review;
 
@@ -2069,14 +2103,14 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
           {/* Week navigation */}
           <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
             <Link
-              href={`/dsm/member/${user.id}?w=${weekOffset - 1}`}
+              href={`/dsm/member/${user.id}?w=${weekOffset - 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}`}
               className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ChevronLeft size={16} />
             </Link>
             <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
             <Link
-              href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}` : `/dsm/member/${user.id}`}
+              href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}` : `/dsm/member/${user.id}`}
               className={cn(
                 "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
                 !canGoForward && "pointer-events-none opacity-30"
@@ -2094,10 +2128,20 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [] }: Pro
           {/* Today entry — expanded by default */}
           {todayEntry && <TodayEntryCard entry={todayEntry} allEntries={entries} teamMembers={teamMembers} memberUser={user} />}
 
-          {/* Previous days — collapsed by default */}
-          {otherEntries.map((entry) => (
-            <DayCardCollapsed key={entry.id} entry={entry} allEntries={entries} teamMembers={teamMembers} memberUser={user} />
-          ))}
+          {/* Previous days — auto-expanded if matching selectedDateStr */}
+          {otherEntries.map((entry) => {
+            const isTargetDate = selectedDateStr ? toIsoDateStr(toUtcDate(entry.date)) === selectedDateStr : false;
+            return (
+              <DayCardCollapsed
+                key={entry.id}
+                entry={entry}
+                allEntries={entries}
+                teamMembers={teamMembers}
+                memberUser={user}
+                defaultOpen={isTargetDate}
+              />
+            );
+          })}
 
           {displayedEntries.length === 0 && (
             <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">

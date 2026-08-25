@@ -15,6 +15,9 @@ type Props = {
 export default async function EditMemberPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
+  if ((session.user as { role?: string })?.role !== "MANAGER") {
+    redirect(ROUTES.dashboard);
+  }
 
   const { userId } = await params;
 

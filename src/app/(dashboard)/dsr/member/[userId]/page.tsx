@@ -13,7 +13,7 @@ import { relativeDayLabel } from "@/features/dsm/utils";
 
 type Props = {
   params: Promise<{ userId: string }>;
-  searchParams: Promise<{ w?: string; reviewed?: string }>;
+  searchParams: Promise<{ w?: string; reviewed?: string; date?: string }>;
 };
 
 export default async function DsrMemberPage({ params, searchParams }: Props) {
@@ -26,9 +26,16 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justReviewed = sp.reviewed === "1";
+  const dateParam = sp.date;
+
+  let targetDate: Date | undefined = undefined;
+  if (dateParam) {
+    const [year, month, day] = dateParam.split("-").map(Number);
+    targetDate = new Date(year, month - 1, day);
+  }
 
   const [review, workspaceNote, sharedItems, dsmReview] = await Promise.all([
-    getMemberDsrReview(userId, weekOffset),
+    getMemberDsrReview(userId, weekOffset, targetDate),
     getMemberWorkspaceNote(userId),
     getSharedWorkspaceNotes(userId),
     getMemberReview(userId, 0),
@@ -36,7 +43,8 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
 
   if (!review) redirect(ROUTES.dsrManage);
 
-  const insights = await getDsrInsights(review.todayEntry ?? null, userId);
+  const activeEntry = review.focusedEntry ?? review.todayEntry;
+  const insights = await getDsrInsights(activeEntry ?? null, userId);
   const dsmTodayEntry = dsmReview?.entries.find((e) => relativeDayLabel(e.date) === "Today");
 
   return (
@@ -46,6 +54,7 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
           review={review}
           weekOffset={weekOffset}
           showHistory={justReviewed}
+          selectedDateStr={dateParam}
         />
       </div>
       <aside className="flex h-full min-h-0 w-80  flex-col overflow-y-auto border-l bg-card xl:w-96">

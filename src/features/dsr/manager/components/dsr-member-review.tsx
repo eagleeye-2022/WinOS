@@ -30,15 +30,18 @@ function DateEntryHeader({ entry }: { entry: DsrEntryData }) {
     reviewedBy: entry.reviewedBy,
   });
   const dateStr = formatShortDate(entry.date);
+  const dayLabel = relativeDayLabel(entry.date);
 
   return (
     <div className="flex items-center justify-between rounded-xl border bg-card px-5 py-3">
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            Today
-          </span>
+          {dayLabel && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {dayLabel}
+            </span>
+          )}
         </div>
         {(entry.status === "SUBMITTED" ||
           entry.status === "PENDING_REVIEW" ||
@@ -722,11 +725,12 @@ type Props = {
   review: MemberDsrReview;
   weekOffset: number;
   showHistory?: boolean;
+  selectedDateStr?: string;
 };
 
-export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
+export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateStr }: Props) {
   const router = useRouter();
-  const { user, todayEntry, weekEntries, todayDsmReviewed } = review;
+  const { user, todayEntry, focusedEntry, weekEntries, todayDsmReviewed, focusedDsmReviewed } = review;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -739,14 +743,18 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
       window.removeEventListener("focus", handleFocus);
     };
   }, [router]);
+
   const { start, end } = getWeekRange(weekOffset);
   const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
 
-  const memberFirstName = user.name?.split(" ")[0] ?? "Member";
-  const isReviewed = todayEntry?.status === "REVIEWED";
+  const activeEntry = focusedEntry ?? todayEntry;
+  const activeDsmReviewed = focusedEntry ? focusedDsmReviewed : todayDsmReviewed;
 
-  const shouldShowHistory = showHistory || !todayEntry;
+  const memberFirstName = user.name?.split(" ")[0] ?? "Member";
+  const isReviewed = activeEntry?.status === "REVIEWED";
+
+  const shouldShowHistory = showHistory || !activeEntry;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -776,14 +784,14 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
           </div>
           <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
             <Link
-              href={`/dsr/member/${user.id}?w=${weekOffset - 1}`}
+              href={`/dsr/member/${user.id}?w=${weekOffset - 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}`}
               className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ChevronLeft size={16} />
             </Link>
             <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
             <Link
-              href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}` : `/dsr/member/${user.id}`}
+              href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}` : `/dsr/member/${user.id}`}
               className={cn(
                 "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
                 !canGoForward && "pointer-events-none opacity-30"
@@ -797,34 +805,34 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
 
       {/* Scrollable body */}
       <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
-        {!shouldShowHistory && todayEntry ? (
+        {!shouldShowHistory && activeEntry ? (
           <div className="flex flex-col gap-5">
             {/* Date entry header strip — matches image 2 */}
-            <DateEntryHeader entry={todayEntry} />
+            <DateEntryHeader entry={activeEntry} />
 
             {/* Review detail — left content wider (3fr), right actions narrower (2fr) */}
             <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
               {/* Left: content cards */}
               <div className="flex flex-col gap-4">
-                <ResultCard entry={todayEntry} />
-                <TaskProgressCard entry={todayEntry} locked={!todayDsmReviewed} />
-                <AdditionalWorkCard entry={todayEntry} />
-                <BlockersSupportCard entry={todayEntry} />
-                <LearningCard entry={todayEntry} locked={!todayDsmReviewed} />
-                {/* <SentimentCard entry={todayEntry} /> */}
+                <ResultCard entry={activeEntry} />
+                <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} />
+                <AdditionalWorkCard entry={activeEntry} />
+                <BlockersSupportCard entry={activeEntry} />
+                <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
+                {/* <SentimentCard entry={activeEntry} /> */}
               </div>
 
               {/* Right: reviewer actions + timeline */}
               <div className="flex flex-col gap-4">
                 <ReviewerActionsCard
-                  entryId={todayEntry.id}
+                  entryId={activeEntry.id}
                   userId={user.id}
                   memberName={memberFirstName}
                   isReviewed={isReviewed}
-                  dsmReviewed={todayDsmReviewed}
-                  managerComment={todayEntry.managerComment}
+                  dsmReviewed={activeDsmReviewed}
+                  managerComment={activeEntry.managerComment}
                 />
-                <TimelineCard events={todayEntry.timelineEvents} />
+                <TimelineCard events={activeEntry.timelineEvents} />
               </div>
             </div>
           </div>
@@ -846,7 +854,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory }: Props) {
                 <DsrHistoryCard
                   key={entry.id}
                   entry={entry}
-                  defaultOpen={relativeDayLabel(entry.date) === "Today"}
+                  defaultOpen={selectedDateStr ? relativeDayLabel(entry.date) === "Yesterday" || relativeDayLabel(entry.date) === "Today" : relativeDayLabel(entry.date) === "Today"}
                 />
               ))
             )}
