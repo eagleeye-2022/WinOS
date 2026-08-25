@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Clock,
   Settings,
@@ -33,10 +33,23 @@ import {
   BarChart3,
   TrendingUp,
   Trash2,
+  Play,
+  Square,
+  Edit2,
+  AlertTriangle,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
+import { EditTimeLogModal } from "../modals/edit-time-log-modal";
+import {
+  updateTimeLogAction,
+  deleteTimeLogAction,
+  approveTimeLogsAction,
+  rejectTimeLogsAction,
+  createTimeLogAction,
+  getCurrentUserRoleAction,
+} from "../../actions/project-actions";
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
@@ -113,41 +126,129 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     }
   };
 
-  // Approvals & Status Actions
-  const handleApproveSelected = () => {
-    if (selectedLogIds.length === 0) return;
-    setUserGroups((prevGroups) =>
-      prevGroups.map((g) => ({
-        ...g,
-        timeLogs: g.timeLogs.map((l) =>
-          selectedLogIds.includes(l.id)
-            ? { ...l, approvalStatus: "Approved" }
-            : l
-        ),
-      }))
-    );
-    setSelectedLogIds([]);
+  // Edit Time Log State
+  const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Single Running Timer State
+  const [runningTimer, setRunningTimer] = useState<{
+    project: string;
+    taskTitle: string;
+    taskCode?: string;
+    startTime: Date;
+    elapsedSeconds: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (runningTimer) {
+      interval = setInterval(() => {
+        setRunningTimer((prev) =>
+          prev ? { ...prev, elapsedSeconds: prev.elapsedSeconds + 1 } : null
+        );
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [runningTimer]);
+
+  const handleStartGlobalTimer = (project: string, taskTitle: string, taskCode?: string) => {
+    if (runningTimer) {
+      alert(
+        `A timer is already running for "${runningTimer.taskTitle}" in project "${runningTimer.project}". Please stop the active timer before starting a new one.`
+      );
+      return;
+    }
+    setRunningTimer({
+      project,
+      taskTitle,
+      taskCode,
+      startTime: new Date(),
+      elapsedSeconds: 0,
+    });
   };
 
-  const handleRejectSelected = () => {
+  const handleStopGlobalTimer = async () => {
+    if (!runningTimer) return;
+    const durationMins = Math.max(1, Math.round(runningTimer.elapsedSeconds / 60));
+    const hours = Math.floor(durationMins / 60);
+    const mins = durationMins % 60;
+    const formattedDuration = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+
+    try {
+      const createdLog = await createTimeLogAction({
+        title: runningTimer.taskTitle,
+        project: runningTimer.project,
+        taskCode: runningTimer.taskCode,
+        duration: formattedDuration,
+        date: new Date().toISOString().split("T")[0],
+        billingType: "NON BILLABLE",
+        remarks: "Logged via timer",
+      });
+
+      setUserGroups((prev) => {
+        const next = [...prev];
+        if (next.length > 0) {
+          next[0] = {
+            ...next[0],
+            timeLogs: [createdLog, ...next[0].timeLogs],
+          };
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to save timer log:", err);
+    } finally {
+      setRunningTimer(null);
+    }
+  };
+
+  // Approvals & Status Actions (Server Backed)
+  const handleApproveSelected = async () => {
     if (selectedLogIds.length === 0) return;
-    setUserGroups((prevGroups) =>
-      prevGroups.map((g) => ({
-        ...g,
-        timeLogs: g.timeLogs.map((l) =>
-          selectedLogIds.includes(l.id)
-            ? {
-                ...l,
-                approvalStatus: "Rejected",
-                rejectionReason: rejectionReasonText.trim() || "Does not meet timesheet criteria",
-              }
-            : l
-        ),
-      }))
-    );
-    setSelectedLogIds([]);
-    setShowRejectionModal(false);
-    setRejectionReasonText("");
+    try {
+      await approveTimeLogsAction(selectedLogIds);
+      setUserGroups((prevGroups) =>
+        prevGroups.map((g) => ({
+          ...g,
+          timeLogs: g.timeLogs.map((l) =>
+            selectedLogIds.includes(l.id)
+              ? { ...l, approvalStatus: "Approved" }
+              : l
+          ),
+        }))
+      );
+      setSelectedLogIds([]);
+    } catch (err) {
+      console.error("Failed to approve time logs:", err);
+    }
+  };
+
+  const handleRejectSelected = async () => {
+    if (selectedLogIds.length === 0) return;
+    try {
+      await rejectTimeLogsAction(selectedLogIds, rejectionReasonText);
+      setUserGroups((prevGroups) =>
+        prevGroups.map((g) => ({
+          ...g,
+          timeLogs: g.timeLogs.map((l) =>
+            selectedLogIds.includes(l.id)
+              ? {
+                  ...l,
+                  approvalStatus: "Rejected",
+                  rejectionReason: rejectionReasonText.trim() || "Does not meet timesheet criteria",
+                }
+              : l
+          ),
+        }))
+      );
+      setSelectedLogIds([]);
+      setShowRejectionModal(false);
+      setRejectionReasonText("");
+    } catch (err) {
+      console.error("Failed to reject time logs:", err);
+    }
   };
 
   const handleSubmitTimesheet = () => {
@@ -165,15 +266,38 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     setSelectedLogIds([]);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedLogIds.length === 0) return;
-    setUserGroups((prevGroups) =>
-      prevGroups.map((g) => ({
-        ...g,
-        timeLogs: g.timeLogs.filter((l) => !selectedLogIds.includes(l.id)),
-      }))
-    );
-    setSelectedLogIds([]);
+    if (!confirm(`Are you sure you want to delete ${selectedLogIds.length} selected time logs?`)) return;
+    try {
+      for (const logId of selectedLogIds) {
+        await deleteTimeLogAction(logId);
+      }
+      setUserGroups((prevGroups) =>
+        prevGroups.map((g) => ({
+          ...g,
+          timeLogs: g.timeLogs.filter((l) => !selectedLogIds.includes(l.id)),
+        }))
+      );
+      setSelectedLogIds([]);
+    } catch (err) {
+      console.error("Failed to delete time logs:", err);
+    }
+  };
+
+  const handleDeleteSingleLog = async (logId: string) => {
+    if (!confirm("Are you sure you want to delete this time log?")) return;
+    try {
+      await deleteTimeLogAction(logId);
+      setUserGroups((prevGroups) =>
+        prevGroups.map((g) => ({
+          ...g,
+          timeLogs: g.timeLogs.filter((l) => l.id !== logId),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to delete time log:", err);
+    }
   };
 
   const handleOpenAddModalForDate = (dateStr: string) => {
@@ -200,9 +324,26 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
+  const normalizeDateStr = (dateStr: string): string => {
+    if (!dateStr) return "Today";
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, d] = dateStr.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    return dateStr;
+  };
+
   // Extract all logs for calculation and filtering
   const rawAllLogs = userGroups.flatMap((g) =>
-    g.timeLogs.map((l) => ({ ...l, userName: g.userName }))
+    g.timeLogs.map((l) => ({
+      ...l,
+      userName:
+        l.userName && l.userName !== "User"
+          ? l.userName
+          : g.userName && g.userName !== "User"
+          ? g.userName
+          : "test",
+    }))
   );
 
   // Applied Filtering
@@ -243,8 +384,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       { date: string; logs: (TimeLogEntry & { userName: string })[] }
     >();
     for (const log of filteredAllLogs) {
-      if (!byDate.has(log.date)) byDate.set(log.date, { date: log.date, logs: [] });
-      byDate.get(log.date)!.logs.push(log);
+      const normalizedDate = normalizeDateStr(log.date);
+      if (!byDate.has(normalizedDate)) byDate.set(normalizedDate, { date: normalizedDate, logs: [] });
+      byDate.get(normalizedDate)!.logs.push({ ...log, date: normalizedDate });
     }
     return Array.from(byDate.values())
       .sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -269,16 +411,34 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   const uniqueUsers = Array.from(new Set(rawAllLogs.map((l) => l.userName)));
   const uniqueProjects = Array.from(new Set(rawAllLogs.map((l) => l.project)));
 
+  const handleExportCSV = () => {
+    const headers = "Log ID,User,Project,Task Code,Task Title,Date,Time Period,Duration,Billing Type,Approval Status,Remarks\n";
+    const rows = filteredAllLogs
+      .map(
+        (l) =>
+          `"${l.code || l.id}","${l.userName}","${l.project}","${l.taskCode || ""}","${l.title}","${l.date}","${l.timePeriod}","${l.duration}","${l.billingType}","${l.approvalStatus || "Pending"}","${(l.remarks || "").replace(/"/g, '""')}"`
+      )
+      .join("\n");
+
+    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `timesheet-export-${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative text-xs">
-      {/* ── Top App Title Bar with Role Switcher ────────────────────────────────── */}
+      {/* ── Top App Title Bar with Role Switcher (Commented out per user request) ────────────────
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-bold tracking-wide text-foreground">
             Time Logs
           </h1>
           <span className="text-muted-foreground">•</span>
-          {/* Role Perspective Switcher Toggle */}
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 text-xs font-semibold">
             <button
               type="button"
@@ -313,8 +473,16 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div>
         </div>
 
-        {/* Right Header Action Icons */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-card hover:bg-accent px-3 py-1.5 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
+            title="Export filtered logs to CSV"
+          >
+            <FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" />
+            <span>Export CSV</span>
+          </button>
           <button
             type="button"
             onClick={() => setShowReportModal(true)}
@@ -325,8 +493,40 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </button>
         </div>
       </div>
+      ────────────────────────────────────────────────────────────────────────────────────────── */}
 
-      {/* ── Admin Dashboard Summary Cards (Visible in Admin Mode) ──────────────── */}
+      {/* ── Active Running Timer Indicator Banner ──────────────── */}
+      {runningTimer && (
+        <div className="flex items-center justify-between bg-primary/10 border-b border-primary/30 px-6 py-2.5 text-xs text-foreground animate-in slide-in-from-top-1">
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-3 w-3 items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">Active Running Timer:</span>
+              <span className="font-bold text-primary">{runningTimer.taskTitle}</span>
+              <span className="text-muted-foreground">({runningTimer.project})</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 font-mono">
+            <span className="text-sm font-bold text-foreground">
+              {formatMinutesShort(Math.floor(runningTimer.elapsedSeconds / 60))}:{String(runningTimer.elapsedSeconds % 60).padStart(2, "0")}
+            </span>
+            <button
+              type="button"
+              onClick={handleStopGlobalTimer}
+              className="flex items-center gap-1 px-3 py-1 rounded bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Square size={11} fill="currentColor" />
+              <span>Stop Timer</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Admin Dashboard Summary Cards (Commented out per user request) ────────────────
       {roleMode === "ADMIN" && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3 border-b border-border bg-muted/20">
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
@@ -386,6 +586,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div>
         </div>
       )}
+      ────────────────────────────────────────────────────────────────────────────────────────── */}
 
       {/* ── Secondary Control Bar (Breadcrumbs, Date Range & Actions) ──────────── */}
       <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-muted/40 text-foreground gap-3">
@@ -659,8 +860,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
                   Billing Type
                 </th>
-                <th className="py-2.5 px-4 whitespace-nowrap text-foreground font-bold">
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
                   Approval Status
+                </th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-foreground font-bold text-right">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -699,7 +903,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <span className="text-warning font-bold">{group.nonBillableHours}</span>
                         </div>
                       </td>
-                      <td colSpan={4} className="py-2.5 px-4" />
+                      <td colSpan={5} className="py-2.5 px-4" />
                     </tr>
 
                     {!isCollapsed && (
@@ -708,7 +912,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                         <tr className="border-b border-border bg-muted/20 hover:bg-accent/40 transition-colors">
                           <td className="py-2 px-3 border-r border-border text-center" />
                           <td
-                            colSpan={8}
+                            colSpan={9}
                             onClick={() => handleOpenAddModalForDate(group.date)}
                             className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors flex items-center justify-between"
                           >
@@ -781,7 +985,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </td>
 
                             {/* Approval Status Column */}
-                            <td className="py-2.5 px-4 whitespace-nowrap">
+                            <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                               {log.approvalStatus === "Approved" ? (
                                 <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold">
                                   <CheckCircle2 size={12} /> Approved
@@ -798,6 +1002,31 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   <Clock size={12} /> Pending Approval
                                 </span>
                               )}
+                            </td>
+
+                            {/* Actions Column */}
+                            <td className="py-2.5 px-4 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingLog(log);
+                                    setIsEditModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                                  title="Edit Time Log"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSingleLog(log.id)}
+                                  className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                  title="Delete Time Log"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1125,6 +1354,29 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div>
         </div>
       )}
+
+      {/* Edit Time Log Modal */}
+      <EditTimeLogModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingLog(null);
+        }}
+        log={editingLog}
+        isAdmin={roleMode === "ADMIN"}
+        onLogUpdated={() => {
+          if (editingLog) {
+            setUserGroups((prevGroups) =>
+              prevGroups.map((g) => ({
+                ...g,
+                timeLogs: g.timeLogs.map((l) =>
+                  l.id === editingLog.id ? { ...l, ...editingLog } : l
+                ),
+              }))
+            );
+          }
+        }}
+      />
     </div>
   );
 }

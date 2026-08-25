@@ -2,14 +2,14 @@ import { ProjectPhase, ProjectTemplate, TaskItem, TaskList } from "../types";
 
 export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
   id: "template-t2t-7phase",
-  name: "EagleEye T2T 7-Phase Delivery SOP Template",
-  description: "Repeatable 7-Phase, 17-Task-List client web & marketing delivery pipeline scaffolded with starter tasks.",
+  name: "WinOS EED Project Template (17 Phases / 38 Tasks)",
+  description: "Official WinOS 17-Phase, 38-Task SOP Project Template covering client onboarding, UX research, UI/UX design, development, testing, deployment, and MSO operations.",
   isDefault: true,
   category: "Client Delivery",
   phases: [
     {
-      code: "1.0",
-      name: "1. Client Onboarding and Requirement Gathering",
+      code: "1.1",
+      name: "1.1 Client On Boarding",
       departmentAlias: "digitalproducts@",
       taskLists: [
         {
@@ -32,7 +32,7 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
               description: "Internal team kickoff meeting to align on client scope, timeline, and resource allocation.",
             },
             {
-              title: "Project Requirement and Expectation collection from Client",
+              title: "Project Requirement and Expectation Collection from Client",
               duration: "2 days",
               priority: "Urgent",
               departmentAlias: "digitalproducts@",
@@ -46,7 +46,7 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
               description: "Finalize milestone delivery roadmap and signoff schedule with client.",
             },
             {
-              title: "Client Board Creation",
+              title: "Client Zoho Project Board Creation",
               duration: "1 day",
               priority: "Medium",
               departmentAlias: "digitalproducts@",
@@ -54,6 +54,13 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
             },
           ],
         },
+      ],
+    },
+    {
+      code: "1.2",
+      name: "1.2 Requirement Collection & Documentation",
+      departmentAlias: "digitalproducts@",
+      taskLists: [
         {
           name: "1.2 Requirement Collection & Documentation",
           flag: "internal",
@@ -67,19 +74,40 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
               description: "Draft comprehensive Software Requirement Specification (SRS) document.",
             },
             {
-              title: "Functional Specification Signoff",
+              title: "Client Onboarding Document Share with the Client",
+              duration: "1 day",
+              priority: "High",
+              departmentAlias: "digitalproducts@",
+              description: "Share the onboarding and specification document with client for review.",
+            },
+            {
+              title: "SRS: Client Onboarding Document Showcase Meeting with Client",
+              duration: "1 day",
+              priority: "Urgent",
+              departmentAlias: "digitalproducts@",
+              description: "Present SRS and client onboarding document in a live client showcase meeting.",
+            },
+            {
+              title: "SRS: Final Data Collection Milestone from the Client",
               duration: "2 days",
               priority: "Urgent",
               departmentAlias: "digitalproducts@",
-              description: "Obtain client written approval on technical and functional specifications.",
+              description: "Gather final assets, data, and access credentials from the client.",
+            },
+            {
+              title: "Project Planning & Setup",
+              duration: "2 days",
+              priority: "High",
+              departmentAlias: "digitalproducts@",
+              description: "Initialize project environment, repositories, and team task assignments.",
             },
           ],
         },
       ],
     },
     {
-      code: "2.0",
-      name: "2. Research and Planning",
+      code: "2.1",
+      name: "2.1 UX Research & Discovery",
       departmentAlias: "design@",
       taskLists: [
         {
@@ -110,13 +138,20 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
             },
           ],
         },
+      ],
+    },
+    {
+      code: "2.2",
+      name: "2.2 Ideation & Conceptualization",
+      departmentAlias: "design@",
+      taskLists: [
         {
           name: "2.2 Ideation & Conceptualization",
           flag: "internal",
           sequence: 4,
           defaultTasks: [
             {
-              title: "Information Architecture Preparation",
+              title: "Information Architecture (IA) Preparation",
               duration: "2 days",
               priority: "High",
               departmentAlias: "design@",
@@ -130,7 +165,21 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
               description: "Curate visual mood boards, typography palettes, and design inspiration.",
             },
             {
-              title: "User Journey Map",
+              title: "Mind Mapping and Brainstorming of Features",
+              duration: "2 days",
+              priority: "Medium",
+              departmentAlias: "design@",
+              description: "Brainstorm feature concepts and interactive component ideas.",
+            },
+            {
+              title: "Detailed Keyword Research by SEO Team",
+              duration: "3 days",
+              priority: "High",
+              departmentAlias: "seo@",
+              description: "Perform comprehensive search volume and keyword intent mapping.",
+            },
+            {
+              title: "User Journey Map (UJM)",
               duration: "2 days",
               priority: "High",
               departmentAlias: "design@",
@@ -141,8 +190,8 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
       ],
     },
     {
-      code: "3.0",
-      name: "3. Product Design",
+      code: "3.1",
+      name: "3.1 UI/UX Designing",
       departmentAlias: "design@",
       taskLists: [
         {
@@ -151,43 +200,78 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
           sequence: 5,
           defaultTasks: [
             {
-              title: "Figma UI Design System & Master Components",
+              title: "Wireframe Design",
+              duration: "3 days",
+              priority: "Urgent",
+              departmentAlias: "design@",
+              description: "Design low-fidelity and high-fidelity wireframe layouts.",
+            },
+            {
+              title: "Design System Creation",
               duration: "3 days",
               priority: "Urgent",
               departmentAlias: "design@",
               description: "Build reusable UI component library in Figma (buttons, inputs, cards, typography).",
             },
             {
-              title: "High-Fidelity Desktop & Mobile Screen Designs",
-              duration: "4 days",
+              title: "Header Footer Design",
+              duration: "2 days",
+              priority: "High",
+              departmentAlias: "design@",
+              description: "Design responsive header navigation and footer component variations.",
+            },
+            {
+              title: "Design Demo to Client",
+              duration: "1 day",
               priority: "Urgent",
               departmentAlias: "design@",
-              description: "Design pixel-perfect responsive layouts for all core template pages.",
+              description: "Conduct live design presentation and walk client through Figma prototypes.",
             },
           ],
         },
+      ],
+    },
+    {
+      code: "3.2",
+      name: "3.2 Graphic Designing",
+      departmentAlias: "design@",
+      taskLists: [
         {
           name: "3.2 Graphic Designing",
           flag: "external",
           sequence: 6,
           defaultTasks: [
             {
-              title: "Custom Illustrations & Visual Assets",
+              title: "Logo Design",
               duration: "3 days",
               priority: "Medium",
               departmentAlias: "design@",
-              description: "Create custom vector graphics, hero section illustrations, and icons.",
+              description: "Design custom brand logo concepts and vector asset variations.",
+            },
+            {
+              title: "Brand Guideline Design",
+              duration: "2 days",
+              priority: "Medium",
+              departmentAlias: "design@",
+              description: "Draft comprehensive brand identity guidelines document.",
             },
           ],
         },
+      ],
+    },
+    {
+      code: "3.3",
+      name: "3.3 Content Writing",
+      departmentAlias: "design@",
+      taskLists: [
         {
           name: "3.3 Content Writing",
           flag: "internal",
           sequence: 7,
           defaultTasks: [
             {
-              title: "Website Copywriting & Marketing Messaging Draft",
-              duration: "3 days",
+              title: "Website Content",
+              duration: "4 days",
               priority: "High",
               departmentAlias: "design@",
               description: "Write compelling SEO-optimized page content and call-to-action copy.",
@@ -197,8 +281,8 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
       ],
     },
     {
-      code: "4.0",
-      name: "4. Product Development",
+      code: "4.1",
+      name: "4.1 Development",
       departmentAlias: "dev@",
       taskLists: [
         {
@@ -207,33 +291,54 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
           sequence: 8,
           defaultTasks: [
             {
-              title: "Frontend Architecture & Page Layout Build",
-              duration: "5 days",
+              title: "Website Initialisation & Setup",
+              duration: "2 days",
               priority: "Urgent",
               departmentAlias: "dev@",
-              description: "Develop responsive Next.js / Tailwind CSS frontend components.",
+              description: "Initialize Next.js / React application repository and environment configuration.",
             },
             {
-              title: "Backend API & Database Schema Implementation",
-              duration: "5 days",
+              title: "Development",
+              duration: "7 days",
               priority: "Urgent",
               departmentAlias: "dev@",
-              description: "Configure backend server routes, database tables, and API integrations.",
+              description: "Implement responsive frontend pages and backend database API routes.",
             },
             {
-              title: "Third-party Services & Payment Gateway Integration",
-              duration: "3 days",
+              title: "Github CI/CD",
+              duration: "2 days",
               priority: "High",
               departmentAlias: "dev@",
-              description: "Integrate email triggers, CRM webhooks, and payment processors.",
+              description: "Configure GitHub Actions CI/CD automated build and test pipeline.",
+            },
+            {
+              title: "Deployment",
+              duration: "1 day",
+              priority: "Urgent",
+              departmentAlias: "dev@",
+              description: "Deploy staging and production application builds.",
+            },
+            {
+              title: "Testing",
+              duration: "3 days",
+              priority: "High",
+              departmentAlias: "qa@",
+              description: "Conduct functional and integration testing across core modules.",
+            },
+            {
+              title: "Documentation",
+              duration: "2 days",
+              priority: "Medium",
+              departmentAlias: "dev@",
+              description: "Write developer API documentation and system setup guides.",
             },
           ],
         },
       ],
     },
     {
-      code: "5.0",
-      name: "5. Testing",
+      code: "5.1",
+      name: "5.1 Testing",
       departmentAlias: "qa@",
       taskLists: [
         {
@@ -242,26 +347,47 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
           sequence: 9,
           defaultTasks: [
             {
-              title: "Cross-browser & Mobile Responsiveness QA",
+              title: "Black Box Testing",
               duration: "2 days",
               priority: "High",
               departmentAlias: "qa@",
-              description: "Perform functional regression testing across Chrome, Safari, iOS, and Android.",
+              description: "Perform end-to-end black box testing on user interfaces and workflows.",
             },
             {
-              title: "User Acceptance Testing (UAT) Sign-off",
+              title: "Departmental Testing",
+              duration: "2 days",
+              priority: "High",
+              departmentAlias: "qa@",
+              description: "Conduct departmental QA verification with team leads.",
+            },
+            {
+              title: "UAT Feedback",
               duration: "2 days",
               priority: "Urgent",
               departmentAlias: "qa@",
-              description: "Conduct client walkthrough demo and log final polish fixes.",
+              description: "Gather and resolve User Acceptance Testing (UAT) feedback items.",
+            },
+            {
+              title: "Heatmaps & Analytics (CRO)",
+              duration: "2 days",
+              priority: "Medium",
+              departmentAlias: "seo@",
+              description: "Setup Hotjar / Microsoft Clarity heatmaps and event tracking.",
+            },
+            {
+              title: "A/B Testing",
+              duration: "2 days",
+              priority: "Medium",
+              departmentAlias: "seo@",
+              description: "Configure A/B testing variations for key conversion funnels.",
             },
           ],
         },
       ],
     },
     {
-      code: "6.0",
-      name: "6. Deployment and SEO",
+      code: "6.1",
+      name: "6.1 Deployment and SEO",
       departmentAlias: "seo@",
       taskLists: [
         {
@@ -270,27 +396,20 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
           sequence: 10,
           defaultTasks: [
             {
-              title: "Production Server Deployment & SSL Setup",
+              title: "Website Live",
               duration: "1 day",
               priority: "Urgent",
               departmentAlias: "dev@",
-              description: "Point DNS records, configure SSL certificate, and launch production build.",
-            },
-            {
-              title: "Technical SEO Audit, Meta Tags & Sitemap Submission",
-              duration: "2 days",
-              priority: "High",
-              departmentAlias: "seo@",
-              description: "Verify meta titles/descriptions, XML sitemap, and Google Search Console indexing.",
+              description: "Point production domain DNS, enable SSL, and execute official site launch.",
             },
           ],
         },
       ],
     },
     {
-      code: "7.0",
-      name: "7. Maintenance and Support",
-      departmentAlias: "seo@",
+      code: "7.1",
+      name: "7.1 Maintenance & Support",
+      departmentAlias: "dev@",
       taskLists: [
         {
           name: "7.1 Maintenance & Support",
@@ -298,97 +417,91 @@ export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
           sequence: 11,
           defaultTasks: [
             {
-              title: "Monthly Security & Health Monitoring",
+              title: "Website & Server Maintanance",
               duration: "Ongoing",
-              priority: "Low",
+              priority: "Medium",
               departmentAlias: "dev@",
-              description: "Routine server dependency updates, database backups, and security scans.",
+              description: "Routine server updates, security monitoring, and database health maintenance.",
             },
           ],
         },
+      ],
+    },
+    {
+      code: "7.2",
+      name: "7.2 MSO On-Page & Technical SEO",
+      departmentAlias: "seo@",
+      taskLists: [
         {
           name: "7.2 MSO On-Page & Technical SEO",
           flag: "internal",
           sequence: 12,
-          defaultTasks: [
-            {
-              title: "Monthly Technical SEO Audit & Core Web Vitals",
-              duration: "Monthly",
-              priority: "Medium",
-              departmentAlias: "seo@",
-              description: "Optimize page speed, fix broken links, and update schema markup.",
-            },
-          ],
+          defaultTasks: [],
         },
+      ],
+    },
+    {
+      code: "7.3",
+      name: "7.3 MSO Off-Page",
+      departmentAlias: "seo@",
+      taskLists: [
         {
           name: "7.3 MSO Off-Page",
           flag: "internal",
           sequence: 13,
-          defaultTasks: [
-            {
-              title: "High-Authority Backlink Outreach",
-              duration: "Monthly",
-              priority: "Medium",
-              departmentAlias: "seo@",
-              description: "Execute link-building outreach and brand citation placement.",
-            },
-          ],
+          defaultTasks: [],
         },
+      ],
+    },
+    {
+      code: "7.4",
+      name: "7.4 MSO Content Marketing",
+      departmentAlias: "design@",
+      taskLists: [
         {
           name: "7.4 MSO Content Marketing",
           flag: "external",
           sequence: 14,
-          defaultTasks: [
-            {
-              title: "Monthly SEO Blog Post Publishing",
-              duration: "Monthly",
-              priority: "Medium",
-              departmentAlias: "design@",
-              description: "Draft, design, and publish 4 keyword-targeted blog articles.",
-            },
-          ],
+          defaultTasks: [],
         },
+      ],
+    },
+    {
+      code: "7.5",
+      name: "7.5 MSO Main",
+      departmentAlias: "digitalproducts@",
+      taskLists: [
         {
           name: "7.5 MSO Main",
           flag: "internal",
           sequence: 15,
-          defaultTasks: [
-            {
-              title: "Monthly Campaign Strategy Alignment",
-              duration: "Monthly",
-              priority: "High",
-              departmentAlias: "digitalproducts@",
-              description: "Monthly executive review call to evaluate traffic and conversion growth.",
-            },
-          ],
+          defaultTasks: [],
         },
+      ],
+    },
+    {
+      code: "7.6",
+      name: "7.6 MSO Local SEO",
+      departmentAlias: "seo@",
+      taskLists: [
         {
           name: "7.6 MSO Local SEO",
           flag: "internal",
           sequence: 16,
-          defaultTasks: [
-            {
-              title: "Google Business Profile Optimization",
-              duration: "Monthly",
-              priority: "Medium",
-              departmentAlias: "seo@",
-              description: "Update GBP posts, respond to reviews, and manage local citations.",
-            },
-          ],
+          defaultTasks: [],
         },
+      ],
+    },
+    {
+      code: "7.7",
+      name: "7.7 MSO Performance Marketing",
+      departmentAlias: "seo@",
+      taskLists: [
         {
           name: "7.7 MSO Performance Marketing",
           flag: "external",
           sequence: 17,
-          defaultTasks: [
-            {
-              title: "Google Ads & Meta Ads Conversion Tracking Audit",
-              duration: "Monthly",
-              priority: "High",
-              departmentAlias: "seo@",
-              description: "Monitor ad spend ROI, keyword bids, and retargeting pixel tracking.",
-            },
-          ],
+          defaultTasks: [],
         },
       ],
     },
@@ -446,82 +559,75 @@ export const DEFAULT_PROJECT_TEMPLATES: ProjectTemplate[] = [
 
 export function scaffoldPhasesFromTemplate(template: ProjectTemplate): ProjectPhase[] {
   const phases: ProjectPhase[] = [];
-  
-  template.phases.forEach((p, pIdx) => {
-    if (p.taskLists && p.taskLists.length > 0) {
-      p.taskLists.forEach((tl, tlIdx) => {
-        const firstWord = tl.name.split(" ")[0];
-        const hasSubCode = /^\d+\.\d+$/.test(firstWord);
-        const code = hasSubCode ? firstWord : `${pIdx + 1}.${tlIdx + 1}`;
-        const name = hasSubCode ? tl.name.substring(firstWord.length).trim() : tl.name;
 
-        phases.push({
-          id: `phase-${tl.sequence || `${pIdx + 1}-${tlIdx + 1}`}`,
-          code: code,
-          name: name || tl.name,
-          isCompleted: false,
-        });
-      });
-    } else {
-      phases.push({
-        id: `phase-${pIdx + 1}`,
-        code: p.code,
-        name: p.name,
-        isCompleted: false,
-      });
-    }
+  template.phases.forEach((p, pIdx) => {
+    phases.push({
+      id: `phase-${p.code.replace(".", "_")}`,
+      code: p.code,
+      name: p.name,
+      isCompleted: pIdx === 0,
+    });
   });
 
   return phases;
 }
 
 export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskList[] {
-  const taskLists: TaskList[] = [];
+  const lists: TaskList[] = [];
+
   template.phases.forEach((p) => {
     p.taskLists.forEach((tl) => {
-      taskLists.push({
-        id: `tl-${tl.sequence}`,
+      lists.push({
+        id: `tl-${tl.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
         name: tl.name,
         flag: tl.flag,
-        status: "Active",
         sequence: tl.sequence,
         phaseCode: p.code,
+        status: "Active",
       });
     });
   });
-  return taskLists;
+
+  return lists;
 }
 
-export function scaffoldTasksFromTemplate(template: ProjectTemplate, projectId: string): TaskItem[] {
-  const tasks: TaskItem[] = [];
+export function scaffoldTasksFromTemplate(
+  template: ProjectTemplate,
+  projectCode: string,
+  defaultOwnerName?: string,
+  defaultOwnerId?: string
+): Partial<TaskItem>[] {
+  const tasks: Partial<TaskItem>[] = [];
   let taskCounter = 1;
+  const ownerName = defaultOwnerName || "Unassigned";
+  const ownersList = defaultOwnerName && defaultOwnerName !== "Unassigned" ? [defaultOwnerName] : [];
+  const ownerIdsList = defaultOwnerId ? [defaultOwnerId] : [];
 
   template.phases.forEach((p) => {
     p.taskLists.forEach((tl) => {
-      tl.defaultTasks.forEach((t) => {
-        const code = `${projectId}-T${taskCounter}`;
+      tl.defaultTasks.forEach((dt) => {
+        const codeNum = String(taskCounter).padStart(2, "0");
         tasks.push({
-          id: code,
-          code: code,
-          title: t.title,
+          code: `${projectCode}-T${codeNum}`,
+          title: dt.title,
           phaseCode: p.code,
           phaseName: p.name,
           taskListName: tl.name,
-          isExternal: tl.flag === "external",
           status: "Open",
-          authorName: "SOP Template Engine",
-          departmentAlias: t.departmentAlias,
-          duration: t.duration,
-          priority: t.priority,
-          description: t.description,
+          priority: dt.priority || "Medium",
+          duration: dt.duration || "1 day",
+          workHours: "00:00",
+          startDate: new Date().toLocaleDateString("en-GB"),
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB"),
           completionPercentage: 0,
-          startDate: new Date().toLocaleDateString("en-US"),
-          staleAlert: false,
-          lastActivityDate: new Date().toISOString(),
-          hasAttachments: false,
-          hasComments: false,
-          hasReminder: false,
-          hasRecurrence: false,
+          departmentAlias: dt.departmentAlias || p.departmentAlias || "digitalproducts@",
+          description: dt.description || "",
+          owner: ownerName,
+          ownerId: defaultOwnerId,
+          owners: ownersList,
+          ownerIds: ownerIdsList,
+          tags: [p.code, tl.name.split(" ")[0]],
+          billingType: "Hourly Rate",
         });
         taskCounter++;
       });

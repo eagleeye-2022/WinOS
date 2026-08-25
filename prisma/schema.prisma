@@ -86,6 +86,8 @@ model User {
   createdProjects       Project[]              @relation("ProjectCreator")
   ownedTasks            ProjectTask[]          @relation("TaskOwner")
   authoredTasks         ProjectTask[]          @relation("TaskAuthor")
+  taskOwnerships        ProjectTaskOwner[]     @relation("TaskOwners")
+  taskOwnersAssigned    ProjectTaskOwner[]     @relation("TaskAssignedBy")
   projectMemberships    ProjectMember[]
 }
 
@@ -879,6 +881,7 @@ model ProjectPhase {
   name        String
   isCompleted Boolean  @default(false)
   order       Int      @default(0)
+  ownerId     String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -911,9 +914,14 @@ model ProjectTask {
   authorName           String?
   associatedTeam       String?
   departmentAlias      String?               @default("digitalproducts@")
+  // `ownerId`/`owner` remain the single *primary* owner for legacy FK/display use. Every actual
+  // owner (primary or co-owner) lives in the `ProjectTaskOwner` join table below — the real,
+  // referentially-integrous source of truth for "is this user an owner of this task", replacing
+  // the old `owners`/`ownerIds` scalar-array columns (which allowed no FK integrity, no
+  // uniqueness enforcement, and no record of who assigned whom).
   ownerId              String?
   owner                String?               @default("Unassigned")
-  owners               String[]              @default([])
+  owners               ProjectTaskOwner[]
   workHours            String?               @default("00:00")
   startDate            String?               @default("--")
   dueDate              String?               @default("--")
@@ -940,9 +948,31 @@ model ProjectTask {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
+  // A subtask is a full ProjectTask with a parent — it gets the same detail page, timer,
+  // description, comments, and time logs as any top-level task. `subtasks` here is the
+  // legacy free-standing ProjectSubtask relation, kept for backward compat but no longer written to.
+  parentTaskId         String?
+  parentTask           ProjectTask?          @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  childTasks           ProjectTask[]         @relation("TaskSubtasks")
+
   subtasks             ProjectSubtask[]
   remarks              ProjectTaskRemark[]
   activities           ProjectTaskActivity[]
+}
+
+model ProjectTaskOwner {
+  id           String      @id @default(cuid())
+  taskId       String
+  userId       String
+  assignedById String?
+  assignedAt   DateTime    @default(now())
+
+  task         ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User        @relation("TaskOwners", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   User?       @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, userId])
+  @@index([userId])
 }
 
 model ProjectSubtask {
@@ -974,6 +1004,7 @@ model ProjectTaskRemark {
 model ProjectTaskActivity {
   id           String      @id @default(cuid())
   userName     String
+  userId       String?
   userInitials String
   actionText   String
   taskId       String
@@ -996,6 +1027,7 @@ model ProjectTimeLog {
   userName     String?
   userInitials String?
   avatarColor  String?
+  userId       String?
   projectId    String?
   projectRel   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())

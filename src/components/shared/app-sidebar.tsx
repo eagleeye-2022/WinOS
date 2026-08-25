@@ -185,10 +185,12 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
   } else if (activeModuleTitle === "Settings") {
-    navItems = [
-      { label: "User", href: ROUTES.settingsUsers, icon: User },
-      // { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
-    ];
+    navItems = isManager
+      ? [
+          { label: "User", href: ROUTES.settingsUsers, icon: User },
+          // { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
+        ]
+      : [];
   } else {
     // Standup Module
     navItems = isManager
@@ -299,18 +301,20 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
             <Archive size={14} strokeWidth={1.75} />
             Archive
           </span>
-          <Link
-            href={ROUTES.settingsUsers}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs select-none transition-colors",
-              activeModuleTitle === "Settings"
-                ? "text-primary font-semibold"
-                : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
-            )}
-          >
-            <Settings size={14} strokeWidth={1.75} />
-            Settings
-          </Link>
+          {isManager && (
+            <Link
+              href={ROUTES.settingsUsers}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs select-none transition-colors",
+                activeModuleTitle === "Settings"
+                  ? "text-primary font-semibold"
+                  : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+              )}
+            >
+              <Settings size={14} strokeWidth={1.75} />
+              Settings
+            </Link>
+          )}
         </div>
       </div>
     </aside>

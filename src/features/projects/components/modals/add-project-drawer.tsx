@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES, scaffoldPhasesFromTemplate } from "../../data/sop-templates";
 import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
-import { getOwnersAndTeamsAction } from "../../actions/project-actions";
+import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
 
 interface AddProjectDrawerProps {
   isOpen: boolean;
@@ -88,11 +88,18 @@ export function AddProjectDrawer({
   React.useEffect(() => {
     async function loadOptions() {
       try {
-        const res = await getOwnersAndTeamsAction();
+        const [res, currentUser] = await Promise.all([
+          getOwnersAndTeamsAction(),
+          getCurrentUserContextAction(),
+        ]);
         if (res.owners && res.owners.length > 0) {
           setOwnersList(res.owners);
           if (!owner) {
-            setOwner(res.owners[0].name);
+            // Default the project owner to whoever is creating it, not an arbitrary first
+            // entry from the list — otherwise the creator ends up without edit rights on
+            // their own project's tasks.
+            const self = currentUser && res.owners.find((u) => u.id === currentUser.id);
+            setOwner(self?.name || currentUser?.name || res.owners[0].name);
           }
         }
         if (res.teams && res.teams.length > 0) {

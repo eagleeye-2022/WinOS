@@ -29,6 +29,7 @@ export interface ProjectPhase {
   code: string;
   name: string;
   isCompleted?: boolean;
+  ownerId?: string; // defaults to the project owner when the phase is created
 }
 
 export interface TaskList {
@@ -206,6 +207,7 @@ export interface TaskItem {
   id: string;
   code: string; // e.g. WI1-T11
   title: string;
+  parentTaskId?: string; // set when this task is really a subtask of another ProjectTask
   phaseCode: string; // e.g. "2.1"
   phaseName: string; // e.g. "IDEATION & CONCEPTUALIZATION" or "UI/UX DESIGNING"
   taskListId?: string;
@@ -213,10 +215,13 @@ export interface TaskItem {
   isExternal?: boolean; // Client visible flag
   status: TaskStatus;
   authorName: string; // e.g. "Dhruv Patidar"
+  authorId?: string;
   associatedTeam?: string;
   departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
   owner?: string;
+  ownerId?: string;
   owners?: string[];
+  ownerIds?: string[]; // resolved user IDs matching `owners` — the reliable way to check ownership
   workHours?: string;
   startDate?: string;
   duration?: string; // e.g. "2 days/hrs"
@@ -257,15 +262,22 @@ export interface TimeLogEntry {
   code: string; // e.g. EC2-T3312
   title: string; // e.g. DSMA
   project: string; // e.g. EED Core
+  projectId?: string;
   taskCode?: string; // e.g. WI1-T70 — links the log to a specific ProjectTask
   duration: string; // e.g. 00:08
   timePeriod: string; // e.g. 10:52 AM - 11:00 AM
+  startTime?: string;
+  endTime?: string;
   date: string; // e.g. 11/07/2026
   billingType: "NON BILLABLE" | "BILLABLE";
   remarks: string;
   approvalStatus?: "Pending" | "Approved" | "Rejected";
   rejectionReason?: string;
   approvedBy?: string;
+  userName?: string;
+  userInitials?: string;
+  userId?: string;
+  createdAt?: string;
 }
 
 export interface UserTimeGroup {

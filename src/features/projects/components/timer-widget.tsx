@@ -17,6 +17,9 @@ interface TimerWidgetProps {
   className?: string;
   taskTitle?: string;
   taskCode?: string;
+  /** When false, the Start control is disabled — e.g. only a task's owner may start its timer. */
+  canStart?: boolean;
+  disabledReason?: string;
 }
 
 export function TimerWidget({
@@ -25,6 +28,8 @@ export function TimerWidget({
   className = "",
   taskTitle,
   taskCode,
+  canStart = true,
+  disabledReason = "Only the task owner can start this timer",
 }: TimerWidgetProps) {
   const [seconds, setSeconds] = useState<number>(0);
   const [timerState, setTimerState] = useState<"IDLE" | "RUNNING" | "PAUSED">("IDLE");
@@ -69,7 +74,7 @@ export function TimerWidget({
     const elapsed = seconds;
     const formatted = formatTime(elapsed);
     setTimerState("IDLE");
-    setStoppedSeconds(elapsed > 0 ? elapsed : 8400); // 8400s = 02:20 hrs matching screenshot
+    setStoppedSeconds(elapsed > 0 ? elapsed : 60);
     setIsStoppedModalOpen(true);
     setSeconds(0);
     if (onStopTimer && elapsed > 0) {
@@ -150,13 +155,22 @@ export function TimerWidget({
               <Square size={8} fill="currentColor" />
             </button>
           </>
-        ) : (
+        ) : canStart ? (
           /* Start / Play Button when Idle (Green circle) */
           <button
             type="button"
             onClick={handleStart}
             className="flex h-5 w-5 items-center justify-center rounded-full bg-success text-success-foreground dark:bg-[#22c55e] dark:text-white transition-all hover:scale-105 hover:bg-success/90 active:scale-95 shadow-2xs"
             title="Start Timer"
+          >
+            <Play size={10} fill="currentColor" className="ml-0.5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground cursor-not-allowed shadow-2xs"
+            title={disabledReason}
           >
             <Play size={10} fill="currentColor" className="ml-0.5" />
           </button>

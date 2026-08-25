@@ -38,7 +38,7 @@ function initialsOf(displayName: string) {
 
 // ── Submitted member card ─────────────────────────────────────────────────────
 
-function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
+function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; selectedDateStr?: string }) {
   let timeStr: string | null = null;
   let isOnTime = true;
 
@@ -56,10 +56,11 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
   const initials = initialsOf(displayName);
   const isReviewed = card.status === "REVIEWED";
   const gradient = avatarGradientFor(card.userId);
+  const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
 
   return (
     <Link
-      href={ROUTES.dsmMember(card.userId)}
+      href={href}
       className={cn(
         "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
@@ -168,13 +169,14 @@ function SubmittedCard({ card }: { card: MemberSubmissionCard }) {
 
 // ── Pending member card ───────────────────────────────────────────────────────
 
-function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamId: string }) {
+function PendingMemberCard({ card, teamId, selectedDateStr }: { card: MemberSubmissionCard; teamId: string; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
   const initials = initialsOf(displayName);
+  const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
 
   return (
     <Link
-      href={ROUTES.dsmMember(card.userId)}
+      href={href}
       className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
@@ -208,9 +210,9 @@ function PendingMemberCard({ card, teamId }: { card: MemberSubmissionCard; teamI
 
 // ── Team column ───────────────────────────────────────────────────────────────
 
-type Props = { group: TeamGroup; colorIndex?: number };
+type Props = { group: TeamGroup; colorIndex?: number; selectedDateStr?: string };
 
-export function TeamColumn({ group, colorIndex = 0 }: Props) {
+export function TeamColumn({ group, colorIndex = 0, selectedDateStr }: Props) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
   const dotColor = DOT_COLORS[colorIndex % DOT_COLORS.length];
 
@@ -240,9 +242,9 @@ export function TeamColumn({ group, colorIndex = 0 }: Props) {
             card.status === "REVIEWED";
 
           return isSubmitted ? (
-            <SubmittedCard key={card.userId} card={card} />
+            <SubmittedCard key={card.userId} card={card} selectedDateStr={selectedDateStr} />
           ) : (
-            <PendingMemberCard key={card.userId} card={card} teamId={group.teamId} />
+            <PendingMemberCard key={card.userId} card={card} teamId={group.teamId} selectedDateStr={selectedDateStr} />
           );
         })}
 

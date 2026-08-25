@@ -10,6 +10,9 @@ import { MemberForm } from "@/features/users/components/member-form";
 export default async function AddMemberPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
+  if ((session.user as { role?: string })?.role !== "MANAGER") {
+    redirect(ROUTES.dashboard);
+  }
 
   const [managers, allUsers] = await Promise.all([
     getManagerOptionsAction(),

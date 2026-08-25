@@ -12,6 +12,7 @@ interface AddTaskDrawerProps {
   onAddTask: (task: TaskItem) => void;
   availablePhases: { code: string; name: string }[];
   initialPhaseCode?: string;
+  projectCode?: string;
 }
 
 const FALLBACK_PHASE = { code: "1.1", name: "GENERAL" };
@@ -22,6 +23,7 @@ export function AddTaskDrawer({
   onAddTask,
   availablePhases,
   initialPhaseCode,
+  projectCode,
 }: AddTaskDrawerProps) {
   const [title, setTitle] = useState("");
   const [phaseCode, setPhaseCode] = useState(
@@ -51,7 +53,7 @@ export function AddTaskDrawer({
   useEffect(() => {
     async function loadUsers() {
       try {
-        const res = await getOwnersAndTeamsAction();
+        const res = await getOwnersAndTeamsAction(projectCode);
         if (res.owners && res.owners.length > 0) {
           setOwnersList(res.owners);
           if (selectedOwners.length === 0) {
@@ -71,7 +73,7 @@ export function AddTaskDrawer({
     if (isOpen) {
       loadUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, projectCode]);
 
   if (!isOpen) return null;
 

@@ -16,6 +16,9 @@ interface TaskMultiOwnerSelectProps {
   ownersList: OwnerUserOption[];
   label?: string;
   className?: string;
+  /** Only the current task owner may reassign ownership — disables the picker for everyone else. */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 const DEFAULT_TEAM_MEMBERS: OwnerUserOption[] = [
@@ -42,6 +45,8 @@ export function TaskMultiOwnerSelect({
   ownersList,
   label,
   className = "",
+  disabled = false,
+  disabledReason = "Only the task owner can change the owner",
 }: TaskMultiOwnerSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,15 +72,12 @@ export function TaskMultiOwnerSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Merge provided DB list with default team members so options are always complete
+  // Use provided DB list if available, otherwise fall back to default team members
   const effectiveOwnersList = React.useMemo(() => {
-    const list = [...(ownersList || [])];
-    DEFAULT_TEAM_MEMBERS.forEach((dtm) => {
-      if (!list.some((u) => u.name.toLowerCase() === dtm.name.toLowerCase())) {
-        list.push(dtm);
-      }
-    });
-    return list;
+    if (ownersList && ownersList.length > 0) {
+      return ownersList;
+    }
+    return DEFAULT_TEAM_MEMBERS;
   }, [ownersList]);
 
   // Generate consistent vibrant background color per user name
@@ -145,8 +147,11 @@ export function TaskMultiOwnerSelect({
       <div className="relative w-full" ref={containerRef}>
         {/* Trigger Box - ONLY this box toggles isOpen */}
         <div
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="min-h-[42px] w-full rounded-md border border-input bg-card/60 hover:bg-card px-3 py-1.5 flex items-center justify-between gap-2 cursor-pointer transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs"
+          onClick={() => !disabled && setIsOpen((prev) => !prev)}
+          title={disabled ? disabledReason : undefined}
+          className={`min-h-[42px] w-full rounded-md border border-input bg-card/60 px-3 py-1.5 flex items-center justify-between gap-2 transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
+            disabled ? "cursor-not-allowed opacity-60" : "hover:bg-card cursor-pointer"
+          }`}
         >
           {/* Flex-wrap list of selected owner pills matching user image */}
           <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
@@ -168,6 +173,7 @@ export function TaskMultiOwnerSelect({
                     {getInitials(ownerName)}
                   </span>
                   <span className="truncate max-w-[150px]">{ownerName}</span>
+                  {!disabled && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -179,6 +185,7 @@ export function TaskMultiOwnerSelect({
                   >
                     <X size={13} />
                   </button>
+                  )}
                 </span>
               ))
             )}

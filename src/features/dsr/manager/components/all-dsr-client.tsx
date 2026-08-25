@@ -322,7 +322,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
       >
         <div className="flex h-full w-full min-w-full items-start gap-3.5">
           {filteredGroups.map((group, index) => (
-            <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} />
+            <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} selectedDateStr={selectedDateStr} />
           ))}
           {filteredGroups.length === 0 && (
             <div className="flex h-48 w-full flex-col items-center justify-center rounded-xl border border-dashed text-center">

@@ -49,15 +49,16 @@ function formatTime(date: Date): string {
 
 // ── Submitted DSR member card ─────────────────────────────────────────────────
 
-function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
+function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
   const initials = initialsOf(displayName);
   const isReviewed = card.status === "REVIEWED";
   const gradient = avatarGradientFor(card.userId);
+  const href = selectedDateStr ? `${ROUTES.dsrMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsrMember(card.userId);
 
   return (
     <Link
-      href={ROUTES.dsrMember(card.userId)}
+      href={href}
       className={cn(
         "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
@@ -117,13 +118,14 @@ function DsrSubmittedCard({ card }: { card: DsrMemberCard }) {
 
 // ── Pending DSR member card ───────────────────────────────────────────────────
 
-function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: string }) {
+function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemberCard; teamId: string; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
   const initials = initialsOf(displayName);
+  const href = selectedDateStr ? `${ROUTES.dsrMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsrMember(card.userId);
 
   return (
     <Link
-      href={ROUTES.dsrMember(card.userId)}
+      href={href}
       className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
@@ -157,7 +159,7 @@ function DsrPendingMemberCard({ card, teamId }: { card: DsrMemberCard; teamId: s
 
 // ── Team column ───────────────────────────────────────────────────────────────
 
-export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; colorIndex?: number }) {
+export function DsrTeamColumn({ group, colorIndex = 0, selectedDateStr }: { group: DsrTeamGroup; colorIndex?: number; selectedDateStr?: string }) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
 
   return (
@@ -186,9 +188,9 @@ export function DsrTeamColumn({ group, colorIndex = 0 }: { group: DsrTeamGroup; 
             card.status === "REVIEWED";
 
           return isSubmitted ? (
-            <DsrSubmittedCard key={card.userId} card={card} />
+            <DsrSubmittedCard key={card.userId} card={card} selectedDateStr={selectedDateStr} />
           ) : (
-            <DsrPendingMemberCard key={card.userId} card={card} teamId={group.teamId} />
+            <DsrPendingMemberCard key={card.userId} card={card} teamId={group.teamId} selectedDateStr={selectedDateStr} />
           );
         })}
 
