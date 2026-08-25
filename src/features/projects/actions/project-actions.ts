@@ -289,7 +289,7 @@ export async function getProjectsAction(): Promise<Project[]> {
                 ...(userName
                   ? [
                       { owner: userName },
-                      { owners: { has: userName } },
+                      { owners: { some: { userId: session.user.id } } },
                     ]
                   : []),
               ],
@@ -335,7 +335,7 @@ export async function getProjectByIdAction(projectId: string): Promise<Project |
                 ...(userName
                   ? [
                       { owner: userName },
-                      { owners: { has: userName } },
+                      { owners: { some: { userId: session.user.id } } },
                     ]
                   : []),
               ],
