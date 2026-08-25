@@ -2074,7 +2074,6 @@ export function SingleTaskWorkspaceView({
             .then((created) => {
               if (!created) return;
               const updatedSubtasks = [...subtasks, created];
-              setSubtasks(updatedSubtasks);
               const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
               setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
             })
