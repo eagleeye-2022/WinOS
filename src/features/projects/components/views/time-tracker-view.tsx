@@ -116,17 +116,19 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Role Perspective Switcher — derived from the signed-in user's real workspace role.
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
-
-  useEffect(() => {
-    getCurrentUserRoleAction().then((role) => {
-      setRoleMode(role === "ADMIN" ? "ADMIN" : "USER");
-    });
-  }, []);
-
-  // Default views matching the user screenshot
   const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
   const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("All Time Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    getCurrentUserRoleAction().then((role) => {
+      const isManager = role === "ADMIN";
+      setRoleMode(isManager ? "ADMIN" : "USER");
+      if (isManager) {
+        setGroupBy("Group By User");
+      }
+    });
+  }, []);
 
   // Filters State
   const [showFilterBar, setShowFilterBar] = useState(false);
@@ -1309,11 +1311,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                 const [totalStr, billableStr, nonBillableStr] = group.dailyLogHours.split(" | ");
                 return (
                 <React.Fragment key={group.userId}>
-                  <tr className="bg-muted/80 hover:bg-muted transition-colors font-medium">
+                  <tr
+                    onClick={() => toggleDateCollapse(group.userId)}
+                    className="bg-muted/80 hover:bg-muted transition-colors font-medium cursor-pointer select-none border-b border-border"
+                  >
                     <td className="py-3 px-3 border-r border-border text-center">
                       <button
                         type="button"
-                        onClick={() => toggleDateCollapse(group.userId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDateCollapse(group.userId);
+                        }}
                         className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
                       >
                         {collapsedDates[group.userId] ? (
@@ -1325,16 +1333,23 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                     </td>
 
                     <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <UserIcon size={14} className="text-muted-foreground" />
-                        <span className="text-foreground font-bold">{group.userName}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">
+                          {group.userInitials || "US"}
+                        </div>
+                        <span className="text-foreground font-bold text-xs">{group.userName}</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
                     </td>
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
-                      <span className="text-foreground">{totalStr}</span> |{" "}
-                      <span className="text-info">{billableStr}</span> |{" "}
-                      <span className="text-warning">{nonBillableStr}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-foreground font-bold" title="Total Logged Hours">Total: {totalStr}</span>
+                        <span className="text-info font-bold" title="Billable Hours">Billable: {billableStr}</span>
+                        <span className="text-warning font-bold" title="Non-Billable Hours">Non-Billable: {nonBillableStr}</span>
+                      </div>
                     </td>
 
                     <td colSpan={5} className="py-3 px-4" />
