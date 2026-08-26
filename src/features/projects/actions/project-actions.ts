@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { db } from "@/lib/db";
@@ -2279,10 +2280,15 @@ export async function getOwnersAndTeamsAction(projectId?: string): Promise<{
  * ----------------------------------------------------
  */
 
-/** Extracts "H:MM" (any digit width) from a free-text duration like "00:08" or "01:00 h". */
-function parseDurationMinutes(duration: string): number {
-  const match = duration.match(/(\d+):(\d+)/);
-  if (!match) return 0;
+/** Extracts "H:MM" (any digit width) or number from a duration. */
+function parseDurationMinutes(duration: string | number | null | undefined): number {
+  if (typeof duration === "number") return duration;
+  if (!duration) return 0;
+  const match = String(duration).match(/(\d+):(\d+)/);
+  if (!match) {
+    const val = parseFloat(String(duration));
+    return isNaN(val) ? 0 : Math.round(val);
+  }
   return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
 }
 
@@ -2292,90 +2298,161 @@ function formatMinutes(totalMinutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+async function recalculateProjectTimeTotals(projectId: string) {
+  if (!projectId) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const project = await d.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true, code: true, name: true },
+  });
+  if (!project) return;
+
+  const logs = await d.projectTimeLog.findMany({
+    where: { projectId: project.id },
+    select: { duration: true, billingType: true },
+  });
+
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  let nonBillableMinutes = 0;
+
+  for (const log of logs) {
+    const mins = parseDurationMinutes(log.duration);
+    totalMinutes += mins;
+    if (log.billingType === "BILLABLE") {
+      billableMinutes += mins;
+    } else {
+      nonBillableMinutes += mins;
+    }
+  }
+
+  const formatHoursStr = (m: number) => {
+    const hrs = Math.floor(m / 60);
+    const mins = m % 60;
+    return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")} h`;
+  };
+
+  await d.project.update({
+    where: { id: project.id },
+    data: {
+      totalHours: formatHoursStr(totalMinutes),
+      billableHours: formatHoursStr(billableMinutes),
+      nonBillableHours: formatHoursStr(nonBillableMinutes),
+    },
+  });
+}
+
+async function recalculateTaskWorkHours(taskCodeOrId: string) {
+  if (!taskCodeOrId) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const task = await d.projectTask.findFirst({
+    where: { OR: [{ id: taskCodeOrId }, { code: taskCodeOrId }] },
+    select: { id: true, code: true },
+  });
+  if (!task) return;
+
+  const logs = await d.projectTimeLog.findMany({
+    where: { taskId: task.id },
+    select: { duration: true },
+  });
+
+  let totalMinutes = 0;
+  for (const log of logs) {
+    totalMinutes += parseDurationMinutes(log.duration);
+  }
+
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const workHoursStr = `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+
+  await d.projectTask.update({
+    where: { id: task.id },
+    data: { workHours: workHoursStr },
+  });
+}
+
 export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGroup[]> {
   const session = await requireAuth();
   const canViewAll = await isPrivilegedViewer(session.user.id);
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
   let projectFilter: any = {};
   if (projectId) {
-    const project = await db.project.findFirst({
+    const project = await d.project.findFirst({
       where: { OR: [{ id: projectId }, { code: projectId }] },
       select: { id: true, code: true, name: true },
     });
 
-    const searchTokens = Array.from(
-      new Set([projectId, project?.id, project?.code, project?.name].filter(Boolean))
-    ) as string[];
-
-    projectFilter = {
-      OR: [
-        { projectId: { in: searchTokens } },
-        { project: { in: searchTokens } },
-        { taskCode: { contains: projectId } },
-      ],
-    };
+    if (project) {
+      projectFilter = { projectId: project.id };
+    } else {
+      projectFilter = { projectId: projectId };
+    }
   }
 
-  // Team members only ever see their own time logs; managers/admins see everyone's.
   const ownershipFilter = canViewAll
     ? {}
-    : {
-        OR: [
-          { userId: session.user.id },
-          { userId: null, userName: session.user.name },
-        ],
-      };
+    : { userId: session.user.id };
 
-  const dbLogs = await db.projectTimeLog.findMany({
-    where: { AND: [projectFilter, ownershipFilter] },
+  const dbLogs = await d.projectTimeLog.findMany({
+    where: { ...projectFilter, ...ownershipFilter },
+    include: {
+      user: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
+      task: { select: { id: true, code: true, title: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   const userMap = new Map<string, UserTimeGroup>();
 
-  dbLogs.forEach((log) => {
-    const userName = log.userName || session.user.name || "User";
+  dbLogs.forEach((log: any) => {
+    const userName = log.user?.name || session.user.name || "User";
     const initials = userName
       .split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .substring(0, 2)
       .toUpperCase();
 
     if (!userMap.has(userName)) {
       userMap.set(userName, {
-        userId: log.id,
+        userId: log.userId || log.id,
         userName: userName,
         userInitials: initials,
-        avatarColor: log.avatarColor || "bg-primary text-primary-foreground",
+        avatarColor: "bg-primary text-primary-foreground",
         dailyLogHours: "00:00 | 00:00 | 00:00",
         timeLogs: [],
       });
     }
 
+    const durationStr = typeof log.duration === "number" ? formatMinutes(log.duration) : String(log.duration || "00:00");
+    const dateStr = log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date || "");
+
     const group = userMap.get(userName)!;
     group.timeLogs.push({
       id: log.id,
-      code: log.code,
-      title: log.title,
-      project: log.project,
+      code: log.id,
+      title: log.task?.title || log.description || "Logged Work",
+      project: log.project?.name || "Project",
       projectId: log.projectId || undefined,
-      taskCode: log.taskCode || undefined,
-      duration: log.duration,
-      timePeriod: log.timePeriod,
-      date: log.date,
-      billingType: log.billingType as "NON BILLABLE" | "BILLABLE",
-      remarks: log.remarks || "",
-      approvalStatus: (log.approvalStatus as "Pending" | "Approved" | "Rejected") || "Pending",
+      taskCode: log.task?.code || undefined,
+      duration: durationStr,
+      timePeriod: "",
+      date: dateStr,
+      billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
+      remarks: log.description || log.rejectionReason || "",
+      approvalStatus: log.approvalStatus as any,
       userName: userName,
       userInitials: initials,
       userId: log.userId || undefined,
-      createdAt: log.createdAt.toISOString(),
+      createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
     });
   });
 
-  // Real per-user "Total | Billable | Non-billable" summary, derived from their actual logs.
   for (const group of userMap.values()) {
     let billableMinutes = 0;
     let nonBillableMinutes = 0;
@@ -2395,79 +2472,122 @@ export async function createTimeLogAction(
   projectId?: string
 ): Promise<TimeLogEntry> {
   const session = await requireAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
 
-  const count = await db.projectTimeLog.count();
-  const nextCode = `EEDP-89-TL${count + 1}`;
+  const rawTaskId = (logData as any).taskId || logData.taskCode;
+  const task = await d.projectTask.findFirst({
+    where: { OR: [{ id: rawTaskId }, { code: rawTaskId }] },
+    select: { id: true, code: true, title: true, phaseId: true, projectId: true },
+  });
 
-  let userName = logData.userName;
-  if (!userName || userName === "User") {
-    const dbUser = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { name: true, email: true },
+  const rawProjectId = projectId || logData.projectId || (logData as any).project || task?.projectId;
+  let project = await d.project.findFirst({
+    where: { OR: [{ id: rawProjectId }, { code: rawProjectId }] },
+    select: { id: true, name: true, code: true },
+  });
+
+  if (!project && task?.projectId) {
+    project = await d.project.findUnique({
+      where: { id: task.projectId },
+      select: { id: true, name: true, code: true },
     });
-    userName = dbUser?.name || session.user.name || session.user.email || "System User";
   }
 
-  const initials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .substring(0, 2)
-    .toUpperCase();
-
-  let resolvedProjectId: string | undefined;
-  let resolvedProjectName: string = logData.project || "EagleEye DP Portal";
-
-  const projectKey = projectId || logData.projectId || (logData.taskCode ? logData.taskCode.split("-").slice(0, 2).join("-") : undefined);
-  if (projectKey) {
-    const project = await db.project.findFirst({
-      where: { OR: [{ id: projectKey }, { code: projectKey }] },
-      select: { id: true, name: true },
-    });
-    if (project) {
-      resolvedProjectId = project.id;
-      resolvedProjectName = project.name;
-    }
+  if (!project) {
+    throw new Error("Project not found");
+  }
+  if (!task) {
+    throw new Error("Task not found");
   }
 
-  const newLog = await db.projectTimeLog.create({
+  const phaseId = (logData as any).phaseId || task.phaseId;
+  let phase: any = null;
+
+  if (phaseId) {
+    phase = await d.projectPhase.findFirst({
+      where: { id: phaseId, projectId: project.id },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  if (!phase) {
+    phase = await d.projectPhase.findFirst({
+      where: { projectId: project.id },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  if (!phase) {
+    phase = await d.projectPhase.create({
+      data: {
+        code: "P1",
+        name: "Phase 1",
+        projectId: project.id,
+      },
+      select: { id: true, name: true, code: true },
+    });
+  }
+
+  if (!task.phaseId) {
+    await d.projectTask.update({
+      where: { id: task.id },
+      data: { phaseId: phase.id },
+    });
+  }
+
+  let durationMinutes = parseDurationMinutes(logData.duration);
+  if (durationMinutes <= 0) durationMinutes = 60;
+
+  const newLog = await d.projectTimeLog.create({
     data: {
-      code: nextCode,
-      title: logData.title || "Logged Work",
-      project: resolvedProjectName,
-      projectId: resolvedProjectId,
-      taskCode: logData.taskCode || undefined,
-      duration: logData.duration || "01:00 h",
-      timePeriod: logData.timePeriod || "10:00 AM - 11:00 AM",
-      date: logData.date || new Date().toISOString().split("T")[0],
-      billingType: logData.billingType || "NON BILLABLE",
-      remarks: logData.remarks || "",
-      approvalStatus: logData.approvalStatus || "Pending",
-      userName: userName,
-      userInitials: initials,
-      avatarColor: "bg-primary text-primary-foreground",
+      projectId: project.id,
+      phaseId: phase.id,
+      taskId: task.id,
       userId: session.user.id,
+      duration: durationMinutes,
+      billingType: logData.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE",
+      approvalStatus: "PENDING",
+      description: logData.remarks || logData.title || null,
+    },
+    include: {
+      project: true,
+      phase: true,
+      task: true,
+      user: true,
     },
   });
 
+  if (project.id) {
+    await recalculateProjectTimeTotals(project.id);
+  }
+  if (task.id) {
+    await recalculateTaskWorkHours(task.id);
+  }
+
+  revalidatePath(`/projects/${project.id}/time-tracker`);
+  revalidatePath(`/projects/${project.id}/tasks/${task.code}`);
+  revalidatePath(`/projects/${project.id}/tasks/${task.id}`);
+  revalidatePath(`/projects/${project.id}`);
   revalidatePath("/projects/time-tracker");
 
   return {
     id: newLog.id,
-    code: newLog.code,
-    title: newLog.title,
-    project: newLog.project,
-    projectId: newLog.projectId || undefined,
-    taskCode: newLog.taskCode || undefined,
-    duration: newLog.duration,
-    timePeriod: newLog.timePeriod,
-    date: newLog.date,
-    billingType: newLog.billingType as "NON BILLABLE" | "BILLABLE",
-    remarks: newLog.remarks || "",
-    approvalStatus: newLog.approvalStatus as "Pending" | "Approved" | "Rejected",
-    userName: userName,
-    userInitials: initials,
-    userId: session.user.id,
+    code: newLog.id,
+    title: newLog.task?.title || newLog.description || "Logged Work",
+    project: newLog.project?.name || "Project",
+    projectId: newLog.projectId,
+    taskCode: newLog.task?.code || task.code,
+    duration: formatMinutes(newLog.duration),
+    timePeriod: "",
+    date: newLog.date instanceof Date ? newLog.date.toISOString().split("T")[0] : String(newLog.date),
+    billingType: newLog.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
+    remarks: newLog.description || "",
+    approvalStatus: newLog.approvalStatus,
+    userName: newLog.user?.name || session.user.name || "User",
+    userInitials: "US",
+    userId: newLog.userId,
     createdAt: newLog.createdAt.toISOString(),
   };
 }
@@ -2476,55 +2596,88 @@ export async function updateTimeLogAction(
   logId: string,
   updates: Partial<TimeLogEntry>
 ): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
 
-  await db.projectTimeLog.updateMany({
-    where: {
-      OR: [{ id: logId }, { code: logId }],
-    },
-    data: {
-      ...(updates.code && { code: updates.code }),
-      ...(updates.title && { title: updates.title }),
-      ...(updates.project && { project: updates.project }),
-      ...(updates.taskCode !== undefined && { taskCode: updates.taskCode }),
-      ...(updates.duration && { duration: updates.duration }),
-      ...(updates.timePeriod && { timePeriod: updates.timePeriod }),
-      ...(updates.date && { date: updates.date }),
-      ...(updates.billingType && { billingType: updates.billingType }),
-      ...(updates.userName && { userName: updates.userName }),
-      ...(updates.remarks !== undefined && { remarks: updates.remarks }),
-      ...(updates.approvalStatus && { approvalStatus: updates.approvalStatus }),
-    },
+  const existingLog = await d.projectTimeLog.findUnique({
+    where: { id: logId },
   });
+
+  if (!existingLog) return false;
+
+  const isManager = await isPrivilegedViewer(session.user.id);
+  if (!isManager && existingLog.userId !== session.user.id) {
+    throw new Error("You do not have permission to edit this time log.");
+  }
+
+  const dataToUpdate: any = {};
+  if (updates.duration) {
+    dataToUpdate.duration = parseDurationMinutes(updates.duration);
+  }
+  if (updates.billingType) {
+    dataToUpdate.billingType = updates.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE";
+  }
+  if (updates.remarks !== undefined) {
+    dataToUpdate.description = updates.remarks;
+  }
+  if (updates.approvalStatus && isManager) {
+    dataToUpdate.approvalStatus = updates.approvalStatus.toUpperCase();
+  }
+
+  await d.projectTimeLog.update({
+    where: { id: logId },
+    data: dataToUpdate,
+  });
+
+  if (existingLog.projectId) {
+    await recalculateProjectTimeTotals(existingLog.projectId);
+  }
 
   revalidatePath("/projects/time-tracker");
   return true;
 }
 
 export async function deleteTimeLogAction(logId: string): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
 
-  await db.projectTimeLog.deleteMany({
-    where: {
-      OR: [{ id: logId }, { code: logId }],
-    },
+  const existingLog = await d.projectTimeLog.findUnique({
+    where: { id: logId },
   });
+
+  if (!existingLog) return false;
+
+  const isManager = await isPrivilegedViewer(session.user.id);
+  if (!isManager) {
+    throw new Error("Only managers can delete time logs.");
+  }
+
+  await d.projectTimeLog.delete({
+    where: { id: logId },
+  });
+
+  if (existingLog.projectId) {
+    await recalculateProjectTimeTotals(existingLog.projectId);
+  }
 
   revalidatePath("/projects/time-tracker");
   return true;
 }
 
 export async function approveTimeLogsAction(logIds: string[]): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  const isManager = await isPrivilegedViewer(session.user.id);
+  if (!isManager) throw new Error("Only managers can approve time logs.");
+
   if (!logIds || logIds.length === 0) return true;
 
-  await db.projectTimeLog.updateMany({
-    where: {
-      id: { in: logIds },
-    },
-    data: {
-      approvalStatus: "Approved",
-    },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  await d.projectTimeLog.updateMany({
+    where: { id: { in: logIds } },
+    data: { approvalStatus: "APPROVED", rejectionReason: null },
   });
 
   revalidatePath("/projects/time-tracker");
@@ -2535,71 +2688,206 @@ export async function rejectTimeLogsAction(
   logIds: string[],
   reason?: string
 ): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  const isManager = await isPrivilegedViewer(session.user.id);
+  if (!isManager) throw new Error("Only managers can reject time logs.");
+
   if (!logIds || logIds.length === 0) return true;
 
-  await db.projectTimeLog.updateMany({
-    where: {
-      id: { in: logIds },
-    },
-    data: {
-      approvalStatus: "Rejected",
-      ...(reason ? { remarks: `Rejected: ${reason}` } : {}),
-    },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  await d.projectTimeLog.updateMany({
+    where: { id: { in: logIds } },
+    data: { approvalStatus: "REJECTED", rejectionReason: reason || "Rejected by manager" },
   });
 
   revalidatePath("/projects/time-tracker");
   return true;
 }
 
-export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeLogEntry[]> {
+export interface ProjectTimeSummary {
+  totalHoursStr: string;
+  billableHoursStr: string;
+  nonBillableHoursStr: string;
+  totalMinutes: number;
+  billableMinutes: number;
+  nonBillableMinutes: number;
+  userBreakdown: {
+    userId: string;
+    userName: string;
+    userInitials: string;
+    avatarColor: string;
+    totalHoursStr: string;
+    totalMinutes: number;
+    billableMinutes: number;
+    nonBillableMinutes: number;
+  }[];
+  taskBreakdown: {
+    taskCode: string;
+    taskTitle: string;
+    totalHoursStr: string;
+    totalMinutes: number;
+  }[];
+}
+
+export async function getProjectTimeLogSummaryAction(projectId: string): Promise<ProjectTimeSummary> {
   const session = await requireAuth();
   const canViewAll = await isPrivilegedViewer(session.user.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
 
-  const task = await db.projectTask.findFirst({
-    where: { OR: [{ id: taskCodeOrId }, { code: taskCodeOrId }] },
-    select: { id: true, code: true },
+  const project = await d.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true, code: true, name: true },
   });
 
-  const searchTokens = Array.from(
-    new Set([taskCodeOrId, task?.id, task?.code].filter(Boolean) as string[])
-  );
+  const ownershipFilter = canViewAll ? {} : { userId: session.user.id };
 
-  const ownershipFilter = canViewAll
-    ? {}
-    : {
-        OR: [
-          { userId: session.user.id },
-          { userId: null, userName: session.user.name },
-        ],
-      };
-
-  const logs = await db.projectTimeLog.findMany({
-    where: {
-      OR: searchTokens.flatMap((token) => [
-        { taskCode: token },
-        { taskCode: { equals: token, mode: "insensitive" } },
-        { title: { contains: token, mode: "insensitive" } },
-      ]),
-      ...ownershipFilter,
+  const logs = await d.projectTimeLog.findMany({
+    where: { projectId: project?.id || projectId, ...ownershipFilter },
+    include: {
+      user: { select: { id: true, name: true } },
+      task: { select: { id: true, code: true, title: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return logs.map((log) => ({
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  let nonBillableMinutes = 0;
+
+  const userMap = new Map<string, {
+    userId: string;
+    userName: string;
+    userInitials: string;
+    avatarColor: string;
+    totalMinutes: number;
+    billableMinutes: number;
+    nonBillableMinutes: number;
+  }>();
+
+  const taskMap = new Map<string, {
+    taskCode: string;
+    taskTitle: string;
+    totalMinutes: number;
+  }>();
+
+  for (const log of logs) {
+    const mins = typeof log.duration === "number" ? log.duration : parseDurationMinutes(log.duration);
+    totalMinutes += mins;
+    if (log.billingType === "BILLABLE") {
+      billableMinutes += mins;
+    } else {
+      nonBillableMinutes += mins;
+    }
+
+    const userName = log.user?.name || session.user.name || "User";
+    const initials = userName
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+
+    if (!userMap.has(userName)) {
+      userMap.set(userName, {
+        userId: log.userId || log.id,
+        userName,
+        userInitials: initials,
+        avatarColor: "bg-primary text-primary-foreground",
+        totalMinutes: 0,
+        billableMinutes: 0,
+        nonBillableMinutes: 0,
+      });
+    }
+    const uEntry = userMap.get(userName)!;
+    uEntry.totalMinutes += mins;
+    if (log.billingType === "BILLABLE") uEntry.billableMinutes += mins;
+    else uEntry.nonBillableMinutes += mins;
+
+    const tCode = log.task?.code || "General";
+    const tTitle = log.task?.title || "Direct Project Time";
+    if (!taskMap.has(tCode)) {
+      taskMap.set(tCode, {
+        taskCode: tCode,
+        taskTitle: tTitle,
+        totalMinutes: 0,
+      });
+    }
+    const tEntry = taskMap.get(tCode)!;
+    tEntry.totalMinutes += mins;
+  }
+
+  const formatHoursStr = (m: number) => {
+    const hrs = Math.floor(m / 60);
+    const mins = m % 60;
+    return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")} h`;
+  };
+
+  return {
+    totalHoursStr: formatHoursStr(totalMinutes),
+    billableHoursStr: formatHoursStr(billableMinutes),
+    nonBillableHoursStr: formatHoursStr(nonBillableMinutes),
+    totalMinutes,
+    billableMinutes,
+    nonBillableMinutes,
+    userBreakdown: Array.from(userMap.values()).map((u) => ({
+      ...u,
+      totalHoursStr: formatHoursStr(u.totalMinutes),
+    })),
+    taskBreakdown: Array.from(taskMap.values()).map((t) => ({
+      ...t,
+      totalHoursStr: formatHoursStr(t.totalMinutes),
+    })),
+  };
+}
+
+export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeLogEntry[]> {
+  const session = await requireAuth();
+  const canViewAll = await isPrivilegedViewer(session.user.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const task = await d.projectTask.findFirst({
+    where: { OR: [{ id: taskCodeOrId }, { code: taskCodeOrId }] },
+    select: { id: true, code: true, projectId: true },
+  });
+
+  if (!task) {
+    return [];
+  }
+
+  const ownershipFilter = canViewAll ? {} : { userId: session.user.id };
+
+  const logs = await d.projectTimeLog.findMany({
+    where: {
+      taskId: task.id,
+      ...ownershipFilter,
+    },
+    include: {
+      user: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return logs.map((log: any) => ({
     id: log.id,
-    code: log.code,
-    title: log.title,
-    project: log.project,
-    taskCode: log.taskCode || undefined,
-    duration: log.duration,
-    timePeriod: log.timePeriod,
-    date: log.date,
-    billingType: log.billingType as "NON BILLABLE" | "BILLABLE",
-    remarks: log.remarks || "",
-    approvalStatus: log.approvalStatus as "Pending" | "Approved" | "Rejected",
-    userName: log.userName || undefined,
+    code: log.id,
+    title: log.description || "Logged Work",
+    project: log.project?.name || "Project",
+    projectId: log.projectId || undefined,
+    taskCode: task.code,
+    duration: typeof log.duration === "number" ? formatMinutes(log.duration) : String(log.duration),
+    timePeriod: "",
+    date: log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date),
+    billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
+    remarks: log.description || "",
+    approvalStatus: log.approvalStatus as any,
+    userName: log.user?.name || session.user.name || "User",
+    userInitials: "US",
     userId: log.userId || undefined,
+    createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
   }));
 }
 
@@ -3051,3 +3339,4 @@ export async function getTaskTimelineAction(taskIdOrCode: string): Promise<Proje
 
   return timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
+

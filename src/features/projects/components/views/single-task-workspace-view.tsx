@@ -513,6 +513,44 @@ export function SingleTaskWorkspaceView({
     refreshTaskTimeLogs();
   }, [refreshTaskTimeLogs]);
 
+  const handleTimerLogSaved = async (logData: {
+    duration: string;
+    startTime: string;
+    endTime: string;
+    isBillable: boolean;
+    notes: string;
+  }) => {
+    try {
+      const timePeriodStr = `${logData.startTime} - ${logData.endTime}`;
+      const dd = String(new Date().getDate()).padStart(2, "0");
+      const mm = String(new Date().getMonth() + 1).padStart(2, "0");
+      const yyyy = new Date().getFullYear();
+      const todayFormatted = `${dd}/${mm}/${yyyy}`;
+
+      await createTimeLogAction(
+        {
+          title: activeTask.title || "Task Timer Work",
+          project: project?.name || activeTask.code?.split("-").slice(0, 2).join("-") || "Project",
+          projectId: activeTask.projectId || projectId || undefined,
+          taskCode: activeTask.code,
+          duration: logData.duration,
+          timePeriod: timePeriodStr,
+          date: todayFormatted,
+          billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
+          remarks: logData.notes || `Logged from live task timer for ${activeTask.code}`,
+          approvalStatus: "Pending",
+        },
+        activeTask.projectId || projectId
+      );
+
+      showToast("Time log saved from timer");
+      refreshTaskTimeLogs();
+    } catch (err) {
+      console.error("Failed to save timer time log:", err);
+      showToast("Failed to save timer log");
+    }
+  };
+
   const totalTaskMinutes = taskTimeLogs.reduce((sum, log) => {
     const match = log.duration.match(/(\d+):(\d+)/);
     if (!match) return sum;
@@ -631,35 +669,6 @@ export function SingleTaskWorkspaceView({
     const secs = totalSecs % 60;
     const pad = (n: number) => n.toString().padStart(2, "0");
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
-  };
-
-  const handleTimerLogSaved = async (logData: {
-    duration: string;
-    startTime: string;
-    endTime: string;
-    isBillable: boolean;
-    notes: string;
-  }) => {
-    try {
-      await createTimeLogAction(
-        {
-          title: activeTask.title,
-          project: project?.name || projectId,
-          taskCode: activeTask.code,
-          duration: logData.duration,
-          timePeriod: `${logData.startTime.split(" ")[1] || "10:00 AM"} - ${logData.endTime.split(" ")[1] || "11:00 AM"}`,
-          date: new Date().toLocaleDateString("en-GB"),
-          billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
-          remarks: logData.notes || "Timer session logged",
-          approvalStatus: "Pending",
-          userName: currentUser?.name || "User",
-        },
-        projectId
-      );
-      refreshTaskTimeLogs();
-    } catch (err) {
-      console.error("Failed to save timer log:", err);
-    }
   };
 
   // Dynamically compute list of unique phases from all available tasks
@@ -955,6 +964,8 @@ export function SingleTaskWorkspaceView({
               <TimerWidget
                 taskTitle={activeTask.title}
                 taskCode={activeTask.code}
+                taskId={activeTask.id}
+                projectId={activeTask.projectId || projectId}
                 onSaveLog={handleTimerLogSaved}
                 canStart={canStartTimer}
               />
@@ -1044,7 +1055,7 @@ export function SingleTaskWorkspaceView({
               </button>
 
               {isAssignModalOpen && (
-                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-border bg-card p-3 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
                   <TaskMultiOwnerSelect
                     label="Assign Task Members"
                     selectedOwners={

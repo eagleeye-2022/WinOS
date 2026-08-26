@@ -184,7 +184,7 @@ export async function createCalendarEvent(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (db as any).notification.createMany({
        
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       data: invitees
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((u: any) => u.id !== userId)

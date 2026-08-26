@@ -89,6 +89,8 @@ model User {
   taskOwnerships        ProjectTaskOwner[]     @relation("TaskOwners")
   taskOwnersAssigned    ProjectTaskOwner[]     @relation("TaskAssignedBy")
   projectMemberships    ProjectMember[]
+  projectTimeLogs       ProjectTimeLog[]
+  activeTimer           ActiveTimer?
 }
 
 model Account {
@@ -862,6 +864,7 @@ model Project {
   tasks            ProjectTask[]
   timeLogs         ProjectTimeLog[]
   members          ProjectMember[]
+  activeTimers     ActiveTimer[]
 }
 
 model ProjectMember {
@@ -886,6 +889,8 @@ model ProjectPhase {
   project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt   DateTime      @default(now())
   tasks       ProjectTask[]
+  timeLogs    ProjectTimeLog[]
+  activeTimers ActiveTimer[]
 }
 
 model ProjectTaskList {
@@ -961,6 +966,8 @@ model ProjectTask {
   subtasks             ProjectSubtask[]
   remarks              ProjectTaskRemark[]
   activities           ProjectTaskActivity[]
+  timeLogs             ProjectTimeLog[]
+  activeTimers         ActiveTimer[]
 }
 
 model ProjectTaskOwner {
@@ -1015,23 +1022,63 @@ model ProjectTaskActivity {
   createdAt    DateTime    @default(now())
 }
 
+enum BillingType {
+  BILLABLE
+  NON_BILLABLE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model ProjectTimeLog {
-  id           String   @id @default(cuid())
-  code         String
-  title        String
-  project      String
-  taskCode     String?
-  duration     String
-  timePeriod   String
-  date         String   @default("11/07/2026")
-  billingType  String   @default("NON BILLABLE")
-  remarks      String?
-  approvalStatus String @default("Pending")
-  userName     String?
-  userInitials String?
-  avatarColor  String?
-  userId       String?
-  projectId    String?
-  projectRel   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
+  id               String              @id @default(cuid())
+  projectId        String
+  phaseId          String
+  taskId           String
+  userId           String
+  date             DateTime            @default(now())
+  duration         Int                 // minutes
+  billingType      BillingType         @default(NON_BILLABLE)
+  approvalStatus   ApprovalStatus      @default(PENDING)
+  description      String?
+  rejectionReason  String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase            ProjectPhase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  task             ProjectTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([phaseId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([date])
+  @@index([approvalStatus])
+}
+
+model ActiveTimer {
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  projectId        String
+  phaseId          String
+  taskId           String
+  description      String?
+  billingType      BillingType         @default(NON_BILLABLE)
+  startedAt        DateTime            @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase            ProjectPhase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  task             ProjectTask         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([taskId])
 }
