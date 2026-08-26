@@ -576,7 +576,7 @@ export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskLi
   const lists: TaskList[] = [];
 
   template.phases.forEach((p) => {
-    p.taskLists.forEach((tl) => {
+    (p.taskLists || []).forEach((tl) => {
       lists.push({
         id: `tl-${tl.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
         name: tl.name,
@@ -604,33 +604,34 @@ export function scaffoldTasksFromTemplate(
   const ownerIdsList = defaultOwnerId ? [defaultOwnerId] : [];
 
   template.phases.forEach((p) => {
-    p.taskLists.forEach((tl) => {
-      tl.defaultTasks.forEach((dt) => {
-        const codeNum = String(taskCounter).padStart(2, "0");
-        tasks.push({
-          code: `${projectCode}-T${codeNum}`,
-          title: dt.title,
-          phaseCode: p.code,
-          phaseName: p.name,
-          taskListName: tl.name,
-          status: "Open",
-          priority: dt.priority || "Medium",
-          duration: dt.duration || "1 day",
-          workHours: "00:00",
-          startDate: new Date().toLocaleDateString("en-GB"),
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB"),
-          completionPercentage: 0,
-          departmentAlias: dt.departmentAlias || p.departmentAlias || "digitalproducts@",
-          description: dt.description || "",
-          owner: ownerName,
-          ownerId: defaultOwnerId,
-          owners: ownersList,
-          ownerIds: ownerIdsList,
-          tags: [p.code, tl.name.split(" ")[0]],
-          billingType: "Hourly Rate",
-        });
-        taskCounter++;
+    const defaultTasksFromLists = p.taskLists ? p.taskLists.flatMap((tl) => tl.defaultTasks || []) : [];
+    const allPhaseTasks = p.tasks && p.tasks.length > 0 ? p.tasks : defaultTasksFromLists;
+
+    allPhaseTasks.forEach((dt) => {
+      const codeNum = String(taskCounter).padStart(2, "0");
+      tasks.push({
+        code: `${projectCode}-T${codeNum}`,
+        title: dt.title,
+        phaseCode: p.code,
+        phaseName: p.name,
+        taskListName: p.name,
+        status: "Open",
+        priority: dt.priority || "Medium",
+        duration: dt.duration || "1 day",
+        workHours: "00:00",
+        startDate: new Date().toLocaleDateString("en-GB"),
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB"),
+        completionPercentage: 0,
+        departmentAlias: dt.departmentAlias || p.departmentAlias || "digitalproducts@",
+        description: dt.description || "",
+        owner: ownerName,
+        ownerId: defaultOwnerId,
+        owners: ownersList,
+        ownerIds: ownerIdsList,
+        tags: [p.code],
+        billingType: "Hourly Rate",
       });
+      taskCounter++;
     });
   });
 

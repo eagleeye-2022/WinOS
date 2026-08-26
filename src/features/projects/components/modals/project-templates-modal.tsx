@@ -27,13 +27,13 @@ export function ProjectTemplatesModal({
     templates.find((t) => t.id === selectedTemplateId) || templates[0];
 
   const totalTaskListsCount = activeTemplate.phases.reduce(
-    (acc, p) => acc + p.taskLists.length,
+    (acc, p) => acc + (p.taskLists?.length || 0),
     0
   );
 
   const totalTasksCount = activeTemplate.phases.reduce(
     (acc, p) =>
-      acc + p.taskLists.reduce((tAcc, tl) => tAcc + tl.defaultTasks.length, 0),
+      acc + (p.taskLists?.reduce((tAcc, tl) => tAcc + (tl.defaultTasks?.length || 0), 0) || 0),
     0
   );
 
@@ -159,7 +159,7 @@ export function ProjectTemplatesModal({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
-                      {phase.taskLists.map((tl) => (
+                      {(phase.taskLists || []).map((tl) => (
                         <div
                           key={tl.name}
                           className="rounded border border-border/70 bg-background p-2 text-xs space-y-1"

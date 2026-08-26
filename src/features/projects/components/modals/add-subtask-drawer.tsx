@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, Calendar, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { X, Calendar, Loader2, Info } from "lucide-react";
 import { TaskSubtask, TaskStatus } from "../../types";
-import { getOwnersAndTeamsAction } from "../../actions/project-actions";
-import { TaskMultiOwnerSelect, OwnerUserOption } from "../task-multi-owner-select";
 
 interface AddSubtaskDrawerProps {
   isOpen: boolean;
@@ -28,30 +26,9 @@ export function AddSubtaskDrawer({
   const [dueDate, setDueDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
-  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
-  const [ownersList, setOwnersList] = useState<OwnerUserOption[]>([]);
   const [status, setStatus] = useState<TaskStatus>("Open");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    async function loadUsers() {
-      try {
-        const res = await getOwnersAndTeamsAction();
-        if (res.owners && res.owners.length > 0) {
-          setOwnersList(res.owners);
-          if (selectedOwners.length === 0) {
-            setSelectedOwners([res.owners[0].name]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load user options:", err);
-      }
-    }
-    if (isOpen) {
-      loadUsers();
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -71,14 +48,12 @@ export function AddSubtaskDrawer({
 
     setIsSubmitting(true);
 
-    const primaryOwner = selectedOwners.length > 0 ? selectedOwners.join(", ") : "Unassigned";
-
     const newSubtask: TaskSubtask = {
       id: `st-${Date.now()}`,
       code: `${parentTaskCode}.${nextSubtaskNumber}`,
       title: title.trim(),
       status,
-      ownerName: primaryOwner,
+      ownerName: undefined, // Owner is dynamically inherited from parent task
       startDate: formatDateDisplay(startDate),
       dueDate: formatDateDisplay(dueDate),
       completed: status === "Closed",
@@ -95,7 +70,7 @@ export function AddSubtaskDrawer({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity duration-200">
       <div className="relative flex h-full w-full max-w-xl flex-col bg-background shadow-2xl animate-in slide-in-from-right duration-300 font-sans">
         
-        {/* Header matching Add Task Drawer */}
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4 dark:border-neutral-800">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-foreground dark:text-neutral-100">Add Subtask</h2>
@@ -112,11 +87,19 @@ export function AddSubtaskDrawer({
           </button>
         </div>
 
-        {/* Form Body matching Add Task Drawer */}
+        {/* Form Body */}
         <form
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto px-6 py-5 space-y-4 text-xs"
         >
+          {/* Information Notice: Owner inherited automatically */}
+          <div className="flex items-center gap-2.5 rounded-lg border border-info/30 bg-info/10 px-3.5 py-2.5 text-foreground font-medium">
+            <Info size={16} className="text-info shrink-0" />
+            <span>
+              Subtask owners are automatically inherited from parent task <strong className="font-mono">{parentTaskCode}</strong>.
+            </span>
+          </div>
+
           {/* Subtask Title */}
           <div className="space-y-1.5">
             <label className="font-semibold text-muted-foreground flex items-center justify-between">
@@ -192,15 +175,7 @@ export function AddSubtaskDrawer({
             </div>
           </div>
 
-          {/* Task Multi-Owner Select matching Add Task Drawer UI */}
-          <TaskMultiOwnerSelect
-            label="Task Owners"
-            selectedOwners={selectedOwners}
-            onChangeOwners={setSelectedOwners}
-            ownersList={ownersList}
-          />
-
-          {/* Description matching Add Task Drawer UI */}
+          {/* Description */}
           <div className="space-y-1.5">
             <label className="font-semibold text-muted-foreground">
               Description
@@ -214,7 +189,7 @@ export function AddSubtaskDrawer({
             />
           </div>
 
-          {/* Footer Actions matching Add Task Drawer UI */}
+          {/* Footer Actions */}
           <div className="flex items-center justify-start gap-3 pt-5 border-t border-border dark:border-neutral-800">
             <button
               type="submit"

@@ -39,7 +39,7 @@ export function ProjectUsersView({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
-  const fetchMembers = async () => {
+  const fetchMembers = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -54,7 +54,7 @@ export function ProjectUsersView({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [projectId, onMembersCountChange]);
 
   useEffect(() => {
     if (projectId) {
@@ -62,7 +62,7 @@ export function ProjectUsersView({
         fetchMembers();
       });
     }
-  }, [projectId]);
+  }, [projectId, fetchMembers]);
 
   const handleRemoveUser = async (userId: string, userName: string) => {
     if (!confirm(`Are you sure you want to remove ${userName} from this project?`)) {

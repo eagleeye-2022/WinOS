@@ -420,8 +420,8 @@ export function TaskDetailDrawer({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span title="Comments"><MessageSquare size={13} className="cursor-pointer hover:text-foreground" /></span>
-                  <span title="Attachments"><Paperclip size={13} className="cursor-pointer hover:text-foreground" /></span>
+                  {/* <span title="Comments"><MessageSquare size={13} className="cursor-pointer hover:text-foreground" /></span>
+                  <span title="Attachments"><Paperclip size={13} className="cursor-pointer hover:text-foreground" /></span> */}
                   <span title="History"><History size={13} className="cursor-pointer hover:text-foreground" /></span>
                   <span title="Work Hours"><Clock size={13} className="cursor-pointer hover:text-foreground" /></span>
                   <span title="Due Date"><Calendar size={13} className="cursor-pointer hover:text-foreground" /></span>

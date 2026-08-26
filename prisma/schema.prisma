@@ -876,15 +876,16 @@ model ProjectMember {
 }
 
 model ProjectPhase {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   code        String
   name        String
-  isCompleted Boolean  @default(false)
-  order       Int      @default(0)
+  isCompleted Boolean       @default(false)
+  order       Int           @default(0)
   ownerId     String?
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  tasks       ProjectTask[]
 }
 
 model ProjectTaskList {
@@ -904,6 +905,7 @@ model ProjectTask {
   id                   String                @id @default(cuid())
   code                 String
   title                String
+  phaseId              String?
   phaseCode            String?
   phaseName            String?
   taskListId           String?
@@ -942,6 +944,7 @@ model ProjectTask {
   hasRecurrence        Boolean               @default(false)
   projectId            String?
   project              Project?              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  phase                ProjectPhase?         @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   taskList             ProjectTaskList?      @relation(fields: [taskListId], references: [id], onDelete: SetNull)
   ownerUser            User?                 @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   author               User?                 @relation("TaskAuthor", fields: [authorId], references: [id], onDelete: SetNull)

@@ -19,6 +19,8 @@ import {
   WorkspaceRole,
   MemberRoleTier,
   ProfileRoleValue,
+  ProjectDocument,
+  ProjectTimelineEvent,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -111,27 +113,85 @@ const TASK_OWNERS_INCLUDE = {
 
 type TaskOwnerRow = { userId: string; user: { name: string | null; email: string } };
 
+function isUserId(str: string | null | undefined): boolean {
+  if (!str) return false;
+  const s = str.trim();
+  return (
+    /^c[a-z0-9]{20,}$/i.test(s) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+    (s.startsWith("u-") && s.length > 5)
+  );
+}
+
+async function getUserMap(): Promise<Map<string, string>> {
+  try {
+    const users = await db.user.findMany({ select: { id: true, name: true, email: true } });
+    const map = new Map<string, string>();
+    for (const u of users) {
+      const displayName = u.name || u.email || u.id;
+      map.set(u.id, displayName);
+      if (u.email) map.set(u.email.toLowerCase(), displayName);
+    }
+    return map;
+  } catch (e) {
+    console.error("Failed to fetch user map:", e);
+    return new Map();
+  }
+}
+
 /** Builds the `{ owners, ownerIds }` pair the client-facing TaskItem shape expects, from the
  *  join table first, falling back to legacy single-owner fields only for rows with no join rows. */
 function resolveOwnersDisplay(
   relOwners: TaskOwnerRow[] | undefined,
   legacyOwnerUserName: string | null | undefined,
   legacyOwner: string | null | undefined,
-  legacyOwnerId: string | null | undefined
+  legacyOwnerId: string | null | undefined,
+  userMap?: Map<string, string>
 ): { owners: string[]; ownerIds: string[] } {
   if (relOwners && relOwners.length > 0) {
-    return {
-      owners: relOwners.map((o) => o.user.name || o.user.email),
-      ownerIds: relOwners.map((o) => o.userId),
-    };
+    const names = relOwners
+      .map((o) => {
+        const n = o.user.name || o.user.email;
+        if (n && !isUserId(n)) return n;
+        return userMap?.get(o.userId) || o.userId;
+      })
+      .filter((n) => !isUserId(n));
+
+    if (names.length > 0) {
+      return {
+        owners: names,
+        ownerIds: relOwners.map((o) => o.userId),
+      };
+    }
   }
-  if (legacyOwnerUserName) {
+
+  if (legacyOwnerUserName && !isUserId(legacyOwnerUserName)) {
     return { owners: [legacyOwnerUserName], ownerIds: legacyOwnerId ? [legacyOwnerId] : [] };
   }
-  if (legacyOwner && legacyOwner !== "Unassigned") {
-    return { owners: [legacyOwner], ownerIds: legacyOwnerId ? [legacyOwnerId] : [] };
+
+  if (legacyOwnerId && userMap?.has(legacyOwnerId)) {
+    const resolvedName = userMap.get(legacyOwnerId)!;
+    if (!isUserId(resolvedName)) {
+      return { owners: [resolvedName], ownerIds: [legacyOwnerId] };
+    }
   }
-  return { owners: [], ownerIds: [] };
+
+  if (legacyOwner && legacyOwner !== "Unassigned") {
+    const list = legacyOwner
+      .split(",")
+      .map((s) => {
+        const raw = s.trim();
+        if (!isUserId(raw)) return raw;
+        return userMap?.get(raw) || undefined;
+      })
+      .filter((n): n is string => Boolean(n) && !isUserId(n));
+
+    if (list.length > 0) {
+      return { owners: list, ownerIds: legacyOwnerId ? [legacyOwnerId] : [] };
+    }
+  }
+
+  return { owners: [], ownerIds: legacyOwnerId ? [legacyOwnerId] : [] };
 }
 
 /**
@@ -169,42 +229,61 @@ async function syncTaskOwners(taskDbId: string, userIds: string[], assignedById:
  * ----------------------------------------------------
  */
 
-function toProject(p: {
-  id: string;
-  code: string | null;
-  name: string;
-  progressPercent: number;
-  projectCategory: string | null;
-  departmentAlias: string | null;
-  templateUsed: string | null;
-  isClientVisible: boolean;
-  group: string | null;
-  businessHours: string | null;
-  taskLayout: string | null;
-  ownerId: string | null;
-  ownerName: string | null;
-  ownerAvatarColor: string | null;
-  owner: { id: string; name: string | null } | null;
-  status: string;
-  totalHours: string | null;
-  billableHours: string | null;
-  nonBillableHours: string | null;
-  startDate: string | null;
-  deadline: string | null;
-  description: string | null;
-  tags: string[];
-  createdAt: Date;
-  phases: { id: string; code: string; name: string; isCompleted: boolean; ownerId: string | null }[];
-  tasks: { status: string }[];
-}): Project {
+function toProject(
+  p: {
+    id: string;
+    code: string | null;
+    name: string;
+    progressPercent: number;
+    projectCategory: string | null;
+    departmentAlias: string | null;
+    templateUsed: string | null;
+    isClientVisible: boolean;
+    group: string | null;
+    businessHours: string | null;
+    taskLayout: string | null;
+    ownerId: string | null;
+    ownerName: string | null;
+    ownerAvatarColor: string | null;
+    owner: { id: string; name: string | null; email?: string | null } | null;
+    status: string;
+    totalHours: string | null;
+    billableHours: string | null;
+    nonBillableHours: string | null;
+    startDate: string | null;
+    deadline: string | null;
+    description: string | null;
+    tags: string[];
+    createdAt: Date;
+    phases: { id: string; code: string; name: string; isCompleted: boolean; ownerId: string | null }[];
+    tasks: { status: string }[];
+  },
+  userMap?: Map<string, string>
+): Project {
   const completedPhases = p.phases.filter((ph) => ph.isCompleted).length;
   const completedTasks = p.tasks.filter(
     (t) => t.status === "Closed" || t.status === "CLOSED"
   ).length;
   const totalTasks = p.tasks.length;
 
-  const ownerName = p.owner?.name || p.ownerName || "Unassigned";
-  const initials = ownerName
+  let resolvedOwnerName: string | undefined = p.owner?.name && !isUserId(p.owner.name) ? p.owner.name : undefined;
+  if (!resolvedOwnerName) {
+    resolvedOwnerName = p.owner?.email && !isUserId(p.owner.email) ? p.owner.email : undefined;
+  }
+  if (!resolvedOwnerName) {
+    resolvedOwnerName = p.ownerName && !isUserId(p.ownerName) ? p.ownerName : undefined;
+  }
+  if (!resolvedOwnerName && p.ownerId && userMap?.has(p.ownerId)) {
+    const mapped = userMap.get(p.ownerId);
+    if (mapped && !isUserId(mapped)) {
+      resolvedOwnerName = mapped;
+    }
+  }
+  if (!resolvedOwnerName) {
+    resolvedOwnerName = "Unassigned";
+  }
+
+  const initials = resolvedOwnerName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -225,7 +304,7 @@ function toProject(p: {
     taskLayout: p.taskLayout || undefined,
     owner: {
       id: p.owner?.id || p.ownerId || "u-default",
-      name: ownerName,
+      name: resolvedOwnerName,
       initials: initials || "UN",
       avatarColor: p.ownerAvatarColor || "bg-primary text-primary-foreground",
     },
@@ -265,6 +344,7 @@ const PROJECT_INCLUDE = {
 
 export async function getProjectsAction(): Promise<Project[]> {
   const session = await requireAuth();
+  const userMap = await getUserMap();
 
   const isPrivileged = await isPrivilegedViewer(session.user.id);
 
@@ -306,11 +386,12 @@ export async function getProjectsAction(): Promise<Project[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  return dbProjects.map(toProject);
+  return dbProjects.map((p) => toProject(p, userMap));
 }
 
 export async function getProjectByIdAction(projectId: string): Promise<Project | null> {
   const session = await requireAuth();
+  const userMap = await getUserMap();
 
   const isPrivileged = await isPrivilegedViewer(session.user.id);
 
@@ -358,7 +439,7 @@ export async function getProjectByIdAction(projectId: string): Promise<Project |
 
   if (!p) return null;
 
-  return toProject(p);
+  return toProject(p, userMap);
 }
 
 async function nextProjectCode(): Promise<string> {
@@ -513,10 +594,17 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
 
     if (scaffoldedTasks.length > 0) {
       const taskOwnerId = ownerUser?.id || session.user.id;
+      const createdDbPhases = await db.projectPhase.findMany({
+        where: { projectId: newProject.id },
+        select: { id: true, code: true },
+      });
+      const phaseIdMap = new Map(createdDbPhases.map((p) => [p.code, p.id]));
+
       await db.projectTask.createMany({
         data: scaffoldedTasks.map((t) => ({
           code: t.code || `${newProject.code || newProject.id}-T01`,
           title: t.title || "Untitled Task",
+          phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
           phaseCode: t.phaseCode,
           phaseName: t.phaseName,
           taskListName: t.taskListName,
@@ -530,12 +618,27 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
           description: t.description,
           ownerId: taskOwnerId,
           owner: ownerName,
-          owners: [ownerName],
-          ownerIds: [taskOwnerId],
           projectId: newProject.id,
         })),
       });
       createdTaskCount = scaffoldedTasks.length;
+
+      // Fix 2: Ensure every scaffolded task has a ProjectTaskOwner row so they
+      // appear in My Tasks for the project owner from the moment the project is created.
+      const scaffoldedDbTasks = await db.projectTask.findMany({
+        where: { projectId: newProject.id },
+        select: { id: true },
+      });
+      if (taskOwnerId && scaffoldedDbTasks.length > 0) {
+        await db.projectTaskOwner.createMany({
+          data: scaffoldedDbTasks.map((t) => ({
+            taskId: t.id,
+            userId: taskOwnerId,
+            assignedById: session.user.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
   }
 
@@ -609,12 +712,14 @@ export async function deleteProjectAction(projectId: string): Promise<boolean> {
 
 export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
   await requireAuth();
+  const userMap = await getUserMap();
 
   const whereCondition = projectId
     ? {
         OR: [
           { projectId },
           { project: { code: projectId } },
+          { project: { id: projectId } },
         ],
       }
     : {};
@@ -622,6 +727,9 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
   const dbTasks = await db.projectTask.findMany({
     where: whereCondition,
     include: {
+      phase: {
+        select: { id: true, code: true, name: true },
+      },
       ownerUser: {
         select: { id: true, name: true, email: true, image: true },
       },
@@ -632,6 +740,9 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
         include: { ownerUser: { select: { name: true } } },
         orderBy: { createdAt: "asc" as const },
       },
+      subtasks: {
+        orderBy: { createdAt: "asc" as const },
+      },
       remarks: true,
       activities: true,
       ...TASK_OWNERS_INCLUDE,
@@ -639,8 +750,155 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
     orderBy: { createdAt: "desc" },
   });
 
+  if (projectId && dbTasks.length === 0) {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true, code: true, ownerName: true, ownerId: true },
+    });
+
+    if (project) {
+      const template = DEFAULT_PROJECT_TEMPLATES[0];
+      const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
+      const scaffoldedTasks = scaffoldTasksFromTemplate(
+        template,
+        project.code || project.id,
+        project.ownerName || "Project Owner",
+        project.ownerId || undefined
+      );
+
+      let createdDbPhases = await db.projectPhase.findMany({
+        where: { projectId: project.id },
+        select: { id: true, code: true },
+      });
+
+      if (createdDbPhases.length === 0 && scaffoldedPhases.length > 0) {
+        await db.projectPhase.createMany({
+          data: scaffoldedPhases.map((ph, idx) => ({
+            code: ph.code,
+            name: ph.name,
+            isCompleted: false,
+            order: idx,
+            ownerId: project.ownerId,
+            projectId: project.id,
+          })),
+        });
+        createdDbPhases = await db.projectPhase.findMany({
+          where: { projectId: project.id },
+          select: { id: true, code: true },
+        });
+      }
+
+      const phaseIdMap = new Map(createdDbPhases.map((p) => [p.code, p.id]));
+      const taskOwnerId = project.ownerId;
+
+      if (scaffoldedTasks.length > 0) {
+        await db.projectTask.createMany({
+          data: scaffoldedTasks.map((t) => ({
+            code: t.code || `${project.code || project.id}-T01`,
+            title: t.title || "Untitled Task",
+            phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
+            phaseCode: t.phaseCode,
+            phaseName: t.phaseName,
+            taskListName: t.taskListName,
+            isExternal: t.isExternal ?? true,
+            status: "Open",
+            authorId: taskOwnerId,
+            authorName: project.ownerName || "System",
+            departmentAlias: t.departmentAlias,
+            duration: t.duration,
+            priority: t.priority,
+            description: t.description,
+            ownerId: taskOwnerId,
+            owner: project.ownerName || "Unassigned",
+            projectId: project.id,
+          })),
+        });
+
+        if (taskOwnerId) {
+          const createdTasks = await db.projectTask.findMany({
+            where: { projectId: project.id },
+            select: { id: true },
+          });
+          if (createdTasks.length > 0) {
+            await db.projectTaskOwner.createMany({
+              data: createdTasks.map((t) => ({
+                taskId: t.id,
+                userId: taskOwnerId,
+                assignedById: taskOwnerId,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
+
+        return getTasksAction(projectId);
+      }
+    }
+  }
+
   return dbTasks.map((t) => {
-    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId);
+    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId, userMap);
+    const resolvedTaskOwner = ownersDisplay.owners.length > 0
+      ? ownersDisplay.owners.join(", ")
+      : (t.ownerUser?.name && !isUserId(t.ownerUser.name) ? t.ownerUser.name : undefined) ||
+        (t.owner && !isUserId(t.owner) ? t.owner : undefined) ||
+        (t.ownerId && userMap.has(t.ownerId) ? userMap.get(t.ownerId) : undefined) ||
+        "Unassigned";
+
+    // Build comprehensive subtasks map from childTasks, ProjectSubtask, and matching parentTaskId rows
+    const subtasksMap = new Map<string, TaskSubtask>();
+
+    for (const ct of t.childTasks) {
+      subtasksMap.set(ct.id, {
+        id: ct.id,
+        code: ct.code || ct.id,
+        title: ct.title,
+        status: (ct.status as TaskStatus) || "Open",
+        ownerName: (ct.ownerUser?.name && !isUserId(ct.ownerUser.name) ? ct.ownerUser.name : undefined) ||
+                   (ct.owner && !isUserId(ct.owner) ? ct.owner : undefined) ||
+                   (ct.ownerId && userMap.has(ct.ownerId) ? userMap.get(ct.ownerId) : undefined) ||
+                   "Unassigned",
+        startDate: ct.startDate || "--",
+        dueDate: ct.dueDate || "--",
+        completed: ct.status === "Closed" || ct.completionPercentage >= 100,
+        hasLink: false,
+      });
+    }
+
+    for (const st of t.subtasks) {
+      if (!subtasksMap.has(st.id)) {
+        subtasksMap.set(st.id, {
+          id: st.id,
+          code: st.code || st.id,
+          title: st.title,
+          status: (st.status as TaskStatus) || "Open",
+          ownerName: st.ownerName || "Unassigned",
+          startDate: st.startDate || "--",
+          dueDate: st.dueDate || "--",
+          completed: st.completed || st.status === "Closed",
+          hasLink: st.hasLink || false,
+        });
+      }
+    }
+
+    for (const other of dbTasks) {
+      if (other.parentTaskId === t.id || (t.code && other.parentTaskId === t.code)) {
+        if (!subtasksMap.has(other.id)) {
+          subtasksMap.set(other.id, {
+            id: other.id,
+            code: other.code || other.id,
+            title: other.title,
+            status: (other.status as TaskStatus) || "Open",
+            ownerName: other.owner || "Unassigned",
+            startDate: other.startDate || "--",
+            dueDate: other.dueDate || "--",
+            completed: other.status === "Closed" || other.completionPercentage >= 100,
+            hasLink: false,
+          });
+        }
+      }
+    }
+
     return {
     id: t.code || t.id,
     code: t.code || t.id,
@@ -655,9 +913,9 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
     authorId: t.authorId || undefined,
     associatedTeam: t.associatedTeam || undefined,
     departmentAlias: t.departmentAlias || "digitalproducts@",
-    owner: t.ownerUser?.name || t.owner || "Unassigned",
+    owner: resolvedTaskOwner,
     ownerId: t.ownerId || undefined,
-    owners: ownersDisplay.owners,
+    owners: ownersDisplay.owners.length > 0 ? ownersDisplay.owners : [resolvedTaskOwner],
     ownerIds: ownersDisplay.ownerIds,
     workHours: t.workHours || "00:00",
     startDate: t.startDate || "--",
@@ -677,17 +935,8 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
     hasReminder: t.hasReminder,
     hasRecurrence: t.hasRecurrence,
     parentTaskId: t.parentTaskId || undefined,
-    subtasks: t.childTasks.map((ct) => ({
-      id: ct.code || ct.id,
-      code: ct.code || ct.id,
-      title: ct.title,
-      status: (ct.status as TaskStatus) || "Open",
-      ownerName: ct.ownerUser?.name || ct.owner || "Unassigned",
-      startDate: ct.startDate || "--",
-      dueDate: ct.dueDate || "--",
-      completed: ct.status === "Closed" || ct.completionPercentage >= 100,
-      hasLink: false,
-    })),
+    projectId: t.projectId || undefined,
+    subtasks: Array.from(subtasksMap.values()),
     remarks: t.remarks.map((r) => ({
       id: r.id,
       authorName: r.authorName,
@@ -710,6 +959,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
 
 export async function getProjectTasksAction(projectId?: string): Promise<TaskItem[]> {
   await requireAuth();
+  const userMap = await getUserMap();
 
   const whereClause = projectId
     ? { OR: [{ projectId }, { project: { code: projectId } }] }
@@ -732,7 +982,14 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
   });
 
   return dbTasks.map((t) => {
-    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId);
+    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId, userMap);
+    const resolvedTaskOwner = ownersDisplay.owners.length > 0
+      ? ownersDisplay.owners.join(", ")
+      : (t.ownerUser?.name && !isUserId(t.ownerUser.name) ? t.ownerUser.name : undefined) ||
+        (t.owner && !isUserId(t.owner) ? t.owner : undefined) ||
+        (t.ownerId && userMap.has(t.ownerId) ? userMap.get(t.ownerId) : undefined) ||
+        "Unassigned";
+
     return {
     id: t.code || t.id,
     code: t.code || t.id,
@@ -747,9 +1004,9 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
     authorId: t.authorId || undefined,
     associatedTeam: t.associatedTeam || undefined,
     departmentAlias: t.departmentAlias || "digitalproducts@",
-    owner: t.ownerUser?.name || t.owner || "Unassigned",
+    owner: resolvedTaskOwner,
     ownerId: t.ownerId || undefined,
-    owners: ownersDisplay.owners,
+    owners: ownersDisplay.owners.length > 0 ? ownersDisplay.owners : [resolvedTaskOwner],
     ownerIds: ownersDisplay.ownerIds,
     workHours: t.workHours || "00:00",
     startDate: t.startDate || "--",
@@ -774,7 +1031,10 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
       code: ct.code || ct.id,
       title: ct.title,
       status: (ct.status as TaskStatus) || "Open",
-      ownerName: ct.ownerUser?.name || ct.owner || "Unassigned",
+      ownerName: (ct.ownerUser?.name && !isUserId(ct.ownerUser.name) ? ct.ownerUser.name : undefined) ||
+                 (ct.owner && !isUserId(ct.owner) ? ct.owner : undefined) ||
+                 (ct.ownerId && userMap.has(ct.ownerId) ? userMap.get(ct.ownerId) : undefined) ||
+                 "Unassigned",
       startDate: ct.startDate || "--",
       dueDate: ct.dueDate || "--",
       completed: ct.status === "Closed" || ct.completionPercentage >= 100,
@@ -802,6 +1062,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
 
 export async function getMyTasksAction(): Promise<TaskItem[]> {
   const session = await requireAuth();
+  const userMap = await getUserMap();
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
@@ -822,7 +1083,12 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
       OR: [
         { owners: { some: { userId } } },
         { ownerId: userId },
-        ...(uNameLower ? [{ owner: { equals: userName, mode: "insensitive" as const } }] : []),
+        ...(uNameLower
+          ? [
+              { owner: { contains: userName, mode: "insensitive" as const } },
+              { owner: { equals: userName, mode: "insensitive" as const } },
+            ]
+          : []),
       ],
     },
     include: {
@@ -844,7 +1110,14 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
   });
 
   return myDbTasks.map((t) => {
-    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId);
+    const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId, userMap);
+    const resolvedTaskOwner = ownersDisplay.owners.length > 0
+      ? ownersDisplay.owners.join(", ")
+      : (t.ownerUser?.name && !isUserId(t.ownerUser.name) ? t.ownerUser.name : undefined) ||
+        (t.owner && !isUserId(t.owner) ? t.owner : undefined) ||
+        (t.ownerId && userMap.has(t.ownerId) ? userMap.get(t.ownerId) : undefined) ||
+        "Unassigned";
+
     return {
     id: t.code || t.id,
     code: t.code || t.id,
@@ -859,9 +1132,9 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
     authorId: t.authorId || undefined,
     associatedTeam: t.associatedTeam || undefined,
     departmentAlias: t.departmentAlias || "digitalproducts@",
-    owner: t.ownerUser?.name || t.owner || "Unassigned",
+    owner: resolvedTaskOwner,
     ownerId: t.ownerId || undefined,
-    owners: ownersDisplay.owners,
+    owners: ownersDisplay.owners.length > 0 ? ownersDisplay.owners : [resolvedTaskOwner],
     ownerIds: ownersDisplay.ownerIds,
     workHours: t.workHours || "00:00",
     startDate: t.startDate || "--",
@@ -881,12 +1154,16 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
     hasReminder: t.hasReminder,
     hasRecurrence: t.hasRecurrence,
     parentTaskId: t.parentTaskId || undefined,
+    projectId: t.projectId || undefined,
     subtasks: t.childTasks.map((ct) => ({
       id: ct.code || ct.id,
       code: ct.code || ct.id,
       title: ct.title,
       status: (ct.status as TaskStatus) || "Open",
-      ownerName: ct.ownerUser?.name || ct.owner || "Unassigned",
+      ownerName: (ct.ownerUser?.name && !isUserId(ct.ownerUser.name) ? ct.ownerUser.name : undefined) ||
+                 (ct.owner && !isUserId(ct.owner) ? ct.owner : undefined) ||
+                 (ct.ownerId && userMap.has(ct.ownerId) ? userMap.get(ct.ownerId) : undefined) ||
+                 "Unassigned",
       startDate: ct.startDate || "--",
       dueDate: ct.dueDate || "--",
       completed: ct.status === "Closed" || ct.completionPercentage >= 100,
@@ -940,28 +1217,47 @@ export async function createTaskAction(
     : await db.projectTask.count();
   const nextCode = `${codePrefix}-T${count + 1}`;
 
-  const ownerNamesInput =
+  // Fix 1: Use the project's ownerId FK directly as the default owner source of truth.
+  // This is set before name-resolution so the FK is always the reliable fallback even
+  // when no explicit owner was passed in taskData.
+  const projectOwnerId: string | undefined = resolvedProject?.ownerId ?? undefined;
+
+  // Resolve explicit owners from the UI picker (names/ids passed in taskData).
+  // When the caller didn't supply any explicit owner, we skip name-resolution entirely
+  // and rely on projectOwnerId (the FK) directly below.
+  const explicitOwnerInput =
     taskData.owners && taskData.owners.length > 0
       ? taskData.owners
       : taskData.owner && taskData.owner !== "Unassigned"
       ? [taskData.owner]
-      : resolvedProject?.ownerName
-      ? [resolvedProject.ownerName]
       : [];
 
-  const resolvedOwners = ownerNamesInput.length
+  const resolvedOwners = explicitOwnerInput.length
     ? await db.user.findMany({
         where: {
-          OR: ownerNamesInput.flatMap((o) => [{ id: o }, { name: o }, { email: o }]),
+          OR: explicitOwnerInput.flatMap((o) => {
+            const clean = o.trim();
+            return [
+              { id: clean },
+              { name: { equals: clean, mode: "insensitive" } },
+              { email: { equals: clean, mode: "insensitive" } },
+              { name: { contains: clean, mode: "insensitive" } },
+            ];
+          }),
         },
       })
     : [];
 
   const ownerNames = Array.from(
     new Set(
-      ownerNamesInput.map((raw) => {
+      explicitOwnerInput.map((raw) => {
+        const clean = raw.trim().toLowerCase();
         const match = resolvedOwners.find(
-          (u) => u.id === raw || u.name === raw || u.email === raw
+          (u) =>
+            u.id === raw ||
+            (u.name && u.name.trim().toLowerCase() === clean) ||
+            u.email.trim().toLowerCase() === clean ||
+            (u.name && u.name.trim().toLowerCase().includes(clean))
         );
         return match?.name || raw;
       })
@@ -969,17 +1265,40 @@ export async function createTaskAction(
   );
   const ownerIdsResolved = Array.from(
     new Set(
-      ownerNamesInput
-        .map(
-          (raw) =>
-            resolvedOwners.find((u) => u.id === raw || u.name === raw || u.email === raw)?.id
-        )
+      explicitOwnerInput
+        .map((raw) => {
+          const clean = raw.trim().toLowerCase();
+          return resolvedOwners.find(
+            (u) =>
+              u.id === raw ||
+              (u.name && u.name.trim().toLowerCase() === clean) ||
+              u.email.trim().toLowerCase() === clean ||
+              (u.name && u.name.trim().toLowerCase().includes(clean))
+          )?.id;
+        })
         .filter((id): id is string => Boolean(id))
     )
   );
   const primaryOwner = resolvedOwners[0];
 
-  const defaultOwnerId = primaryOwner?.id || resolvedProject?.ownerId || undefined;
+  // Prefer a UI-resolved explicit owner first; fall back to the project's ownerId FK
+  // directly — never rely solely on a name-to-user match for the default.
+  const defaultOwnerId: string | undefined = primaryOwner?.id ?? projectOwnerId;
+
+  // Compute display name: use resolved names if available, else look up the project owner's name.
+  let displayOwnerName: string;
+  if (ownerNames.length > 0) {
+    displayOwnerName = ownerNames.join(", ");
+  } else if (projectOwnerId) {
+    // Fetch the project owner's name for display (ownerId is already resolved).
+    const projectOwnerUser = await db.user.findUnique({
+      where: { id: projectOwnerId },
+      select: { name: true, email: true },
+    });
+    displayOwnerName = projectOwnerUser?.name || projectOwnerUser?.email || resolvedProject?.ownerName || "Unassigned";
+  } else {
+    displayOwnerName = "Unassigned";
+  }
 
   const createdTask = await db.projectTask.create({
     data: {
@@ -997,7 +1316,7 @@ export async function createTaskAction(
       departmentAlias: taskData.departmentAlias || "digitalproducts@",
       projectId: resolvedProject?.id || undefined,
       ownerId: defaultOwnerId,
-      owner: ownerNames.length > 0 ? ownerNames.join(", ") : resolvedProject?.ownerName || "Unassigned",
+      owner: displayOwnerName,
       workHours: taskData.workHours || "00:00",
       startDate: taskData.startDate || "--",
       dueDate: taskData.dueDate || "--",
@@ -1009,8 +1328,14 @@ export async function createTaskAction(
     },
   });
 
-  const finalOwnerIds =
-    ownerIdsResolved.length > 0 ? ownerIdsResolved : defaultOwnerId ? [defaultOwnerId] : [];
+  // Fix 1 continued: finalOwnerIds uses the project FK directly when no explicit owner
+  // was resolved — this guarantees a ProjectTaskOwner row is always created.
+  const finalOwnerIds: string[] =
+    ownerIdsResolved.length > 0
+      ? ownerIdsResolved
+      : defaultOwnerId
+      ? [defaultOwnerId]
+      : [];
   if (finalOwnerIds.length > 0) {
     await db.projectTaskOwner.createMany({
       data: finalOwnerIds.map((userId) => ({
@@ -1048,8 +1373,8 @@ export async function createTaskAction(
     authorName: createdTask.authorName || "User",
     associatedTeam: createdTask.associatedTeam || undefined,
     departmentAlias: createdTask.departmentAlias || "digitalproducts@",
-    owner: createdTask.owner || "Unassigned",
-    owners: ownerNames,
+    owner: displayOwnerName,
+    owners: ownerNames.length > 0 ? ownerNames : (defaultOwnerId ? [displayOwnerName] : []),
     ownerIds: finalOwnerIds,
     workHours: createdTask.workHours || "00:00",
     startDate: createdTask.startDate || "--",
@@ -1127,32 +1452,57 @@ export async function updateTaskAction(
     const resolvedOwners = namesInput.length
       ? await db.user.findMany({
           where: {
-            OR: namesInput.flatMap((o) => [{ id: o }, { name: o }, { email: o }]),
+            OR: namesInput.flatMap((o) => {
+              const clean = o.trim();
+              return [
+                { id: clean },
+                { name: { equals: clean, mode: "insensitive" } },
+                { email: { equals: clean, mode: "insensitive" } },
+                { name: { contains: clean, mode: "insensitive" } },
+              ];
+            }),
           },
         })
       : [];
     ownerNames = namesInput.map((raw) => {
+      const clean = raw.trim().toLowerCase();
       const match = resolvedOwners.find(
-        (u) => u.id === raw || u.name === raw || u.email === raw
+        (u) =>
+          u.id === raw ||
+          (u.name && u.name.trim().toLowerCase() === clean) ||
+          u.email.trim().toLowerCase() === clean ||
+          (u.name && u.name.trim().toLowerCase().includes(clean))
       );
       return match?.name || raw;
     });
     ownerIdsResolved = Array.from(
       new Set(
         namesInput
-          .map(
-            (raw) =>
-              resolvedOwners.find((u) => u.id === raw || u.name === raw || u.email === raw)?.id
-          )
+          .map((raw) => {
+            const clean = raw.trim().toLowerCase();
+            return resolvedOwners.find(
+              (u) =>
+                u.id === raw ||
+                (u.name && u.name.trim().toLowerCase() === clean) ||
+                u.email.trim().toLowerCase() === clean ||
+                (u.name && u.name.trim().toLowerCase().includes(clean))
+            )?.id;
+          })
           .filter((id): id is string => Boolean(id))
       )
     );
     ownerNames = Array.from(new Set(ownerNames));
-    primaryOwnerId = resolvedOwners[0]?.id ?? null;
+    primaryOwnerId = ownerIdsResolved[0] ?? null;
   } else if (updates.owner) {
+    const clean = updates.owner.trim();
     const ownerUser = await db.user.findFirst({
       where: {
-        OR: [{ id: updates.owner }, { name: updates.owner }, { email: updates.owner }],
+        OR: [
+          { id: clean },
+          { name: { equals: clean, mode: "insensitive" } },
+          { email: { equals: clean, mode: "insensitive" } },
+          { name: { contains: clean, mode: "insensitive" } },
+        ],
       },
     });
     primaryOwnerId = ownerUser?.id ?? null;
@@ -1172,7 +1522,11 @@ export async function updateTaskAction(
 
   // Diff against the current row to build a human-readable activity trail — old value,
   // new value, who changed it, and when (createdAt), without inventing a parallel data model.
-  const actorName = session.user.name || "User";
+  const dbUser = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true, email: true },
+  });
+  const actorName = dbUser?.name || session.user.name || session.user.email || "Team Member";
   const initials = toInitials(actorName);
   const activityEntries: string[] = [];
 
@@ -1241,10 +1595,9 @@ export async function updateTaskAction(
   if (updates.owners !== undefined) {
     await syncTaskOwners(task.id, ownerIdsResolved, session.user.id);
   } else if (updates.owner !== undefined && primaryOwnerId) {
-    await db.projectTaskOwner.createMany({
-      data: [{ taskId: task.id, userId: primaryOwnerId, assignedById: session.user.id }],
-      skipDuplicates: true,
-    });
+    // Fix 4: Single-owner change should REPLACE the existing owner, not just add.
+    // syncTaskOwners removes old owners no longer in the list, then adds the new one.
+    await syncTaskOwners(task.id, [primaryOwnerId], session.user.id);
   }
 
   if (activityEntries.length > 0) {
@@ -1259,7 +1612,18 @@ export async function updateTaskAction(
     });
   }
 
+  if (updates.owners !== undefined || updates.owner !== undefined) {
+    console.log("[DB SAVE SUCCESS] Task owners saved in database:", {
+      taskId: task.id,
+      taskCode: task.code,
+      owners: newOwnerDisplay,
+      ownerIdsResolved,
+      primaryOwnerId,
+    });
+  }
+
   revalidatePath("/projects");
+  revalidatePath("/projects/my-tasks");
   return { success: true };
 }
 
@@ -1301,22 +1665,19 @@ export async function createSubtaskAction(
       projectId: true,
       phaseCode: true,
       phaseName: true,
+      owner: true,
+      ownerId: true,
+      owners: { select: { userId: true } },
       project: { select: { ownerId: true, ownerName: true } },
     },
   });
   if (!parentTask) return null;
 
   const count = await db.projectTask.count({ where: { parentTaskId: parentTask.id } });
-  const ownerName = subtaskData.ownerName && subtaskData.ownerName !== "Unassigned" ? subtaskData.ownerName : undefined;
-  let ownerUser = null;
-  if (ownerName) {
-    ownerUser = await db.user.findFirst({
-      where: { OR: [{ id: ownerName }, { name: ownerName }, { email: ownerName }] },
-    });
-  }
-  // No owner explicitly chosen — default to the project owner, same rule as top-level tasks.
-  const finalOwnerId = ownerUser?.id || (!ownerName ? parentTask.project?.ownerId : undefined);
-  const finalOwnerName = ownerUser?.name || ownerName || (!ownerName ? parentTask.project?.ownerName : undefined) || "Unassigned";
+
+  // Subtask automatically inherits parent task's owner(s)
+  const finalOwnerId = parentTask.ownerId;
+  const finalOwnerName = parentTask.owner || "Unassigned";
 
   const created = await db.projectTask.create({
     data: {
@@ -1335,24 +1696,52 @@ export async function createSubtaskAction(
     },
   });
 
-  if (finalOwnerId) {
+  if (parentTask.owners && parentTask.owners.length > 0) {
+    await db.projectTaskOwner.createMany({
+      data: parentTask.owners.map((o) => ({
+        taskId: created.id,
+        userId: o.userId,
+        assignedById: session.user.id,
+      })),
+      skipDuplicates: true,
+    });
+  } else if (finalOwnerId) {
     await db.projectTaskOwner.createMany({
       data: [{ taskId: created.id, userId: finalOwnerId, assignedById: session.user.id }],
       skipDuplicates: true,
     });
   }
 
+  // Also persist in db.projectSubtask to guarantee persistence regardless of query path
+  try {
+    await db.projectSubtask.create({
+      data: {
+        id: created.id,
+        code: created.code || created.id,
+        title: created.title,
+        status: created.status,
+        ownerName: finalOwnerName,
+        startDate: created.startDate || "--",
+        dueDate: created.dueDate || "--",
+        completed: subtaskData.completed || false,
+        taskId: parentTask.id,
+      },
+    });
+  } catch (e) {
+    console.error("Subtask projectSubtask sync notice:", e);
+  }
+
   revalidatePath("/projects");
 
   return {
-    id: created.code || created.id,
+    id: created.id,
     code: created.code || created.id,
     title: created.title,
     status: created.status as TaskStatus,
-    ownerName: created.owner || "Unassigned",
+    ownerName: finalOwnerName,
     startDate: created.startDate || "--",
     dueDate: created.dueDate || "--",
-    completed: created.completionPercentage >= 100,
+    completed: created.status === "Closed" || created.completionPercentage >= 100,
     hasLink: false,
   };
 }
@@ -1391,6 +1780,16 @@ export async function updateSubtaskAction(
     },
   });
 
+  await db.projectSubtask.updateMany({
+    where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
+    data: {
+      ...(updates.title && { title: updates.title }),
+      ...(updates.status && { status: updates.status }),
+      ...(updates.completed !== undefined && { completed: updates.completed }),
+      ...(updates.ownerName && { ownerName: updates.ownerName }),
+    },
+  }).catch(() => {});
+
   if (updates.ownerName && ownerUserId && subtask) {
     await syncTaskOwners(subtask.id, [ownerUserId], session.user.id);
   }
@@ -1405,6 +1804,10 @@ export async function deleteSubtaskAction(subtaskId: string): Promise<boolean> {
   await db.projectTask.deleteMany({
     where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
   });
+
+  await db.projectSubtask.deleteMany({
+    where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
+  }).catch(() => {});
 
   revalidatePath("/projects");
   return true;
@@ -2080,6 +2483,7 @@ export async function updateTimeLogAction(
       OR: [{ id: logId }, { code: logId }],
     },
     data: {
+      ...(updates.code && { code: updates.code }),
       ...(updates.title && { title: updates.title }),
       ...(updates.project && { project: updates.project }),
       ...(updates.taskCode !== undefined && { taskCode: updates.taskCode }),
@@ -2087,6 +2491,7 @@ export async function updateTimeLogAction(
       ...(updates.timePeriod && { timePeriod: updates.timePeriod }),
       ...(updates.date && { date: updates.date }),
       ...(updates.billingType && { billingType: updates.billingType }),
+      ...(updates.userName && { userName: updates.userName }),
       ...(updates.remarks !== undefined && { remarks: updates.remarks }),
       ...(updates.approvalStatus && { approvalStatus: updates.approvalStatus }),
     },
@@ -2147,9 +2552,18 @@ export async function rejectTimeLogsAction(
   return true;
 }
 
-export async function getTaskTimeLogsAction(taskCode: string): Promise<TimeLogEntry[]> {
+export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeLogEntry[]> {
   const session = await requireAuth();
   const canViewAll = await isPrivilegedViewer(session.user.id);
+
+  const task = await db.projectTask.findFirst({
+    where: { OR: [{ id: taskCodeOrId }, { code: taskCodeOrId }] },
+    select: { id: true, code: true },
+  });
+
+  const searchTokens = Array.from(
+    new Set([taskCodeOrId, task?.id, task?.code].filter(Boolean) as string[])
+  );
 
   const ownershipFilter = canViewAll
     ? {}
@@ -2161,7 +2575,14 @@ export async function getTaskTimeLogsAction(taskCode: string): Promise<TimeLogEn
       };
 
   const logs = await db.projectTimeLog.findMany({
-    where: { taskCode, ...ownershipFilter },
+    where: {
+      OR: searchTokens.flatMap((token) => [
+        { taskCode: token },
+        { taskCode: { equals: token, mode: "insensitive" } },
+        { title: { contains: token, mode: "insensitive" } },
+      ]),
+      ...ownershipFilter,
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -2177,6 +2598,8 @@ export async function getTaskTimeLogsAction(taskCode: string): Promise<TimeLogEn
     billingType: log.billingType as "NON BILLABLE" | "BILLABLE",
     remarks: log.remarks || "",
     approvalStatus: log.approvalStatus as "Pending" | "Approved" | "Rejected",
+    userName: log.userName || undefined,
+    userId: log.userId || undefined,
   }));
 }
 
@@ -2231,4 +2654,400 @@ export async function getCurrentUserContextAction(): Promise<{
     email: dbUser?.email || session.user.email || "",
     role: canViewAll ? "ADMIN" : "TEAM_MEMBER",
   };
+}
+
+/**
+ * ----------------------------------------------------
+ * PROJECT DOCUMENTS & STATUS TIMELINE ACTIONS
+ * ----------------------------------------------------
+ */
+
+export async function getProjectDocumentsAction(projectId: string): Promise<ProjectDocument[]> {
+  await requireAuth();
+
+  const docs = await db.userDocument.findMany({
+    where: {
+      kind: { startsWith: `PROJECT:${projectId}` },
+    },
+    orderBy: { createdAt: "desc" },
+    include: { user: { select: { name: true, email: true } } },
+  });
+
+  return docs.map((d) => {
+    const parts = d.kind.split(":");
+    const mimeType = parts[2] || "application/octet-stream";
+    const sizeBytes = parseInt(parts[3] || "0", 10);
+    const uploadedBy = d.user?.name || d.user?.email || "Team Member";
+
+    return {
+      id: d.id,
+      projectId,
+      name: d.fileName,
+      fileUrl: d.fileUrl,
+      sizeBytes,
+      mimeType,
+      uploadedBy,
+      createdAt: d.createdAt.toISOString(),
+    };
+  });
+}
+
+export async function saveProjectDocumentAction(docData: {
+  projectId: string;
+  name: string;
+  fileUrl: string;
+  sizeBytes?: number;
+  mimeType?: string;
+}): Promise<ProjectDocument> {
+  const session = await requireAuth();
+
+  const kind = `PROJECT:${docData.projectId}:${docData.mimeType || "file"}:${docData.sizeBytes || 0}`;
+
+  const created = await db.userDocument.create({
+    data: {
+      userId: session.user.id,
+      kind,
+      fileUrl: docData.fileUrl,
+      fileName: docData.name,
+    },
+    include: { user: { select: { name: true, email: true } } },
+  });
+
+  revalidatePath(`/projects/${docData.projectId}`);
+
+  return {
+    id: created.id,
+    projectId: docData.projectId,
+    name: created.fileName,
+    fileUrl: created.fileUrl,
+    sizeBytes: docData.sizeBytes || 0,
+    mimeType: docData.mimeType || "application/octet-stream",
+    uploadedBy: created.user?.name || session.user.name || "User",
+    createdAt: created.createdAt.toISOString(),
+  };
+}
+
+export async function deleteProjectDocumentAction(docId: string, projectId: string): Promise<boolean> {
+  await requireAuth();
+
+  await db.userDocument.delete({
+    where: { id: docId },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return true;
+}
+
+export async function getProjectTimelineAction(projectId: string): Promise<ProjectTimelineEvent[]> {
+  await requireAuth();
+
+  const [project, tasks, docs] = await Promise.all([
+    db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      include: {
+        owner: { select: { name: true, email: true } },
+        createdByUser: { select: { name: true, email: true } },
+        phases: true,
+      },
+    }),
+    db.projectTask.findMany({
+      where: { OR: [{ projectId }, { project: { code: projectId } }] },
+      include: {
+        activities: true,
+        author: { select: { name: true } },
+        ownerUser: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.userDocument.findMany({
+      where: { kind: { startsWith: `PROJECT:${projectId}` } },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  if (!project) return [];
+
+  const timelineEvents: ProjectTimelineEvent[] = [];
+
+  const creatorName =
+    project.createdByUser?.name ||
+    project.owner?.name ||
+    project.ownerName ||
+    "System Administrator";
+
+  // Project Creation Event
+  timelineEvents.push({
+    id: `creation-${project.id}`,
+    projectId: project.id,
+    type: "CREATED",
+    title: "Project Created",
+    description: `Project "${project.name}" (${project.code || project.id}) was created with owner "${project.ownerName || creatorName}".`,
+    actorName: creatorName,
+    actorAvatarColor: "bg-emerald-600 text-white",
+    timestamp: project.createdAt.toISOString(),
+  });
+
+  // Project Update Event
+  if (project.updatedAt > project.createdAt) {
+    timelineEvents.push({
+      id: `updated-${project.id}`,
+      projectId: project.id,
+      type: "UPDATED",
+      title: "Project Details Updated",
+      description: `Project status is currently "${project.status}" and progress is ${project.progressPercent}%.`,
+      actorName: creatorName,
+      actorAvatarColor: "bg-blue-600 text-white",
+      timestamp: project.updatedAt.toISOString(),
+    });
+  }
+
+  // Phase Completion Events
+  for (const ph of project.phases) {
+    if (ph.isCompleted) {
+      timelineEvents.push({
+        id: `phase-${ph.id}`,
+        projectId: project.id,
+        type: "PHASE_COMPLETED",
+        title: `Phase ${ph.code} Completed`,
+        description: `Phase "${ph.name}" was marked as completed.`,
+        actorName: creatorName,
+        actorAvatarColor: "bg-[var(--theme-info)] text-white",
+        timestamp: ph.createdAt.toISOString(),
+      });
+    }
+  }
+
+  // Task Creation and Activity Events
+  for (const task of tasks) {
+    timelineEvents.push({
+      id: `task-${task.id}`,
+      projectId: project.id,
+      type: "TASK_ADDED",
+      title: `Task Created: ${task.code}`,
+      description: `Task "${task.title}" was created and assigned to ${task.owner || "Unassigned"}.`,
+      actorName: task.authorName || task.author?.name || "Team Member",
+      actorAvatarColor: "bg-indigo-600 text-white",
+      timestamp: task.createdAt.toISOString(),
+    });
+
+    for (const act of task.activities) {
+      timelineEvents.push({
+        id: `act-${act.id}`,
+        projectId: project.id,
+        type: "UPDATED",
+        title: `Task Activity (${task.code})`,
+        description: act.actionText,
+        actorName: act.userName,
+        actorAvatarColor: "bg-purple-600 text-white",
+        timestamp: act.createdAt.toISOString(),
+      });
+    }
+  }
+
+  // Document Upload Events
+  for (const d of docs) {
+    timelineEvents.push({
+      id: `doc-${d.id}`,
+      projectId: project.id,
+      type: "DOCUMENT_UPLOADED",
+      title: "Document Uploaded",
+      description: `Uploaded attachment "${d.fileName}".`,
+      actorName: d.user?.name || d.user?.email || "Team Member",
+      actorAvatarColor: "bg-amber-600 text-white",
+      timestamp: d.createdAt.toISOString(),
+    });
+  }
+
+  return timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+/**
+ * ----------------------------------------------------
+ * TASK DOCUMENTS & TASK STATUS TIMELINE ACTIONS
+ * ----------------------------------------------------
+ */
+
+export async function getTaskDocumentsAction(taskIdOrCode: string): Promise<ProjectDocument[]> {
+  await requireAuth();
+
+  const docs = await db.userDocument.findMany({
+    where: {
+      OR: [
+        { kind: { startsWith: `TASK:${taskIdOrCode}` } },
+        { kind: { contains: `:${taskIdOrCode}:` } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    include: { user: { select: { name: true, email: true } } },
+  });
+
+  return docs.map((d) => {
+    const parts = d.kind.split(":");
+    const mimeType = parts[2] || "application/octet-stream";
+    const sizeBytes = parseInt(parts[3] || "0", 10);
+    const uploadedBy = d.user?.name || d.user?.email || "Team Member";
+
+    return {
+      id: d.id,
+      projectId: parts[4] || "",
+      name: d.fileName,
+      fileUrl: d.fileUrl,
+      sizeBytes,
+      mimeType,
+      uploadedBy,
+      createdAt: d.createdAt.toISOString(),
+    };
+  });
+}
+
+export async function saveTaskDocumentAction(docData: {
+  taskId: string;
+  projectId: string;
+  name: string;
+  fileUrl: string;
+  sizeBytes?: number;
+  mimeType?: string;
+}): Promise<ProjectDocument> {
+  const session = await requireAuth();
+
+  const kind = `TASK:${docData.taskId}:${docData.mimeType || "file"}:${docData.sizeBytes || 0}:${docData.projectId}`;
+
+  const created = await db.userDocument.create({
+    data: {
+      userId: session.user.id,
+      kind,
+      fileUrl: docData.fileUrl,
+      fileName: docData.name,
+    },
+    include: { user: { select: { name: true, email: true } } },
+  });
+
+  const task = await db.projectTask.findFirst({
+    where: { OR: [{ id: docData.taskId }, { code: docData.taskId }] },
+    select: { id: true },
+  });
+
+  const actorName = created.user?.name || session.user.name || session.user.email || "Team Member";
+
+  if (task) {
+    await db.projectTaskActivity.create({
+      data: {
+        userName: actorName,
+        userId: session.user.id,
+        userInitials: toInitials(actorName),
+        actionText: `uploaded attachment "${docData.name}"`,
+        taskId: task.id,
+      },
+    });
+  }
+
+  revalidatePath(`/projects/${docData.projectId}/tasks/${docData.taskId}`);
+
+  return {
+    id: created.id,
+    projectId: docData.projectId,
+    name: created.fileName,
+    fileUrl: created.fileUrl,
+    sizeBytes: docData.sizeBytes || 0,
+    mimeType: docData.mimeType || "application/octet-stream",
+    uploadedBy: actorName,
+    createdAt: created.createdAt.toISOString(),
+  };
+}
+
+export async function deleteTaskDocumentAction(docId: string, taskId: string): Promise<boolean> {
+  await requireAuth();
+
+  await db.userDocument.delete({
+    where: { id: docId },
+  });
+
+  return true;
+}
+
+export async function getTaskTimelineAction(taskIdOrCode: string): Promise<ProjectTimelineEvent[]> {
+  await requireAuth();
+
+  const task = await db.projectTask.findFirst({
+    where: { OR: [{ id: taskIdOrCode }, { code: taskIdOrCode }] },
+    include: {
+      author: { select: { name: true, email: true } },
+      activities: { orderBy: { createdAt: "desc" } },
+      subtasks: { orderBy: { createdAt: "desc" } },
+      project: { select: { id: true, name: true, ownerName: true, createdAt: true } },
+    },
+  });
+
+  if (!task) return [];
+
+  const docs = await db.userDocument.findMany({
+    where: {
+      OR: [
+        { kind: { startsWith: `TASK:${task.id}` } },
+        { kind: { startsWith: `TASK:${task.code}` } },
+      ],
+    },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const timelineEvents: ProjectTimelineEvent[] = [];
+
+  // 1. Task Created Event
+  const creatorName = task.authorName || task.author?.name || "Team Member";
+  timelineEvents.push({
+    id: `creation-${task.id}`,
+    projectId: task.projectId || "",
+    type: "CREATED",
+    title: `${creatorName} created this task`,
+    description: `Task "${task.title}" (${task.code}) was created and assigned to ${task.owner || "Unassigned"}.`,
+    actorName: creatorName,
+    actorAvatarColor: "bg-emerald-600 text-white",
+    timestamp: task.createdAt.toISOString(),
+  });
+
+  // 2. Activity Logs
+  for (const act of task.activities) {
+    timelineEvents.push({
+      id: `act-${act.id}`,
+      projectId: task.projectId || "",
+      type: "UPDATED",
+      title: `${act.userName} ${act.actionText}`,
+      description: `Task activity update recorded.`,
+      actorName: act.userName,
+      actorAvatarColor: "bg-blue-600 text-white",
+      timestamp: act.createdAt.toISOString(),
+    });
+  }
+
+  // 3. Subtask Events
+  for (const st of task.subtasks) {
+    timelineEvents.push({
+      id: `sub-${st.id}`,
+      projectId: task.projectId || "",
+      type: "TASK_ADDED",
+      title: `Subtask ${st.completed ? 'completed' : 'added'}: "${st.title}"`,
+      description: `Subtask "${st.title}" is ${st.status.toLowerCase()} and assigned to ${st.ownerName || "Unassigned"}.`,
+      actorName: st.ownerName || "Team Member",
+      actorAvatarColor: "bg-purple-600 text-white",
+      timestamp: st.createdAt.toISOString(),
+    });
+  }
+
+  // 4. Document Attachments
+  for (const d of docs) {
+    timelineEvents.push({
+      id: `doc-${d.id}`,
+      projectId: task.projectId || "",
+      type: "DOCUMENT_UPLOADED",
+      title: `${d.user?.name || "User"} uploaded document "${d.fileName}"`,
+      description: `Attached file "${d.fileName}" to task.`,
+      actorName: d.user?.name || d.user?.email || "Team Member",
+      actorAvatarColor: "bg-amber-600 text-white",
+      timestamp: d.createdAt.toISOString(),
+    });
+  }
+
+  return timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }

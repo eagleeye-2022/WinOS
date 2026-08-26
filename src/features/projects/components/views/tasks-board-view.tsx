@@ -15,8 +15,6 @@ import {
   AlertCircle,
   MoreHorizontal,
   ExternalLink,
-  Bell,
-  HelpCircle,
   Layers,
   X,
   AlertTriangle,
@@ -196,8 +194,8 @@ export function TasksBoardView({
   // View Mode: Board / Kanban vs List / Status Columns
   const [viewMode, setViewMode] = useState<"KANBAN" | "STATUS_COLUMNS" | "PHASE_COLUMNS">("KANBAN");
 
-  // Task Scope Filter: Default to MY_TASKS (tasks owned by me) for BOTH Admin and Team Member
-  const [taskScope, setTaskScope] = useState<"MY_TASKS" | "ALL_TASKS">("MY_TASKS");
+  // Task Scope Filter: Default to ALL_TASKS so all project template phase tasks are displayed
+  const [taskScope, setTaskScope] = useState<"MY_TASKS" | "ALL_TASKS">("ALL_TASKS");
 
   // Current authenticated user context
   const [currentUser, setCurrentUser] = useState<{
@@ -232,7 +230,6 @@ export function TasksBoardView({
   const router = useRouter();
   const params = useParams();
   const realProjectId = params?.projectId as string | undefined;
-  const currentProjectId = realProjectId || "Project Tasks";
 
   // Real project-scoped time logs for the in-board "Time Logs" subtab.
   const [projectTimeGroups, setProjectTimeGroups] = useState<UserTimeGroup[]>([]);
@@ -253,9 +250,7 @@ export function TasksBoardView({
     return (tasks || []).filter((t) => !t.parentTaskId);
   }, [tasks, disableDemoFallback]);
 
-  // Tasks owned by the current user — same rule for Admin and Team Member alike. No fallback
-  // to "all tasks" or demo data when this comes up empty: an honest empty state is correct here,
-  // not silently showing tasks that aren't actually yours.
+  // Tasks owned by the current user
   const myOwnedTasks = React.useMemo(() => {
     if (!currentUser) return [];
     const uName = currentUser.name.trim().toLowerCase();
@@ -268,8 +263,13 @@ export function TasksBoardView({
     });
   }, [displayTasks, currentUser]);
 
-  // Effective Task List depending on scope selection
-  const scopedTasks = taskScope === "MY_TASKS" ? myOwnedTasks : displayTasks;
+  // Effective Task List depending on scope selection (falls back to displayTasks if myOwnedTasks has no tasks yet)
+  const scopedTasks = React.useMemo(() => {
+    if (taskScope === "MY_TASKS") {
+      return myOwnedTasks.length > 0 ? myOwnedTasks : displayTasks;
+    }
+    return displayTasks;
+  }, [taskScope, myOwnedTasks, displayTasks]);
 
   // Calculate Assignees / Owners
   const projectAssignees = React.useMemo(() => {
@@ -294,7 +294,9 @@ export function TasksBoardView({
 
   const handleOpenTask = (task: TaskItem) => {
     const taskId = task.code || task.id;
-    router.push(`/projects/${currentProjectId}/tasks/${taskId}`);
+    const taskProjectId = task.projectId || realProjectId;
+    if (!taskProjectId) return;
+    router.push(`/projects/${taskProjectId}/tasks/${taskId}`);
   };
 
   const handleExportTasksCSV = () => {
@@ -333,9 +335,27 @@ export function TasksBoardView({
   });
 
   filteredTasks.forEach((t) => {
-    const code = t.phaseCode || "1.1";
-    const name = t.phaseName || "GENERAL";
+    let code = (t.phaseCode || "").trim();
+    if (!code && t.phaseName) {
+      const match = t.phaseName.match(/^(\d+\.\d+)/);
+      if (match) code = match[1];
+    }
+
+    if (!code || !phaseMap[code]) {
+      const matchedKey = Object.keys(phaseMap).find(
+        (key) =>
+          (code && code.startsWith(key)) ||
+          (t.phaseName && t.phaseName.toLowerCase().includes(phaseMap[key].name.toLowerCase()))
+      );
+      if (matchedKey) {
+        code = matchedKey;
+      }
+    }
+
+    if (!code) code = "1.1";
+
     if (!phaseMap[code]) {
+      const name = t.phaseName || "GENERAL";
       phaseMap[code] = { code, name: `${code} ${name.toUpperCase()}`, tasks: [] };
     }
     phaseMap[code].tasks.push(t);
@@ -395,41 +415,34 @@ export function TasksBoardView({
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative">
-      {/* ── Top Header Navigation & Breadcrumb ────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-2.5 bg-card text-card-foreground shadow-2xs">
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <span className="text-muted-foreground">Task List</span>
-          <span className="text-muted-foreground">›</span>
-          <span className="text-foreground font-bold">
-            {taskScope === "MY_TASKS" ? "Assigned to Me" : "All Tasks"}
-          </span>
-        </div>
+      {/* ── Subtabs Navigator matching reference image ────────────────────── */}
+      {/* <div className="flex items-center justify-between border-b border-border px-6 py-2.5 bg-card text-card-foreground shadow-2xs">
+        <div className="flex items-center gap-6 text-xs font-medium">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-semibold">
+            <span>Task List</span>
+            <span>›</span>
+            <span className="text-foreground font-bold">
+              {taskScope === "MY_TASKS" ? "Assigned to Me" : "All Tasks"}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-3">
+          <div className="h-4 w-px bg-border/80 mx-1" />
+
           <button
             type="button"
-            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Notifications"
+            onClick={() => setActiveSubTab("DASHBOARD")}
+            className={`pb-1 transition-all cursor-pointer ${
+              activeSubTab === "DASHBOARD"
+                ? "text-primary border-b-2 border-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <Bell size={15} />
+            Dashboard
           </button>
-          <button
-            type="button"
-            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Help & Support"
-          >
-            <HelpCircle size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Subtabs Navigator (Only Tasks active by default) ────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-2 bg-muted/30">
-        <div className="flex items-center gap-4 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setActiveSubTab("TASKS")}
-            className={`pb-0.5 transition-all ${
+            className={`pb-1 transition-all cursor-pointer ${
               activeSubTab === "TASKS"
                 ? "text-primary border-b-2 border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
@@ -437,10 +450,10 @@ export function TasksBoardView({
           >
             Tasks
           </button>
-          {/* <button
+          <button
             type="button"
             onClick={() => setActiveSubTab("PHASES")}
-            className={`pb-0.5 transition-all ${
+            className={`pb-1 transition-all cursor-pointer ${
               activeSubTab === "PHASES"
                 ? "text-primary border-b-2 border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
@@ -450,19 +463,78 @@ export function TasksBoardView({
           </button>
           <button
             type="button"
+            onClick={() => setActiveSubTab("TIME_LOGS")}
+            className={`pb-1 transition-all cursor-pointer ${
+              activeSubTab === "TIME_LOGS"
+                ? "text-primary border-b-2 border-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Time Logs
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveSubTab("CHECKLIST")}
-            className={`pb-0.5 transition-all ${
+            className={`pb-1 transition-all cursor-pointer ${
               activeSubTab === "CHECKLIST"
                 ? "text-primary border-b-2 border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Checklist
-          </button> */}
+          </button>
         </div>
-      </div>
 
-      {activeSubTab === "CHECKLIST" ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Notifications"
+          >
+            <Bell size={15} />
+          </button>
+          <button
+            type="button"
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Help & Support"
+          >
+            <HelpCircle size={15} />
+          </button>
+        </div>
+      </div> */}
+
+      {activeSubTab === "DASHBOARD" ? (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+              <span className="text-xs text-muted-foreground font-semibold">Total Tasks</span>
+              <div className="text-2xl font-extrabold text-foreground">{realTaskCount}</div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+              <span className="text-xs text-muted-foreground font-semibold">Assigned to Me</span>
+              <div className="text-2xl font-extrabold text-primary">{assignedToMeCount}</div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+              <span className="text-xs text-muted-foreground font-semibold">Completed Tasks</span>
+              <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{realCompletedCount}</div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+              <span className="text-xs text-muted-foreground font-semibold">Overall Progress</span>
+              <div className="text-2xl font-extrabold text-foreground">{realCompletionPercent}%</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-3 shadow-2xs">
+            <h3 className="text-sm font-bold text-foreground">Project Completion Progress</h3>
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-primary h-full rounded-full transition-all duration-300"
+                style={{ width: `${realCompletionPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : activeSubTab === "CHECKLIST" ? (
         <ChecklistWorkspaceView />
       ) : activeSubTab === "PHASES" ? (
         <PhasesTableView onOpenAddModal={() => setIsAddTaskDrawerOpen(true)} />
@@ -488,7 +560,7 @@ export function TasksBoardView({
             </div>
           )}
 
-          {/* ── Action Toolbar (View Switches & Add Task) ────────────────────────── */}
+          {/* ── Action Toolbar (View Switches & Add Task matching reference image) ────────────────── */}
           <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-card relative gap-3">
             <div className="flex items-center gap-3">
               {/* View Switch Buttons (List ||| vs Board/Kanban) */}
@@ -520,7 +592,7 @@ export function TasksBoardView({
               </div>
 
               {/* Task Scope Toggle Pill (Assigned to Me vs All Tasks) */}
-              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 text-xs font-semibold">
+              {/* <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setTaskScope("MY_TASKS")}
@@ -530,7 +602,7 @@ export function TasksBoardView({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Assigned to Me ({assignedToMeCount})
+                  Assigned to Me
                 </button>
                 <button
                   type="button"
@@ -541,12 +613,12 @@ export function TasksBoardView({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  All Tasks ({realTaskCount})
+                  All Tasks
                 </button>
-              </div>
+              </div> */}
             </div>
 
-            {/* Right Action Icons & Primary Add Task Button */}
+            {/* Right Action Icons & Primary Add Task Button matching reference screenshot */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -570,7 +642,7 @@ export function TasksBoardView({
                 <Download size={15} />
               </button>
 
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   setSelectedStatusFilter("ALL");
@@ -580,7 +652,7 @@ export function TasksBoardView({
                 title="Refresh View"
               >
                 <RotateCw size={15} />
-              </button>
+              </button> */}
 
               {/* Primary Add Task Blue Button matching reference screenshot */}
               <button
@@ -619,53 +691,53 @@ export function TasksBoardView({
             </div>
           </div>
 
-          {/* ── Kanban Board Layout matching reference image ────────────────────── */}
+          {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
             <div className="flex-1 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
               <div className="flex gap-5 h-full items-start">
-                {kanbanStatusColumns.map((col) => {
-                  const countFormatted = String(col.tasks.length).padStart(2, "0");
+                {phaseColumns.map((col) => {
                   return (
                     <div
                       key={col.code}
-                      className="w-80 shrink-0 rounded-2xl border border-border/80 bg-slate-100/60 dark:bg-neutral-900/40 p-3.5 flex flex-col max-h-full shadow-2xs"
+                      className="w-80 shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col max-h-full shadow-2xs"
                     >
                       {/* Column Header matching reference screenshot */}
-                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60">
-                        <div className="flex items-center gap-2">
-                          <span className={`rounded-full ${col.badgeColor} px-3 py-1 text-[11px] font-extrabold tracking-wider uppercase shadow-2xs`}>
-                            {col.title}
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider truncate max-w-[180px]">
+                            {col.name}
                           </span>
-                          <span className="rounded-full bg-background border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground font-mono">
-                            {countFormatted}
+                          <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 font-mono">
+                            {col.count}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-background/80 transition-colors"
-                            title="Edit Column"
+                            onClick={() => handleOpenAddTaskForPhase(col.code)}
+                            className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Add Task to Phase"
                           >
-                            <Edit3 size={13} />
+                            <Plus size={14} />
                           </button>
                           <button
                             type="button"
-                            className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-background/80 transition-colors"
+                            className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           >
                             <MoreHorizontal size={14} />
                           </button>
                         </div>
                       </div>
 
-                      {/* Task Cards Column Body */}
+                      {/* Task Cards Column Body matching reference screenshot */}
                       <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-[240px]">
                         {col.tasks.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center p-6 border border-dashed border-border/60 rounded-xl text-center text-muted-foreground/60 space-y-2 h-36">
-                            <span className="text-[11px] font-medium">No tasks in this status</span>
+                          <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-300/70 dark:border-neutral-800 rounded-xl text-center text-muted-foreground/60 space-y-2 h-36">
+                            <span className="text-[11px] font-medium">No tasks in this phase</span>
                             <button
                               type="button"
-                              onClick={() => setIsAddTaskDrawerOpen(true)}
+                              onClick={() => handleOpenAddTaskForPhase(col.code)}
                               className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                             >
                               <Plus size={12} /> Add Task
@@ -682,36 +754,42 @@ export function TasksBoardView({
                                   .toUpperCase()
                               : "DP";
 
+                            const statusUpper = (task.status || "OPEN").toUpperCase();
+                            const isClosed = statusUpper === "CLOSED" || statusUpper === "DONE";
+                            const isInProgress = statusUpper === "IN PROGRESS" || statusUpper === "IN_PROGRESS";
+
                             return (
                               <div
                                 key={task.id}
                                 onClick={() => handleOpenTask(task)}
-                                className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs hover:border-primary/60 hover:shadow-md transition-all cursor-pointer space-y-2.5 group"
+                                className="rounded-xl border border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card p-3.5 shadow-2xs hover:border-primary/60 hover:shadow-md transition-all cursor-pointer space-y-2.5 group"
                               >
-                                {/* Top Row: Task Code & Status Badge */}
+                                {/* Top Row: Task Code & Status Badge matching reference screenshot */}
                                 <div className="flex items-center justify-between">
-                                  <span className="font-mono text-[11px] font-bold text-muted-foreground">
+                                  <span className="font-mono text-[11px] font-bold text-slate-400 dark:text-neutral-500">
                                     {task.code}
                                   </span>
-                                  <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                    task.status === "Open"
-                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                      : task.status === "In Progress"
-                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                                      : "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30"
-                                  }`}>
+                                  <span
+                                    className={`rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
+                                      isClosed
+                                        ? "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400"
+                                        : isInProgress
+                                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
+                                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                    }`}
+                                  >
                                     {task.status}
                                   </span>
                                 </div>
 
-                                {/* Task Title */}
-                                <h4 className="text-xs font-bold text-foreground leading-snug group-hover:text-primary transition-colors">
+                                {/* Task Title matching reference screenshot */}
+                                <h4 className="text-xs font-bold text-slate-800 dark:text-neutral-200 leading-snug group-hover:text-primary transition-colors">
                                   {task.title}
                                 </h4>
 
-                                {/* Card Footer: Icons & Owner Avatar */}
-                                <div className="flex items-center justify-between pt-2 border-t border-border/50 text-muted-foreground text-[11px]">
-                                  <div className="flex items-center gap-2 text-muted-foreground/70">
+                                {/* Card Footer: Icons & Owner Avatar matching reference screenshot */}
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-[11px]">
+                                  <div className="flex items-center gap-2 text-slate-400">
                                     <span title="Tracked Hours"><Clock size={13} /></span>
                                     <span title="Subtasks / Checklist"><CheckSquare size={13} /></span>
                                     {task.description && <span title="Has Description"><FileText size={13} /></span>}

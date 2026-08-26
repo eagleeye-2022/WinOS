@@ -329,7 +329,7 @@ export function AllProjectsTableView({
       {/* Table Action Filter Bar */}
       <div className="flex items-center justify-between border-b px-6 py-2.5 bg-muted/20 relative">
         <div className="flex items-center gap-3">
-          <select
+          {/* <select
             value={statusFilter}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -338,7 +338,7 @@ export function AllProjectsTableView({
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active Projects</option>
             <option value="COMPLETED">Completed Projects</option>
-          </select>
+          </select> */}
 
           {/* Department Alias Filter */}
           {/* <select
@@ -535,38 +535,28 @@ export function AllProjectsTableView({
         <div className="flex-1 overflow-x-auto overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
-                <th className="py-3 px-4 border-r whitespace-nowrap">Project ID</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[240px]">
+              <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Project ID</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[240px] text-left">
                   Project Name & Category
                 </th>
                 <th className="py-3 px-2 border-r text-center whitespace-nowrap w-10">
-                  📎
+                  Link
                 </th>
                 <th className="py-3 px-3 border-r whitespace-nowrap text-center">%</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
-                  <span className="flex items-center gap-1">👤 Owner</span>
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">
-                  <span className="flex items-center gap-1">
-                    ℹ Status <ArrowUpDown size={12} />
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Owner</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">
+                  <span className="flex items-center justify-center gap-1">
+                    Status <ArrowUpDown size={12} />
                   </span>
                 </th>
                 {/* <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th> */}
                 {/* <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th> */}
-                <th className="py-3 px-4 border-r whitespace-nowrap">⏱ Total Hours</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">📅 Start Date</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap">📅 Deadline</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
-                  <span className="flex items-center gap-1">
-                    <ListTodo size={13} /> Tasks
-                  </span>
-                </th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px]">
-                  <span className="flex items-center gap-1">
-                    <Layers size={13} /> Phases
-                  </span>
-                </th>
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Total Hours</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Start Date</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Deadline</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px] text-center">Tasks</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px] text-center">Phases</th>
                 {userRole === "ADMIN" && <th className="py-3 px-3 text-center">Action</th>}
               </tr>
             </thead>
@@ -586,7 +576,7 @@ export function AllProjectsTableView({
                     key={project.id}
                     className="hover:bg-accent/30 transition-colors group"
                   >
-                    <td className="py-3 px-4 border-r font-medium text-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r font-medium text-foreground whitespace-nowrap text-center">
                       <Link
                         href={`/projects/${project.id}`}
                         className="hover:text-primary hover:underline transition-colors"
@@ -637,8 +627,8 @@ export function AllProjectsTableView({
                       {project.progressPercent}%
                     </td>
 
-                    <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-4 border-r whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <span
                           className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
                             }`}
@@ -651,7 +641,7 @@ export function AllProjectsTableView({
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                    <td className="py-3 px-4 border-r whitespace-nowrap text-center">
                       <span className="inline-flex items-center gap-1 rounded bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
                         {project.status === "ACTIVE" ? "Active" : "Completed"}
                       </span>
@@ -679,15 +669,15 @@ export function AllProjectsTableView({
                       </button>
                     </td> */}
 
-                    <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap text-center">
                       {project.totalHours}
                     </td>
 
-                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap text-center">
                       {project.startDate}
                     </td>
 
-                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap text-center">
                       {project.deadline}
                     </td>
 
