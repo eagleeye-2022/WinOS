@@ -404,7 +404,7 @@ export function NewTimeLogModal({
                       className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
                     >
                       <option value="">
-                        Select Task/Bug...
+                        General / Direct Project Time Log (No Task)
                       </option>
                       {allTaskOptions.map((t) => (
                         <option key={t.code} value={`${t.code} - ${t.title}`} className="bg-background text-foreground">

@@ -1414,8 +1414,6 @@ function LearningSection({
     setAdding(false);
   };
 
-  if (isLocked && lines.length === 0) return null;
-
   return (
     <div className="rounded-xl border bg-card p-4">
       <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-primary">
@@ -1484,29 +1482,27 @@ function LearningSection({
                 )}
               </div>
 
-              {!isLocked && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingIndex(i);
-                      setEditText(line);
-                    }}
-                    title="Edit learning item"
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(i)}
-                    title="Delete learning item"
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingIndex(i);
+                    setEditText(line);
+                  }}
+                  title="Edit learning item"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(i)}
+                  title="Delete learning item"
+                  className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -1516,58 +1512,56 @@ function LearningSection({
         )}
       </div>
 
-      {!isLocked && (
-        <div className="mt-2.5">
-          {adding ? (
-            <div className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
-              <input
-                type="text"
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                autoFocus
-                placeholder="Describe what will be learned (Whyfi School)..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAdd();
-                  }
-                }}
-                onBlur={() => {
-                  if (newText.trim()) handleAdd();
-                  else setAdding(false);
-                }}
-                className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-              />
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={pending}
-                className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors"
-              >
-                <Check size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdding(false);
-                  setNewText("");
-                }}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
+      <div className="mt-2.5">
+        {adding ? (
+          <div className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
+            <input
+              type="text"
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              autoFocus
+              placeholder="Describe what will be learned (Whyfi School)..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdd();
+                }
+              }}
+              onBlur={() => {
+                if (newText.trim()) handleAdd();
+                else setAdding(false);
+              }}
+              className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            />
             <button
               type="button"
-              onClick={() => setAdding(true)}
-              className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+              onClick={handleAdd}
+              disabled={pending}
+              className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors"
             >
-              <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+              <Check size={14} />
             </button>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(false);
+                setNewText("");
+              }}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+          >
+            <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+          </button>
+        )}
+      </div>
     </div>
   );
 }

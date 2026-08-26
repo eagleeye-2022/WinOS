@@ -15,6 +15,7 @@ import { TasksBoardView } from "@/features/projects/components/views/tasks-board
 import { ProjectUsersView } from "@/features/projects/components/views/project-users-view";
 import { ProjectDocumentsView } from "@/features/projects/components/views/project-documents-view";
 import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
+import { ProjectTimeLogsView } from "@/features/projects/components/views/project-time-logs-view";
 
 const RECENT_PROJECTS_KEY = "winos:recentProjects";
 const RECENT_PROJECTS_LIMIT = 4;
@@ -40,7 +41,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [assignedToMeCount, setAssignedToMeCount] = useState(0);
-  const [activeTab, setActiveTab] = useState<"TASKS" | "USERS" | "DOCUMENTS" | "TIMELINE">("TASKS");
+  const [activeTab, setActiveTab] = useState<"TASKS" | "USERS" | "DOCUMENTS" | "TIME_LOGS" | "TIMELINE">("TASKS");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -200,6 +201,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
           <button
             type="button"
+            onClick={() => setActiveTab("TIME_LOGS")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
+              activeTab === "TIME_LOGS"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            }`}
+          >
+            <Clock size={14} />
+            <span>Time Logs</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("TIMELINE")}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
               activeTab === "TIMELINE"
@@ -232,6 +246,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
         {activeTab === "DOCUMENTS" && (
           <ProjectDocumentsView projectId={project.id} projectName={project.name} />
+        )}
+
+        {activeTab === "TIME_LOGS" && (
+          <ProjectTimeLogsView projectId={project.id} projectName={project.name} />
         )}
 
         {activeTab === "TIMELINE" && (

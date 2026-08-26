@@ -29,9 +29,6 @@ export async function updateLearningText(
   });
 
   if (!entry) return { message: "Entry not found" };
-  if (entry.status === "REVIEWED") {
-    return { message: "This entry has already been reviewed and cannot be changed." };
-  }
 
   await d.standupEntry.update({
     where: { id: entryId },
@@ -43,5 +40,6 @@ export async function updateLearningText(
   revalidatePath("/dsm");
   revalidatePath(`/dsm/member/${entry.userId}`);
   revalidatePath("/dsm/all");
+  revalidatePath("/dsm/my");
   return { message: "updated" };
 }

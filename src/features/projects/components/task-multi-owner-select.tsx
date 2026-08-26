@@ -203,13 +203,13 @@ export function TaskMultiOwnerSelect({
             }
           }}
           title={disabled ? disabledReason : undefined}
-          className={`min-h-[42px] w-full rounded border border-border/80 dark:border-[#2b2f38] bg-[#16181d] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
+          className={`min-h-[42px] w-full rounded border border-border/80 dark:border-[#2b2f38] bg-background dark:bg-[#16181d] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
             disabled ? "cursor-not-allowed opacity-60" : "hover:border-border/90 cursor-pointer"
           }`}
         >
           {/* Left Label Section (Owner label) */}
           {label && (
-            <div className="flex items-center justify-between min-w-[120px] md:min-w-[140px] px-3.5 py-2 bg-[#1c1f26] dark:bg-[#191c22] border-r border-border/70 dark:border-[#2b2f38] shrink-0 select-none">
+            <div className="flex items-center justify-between min-w-[120px] md:min-w-[140px] px-3.5 py-2 bg-muted/60 dark:bg-[#191c22] border-r border-border/70 dark:border-[#2b2f38] shrink-0 select-none">
               <span className="text-xs font-semibold text-foreground/80 dark:text-neutral-300">
                 {label}
               </span>
@@ -217,14 +217,14 @@ export function TaskMultiOwnerSelect({
           )}
 
           {/* Right Input & Pills Section matching reference image */}
-          <div className="flex flex-wrap items-center gap-1.5 flex-1 px-3 py-1.5 bg-[#121318] dark:bg-[#131419] min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 flex-1 px-3 py-1.5 bg-card dark:bg-[#131419] min-w-0">
             {internalSelected.map((key) => {
               const matched = findUserByKey(key);
               const displayName = matched ? matched.name : key;
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1.5 rounded border border-sky-500/35 dark:border-[#27384d] bg-sky-500/10 dark:bg-[#182333] px-2 py-0.5 text-xs font-medium text-foreground dark:text-neutral-200 transition-colors group select-none shadow-2xs"
+                  className="inline-flex items-center gap-1.5 rounded border border-sky-500/30 dark:border-[#27384d] bg-sky-50 dark:bg-[#182333] px-2 py-0.5 text-xs font-medium text-sky-900 dark:text-neutral-200 transition-colors group select-none shadow-2xs"
                 >
                   <span
                     className={`h-4.5 w-4.5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
@@ -285,10 +285,10 @@ export function TaskMultiOwnerSelect({
               label ? "md:left-[140px]" : ""
             } ${
               dropUp ? "bottom-full mb-1" : "top-full mt-1"
-            } z-[100] rounded-lg border border-border/80 dark:border-[#2f333e] bg-[#22242a] dark:bg-[#1e2026] text-popover-foreground shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150`}
+            } z-[100] rounded-lg border border-border dark:border-[#2f333e] bg-popover dark:bg-[#1e2026] text-popover-foreground shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150`}
           >
             {/* Header: Project Users */}
-            <div className="px-3.5 py-2 text-[11px] font-bold text-muted-foreground/70 dark:text-neutral-400 border-b border-border/40 dark:border-[#2a2d37] select-none">
+            <div className="px-3.5 py-2 text-[11px] font-bold text-muted-foreground dark:text-neutral-400 border-b border-border/60 dark:border-[#2a2d37] select-none">
               Project Users
             </div>
 
@@ -307,8 +307,8 @@ export function TaskMultiOwnerSelect({
                       onClick={() => handleToggleOwner(u)}
                       className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer select-none transition-colors ${
                         selected
-                          ? "bg-sky-500/20 text-sky-400 font-semibold dark:bg-[#18283a] dark:text-[#38bdf8]"
-                          : "hover:bg-white/5 text-foreground/90 dark:text-neutral-200"
+                          ? "bg-sky-100/90 text-sky-800 font-semibold dark:bg-[#18283a] dark:text-[#38bdf8]"
+                          : "hover:bg-accent text-foreground dark:hover:bg-white/5 dark:text-neutral-200"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">
@@ -322,7 +322,7 @@ export function TaskMultiOwnerSelect({
                         <span className="truncate">{u.name}</span>
                       </div>
 
-                      {selected && <Check size={14} className="text-sky-400 shrink-0" />}
+                      {selected && <Check size={14} className="text-sky-600 dark:text-sky-400 shrink-0" />}
                     </div>
                   );
                 })
