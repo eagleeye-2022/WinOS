@@ -55,6 +55,7 @@ import {
   CopyCheck,
 } from "lucide-react";
 import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry } from "../../types";
+import { parseDurationMinutes } from "../../utils/time-helpers";
 import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { AddSubtaskDrawer } from "../modals/add-subtask-drawer";
@@ -513,7 +514,7 @@ export function SingleTaskWorkspaceView({
     refreshTaskTimeLogs();
   }, [refreshTaskTimeLogs]);
 
-  const handleTimerLogSaved = async (logData: {
+  const handleTimerLogSaved = async (_logData: {
     duration: string;
     startTime: string;
     endTime: string;
@@ -521,29 +522,7 @@ export function SingleTaskWorkspaceView({
     notes: string;
   }) => {
     try {
-      const timePeriodStr = `${logData.startTime} - ${logData.endTime}`;
-      const dd = String(new Date().getDate()).padStart(2, "0");
-      const mm = String(new Date().getMonth() + 1).padStart(2, "0");
-      const yyyy = new Date().getFullYear();
-      const todayFormatted = `${dd}/${mm}/${yyyy}`;
-
-      await createTimeLogAction(
-        {
-          title: activeTask.title || "Task Timer Work",
-          project: project?.name || activeTask.code?.split("-").slice(0, 2).join("-") || "Project",
-          projectId: activeTask.projectId || projectId || undefined,
-          taskCode: activeTask.code,
-          duration: logData.duration,
-          timePeriod: timePeriodStr,
-          date: todayFormatted,
-          billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
-          remarks: logData.notes || `Logged from live task timer for ${activeTask.code}`,
-          approvalStatus: "Pending",
-        },
-        activeTask.projectId || projectId
-      );
-
-      showToast("Time log saved from timer");
+      showToast("Time log saved from live timer");
       refreshTaskTimeLogs();
     } catch (err) {
       console.error("Failed to save timer time log:", err);
@@ -552,9 +531,7 @@ export function SingleTaskWorkspaceView({
   };
 
   const totalTaskMinutes = taskTimeLogs.reduce((sum, log) => {
-    const match = log.duration.match(/(\d+):(\d+)/);
-    if (!match) return sum;
-    return sum + parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+    return sum + parseDurationMinutes(log.duration);
   }, 0);
 
   const formatTaskMinutesShort = (totalMinutes: number): string => {
@@ -1845,7 +1822,7 @@ export function SingleTaskWorkspaceView({
                                       <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
                                         <input
                                           type="text"
-                                          defaultValue={log.timePeriod || "09:00 AM - 05:00 PM"}
+                                          defaultValue={log.timePeriod}
                                           key={`timePeriod-${log.id}-${log.timePeriod}`}
                                           onBlur={(e) => {
                                             if (e.target.value !== log.timePeriod) {
@@ -1857,7 +1834,7 @@ export function SingleTaskWorkspaceView({
                                               (e.target as HTMLInputElement).blur();
                                             }
                                           }}
-                                          className="w-36 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-muted-foreground font-mono focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-neutral-400"
+                                          className="w-48 min-w-[175px] px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-muted-foreground font-mono focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-neutral-400"
                                           onClick={(e) => e.stopPropagation()}
                                           title="Click to edit time period. Auto-saves on Enter or blur."
                                         />

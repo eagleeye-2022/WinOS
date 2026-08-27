@@ -20,7 +20,9 @@ interface TimerStoppedModalProps {
   }) => void;
 }
 
-// Format date time for display (e.g., 30/07/2026 04:04 pm)
+import { formatTime12h } from "../../utils/time-helpers";
+
+// Format date time for display (e.g., 30/07/2026 4:04 PM)
 function formatDisplayDateTime(d: Date) {
   const day = d.getDate().toString().padStart(2, "0");
   const month = (d.getMonth() + 1).toString().padStart(2, "0");
@@ -28,12 +30,11 @@ function formatDisplayDateTime(d: Date) {
 
   let hours = d.getHours();
   const minutes = d.getMinutes().toString().padStart(2, "0");
-  const ampm = hours >= 12 ? "pm" : "am";
+  const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12;
   hours = hours ? hours : 12;
-  const formattedHours = hours.toString().padStart(2, "0");
 
-  return `${day}/${month}/${year} ${formattedHours}:${minutes} ${ampm}`;
+  return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
 }
 
 // Format for <input type="datetime-local">
@@ -137,8 +138,8 @@ export function TimerStoppedModal({
     if (onSaveLog) {
       onSaveLog({
         duration: durationObj.formatted,
-        startTime: formatDisplayDateTime(startTime),
-        endTime: formatDisplayDateTime(endTime),
+        startTime: formatTime12h(startTime),
+        endTime: formatTime12h(endTime),
         isBillable,
         notes: notes.trim(),
       });

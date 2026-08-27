@@ -868,12 +868,19 @@ model Project {
 }
 
 model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String
-  userId    String
-  createdAt DateTime @default(now())
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  projectId      String
+  userId         String
+  projectRole    String?  @default("Team Member")
+  hourlyRate     Float?   @default(0.0)
+  costRate       Float?   @default(0.0)
+  weeklyCapacity Int?     @default(40)
+  status         String   @default("ACTIVE")
+  joinedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
 }

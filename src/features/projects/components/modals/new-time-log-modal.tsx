@@ -27,6 +27,13 @@ import {
 } from "lucide-react";
 import { TimeLogEntry, Project } from "../../types";
 import { createTimeLogAction, getProjectsAction, getTasksAction, getCurrentUserContextAction } from "../../actions/project-actions";
+import {
+  parseDurationMinutes,
+  formatDurationDisplay,
+  formatTimePeriodRange,
+  calculateMinutesFromTimeRange,
+  formatTime12h,
+} from "../../utils/time-helpers";
 
 interface NewTimeLogModalProps {
   isOpen: boolean;
@@ -148,10 +155,19 @@ export function NewTimeLogModal({
   }, [isOpen]);
 
   const [useHoursMode, setUseHoursMode] = useState(false);
-  const [startTime, setStartTime] = useState("10:27 am");
-  const [endTime, setEndTime] = useState("10:27 am");
+  const [startTime, setStartTime] = useState(() => formatTime12h(new Date(Date.now() - 30 * 60000)));
+  const [endTime, setEndTime] = useState(() => formatTime12h(new Date()));
   const [hoursDuration, setHoursDuration] = useState("00:30");
   const [billingType, setBillingType] = useState<"Billable" | "Non Billable">("Billable");
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const now = new Date();
+      const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
+      setStartTime(formatTime12h(thirtyMinsAgo));
+      setEndTime(formatTime12h(now));
+    }
+  }, [isOpen]);
 
   // Rich Text Editor states
   const [notesText, setNotesText] = useState("");
@@ -269,11 +285,22 @@ export function NewTimeLogModal({
       ? logTitle || "General Time Log"
       : taskSearchQuery || "Task Log";
 
-    const durationStr = useHoursMode
-      ? hoursDuration
-      : computedRangeDuration || "00:00";
+    let durationStr = "00:00";
+    let timePeriodStr = "";
 
-    const timePeriodStr = useHoursMode ? "Custom Duration" : `${startTime} - ${endTime}`;
+    if (useHoursMode) {
+      durationStr = hoursDuration;
+      const mins = parseDurationMinutes(hoursDuration);
+      if (mins <= 720) {
+        timePeriodStr = "";
+      } else {
+        timePeriodStr = "";
+      }
+    } else {
+      const rangeMins = calculateMinutesFromTimeRange(startTime, endTime);
+      durationStr = formatDurationDisplay(rangeMins || 0);
+      timePeriodStr = (rangeMins && rangeMins > 720) ? "" : formatTimePeriodRange(startTime, endTime);
+    }
 
     const taskCode = !isGeneralLog && taskSearchQuery
       ? taskSearchQuery.split(" - ")[0].trim()

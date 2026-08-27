@@ -80,26 +80,10 @@ async function getAuthenticatedUser() {
   return { session, sessionUser, error: null };
 }
 
-/**
- * Helper to parse duration string like "01:30" or "90 mins" or "1.5" into minutes number.
- */
+import { parseDurationMinutes, parseDateAndTimeToDate } from "../utils/time-helpers";
+
 function parseDurationStrToMinutes(durationStr: string): number {
-  if (!durationStr) return 0;
-  const str = durationStr.trim();
-
-  if (str.includes(":")) {
-    const parts = str.replace(/[^0-9:]/g, "").split(":");
-    const hrs = parseInt(parts[0] || "0", 10);
-    const mins = parseInt(parts[1] || "0", 10);
-    return hrs * 60 + mins;
-  }
-
-  const val = parseFloat(str);
-  if (!isNaN(val)) {
-    return Math.round(val);
-  }
-
-  return 0;
+  return parseDurationMinutes(durationStr);
 }
 
 /**
@@ -204,13 +188,7 @@ export async function createTimeLogAction(params: CreateTimeLogParams | any, ove
     }
   }
 
-  let logDate = new Date();
-  if (params.date) {
-    const parsedDate = new Date(params.date);
-    if (!isNaN(parsedDate.getTime())) {
-      logDate = parsedDate;
-    }
-  }
+  const logDate = parseDateAndTimeToDate(params.date, params.timePeriod ? params.timePeriod.split(/[-–]/)[0] : undefined);
 
   let billingType: BillingTypeEnum = "NON_BILLABLE";
   if (params.billingType === "BILLABLE" || params.billingType === "Billable") {

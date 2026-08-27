@@ -30,6 +30,7 @@ import {
 } from "../../actions/project-actions";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
+import { parseDurationMinutes } from "../../utils/time-helpers";
 
 interface ProjectTimeLogsViewProps {
   projectId: string;
@@ -159,15 +160,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       const group = map.get(uKey)!;
       group.timeLogs.push(log);
 
-      let mins = 0;
-      if (log.duration) {
-        if (log.duration.includes(":")) {
-          const parts = log.duration.split(":");
-          mins = parseInt(parts[0] || "0", 10) * 60 + parseInt(parts[1] || "0", 10);
-        } else {
-          mins = parseInt(log.duration, 10) || 0;
-        }
-      }
+      const mins = parseDurationMinutes(log.duration);
       group.totalMinutes += mins;
       if (log.billingType === "BILLABLE") group.billableMinutes += mins;
       else group.nonBillableMinutes += mins;
