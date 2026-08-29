@@ -53,21 +53,17 @@ interface UserDrawerDetails {
     profileRole?: string;
     department?: string;
     title?: string;
-  };
-  member: {
+    location?: string;
+    isOwner?: boolean;
     projectRole?: string;
     hourlyRate?: number;
     costRate?: number;
     weeklyCapacity?: number;
     status?: string;
-    joinedAt?: string;
-  };
-  stats: {
-    totalLoggedHours: string;
-    assignedTasksCount: number;
-    completedTasksCount: number;
+    joinedAt?: string | Date;
   };
   timeStats?: {
+    totalLogged?: string;
     billableLogged?: string;
     nonBillableLogged?: string;
   };
@@ -276,7 +272,7 @@ export function UserDetailDrawer({
               >
                 <span>Time Logs</span>
                 <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-mono text-primary">
-                  {details.timeStats.totalLogged}
+                  {details.timeStats?.totalLogged || "00:00 h"}
                 </span>
               </button>
             </div>
@@ -319,7 +315,7 @@ export function UserDetailDrawer({
                           <Calendar size={14} /> Joined Date
                         </span>
                         <span className="font-semibold text-foreground">
-                          {new Date(details.user.joinedAt).toLocaleDateString()}
+                          {details.user.joinedAt ? new Date(details.user.joinedAt).toLocaleDateString() : "--"}
                         </span>
                       </div>
                     </div>
@@ -336,7 +332,7 @@ export function UserDetailDrawer({
                           Billable Logged
                         </div>
                         <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300 font-mono mt-1">
-                          {details.timeStats.billableLogged}
+                          {details.timeStats?.billableLogged || "00:00 h"}
                         </div>
                       </div>
                       <div className="rounded-xl border bg-blue-500/5 p-3 text-xs border-blue-500/20">
@@ -344,7 +340,7 @@ export function UserDetailDrawer({
                           Non-Billable Logged
                         </div>
                         <div className="text-lg font-bold text-blue-700 dark:text-blue-300 font-mono mt-1">
-                          {details.timeStats.nonBillableLogged}
+                          {details.timeStats?.nonBillableLogged || "00:00 h"}
                         </div>
                       </div>
                     </div>
