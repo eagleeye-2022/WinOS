@@ -262,7 +262,9 @@ export function TasksBoardView({
   }, []);
 
   useEffect(() => {
-    syncActiveTimer();
+    setTimeout(() => {
+      syncActiveTimer();
+    }, 0);
     const interval = setInterval(syncActiveTimer, 10000);
     return () => clearInterval(interval);
   }, [syncActiveTimer]);

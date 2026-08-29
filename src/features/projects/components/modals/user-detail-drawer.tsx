@@ -25,6 +25,56 @@ interface UserDetailDrawerProps {
   userId: string | null;
 }
 
+interface UserDrawerTaskItem {
+  id: string;
+  code?: string;
+  title: string;
+  status: string;
+  deadline?: string;
+  progressPercent?: number;
+}
+
+interface UserDrawerTimeLogItem {
+  id: string;
+  task?: { title: string };
+  hours: string;
+  date: string;
+  billingType?: string;
+  logType?: string;
+  notes?: string;
+}
+
+interface UserDrawerDetails {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+    profileRole?: string;
+    department?: string;
+    title?: string;
+  };
+  member: {
+    projectRole?: string;
+    hourlyRate?: number;
+    costRate?: number;
+    weeklyCapacity?: number;
+    status?: string;
+    joinedAt?: string;
+  };
+  stats: {
+    totalLoggedHours: string;
+    assignedTasksCount: number;
+    completedTasksCount: number;
+  };
+  timeStats?: {
+    billableLogged?: string;
+    nonBillableLogged?: string;
+  };
+  tasks: UserDrawerTaskItem[];
+  timeLogs: UserDrawerTimeLogItem[];
+}
+
 export function UserDetailDrawer({
   isOpen,
   onClose,
@@ -33,14 +83,14 @@ export function UserDetailDrawer({
 }: UserDetailDrawerProps) {
   const [activeTab, setActiveTab] = useState<"OVERVIEW" | "TASKS" | "TIME_LOGS">("OVERVIEW");
   const [loading, setLoading] = useState(true);
-  const [details, setDetails] = useState<any | null>(null);
+  const [details, setDetails] = useState<UserDrawerDetails | null>(null);
 
   useEffect(() => {
     if (isOpen && userId && projectId) {
-      setLoading(true);
+      setTimeout(() => setLoading(true), 0);
       getUserProjectDetailsDrawerAction(projectId, userId)
         .then((res) => {
-          setDetails(res);
+          setDetails(res as unknown as UserDrawerDetails);
         })
         .catch((err) => {
           console.error("Failed to load user details:", err);
@@ -310,7 +360,7 @@ export function UserDetailDrawer({
                       <p className="text-xs">No tasks currently assigned to this user in this project.</p>
                     </div>
                   ) : (
-                    details.tasks.map((t: any) => (
+                    details.tasks.map((t: UserDrawerTaskItem) => (
                       <div
                         key={t.id}
                         className="rounded-xl border bg-card p-3 shadow-2xs space-y-2 hover:border-primary/40 transition-all"
@@ -353,7 +403,7 @@ export function UserDetailDrawer({
                       <p className="text-xs">No time log entries recorded for this user in this project.</p>
                     </div>
                   ) : (
-                    details.timeLogs.map((log: any) => (
+                    details.timeLogs.map((log: UserDrawerTimeLogItem) => (
                       <div
                         key={log.id}
                         className="rounded-xl border bg-card p-3 shadow-2xs space-y-1 text-xs"

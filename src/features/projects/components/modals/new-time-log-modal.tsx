@@ -164,8 +164,12 @@ export function NewTimeLogModal({
     if (isOpen) {
       const now = new Date();
       const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
-      setStartTime(formatTime12h(thirtyMinsAgo));
-      setEndTime(formatTime12h(now));
+      const startStr = formatTime12h(thirtyMinsAgo);
+      const endStr = formatTime12h(now);
+      setTimeout(() => {
+        setStartTime(startStr);
+        setEndTime(endStr);
+      }, 0);
     }
   }, [isOpen]);
 
