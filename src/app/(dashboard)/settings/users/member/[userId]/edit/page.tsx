@@ -15,11 +15,15 @@ type Props = {
 export default async function EditMemberPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
-  if ((session.user as { role?: string })?.role !== "MANAGER") {
-    redirect(ROUTES.dashboard);
-  }
 
   const { userId } = await params;
+  const userRole = (session.user as { role?: string })?.role ?? "TEAM_MEMBER";
+  const isManager = userRole === "MANAGER";
+  const isSelf = session.user.id === userId;
+
+  if (!isManager && !isSelf) {
+    redirect(ROUTES.dashboard);
+  }
 
   const [managers, allUsers, initialData] = await Promise.all([
     getManagerOptionsAction(),
@@ -36,6 +40,8 @@ export default async function EditMemberPage({ params }: Props) {
       initialData={initialData}
       managers={managers}
       allUsers={allUsers}
+      currentUserRole={userRole}
+      currentUserId={session.user.id}
     />
   );
 }

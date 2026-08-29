@@ -239,6 +239,7 @@ function toProject(
     projectCategory: string | null;
     departmentAlias: string | null;
     templateUsed: string | null;
+    accessType?: string | null;
     isClientVisible: boolean;
     group: string | null;
     businessHours: string | null;
@@ -299,6 +300,7 @@ function toProject(
     projectCategory: (p.projectCategory as any) || "CLIENT_DELIVERY",
     departmentAlias: p.departmentAlias || "digitalproducts@",
     templateUsed: p.templateUsed || undefined,
+    accessType: (p.accessType as "PUBLIC" | "PRIVATE") || "PUBLIC",
     isClientVisible: p.isClientVisible,
     group: p.group || undefined,
     businessHours: p.businessHours || undefined,
@@ -357,6 +359,7 @@ export async function getProjectsAction(): Promise<Project[]> {
 
     whereCondition = {
       OR: [
+        { accessType: "PUBLIC" },
         { ownerId: session.user.id },
         { createdByUserId: session.user.id },
         ...(userName ? [{ ownerName: userName }] : []),
@@ -404,6 +407,7 @@ export async function getProjectByIdAction(projectId: string): Promise<Project |
 
     extraWhere = {
       OR: [
+        { accessType: "PUBLIC" },
         { ownerId: session.user.id },
         { createdByUserId: session.user.id },
         ...(userName ? [{ ownerName: userName }] : []),
@@ -491,6 +495,7 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
         data: {
           code: nextCode,
           name: data.name,
+          accessType: data.accessType || "PUBLIC",
           projectCategory: data.projectCategory || "CLIENT_DELIVERY",
           departmentAlias: "digitalproducts@",
           templateUsed: data.templateUsed || undefined,

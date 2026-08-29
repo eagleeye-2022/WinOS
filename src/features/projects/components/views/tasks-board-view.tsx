@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   List,
@@ -23,7 +23,11 @@ import {
   User as UserIcon,
   CheckCircle2,
   Edit3,
+  Check,
+  Loader2,
 } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { TaskItem, UserTimeGroup, WorkspaceRole } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
@@ -33,7 +37,13 @@ import { TimeTrackerView } from "./time-tracker-view";
 import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { analyzeTaskStaleness } from "../../manager/ai-project-assistant";
-import { getTimeLogsAction, getCurrentUserContextAction } from "../../actions/project-actions";
+import { getTimeLogsAction, getCurrentUserContextAction, updateTaskAction } from "../../actions/project-actions";
+import {
+  createActiveTimerAction,
+  stopActiveTimerAction,
+  getActiveTimerAction,
+} from "../../actions/active-timer-actions";
+import { getAllUserOptionsAction, type ManagerOption } from "@/features/users/actions/user-actions";
 
 interface TasksBoardViewProps {
   tasks: TaskItem[];
@@ -227,9 +237,118 @@ export function TasksBoardView({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("ALL");
 
+  // Active Timer & Owner Assignment States
+  const [runningTimerTaskKey, setRunningTimerTaskKey] = useState<string | null>(null);
+  const [timerLoadingId, setTimerLoadingId] = useState<string | null>(null);
+  const [userOptions, setUserOptions] = useState<ManagerOption[]>([]);
+
   const router = useRouter();
   const params = useParams();
   const realProjectId = params?.projectId as string | undefined;
+
+  const syncActiveTimer = useCallback(async () => {
+    try {
+      const res = await getActiveTimerAction();
+      if (res.success && res.data) {
+        const timerData = res.data;
+        const key = timerData.task?.code || timerData.task?.id || timerData.taskId || null;
+        setRunningTimerTaskKey(key);
+      } else {
+        setRunningTimerTaskKey(null);
+      }
+    } catch (err) {
+      console.error("[TasksBoardView] Error checking active timer:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncActiveTimer();
+    const interval = setInterval(syncActiveTimer, 10000);
+    return () => clearInterval(interval);
+  }, [syncActiveTimer]);
+
+  useEffect(() => {
+    getAllUserOptionsAction().then((opts) => {
+      if (opts && opts.length > 0) {
+        setUserOptions(opts);
+      }
+    });
+  }, []);
+
+  const isTaskOwner = useCallback(
+    (task: TaskItem): boolean => {
+      if (!currentUser) return false;
+      const uName = currentUser.name.trim().toLowerCase();
+      const uEmail = currentUser.email.trim().toLowerCase();
+
+      if (task.ownerIds && task.ownerIds.length > 0) {
+        if (task.ownerIds.includes(currentUser.id)) return true;
+      }
+      const ownerName = (task.owner || "").trim().toLowerCase();
+      const ownersList = (task.owners || []).map((o) => o.trim().toLowerCase());
+
+      return (
+        ownerName === uName ||
+        ownerName === uEmail ||
+        ownersList.includes(uName) ||
+        ownersList.includes(uEmail)
+      );
+    },
+    [currentUser]
+  );
+
+  const handleToggleTaskTimer = async (e: React.MouseEvent, task: TaskItem) => {
+    e.stopPropagation();
+    const isRunning =
+      runningTimerTaskKey &&
+      (runningTimerTaskKey === task.id || runningTimerTaskKey === task.code);
+
+    if (!isRunning && !isTaskOwner(task)) {
+      alert(`Only the existing task owner (${task.owner || "Unassigned"}) can start this timer.`);
+      return;
+    }
+
+    setTimerLoadingId(task.id);
+    try {
+      if (isRunning) {
+        const res = await stopActiveTimerAction();
+        if (res.success) {
+          setRunningTimerTaskKey(null);
+        }
+      } else {
+        const res = await createActiveTimerAction({
+          taskId: task.id,
+          projectId: realProjectId,
+        });
+        if (res.success && res.data) {
+          setRunningTimerTaskKey(task.id || task.code);
+        } else if (!res.success && res.error) {
+          alert(res.error);
+        }
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("[TasksBoardView] Error toggling timer:", err);
+    } finally {
+      setTimerLoadingId(null);
+    }
+  };
+
+  const handleAssignTaskOwner = async (e: React.MouseEvent, task: TaskItem, ownerName: string) => {
+    e.stopPropagation();
+    const updatedTask = {
+      ...task,
+      owner: ownerName,
+      owners: [ownerName],
+    };
+    onUpdateTask(updatedTask);
+    try {
+      await updateTaskAction(task.id, { owner: ownerName, owners: [ownerName] });
+      router.refresh();
+    } catch (err) {
+      console.error("[TasksBoardView] Error assigning owner:", err);
+    }
+  };
 
   // Real project-scoped time logs for the in-board "Time Logs" subtab.
   const [projectTimeGroups, setProjectTimeGroups] = useState<UserTimeGroup[]>([]);
@@ -745,6 +864,11 @@ export function TasksBoardView({
                           </div>
                         ) : (
                           col.tasks.map((task) => {
+                            const isTimerRunning =
+                              runningTimerTaskKey &&
+                              (runningTimerTaskKey === task.id || runningTimerTaskKey === task.code);
+                            const isOwner = isTaskOwner(task);
+
                             const ownerInitials = task.owner
                               ? task.owner
                                   .split(" ")
@@ -790,15 +914,78 @@ export function TasksBoardView({
                                 {/* Card Footer: Icons & Owner Avatar matching reference screenshot */}
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-[11px]">
                                   <div className="flex items-center gap-2 text-slate-400">
-                                    <span title="Tracked Hours"><Clock size={13} /></span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleToggleTaskTimer(e, task)}
+                                      disabled={timerLoadingId === task.id}
+                                      className={cn(
+                                        "p-1 rounded-full transition-all flex items-center justify-center cursor-pointer",
+                                        isTimerRunning
+                                          ? "bg-red-500/20 text-red-500 border border-red-500/40 animate-pulse font-bold"
+                                          : isOwner
+                                          ? "hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-foreground"
+                                          : "opacity-60 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400"
+                                      )}
+                                      title={
+                                        isTimerRunning
+                                          ? "Timer is running for this task (Click to stop)"
+                                          : isOwner
+                                          ? "Start Timer for this task"
+                                          : `Only the task owner (${task.owner || "Unassigned"}) can start this timer`
+                                      }
+                                    >
+                                      {timerLoadingId === task.id ? (
+                                        <Loader2 size={13} className="animate-spin text-primary" />
+                                      ) : (
+                                        <Clock size={13} className={isTimerRunning ? "text-red-500 fill-red-500/20" : ""} />
+                                      )}
+                                    </button>
                                     <span title="Subtasks / Checklist"><CheckSquare size={13} /></span>
                                     {task.description && <span title="Has Description"><FileText size={13} /></span>}
                                   </div>
 
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white text-[10px] font-bold ring-2 ring-background shadow-2xs">
-                                      {ownerInitials}
-                                    </span>
+                                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer"
+                                          title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
+                                        >
+                                          {ownerInitials}
+                                        </button>
+                                      </PopoverTrigger>
+                                      <PopoverContent
+                                        side="top"
+                                        align="end"
+                                        className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                                          Assign Task Owner
+                                        </p>
+                                        <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                          {(userOptions.length > 0
+                                            ? userOptions
+                                            : [{ id: "u-default", name: task.owner || "Dhruv Patidar" }]
+                                          ).map((u) => (
+                                            <button
+                                              key={u.id}
+                                              type="button"
+                                              onClick={(e) => handleAssignTaskOwner(e, task, u.name)}
+                                              className={cn(
+                                                "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
+                                                task.owner === u.name ? "bg-primary/10 text-primary font-bold" : "text-foreground"
+                                              )}
+                                            >
+                                              <span className="truncate">{u.name}</span>
+                                              {task.owner === u.name && <Check size={12} className="shrink-0 text-primary" />}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
                                   </div>
                                 </div>
                               </div>
@@ -847,20 +1034,102 @@ export function TasksBoardView({
                           No tasks
                         </div>
                       ) : (
-                        col.tasks.map((task) => (
-                          <div
-                            key={task.id}
-                            onClick={() => handleOpenTask(task)}
-                            className="rounded-lg border border-border bg-background p-2.5 shadow-2xs hover:border-primary/60 hover:shadow-xs transition-all cursor-pointer space-y-1.5"
-                          >
-                            <span className="font-mono text-[10px] font-bold text-muted-foreground block">
-                              {task.code}
-                            </span>
-                            <h4 className="text-xs font-bold text-foreground leading-tight">
-                              {task.title}
-                            </h4>
-                          </div>
-                        ))
+                        col.tasks.map((task) => {
+                          const isTimerRunning =
+                            runningTimerTaskKey &&
+                            (runningTimerTaskKey === task.id || runningTimerTaskKey === task.code);
+                          const isOwner = isTaskOwner(task);
+                          const ownerInitials = task.owner
+                            ? task.owner.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
+                            : "DP";
+
+                          return (
+                            <div
+                              key={task.id}
+                              onClick={() => handleOpenTask(task)}
+                              className="rounded-lg border border-border bg-background p-2.5 shadow-2xs hover:border-primary/60 hover:shadow-xs transition-all cursor-pointer space-y-1.5"
+                            >
+                              <span className="font-mono text-[10px] font-bold text-muted-foreground block">
+                                {task.code}
+                              </span>
+                              <h4 className="text-xs font-bold text-foreground leading-tight">
+                                {task.title}
+                              </h4>
+                              <div className="flex items-center justify-between pt-1.5 border-t border-border/60 text-muted-foreground text-[11px]">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggleTaskTimer(e, task)}
+                                  disabled={timerLoadingId === task.id}
+                                  className={cn(
+                                    "p-1 rounded-full transition-all flex items-center justify-center cursor-pointer",
+                                    isTimerRunning
+                                      ? "bg-red-500/20 text-red-500 border border-red-500/40 animate-pulse font-bold"
+                                      : isOwner
+                                      ? "hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-foreground"
+                                      : "opacity-60 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400"
+                                  )}
+                                  title={
+                                    isTimerRunning
+                                      ? "Timer is running for this task (Click to stop)"
+                                      : isOwner
+                                      ? "Start Timer for this task"
+                                      : `Only the task owner (${task.owner || "Unassigned"}) can start this timer`
+                                  }
+                                >
+                                  {timerLoadingId === task.id ? (
+                                    <Loader2 size={12} className="animate-spin text-primary" />
+                                  ) : (
+                                    <Clock size={12} className={isTimerRunning ? "text-red-500 fill-red-500/20" : ""} />
+                                  )}
+                                </button>
+
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-white text-[9px] font-bold ring-1 ring-background cursor-pointer"
+                                        title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
+                                      >
+                                        {ownerInitials}
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      side="top"
+                                      align="end"
+                                      className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                                        Assign Task Owner
+                                      </p>
+                                      <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                        {(userOptions.length > 0
+                                          ? userOptions
+                                          : [{ id: "u-default", name: task.owner || "Dhruv Patidar" }]
+                                        ).map((u) => (
+                                          <button
+                                            key={u.id}
+                                            type="button"
+                                            onClick={(e) => handleAssignTaskOwner(e, task, u.name)}
+                                            className={cn(
+                                              "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
+                                              task.owner === u.name ? "bg-primary/10 text-primary font-bold" : "text-foreground"
+                                            )}
+                                          >
+                                            <span className="truncate">{u.name}</span>
+                                            {task.owner === u.name && <Check size={12} className="shrink-0 text-primary" />}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>

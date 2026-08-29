@@ -275,11 +275,11 @@ export function DsrHistoryCard({
             </div>
           )}
 
-          {entry.status === "REVIEWED" && (
+          {/* {entry.status === "REVIEWED" && (
             <div className="mt-3">
               <AddTaskAfterReviewRow entryId={entry.id} />
             </div>
-          )}
+          )} */}
 
           {entry.managerComment && (
             <div className="mt-3 rounded-lg border border-success/40 bg-success/10 p-3">

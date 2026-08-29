@@ -7,6 +7,7 @@ import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add
 export function AddTaskAfterReviewRow({ entryId }: { entryId: string }) {
   const [adding, setAdding] = useState(false);
   const [priority, setPriority] = useState<string>("P1");
+  const [kind, setKind] = useState<"TODAY" | "YESTERDAY">("TODAY");
   const [state, action, pending] = useActionState<AddTaskAfterReviewState, FormData>(
     addTaskAfterReview,
     {}
@@ -34,13 +35,23 @@ export function AddTaskAfterReviewRow({ entryId }: { entryId: string }) {
       className="flex shrink-0 items-center gap-1.5 rounded-full border border-blue-500 bg-background px-2.5 py-1 shadow-sm"
     >
       <input type="hidden" name="entryId" value={entryId} />
-      <input type="hidden" name="kind" value="TODAY" />
+      <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="priority" value={priority} />
+
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value as "TODAY" | "YESTERDAY")}
+        className="rounded-md border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-foreground outline-none cursor-pointer"
+        title="Select Day"
+      >
+        <option value="TODAY">Today</option>
+        {/* <option value="YESTERDAY">Yesterday</option> */}
+      </select>
 
       <input
         ref={inputRef}
         name="text"
-        placeholder="Type new task..."
+        placeholder={kind === "YESTERDAY" ? "Type yesterday task..." : "Type new task..."}
         autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter" && inputRef.current?.value.trim()) {

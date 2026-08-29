@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HelpCircle, LogOut } from "lucide-react";
 import { auth } from "@/lib/auth";
@@ -110,12 +111,13 @@ export default async function DashboardLayout({
             >
               <HelpCircle size={16} />
             </Button>
-            <span
-              title={userName}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+            <Link
+              href={`/settings/users/member/${session.user.id}/edit`}
+              title={`Profile: ${userName}`}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity"
             >
               {initials || "U"}
-            </span>
+            </Link>
             <form action={logoutAction}>
               <Button
                 type="submit"

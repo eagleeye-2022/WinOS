@@ -18,8 +18,25 @@ type Props = {
 
 type Period = "AM" | "PM";
 
-const QUICK_HOURS_24 = [11, 12, 13, 14, 15, 16, 17]; // 11AM, 12PM, 1PM, 2PM, 3PM, 4PM, 5PM, 6PM, 7PM, 8PM
-const HOUR_MS = 60 * 60 * 1000;
+type TimeSlot = { hour24: number; minute: number };
+
+const QUICK_TIME_SLOTS: TimeSlot[] = [
+  { hour24: 11, minute: 0 },
+  { hour24: 11, minute: 30 },
+  { hour24: 12, minute: 0 },
+  { hour24: 12, minute: 30 },
+  { hour24: 13, minute: 0 },
+  { hour24: 13, minute: 30 },
+  { hour24: 14, minute: 0 },
+  { hour24: 14, minute: 30 },
+  { hour24: 15, minute: 0 },
+  { hour24: 15, minute: 30 },
+  { hour24: 16, minute: 0 },
+  { hour24: 16, minute: 30 },
+  { hour24: 17, minute: 0 },
+];
+
+const DEFAULT_DURATION_MS = 30 * 60 * 1000; // 30 minutes default duration
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
 
 function pad(n: number): string {
@@ -47,9 +64,9 @@ function to24Hour(hour12: number, period: Period): number {
   return period === "PM" ? h + 12 : h;
 }
 
-function hourLabel(hour24: number): string {
+function slotLabel(hour24: number, minute: number): string {
   const { hour12, period } = to12Hour(hour24);
-  return `${hour12}:00 ${period}`;
+  return `${hour12}:${pad(minute)} ${period}`;
 }
 
 function buildDate(dateStr: string, hour12: number, minute: number, period: Period): Date {
@@ -58,9 +75,9 @@ function buildDate(dateStr: string, hour12: number, minute: number, period: Peri
   return new Date(`${y}-${pad(m || 1)}-${pad(d || 1)}T${pad(h24)}:${pad(minute)}:00+05:30`);
 }
 
-function quickOptionDate(today: Date, hour24: number): Date {
+function quickOptionDate(today: Date, hour24: number, minute: number): Date {
   const dateStr = dateInputValue(today);
-  return new Date(`${dateStr}T${pad(hour24)}:00:00+05:30`);
+  return new Date(`${dateStr}T${pad(hour24)}:${pad(minute)}:00+05:30`);
 }
 
 function isSameMinute(a: Date, b: Date): boolean {
@@ -240,12 +257,12 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
       ? "Tomorrow"
       : formatDateLabel(start);
 
-  const quickOptions = QUICK_HOURS_24.map((hour24) => {
-    const date = quickOptionDate(start, hour24);
+  const quickOptions = QUICK_TIME_SLOTS.map(({ hour24, minute }) => {
+    const date = quickOptionDate(start, hour24, minute);
     return {
-      id: `slot-${hour24}`,
+      id: `slot-${hour24}-${minute}`,
       date,
-      label: `${datePrefix} at ${hourLabel(hour24)}`,
+      label: `${datePrefix} at ${slotLabel(hour24, minute)}`,
       disabled: date.getTime() <= now.getTime(),
     };
   });
@@ -278,7 +295,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
   function selectQuick(newStart: Date, id: string) {
     setSelected(id);
     onStartChange(newStart);
-    onEndChange(new Date(newStart.getTime() + HOUR_MS));
+    onEndChange(new Date(newStart.getTime() + DEFAULT_DURATION_MS));
   }
 
   function updateCustomStart(patch: Partial<{ dateStr: string; hour12: number; minute: number; period: Period }>) {
@@ -289,7 +306,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
       patch.period ?? startParts.period,
     );
     onStartChange(next);
-    onEndChange(new Date(next.getTime() + HOUR_MS));
+    onEndChange(new Date(next.getTime() + DEFAULT_DURATION_MS));
   }
 
   function updateEnd(patch: Partial<{ hour12: number; minute: number; period: Period }>) {
@@ -322,7 +339,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
         </div>
 
         {/* Quick options */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
           {quickOptions.map((opt) => (
             <button
               key={opt.id}

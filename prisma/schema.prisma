@@ -839,6 +839,7 @@ model Project {
   projectCategory  String?           @default("CLIENT_DELIVERY")
   departmentAlias  String?           @default("digitalproducts@")
   templateUsed     String?
+  accessType       String            @default("PUBLIC") // "PUBLIC" | "PRIVATE"
   isClientVisible  Boolean           @default(true)
   totalHours       String            @default("00:00 h")
   billableHours    String            @default("00:00 h")

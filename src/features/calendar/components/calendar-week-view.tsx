@@ -44,7 +44,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
         if (!e?.id || !e?.start) return false;
         if (seen.has(e.id)) return false;
         const eStart = e.start instanceof Date ? e.start : new Date(e.start);
-        const eEnd = e.end ? (e.end instanceof Date ? e.end : new Date(e.end)) : new Date(eStart.getTime() + 60 * 60 * 1000);
+        const eEnd = e.end ? (e.end instanceof Date ? e.end : new Date(e.end)) : new Date(eStart.getTime() + 30 * 60 * 1000);
         if (isNaN(eStart.getTime()) || isNaN(eEnd.getTime())) return false;
         
         // Match any event that overlaps with this day
@@ -163,7 +163,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                 {/* Render Events inside Office Hours */}
                 {dayEvents.map((event, idx) => {
                   const eStart = event.start instanceof Date ? event.start : new Date(event.start);
-                  const eEnd = event.end ? (event.end instanceof Date ? event.end : new Date(event.end)) : new Date(eStart.getTime() + 3600000);
+                  const eEnd = event.end ? (event.end instanceof Date ? event.end : new Date(event.end)) : new Date(eStart.getTime() + 1800000);
 
                   const startHourDec = isSameDay(eStart, day)
                     ? eStart.getHours() + eStart.getMinutes() / 60

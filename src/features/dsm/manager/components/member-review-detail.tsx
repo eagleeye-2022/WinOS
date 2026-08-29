@@ -878,18 +878,13 @@ function getYesterdayTasksForEntry(
   allEntries: MemberReviewEntry[] = []
 ): { id?: string; text: string; isCompleted: boolean }[] {
   const explicitYesterday = entry.tasks.filter((t) => t.kind === "YESTERDAY");
-  if (explicitYesterday.length > 0) {
-    return explicitYesterday.map((t) => ({
-      id: t.id,
-      text: t.text,
-      isCompleted: true,
-    }));
-  }
 
   const entryTime = new Date(entry.date).getTime();
   const prevEntry = allEntries
     .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+  const result: { id?: string; text: string; isCompleted: boolean }[] = [];
 
   if (prevEntry) {
     const prevTodayTasks = prevEntry.tasks.filter((t) => t.kind === "TODAY");
@@ -897,17 +892,28 @@ function getYesterdayTasksForEntry(
       .filter((t) => t.kind === "TODAY")
       .map((t) => t.text.trim().toLowerCase());
 
-    return prevTodayTasks.map((t) => {
+    prevTodayTasks.forEach((t) => {
       const isCarriedOver = currentTodayTasksText.includes(t.text.trim().toLowerCase());
-      return {
+      result.push({
         id: t.id,
         text: t.text,
         isCompleted: !isCarriedOver,
-      };
+      });
     });
   }
 
-  return [];
+  explicitYesterday.forEach((t) => {
+    const exists = result.some((pt) => pt.text.trim().toLowerCase() === t.text.trim().toLowerCase());
+    if (!exists) {
+      result.push({
+        id: t.id,
+        text: t.text,
+        isCompleted: true,
+      });
+    }
+  });
+
+  return result;
 }
 
 function isTaskCarriedOver(
@@ -1034,11 +1040,11 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                   Y{i + 1}
                 </span>
                 <span className="text-sm leading-snug text-foreground/80 truncate">{task.text}</span>
-                {!task.isCompleted && (
+                {/* {!task.isCompleted && (
                   <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                     CO
                   </span>
-                )}
+                )} */}
               </div>
             ))}
           </div>
@@ -1277,18 +1283,18 @@ function YesterdayTasksSection({
                 <span className={cn("text-sm leading-snug truncate flex-1", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
                   {task.text}
                 </span>
-                {!task.isCompleted && (
+                {/* {!task.isCompleted && (
                   <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                     CO
                   </span>
-                )}
+                )} */}
               </div>
-              {!isLocked && task.id && (
+              {/* {!isLocked && task.id && (
                 <div className="flex shrink-0 items-center gap-1">
                   <EditTaskRow taskId={task.id} text={task.text} />
                   <DeleteTaskButton taskId={task.id} />
                 </div>
-              )}
+              )} */}
             </div>
           ))}
         </div>
@@ -1297,7 +1303,7 @@ function YesterdayTasksSection({
       )}
 
       {/* Manager can add yesterday tasks */}
-      <AddTaskRow entryId={entryId} kind="YESTERDAY" />
+      {/* <AddTaskRow entryId={entryId} kind="YESTERDAY" /> */}
     </div>
   );
 }
