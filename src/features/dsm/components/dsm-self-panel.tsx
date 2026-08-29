@@ -73,9 +73,9 @@ export function DsmSelfPanel({
         basePath={basePath}
         headerAction={
           <div className="flex items-center gap-2">
-            {entry?.status === "REVIEWED" && (
+            {/* {entry?.status === "REVIEWED" && (
               <AddTaskAfterReviewRow entryId={entry.id} />
-            )}
+            )} */}
             {canEdit && (
               <button
                 type="button"

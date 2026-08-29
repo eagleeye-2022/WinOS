@@ -198,13 +198,21 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
  *  - Creates ProjectTimeLog automatically
  *  - Deletes the ActiveTimer record
  */
+import {
+  formatTime12h,
+  parseDurationMinutes,
+  encodeDescriptionWithTimePeriod,
+  calculateMinutesFromTimeRange,
+  formatTimePeriodRange,
+  parseDateAndTimeToDate,
+} from "../utils/time-helpers";
+
 export async function stopActiveTimerAction(params?: StopActiveTimerParams | any) {
   const { sessionUser, error } = await getAuthenticatedUser();
   if (error || !sessionUser) {
     return { success: false, error: error || "Unauthorized" };
   }
 
-   
   const d = db as any;
 
   const activeTimer = await d.activeTimer.findUnique({
@@ -221,15 +229,42 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
   }
 
   const now = new Date();
-  const elapsedMs = now.getTime() - new Date(activeTimer.startedAt).getTime();
-  const durationMinutes = Math.max(1, Math.round(elapsedMs / (1000 * 60)));
+  let startedAt = new Date(activeTimer.startedAt);
+  let durationMinutes = Math.max(1, Math.round((now.getTime() - startedAt.getTime()) / (1000 * 60)));
+
+  let timePeriodStr = "";
+  if (params?.startTime && params?.endTime) {
+    const parsedStart = parseDateAndTimeToDate(startedAt, params.startTime);
+    const parsedEnd = parseDateAndTimeToDate(now, params.endTime);
+    startedAt = parsedStart;
+    timePeriodStr = formatTimePeriodRange(params.startTime, params.endTime);
+    const rangeMins = calculateMinutesFromTimeRange(params.startTime, params.endTime);
+    if (rangeMins && rangeMins > 0) {
+      durationMinutes = rangeMins;
+    }
+  } else if (durationMinutes <= 720) {
+    timePeriodStr = `${formatTime12h(startedAt)} – ${formatTime12h(now)}`;
+  }
+
+  if (params?.duration) {
+    const parsed = parseDurationMinutes(params.duration);
+    if (parsed > 0) {
+      durationMinutes = parsed;
+    }
+  }
 
   let billingType: BillingTypeEnum = activeTimer.billingType;
   if (params?.billingType === "BILLABLE" || params?.billingType === "Billable" || params?.isBillable) {
     billingType = "BILLABLE";
   }
 
-  const description = params?.description || params?.notes || activeTimer.description || `Logged from live timer for ${activeTimer.task?.code || activeTimer.taskId}`;
+  const rawNotes = params?.description || params?.notes || activeTimer.description || `Logged from live timer for ${activeTimer.task?.code || activeTimer.taskId}`;
+
+  if (durationMinutes > 720) {
+    timePeriodStr = "";
+  }
+
+  const description = encodeDescriptionWithTimePeriod(rawNotes, timePeriodStr);
 
   try {
     // 1. Create ProjectTimeLog automatically
@@ -239,7 +274,7 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
         phaseId: activeTimer.phaseId,
         taskId: activeTimer.taskId,
         userId: sessionUser.id,
-        date: activeTimer.startedAt,
+        date: startedAt,
         duration: durationMinutes,
         billingType,
         approvalStatus: "PENDING",
@@ -270,7 +305,7 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
       success: true,
       data: newLog,
       durationMinutes,
-      elapsedSeconds: Math.floor(elapsedMs / 1000),
+      elapsedSeconds: Math.floor((now.getTime() - startedAt.getTime()) / 1000),
     };
   } catch (err: any) {
     console.error("[stopActiveTimerAction] error:", err);

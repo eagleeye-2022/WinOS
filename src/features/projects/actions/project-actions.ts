@@ -239,6 +239,7 @@ function toProject(
     projectCategory: string | null;
     departmentAlias: string | null;
     templateUsed: string | null;
+    accessType?: string | null;
     isClientVisible: boolean;
     group: string | null;
     businessHours: string | null;
@@ -299,6 +300,7 @@ function toProject(
     projectCategory: (p.projectCategory as any) || "CLIENT_DELIVERY",
     departmentAlias: p.departmentAlias || "digitalproducts@",
     templateUsed: p.templateUsed || undefined,
+    accessType: (p.accessType as "PUBLIC" | "PRIVATE") || "PUBLIC",
     isClientVisible: p.isClientVisible,
     group: p.group || undefined,
     businessHours: p.businessHours || undefined,
@@ -357,6 +359,7 @@ export async function getProjectsAction(): Promise<Project[]> {
 
     whereCondition = {
       OR: [
+        { accessType: "PUBLIC" },
         { ownerId: session.user.id },
         { createdByUserId: session.user.id },
         ...(userName ? [{ ownerName: userName }] : []),
@@ -404,6 +407,7 @@ export async function getProjectByIdAction(projectId: string): Promise<Project |
 
     extraWhere = {
       OR: [
+        { accessType: "PUBLIC" },
         { ownerId: session.user.id },
         { createdByUserId: session.user.id },
         ...(userName ? [{ ownerName: userName }] : []),
@@ -491,6 +495,7 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
         data: {
           code: nextCode,
           name: data.name,
+          accessType: data.accessType || "PUBLIC",
           projectCategory: data.projectCategory || "CLIENT_DELIVERY",
           departmentAlias: "digitalproducts@",
           templateUsed: data.templateUsed || undefined,
@@ -2022,6 +2027,15 @@ export interface ProjectMemberUser {
   department?: string | null;
   assignedAt?: string;
   isOwner?: boolean;
+  projectRole?: string | null;
+  hourlyRate?: number;
+  costRate?: number;
+  weeklyCapacity?: number;
+  status?: string;
+  openTasksCount?: number;
+  completedTasksCount?: number;
+  totalLoggedHours?: string;
+  totalLoggedMinutes?: number;
 }
 
 export async function getProjectMembersAction(projectId: string): Promise<ProjectMemberUser[]> {
@@ -2053,20 +2067,107 @@ export async function getProjectMembersAction(projectId: string): Promise<Projec
     orderBy: { createdAt: "asc" },
   });
 
-  const memberUsers: ProjectMemberUser[] = members.map((m) => ({
-    id: m.user.id,
-    name: m.user.name || m.user.email.split("@")[0],
-    email: m.user.email,
-    image: m.user.image,
-    role: String(m.user.role),
-    profileRole: m.user.profileRole,
-    title: m.user.title || "Team Member",
-    department: m.user.department || "Development",
-    assignedAt: m.createdAt.toISOString().split("T")[0],
-    isOwner: m.user.id === project.ownerId,
-  }));
+  // Fetch task counts & time logs for members in parallel
+  const memberUserIds = members.map((m) => m.user.id);
+  if (project.ownerId && !memberUserIds.includes(project.ownerId)) {
+    memberUserIds.push(project.ownerId);
+  }
 
-  // If project has an owner specified but no members record yet, include owner
+  // Get tasks per user for this project
+  const tasks = await db.projectTask.findMany({
+    where: { projectId: project.id },
+    select: {
+      id: true,
+      status: true,
+      ownerId: true,
+      owners: { select: { userId: true } },
+    },
+  });
+
+  // Get time logs per user for this project
+  const timeLogs = await db.projectTimeLog.findMany({
+    where: { projectId: project.id },
+    select: {
+      userId: true,
+      duration: true,
+    },
+  });
+
+  // Build metrics per user
+  const userMetrics: Record<
+    string,
+    { openTasks: number; completedTasks: number; totalMinutes: number }
+  > = {};
+
+  for (const uid of memberUserIds) {
+    userMetrics[uid] = { openTasks: 0, completedTasks: 0, totalMinutes: 0 };
+  }
+
+  for (const task of tasks) {
+    const taskOwnerIds = new Set<string>();
+    if (task.ownerId) taskOwnerIds.add(task.ownerId);
+    if (task.owners) {
+      task.owners.forEach((o) => taskOwnerIds.add(o.userId));
+    }
+    const isCompleted =
+      task.status === "COMPLETED" ||
+      task.status === "CLOSED" ||
+      task.status === "DONE";
+
+    taskOwnerIds.forEach((uid) => {
+      if (!userMetrics[uid]) {
+        userMetrics[uid] = { openTasks: 0, completedTasks: 0, totalMinutes: 0 };
+      }
+      if (isCompleted) {
+        userMetrics[uid].completedTasks += 1;
+      } else {
+        userMetrics[uid].openTasks += 1;
+      }
+    });
+  }
+
+  for (const log of timeLogs) {
+    if (log.userId && userMetrics[log.userId]) {
+      userMetrics[log.userId].totalMinutes += log.duration || 0;
+    }
+  }
+
+  const formatHours = (totalMins: number) => {
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
+  };
+
+  const memberUsers: ProjectMemberUser[] = members.map((m) => {
+    const metrics = userMetrics[m.user.id] || {
+      openTasks: 0,
+      completedTasks: 0,
+      totalMinutes: 0,
+    };
+    return {
+      id: m.user.id,
+      name: m.user.name || m.user.email.split("@")[0],
+      email: m.user.email,
+      image: m.user.image,
+      role: String(m.user.role),
+      profileRole: m.user.profileRole,
+      title: m.user.title || "Team Member",
+      department: m.user.department || "Development",
+      assignedAt: m.createdAt.toISOString().split("T")[0],
+      isOwner: m.user.id === project.ownerId,
+      projectRole: m.projectRole || "Team Member",
+      hourlyRate: m.hourlyRate ?? 0,
+      costRate: m.costRate ?? 0,
+      weeklyCapacity: m.weeklyCapacity ?? 40,
+      status: m.status || "ACTIVE",
+      openTasksCount: metrics.openTasks,
+      completedTasksCount: metrics.completedTasks,
+      totalLoggedHours: formatHours(metrics.totalMinutes),
+      totalLoggedMinutes: metrics.totalMinutes,
+    };
+  });
+
+  // If project owner is not in ProjectMember table, append owner
   if (project.ownerId && !memberUsers.some((u) => u.id === project.ownerId)) {
     const owner = await db.user.findUnique({
       where: { id: project.ownerId },
@@ -2082,6 +2183,11 @@ export async function getProjectMembersAction(projectId: string): Promise<Projec
       },
     });
     if (owner) {
+      const metrics = userMetrics[owner.id] || {
+        openTasks: 0,
+        completedTasks: 0,
+        totalMinutes: 0,
+      };
       memberUsers.unshift({
         id: owner.id,
         name: owner.name || owner.email.split("@")[0],
@@ -2092,11 +2198,244 @@ export async function getProjectMembersAction(projectId: string): Promise<Projec
         title: owner.title || "Project Owner",
         department: owner.department || "Management",
         isOwner: true,
+        projectRole: "Project Manager",
+        hourlyRate: 0,
+        costRate: 0,
+        weeklyCapacity: 40,
+        status: "ACTIVE",
+        openTasksCount: metrics.openTasks,
+        completedTasksCount: metrics.completedTasks,
+        totalLoggedHours: formatHours(metrics.totalMinutes),
+        totalLoggedMinutes: metrics.totalMinutes,
       });
     }
   }
 
   return memberUsers;
+}
+
+export async function updateProjectMemberDetailsAction(
+  projectId: string,
+  userId: string,
+  data: {
+    projectRole?: string;
+    hourlyRate?: number;
+    costRate?: number;
+    weeklyCapacity?: number;
+    status?: string;
+  }
+): Promise<boolean> {
+  await requireAuth();
+
+  const project = await db.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true },
+  });
+  const targetProjectId = project?.id || projectId;
+
+  await db.projectMember.updateMany({
+    where: {
+      projectId: targetProjectId,
+      userId: userId,
+    },
+    data: {
+      ...(data.projectRole !== undefined && { projectRole: data.projectRole }),
+      ...(data.hourlyRate !== undefined && { hourlyRate: data.hourlyRate }),
+      ...(data.costRate !== undefined && { costRate: data.costRate }),
+      ...(data.weeklyCapacity !== undefined && { weeklyCapacity: data.weeklyCapacity }),
+      ...(data.status !== undefined && { status: data.status }),
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return true;
+}
+
+export async function getUserProjectDetailsDrawerAction(
+  projectId: string,
+  userId: string
+) {
+  await requireAuth();
+
+  const project = await db.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true, name: true, ownerId: true },
+  });
+
+  if (!project) return null;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      role: true,
+      profileRole: true,
+      title: true,
+      department: true,
+      workMobile: true,
+      location: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) return null;
+
+  const member = await db.projectMember.findFirst({
+    where: { projectId: project.id, userId },
+  });
+
+  // Get user's assigned tasks in this project
+  const tasks = await db.projectTask.findMany({
+    where: {
+      projectId: project.id,
+      OR: [
+        { ownerId: userId },
+        { owners: { some: { userId } } },
+      ],
+    },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      completionPercentage: true,
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  // Get user's time logs in this project
+  const rawTimeLogs = await db.projectTimeLog.findMany({
+    where: { projectId: project.id, userId },
+    select: {
+      id: true,
+      date: true,
+      duration: true,
+      billingType: true,
+      description: true,
+      task: { select: { title: true, code: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  let nonBillableMinutes = 0;
+
+  const timeLogs = rawTimeLogs.map((log) => {
+    const mins = log.duration || 0;
+    totalMinutes += mins;
+    if (log.billingType === "BILLABLE") {
+      billableMinutes += mins;
+    } else {
+      nonBillableMinutes += mins;
+    }
+
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    const hoursStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
+
+    return {
+      id: log.id,
+      date: log.date.toISOString().split("T")[0],
+      hours: hoursStr,
+      logType: log.billingType,
+      notes: log.description,
+      task: log.task,
+    };
+  });
+
+  const formattedTasks = tasks.map((t) => ({
+    id: t.id,
+    code: t.code,
+    title: t.title,
+    status: t.status,
+    priority: t.priority,
+    deadline: t.dueDate,
+    progressPercent: t.completionPercentage,
+  }));
+
+  const formatMins = (m: number) => {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")} h`;
+  };
+
+  return {
+    user: {
+      ...user,
+      isOwner: user.id === project.ownerId,
+      projectRole: member?.projectRole || (user.id === project.ownerId ? "Project Manager" : "Team Member"),
+      hourlyRate: member?.hourlyRate ?? 0,
+      costRate: member?.costRate ?? 0,
+      weeklyCapacity: member?.weeklyCapacity ?? 40,
+      status: member?.status || "ACTIVE",
+      joinedAt: member?.joinedAt || member?.createdAt || user.createdAt,
+    },
+    tasks: formattedTasks,
+    timeLogs,
+    timeStats: {
+      totalLogged: formatMins(totalMinutes),
+      billableLogged: formatMins(billableMinutes),
+      nonBillableLogged: formatMins(nonBillableMinutes),
+    },
+  };
+}
+
+export async function removeProjectMemberWithReassignmentAction(
+  projectId: string,
+  userId: string,
+  reassignToUserId?: string
+): Promise<boolean> {
+  await requireAuth();
+
+  const project = await db.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true },
+  });
+  const targetProjectId = project?.id || projectId;
+
+  if (reassignToUserId) {
+    // Reassign single owner tasks
+    await db.projectTask.updateMany({
+      where: { projectId: targetProjectId, ownerId: userId },
+      data: { ownerId: reassignToUserId },
+    });
+
+    // Reassign multi-owner task join records
+    const multiOwnerTasks = await db.projectTaskOwner.findMany({
+      where: { userId, task: { projectId: targetProjectId } },
+    });
+
+    for (const record of multiOwnerTasks) {
+      await db.projectTaskOwner.delete({ where: { id: record.id } });
+      await db.projectTaskOwner.create({
+        data: {
+          taskId: record.taskId,
+          userId: reassignToUserId,
+          assignedById: record.assignedById,
+        },
+      });
+    }
+  }
+
+  // Remove project member record
+  await db.projectMember.deleteMany({
+    where: {
+      projectId: targetProjectId,
+      userId: userId,
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return true;
 }
 
 export async function getAvailableUsersForProjectAction(projectId: string): Promise<ProjectMemberUser[]> {
@@ -2280,22 +2619,19 @@ export async function getOwnersAndTeamsAction(projectId?: string): Promise<{
  * ----------------------------------------------------
  */
 
-/** Extracts "H:MM" (any digit width) or number from a duration. */
-function parseDurationMinutes(duration: string | number | null | undefined): number {
-  if (typeof duration === "number") return duration;
-  if (!duration) return 0;
-  const match = String(duration).match(/(\d+):(\d+)/);
-  if (!match) {
-    const val = parseFloat(String(duration));
-    return isNaN(val) ? 0 : Math.round(val);
-  }
-  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-}
+import {
+  parseDurationMinutes,
+  formatDurationDisplay,
+  formatMinutesToHHMM,
+  encodeDescriptionWithTimePeriod,
+  decodeDescriptionWithTimePeriod,
+  resolveLogTimePeriod,
+  formatTimePeriodRange,
+  parseDateAndTimeToDate,
+} from "../utils/time-helpers";
 
 function formatMinutes(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return formatMinutesToHHMM(totalMinutes);
 }
 
 async function recalculateProjectTimeTotals(projectId: string) {
@@ -2429,22 +2765,28 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
       });
     }
 
-    const durationStr = typeof log.duration === "number" ? formatMinutes(log.duration) : String(log.duration || "00:00");
+    const { timePeriod, remarks } = decodeDescriptionWithTimePeriod(log.description);
+    const durationMinutes = typeof log.duration === "number" ? log.duration : parseDurationMinutes(log.duration);
+    const durationStr = formatDurationDisplay(durationMinutes);
     const dateStr = log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date || "");
+    const finalTimePeriod = resolveLogTimePeriod(timePeriod, durationMinutes, log.createdAt || log.date);
+
+    const taskCode = log.task?.code || undefined;
+    const displayCode = taskCode || log.id;
 
     const group = userMap.get(userName)!;
     group.timeLogs.push({
       id: log.id,
-      code: log.id,
-      title: log.task?.title || log.description || "Logged Work",
+      code: displayCode,
+      title: log.task?.title || remarks || "Logged Work",
       project: log.project?.name || "Project",
       projectId: log.projectId || undefined,
-      taskCode: log.task?.code || undefined,
+      taskCode: displayCode,
       duration: durationStr,
-      timePeriod: "",
+      timePeriod: finalTimePeriod,
       date: dateStr,
       billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
-      remarks: log.description || log.rejectionReason || "",
+      remarks: remarks || log.rejectionReason || "",
       approvalStatus: log.approvalStatus as any,
       userName: userName,
       userInitials: initials,
@@ -2540,16 +2882,25 @@ export async function createTimeLogAction(
   let durationMinutes = parseDurationMinutes(logData.duration);
   if (durationMinutes <= 0) durationMinutes = 60;
 
+  let timePeriodStr = logData.timePeriod || "";
+  if (durationMinutes > 720) {
+    timePeriodStr = "";
+  }
+  const description = encodeDescriptionWithTimePeriod(logData.remarks || logData.title, timePeriodStr);
+  const startTimePart = timePeriodStr ? timePeriodStr.split(/[-–]/)[0]?.trim() : undefined;
+  const logDate = parseDateAndTimeToDate(logData.date, startTimePart);
+
   const newLog = await d.projectTimeLog.create({
     data: {
       projectId: project.id,
       phaseId: phase.id,
       taskId: task.id,
       userId: session.user.id,
+      date: logDate,
       duration: durationMinutes,
       billingType: logData.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE",
       approvalStatus: "PENDING",
-      description: logData.remarks || logData.title || null,
+      description,
     },
     include: {
       project: true,
@@ -2572,18 +2923,24 @@ export async function createTimeLogAction(
   revalidatePath(`/projects/${project.id}`);
   revalidatePath("/projects/time-tracker");
 
+  const { timePeriod: decodedTimePeriod, remarks: decodedRemarks } = decodeDescriptionWithTimePeriod(newLog.description);
+  const finalTimePeriod = resolveLogTimePeriod(decodedTimePeriod, newLog.duration, newLog.createdAt || newLog.date);
+
+  const taskCode = newLog.task?.code || task.code || undefined;
+  const displayCode = taskCode || newLog.id;
+
   return {
     id: newLog.id,
-    code: newLog.id,
-    title: newLog.task?.title || newLog.description || "Logged Work",
+    code: displayCode,
+    title: newLog.task?.title || decodedRemarks || "Logged Work",
     project: newLog.project?.name || "Project",
     projectId: newLog.projectId,
-    taskCode: newLog.task?.code || task.code,
-    duration: formatMinutes(newLog.duration),
-    timePeriod: "",
+    taskCode: displayCode,
+    duration: formatDurationDisplay(newLog.duration),
+    timePeriod: finalTimePeriod,
     date: newLog.date instanceof Date ? newLog.date.toISOString().split("T")[0] : String(newLog.date),
     billingType: newLog.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
-    remarks: newLog.description || "",
+    remarks: decodedRemarks || "",
     approvalStatus: newLog.approvalStatus,
     userName: newLog.user?.name || session.user.name || "User",
     userInitials: "US",
@@ -2612,14 +2969,28 @@ export async function updateTimeLogAction(
   }
 
   const dataToUpdate: any = {};
-  if (updates.duration) {
-    dataToUpdate.duration = parseDurationMinutes(updates.duration);
+  if (updates.date) {
+    const startTimePart = updates.timePeriod ? updates.timePeriod.split(/[-–]/)[0]?.trim() : undefined;
+    dataToUpdate.date = parseDateAndTimeToDate(updates.date, startTimePart);
+  }
+  if (updates.duration !== undefined) {
+    const mins = parseDurationMinutes(updates.duration);
+    if (mins > 0) {
+      dataToUpdate.duration = mins;
+    }
   }
   if (updates.billingType) {
     dataToUpdate.billingType = updates.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE";
   }
-  if (updates.remarks !== undefined) {
-    dataToUpdate.description = updates.remarks;
+  if (updates.remarks !== undefined || updates.timePeriod !== undefined) {
+    const { timePeriod: existingTp, remarks: existingRem } = decodeDescriptionWithTimePeriod(existingLog.description);
+    const newRemarks = updates.remarks !== undefined ? updates.remarks : existingRem;
+    let newTp = updates.timePeriod !== undefined ? updates.timePeriod : existingTp;
+    const finalDuration = dataToUpdate.duration !== undefined ? dataToUpdate.duration : existingLog.duration;
+    if (finalDuration > 720) {
+      newTp = "";
+    }
+    dataToUpdate.description = encodeDescriptionWithTimePeriod(newRemarks, newTp);
   }
   if (updates.approvalStatus && isManager) {
     dataToUpdate.approvalStatus = updates.approvalStatus.toUpperCase();
@@ -2632,6 +3003,9 @@ export async function updateTimeLogAction(
 
   if (existingLog.projectId) {
     await recalculateProjectTimeTotals(existingLog.projectId);
+  }
+  if (existingLog.taskId) {
+    await recalculateTaskWorkHours(existingLog.taskId);
   }
 
   revalidatePath("/projects/time-tracker");
@@ -2871,24 +3245,31 @@ export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeL
     orderBy: { createdAt: "desc" },
   });
 
-  return logs.map((log: any) => ({
-    id: log.id,
-    code: log.id,
-    title: log.description || "Logged Work",
-    project: log.project?.name || "Project",
-    projectId: log.projectId || undefined,
-    taskCode: task.code,
-    duration: typeof log.duration === "number" ? formatMinutes(log.duration) : String(log.duration),
-    timePeriod: "",
-    date: log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date),
-    billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
-    remarks: log.description || "",
-    approvalStatus: log.approvalStatus as any,
-    userName: log.user?.name || session.user.name || "User",
-    userInitials: "US",
-    userId: log.userId || undefined,
-    createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
-  }));
+  return logs.map((log: any) => {
+    const { timePeriod, remarks } = decodeDescriptionWithTimePeriod(log.description);
+    const durationMins = typeof log.duration === "number" ? log.duration : parseDurationMinutes(log.duration);
+    const finalTimePeriod = resolveLogTimePeriod(timePeriod, durationMins, log.createdAt || log.date);
+    const taskCode = log.task?.code || task.code || undefined;
+    const displayCode = taskCode || log.id;
+    return {
+      id: log.id,
+      code: displayCode,
+      title: remarks || log.task?.title || "Logged Work",
+      project: log.project?.name || "Project",
+      projectId: log.projectId || undefined,
+      taskCode: displayCode,
+      duration: formatDurationDisplay(durationMins),
+      timePeriod: finalTimePeriod,
+      date: log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date),
+      billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
+      remarks: remarks || "",
+      approvalStatus: log.approvalStatus as any,
+      userName: log.user?.name || session.user.name || "User",
+      userInitials: "US",
+      userId: log.userId || undefined,
+      createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : new Date().toISOString(),
+    };
+  });
 }
 
 export async function getCurrentUserRoleAction(): Promise<WorkspaceRole> {

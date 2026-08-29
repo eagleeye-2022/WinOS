@@ -23,6 +23,7 @@ import {
   updateTeamMemberAction,
   updateUserImageAction,
   saveUserDocumentRecordAction,
+  deleteUserDocumentAction,
 } from "@/features/users/actions/user-actions";
 
 // Sentinel for "no reporting manager" (top of the org hierarchy, e.g. the
@@ -36,6 +37,8 @@ interface MemberFormProps {
   initialData?: MemberDetails;
   managers: ManagerOption[];
   allUsers?: ManagerOption[];
+  currentUserRole?: string;
+  currentUserId?: string;
 }
 
 const DOCUMENT_FIELDS: { key: string; label: string }[] = [
@@ -136,10 +139,12 @@ function formFromDetails(details: MemberDetails) {
   };
 }
 
-export function MemberForm({ mode, userId, initialData, managers, allUsers }: MemberFormProps) {
+export function MemberForm({ mode, userId, initialData, managers, allUsers, currentUserRole, currentUserId }: MemberFormProps) {
   const router = useRouter();
+  const isReadOnlyNonPersonal = currentUserRole !== "MANAGER";
   const [form, setForm] = useState(initialData ? formFromDetails(initialData) : emptyForm());
   const [files, setFiles] = useState<Record<string, File | null>>({});
+  const [existingDocuments, setExistingDocuments] = useState(initialData?.documents || []);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -233,13 +238,37 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
     }
   }
 
-  function handleRemovePhoto() {
+  async function handleRemovePhoto() {
     setImageFile(null);
     setImagePreview(null);
     setImageUploadSuccess(false);
     setImageUploadError(null);
     const input = document.getElementById("profile-image-input") as HTMLInputElement | null;
     if (input) input.value = "";
+
+    if (mode === "edit" && userId) {
+      try {
+        await updateUserImageAction(userId, null);
+        setImageUploadSuccess(true);
+        router.refresh();
+      } catch (err) {
+        console.error("Failed to remove profile photo:", err);
+      }
+    }
+  }
+
+  async function handleRemoveDocument(kind: string) {
+    if (mode === "edit" && userId) {
+      try {
+        await deleteUserDocumentAction(userId, kind);
+        setExistingDocuments((prev) => prev.filter((d) => d.kind !== kind));
+        router.refresh();
+      } catch (err) {
+        console.error("Failed to remove document:", err);
+      }
+    } else {
+      setExistingDocuments((prev) => prev.filter((d) => d.kind !== kind));
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -285,22 +314,26 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
               await updateUserImageAction(targetId, data.fileUrl);
             }
           }
-        } else if (imagePreview && imagePreview !== initialData?.image) {
+        } else if (imagePreview === null || imagePreview === "") {
+          await updateUserImageAction(targetId, null);
+        } else if (imagePreview !== initialData?.image) {
           await updateUserImageAction(targetId, imagePreview);
         }
 
-        for (const [kind, file] of Object.entries(files)) {
-          if (!file) continue;
-          const fd = new FormData();
-          fd.append("file", file);
-          const response = await fetch("/api/uploads", {
-            method: "POST",
-            body: fd,
-          });
-          if (response.ok) {
-            const data = await response.json();
-            if (data.fileUrl) {
-              await saveUserDocumentRecordAction(targetId, kind, data.fileName || file.name, data.fileUrl);
+        if (!isReadOnlyNonPersonal) {
+          for (const [kind, file] of Object.entries(files)) {
+            if (!file) continue;
+            const fd = new FormData();
+            fd.append("file", file);
+            const response = await fetch("/api/uploads", {
+              method: "POST",
+              body: fd,
+            });
+            if (response.ok) {
+              const data = await response.json();
+              if (data.fileUrl) {
+                await saveUserDocumentRecordAction(targetId, kind, data.fileName || file.name, data.fileUrl);
+              }
             }
           }
         }
@@ -309,7 +342,7 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
           setCreatedMemberName(`${form.firstName} ${form.lastName}`.trim());
           setShowSuccessModal(true);
         } else {
-          router.push(ROUTES.settingsUsers);
+          router.push(isReadOnlyNonPersonal ? ROUTES.dashboard : ROUTES.settingsUsers);
           router.refresh();
         }
       } catch (err) {
@@ -326,10 +359,10 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
           variant="outline"
           size="sm"
           className="gap-1.5 text-muted-foreground shadow-2xs"
-          onClick={() => router.push(ROUTES.settingsUsers)}
+          onClick={() => router.push(isReadOnlyNonPersonal ? ROUTES.dashboard : ROUTES.settingsUsers)}
         >
           <ArrowLeft size={16} />
-          Back to Settings
+          {isReadOnlyNonPersonal ? "Back to Dashboard" : "Back to Settings"}
         </Button>
       </div>
 
@@ -394,10 +427,6 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
               )}
             </div>
 
-            {/* <p className="text-[11px] text-muted-foreground">
-              Select a PNG or JPG photo, then click <span className="font-semibold text-foreground">Upload Photo</span> to upload profile image.
-            </p> */}
-
             {imageUploadSuccess && (
               <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <Check size={14} />
@@ -412,31 +441,54 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
                 {imageUploadError}
               </p>
             )}
-
-            {/* {imageFile && !imageUploadSuccess && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                Photo selected: <span className="underline">{imageFile.name}</span>. Click "Upload Photo" to upload now.
-              </p>
-            )} */}
           </div>
         </div>
 
         <Section title="Basic Information">
           <Field label="First Name" required>
-            <Input value={form.firstName} onChange={(e) => update("firstName", e.target.value)} placeholder="e.g. John" />
+            <Input
+              value={form.firstName}
+              onChange={(e) => update("firstName", e.target.value)}
+              placeholder="e.g. John"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Last Name" required>
-            <Input value={form.lastName} onChange={(e) => update("lastName", e.target.value)} placeholder="e.g. Doe" />
+            <Input
+              value={form.lastName}
+              onChange={(e) => update("lastName", e.target.value)}
+              placeholder="e.g. Doe"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Employee ID" required>
-            <Input value={form.employeeId} onChange={(e) => update("employeeId", e.target.value)} placeholder="EED1234" />
+            <Input
+              value={form.employeeId}
+              onChange={(e) => update("employeeId", e.target.value)}
+              placeholder="EED1234"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Work Email" required>
-            <Input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="john.doe@eagleeyedigital.io" />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="john.doe@eagleeyedigital.io"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Role" required>
-            <Select value={form.role} onValueChange={(v) => update("role", v)}>
-              <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
+            <Select value={form.role} onValueChange={(v) => update("role", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select a role" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="TEAM_MEMBER">Team Member</SelectItem>
                 <SelectItem value="MANAGER">Manager</SelectItem>
@@ -447,11 +499,18 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
 
         <Section title="Work Information">
           <Field label="Designation" required>
-            <Input value={form.designation} onChange={(e) => update("designation", e.target.value)} placeholder="e.g. Jr. SDE" />
+            <Input
+              value={form.designation}
+              onChange={(e) => update("designation", e.target.value)}
+              placeholder="e.g. Jr. SDE"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Department" required>
-            <Select value={form.department} onValueChange={(v) => update("department", v)}>
-              <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+            <Select value={form.department} onValueChange={(v) => update("department", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select department" /></SelectTrigger>
               <SelectContent>
                 {DEPARTMENTS.map((d) => (
                   <SelectItem key={d} value={d}>{d}</SelectItem>
@@ -460,8 +519,8 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
             </Select>
           </Field>
           <Field label="Location" required>
-            <Select value={form.location} onValueChange={(v) => update("location", v)}>
-              <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+            <Select value={form.location} onValueChange={(v) => update("location", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select location" /></SelectTrigger>
               <SelectContent>
                 {LOCATIONS.map((l) => (
                   <SelectItem key={l} value={l}>{l}</SelectItem>
@@ -470,8 +529,8 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
             </Select>
           </Field>
           <Field label="Employment Type">
-            <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v)}>
-              <SelectTrigger><SelectValue placeholder="Select (Permanent/Trainee)" /></SelectTrigger>
+            <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select (Permanent/Trainee)" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Permanent">Permanent</SelectItem>
                 <SelectItem value="Trainee">Trainee</SelectItem>
@@ -479,17 +538,31 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
             </Select>
           </Field>
           <Field label="Date of Joining">
-            <Input type="date" value={form.dateOfJoining} onChange={(e) => update("dateOfJoining", e.target.value)} />
+            <Input
+              type="date"
+              value={form.dateOfJoining}
+              onChange={(e) => update("dateOfJoining", e.target.value)}
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Date of Confirmation">
-            <Input type="date" value={form.dateOfConfirmation} onChange={(e) => update("dateOfConfirmation", e.target.value)} />
+            <Input
+              type="date"
+              value={form.dateOfConfirmation}
+              onChange={(e) => update("dateOfConfirmation", e.target.value)}
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
         </Section>
 
         <Section title="Hierarchy Information">
           <Field label="Reporting Manager (Organization Tree)" required>
-            <Select value={form.reportingToId} onValueChange={(v) => update("reportingToId", v)}>
-              <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
+            <Select value={form.reportingToId} onValueChange={(v) => update("reportingToId", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select manager" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_MANAGER_VALUE}>Top of Hierarchy (No Manager)</SelectItem>
                 {managers.filter((m) => m.id !== userId).map((m) => (
@@ -499,8 +572,8 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
             </Select>
           </Field>
           <Field label="Secondary Reporting To">
-            <Select value={form.secondaryReportingToId} onValueChange={(v) => update("secondaryReportingToId", v)}>
-              <SelectTrigger><SelectValue placeholder="Select manager/member (if any)" /></SelectTrigger>
+            <Select value={form.secondaryReportingToId} onValueChange={(v) => update("secondaryReportingToId", v)} disabled={isReadOnlyNonPersonal}>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select manager/member (if any)" /></SelectTrigger>
               <SelectContent>
                 {(allUsers || managers).filter((m) => m.id !== userId).map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -553,33 +626,70 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
         </Section>
 
         <Section title="Documents (optional)">
-          {DOCUMENT_FIELDS.map((doc) => (
-            <Field key={doc.key} label={doc.label}>
-              <Input
-                type="file"
-                className="text-xs file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
-                onChange={(e) => setFiles((prev) => ({ ...prev, [doc.key]: e.target.files?.[0] ?? null }))}
-              />
-              {mode === "edit" && initialData?.documents.some((d) => d.kind === doc.key) && (
-                <a
-                  href={initialData.documents.find((d) => d.kind === doc.key)?.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] text-primary hover:underline"
-                >
-                  View current file
-                </a>
-              )}
-            </Field>
-          ))}
+          {DOCUMENT_FIELDS.map((doc) => {
+            const existingDoc = existingDocuments.find((d) => d.kind === doc.key);
+            return (
+              <Field key={doc.key} label={doc.label}>
+                <Input
+                  type="file"
+                  disabled={isReadOnlyNonPersonal}
+                  className="text-xs file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
+                  onChange={(e) => setFiles((prev) => ({ ...prev, [doc.key]: e.target.files?.[0] ?? null }))}
+                />
+                {existingDoc && (
+                  <div className="flex items-center gap-2.5 mt-1 text-[11px]">
+                    <a
+                      href={existingDoc.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary hover:underline font-medium"
+                    >
+                      View current file
+                    </a>
+                    {!isReadOnlyNonPersonal && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDocument(doc.key)}
+                        className="text-destructive hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                        title="Remove uploaded document"
+                      >
+                        <Trash2 size={11} /> Remove
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Field>
+            );
+          })}
           <Field label="Aadhar Number">
-            <Input value={form.aadharNumber} onChange={(e) => update("aadharNumber", e.target.value)} placeholder="9876543210" />
+            <Input
+              value={form.aadharNumber}
+              onChange={(e) => update("aadharNumber", e.target.value)}
+              placeholder="9876543210"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="Bank Account Number">
-            <Input value={form.bankAccountNumber} onChange={(e) => update("bankAccountNumber", e.target.value)} placeholder="9876543210" />
+            <Input
+              value={form.bankAccountNumber}
+              onChange={(e) => update("bankAccountNumber", e.target.value)}
+              placeholder="9876543210"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
           <Field label="IFSC Code">
-            <Input value={form.ifscCode} onChange={(e) => update("ifscCode", e.target.value)} placeholder="9876543210" />
+            <Input
+              value={form.ifscCode}
+              onChange={(e) => update("ifscCode", e.target.value)}
+              placeholder="9876543210"
+              disabled={isReadOnlyNonPersonal}
+              readOnly={isReadOnlyNonPersonal}
+              className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
+            />
           </Field>
         </Section>
 
@@ -608,14 +718,12 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers }: Me
           <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">{error}</p>
         )}
 
-        {/* {!error && !isValid && (
-          <p className="text-xs text-muted-foreground">
-            Still missing: <span className="font-medium text-foreground">{missingRequired.join(", ")}</span>
-          </p>
-        )} */}
-
         <div className="flex items-center justify-end gap-3 border-t pt-4">
-          <Button type="button" variant="outline" onClick={() => router.push(ROUTES.settingsUsers)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(isReadOnlyNonPersonal ? ROUTES.dashboard : ROUTES.settingsUsers)}
+          >
             Cancel
           </Button>
           <Button type="submit" disabled={isPending} className="gap-1.5">

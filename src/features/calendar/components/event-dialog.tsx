@@ -107,15 +107,15 @@ export function EventDialog({
     if (event?.start) return event.start;
     if (defaultStart) return defaultStart;
     const d = new Date();
-    d.setHours(17, 0, 0, 0);
+    d.setHours(11, 0, 0, 0);
     return d;
   });
   const [end, setEnd] = useState<Date>(() => {
     if (event?.end) return event.end;
     const s = event?.start ?? defaultStart;
-    if (s) return new Date(s.getTime() + 60 * 60 * 1000);
+    if (s) return new Date(s.getTime() + 30 * 60 * 1000);
     const d = new Date();
-    d.setHours(18, 0, 0, 0);
+    d.setHours(11, 30, 0, 0);
     return d;
   });
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | null>(event?.recurrenceRule ?? null);

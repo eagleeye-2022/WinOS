@@ -1,13 +1,24 @@
 "use client";
 
 import React, { useState } from "react";
-import { Clock, Settings, UserPlus, ArrowUpDown } from "lucide-react";
+import {
+  Clock,
+  Settings,
+  UserPlus,
+  ArrowUpDown,
+  Search,
+  Download,
+  Users,
+  Building2,
+  Shield,
+  CheckCircle2,
+} from "lucide-react";
 import { MemberRoleTier, ProfileRoleValue, ProjectUser, UserType } from "../../types";
 
 const ROLE_BADGE_CONFIG: Record<MemberRoleTier, { label: string; className: string }> = {
-  ADMIN: { label: "ADMINISTRATOR", className: "bg-info/10 text-info" },
-  MANAGER: { label: "REPORTING MANAGER", className: "bg-warning/10 text-warning" },
-  TEAM_MEMBER: { label: "TEAM MEMBER", className: "bg-success/10 text-success" },
+  ADMIN: { label: "ADMINISTRATOR", className: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
+  MANAGER: { label: "REPORTING MANAGER", className: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  TEAM_MEMBER: { label: "TEAM MEMBER", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
 };
 
 const PROFILE_ROLE_OPTIONS: ProfileRoleValue[] = [
@@ -35,8 +46,16 @@ export function UsersTableView({
   const [activeTab, setActiveTab] = useState<UserType>("PORTAL");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredUsers = users.filter((u) => u.userType === activeTab);
+  const filteredUsers = users
+    .filter((u) => u.userType === activeTab)
+    .filter(
+      (u) =>
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.portalProfile && u.portalProfile.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
   const handleSelectAll = () => {
     if (selectedUserIds.length === filteredUsers.length) {
@@ -54,36 +73,74 @@ export function UsersTableView({
     }
   };
 
+  const exportCSV = () => {
+    const headers = ["Name", "Email", "User Type", "Role", "Portal Profile", "Projects"];
+    const rows = filteredUsers.map((u) => [
+      `"${u.name}"`,
+      `"${u.email}"`,
+      `"${u.userType}"`,
+      `"${u.role}"`,
+      `"${u.portalProfile || "Employee"}"`,
+      `"${u.projects || "All"}"`,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `zoho_portal_users_${activeTab.toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b px-6 py-4 gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight">Users</h1>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-accent"
-            title="User Logs"
-          >
-            <Clock size={18} />
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-accent"
-            title="User Settings"
-          >
-            <Settings size={18} />
-          </button>
+          <h1 className="text-xl font-bold tracking-tight">Portal Users</h1>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary font-mono">
+            {filteredUsers.length} Users
+          </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onOpenInviteModal(activeTab)}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
-        >
-          <UserPlus size={16} />
-          {activeTab === "PORTAL" ? "Invite New Member" : "Invite Client"}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative w-60">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              type="text"
+              placeholder="Search portal users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-input bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={exportCSV}
+            className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
+            title="Export CSV"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenInviteModal(activeTab)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
+          >
+            <UserPlus size={15} />
+            {activeTab === "PORTAL" ? "Invite New Member" : "Invite Client"}
+          </button>
+        </div>
       </div>
 
       {/* Tabs Row */}
@@ -97,11 +154,11 @@ export function UsersTableView({
             }}
             className={`pb-3 transition-colors relative ${
               activeTab === "PORTAL"
-                ? "text-info border-b-2 border-info"
+                ? "text-primary border-b-2 border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Portal Users
+            Portal Users ({users.filter((u) => u.userType === "PORTAL").length})
           </button>
           <button
             type="button"
@@ -111,11 +168,11 @@ export function UsersTableView({
             }}
             className={`pb-3 transition-colors relative ${
               activeTab === "CLIENT"
-                ? "text-info border-b-2 border-info"
+                ? "text-primary border-b-2 border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Client Users
+            Client Users ({users.filter((u) => u.userType === "CLIENT").length})
           </button>
         </div>
       </div>
@@ -124,7 +181,7 @@ export function UsersTableView({
       <div className="flex-1 overflow-x-auto overflow-y-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
+            <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
               <th className="py-3 px-4 w-10 text-center border-r">
                 <input
                   type="checkbox"
@@ -154,17 +211,20 @@ export function UsersTableView({
                       ROLE <ArrowUpDown size={12} />
                     </span>
                   </th>
-                  <th className="py-3 px-4 whitespace-nowrap">
+                  <th className="py-3 px-4 border-r whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       PORTAL PROFILE <ArrowUpDown size={12} />
                     </span>
+                  </th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">
+                    STATUS
                   </th>
                 </>
               ) : (
                 <>
                   <th className="py-3 px-4 border-r whitespace-nowrap">
                     <span className="flex items-center gap-1">
-                      PROJECTS <ArrowUpDown size={12} />
+                      ACCESSIBLE PROJECTS <ArrowUpDown size={12} />
                     </span>
                   </th>
                   <th className="py-3 px-4 whitespace-nowrap">
@@ -179,7 +239,7 @@ export function UsersTableView({
           <tbody className="divide-y divide-border">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                <td colSpan={6} className="py-12 text-center text-muted-foreground">
                   No users found in this category.
                 </td>
               </tr>
@@ -202,7 +262,7 @@ export function UsersTableView({
                   <td className="py-3 px-4 border-r whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <span
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${
                           user.avatarColor || "bg-primary text-primary-foreground"
                         }`}
                       >
@@ -235,9 +295,9 @@ export function UsersTableView({
                           onClick={() =>
                             setEditingUserId(editingUserId === user.id ? null : user.id)
                           }
-                          className={`inline-block rounded px-2.5 py-0.5 text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${ROLE_BADGE_CONFIG[user.role].className}`}
+                          className={`inline-block rounded-md px-2.5 py-0.5 text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${ROLE_BADGE_CONFIG[user.role]?.className || "bg-muted text-muted-foreground"}`}
                         >
-                          {ROLE_BADGE_CONFIG[user.role].label}
+                          {ROLE_BADGE_CONFIG[user.role]?.label || user.role}
                         </button>
 
                         {editingUserId === user.id && (
@@ -253,21 +313,29 @@ export function UsersTableView({
                       </td>
 
                       {/* PORTAL PROFILE */}
-                      <td className="py-3 px-4 text-foreground font-medium whitespace-nowrap">
+                      <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap">
                         {user.portalProfile || "Employee"}
+                      </td>
+
+                      {/* STATUS */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 size={11} />
+                          Active
+                        </span>
                       </td>
                     </>
                   ) : (
                     <>
                       {/* PROJECTS */}
                       <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap">
-                        {user.projects || "—"}
+                        {user.projects || "All Projects"}
                       </td>
 
                       {/* ROLE */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span className="inline-block rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-semibold text-primary">
-                          Client
+                          Client User
                         </span>
                       </td>
                     </>
@@ -303,10 +371,10 @@ function RoleEditorPopover({
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-md border bg-popover p-3 shadow-lg text-left">
+      <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover p-3 shadow-lg text-left">
         <div className="space-y-2">
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground">Role</label>
+            <label className="text-[10px] font-semibold text-muted-foreground">System Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as MemberRoleTier)}

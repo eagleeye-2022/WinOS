@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   History,
   CalendarCheck,
@@ -109,18 +109,6 @@ export function TaskAuditHistoryPopover({
   className,
 }: TaskAuditHistoryPopoverProps) {
   const [open, setOpen] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setOpen(false);
-    }, 150);
-  };
 
   const originTask = chain[0]?.task ?? task;
   const originDate = chain[0]?.date ?? task.createdAt ?? new Date();
@@ -173,13 +161,11 @@ export function TaskAuditHistoryPopover({
         <PopoverTrigger asChild>
           <button
             type="button"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
             onClick={(e) => {
               e.stopPropagation();
               setOpen((v) => !v);
             }}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none cursor-help shrink-0"
+            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none cursor-pointer shrink-0"
             aria-label="View task audit history"
           >
             <Info size={13} />
@@ -191,8 +177,6 @@ export function TaskAuditHistoryPopover({
           align="start"
           sideOffset={8}
           collisionPadding={16}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
           className="z-[100] border border-border bg-popover text-popover-foreground p-4 text-left shadow-2xl backdrop-blur-md w-fit max-w-[calc(100vw-2rem)] overflow-x-auto rounded-2xl outline-none"
         >
           {/* Header */}

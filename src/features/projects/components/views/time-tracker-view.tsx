@@ -43,6 +43,13 @@ import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
 import {
+  parseDurationMinutes,
+  formatDurationDisplay,
+  formatTimePeriodRange,
+  calculateMinutesFromTimeRange,
+  formatTime12h,
+} from "../../utils/time-helpers";
+import {
   updateTimeLogAction,
   deleteTimeLogAction,
   approveTimeLogsAction,
@@ -116,17 +123,19 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Role Perspective Switcher — derived from the signed-in user's real workspace role.
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
-
-  useEffect(() => {
-    getCurrentUserRoleAction().then((role) => {
-      setRoleMode(role === "ADMIN" ? "ADMIN" : "USER");
-    });
-  }, []);
-
-  // Default views matching the user screenshot
   const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
   const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("All Time Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    getCurrentUserRoleAction().then((role) => {
+      const isManager = role === "ADMIN";
+      setRoleMode(isManager ? "ADMIN" : "USER");
+      if (isManager) {
+        setGroupBy("Group By User");
+      }
+    });
+  }, []);
 
   // Filters State
   const [showFilterBar, setShowFilterBar] = useState(false);
@@ -404,14 +413,37 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     value: string
   ) => {
     const previousGroups = userGroups;
+    const updatePayload: Partial<TimeLogEntry> = { [field]: value };
+
+    if (field === "duration") {
+      const mins = parseDurationMinutes(value);
+      const formattedDur = formatDurationDisplay(mins);
+      updatePayload.duration = formattedDur;
+      if (mins > 720) {
+        updatePayload.timePeriod = "";
+      }
+    } else if (field === "timePeriod") {
+      if (value.includes("-") || value.includes("–")) {
+        const parts = value.split(/[-–]/);
+        if (parts.length === 2) {
+          const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
+          const mins = calculateMinutesFromTimeRange(parts[0], parts[1]);
+          if (rangeStr) updatePayload.timePeriod = rangeStr;
+          if (mins && mins > 0) {
+            updatePayload.duration = formatDurationDisplay(mins);
+          }
+        }
+      }
+    }
+
     setUserGroups((prevGroups) =>
       prevGroups.map((g) => ({
         ...g,
-        timeLogs: g.timeLogs.map((l) => (l.id === logId ? { ...l, [field]: value } : l)),
+        timeLogs: g.timeLogs.map((l) => (l.id === logId ? { ...l, ...updatePayload } : l)),
       }))
     );
     try {
-      await updateTimeLogAction(logId, { [field]: value });
+      await updateTimeLogAction(logId, updatePayload);
     } catch (err) {
       console.error(`Failed to update ${field}:`, err);
       setUserGroups(previousGroups);
@@ -420,13 +452,16 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   const handleAddInlineTimeLog = async (dateStr?: string) => {
     const targetDate = dateStr || new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const oneMinAgo = new Date(now.getTime() - 60000);
+    const timePeriodStr = `${formatTime12h(oneMinAgo)} – ${formatTime12h(now)}`;
     try {
       const createdLog = await createTimeLogAction(
         {
-          title: "Test",
-          project: projectName || "gas",
+          title: "Logged Work",
+          project: projectName || "Project",
           duration: "00:01",
-          timePeriod: "03:00 - 03:01",
+          timePeriod: timePeriodStr,
           date: targetDate,
           billingType: "BILLABLE",
           approvalStatus: "Pending",
@@ -480,10 +515,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   };
 
   // Duration helpers
-  const parseDurationMinutes = (duration: string): number => {
-    const match = duration.match(/(\d+):(\d+)/);
-    if (!match) return 0;
-    return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  const parseDurationMinutesLocal = (duration: string): number => {
+    return parseDurationMinutes(duration);
   };
 
   const formatMinutes = (totalMinutes: number): string => {
@@ -1016,7 +1049,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                   </div>
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
-                  ID
+                  Task ID
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px] text-foreground font-bold">
                   Log Title
@@ -1128,7 +1161,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-                              {log.code}
+                              {log.taskCode || log.code}
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
@@ -1309,11 +1342,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                 const [totalStr, billableStr, nonBillableStr] = group.dailyLogHours.split(" | ");
                 return (
                 <React.Fragment key={group.userId}>
-                  <tr className="bg-muted/80 hover:bg-muted transition-colors font-medium">
+                  <tr
+                    onClick={() => toggleDateCollapse(group.userId)}
+                    className="bg-muted/80 hover:bg-muted transition-colors font-medium cursor-pointer select-none border-b border-border"
+                  >
                     <td className="py-3 px-3 border-r border-border text-center">
                       <button
                         type="button"
-                        onClick={() => toggleDateCollapse(group.userId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDateCollapse(group.userId);
+                        }}
                         className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
                       >
                         {collapsedDates[group.userId] ? (
@@ -1325,16 +1364,23 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                     </td>
 
                     <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <UserIcon size={14} className="text-muted-foreground" />
-                        <span className="text-foreground font-bold">{group.userName}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">
+                          {group.userInitials || "US"}
+                        </div>
+                        <span className="text-foreground font-bold text-xs">{group.userName}</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
                     </td>
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
-                      <span className="text-foreground">{totalStr}</span> |{" "}
-                      <span className="text-info">{billableStr}</span> |{" "}
-                      <span className="text-warning">{nonBillableStr}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-foreground font-bold" title="Total Logged Hours">Total: {totalStr}</span>
+                        <span className="text-info font-bold" title="Billable Hours">Billable: {billableStr}</span>
+                        <span className="text-warning font-bold" title="Non-Billable Hours">Non-Billable: {nonBillableStr}</span>
+                      </div>
                     </td>
 
                     <td colSpan={5} className="py-3 px-4" />
@@ -1357,7 +1403,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           </td>
 
                           <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
-                            {log.code}
+                            {log.taskCode || log.code}
                           </td>
 
                           <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
@@ -1393,7 +1439,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
                               mono
                               placeholder="00:00 - 00:00"
-                              className="text-[11px] text-muted-foreground min-w-[110px]"
+                              className="text-[11px] text-muted-foreground min-w-[175px]"
                               title="Click to edit Time Period inline"
                             />
                           </td>

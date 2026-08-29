@@ -384,6 +384,13 @@ export async function saveUserDocumentRecordAction(
   });
 }
 
+export async function deleteUserDocumentAction(userId: string, kind: string): Promise<void> {
+  await db.userDocument.deleteMany({
+    where: { userId, kind },
+  });
+  revalidatePath(ROUTES.settingsUsers);
+}
+
 export async function uploadProfileImageAction(userId: string, formData: FormData): Promise<{ url: string }> {
   const file = formData.get("file") as File | null;
   if (!file) throw new Error("No file provided");
@@ -395,10 +402,11 @@ export async function uploadProfileImageAction(userId: string, formData: FormDat
   return { url };
 }
 
-export async function updateUserImageAction(userId: string, imageUrl: string): Promise<{ url: string }> {
-  await db.user.update({ where: { id: userId }, data: { image: imageUrl } });
+export async function updateUserImageAction(userId: string, imageUrl: string | null): Promise<{ url: string | null }> {
+  const finalUrl = imageUrl && imageUrl.trim() ? imageUrl.trim() : null;
+  await db.user.update({ where: { id: userId }, data: { image: finalUrl } });
   revalidatePath(ROUTES.settingsUsers);
-  return { url: imageUrl };
+  return { url: finalUrl };
 }
 
 export async function toggleUserLoginAction(userId: string, isActive: boolean): Promise<void> {

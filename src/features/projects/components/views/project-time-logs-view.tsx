@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   Lock,
   ChevronDown,
+  ChevronRight,
   UserCheck,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
@@ -29,6 +30,7 @@ import {
 } from "../../actions/project-actions";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
+import { parseDurationMinutes } from "../../utils/time-helpers";
 
 interface ProjectTimeLogsViewProps {
   projectId: string;
@@ -117,6 +119,61 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       return true;
     });
   }, [allLogs, filterUser, filterTask, filterBilling, searchQuery]);
+
+  const [collapsedUserIds, setCollapsedUserIds] = useState<Record<string, boolean>>({});
+
+  const toggleUserCollapse = (uId: string) => {
+    setCollapsedUserIds((prev) => ({
+      ...prev,
+      [uId]: !prev[uId],
+    }));
+  };
+
+  const userGroupMap = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        userId: string;
+        userName: string;
+        userInitials: string;
+        timeLogs: TimeLogEntry[];
+        totalMinutes: number;
+        billableMinutes: number;
+        nonBillableMinutes: number;
+      }
+    >();
+
+    for (const log of filteredLogs) {
+      const uKey = log.userName || log.userId || "Unassigned User";
+      if (!map.has(uKey)) {
+        map.set(uKey, {
+          userId: uKey,
+          userName: uKey,
+          userInitials: log.userInitials || "US",
+          timeLogs: [],
+          totalMinutes: 0,
+          billableMinutes: 0,
+          nonBillableMinutes: 0,
+        });
+      }
+
+      const group = map.get(uKey)!;
+      group.timeLogs.push(log);
+
+      const mins = parseDurationMinutes(log.duration);
+      group.totalMinutes += mins;
+      if (log.billingType === "BILLABLE") group.billableMinutes += mins;
+      else group.nonBillableMinutes += mins;
+    }
+
+    return Array.from(map.values());
+  }, [filteredLogs]);
+
+  const formatMinsToStr = (m: number): string => {
+    const h = Math.floor(m / 60);
+    const mins = m % 60;
+    return `${String(h).padStart(2, "0")}:${String(mins).padStart(2, "0")} h`;
+  };
 
   const handleDeleteLog = async (logId: string) => {
     if (!confirm("Are you sure you want to delete this time log?")) return;
@@ -329,95 +386,217 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         </div>
       </div>
 
-      {/* Time Logs Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Task</th>
-                <th className="px-4 py-3">Description / Remarks</th>
-                <th className="px-4 py-3">Duration</th>
-                <th className="px-4 py-3">Billing</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground italic">
-                    No time logs found matching your criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground">
-                      {log.date}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[9px]">
-                          {log.userInitials}
-                        </span>
-                        <span className="font-medium text-foreground">{log.userName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {log.taskCode ? (
-                        <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                          {log.taskCode}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground italic">General</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 max-w-xs truncate text-foreground/80">
-                      {log.remarks || log.title}
-                    </td>
-                    <td className="px-4 py-3 font-mono font-bold text-foreground whitespace-nowrap">
-                      {log.duration}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          log.billingType === "BILLABLE"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                        }`}
+      {/* Time Logs View (Manager User Accordion View vs Flat Table for Team Members) */}
+      {isManagerOrAdmin ? (
+        <div className="space-y-3">
+          {userGroupMap.length === 0 ? (
+            <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground italic">
+              No time logs found matching your criteria.
+            </div>
+          ) : (
+            userGroupMap.map((userGroup) => {
+              const isCollapsed = Boolean(collapsedUserIds[userGroup.userId]);
+
+              return (
+                <div
+                  key={userGroup.userId}
+                  className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs transition-all"
+                >
+                  {/* User Accordion Header */}
+                  <div
+                    onClick={() => toggleUserCollapse(userGroup.userId)}
+                    className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer select-none"
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded"
                       >
-                        {log.billingType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setEditingLog(log)}
-                          className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          title="Edit Log"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteLog(log.id)}
-                          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                          title="Delete Log"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                      <div className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        {userGroup.userInitials}
                       </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">
+                            {userGroup.userName}
+                          </span>
+                          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            {userGroup.timeLogs.length} log{userGroup.timeLogs.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* User Hours Summary Pills */}
+                    <div className="flex items-center gap-2 font-mono text-xs">
+                      <div className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1 rounded-md shadow-2xs">
+                        <span className="text-muted-foreground text-[10px] uppercase font-bold">Total:</span>
+                        <span className="font-bold text-foreground">{formatMinsToStr(userGroup.totalMinutes)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-md shadow-2xs">
+                        <span className="text-[10px] uppercase font-bold">Billable:</span>
+                        <span className="font-bold">{formatMinsToStr(userGroup.billableMinutes)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-md shadow-2xs">
+                        <span className="text-[10px] uppercase font-bold">Non-Billable:</span>
+                        <span className="font-bold">{formatMinsToStr(userGroup.nonBillableMinutes)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded User Time Logs Table */}
+                  {!isCollapsed && (
+                    <div className="border-t border-border overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-muted/20 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-2.5">Date</th>
+                            <th className="px-4 py-2.5">Task</th>
+                            <th className="px-4 py-2.5">Description / Remarks</th>
+                            <th className="px-4 py-2.5">Duration</th>
+                            <th className="px-4 py-2.5">Billing</th>
+                            <th className="px-4 py-2.5">Status</th>
+                            <th className="px-4 py-2.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {userGroup.timeLogs.map((log) => (
+                            <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-2.5 font-medium whitespace-nowrap text-foreground">{log.date}</td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                {log.taskCode ? (
+                                  <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                                    {log.taskCode}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground italic">General</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 max-w-xs truncate text-foreground/80">{log.remarks || log.title}</td>
+                              <td className="px-4 py-2.5 font-mono font-bold text-foreground whitespace-nowrap">{log.duration}</td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${log.billingType === "BILLABLE" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"}`}>
+                                  {log.billingType}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
+                                  {log.approvalStatus || "Pending"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button type="button" onClick={() => setEditingLog(log)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Edit Log">
+                                    <Edit2 size={13} />
+                                  </button>
+                                  <button type="button" onClick={() => handleDeleteLog(log.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer" title="Delete Log">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Task</th>
+                  <th className="px-4 py-3">Description / Remarks</th>
+                  <th className="px-4 py-3">Duration</th>
+                  <th className="px-4 py-3">Billing</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground italic">
+                      No time logs found matching your criteria.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground">
+                        {log.date}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[9px]">
+                            {log.userInitials}
+                          </span>
+                          <span className="font-medium text-foreground">{log.userName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {log.taskCode ? (
+                          <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                            {log.taskCode}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic">General</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 max-w-xs truncate text-foreground/80">
+                        {log.remarks || log.title}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-foreground whitespace-nowrap">
+                        {log.duration}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            log.billingType === "BILLABLE"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                          }`}
+                        >
+                          {log.billingType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingLog(log)}
+                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            title="Edit Log"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLog(log.id)}
+                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                            title="Delete Log"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* New Time Log Modal */}
       {isAddModalOpen && (

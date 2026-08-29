@@ -105,6 +105,7 @@ export interface Project {
   projectCategory?: ProjectType; // CLIENT_DELIVERY (7-Phase SOP) or INTERNAL_BUILD (Flat)
   departmentAlias?: string; // e.g. "seo@", "digitalproducts@", "design@", "dev@"
   templateUsed?: string; // e.g. "T2T 7-Phase SOP Delivery Template"
+  accessType?: "PUBLIC" | "PRIVATE";
   isClientVisible?: boolean;
   totalHours: string; // e.g. "05:07" or "00:00 h"
   billableHours: string; // e.g. "00:00 h"
@@ -147,6 +148,7 @@ export interface NewProjectFormData {
   group?: string;
   businessHours?: string;
   taskLayout?: string;
+  accessType?: "PUBLIC" | "PRIVATE";
   isClientVisible?: boolean;
   notifyAddedUsers?: boolean;
 }

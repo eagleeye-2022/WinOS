@@ -158,10 +158,13 @@ export function TimerWidget({
     notes: string;
   }) => {
     try {
-      // Call stopActiveTimerAction to calculate duration server-side, create ProjectTimeLog and delete ActiveTimer
+      // Call stopActiveTimerAction with user's edited modal parameters
       await stopActiveTimerAction({
         description: data.notes,
         billingType: data.isBillable ? "BILLABLE" : "NON_BILLABLE",
+        startTime: data.startTime,
+        endTime: data.endTime,
+        duration: data.duration,
       });
     } catch (err) {
       console.error("[TimerWidget] stopActiveTimerAction failed:", err);

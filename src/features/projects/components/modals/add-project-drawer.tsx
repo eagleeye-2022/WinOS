@@ -196,6 +196,7 @@ export function AddProjectDrawer({
       group: projectGroup || undefined,
       businessHours,
       taskLayout,
+      accessType: projectAccess,
       isClientVisible: projectAccess === "PUBLIC",
       notifyAddedUsers,
     };
@@ -825,14 +826,16 @@ export function AddProjectDrawer({
                 <input
                   type="radio"
                   name="projectAccess"
-                  checked={projectAccess === "PRIVATE"}
-                  onChange={() => setProjectAccess("PRIVATE")}
+                  checked={projectAccess === "PUBLIC"}
+                  onChange={() => setProjectAccess("PUBLIC")}
                   className="mt-0.5 text-primary focus:ring-primary"
                 />
                 <span>
-                  <span className="block text-xs font-semibold text-foreground">Private</span>
+                  <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
+                    🌐 Public Project
+                  </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Only project users can view and access this project.
+                    Available to all portal users. No need to assign users explicitly to this project.
                   </span>
                 </span>
               </label>
@@ -840,14 +843,16 @@ export function AddProjectDrawer({
                 <input
                   type="radio"
                   name="projectAccess"
-                  checked={projectAccess === "PUBLIC"}
-                  onChange={() => setProjectAccess("PUBLIC")}
+                  checked={projectAccess === "PRIVATE"}
+                  onChange={() => setProjectAccess("PRIVATE")}
                   className="mt-0.5 text-primary focus:ring-primary"
                 />
                 <span>
-                  <span className="block text-xs font-semibold text-foreground">Public</span>
+                  <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
+                    🔒 Private Project
+                  </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Portal users can only view, follow, and comment whereas, project users will have complete access.
+                    Restricted access. Visible only to assigned project users, owner, and creator.
                   </span>
                 </span>
               </label>
