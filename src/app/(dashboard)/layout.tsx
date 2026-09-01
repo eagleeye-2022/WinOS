@@ -142,7 +142,7 @@ export default async function DashboardLayout({
           </div>
         </RouteDarkScope>
 
-        <main className="flex-1 min-w-0 h-full overflow-y-auto">{children}</main>
+        <main className="flex-1 min-w-0 h-full overflow-hidden">{children}</main>
 
       </div>
 

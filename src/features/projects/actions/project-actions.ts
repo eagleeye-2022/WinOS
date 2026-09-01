@@ -80,21 +80,48 @@ async function requireAuth() {
  * Whether a user can see time logs belonging to other users — mirrors the same
  * TEAM_MEMBER|MANAGER (+ ADMIN profile role) check used by getCurrentUserRoleAction.
  */
-async function isPrivilegedViewer(userId: string): Promise<boolean> {
+async function isPrivilegedViewer(userId: string, projectId?: string): Promise<boolean> {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { role: true, profileRole: true },
   });
-  if (!user || !user.role) return false;
+  if (user && user.role) {
+    const roleStr = String(user.role).toUpperCase();
+    if (
+      roleStr === "ADMIN" ||
+      roleStr === "SUPER_ADMIN" ||
+      roleStr === "PROJECT_MANAGER" ||
+      roleStr === "MANAGER" ||
+      user.profileRole === "ADMIN"
+    ) {
+      return true;
+    }
+  }
 
-  const roleStr = String(user.role).toUpperCase();
-  return (
-    roleStr === "ADMIN" ||
-    roleStr === "SUPER_ADMIN" ||
-    roleStr === "PROJECT_MANAGER" ||
-    roleStr === "MANAGER" ||
-    user.profileRole === "ADMIN"
-  );
+  if (projectId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = db as any;
+    const project = await d.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { ownerId: true },
+    });
+    if (project && project.ownerId === userId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function isClientUser(userId: string): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, profileRole: true },
+  });
+  if (!user) return false;
+  const pRole = String(user.profileRole || "").toUpperCase();
+  const role = String(user.role || "").toUpperCase();
+  return pRole === "CLIENT" || role === "CLIENT";
 }
 
 /**
@@ -1968,10 +1995,24 @@ export async function inviteUserAction(
   });
 
   if (projectIds.length > 0) {
-    await db.projectMember.createMany({
-      data: projectIds.map((projectId) => ({ projectId, userId: upsertedUser.id })),
-      skipDuplicates: true,
+    const matchingProjects = await db.project.findMany({
+      where: {
+        OR: [
+          { id: { in: projectIds } },
+          { code: { in: projectIds } },
+        ],
+      },
+      select: { id: true },
     });
+
+    const realProjectIds = matchingProjects.map((p) => p.id);
+
+    if (realProjectIds.length > 0) {
+      await db.projectMember.createMany({
+        data: realProjectIds.map((projectId) => ({ projectId, userId: upsertedUser.id })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   const memberships = await db.projectMember.findMany({
@@ -2711,7 +2752,8 @@ async function recalculateTaskWorkHours(taskCodeOrId: string) {
 
 export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGroup[]> {
   const session = await requireAuth();
-  const canViewAll = await isPrivilegedViewer(session.user.id);
+  const isClient = await isClientUser(session.user.id);
+  const canViewAll = isClient || (await isPrivilegedViewer(session.user.id, projectId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -2814,6 +2856,10 @@ export async function createTimeLogAction(
   projectId?: string
 ): Promise<TimeLogEntry> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot create time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -2954,6 +3000,10 @@ export async function updateTimeLogAction(
   updates: Partial<TimeLogEntry>
 ): Promise<boolean> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot edit time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3014,6 +3064,10 @@ export async function updateTimeLogAction(
 
 export async function deleteTimeLogAction(logId: string): Promise<boolean> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot delete time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3106,7 +3160,8 @@ export interface ProjectTimeSummary {
 
 export async function getProjectTimeLogSummaryAction(projectId: string): Promise<ProjectTimeSummary> {
   const session = await requireAuth();
-  const canViewAll = await isPrivilegedViewer(session.user.id);
+  const isClient = await isClientUser(session.user.id);
+  const canViewAll = isClient || (await isPrivilegedViewer(session.user.id, projectId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3272,33 +3327,19 @@ export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeL
   });
 }
 
-export async function getCurrentUserRoleAction(): Promise<WorkspaceRole> {
+export async function getCurrentUserRoleAction(projectId?: string): Promise<WorkspaceRole> {
   const session = await auth();
   if (!session?.user?.id) {
     return "TEAM_MEMBER";
   }
 
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true, profileRole: true },
-  });
-
-  if (!user || !user.role) {
-    return "TEAM_MEMBER";
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    return "CLIENT" as any;
   }
 
-  const roleStr = String(user.role).toUpperCase();
-  if (
-    roleStr === "ADMIN" ||
-    roleStr === "SUPER_ADMIN" ||
-    roleStr === "PROJECT_MANAGER" ||
-    roleStr === "MANAGER" ||
-    user.profileRole === "ADMIN"
-  ) {
-    return "ADMIN";
-  }
-
-  return "TEAM_MEMBER";
+  const isPrivileged = await isPrivilegedViewer(session.user.id, projectId);
+  return isPrivileged ? "ADMIN" : "TEAM_MEMBER";
 }
 
 export async function getCurrentUserContextAction(): Promise<{

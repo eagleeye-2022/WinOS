@@ -24,6 +24,7 @@ import {
   Share2,
   CheckSquare,
   Clock,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -99,7 +100,10 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "My Tasks" && pathname.startsWith("/projects")) {
     return pathname === "/projects/my-tasks" || pathname === "/projects/tasks";
   }
-  if (label === "Time Tracker" && pathname.startsWith("/projects")) {
+  if (label === "Active Timers" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/active-timers";
+  }
+  if (label === "Effort Logs" && pathname.startsWith("/projects")) {
     return pathname === "/projects/time-tracker";
   }
   if (label === "Projects Dashboard") {
@@ -171,13 +175,15 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Users", href: "/projects/users", icon: Users2 },
           { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
-          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock, section: "OVERVIEW" },
+          { label: "Active Timers", href: "/projects/active-timers", icon: Clock, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/time-tracker", icon: Timer, section: "OVERVIEW" },
         ]
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
           { label: "Collaboration", href: "/projects/collaboration", icon: Share2 },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
-          { label: "Time Tracker", href: "/projects/time-tracker", icon: Clock, section: "OVERVIEW" },
+          { label: "Active Timers", href: "/projects/active-timers", icon: Clock, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/time-tracker", icon: Timer, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [

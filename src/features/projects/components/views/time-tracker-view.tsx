@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
+import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
 import {
@@ -157,17 +158,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   const [modalTargetDate, setModalTargetDate] = useState("");
   const [modalTargetProject, setModalTargetProject] = useState("");
 
-  // Date range navigator — weekOffset 0 is the week containing today
-  const [weekOffset, setWeekOffset] = useState(0);
-
-  const getMondayOfWeek = (date: Date): Date => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = (day === 0 ? -6 : 1) - day;
-    d.setDate(d.getDate() + diff);
+  // Date navigator — defaults to today; Prev/Next step one day at a time,
+  // and a date picker lets the user jump straight to any day.
+  const getToday = () => {
+    const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   };
+
+  const [selectedDate, setSelectedDate] = useState<Date>(getToday);
 
   const formatDDMMYYYY = (date: Date): string => {
     const dd = String(date.getDate()).padStart(2, "0");
@@ -175,27 +174,27 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return `${dd}/${mm}/${date.getFullYear()}`;
   };
 
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const formatYYYYMMDD = (date: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   };
 
-  const currentWeekStart = React.useMemo(() => {
-    const monday = getMondayOfWeek(new Date());
-    monday.setDate(monday.getDate() + weekOffset * 7);
-    return monday;
-  }, [weekOffset]);
+  // Both filter bounds are the same day — kept as a pair for a minimal diff
+  // against the filtering logic below.
+  const currentWeekStart = selectedDate;
+  const currentWeekEnd = selectedDate;
 
-  const currentWeekEnd = React.useMemo(() => {
-    const end = new Date(currentWeekStart);
-    end.setDate(end.getDate() + 6);
-    return end;
-  }, [currentWeekStart]);
+  const isToday = formatYYYYMMDD(selectedDate) === formatYYYYMMDD(getToday());
 
-  const dateRangeStr = `${formatDDMMYYYY(currentWeekStart)} to ${formatDDMMYYYY(currentWeekEnd)} (WEEK - ${getISOWeekNumber(currentWeekStart)})`;
+  const dateRangeStr = isToday ? `${formatDDMMYYYY(selectedDate)} (Today)` : formatDDMMYYYY(selectedDate);
+
+  const shiftSelectedDate = (deltaDays: number) => {
+    setSelectedDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + deltaDays);
+      return next;
+    });
+  };
 
   const parseDDMMYYYYToDate = (dateStr: string): Date | null => {
     const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -616,6 +615,72 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       });
   }, [filteredAllLogs]);
 
+  // Real "Group By User" / "Group By Project" data — respects the week range
+  // and the active filters, unlike rendering raw `userGroups` directly.
+  const filteredUserGroupsData = React.useMemo(() => {
+    const byUser = new Map<string, UserTimeGroup>();
+    for (const log of filteredAllLogs) {
+      const key = log.userId || log.userName;
+      if (!byUser.has(key)) {
+        byUser.set(key, {
+          userId: key,
+          userName: log.userName,
+          userInitials:
+            log.userInitials ||
+            log.userName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase(),
+          avatarColor: "bg-primary text-primary-foreground",
+          dailyLogHours: "00:00 | 00:00 | 00:00",
+          timeLogs: [],
+        });
+      }
+      byUser.get(key)!.timeLogs.push(log);
+    }
+    for (const group of byUser.values()) {
+      const billable = group.timeLogs
+        .filter((l) => l.billingType === "BILLABLE")
+        .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+      const nonBillable = group.timeLogs
+        .filter((l) => l.billingType !== "BILLABLE")
+        .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+      group.dailyLogHours = `${formatMinutes(billable + nonBillable)} | ${formatMinutes(billable)} | ${formatMinutes(nonBillable)}`;
+    }
+    return Array.from(byUser.values());
+  }, [filteredAllLogs]);
+
+  // Real "Group By Project" data — same week range / filters, grouped by project
+  const filteredProjectGroupsData = React.useMemo(() => {
+    const byProject = new Map<
+      string,
+      { projectKey: string; projectName: string; timeLogs: (TimeLogEntry & { userName: string })[] }
+    >();
+    for (const log of filteredAllLogs) {
+      const key = log.projectId || log.project;
+      if (!byProject.has(key)) {
+        byProject.set(key, { projectKey: key, projectName: log.project, timeLogs: [] });
+      }
+      byProject.get(key)!.timeLogs.push(log);
+    }
+    return Array.from(byProject.values())
+      .sort((a, b) => a.projectName.localeCompare(b.projectName))
+      .map((group) => {
+        const billable = group.timeLogs
+          .filter((l) => l.billingType === "BILLABLE")
+          .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+        const nonBillable = group.timeLogs
+          .filter((l) => l.billingType !== "BILLABLE")
+          .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
+        return {
+          ...group,
+          dailyLogHours: `${formatMinutes(billable + nonBillable)} | ${formatMinutes(billable)} | ${formatMinutes(nonBillable)}`,
+        };
+      });
+  }, [filteredAllLogs]);
+
   // Unique list options for filters
   const uniqueUsers = Array.from(new Set(rawAllLogs.map((l) => l.userName)));
   const uniqueProjects = Array.from(new Set(rawAllLogs.map((l) => l.project)));
@@ -797,6 +862,13 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       )}
       ────────────────────────────────────────────────────────────────────────────────────────── */}
 
+      {/* ── Real-Time Active Team Timers Live Monitoring Card ──────────────── */}
+      {/* {roleMode === "ADMIN" && (
+        <div className="px-6 py-3 border-b border-border bg-muted/10">
+          <ActiveTeamTimersCard projectId={projectId} />
+        </div>
+      )} */}
+
       {/* ── Secondary Control Bar (Breadcrumbs, Date Range & Actions) ──────────── */}
       <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-muted/40 text-foreground gap-3">
         {/* Left Sub-Nav Filters */}
@@ -832,32 +904,45 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div>
         </div>
 
-        {/* Center Date Range Navigator */}
+        {/* Center Date Navigator — day view, defaults to today */}
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground bg-card border border-border px-3 py-1 rounded-md shadow-2xs">
           <button
             type="button"
-            onClick={() => setWeekOffset((w) => w - 1)}
+            onClick={() => shiftSelectedDate(-1)}
             className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Previous Week"
+            title="Previous Day"
           >
             <ChevronLeft size={14} />
           </button>
-          <CalendarIcon size={13} className="text-primary" />
-          <span>{dateRangeStr}</span>
+          <label className="relative flex items-center gap-1.5 cursor-pointer">
+            <CalendarIcon size={13} className="text-primary pointer-events-none" />
+            <span>{dateRangeStr}</span>
+            <input
+              type="date"
+              value={formatYYYYMMDD(selectedDate)}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const [y, m, d] = e.target.value.split("-").map(Number);
+                setSelectedDate(new Date(y, m - 1, d));
+              }}
+              className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+              title="Pick a date"
+            />
+          </label>
           <button
             type="button"
-            onClick={() => setWeekOffset((w) => w + 1)}
+            onClick={() => shiftSelectedDate(1)}
             className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Next Week"
+            title="Next Day"
           >
             <ChevronRight size={14} />
           </button>
-          {weekOffset !== 0 && (
+          {!isToday && (
             <button
               type="button"
-              onClick={() => setWeekOffset(0)}
+              onClick={() => setSelectedDate(getToday())}
               className="ml-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-              title="Jump to current week"
+              title="Jump to today"
             >
               Today
             </button>
@@ -1302,6 +1387,222 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               })}
             </tbody>
           </table>
+        ) : groupBy === "Group By Project" ? (
+          /* Mode: Group By Project */
+          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+            <thead>
+              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                <th className="py-3 px-3 border-r border-border w-10 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
+                    onChange={(e) => handleSelectAllLogs(filteredAllLogs)}
+                  />
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                  LOG TITLE
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
+                  USER
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                  DAILY LOG HOURS
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                  TIME PERIOD
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                  BILLING TYPE
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
+                  APPROVAL STATUS
+                </th>
+                <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredProjectGroupsData.map((group) => {
+                const [totalStr, billableStr, nonBillableStr] = group.dailyLogHours.split(" | ");
+                const groupKey = `project:${group.projectKey}`;
+                return (
+                <React.Fragment key={groupKey}>
+                  <tr
+                    onClick={() => toggleDateCollapse(groupKey)}
+                    className="bg-muted/80 hover:bg-muted transition-colors font-medium cursor-pointer select-none border-b border-border"
+                  >
+                    <td className="py-3 px-3 border-r border-border text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDateCollapse(groupKey);
+                        }}
+                        className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
+                      >
+                        {collapsedDates[groupKey] ? (
+                          <ChevronRight size={14} />
+                        ) : (
+                          <ChevronDown size={14} />
+                        )}
+                      </button>
+                    </td>
+
+                    <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                          <Folder size={13} />
+                        </div>
+                        <span className="text-foreground font-bold text-xs">{group.projectName}</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-foreground font-bold" title="Total Logged Hours">Total: {totalStr}</span>
+                        <span className="text-info font-bold" title="Billable Hours">Billable: {billableStr}</span>
+                        <span className="text-warning font-bold" title="Non-Billable Hours">Non-Billable: {nonBillableStr}</span>
+                      </div>
+                    </td>
+
+                    <td colSpan={5} className="py-3 px-4" />
+                  </tr>
+
+                  {!collapsedDates[groupKey] && (
+                    <>
+                      {group.timeLogs.map((log) => (
+                        <tr
+                          key={log.id}
+                          className="hover:bg-accent/30 transition-colors border-b border-border text-foreground"
+                        >
+                          <td className="py-2.5 px-3 border-r border-border text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedLogIds.includes(log.id)}
+                              onChange={() => handleToggleSelectLog(log.id)}
+                              className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
+                            />
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                            {log.taskCode || log.code}
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
+                              <span>{log.title}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <UserIcon size={14} className="text-muted-foreground shrink-0" />
+                              <span>{log.userName}</span>
+                            </div>
+                          </td>
+
+                          {/* Daily Log Hours Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.duration}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                              mono
+                              placeholder="00:00"
+                              className="font-mono font-bold text-foreground min-w-[70px]"
+                              title="Click to edit Daily Log Hours inline"
+                            />
+                          </td>
+
+                          {/* Time Period Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.timePeriod}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
+                              mono
+                              placeholder="00:00 - 00:00"
+                              className="text-[11px] text-muted-foreground min-w-[175px]"
+                              title="Click to edit Time Period inline"
+                            />
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                            {log.date}
+                          </td>
+
+                          {/* Billing Type Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <select
+                              value={log.billingType}
+                              onChange={(e) =>
+                                handleInlineFieldChange(
+                                  log.id,
+                                  "billingType",
+                                  e.target.value as "BILLABLE" | "NON BILLABLE"
+                                )
+                              }
+                              className={`rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold cursor-pointer outline-hidden transition-all ${
+                                log.billingType === "BILLABLE" ? "text-info font-bold" : "text-warning font-bold"
+                              }`}
+                              title="Click to edit Billing Type inline"
+                            >
+                              <option value="BILLABLE" className="bg-card text-info font-bold">
+                                BILLABLE
+                              </option>
+                              <option value="NON BILLABLE" className="bg-card text-warning font-bold">
+                                NON BILLABLE
+                              </option>
+                            </select>
+                          </td>
+
+                          {/* Approval Status Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <select
+                              value={log.approvalStatus || "Pending"}
+                              onChange={(e) =>
+                                handleInlineFieldChange(
+                                  log.id,
+                                  "approvalStatus",
+                                  e.target.value as "Pending" | "Approved" | "Rejected"
+                                )
+                              }
+                              title="Click to change approval status inline"
+                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                                log.approvalStatus === "Approved"
+                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                  : log.approvalStatus === "Rejected"
+                                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              }`}
+                            >
+                              <option value="Pending" className="bg-card text-amber-600 font-bold">
+                                Pending Approval
+                              </option>
+                              <option value="Approved" className="bg-card text-emerald-600 font-bold">
+                                Approved
+                              </option>
+                              <option value="Rejected" className="bg-card text-rose-600 font-bold">
+                                Rejected
+                              </option>
+                            </select>
+                          </td>
+
+                          <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
+                            {log.remarks || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
           /* Mode: Group By User */
           <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
@@ -1338,7 +1639,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {userGroups.map((group) => {
+              {filteredUserGroupsData.map((group) => {
                 const [totalStr, billableStr, nonBillableStr] = group.dailyLogHours.split(" | ");
                 return (
                 <React.Fragment key={group.userId}>

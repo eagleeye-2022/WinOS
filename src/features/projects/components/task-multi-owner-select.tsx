@@ -186,12 +186,25 @@ export function TaskMultiOwnerSelect({
     onChangeOwners(next);
   };
 
-  const inputRef = useRef<HTMLInputElement>(null);
-
   return (
     <div className={`w-full ${className}`}>
+      {/* Label as a caption above the field — keeps the pill row full-width instead of
+          squeezing it into a side column, which wraps badly in narrow popovers. */}
+      {label && (
+        <div className="mb-1.5 flex items-center justify-between select-none">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground dark:text-neutral-400">
+            {label}
+          </span>
+          {internalSelected.length > 0 && (
+            <span className="text-[10px] font-semibold text-muted-foreground/70">
+              {internalSelected.length} assigned
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="relative w-full" ref={containerRef}>
-        {/* Trigger Box - Horizontal split layout matching user reference image */}
+        {/* Trigger Box */}
         <div
           onClick={() => {
             if (!disabled) {
@@ -199,35 +212,28 @@ export function TaskMultiOwnerSelect({
                 setInternalSelected(selectedOwners || []);
               }
               setIsOpen(true);
-              inputRef.current?.focus();
             }
           }}
           title={disabled ? disabledReason : undefined}
-          className={`min-h-[42px] w-full rounded border border-border/80 dark:border-[#2b2f38] bg-background dark:bg-[#16181d] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
+          className={`min-h-[42px] w-full rounded-lg border border-border/80 dark:border-[#2b2f38] bg-card dark:bg-[#131419] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
             disabled ? "cursor-not-allowed opacity-60" : "hover:border-border/90 cursor-pointer"
           }`}
         >
-          {/* Left Label Section (Owner label) */}
-          {label && (
-            <div className="flex items-center justify-between min-w-[120px] md:min-w-[140px] px-3.5 py-2 bg-muted/60 dark:bg-[#191c22] border-r border-border/70 dark:border-[#2b2f38] shrink-0 select-none">
-              <span className="text-xs font-semibold text-foreground/80 dark:text-neutral-300">
-                {label}
-              </span>
-            </div>
-          )}
-
-          {/* Right Input & Pills Section matching reference image */}
-          <div className="flex flex-wrap items-center gap-1.5 flex-1 px-3 py-1.5 bg-card dark:bg-[#131419] min-w-0">
+          {/* Selected member pills */}
+          <div className="flex flex-wrap items-center gap-1.5 flex-1 px-3 py-1.5 min-w-0">
+            {internalSelected.length === 0 && (
+              <span className="text-xs text-muted-foreground/70 py-1">Select members...</span>
+            )}
             {internalSelected.map((key) => {
               const matched = findUserByKey(key);
               const displayName = matched ? matched.name : key;
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1.5 rounded border border-sky-500/30 dark:border-[#27384d] bg-sky-50 dark:bg-[#182333] px-2 py-0.5 text-xs font-medium text-sky-900 dark:text-neutral-200 transition-colors group select-none shadow-2xs"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 dark:border-[#27384d] bg-sky-50 dark:bg-[#182333] pl-0.5 pr-2 py-0.5 text-xs font-medium text-sky-900 dark:text-neutral-200 transition-colors group select-none shadow-2xs"
                 >
                   <span
-                    className={`h-4.5 w-4.5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
+                    className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
                       displayName
                     )}`}
                   >
@@ -241,7 +247,7 @@ export function TaskMultiOwnerSelect({
                         e.stopPropagation();
                         handleRemoveOwner(key);
                       }}
-                      className="text-muted-foreground/70 hover:text-destructive text-[12px] leading-none font-bold transition-colors ml-0.5 p-0.5 rounded cursor-pointer"
+                      className="text-muted-foreground/70 hover:text-destructive text-[12px] leading-none font-bold transition-colors ml-0.5 p-0.5 rounded-full cursor-pointer"
                       title={`Remove ${displayName}`}
                     >
                       ×
@@ -250,46 +256,42 @@ export function TaskMultiOwnerSelect({
                 </span>
               );
             })}
-
-            {!disabled && (
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (!isOpen) setIsOpen(true);
-                }}
-                onFocus={() => {
-                  if (!isOpen) setIsOpen(true);
-                }}
-                placeholder={internalSelected.length === 0 ? "Select Owners..." : ""}
-                className="bg-transparent text-xs text-foreground dark:text-neutral-200 outline-none min-w-[90px] flex-1 py-1"
-              />
-            )}
-
-            <ChevronDown
-              size={14}
-              className={`text-muted-foreground/70 shrink-0 ml-auto transition-transform duration-150 ${
-                isOpen ? "rotate-180 text-primary" : ""
-              }`}
-            />
           </div>
+
+          {!disabled && (
+            <button
+              type="button"
+              tabIndex={-1}
+              className="flex items-center justify-center px-2.5 shrink-0 text-muted-foreground/70 hover:text-foreground border-l border-border/60 dark:border-[#2b2f38] transition-colors"
+              title="Add members"
+            >
+              <ChevronDown
+                size={14}
+                className={`transition-transform duration-150 ${isOpen ? "rotate-180 text-primary" : ""}`}
+              />
+            </button>
+          )}
         </div>
 
-        {/* Searchable Dropdown Menu Popover matching user reference screenshot */}
+        {/* Searchable Dropdown Menu Popover */}
         {isOpen && (
           <div
             onClick={(e) => e.stopPropagation()}
             className={`absolute left-0 right-0 ${
-              label ? "md:left-[140px]" : ""
-            } ${
               dropUp ? "bottom-full mb-1" : "top-full mt-1"
             } z-[100] rounded-lg border border-border dark:border-[#2f333e] bg-popover dark:bg-[#1e2026] text-popover-foreground shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150`}
           >
-            {/* Header: Project Users */}
-            <div className="px-3.5 py-2 text-[11px] font-bold text-muted-foreground dark:text-neutral-400 border-b border-border/60 dark:border-[#2a2d37] select-none">
-              Project Users
+            {/* Search field */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 dark:border-[#2a2d37]">
+              <Search size={13} className="text-muted-foreground/70 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search members..."
+                autoFocus
+                className="bg-transparent text-xs text-foreground dark:text-neutral-200 outline-none flex-1 min-w-0"
+              />
             </div>
 
             {/* Member Options List */}

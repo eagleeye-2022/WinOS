@@ -134,7 +134,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-background overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b px-6 py-3 bg-card gap-3">
         <div className="flex items-center gap-3">
@@ -163,11 +163,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <button
             type="button"
             onClick={() => setActiveTab("TASKS")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
-              activeTab === "TASKS"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "TASKS"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            }`}
+              }`}
           >
             <ListTodo size={14} />
             <span>Tasks</span>
@@ -176,11 +175,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <button
             type="button"
             onClick={() => setActiveTab("USERS")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
-              activeTab === "USERS"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "USERS"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            }`}
+              }`}
           >
             <Users size={14} />
             <span>Project Users</span>
@@ -189,11 +187,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <button
             type="button"
             onClick={() => setActiveTab("DOCUMENTS")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
-              activeTab === "DOCUMENTS"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "DOCUMENTS"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            }`}
+              }`}
           >
             <Paperclip size={14} />
             <span>Documents</span>
@@ -202,11 +199,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <button
             type="button"
             onClick={() => setActiveTab("TIME_LOGS")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
-              activeTab === "TIME_LOGS"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "TIME_LOGS"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            }`}
+              }`}
           >
             <Clock size={14} />
             <span>Time Logs</span>
@@ -215,11 +211,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           <button
             type="button"
             onClick={() => setActiveTab("TIMELINE")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${
-              activeTab === "TIMELINE"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "TIMELINE"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-            }`}
+              }`}
           >
             <History size={14} />
             <span>Status Timeline</span>

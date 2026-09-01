@@ -91,6 +91,7 @@ model User {
   projectMemberships    ProjectMember[]
   projectTimeLogs       ProjectTimeLog[]
   activeTimer           ActiveTimer?
+  sentClientInvitations ClientInvitation[]     @relation("ClientInvitationsSent")
 }
 
 model Account {
@@ -796,6 +797,11 @@ enum NotificationType {
   DSM_REMINDER
   CALENDAR_INVITE
   PROJECT_ASSIGNED
+  CLIENT_INVITATION_SENT
+  CLIENT_INVITATION_ACCEPTED
+  CLIENT_INVITATION_REVOKED
+  CLIENT_ADDED_TO_PROJECT
+  CLIENT_REMOVED_FROM_PROJECT
 }
 
 enum DsrStatus {
@@ -864,8 +870,9 @@ model Project {
   taskLists        ProjectTaskList[]
   tasks            ProjectTask[]
   timeLogs         ProjectTimeLog[]
-  members          ProjectMember[]
-  activeTimers     ActiveTimer[]
+  members                  ProjectMember[]
+  activeTimers             ActiveTimer[]
+  clientInvitationProjects ClientInvitationProject[]
 }
 
 model ProjectMember {
@@ -1090,3 +1097,47 @@ model ActiveTimer {
   @@index([projectId])
   @@index([taskId])
 }
+
+enum ClientInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model ClientInvitation {
+  id             String                 @id @default(cuid())
+  email          String
+  clientName     String?
+  invitedById    String
+  tokenHash      String                 @unique
+  status         ClientInvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  invitedBy      User                    @relation("ClientInvitationsSent", fields: [invitedById], references: [id], onDelete: Cascade)
+  projects       ClientInvitationProject[]
+
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([invitedById])
+}
+
+model ClientInvitationProject {
+  id            String           @id @default(cuid())
+  invitationId  String
+  projectId     String
+  projectRole   String?          @default("Client")
+  createdAt     DateTime         @default(now())
+
+  invitation    ClientInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([invitationId, projectId])
+  @@index([projectId])
+}
+

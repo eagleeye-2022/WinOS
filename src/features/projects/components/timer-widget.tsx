@@ -48,9 +48,14 @@ export function TimerWidget({
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isStoppingRef = useRef<boolean>(false);
 
   // Sync state with DB ActiveTimer
   const syncWithDbActiveTimer = useCallback(async () => {
+    // Skip syncing while a stop is in progress (modal open / save in flight) —
+    // otherwise a poll landing mid-stop can resurrect the timer as RUNNING
+    // even though it's about to be (or already) deleted server-side.
+    if (isStoppingRef.current) return;
     try {
       const res = await getActiveTimerAction();
       if (res.success && res.data) {
@@ -141,6 +146,7 @@ export function TimerWidget({
   const handleStop = () => {
     const elapsed = seconds;
     const formatted = formatTime(elapsed);
+    isStoppingRef.current = true;
     setTimerState("IDLE");
     setStoppedSeconds(elapsed > 0 ? elapsed : 60);
     setIsStoppedModalOpen(true);
@@ -168,6 +174,13 @@ export function TimerWidget({
       });
     } catch (err) {
       console.error("[TimerWidget] stopActiveTimerAction failed:", err);
+    } finally {
+      // Defensive reset: guarantees the widget reflects "stopped" even if a
+      // background poll flipped local state back to RUNNING while the modal
+      // was open (see isStoppingRef guard in syncWithDbActiveTimer).
+      isStoppingRef.current = false;
+      setTimerState("IDLE");
+      setSeconds(0);
     }
 
     if (onSaveLog) {
@@ -272,7 +285,10 @@ export function TimerWidget({
 
       <TimerStoppedModal
         isOpen={isStoppedModalOpen}
-        onClose={() => setIsStoppedModalOpen(false)}
+        onClose={() => {
+          isStoppingRef.current = false;
+          setIsStoppedModalOpen(false);
+        }}
         initialStartTime={startTimeRef}
         elapsedSeconds={stoppedSeconds}
         taskTitle={taskTitle}

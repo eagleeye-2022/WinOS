@@ -235,9 +235,9 @@ export function AddProjectDrawer({
               <label className="text-xs font-bold text-foreground uppercase tracking-wider">
                 Select Project Template
               </label>
-              <span className="text-[10px] font-semibold text-primary">
+              {/* <span className="text-[10px] font-semibold text-primary">
                 Instant 17-Task-List Scaffolding
-              </span>
+              </span> */}
             </div>
 
             <select
@@ -247,13 +247,14 @@ export function AddProjectDrawer({
             >
               {DEFAULT_PROJECT_TEMPLATES.map((tmpl) => (
                 <option key={tmpl.id} value={tmpl.id}>
-                  {tmpl.name} ({tmpl.category})
+                  {tmpl.name}
+                  {/* ({tmpl.category}) */}
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-muted-foreground pt-0.5">
+            {/* <p className="text-[11px] text-muted-foreground pt-0.5">
               {selectedTemplate.description}
-            </p>
+            </p> */}
           </div>
 
           {/* Department Alias Assignment */}
@@ -832,11 +833,11 @@ export function AddProjectDrawer({
                 />
                 <span>
                   <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
-                    🌐 Public Project
+                    Public Project
                   </span>
-                  <span className="block text-[11px] text-muted-foreground">
+                  {/* <span className="block text-[11px] text-muted-foreground">
                     Available to all portal users. No need to assign users explicitly to this project.
-                  </span>
+                  </span> */}
                 </span>
               </label>
               <label className="flex items-start gap-2.5 cursor-pointer">
@@ -849,11 +850,11 @@ export function AddProjectDrawer({
                 />
                 <span>
                   <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
-                    🔒 Private Project
+                    Private Project
                   </span>
-                  <span className="block text-[11px] text-muted-foreground">
+                  {/* <span className="block text-[11px] text-muted-foreground">
                     Restricted access. Visible only to assigned project users, owner, and creator.
-                  </span>
+                  </span> */}
                 </span>
               </label>
             </div>

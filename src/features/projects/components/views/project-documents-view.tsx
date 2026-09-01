@@ -152,13 +152,13 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
             <Paperclip size={18} className="text-primary" />
             Project Attachments & Documents
           </h2>
-          <p className="text-muted-foreground text-xs mt-0.5">
+          {/* <p className="text-muted-foreground text-xs mt-0.5">
             Upload files directly to <code className="bg-muted px-1 py-0.5 rounded font-mono text-[11px]">/api/upload</code> for project {projectName || projectId}.
-          </p>
+          </p> */}
         </div>
 
         {/* Search */}
-        <div className="relative w-64">
+        {/* <div className="relative w-64">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -167,7 +167,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
             placeholder="Search documents..."
             className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary font-medium"
           />
-        </div>
+        </div> */}
       </div>
 
       {/* Drag & Drop Upload Zone */}

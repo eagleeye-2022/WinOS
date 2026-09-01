@@ -148,3 +148,91 @@ export async function sendCalendarInviteEmail(params: CalendarInviteEmailParams)
   await transport.sendMail({ from: FROM, to, subject, text, html });
 }
 
+export type ClientInvitationEmailParams = {
+  to: string;
+  clientName: string;
+  inviterName: string;
+  projectNames: string[];
+  acceptUrl: string;
+  expiresAt: Date;
+};
+
+/**
+ * Send a secure client invitation email containing an invitation link.
+ */
+export async function sendClientInvitationEmail(params: ClientInvitationEmailParams): Promise<void> {
+  const { to, clientName, inviterName, projectNames, acceptUrl, expiresAt } = params;
+  const transport = buildTransport();
+
+  const formattedExpiry = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(expiresAt);
+
+  const subject = `You're invited to collaborate on WinOS Projects`;
+
+  const projectListText = projectNames.map((p) => `• ${p}`).join("\n");
+  const text = [
+    `Hi ${clientName || "there"},`,
+    ``,
+    `${inviterName} has invited you to collaborate on the following project(s):`,
+    projectListText,
+    ``,
+    `Accept your invitation here: ${acceptUrl}`,
+    ``,
+    `This invitation expires on ${formattedExpiry}.`,
+  ].join("\n");
+
+  const projectListHtml = projectNames
+    .map(
+      (p) =>
+        `<li style="margin-bottom: 6px; font-weight: 600; color: #18181b;">${p}</li>`
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; border: 1px solid #e4e4e7; border-radius: 12px; overflow: hidden; background: #ffffff;">
+      <div style="background: #09090b; color: #ffffff; padding: 24px 28px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700; tracking: -0.02em;">WinOS Client Portal</h2>
+        <p style="margin: 6px 0 0 0; font-size: 13px; color: #a1a1aa;">Project Collaboration Invitation</p>
+      </div>
+      <div style="padding: 28px; color: #27272a; font-size: 14px; line-height: 1.6;">
+        <p style="margin-top: 0; font-size: 15px;">Hello <strong>${clientName || "Client"}</strong>,</p>
+        <p><strong>${inviterName}</strong> has invited you to join the client portal and collaborate on the following project(s):</p>
+        <div style="background: #f4f4f5; border-left: 4px solid #2563eb; padding: 16px 20px; border-radius: 8px; margin: 20px 0;">
+          <ul style="margin: 0; padding-left: 18px;">
+            ${projectListHtml}
+          </ul>
+        </div>
+        <div style="margin: 28px 0; text-align: center;">
+          <a href="${acceptUrl}" style="display: inline-block; background: #2563eb; color: #ffffff; font-weight: 600; font-size: 14px; padding: 12px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">Accept Invitation</a>
+        </div>
+        <p style="font-size: 12px; color: #71717a; margin-bottom: 0;">
+          This invitation is secure and expires on <strong>${formattedExpiry}</strong>. If you did not expect this email, you can safely ignore it.
+        </p>
+      </div>
+      <div style="background: #fafafa; border-top: 1px solid #f4f4f5; padding: 14px 28px; text-align: center; font-size: 12px; color: #a1a1aa;">
+        Sent via WinOS Projects Client Management System
+      </div>
+    </div>
+  `;
+
+  if (!transport) {
+    if (IS_PROD) {
+      console.error("SMTP not configured for client invitation email");
+      return;
+    }
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`[CLIENT INVITATION EMAIL] To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(`URL: ${acceptUrl}`);
+    console.log(text);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    return;
+  }
+
+  await transport.sendMail({ from: FROM, to, subject, text, html });
+}
+
+

@@ -61,7 +61,7 @@ export function ProjectUsersView({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("GRID");
+  const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDrawerUserId, setSelectedDrawerUserId] = useState<string | null>(null);
@@ -218,8 +218,8 @@ export function ProjectUsersView({
   const avgHourlyRate =
     members.length > 0
       ? (
-          members.reduce((acc, m) => acc + (m.hourlyRate || 0), 0) / members.length
-        ).toFixed(1)
+        members.reduce((acc, m) => acc + (m.hourlyRate || 0), 0) / members.length
+      ).toFixed(1)
       : "0";
 
   const getAvatarColor = (name: string) => {
@@ -251,7 +251,7 @@ export function ProjectUsersView({
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-6 space-y-6">
       {/* KPI Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -307,7 +307,7 @@ export function ProjectUsersView({
             <Clock size={18} />
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Top Controls Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b">
@@ -318,14 +318,14 @@ export function ProjectUsersView({
               {filteredMembers.length} Showing
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          {/* <p className="text-xs text-muted-foreground mt-1">
             Manage users, project roles, hourly rates, and task allocations for {projectName ? `"${projectName}"` : "this project"}.
-          </p>
+          </p> */}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search input */}
-          <div className="relative w-56">
+          {/* <div className="relative w-56">
             <Search
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -337,10 +337,10 @@ export function ProjectUsersView({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-lg border border-input bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-          </div>
+          </div> */}
 
           {/* Role Filter Dropdown */}
-          <div className="relative">
+          {/* <div className="relative">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -353,18 +353,17 @@ export function ProjectUsersView({
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           {/* View Toggle */}
-          <div className="flex items-center border rounded-lg overflow-hidden p-0.5 bg-muted/30">
+          {/* <div className="flex items-center border rounded-lg overflow-hidden p-0.5 bg-muted/30">
             <button
               type="button"
               onClick={() => setViewMode("GRID")}
-              className={`p-1.5 rounded transition-colors ${
-                viewMode === "GRID"
-                  ? "bg-background text-foreground shadow-2xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`p-1.5 rounded transition-colors ${viewMode === "GRID"
+                ? "bg-background text-foreground shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
               title="Grid View"
             >
               <LayoutGrid size={15} />
@@ -372,16 +371,15 @@ export function ProjectUsersView({
             <button
               type="button"
               onClick={() => setViewMode("TABLE")}
-              className={`p-1.5 rounded transition-colors ${
-                viewMode === "TABLE"
-                  ? "bg-background text-foreground shadow-2xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`p-1.5 rounded transition-colors ${viewMode === "TABLE"
+                ? "bg-background text-foreground shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
               title="Table View"
             >
               <Table size={15} />
             </button>
-          </div>
+          </div> */}
 
           {/* Export CSV */}
           <button
@@ -608,12 +606,12 @@ export function ProjectUsersView({
                 <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4 border-r">User Name</th>
                   <th className="py-3 px-4 border-r">Email ID</th>
-                  <th className="py-3 px-4 border-r">Project Role</th>
-                  <th className="py-3 px-4 border-r">System Role</th>
+                  {/* <th className="py-3 px-4 border-r">Project Role</th> */}
+                  <th className="py-3 px-4 border-r">Role</th>
                   <th className="py-3 px-4 border-r text-center">Open Tasks</th>
                   <th className="py-3 px-4 border-r text-center">Logged Hours</th>
-                  <th className="py-3 px-4 border-r text-right">Hourly Rate</th>
-                  <th className="py-3 px-4 text-center">Actions</th>
+                  {/* <th className="py-3 px-4 border-r text-right">Hourly Rate</th> */}
+                  {/* <th className="py-3 px-4 text-center">Actions</th> */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -660,11 +658,11 @@ export function ProjectUsersView({
                     </td>
 
                     {/* Project Role */}
-                    <td className="py-3 px-4 border-r whitespace-nowrap font-medium text-foreground">
+                    {/* <td className="py-3 px-4 border-r whitespace-nowrap font-medium text-foreground">
                       <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs text-primary font-semibold">
                         {member.projectRole || "Team Member"}
                       </span>
-                    </td>
+                    </td> */}
 
                     {/* System Role */}
                     <td className="py-3 px-4 border-r whitespace-nowrap text-muted-foreground font-mono text-[11px]">
@@ -682,12 +680,12 @@ export function ProjectUsersView({
                     </td>
 
                     {/* Hourly Rate */}
-                    <td className="py-3 px-4 border-r text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                    {/* <td className="py-3 px-4 border-r text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                       ${member.hourlyRate || 0}/hr
-                    </td>
+                    </td> */}
 
                     {/* Actions */}
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
+                    {/* <td className="py-3 px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
@@ -716,7 +714,7 @@ export function ProjectUsersView({
                           </button>
                         )}
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 ))}
               </tbody>

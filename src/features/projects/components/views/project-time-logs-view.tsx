@@ -30,6 +30,7 @@ import {
 } from "../../actions/project-actions";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
+import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import { parseDurationMinutes } from "../../utils/time-helpers";
 
 interface ProjectTimeLogsViewProps {
@@ -53,11 +54,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
 
+  const isClient = userRole === "CLIENT";
   const isManagerOrAdmin =
     userRole === "ADMIN" ||
     userRole === "SUPER_ADMIN" ||
     userRole === "PROJECT_MANAGER" ||
     userRole === "MANAGER";
+
+  const canViewAll = isManagerOrAdmin || isClient;
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -65,7 +69,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       const [groups, summaryData, role] = await Promise.all([
         getTimeLogsAction(projectId),
         getProjectTimeLogSummaryAction(projectId),
-        getCurrentUserRoleAction(),
+        getCurrentUserRoleAction(projectId),
       ]);
       setTimeGroups(groups);
       setSummary(summaryData);
@@ -203,25 +207,32 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             <Clock size={20} className="text-primary" />
             Project Time Logs
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          {/* <p className="text-xs text-muted-foreground mt-0.5">
             {isManagerOrAdmin
               ? "Viewing all time logs for this project (Manager / Admin view)"
               : "Viewing your logged time for this project (Team Member view)"}
-          </p>
+          </p> */}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors cursor-pointer self-start md:self-auto"
-        >
-          <Plus size={15} />
-          Add Time Log
-        </button>
+        {!isClient ? (
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors cursor-pointer self-start md:self-auto"
+          >
+            <Plus size={15} />
+            Add Time Log
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+            <Lock size={13} />
+            Client Read-Only Mode
+          </span>
+        )}
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">Total Project Hours</span>
@@ -262,12 +273,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           </p>
           <p className="text-[11px] text-muted-foreground mt-1">Internal / overhead time</p>
         </div>
-      </div>
+      </div> */}
+
+      {/* Real-Time Active Team Timers Live Monitoring */}
+      {/* <ActiveTeamTimersCard projectId={projectId} /> */}
 
       {/* User & Task Hour Breakdown Cards (Managers / Admins or Project Summary) */}
-      {summary && (summary.userBreakdown.length > 0 || summary.taskBreakdown.length > 0) && (
+      {/* {summary && (summary.userBreakdown.length > 0 || summary.taskBreakdown.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* User Hours Breakdown */}
           {summary.userBreakdown.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -295,7 +308,6 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             </div>
           )}
 
-          {/* Task Hours Breakdown */}
           {summary.taskBreakdown.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -321,7 +333,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Filter Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3.5">
@@ -387,7 +399,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       </div>
 
       {/* Time Logs View (Manager User Accordion View vs Flat Table for Team Members) */}
-      {isManagerOrAdmin ? (
+      {canViewAll ? (
         <div className="space-y-3">
           {userGroupMap.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground italic">
@@ -487,14 +499,18 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1">
-                                  <button type="button" onClick={() => setEditingLog(log)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Edit Log">
-                                    <Edit2 size={13} />
-                                  </button>
-                                  <button type="button" onClick={() => handleDeleteLog(log.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer" title="Delete Log">
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
+                                {!isClient ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button type="button" onClick={() => setEditingLog(log)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Edit Log">
+                                      <Edit2 size={13} />
+                                    </button>
+                                    <button type="button" onClick={() => handleDeleteLog(log.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer" title="Delete Log">
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] font-mono text-muted-foreground italic">Read Only</span>
+                                )}
                               </td>
                             </tr>
                           ))}

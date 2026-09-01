@@ -814,13 +814,13 @@ export function TasksBoardView({
 
           {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
-            <div className="flex-1 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
-              <div className="flex gap-5 h-full items-start">
+            <div className="flex-1 min-h-0 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
+              <div className="flex gap-5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   return (
                     <div
                       key={col.code}
-                      className="w-80 shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col max-h-full shadow-2xs"
+                      className="w-80 shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs"
                     >
                       {/* Column Header matching reference screenshot */}
                       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
@@ -852,7 +852,7 @@ export function TasksBoardView({
                       </div>
 
                       {/* Task Cards Column Body matching reference screenshot */}
-                      <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-[240px]">
+                      <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
                         {col.tasks.length === 0 ? (
                           <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-300/70 dark:border-neutral-800 rounded-xl text-center text-muted-foreground/60 space-y-2 h-36">
                             <span className="text-[11px] font-medium">No tasks in this phase</span>
@@ -942,8 +942,8 @@ export function TasksBoardView({
                                         <Clock size={13} className={isTimerRunning ? "text-red-500 fill-red-500/20" : ""} />
                                       )}
                                     </button>
-                                    <span title="Subtasks / Checklist"><CheckSquare size={13} /></span>
-                                    {task.description && <span title="Has Description"><FileText size={13} /></span>}
+                                     {/* <span title="Subtasks / Checklist"><CheckSquare size={13} /></span> */}
+                                     {/* {task.description && <span title="Has Description"><FileText size={13} /></span>} */}
                                   </div>
 
                                   <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1141,7 +1141,7 @@ export function TasksBoardView({
           )}
 
           {/* ── Bottom Sprint Footer Bar matching reference image ────────────────── */}
-          <div className="flex items-center justify-between border-t border-border px-6 py-2.5 bg-card text-xs text-muted-foreground font-semibold shrink-0">
+          <div className="shrink-0 flex items-center justify-between border-t border-border px-6 py-2.5 bg-card text-xs text-muted-foreground font-semibold shadow-2xs">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 px-3.5 py-1 text-sky-600 dark:text-sky-400 font-bold">
               <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
               <span>ACTIVE SPRINT: {realCompletionPercent}% COMPLETE</span>

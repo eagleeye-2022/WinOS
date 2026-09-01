@@ -237,10 +237,16 @@ const USER_SEED_MODULES: SeedModule[] = [
 ];
 
 const CLIENT_SEED_MODULES: SeedModule[] = [
-  genericModule("CLIENT", "PROJECTS", "Projects"),
-  genericModule("CLIENT", "INVOICES", "Invoices"),
+  genericModule("CLIENT", "PROJECT_OVERVIEW", "Project Overview"),
+  genericModule("CLIENT", "TASKS", "Tasks"),
+  genericModule("CLIENT", "TASK_DETAILS", "Task Details"),
+  genericModule("CLIENT", "TASK_COMMENTS", "Task Comments"),
   genericModule("CLIENT", "DOCUMENTS", "Documents"),
-  genericModule("CLIENT", "SUPPORT_REQUESTS", "Support Requests"),
+  genericModule("CLIENT", "DISCUSSIONS", "Discussions"),
+  genericModule("CLIENT", "PROJECT_CHAT", "Project Chat"),
+  genericModule("CLIENT", "MILESTONES", "Milestones & Phases"),
+  genericModule("CLIENT", "TIME_LOGS", "Time Logs"),
+  genericModule("CLIENT", "REPORTS", "Reports"),
 ];
 
 const SYSTEM_SEED_MODULES: SeedModule[] = [
