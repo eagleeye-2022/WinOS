@@ -44,7 +44,11 @@ export default function MyTasksPage() {
     }
   };
 
-  const unassignedCount = tasks.filter((t) => !t.owner || t.owner === "Unassigned").length;
+  // TasksBoardView only ever renders top-level tasks (it filters out subtasks via
+  // `parentTaskId`), so the header count and nudge banner must count the same subset —
+  // otherwise this number disagrees with what's actually visible on the board.
+  const topLevelTasks = tasks.filter((t) => !t.parentTaskId);
+  const unassignedCount = topLevelTasks.filter((t) => !t.owner || t.owner === "Unassigned").length;
 
   if (isLoading) {
     return (
@@ -70,7 +74,7 @@ export default function MyTasksPage() {
 
         <div className="flex items-center gap-3 text-xs">
           <span className="rounded-full bg-primary/10 px-3 py-1 font-semibold text-primary">
-            {tasks.length} Assigned Task{tasks.length === 1 ? "" : "s"}
+            {topLevelTasks.length} Assigned Task{topLevelTasks.length === 1 ? "" : "s"}
           </span>
         </div>
       </div>
@@ -94,7 +98,7 @@ export default function MyTasksPage() {
           tasks={tasks}
           onAddTask={handleAddTask}
           onUpdateTask={handleUpdateTask}
-          assignedToMeCount={tasks.length}
+          assignedToMeCount={topLevelTasks.length}
           disableDemoFallback
         />
       </div>

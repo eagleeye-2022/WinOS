@@ -333,10 +333,10 @@ export function SingleTaskWorkspaceView({
 
   // Shared save path for the owner-editable Task Information fields (start date, due date,
   // priority) — same permission check and rollback-on-denial behavior as status/description.
-  const handleUpdateTaskField = async (updates: Partial<TaskItem>) => {
+  const handleUpdateTaskField = async (updates: Partial<TaskItem>): Promise<boolean> => {
     if (!canEditTask) {
       alert("Only the task owner can edit this task.");
-      return;
+      return false;
     }
     const updatedTask = { ...activeTask, ...updates };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
@@ -345,9 +345,14 @@ export function SingleTaskWorkspaceView({
       if (!result.success) {
         setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
         alert(result.error || "You do not have permission to edit this task.");
+        return false;
       }
+      return true;
     } catch (err) {
       console.error("Failed to update task in DB:", err);
+      setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
+      alert("Failed to save changes — please try again.");
+      return false;
     }
   };
 
@@ -1044,8 +1049,9 @@ export function SingleTaskWorkspaceView({
                     }
                     onChangeOwners={(newOwners) => {
                       const primaryOwner = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
-                      handleUpdateTaskField({ owners: newOwners, owner: primaryOwner });
-                      showToast("Task assigned members updated");
+                      handleUpdateTaskField({ owners: newOwners, owner: primaryOwner }).then((ok) => {
+                        if (ok) showToast("Task assigned members updated");
+                      });
                     }}
                     ownersList={ownersOptions}
                   />

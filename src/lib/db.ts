@@ -62,7 +62,7 @@ function createClient() {
 
 export const db =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  globalForPrisma.prisma && (globalForPrisma.prisma as any).calendarEvent
+  globalForPrisma.prisma && (globalForPrisma.prisma as any).clientInvitation
     ? globalForPrisma.prisma
     : createClient();
 

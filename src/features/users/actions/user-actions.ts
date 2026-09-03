@@ -156,7 +156,7 @@ function safeToIsoDate(d: Date | null | undefined): string {
 
 function assertRequiredFields(input: MemberFormInput) {
   const missing: string[] = [];
-  if (!input.employeeId?.trim()) missing.push("Employee ID");
+  if (!input.employeeId?.trim()) missing.push("Member ID");
   if (!input.designation?.trim()) missing.push("Designation");
   if (!input.department?.trim()) missing.push("Department");
   // reportingToId isn't required at the DB level: a top-of-hierarchy user

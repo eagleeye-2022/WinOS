@@ -76,9 +76,9 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
             <History size={18} className="text-primary" />
             Project Audit & Status Timeline
           </h2>
-          <p className="text-muted-foreground text-xs mt-0.5">
+          {/* <p className="text-muted-foreground text-xs mt-0.5">
             Real-time audit log tracking when {projectName || projectId} was created, who created it, status updates, phase completions, and task activity.
-          </p>
+          </p> */}
         </div>
 
         {/* Event Type Filter */}

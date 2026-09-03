@@ -41,6 +41,7 @@ async function getAuthenticatedUser() {
       id: true,
       email: true,
       role: true,
+      profileRole: true,
       name: true,
     },
   });
@@ -54,6 +55,22 @@ async function getAuthenticatedUser() {
   }
 
   return { session, sessionUser, error: null };
+}
+
+/**
+ * Whether a user can see other team members' active timers — mirrors the same
+ * TEAM_MEMBER|MANAGER (+ ADMIN profile role) check used in project-actions.ts.
+ */
+function isPrivilegedViewer(user: { role?: string | null; profileRole?: string | null } | null): boolean {
+  if (!user) return false;
+  const roleStr = String(user.role || "").toUpperCase();
+  return (
+    roleStr === "ADMIN" ||
+    roleStr === "SUPER_ADMIN" ||
+    roleStr === "PROJECT_MANAGER" ||
+    roleStr === "MANAGER" ||
+    user.profileRole === "ADMIN"
+  );
 }
 
 function formatTimeSeconds(totalSecs: number): string {
@@ -357,3 +374,78 @@ export async function getActiveTimerAction() {
     return { success: false, error: err?.message || "Failed to fetch active timer", data: null };
   }
 }
+
+/**
+ * Gets all running active timers across team members in the workspace or for a specific project.
+ * Useful for Manager / Admin real-time monitoring.
+ */
+export async function getAllActiveTimersAction(projectId?: string) {
+  const { sessionUser, error } = await getAuthenticatedUser();
+  if (error || !sessionUser) {
+    return { success: false, error: error || "Unauthorized", data: [] };
+  }
+
+  const d = db as any;
+
+  try {
+    const whereClause: any = {};
+    if (projectId) {
+      const project = await d.project.findFirst({
+        where: { OR: [{ id: projectId }, { code: projectId }] },
+        select: { id: true },
+      });
+      if (project) {
+        whereClause.projectId = project.id;
+      } else {
+        whereClause.projectId = projectId;
+      }
+    }
+
+    // Team members only ever see their own active timer here; only
+    // managers/admins get visibility into everyone else's.
+    if (!isPrivilegedViewer(sessionUser)) {
+      whereClause.userId = sessionUser.id;
+    }
+
+    const activeTimers = await d.activeTimer.findMany({
+      where: whereClause,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            role: true,
+            profileRole: true,
+            title: true,
+          },
+        },
+        project: { select: { id: true, code: true, name: true } },
+        phase: { select: { id: true, code: true, name: true } },
+        task: { select: { id: true, code: true, title: true } },
+      },
+      orderBy: { startedAt: "desc" },
+    });
+
+    const nowMs = Date.now();
+    const data = activeTimers.map((timer: any) => {
+      const startedAt = new Date(timer.startedAt);
+      const elapsedSeconds = Math.max(0, Math.floor((nowMs - startedAt.getTime()) / 1000));
+      return {
+        ...timer,
+        elapsedSeconds,
+        formattedTime: formatTimeSeconds(elapsedSeconds),
+      };
+    });
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (err: any) {
+    console.error("[getAllActiveTimersAction] error:", err);
+    return { success: false, error: err?.message || "Failed to fetch team active timers", data: [] };
+  }
+}
+

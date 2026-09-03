@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { verifyAndConsumeOtp } from "@/lib/otp";
 import type { UserRole } from "@/types";
@@ -26,15 +27,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         otp: { label: "One-time code", type: "text" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         const email = (credentials?.email as string | undefined)?.toLowerCase().trim();
         const otp = (credentials?.otp as string | undefined)?.trim();
+        const password = (credentials?.password as string | undefined);
 
-        if (!email || !otp) return null;
-
-        // Domain restriction — server-side, not bypassable from the client.
-        if (!email.endsWith(`@${COMPANY_DOMAIN}`)) return null;
+        if (!email) return null;
 
         try {
           // Look up existing user or auto-provision on first login.
@@ -45,8 +45,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
+          // ── Scenario 1: Password Login (primarily for CLIENT users) ─────────────
+          if (password && user?.password) {
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) return null;
+            return {
+              id: user.id as string,
+              email: user.email as string,
+              name: user.name as string | null,
+              role: user.role as UserRole,
+              profileRole: user.profileRole as string | null,
+            };
+          }
+
+          // ── Scenario 2: OTP Login (primarily for internal employees) ───────────
+          if (!otp) return null;
+
+          // Domain restriction — allow CLIENT role users or @eagleeyedigital.io emails.
+          if (!email.endsWith(`@${COMPANY_DOMAIN}`) && user?.profileRole !== "CLIENT") {
+            return null;
+          }
+
           // OTP validation: verify code, check expiry, mark consumed (single-use).
-          // This is the final TOCTOU-safe gate — runs after validateOtp in the action.
           const valid = await verifyAndConsumeOtp(email, otp);
           if (!valid) return null;
 
@@ -63,11 +83,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             });
           }
 
-          const authed: { id: string; email: string; name: string | null; role: UserRole } = {
+          const authed = {
             id: user.id as string,
             email: user.email as string,
             name: user.name as string | null,
-            role: user.role,
+            role: user.role as UserRole,
+            profileRole: user.profileRole as string | null,
           };
           return authed;
         } catch {
@@ -81,10 +102,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        // user is only present at sign-in — log so we can trace the CUID being
-        // written into the JWT. If the DB is later reset, this ID becomes stale.
         token.id = user.id!;
         token.role = user.role;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        token.profileRole = (user as any).profileRole;
         if (process.env.NODE_ENV !== "production") {
           console.log("[auth:jwt] issuing token for user:", { id: user.id, email: user.email });
         }
@@ -97,7 +118,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const dbUser = await (db as any).user.findUnique({
             where: { id: token.id as string },
-            select: { isActive: true, role: true },
+            select: { isActive: true, role: true, profileRole: true },
           });
 
           if (!dbUser || !dbUser.isActive) {
@@ -114,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               ...session.user,
               id: token.id as string,
               role: dbUser.role ?? token.role,
+              profileRole: dbUser.profileRole ?? (token.profileRole as string | undefined),
             },
           };
         } catch (err) {
@@ -126,3 +148,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+

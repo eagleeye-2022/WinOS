@@ -167,7 +167,7 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
     if (!form.firstName.trim()) missing.push("First Name");
     if (!form.lastName.trim()) missing.push("Last Name");
     if (!form.email.trim()) missing.push("Work Email");
-    if (!form.employeeId.trim()) missing.push("Employee ID");
+    if (!form.employeeId.trim()) missing.push("Member ID");
     if (!form.designation.trim()) missing.push("Designation");
     if (!form.department) missing.push("Department");
     if (!form.reportingToId) missing.push("Reporting Manager");
@@ -352,7 +352,7 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
   }
 
   return (
-    <div className="p-6 w-full pb-8">
+    <div className="h-full w-full overflow-y-auto p-6 pb-8">
       <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center justify-between gap-3 bg-background/95 px-6 py-2.5 backdrop-blur-xs border-b">
         <Button
           type="button"
@@ -465,7 +465,7 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
               className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}
             />
           </Field>
-          <Field label="Employee ID" required>
+          <Field label="Member ID" required>
             <Input
               value={form.employeeId}
               onChange={(e) => update("employeeId", e.target.value)}

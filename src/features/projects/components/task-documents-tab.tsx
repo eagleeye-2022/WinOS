@@ -181,9 +181,9 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
               <span className="font-bold text-foreground text-xs hover:underline">Click to upload documents</span>{" "}
               <span className="text-muted-foreground">or drag and drop</span>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            {/* <p className="text-[10px] text-muted-foreground">
               Files uploaded to <code className="bg-muted px-1 py-0.5 rounded font-mono">/api/upload</code> remain available permanently for this task.
-            </p>
+            </p> */}
           </label>
         )}
       </div>

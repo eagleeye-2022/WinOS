@@ -22,6 +22,7 @@ import {
   ProfileRoleValue,
   ProjectDocument,
   ProjectTimelineEvent,
+  ProjectTemplate,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -80,21 +81,86 @@ async function requireAuth() {
  * Whether a user can see time logs belonging to other users — mirrors the same
  * TEAM_MEMBER|MANAGER (+ ADMIN profile role) check used by getCurrentUserRoleAction.
  */
-async function isPrivilegedViewer(userId: string): Promise<boolean> {
+async function isPrivilegedViewer(userId: string, projectId?: string): Promise<boolean> {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { role: true, profileRole: true },
   });
-  if (!user || !user.role) return false;
+  if (user && user.role) {
+    const roleStr = String(user.role).toUpperCase();
+    if (
+      roleStr === "ADMIN" ||
+      roleStr === "SUPER_ADMIN" ||
+      roleStr === "PROJECT_MANAGER" ||
+      roleStr === "MANAGER" ||
+      user.profileRole === "ADMIN"
+    ) {
+      return true;
+    }
+  }
 
-  const roleStr = String(user.role).toUpperCase();
-  return (
-    roleStr === "ADMIN" ||
-    roleStr === "SUPER_ADMIN" ||
-    roleStr === "PROJECT_MANAGER" ||
-    roleStr === "MANAGER" ||
-    user.profileRole === "ADMIN"
-  );
+  if (projectId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = db as any;
+    const project = await d.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { ownerId: true },
+    });
+    if (project && project.ownerId === userId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Looks up a project template by id from the DB (managers can edit templates there — see
+ * template-actions.ts), falling back to the built-in static templates if the DB row doesn't
+ * exist yet (e.g. before the lazy seed in getProjectTemplatesAction has ever run).
+ */
+async function findProjectTemplate(templateId: string): Promise<ProjectTemplate | undefined> {
+  const row = await (db as any).projectTemplate.findUnique({ where: { id: templateId } });
+  if (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      isDefault: row.isDefault,
+      phases: row.phases,
+    };
+  }
+  return DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === templateId);
+}
+
+async function findDefaultProjectTemplate(): Promise<ProjectTemplate> {
+  const row = await (db as any).projectTemplate.findFirst({
+    where: { isDefault: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      isDefault: row.isDefault,
+      phases: row.phases,
+    };
+  }
+  return DEFAULT_PROJECT_TEMPLATES[0];
+}
+
+async function isClientUser(userId: string): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, profileRole: true },
+  });
+  if (!user) return false;
+  const pRole = String(user.profileRole || "").toUpperCase();
+  const role = String(user.role || "").toUpperCase();
+  return pRole === "CLIENT" || role === "CLIENT";
 }
 
 /**
@@ -465,6 +531,9 @@ function incrementProjectCode(code: string): string {
 
 export async function createProjectAction(data: NewProjectFormData): Promise<Project> {
   const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    throw new Error("Only a manager can create a new project.");
+  }
 
   let ownerUser = null;
   if (data.owner) {
@@ -556,9 +625,7 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
   // (previously this data was computed client-side and silently discarded).
   let createdPhaseCount = 0;
   let createdTaskCount = 0;
-  const template = data.templateId
-    ? DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === data.templateId)
-    : undefined;
+  const template = data.templateId ? await findProjectTemplate(data.templateId) : undefined;
 
   if (template) {
     const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
@@ -763,7 +830,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
     });
 
     if (project) {
-      const template = DEFAULT_PROJECT_TEMPLATES[0];
+      const template = await findDefaultProjectTemplate();
       const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
       const scaffoldedTasks = scaffoldTasksFromTemplate(
         template,
@@ -1968,10 +2035,24 @@ export async function inviteUserAction(
   });
 
   if (projectIds.length > 0) {
-    await db.projectMember.createMany({
-      data: projectIds.map((projectId) => ({ projectId, userId: upsertedUser.id })),
-      skipDuplicates: true,
+    const matchingProjects = await db.project.findMany({
+      where: {
+        OR: [
+          { id: { in: projectIds } },
+          { code: { in: projectIds } },
+        ],
+      },
+      select: { id: true },
     });
+
+    const realProjectIds = matchingProjects.map((p) => p.id);
+
+    if (realProjectIds.length > 0) {
+      await db.projectMember.createMany({
+        data: realProjectIds.map((projectId) => ({ projectId, userId: upsertedUser.id })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   const memberships = await db.projectMember.findMany({
@@ -2109,10 +2190,9 @@ export async function getProjectMembersAction(projectId: string): Promise<Projec
     if (task.owners) {
       task.owners.forEach((o) => taskOwnerIds.add(o.userId));
     }
-    const isCompleted =
-      task.status === "COMPLETED" ||
-      task.status === "CLOSED" ||
-      task.status === "DONE";
+    const isCompleted = String(task.status || "").toUpperCase() === "CLOSED" ||
+      String(task.status || "").toUpperCase() === "COMPLETED" ||
+      String(task.status || "").toUpperCase() === "DONE";
 
     taskOwnerIds.forEach((uid) => {
       if (!userMetrics[uid]) {
@@ -2490,7 +2570,10 @@ export async function addProjectMembersAction(
   projectId: string,
   userIds: string[]
 ): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id, projectId))) {
+    throw new Error("Only a manager can add members to a project.");
+  }
   if (!userIds || userIds.length === 0) return true;
 
   const project = await db.project.findFirst({
@@ -2562,7 +2645,10 @@ export async function getOwnersAndTeamsAction(projectId?: string): Promise<{
 
       targetUsers = members.map((m) => m.user);
 
-      if (project.ownerId && !targetUsers.some((u) => u.id === project.ownerId)) {
+      // A project with no recorded ProjectMember rows (e.g. created without ever running
+      // "Add Member") must not leave the picker showing only the auto-added owner — fall
+      // through to the org-wide roster below in that case, same as a project with none.
+      if (targetUsers.length > 0 && project.ownerId && !targetUsers.some((u) => u.id === project.ownerId)) {
         const owner = await db.user.findUnique({
           where: { id: project.ownerId },
           select: { id: true, name: true, email: true, department: true },
@@ -2711,7 +2797,8 @@ async function recalculateTaskWorkHours(taskCodeOrId: string) {
 
 export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGroup[]> {
   const session = await requireAuth();
-  const canViewAll = await isPrivilegedViewer(session.user.id);
+  const isClient = await isClientUser(session.user.id);
+  const canViewAll = isClient || (await isPrivilegedViewer(session.user.id, projectId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -2814,6 +2901,10 @@ export async function createTimeLogAction(
   projectId?: string
 ): Promise<TimeLogEntry> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot create time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -2954,6 +3045,10 @@ export async function updateTimeLogAction(
   updates: Partial<TimeLogEntry>
 ): Promise<boolean> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot edit time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3014,6 +3109,10 @@ export async function updateTimeLogAction(
 
 export async function deleteTimeLogAction(logId: string): Promise<boolean> {
   const session = await requireAuth();
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    throw new Error("Client users have read-only access and cannot delete time logs.");
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3106,7 +3205,8 @@ export interface ProjectTimeSummary {
 
 export async function getProjectTimeLogSummaryAction(projectId: string): Promise<ProjectTimeSummary> {
   const session = await requireAuth();
-  const canViewAll = await isPrivilegedViewer(session.user.id);
+  const isClient = await isClientUser(session.user.id);
+  const canViewAll = isClient || (await isPrivilegedViewer(session.user.id, projectId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -3272,33 +3372,19 @@ export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeL
   });
 }
 
-export async function getCurrentUserRoleAction(): Promise<WorkspaceRole> {
+export async function getCurrentUserRoleAction(projectId?: string): Promise<WorkspaceRole> {
   const session = await auth();
   if (!session?.user?.id) {
     return "TEAM_MEMBER";
   }
 
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true, profileRole: true },
-  });
-
-  if (!user || !user.role) {
-    return "TEAM_MEMBER";
+  const isClient = await isClientUser(session.user.id);
+  if (isClient) {
+    return "CLIENT" as any;
   }
 
-  const roleStr = String(user.role).toUpperCase();
-  if (
-    roleStr === "ADMIN" ||
-    roleStr === "SUPER_ADMIN" ||
-    roleStr === "PROJECT_MANAGER" ||
-    roleStr === "MANAGER" ||
-    user.profileRole === "ADMIN"
-  ) {
-    return "ADMIN";
-  }
-
-  return "TEAM_MEMBER";
+  const isPrivileged = await isPrivilegedViewer(session.user.id, projectId);
+  return isPrivileged ? "ADMIN" : "TEAM_MEMBER";
 }
 
 export async function getCurrentUserContextAction(): Promise<{
