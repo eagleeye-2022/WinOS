@@ -1333,8 +1333,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                     e.target.value as "Pending" | "Approved" | "Rejected"
                                   )
                                 }
-                                title="Click to change approval status inline"
-                                className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                                disabled={roleMode !== "ADMIN"}
+                                title={
+                                  roleMode !== "ADMIN"
+                                    ? "Only a manager can change approval status"
+                                    : "Click to change approval status inline"
+                                }
+                                className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                                  roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                                } ${
                                   log.approvalStatus === "Approved"
                                     ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                                     : log.approvalStatus === "Rejected"
@@ -1570,8 +1577,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   e.target.value as "Pending" | "Approved" | "Rejected"
                                 )
                               }
-                              title="Click to change approval status inline"
-                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                              disabled={roleMode !== "ADMIN"}
+                              title={
+                                roleMode !== "ADMIN"
+                                  ? "Only a manager can change approval status"
+                                  : "Click to change approval status inline"
+                              }
+                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                                roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                              } ${
                                 log.approvalStatus === "Approved"
                                   ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                                   : log.approvalStatus === "Rejected"
@@ -1785,8 +1799,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   e.target.value as "Pending" | "Approved" | "Rejected"
                                 )
                               }
-                              title="Click to change approval status inline"
-                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold cursor-pointer outline-hidden transition-all ${
+                              disabled={roleMode !== "ADMIN"}
+                              title={
+                                roleMode !== "ADMIN"
+                                  ? "Only a manager can change approval status"
+                                  : "Click to change approval status inline"
+                              }
+                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                                roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                              } ${
                                 log.approvalStatus === "Approved"
                                   ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                                   : log.approvalStatus === "Rejected"

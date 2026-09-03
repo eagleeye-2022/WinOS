@@ -814,7 +814,7 @@ export function TasksBoardView({
 
           {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
-            <div className="flex-1 min-h-0 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
+            <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
               <div className="flex gap-5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   return (

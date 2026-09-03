@@ -154,16 +154,9 @@ export function AllProjectsTableView({
             <span>Time Log</span>
           </button> */}
           {userRole === "TEAM_MEMBER" ? (
-            /* Team Member Mode Header Actions (matching Image 1) */
+            /* Team Member Mode Header Actions (matching Image 1) — project creation is
+               manager-only, so no "Add New Project" trigger is rendered here. */
             <>
-              <button
-                type="button"
-                onClick={onOpenAddModal}
-                className="p-1.5 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                title="Add New Project"
-              >
-                <Plus size={16} />
-              </button>
               <button
                 type="button"
                 onClick={() => setShowTimelinePopover(!showTimelinePopover)}

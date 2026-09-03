@@ -893,6 +893,18 @@ model ProjectMember {
   @@unique([projectId, userId])
 }
 
+model ProjectTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  description     String   @default("")
+  category        String   @default("Custom") // "Client Delivery" | "Internal Product" | "Custom"
+  isDefault       Boolean  @default(false)
+  phases          Json // SOPPhaseTemplate[] — see src/features/projects/types.ts
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model ProjectPhase {
   id          String        @id @default(cuid())
   code        String

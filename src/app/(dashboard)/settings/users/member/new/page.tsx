@@ -10,7 +10,8 @@ import { MemberForm } from "@/features/users/components/member-form";
 export default async function AddMemberPage() {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
-  if ((session.user as { role?: string })?.role !== "MANAGER") {
+  const userRole = (session.user as { role?: string })?.role ?? "TEAM_MEMBER";
+  if (userRole !== "MANAGER") {
     redirect(ROUTES.dashboard);
   }
 
@@ -19,5 +20,13 @@ export default async function AddMemberPage() {
     getAllUserOptionsAction(),
   ]);
 
-  return <MemberForm mode="create" managers={managers} allUsers={allUsers} />;
+  return (
+    <MemberForm
+      mode="create"
+      managers={managers}
+      allUsers={allUsers}
+      currentUserRole={userRole}
+      currentUserId={session.user.id}
+    />
+  );
 }

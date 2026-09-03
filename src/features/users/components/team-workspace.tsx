@@ -32,7 +32,7 @@ export function TeamWorkspace({
   const profileUser = members.find((m) => m.id === profileUserId) || null;
 
   return (
-    <div className="p-6 w-full pb-8">
+    <div className="h-full w-full overflow-y-auto p-6 pb-8">
       <Tabs defaultValue="my-team">
         <div className="flex items-center justify-between mb-4">
           <TabsList>

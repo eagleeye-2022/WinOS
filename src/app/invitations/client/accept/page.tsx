@@ -113,7 +113,6 @@ export default function AcceptClientInvitationPage({
           alt={APP_CONFIG.name}
           width={220}
           height={75}
-          quality={100}
           unoptimized
           className="h-12 w-auto object-contain dark:hidden"
           priority
@@ -123,7 +122,6 @@ export default function AcceptClientInvitationPage({
           alt={APP_CONFIG.name}
           width={220}
           height={75}
-          quality={100}
           unoptimized
           className="h-12 w-auto object-contain hidden dark:block"
           priority

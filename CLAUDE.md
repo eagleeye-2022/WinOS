@@ -8,8 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 WinOS is Eagle Eye Digital's internal team-operations platform: daily standups (DSM), end-of-day
 status reviews (DSR), blockers/support tracking, notes, calendar (with Zoho sync), HR-style user
-management with a granular permission matrix, and an in-progress Projects module. Passwordless OTP
-auth restricted to `@eagleeyedigital.io` emails; two coarse roles, `TEAM_MEMBER` and `MANAGER`.
+management with a granular permission matrix, and an in-progress Projects module. Internal
+employees log in with passwordless OTP restricted to `@eagleeyedigital.io` emails; external
+`CLIENT`-profile users (added via project invitations) log in with a password instead. Two coarse
+roles, `TEAM_MEMBER` and `MANAGER`, plus a separate, more granular `ProfileRole` enum used for
+client access and the permission matrix (see Auth below).
 
 ## Commands
 
@@ -71,20 +74,35 @@ Route Handlers (`src/app/api/**/route.ts`) exist only where a real JSON endpoint
 Calendar sync, uploads, notes feeds, NextAuth catch-all) and follow `auth()` → validate → try/catch
 → `NextResponse.json`.
 
-**Auth** (`src/lib/auth.ts`): Auth.js v5 beta, single Credentials provider taking `{ email, otp }`.
-Only `@eagleeyedigital.io` emails are accepted. Users are **auto-provisioned on first successful OTP
-login** (not pre-created despite what the README implies) — role comes from a hardcoded
-`MANAGER_EMAILS` allow-list, everyone else gets `TEAM_MEMBER`. JWT session strategy; the `session()`
-callback re-queries `isActive`/`role` from the DB on every read, so deactivating a user invalidates
-their session immediately rather than waiting for JWT expiry.
+**Auth** (`src/lib/auth.ts`): Auth.js v5 beta, single Credentials provider taking
+`{ email, otp, password }`, branching into two scenarios inside one `authorize()`:
+1. **Password login** — if a `password` is submitted and the looked-up `User` row has one set
+   (`User.password`, bcrypt-hashed), it's checked with `bcrypt.compare`. This path exists for
+   `CLIENT`-profileRole users (added via project invitations, no `@eagleeyedigital.io` requirement).
+2. **OTP login** — otherwise falls through to OTP: domain-restricted to `@eagleeyedigital.io`
+   *unless* the existing user's `profileRole` is `CLIENT`, then `verifyAndConsumeOtp`. Users are
+   **auto-provisioned on first successful OTP login** (not pre-created despite what the README
+   implies) — role comes from a hardcoded `MANAGER_EMAILS` allow-list, everyone else gets
+   `TEAM_MEMBER`. (Password-login users are provisioned elsewhere, via the invitation-accept flow,
+   not in `authorize()`.)
+
+JWT session strategy; the `session()` callback re-queries `isActive`/`role`/`profileRole` from the
+DB on every read, so deactivating a user invalidates their session immediately rather than waiting
+for JWT expiry. A stateless, HMAC-signed SVG CAPTCHA (`src/lib/captcha.ts`, served via
+`GET /api/captcha`) gates the login form — no DB/session storage needed, verified with
+`verifyCaptcha(token, answer)`.
 
 **Two parallel authorization systems** coexist and their precedence is not established — extending
 permission logic should account for both:
 - Simple `User.role` (`TEAM_MEMBER | MANAGER`) checks scattered through ~68 files for basic
   route/UI branching.
 - A fully data-driven RBAC matrix (`PermissionModule` → `PermissionAction` → `PermissionRule`, keyed
-  by a separate `ProfileRole` enum) surfaced at `/settings/profile-access` and defined in
-  `src/features/users/permission-config.ts` / `permission-actions.ts`.
+  by a separate `ProfileRole` enum — `EMPLOYEE | MANAGER | CONTRACTOR | CLIENT | GUEST | DEVELOPER`)
+  surfaced at `/settings/profile-access` and defined in `src/features/users/permission-config.ts` /
+  `permission-actions.ts`. Manager-style server-action checks elsewhere (e.g. project templates)
+  often also treat `profileRole === "ADMIN"` or role strings like `"SUPER_ADMIN"` /
+  `"PROJECT_MANAGER"` as privileged, even though those aren't in the `ProfileRole` enum above —
+  check the specific gate function rather than assuming only `TEAM_MEMBER`/`MANAGER` exist.
 
 **Data layer**: Prisma 7 with `@prisma/adapter-pg`, client generated to a custom output path
 (`prisma/generated/prisma`), singleton in `src/lib/db.ts`. Much action/route code casts the client
@@ -95,7 +113,11 @@ an existing pattern, not something to "fix" incidentally while working on unrela
 `ProjectPhase`, `ProjectTask`, etc.) but they're disconnected from `User` and carry hardcoded
 demo defaults (e.g. `ownerName @default("Dhruv Patidar")`), and the feature also ships parallel
 static mock-data files (`src/features/projects/data/mock-*.ts`). Check whether a given view is
-reading live Prisma data or mocks before assuming either.
+reading live Prisma data or mocks before assuming either. Project *templates* (`ProjectTemplate`
+model, `src/features/projects/actions/template-actions.ts`) are real and manager-gated: the table
+is lazily self-seeded from `src/features/projects/data/sop-templates.ts`
+(`DEFAULT_PROJECT_TEMPLATES`) on first `getProjectTemplatesAction()` call, not via a migration or
+seed script.
 
 **Two rich-text editor stacks** are present: TipTap 3 (`@tiptap/*`, extensive custom component tree
 under `src/components/tiptap-*`) is the one actually used throughout the app; `@ckeditor/ckeditor5-react`

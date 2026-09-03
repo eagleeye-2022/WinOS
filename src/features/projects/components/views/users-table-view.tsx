@@ -60,7 +60,6 @@ export function UsersTableView({
   onRefreshData,
 }: UsersTableViewProps) {
   const [activeTab, setActiveTab] = useState<UserType>("PORTAL");
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -81,22 +80,6 @@ export function UsersTableView({
       inv.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (inv.clientName && inv.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
-
-  const handleSelectAll = () => {
-    if (selectedUserIds.length === filteredUsers.length) {
-      setSelectedUserIds([]);
-    } else {
-      setSelectedUserIds(filteredUsers.map((u) => u.id));
-    }
-  };
-
-  const handleToggleUser = (id: string) => {
-    if (selectedUserIds.includes(id)) {
-      setSelectedUserIds(selectedUserIds.filter((uId) => uId !== id));
-    } else {
-      setSelectedUserIds([...selectedUserIds, id]);
-    }
-  };
 
   const handleResend = async (invitationId: string) => {
     setActionLoading(true);
@@ -206,10 +189,7 @@ export function UsersTableView({
         <div className="flex gap-6 text-xs font-semibold">
           <button
             type="button"
-            onClick={() => {
-              setActiveTab("PORTAL");
-              setSelectedUserIds([]);
-            }}
+            onClick={() => setActiveTab("PORTAL")}
             className={`pb-3 transition-colors relative ${
               activeTab === "PORTAL"
                 ? "text-primary border-b-2 border-primary font-bold"
@@ -220,10 +200,7 @@ export function UsersTableView({
           </button>
           <button
             type="button"
-            onClick={() => {
-              setActiveTab("CLIENT");
-              setSelectedUserIds([]);
-            }}
+            onClick={() => setActiveTab("CLIENT")}
             className={`pb-3 transition-colors relative ${
               activeTab === "CLIENT"
                 ? "text-primary border-b-2 border-primary font-bold"
@@ -240,17 +217,6 @@ export function UsersTableView({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
-              <th className="py-3 px-4 w-10 text-center border-r">
-                <input
-                  type="checkbox"
-                  checked={
-                    filteredUsers.length > 0 &&
-                    selectedUserIds.length === filteredUsers.length
-                  }
-                  onChange={handleSelectAll}
-                  className="rounded border-input text-primary focus:ring-primary h-4 w-4"
-                />
-              </th>
               <th className="py-3 px-4 border-r whitespace-nowrap">
                 <span className="flex items-center gap-1">
                   NAME / DETAILS <ArrowUpDown size={12} />
@@ -265,7 +231,7 @@ export function UsersTableView({
               {activeTab === "PORTAL" ? (
                 <>
                   <th className="py-3 px-4 border-r whitespace-nowrap">ROLE</th>
-                  <th className="py-3 px-4 border-r whitespace-nowrap">PORTAL PROFILE</th>
+                  {/* <th className="py-3 px-4 border-r whitespace-nowrap">PORTAL PROFILE</th> */}
                   <th className="py-3 px-4 text-center whitespace-nowrap">STATUS</th>
                 </>
               ) : (
@@ -280,7 +246,7 @@ export function UsersTableView({
           <tbody className="divide-y divide-border">
             {filteredUsers.length === 0 && filteredInvitations.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                <td colSpan={activeTab === "PORTAL" ? 4 : 5} className="py-12 text-center text-muted-foreground">
                   No users or invitations found in this category.
                 </td>
               </tr>
@@ -289,15 +255,6 @@ export function UsersTableView({
                 {/* Active & Existing Users */}
                 {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-accent/30 transition-colors">
-                    <td className="py-3 px-4 border-r text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.includes(user.id)}
-                        onChange={() => handleToggleUser(user.id)}
-                        className="rounded border-input text-primary focus:ring-primary h-4 w-4"
-                      />
-                    </td>
-
                     {/* USER NAME */}
                     <td className="py-3 px-4 border-r whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -349,9 +306,9 @@ export function UsersTableView({
                           )}
                         </td>
 
-                        <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap">
+                        {/* <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap">
                           {user.portalProfile || "Employee"}
-                        </td>
+                        </td> */}
 
                         <td className="py-3 px-4 text-center whitespace-nowrap">
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
@@ -555,7 +512,11 @@ function RoleEditorPopover({
             <label className="text-[10px] font-semibold text-muted-foreground">System Role</label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as MemberRoleTier)}
+              onChange={(e) => {
+                const next = e.target.value as MemberRoleTier;
+                setRole(next);
+                if (next === "ADMIN") setProfileRole("ADMIN");
+              }}
               className="mt-1 w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="TEAM_MEMBER">Team Member</option>
@@ -581,7 +542,7 @@ function RoleEditorPopover({
           </div>
           <button
             type="button"
-            onClick={() => onSave(role, profileRole)}
+            onClick={() => onSave(role, role === "ADMIN" ? "ADMIN" : profileRole)}
             className="w-full rounded bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Save

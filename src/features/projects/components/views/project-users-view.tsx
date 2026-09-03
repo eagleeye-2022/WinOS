@@ -28,6 +28,7 @@ import {
   getProjectMembersAction,
   updateProjectMemberDetailsAction,
   removeProjectMemberWithReassignmentAction,
+  getCurrentUserRoleAction,
   ProjectMemberUser,
 } from "../../actions/project-actions";
 import { AddProjectUsersModal } from "../modals/add-project-users-modal";
@@ -66,6 +67,11 @@ export function ProjectUsersView({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDrawerUserId, setSelectedDrawerUserId] = useState<string | null>(null);
   const [userToRemove, setUserToRemove] = useState<ProjectMemberUser | null>(null);
+  const [isManager, setIsManager] = useState(false);
+
+  useEffect(() => {
+    getCurrentUserRoleAction(projectId).then((role) => setIsManager(role === "ADMIN"));
+  }, [projectId]);
 
   // Inline edit state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -314,9 +320,11 @@ export function ProjectUsersView({
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-xl font-bold tracking-tight text-foreground">Project Users</h2>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary font-mono">
-              {filteredMembers.length} Showing
-            </span>
+            {!isLoading && (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary font-mono">
+                {filteredMembers.length} Showing
+              </span>
+            )}
           </div>
           {/* <p className="text-xs text-muted-foreground mt-1">
             Manage users, project roles, hourly rates, and task allocations for {projectName ? `"${projectName}"` : "this project"}.
@@ -392,15 +400,17 @@ export function ProjectUsersView({
             <span className="hidden md:inline">Export</span>
           </button>
 
-          {/* Add User Button */}
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
-          >
-            <UserPlus size={14} />
-            <span>Add Member</span>
-          </button>
+          {/* Add User Button — manager-only */}
+          {isManager && (
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
+            >
+              <UserPlus size={14} />
+              <span>Add Member</span>
+            </button>
+          )}
         </div>
       </div>
 

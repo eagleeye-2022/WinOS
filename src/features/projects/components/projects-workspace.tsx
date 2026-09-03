@@ -5,12 +5,10 @@ import { usePathname } from "next/navigation";
 import {
   FolderKanban,
   Users,
-  Share2,
   CheckSquare,
   Clock,
   FileText,
   Quote,
-  Archive,
   Settings,
   Loader2,
   AlertCircle,
@@ -76,19 +74,15 @@ export function ProjectsWorkspace() {
   let activeNav:
     | "ALL_PROJECTS"
     | "USERS"
-    | "COLLABORATION"
     | "MY_TASKS"
     | "TIME_TRACKER"
     | "TIMELINE"
     | "REPORTS"
     | "CLIENT_PORTAL"
-    | "ARCHIVE"
     | "SETTINGS" = "ALL_PROJECTS";
 
   if (pathname === "/projects/users") {
     activeNav = "USERS";
-  } else if (pathname === "/projects/collaboration") {
-    activeNav = "COLLABORATION";
   } else if (pathname === "/projects/my-tasks" || pathname === "/projects/tasks") {
     activeNav = "MY_TASKS";
   } else if (pathname === "/projects/time-tracker") {
@@ -99,8 +93,6 @@ export function ProjectsWorkspace() {
     activeNav = "REPORTS";
   } else if (pathname === "/projects/portal" || pathname === "/projects/client-portal") {
     activeNav = "CLIENT_PORTAL";
-  } else if (pathname === "/projects/archive") {
-    activeNav = "ARCHIVE";
   } else if (pathname === "/projects/settings") {
     activeNav = "SETTINGS";
   } else {
@@ -262,26 +254,18 @@ export function ProjectsWorkspace() {
 
             {activeNav === "CLIENT_PORTAL" && <ClientPortalView />}
 
-            {activeNav === "SETTINGS" && <AdminSettingsView />}
-
-            {activeNav === "COLLABORATION" && (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Share2 size={32} className="text-primary mb-2" />
-                <h3 className="text-lg font-bold text-foreground">Team Collaboration</h3>
-                <p className="text-xs max-w-sm mt-1">
-                  Share project updates, discuss milestones, and collaborate in real-time.
-                </p>
-              </div>
-            )}
-
-            {activeNav === "ARCHIVE" && (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                <Archive size={32} className="text-primary mb-2" />
-                <h3 className="text-lg font-bold text-foreground">Project Archives</h3>
-                <p className="text-xs max-w-sm mt-1">
-                  View and restore archived projects and completed milestones.
-                </p>
-              </div>
+            {activeNav === "SETTINGS" && (
+              userRole === "ADMIN" ? (
+                <AdminSettingsView />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
+                  <Shield size={32} className="text-primary mb-2" />
+                  <h3 className="text-lg font-bold text-foreground">Managers Only</h3>
+                  <p className="text-xs max-w-sm mt-1">
+                    You don&apos;t have permission to view or edit workspace settings and project templates.
+                  </p>
+                </div>
+              )
             )}
 
             {activeNav === "SETTINGS" && (

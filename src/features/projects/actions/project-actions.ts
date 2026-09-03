@@ -22,6 +22,7 @@ import {
   ProfileRoleValue,
   ProjectDocument,
   ProjectTimelineEvent,
+  ProjectTemplate,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -111,6 +112,44 @@ async function isPrivilegedViewer(userId: string, projectId?: string): Promise<b
   }
 
   return false;
+}
+
+/**
+ * Looks up a project template by id from the DB (managers can edit templates there — see
+ * template-actions.ts), falling back to the built-in static templates if the DB row doesn't
+ * exist yet (e.g. before the lazy seed in getProjectTemplatesAction has ever run).
+ */
+async function findProjectTemplate(templateId: string): Promise<ProjectTemplate | undefined> {
+  const row = await (db as any).projectTemplate.findUnique({ where: { id: templateId } });
+  if (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      isDefault: row.isDefault,
+      phases: row.phases,
+    };
+  }
+  return DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === templateId);
+}
+
+async function findDefaultProjectTemplate(): Promise<ProjectTemplate> {
+  const row = await (db as any).projectTemplate.findFirst({
+    where: { isDefault: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      isDefault: row.isDefault,
+      phases: row.phases,
+    };
+  }
+  return DEFAULT_PROJECT_TEMPLATES[0];
 }
 
 async function isClientUser(userId: string): Promise<boolean> {
@@ -492,6 +531,9 @@ function incrementProjectCode(code: string): string {
 
 export async function createProjectAction(data: NewProjectFormData): Promise<Project> {
   const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    throw new Error("Only a manager can create a new project.");
+  }
 
   let ownerUser = null;
   if (data.owner) {
@@ -583,9 +625,7 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
   // (previously this data was computed client-side and silently discarded).
   let createdPhaseCount = 0;
   let createdTaskCount = 0;
-  const template = data.templateId
-    ? DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === data.templateId)
-    : undefined;
+  const template = data.templateId ? await findProjectTemplate(data.templateId) : undefined;
 
   if (template) {
     const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
@@ -790,7 +830,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
     });
 
     if (project) {
-      const template = DEFAULT_PROJECT_TEMPLATES[0];
+      const template = await findDefaultProjectTemplate();
       const scaffoldedPhases = scaffoldPhasesFromTemplate(template);
       const scaffoldedTasks = scaffoldTasksFromTemplate(
         template,
@@ -2150,10 +2190,9 @@ export async function getProjectMembersAction(projectId: string): Promise<Projec
     if (task.owners) {
       task.owners.forEach((o) => taskOwnerIds.add(o.userId));
     }
-    const isCompleted =
-      task.status === "COMPLETED" ||
-      task.status === "CLOSED" ||
-      task.status === "DONE";
+    const isCompleted = String(task.status || "").toUpperCase() === "CLOSED" ||
+      String(task.status || "").toUpperCase() === "COMPLETED" ||
+      String(task.status || "").toUpperCase() === "DONE";
 
     taskOwnerIds.forEach((uid) => {
       if (!userMetrics[uid]) {
@@ -2531,7 +2570,10 @@ export async function addProjectMembersAction(
   projectId: string,
   userIds: string[]
 ): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id, projectId))) {
+    throw new Error("Only a manager can add members to a project.");
+  }
   if (!userIds || userIds.length === 0) return true;
 
   const project = await db.project.findFirst({
@@ -2603,7 +2645,10 @@ export async function getOwnersAndTeamsAction(projectId?: string): Promise<{
 
       targetUsers = members.map((m) => m.user);
 
-      if (project.ownerId && !targetUsers.some((u) => u.id === project.ownerId)) {
+      // A project with no recorded ProjectMember rows (e.g. created without ever running
+      // "Add Member") must not leave the picker showing only the auto-added owner — fall
+      // through to the org-wide roster below in that case, same as a project with none.
+      if (targetUsers.length > 0 && project.ownerId && !targetUsers.some((u) => u.id === project.ownerId)) {
         const owner = await db.user.findUnique({
           where: { id: project.ownerId },
           select: { id: true, name: true, email: true, department: true },

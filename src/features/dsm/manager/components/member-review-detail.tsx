@@ -236,7 +236,7 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
 
 function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODAY" | "YESTERDAY" }) {
   const [adding, setAdding] = useState(false);
-  const [priority, setPriority] = useState<string>("P1");
+  const [priority] = useState<string>("P1");
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -279,7 +279,7 @@ function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODA
           className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
 
-        <select
+        {/* <select
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
           className="rounded-md border bg-card px-2 py-1 text-xs font-semibold text-foreground outline-none cursor-pointer"
@@ -291,7 +291,7 @@ function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODA
           <option value="HIGH">High</option>
           <option value="MEDIUM">Med</option>
           <option value="LOW">Low</option>
-        </select>
+        </select> */}
 
         <button
           type="submit"

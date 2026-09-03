@@ -20,7 +20,6 @@ export default async function LoginPage({
           alt={APP_CONFIG.name}
           width={500}
           height={170}
-          quality={100}
           unoptimized
           className="logo-light h-14 w-auto object-contain dark:hidden"
           priority
@@ -30,7 +29,6 @@ export default async function LoginPage({
           alt={APP_CONFIG.name}
           width={500}
           height={170}
-          quality={100}
           unoptimized
           className="logo-dark h-14 w-auto object-contain hidden dark:block"
           priority

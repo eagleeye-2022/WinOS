@@ -28,7 +28,6 @@ function WinOSBrand() {
         alt="WinOS by Eagle Eye Digital"
         width={900}
         height={170}
-        quality={1000}
         unoptimized
         className="logo-light h-40 w-auto object-contain shrink-0 pt-2.5 dark:hidden"
         priority
@@ -38,7 +37,6 @@ function WinOSBrand() {
         alt="WinOS by Eagle Eye Digital"
         width={900}
         height={170}
-        quality={1000}
         unoptimized
         className="logo-dark h-40 w-auto object-contain shrink-0 pt-2.5 hidden dark:block"
         priority
