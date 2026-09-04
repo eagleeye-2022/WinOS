@@ -24,6 +24,8 @@ import {
   Share2,
   CheckSquare,
   Clock,
+  AlarmClock,
+  ClockFading,
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,9 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   }
   if (label === "Users" && pathname.startsWith("/projects")) {
     return pathname === "/projects/users";
+  }
+  if (label === "My Dashboard" && pathname.startsWith("/projects")) {
+    return pathname === "/projects/dashboard";
   }
   if (label === "My Tasks" && pathname.startsWith("/projects")) {
     return pathname === "/projects/my-tasks" || pathname === "/projects/tasks";
@@ -169,18 +174,20 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = isManager
       ? [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
+          { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
           { label: "Users", href: "/projects/users", icon: Users2 },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
-          { label: "Active Timers", href: "/projects/active-timers", icon: Clock, section: "OVERVIEW" },
-          { label: "Effort Logs", href: "/projects/time-tracker", icon: Timer, section: "OVERVIEW" },
+          { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/time-tracker", icon: ClockFading, section: "OVERVIEW" },
         ]
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
+          { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
-          { label: "Active Timers", href: "/projects/active-timers", icon: Clock, section: "OVERVIEW" },
-          { label: "Effort Logs", href: "/projects/time-tracker", icon: Timer, section: "OVERVIEW" },
+          { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/time-tracker", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [

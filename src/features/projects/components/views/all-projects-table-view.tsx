@@ -525,8 +525,8 @@ export function AllProjectsTableView({
         </div>
       ) : (
         /* Main Responsive Table */
-        <div className="flex-1 overflow-x-auto overflow-y-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="flex-1 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
+          <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
             <thead>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 <th className="py-3 px-4 border-r whitespace-nowrap text-center">Project ID</th>

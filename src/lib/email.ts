@@ -9,17 +9,29 @@ import nodemailer from "nodemailer";
 //   SMTP_FROM   = WinOS <noreply@eagleeyedigital.io>
 
 function buildTransport() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+  const host = process.env.SMTP_HOST || "smtp.zoho.in";
+  const user = process.env.SMTP_USER || process.env.MAIL_USER || "ishita.vishwakarma@eagleeyedigital.io";
+  const pass = process.env.SMTP_PASS || process.env.MAIL_PASS || "TsTHEvxZEG3C";
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  const secure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === "true" : port === 465;
+
+  if (!host || !user || !pass) return null;
+
   return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT ?? 587),
-    secure: Number(SMTP_PORT) === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 }
 
-const FROM = process.env.SMTP_FROM ?? "WinOS <noreply@eagleeyedigital.io>";
+export function getFromEmail(): string {
+  return process.env.MAIL_FROM ?? process.env.SMTP_FROM ?? "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
+}
+
 const IS_PROD = process.env.NODE_ENV === "production";
 
 /**
@@ -56,7 +68,9 @@ export async function sendOtpEmail(to: string, otp: string): Promise<void> {
     "If you did not request this, you can safely ignore this email.",
   ].join("\n");
 
-  await transport.sendMail({ from: FROM, to, subject, text });
+  const fromEmail = getFromEmail();
+  await transport.sendMail({ from: fromEmail, to, subject, text });
+  console.log(`\n[EMAIL SENT] From: ${fromEmail} | To: ${to} | Subject: ${subject}\n`);
 }
 
 export type CalendarInviteEmailParams = {
@@ -145,7 +159,9 @@ export async function sendCalendarInviteEmail(params: CalendarInviteEmailParams)
     return;
   }
 
-  await transport.sendMail({ from: FROM, to, subject, text, html });
+  const fromEmail = getFromEmail();
+  await transport.sendMail({ from: fromEmail, to, subject, text, html });
+  console.log(`\n[EMAIL SENT] From: ${fromEmail} | To: ${to} | Subject: ${subject}\n`);
 }
 
 export type ClientInvitationEmailParams = {
@@ -221,7 +237,9 @@ export async function sendClientInvitationEmail(params: ClientInvitationEmailPar
   if (!transport) {
     if (IS_PROD) {
       console.error("SMTP not configured for client invitation email");
-      return;
+      throw new Error(
+        "SMTP not configured on production server. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables."
+      );
     }
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(`[CLIENT INVITATION EMAIL] To: ${to}`);
@@ -232,7 +250,13 @@ export async function sendClientInvitationEmail(params: ClientInvitationEmailPar
     return;
   }
 
-  await transport.sendMail({ from: FROM, to, subject, text, html });
+  const fromEmail = getFromEmail();
+  await transport.sendMail({ from: fromEmail, to, subject, text, html });
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`[EMAIL SENT] From: ${fromEmail}`);
+  console.log(`             To: ${to}`);
+  console.log(`             Subject: ${subject}`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 }
 
 

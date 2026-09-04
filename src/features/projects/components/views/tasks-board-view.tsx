@@ -1004,7 +1004,7 @@ export function TasksBoardView({
 
           {/* ── Status Columns View Mode ────────────────────────────────────────── */}
           {viewMode === "STATUS_COLUMNS" && (
-            <div className="flex-1 overflow-x-auto p-6 bg-background">
+            <div className="dsm-columns-scrollbar flex-1 overflow-x-auto p-6 bg-background">
               <div className="flex gap-4 h-full items-start">
                 {kanbanStatusColumns.map((col) => (
                   <div

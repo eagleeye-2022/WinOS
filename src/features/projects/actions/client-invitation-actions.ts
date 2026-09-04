@@ -3,17 +3,30 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { sendClientInvitationEmail } from "@/lib/email";
+import { sendClientInvitationEmail, getFromEmail } from "@/lib/email";
 
 function hashToken(rawToken: string): string {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
-function getAppBaseUrl(): string {
+async function getAppBaseUrl(): Promise<string> {
+  try {
+    const headersList = await headers();
+    const host = headersList.get("x-forwarded-host") || headersList.get("host");
+    const proto = headersList.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+    if (host) {
+      return `${proto}://${host}`;
+    }
+  } catch (err) {
+    // fallback if called outside request context
+  }
+
+  if (process.env.APP_URL) return process.env.APP_URL;
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NODE_ENV === "production") return "https://test.eagleyedigital.io";
   return "http://localhost:3000";
 }
 
@@ -33,7 +46,17 @@ export type ActionResponse<T = unknown> = {
 
 export async function createClientInvitationAction(
   input: CreateClientInvitationInput
-): Promise<ActionResponse<{ invitationId: string; rawToken?: string }>> {
+): Promise<
+  ActionResponse<{
+    invitationId: string;
+    rawToken?: string;
+    acceptUrl: string;
+    emailSent: boolean;
+    emailError?: string;
+    fromEmail: string;
+    toEmail: string;
+  }>
+> {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized. Please log in." };
@@ -123,10 +146,13 @@ export async function createClientInvitationAction(
     },
   });
 
-  const baseUrl = getAppBaseUrl();
+  const baseUrl = await getAppBaseUrl();
   const acceptUrl = `${baseUrl}/invitations/client/accept?token=${rawToken}`;
   const inviterName = session.user.name || session.user.email || "Project Administrator";
   const projectNames = validProjects.map((p) => p.name);
+
+  let emailSent = true;
+  let emailError: string | undefined;
 
   // Send invitation email
   try {
@@ -139,6 +165,8 @@ export async function createClientInvitationAction(
       expiresAt,
     });
   } catch (err) {
+    emailSent = false;
+    emailError = err instanceof Error ? err.message : "Email delivery error.";
     console.error("[ClientInvitation] Failed to send email:", err);
   }
 
@@ -148,7 +176,12 @@ export async function createClientInvitationAction(
     success: true,
     data: {
       invitationId: invitation.id,
-      rawToken: process.env.NODE_ENV !== "production" ? rawToken : undefined,
+      rawToken,
+      acceptUrl,
+      emailSent,
+      emailError,
+      fromEmail: getFromEmail(),
+      toEmail: email,
     },
   };
 }
@@ -369,7 +402,17 @@ export async function acceptClientInvitationAction(
 
 export async function resendClientInvitationAction(
   invitationId: string
-): Promise<ActionResponse<{ invitationId: string }>> {
+): Promise<
+  ActionResponse<{
+    invitationId: string;
+    rawToken?: string;
+    acceptUrl: string;
+    emailSent: boolean;
+    emailError?: string;
+    fromEmail: string;
+    toEmail: string;
+  }>
+> {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized. Please log in." };
@@ -400,10 +443,13 @@ export async function resendClientInvitationAction(
     },
   });
 
-  const baseUrl = getAppBaseUrl();
+  const baseUrl = await getAppBaseUrl();
   const acceptUrl = `${baseUrl}/invitations/client/accept?token=${newRawToken}`;
   const inviterName = session.user.name || session.user.email || "Project Administrator";
   const projectNames = existing.projects.map((p) => p.project.name);
+
+  let emailSent = true;
+  let emailError: string | undefined;
 
   try {
     await sendClientInvitationEmail({
@@ -415,12 +461,25 @@ export async function resendClientInvitationAction(
       expiresAt: newExpiresAt,
     });
   } catch (err) {
+    emailSent = false;
+    emailError = err instanceof Error ? err.message : "Email delivery error.";
     console.error("[ClientInvitation] Failed to resend email:", err);
   }
 
   revalidatePath("/projects/users");
 
-  return { success: true, data: { invitationId } };
+  return {
+    success: true,
+    data: {
+      invitationId,
+      acceptUrl,
+      rawToken: newRawToken,
+      emailSent,
+      emailError,
+      fromEmail: getFromEmail(),
+      toEmail: existing.email,
+    },
+  };
 }
 
 // ── 5. Revoke Client Invitation ───────────────────────────────────────────────

@@ -11,6 +11,8 @@ import {
   Shield,
   Briefcase,
   ChevronDown,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Project } from "../../types";
 import { createClientInvitationAction } from "@/features/projects/actions/client-invitation-actions";
@@ -50,6 +52,8 @@ export function InviteClientModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -101,15 +105,20 @@ export function InviteClientModal({
       if (!res.success) {
         setErrorMsg(res.error || "Failed to send client invitation.");
       } else {
-        setSuccessMsg(`Invitation successfully sent to ${email.trim()}!`);
-        setTimeout(() => {
-          setClientName("");
-          setEmail("");
-          setSelectedProjectIds([]);
-          setSuccessMsg(null);
-          onSuccess?.();
-          onClose();
-        }, 1500);
+        if (res.data?.acceptUrl) {
+          setGeneratedUrl(res.data.acceptUrl);
+        }
+        const sender = res.data?.fromEmail || "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
+        const recipient = res.data?.toEmail || email.trim();
+
+        if (res.data?.emailSent === false) {
+          setSuccessMsg(
+            `Client invitation created! Note: Email delivery failed from ${sender} to ${recipient} (${res.data.emailError || "SMTP not configured"}). Please copy the invitation link below and share it directly:`
+          );
+        } else {
+          setSuccessMsg(`Email successfully sent from ${sender} to ${recipient}!`);
+        }
+        onSuccess?.();
       }
     } catch (err) {
       setErrorMsg("An unexpected error occurred. Please try again.");
@@ -149,7 +158,7 @@ export function InviteClientModal({
           </button>
         </div>
 
-        {/* Alerts */}
+        {/* Alerts & Generated Link Box */}
         {errorMsg && (
           <div className="mx-6 mt-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
             <AlertCircle size={16} className="shrink-0" />
@@ -158,9 +167,39 @@ export function InviteClientModal({
         )}
 
         {successMsg && (
-          <div className="mx-6 mt-4 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 size={16} className="shrink-0" />
-            <span>{successMsg}</span>
+          <div className="mx-6 mt-4 space-y-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 font-bold">
+              <CheckCircle2 size={16} className="shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+
+            {generatedUrl && (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-semibold text-foreground block">
+                  Direct Invitation Link (Share with client):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedUrl}
+                    className="flex-1 rounded border border-emerald-500/40 bg-background px-2.5 py-1.5 font-mono text-[11px] text-foreground select-all outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedUrl);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copied ? "Copied!" : "Copy Link"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

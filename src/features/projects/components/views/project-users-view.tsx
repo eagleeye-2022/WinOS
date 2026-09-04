@@ -610,8 +610,8 @@ export function ProjectUsersView({
       ) : (
         /* TABLE VIEW */
         <div className="rounded-xl border bg-card shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto dsm-columns-scrollbar">
+            <table className="w-full min-w-[800px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4 border-r">User Name</th>

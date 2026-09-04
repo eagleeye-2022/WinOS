@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Clock, RefreshCw, Play, User as UserIcon } from "lucide-react";
+import { AlarmClock, RefreshCw, Play, User as UserIcon } from "lucide-react";
 import { getAllActiveTimersAction } from "../actions/active-timer-actions";
 
 export interface ActiveTeamTimerItem {
@@ -147,7 +147,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
           </div>
         ) : timers.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground">
-            <Clock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground/50" />
+            <AlarmClock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground/50" />
             <p className="font-medium text-foreground">No Active Live Timers</p>
             <p className="text-[11px] mt-0.5">
               Team members will automatically appear here in real-time when they start a task timer.

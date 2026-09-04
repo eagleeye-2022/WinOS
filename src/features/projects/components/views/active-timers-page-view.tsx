@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Clock, ArrowRight, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlarmClock, ClockFading, ArrowRight, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
 

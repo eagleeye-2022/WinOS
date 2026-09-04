@@ -141,7 +141,11 @@ export function DsrHistoryCard({
                 Outcome of the Day
               </p>
               <p className="text-xs leading-relaxed text-foreground italic">
-                &ldquo;{renderTextWithMentions(entry.resultOfDay)}&rdquo;
+                &ldquo;{renderTextWithMentions(
+                  entry.resultOfDay.length > 50
+                    ? `${entry.resultOfDay.slice(50)}...`
+                    : entry.resultOfDay
+                )}&rdquo;
               </p>
             </div>
           )}
