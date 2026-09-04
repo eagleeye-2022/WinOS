@@ -12,6 +12,7 @@ import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
 import { toggleDsrLearning, type ToggleDsrLearningState } from "../actions/toggle-dsr-learning";
+import { toggleDsrAdditionalWork, type ToggleDsrAdditionalWorkState } from "../actions/toggle-dsr-additional-work";
 import { addDsrTask, type AddDsrTaskState } from "../actions/add-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
 import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
@@ -82,7 +83,7 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
   const isBreakthrough = entry.sentiment === "BREAKTHROUGH";
 
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="min-w-0 rounded-xl border bg-card p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
@@ -109,7 +110,7 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
           </span>
         )}
       </div>
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground break-all">
         &ldquo;{entry.resultOfDay}&rdquo;
       </p>
     </div>
@@ -275,7 +276,43 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
 
 // ── Additional work card ───────────────────────────────────────────────────────
 
-function AdditionalWorkCard({ entry }: { entry: DsrEntryData }) {
+function AdditionalWorkItemRow({ work, locked }: { work: DsrEntryData["additionalWorks"][number]; locked?: boolean }) {
+  const [, action, pending] = useActionState<ToggleDsrAdditionalWorkState, FormData>(toggleDsrAdditionalWork, {});
+  const [, startTransition] = useTransition();
+
+  return (
+    <form
+      action={(fd) => {
+        startTransition(() => action(fd));
+      }}
+      className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-2.5"
+    >
+      <input type="hidden" name="itemId" value={work.id} />
+      <button
+        type="submit"
+        disabled={pending || locked}
+        title={locked ? "Waiting on DSM review" : work.completed ? "Mark as uncompleted" : "Mark as completed"}
+        className={cn(
+          "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
+          work.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
+        )}
+      >
+        {pending ? (
+          <Loader2 size={10} className="animate-spin" />
+        ) : work.completed ? (
+          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+            <polyline points="1,4 3,6 7,2" />
+          </svg>
+        ) : null}
+      </button>
+      <span className={cn("flex-1 text-sm leading-snug select-none", work.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+        {renderTextWithMentions(work.text)}
+      </span>
+    </form>
+  );
+}
+
+function AdditionalWorkCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
   const { additionalWorks } = entry;
   if (!additionalWorks || additionalWorks.length === 0) return null;
 
@@ -294,14 +331,7 @@ function AdditionalWorkCard({ entry }: { entry: DsrEntryData }) {
       </div>
       <div className="flex flex-col gap-2">
         {additionalWorks.map((work, i) => (
-          <div key={work.id || i} className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-2.5">
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary mt-0.5">
-              +
-            </span>
-            <span className="flex-1 text-sm text-foreground leading-snug">
-              {renderTextWithMentions(work.text)}
-            </span>
-          </div>
+          <AdditionalWorkItemRow key={work.id || i} work={work} locked={locked} />
         ))}
       </div>
     </div>
@@ -811,12 +841,12 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             <DateEntryHeader entry={activeEntry} />
 
             {/* Review detail — left content wider (3fr), right actions narrower (2fr) */}
-            <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-[3fr_2fr]">
               {/* Left: content cards */}
-              <div className="flex flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-4">
                 <ResultCard entry={activeEntry} />
                 <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} />
-                <AdditionalWorkCard entry={activeEntry} />
+                <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
                 <BlockersSupportCard entry={activeEntry} />
                 <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
                 {/* <SentimentCard entry={activeEntry} /> */}

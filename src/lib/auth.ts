@@ -62,7 +62,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!otp) return null;
 
           // Domain restriction — allow CLIENT role users or @eagleeyedigital.io emails.
-          if (!email.endsWith(`@${COMPANY_DOMAIN}`) && user?.profileRole !== "CLIENT") {
+          if (
+            !email.endsWith(`@${COMPANY_DOMAIN}`) &&
+            user?.profileRole !== "CLIENT" &&
+            user?.role !== "CLIENT"
+          ) {
             return null;
           }
 

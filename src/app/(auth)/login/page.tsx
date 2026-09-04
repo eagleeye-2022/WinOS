@@ -1,7 +1,6 @@
 import { LoginForm } from "@/features/auth/components/login-form";
 import { APP_CONFIG } from "@/config/app";
 import { createCaptcha } from "@/lib/captcha";
-
 import Image from "next/image";
 
 export default async function LoginPage({
@@ -34,12 +33,11 @@ export default async function LoginPage({
           priority
         />
       </div>
+
       <p className="mb-1 text-sm font-medium text-foreground pb-2.5">
         Sign In with Your Eagleeye Digital Account
       </p>
-      {/* <p className="mb-6 text-xs text-muted-foreground">
-        Enter Your @eagleeyedigital.io Email to Receive a Sign-In Code
-      </p> */}
+
       <LoginForm error={error} captcha={captcha} />
     </div>
   );

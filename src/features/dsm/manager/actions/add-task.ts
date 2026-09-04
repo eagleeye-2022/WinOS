@@ -18,7 +18,7 @@ export async function addTask(
   const entryId = formData.get("entryId") as string;
   const text = (formData.get("text") as string)?.trim();
   const kind = (formData.get("kind") as string) || "TODAY";
-  const priority = (formData.get("priority") as string) || "P1";
+  const priority = (formData.get("priority") as string) || null;
 
   if (!entryId) return { message: "Missing entry ID" };
   if (!text) return { message: "Task text cannot be empty" };
@@ -58,7 +58,7 @@ export async function addTask(
     data: {
       entryId,
       type: "TASK_ADDED",
-      label: `${managerName} added a task`,
+      label: `${managerName} added a task: "${text}"`,
       occurredAt: new Date(),
     },
   });

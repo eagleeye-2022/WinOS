@@ -7,6 +7,7 @@ import { TimerStoppedModal } from "./modals/timer-stopped-modal";
 import {
   createActiveTimerAction,
   stopActiveTimerAction,
+  discardActiveTimerAction,
   getActiveTimerAction,
 } from "../actions/active-timer-actions";
 
@@ -188,6 +189,19 @@ export function TimerWidget({
     }
   };
 
+  const handleModalDiscardLog = async () => {
+    try {
+      await discardActiveTimerAction();
+    } catch (err) {
+      console.error("[TimerWidget] discardActiveTimerAction failed:", err);
+    } finally {
+      isStoppingRef.current = false;
+      setTimerState("IDLE");
+      setSeconds(0);
+      setIsStoppedModalOpen(false);
+    }
+  };
+
   const formatTime = (totalSecs: number): string => {
     const hrs = Math.floor(totalSecs / 3600);
     const mins = Math.floor((totalSecs % 3600) / 60);
@@ -294,6 +308,7 @@ export function TimerWidget({
         taskTitle={taskTitle}
         taskCode={taskCode}
         onSaveLog={handleModalSaveLog}
+        onDiscardLog={handleModalDiscardLog}
       />
     </div>
   );

@@ -236,7 +236,6 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
 
 function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODAY" | "YESTERDAY" }) {
   const [adding, setAdding] = useState(false);
-  const [priority] = useState<string>("P1");
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -262,7 +261,6 @@ function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODA
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value={kind} />
-      <input type="hidden" name="priority" value={priority} />
 
       <div className="flex items-center gap-2">
         <input
@@ -278,20 +276,6 @@ function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODA
           }}
           className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
-
-        {/* <select
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-          className="rounded-md border bg-card px-2 py-1 text-xs font-semibold text-foreground outline-none cursor-pointer"
-          title="Select Priority"
-        >
-          <option value="P1">P1</option>
-          <option value="P2">P2</option>
-          <option value="P3">P3</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Med</option>
-          <option value="LOW">Low</option>
-        </select> */}
 
         <button
           type="submit"

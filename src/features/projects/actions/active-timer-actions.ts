@@ -449,3 +449,30 @@ export async function getAllActiveTimersAction(projectId?: string) {
   }
 }
 
+/**
+ * Discards/deletes the current user's active timer record from the database
+ * without creating a time log entry.
+ */
+export async function discardActiveTimerAction() {
+  const { sessionUser, error } = await getAuthenticatedUser();
+  if (error || !sessionUser) {
+    return { success: false, error: error || "Unauthorized" };
+  }
+
+  const d = db as any;
+
+  try {
+    const deleted = await d.activeTimer.deleteMany({
+      where: { userId: sessionUser.id },
+    });
+
+    revalidatePath("/projects");
+    revalidatePath("/projects/time-tracker");
+
+    return { success: true, count: deleted.count };
+  } catch (err: any) {
+    console.error("[discardActiveTimerAction] error:", err);
+    return { success: false, error: err?.message || "Failed to discard active timer" };
+  }
+}
+

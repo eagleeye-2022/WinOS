@@ -18,6 +18,7 @@ interface TimerStoppedModalProps {
     isBillable: boolean;
     notes: string;
   }) => void;
+  onDiscardLog?: () => void;
 }
 
 import { formatTime12h } from "../../utils/time-helpers";
@@ -52,6 +53,7 @@ export function TimerStoppedModal({
   initialEndTime,
   elapsedSeconds = 0,
   onSaveLog,
+  onDiscardLog,
 }: TimerStoppedModalProps) {
   const now = new Date();
   const [startTime, setStartTime] = useState<Date>(
@@ -145,6 +147,13 @@ export function TimerStoppedModal({
       });
     }
 
+    onClose();
+  };
+
+  const handleDiscard = () => {
+    if (onDiscardLog) {
+      onDiscardLog();
+    }
     onClose();
   };
 
@@ -333,7 +342,7 @@ export function TimerStoppedModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleDiscard}
               className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors cursor-pointer"
               title="Discard Log"
             >

@@ -13,7 +13,7 @@ export type DsrPlannedTaskData = {
   addedAfterReview?: boolean;
 };
 
-export type DsrAdditionalWorkData = { id: string; text: string; order: number };
+export type DsrAdditionalWorkData = { id: string; text: string; completed: boolean; order: number };
 export type DsrResolvedBlockerData = { id: string; text: string; resolved: boolean; order: number };
 export type DsrFollowUpDoneData = { id: string; text: string; completed: boolean; order: number };
 export type DsrLearningItemData = { id: string; text: string; completed: boolean; order: number };

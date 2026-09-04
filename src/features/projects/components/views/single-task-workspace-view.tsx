@@ -77,6 +77,12 @@ import {
   createTaskRemarkAction,
   getCurrentUserContextAction,
 } from "../../actions/project-actions";
+import {
+  createActiveTimerAction,
+  stopActiveTimerAction,
+  discardActiveTimerAction,
+  getActiveTimerAction,
+} from "../../actions/active-timer-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
@@ -519,7 +525,7 @@ export function SingleTaskWorkspaceView({
     refreshTaskTimeLogs();
   }, [refreshTaskTimeLogs]);
 
-  const handleTimerLogSaved = async (_logData: {
+  const handleTimerLogSaved = async (logData: {
     duration: string;
     startTime: string;
     endTime: string;
@@ -527,11 +533,45 @@ export function SingleTaskWorkspaceView({
     notes: string;
   }) => {
     try {
-      showToast("Time log saved from live timer");
+      // 1. Call stopActiveTimerAction to delete active timer from DB & persist ProjectTimeLog in DB
+      const res = await stopActiveTimerAction({
+        duration: logData.duration,
+        description: logData.notes || `Logged from task ${activeTask.code}`,
+        billingType: logData.isBillable ? "BILLABLE" : "NON_BILLABLE",
+        startTime: logData.startTime,
+        endTime: logData.endTime,
+      });
+
+      // 2. Fallback: If stopActiveTimerAction returns error (e.g. no activeTimer in DB), create time log directly
+      if (!res?.success) {
+        await (createTimeLogAction as any)({
+          taskId: activeTask.id,
+          taskCode: activeTask.code,
+          projectId: activeTask.projectId || projectId,
+          duration: logData.duration,
+          billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
+          description: logData.notes || `Logged from task ${activeTask.code}`,
+          date: new Date().toISOString().split("T")[0],
+        });
+      }
+
+      showToast("Time log saved & timer stopped in DB");
       refreshTaskTimeLogs();
     } catch (err) {
-      console.error("Failed to save timer time log:", err);
+      console.error("Failed to save timer time log to DB:", err);
       showToast("Failed to save timer log");
+    }
+  };
+
+  const handleTimerLogDiscarded = async () => {
+    try {
+      await discardActiveTimerAction();
+      setActiveTimerStatus("IDLE");
+      setActiveTimerSeconds(0);
+      setActiveTimerStartTime(undefined);
+      showToast("Active timer discarded");
+    } catch (err) {
+      console.error("Failed to discard active timer from DB:", err);
     }
   };
 
@@ -611,6 +651,28 @@ export function SingleTaskWorkspaceView({
   const [isStoppedModalOpen, setIsStoppedModalOpen] = useState(false);
   const [stoppedSeconds, setStoppedSeconds] = useState<number>(0);
 
+  // Sync active timer from DB on load
+  useEffect(() => {
+    async function syncDbActiveTimer() {
+      try {
+        const res = await getActiveTimerAction();
+        if (res?.success && res?.data) {
+          const dbTimer = res.data;
+          if (dbTimer.taskId === activeTask.id || dbTimer.task?.code === activeTask.code) {
+            const startedAt = new Date(dbTimer.startedAt);
+            const elapsed = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+            setActiveTimerStartTime(startedAt);
+            setActiveTimerSeconds(elapsed);
+            setActiveTimerStatus("RUNNING");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch active timer from DB:", err);
+      }
+    }
+    syncDbActiveTimer();
+  }, [activeTask.id, activeTask.code]);
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (activeTimerStatus === "RUNNING") {
@@ -625,12 +687,24 @@ export function SingleTaskWorkspaceView({
     };
   }, [activeTimerStatus]);
 
-  const handleStartTimer = () => {
+  const handleStartTimer = async () => {
     if (!canStartTimer) return;
+    const now = new Date();
     if (activeTimerStatus === "IDLE") {
-      setActiveTimerStartTime(new Date());
+      setActiveTimerStartTime(now);
     }
     setActiveTimerStatus("RUNNING");
+    try {
+      await createActiveTimerAction({
+        taskId: activeTask.id,
+        taskCode: activeTask.code,
+        projectId: activeTask.projectId || projectId,
+        description: `Working on task ${activeTask.code}: ${activeTask.title}`,
+        billingType: "BILLABLE",
+      });
+    } catch (err) {
+      console.error("Failed to create active timer in DB:", err);
+    }
   };
 
   const handlePauseTimer = () => {
@@ -2084,6 +2158,7 @@ export function SingleTaskWorkspaceView({
         taskCode={activeTask.code}
         initialStartTime={activeTimerStartTime}
         onSaveLog={handleTimerLogSaved}
+        onDiscardLog={handleTimerLogDiscarded}
       />
     </div>
   );

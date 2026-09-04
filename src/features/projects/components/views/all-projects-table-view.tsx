@@ -77,30 +77,74 @@ export function AllProjectsTableView({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [ownerFilter, setOwnerFilter] = useState<string>("ALL");
 
   // AI Client Report Modal State
   const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+
+  // Dynamic filter options derived from current projects list
+  const uniqueOwners = Array.from(
+    new Set(projects.map((p) => p.owner?.name).filter(Boolean))
+  ) as string[];
+
+  const uniqueDepartments = Array.from(
+    new Set(projects.map((p) => p.departmentAlias).filter(Boolean))
+  ) as string[];
+
+  const hasActiveFilters =
+    categoryFilter !== "ALL" ||
+    ownerFilter !== "ALL" ||
+    departmentFilter !== "ALL" ||
+    statusFilter !== "ALL" ||
+    searchQuery.trim() !== "";
+
+  const handleResetFilters = () => {
+    setCategoryFilter("ALL");
+    setOwnerFilter("ALL");
+    setDepartmentFilter("ALL");
+    setStatusFilter("ALL");
+    setSearchQuery("");
+  };
 
   // Filter projects
   const filteredProjects = projects.filter((project) => {
     const matchesTab =
       activeTab === "ACTIVE"
         ? project.status === "ACTIVE"
-        : project.status === "COMPLETED";
+        : activeTab === "COMPLETED"
+        ? project.status === "COMPLETED"
+        : true;
 
     const matchesStatusDropdown =
       statusFilter === "ALL" || project.status === statusFilter;
 
     const matchesDepartment =
-      departmentFilter === "ALL" || project.departmentAlias === departmentFilter;
+      departmentFilter === "ALL" ||
+      (project.departmentAlias || "").toLowerCase() === departmentFilter.toLowerCase();
+
+    const matchesCategory =
+      categoryFilter === "ALL" || project.projectCategory === categoryFilter;
+
+    const matchesOwner =
+      ownerFilter === "ALL" || (project.owner?.name || "") === ownerFilter;
 
     const matchesSearch =
+      searchQuery.trim() === "" ||
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.owner.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (project.owner?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.departmentAlias || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesTab && matchesStatusDropdown && matchesDepartment && matchesSearch;
+    return (
+      matchesTab &&
+      matchesStatusDropdown &&
+      matchesDepartment &&
+      matchesCategory &&
+      matchesOwner &&
+      matchesSearch
+    );
   });
 
   const handleCopyLink = (id: string) => {
@@ -320,39 +364,74 @@ export function AllProjectsTableView({
       ) : (
       <>
       {/* Table Action Filter Bar */}
-      <div className="flex items-center justify-between border-b px-6 py-2.5 bg-muted/20 relative">
-        <div className="flex items-center gap-3">
-          {/* <select
-            value={statusFilter}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-info cursor-pointer outline-none"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active Projects</option>
-            <option value="COMPLETED">Completed Projects</option>
-          </select> */}
-
-          {/* Department Alias Filter */}
-          {/* <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer outline-none"
-          >
-            <option value="ALL">All Departments</option>
-            <option value="digitalproducts@">digitalproducts@</option>
-            <option value="design@">design@</option>
-            <option value="dev@">dev@</option>
-            <option value="seo@">seo@</option>
-          </select> */}
-
+      <div className="flex flex-wrap items-center justify-between border-b px-6 py-2.5 bg-muted/20 gap-3 relative">
+        <div className="flex flex-wrap items-center gap-2.5">
           <input
             type="text"
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary w-48"
+            className="rounded border border-input bg-background px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary w-44"
           />
+
+          {/* Category Filter */}
+          {/* <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="ALL">All Categories</option>
+            <option value="INTERNAL_BUILD">Internal Build</option>
+            <option value="SOP_7_PHASE">7-Phase SOP</option>
+          </select> */}
+
+          {/* Owner Filter */}
+          {/* <select
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary max-w-[140px] truncate"
+          >
+            <option value="ALL">All Owners</option>
+            {uniqueOwners.map((owner) => (
+              <option key={owner} value={owner}>
+                {owner}
+              </option>
+            ))}
+          </select> */}
+
+          {/* Department Filter */}
+          {/* <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary max-w-[140px] truncate"
+          >
+            <option value="ALL">All Departments</option>
+            {uniqueDepartments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+            {!uniqueDepartments.includes("digitalproducts@") && (
+              <option value="digitalproducts@">digitalproducts@</option>
+            )}
+            {!uniqueDepartments.includes("design@") && (
+              <option value="design@">design@</option>
+            )}
+            {!uniqueDepartments.includes("dev@") && <option value="dev@">dev@</option>}
+            {!uniqueDepartments.includes("seo@") && <option value="seo@">seo@</option>}
+          </select> */}
+
+          {/* Reset button if any filter is active */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              title="Reset all filters"
+            >
+              <RotateCw size={11} /> Reset Filters
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -383,14 +462,20 @@ export function AllProjectsTableView({
           </div>
 
           {/* Filter Panel Toggle */}
-          <button
+          {/* <button
             type="button"
             onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className="p-1.5 hover:bg-accent rounded hover:text-foreground transition-colors"
-            title="Filter Columns"
+            className={`p-1.5 rounded transition-colors relative ${showFilterPanel || hasActiveFilters
+              ? "bg-primary/15 text-primary font-bold border border-primary/30"
+              : "hover:bg-accent hover:text-foreground"
+              }`}
+            title="Filter Panel"
           >
             <Filter size={15} />
-          </button>
+            {hasActiveFilters && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+            )}
+          </button> */}
 
           {/* Options Menu Toggle */}
           <button
@@ -401,6 +486,111 @@ export function AllProjectsTableView({
           >
             <MoreHorizontal size={15} />
           </button>
+
+          {/* Filter Panel Popover */}
+          {/* {showFilterPanel && (
+            <div className="absolute right-12 top-11 z-40 w-72 rounded-lg border bg-popover p-4 shadow-xl text-xs space-y-3 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="font-bold text-foreground flex items-center gap-1.5">
+                  <Filter size={14} className="text-primary" /> Filter Projects
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFilterPanel(false)}
+                  className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Category
+                </label>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="INTERNAL_BUILD">Internal Build</option>
+                  <option value="SOP_7_PHASE">7-Phase SOP</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Owner
+                </label>
+                <select
+                  value={ownerFilter}
+                  onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Owners</option>
+                  {uniqueOwners.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Department
+                </label>
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Departments</option>
+                  {uniqueDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                  {!uniqueDepartments.includes("digitalproducts@") && (
+                    <option value="digitalproducts@">digitalproducts@</option>
+                  )}
+                  {!uniqueDepartments.includes("design@") && (
+                    <option value="design@">design@</option>
+                  )}
+                  {!uniqueDepartments.includes("dev@") && <option value="dev@">dev@</option>}
+                  {!uniqueDepartments.includes("seo@") && <option value="seo@">seo@</option>}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ACTIVE">Active Projects</option>
+                  <option value="COMPLETED">Completed Projects</option>
+                </select>
+              </div>
+
+              {hasActiveFilters && (
+                <div className="pt-2 border-t flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <RotateCw size={12} /> Reset all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )} */}
 
           {/* Options Dropdown */}
           {showOptionsMenu && (
@@ -415,7 +605,7 @@ export function AllProjectsTableView({
               <button
                 type="button"
                 onClick={() => {
-                  setSearchQuery("");
+                  handleResetFilters();
                   setShowOptionsMenu(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
@@ -537,7 +727,7 @@ export function AllProjectsTableView({
                   Link
                 </th>
                 <th className="py-3 px-3 border-r whitespace-nowrap text-center">%</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Owner</th>
+                <th className="py-3 px-4 border-r whitespace-nowrap text-left">Owner</th>
                 <th className="py-3 px-4 border-r whitespace-nowrap text-center">
                   <span className="flex items-center justify-center gap-1">
                     Status <ArrowUpDown size={12} />
@@ -620,8 +810,8 @@ export function AllProjectsTableView({
                       {project.progressPercent}%
                     </td>
 
-                    <td className="py-3 px-4 border-r whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
+                    <td className="py-3 px-4 border-r whitespace-nowrap text-left">
+                      <div className="flex items-center justify-start gap-2">
                         <span
                           className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
                             }`}
@@ -675,23 +865,20 @@ export function AllProjectsTableView({
                     </td>
 
                     <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center gap-2"
+                        title={`${project.completedTasksCount} of ${project.totalTasksCount} tasks completed (${project.taskProgressPercent}%)`}
+                      >
                         <span className="w-6 text-right font-medium">
                           {project.completedTasksCount}
                         </span>
-                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-3 overflow-hidden flex items-center p-0.5">
+                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-2 overflow-hidden">
                           <div
-                            className="bg-success h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-success-foreground font-bold px-1"
+                            className="bg-success h-full rounded-full transition-all duration-300"
                             style={{
-                              width: `${Math.max(
-                                project.taskProgressPercent,
-                                project.completedTasksCount > 0 ? 15 : 0
-                              )}%`,
+                              width: `${project.taskProgressPercent}%`,
                             }}
-                          >
-                            {project.taskProgressPercent > 0 &&
-                              `${project.taskProgressPercent}%`}
-                          </div>
+                          />
                         </div>
                         <span className="w-7 text-muted-foreground text-[11px]">
                           {project.totalTasksCount}

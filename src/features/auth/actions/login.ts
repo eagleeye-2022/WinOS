@@ -77,20 +77,13 @@ export async function requestOtpAction(
 
   if (!email) return { step: "email", error: "Email is required.", captcha: createCaptcha() };
 
-  if (!email.endsWith(`@${COMPANY_DOMAIN}`)) {
-    return {
-      step: "email",
-      error: "Only @eagleeyedigital.io email addresses are allowed.",
-      captcha: createCaptcha(),
-    };
-  }
-
-  // Account active status check — block OTP generation if user login is disabled by manager
+  // Account active status & client role check
+  let existingUser: any = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const existingUser = await (db as any).user.findUnique({
+    existingUser = await (db as any).user.findUnique({
       where: { email },
-      select: { isActive: true },
+      select: { id: true, isActive: true, role: true, profileRole: true, password: true },
     });
     if (existingUser && !existingUser.isActive) {
       return {
@@ -104,6 +97,19 @@ export async function requestOtpAction(
       devLogPrismaError("checkUserActive", err);
       return { step: "email", error: SERVICE_UNAVAILABLE, captcha: createCaptcha() };
     }
+  }
+
+  const isClientUser =
+    existingUser?.profileRole === "CLIENT" ||
+    existingUser?.role === "CLIENT" ||
+    !!existingUser?.password;
+
+  if (!email.endsWith(`@${COMPANY_DOMAIN}`) && !isClientUser) {
+    return {
+      step: "email",
+      error: "Only @eagleeyedigital.io email addresses are allowed for staff. Invited clients should log in using their password.",
+      captcha: createCaptcha(),
+    };
   }
 
   // Skip the CAPTCHA check on resend (the OTP step form doesn't render one) —
@@ -223,3 +229,43 @@ export async function verifyOtpAction(
     throw error;
   }
 }
+
+// ── Step 3 — Password Login (for invited Client users) ───────────────────────
+
+export async function loginWithPasswordAction(
+  _prev: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  const email = ((formData.get("email") as string) ?? "").trim().toLowerCase();
+  const password = ((formData.get("password") as string) ?? "").trim();
+
+  if (!email || !password) return "Please enter your email and password.";
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingUser = await (db as any).user.findUnique({
+      where: { email },
+      select: { id: true, isActive: true, role: true, profileRole: true, password: true },
+    });
+
+    if (existingUser && !existingUser.isActive) {
+      return "Your account login has been disabled by management. Please contact your administrator.";
+    }
+
+    if (!existingUser || !existingUser.password) {
+      return "No password-enabled account found for this email address. If you are staff, please use OTP login.";
+    }
+
+    await signIn("credentials", { email, password, redirectTo: ROUTES.home });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return "Incorrect email or password. Please check your credentials.";
+    }
+    if (isPrismaInfraError(error)) {
+      devLogPrismaError("signIn/password", error);
+      return SERVICE_UNAVAILABLE;
+    }
+    throw error;
+  }
+}
+

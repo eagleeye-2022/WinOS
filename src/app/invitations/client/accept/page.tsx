@@ -94,7 +94,7 @@ export default function AcceptClientInvitationPage({
       } else {
         setIsAccepted(true);
         setTimeout(() => {
-          router.push(`/login?accepted=true&email=${encodeURIComponent(invitation?.email || "")}`);
+          router.push(`/client/login?accepted=true&email=${encodeURIComponent(invitation?.email || "")}`);
         }, 2000);
       }
     } catch (err) {
@@ -154,10 +154,10 @@ export default function AcceptClientInvitationPage({
               </p>
             </div>
             <Link
-              href="/login"
+              href="/client/login"
               className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Go to Login Screen <ArrowRight size={14} />
+              Go to Client Login Screen <ArrowRight size={14} />
             </Link>
           </div>
         ) : isAccepted ? (
