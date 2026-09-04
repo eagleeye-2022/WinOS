@@ -526,9 +526,9 @@ export async function getYesterdaySupportNeeds(): Promise<{ text: string; mentio
 
 /**
  * Yesterday's learning items that were NOT marked complete.
- * Completion state for a DSM learning item doesn't live on StandupEntry itself — it's
- * recorded on that same day's evening DsrEntry.additionalWorks (matched by text, no FK
- * between them). Mirrors getYesterdayIncompleteTasks() for the learning section.
+ * Completion state for a DSM learning item is recorded on that same day's evening
+ * DsrEntry.learningItems (DsrLearningItem.completed), synced from StandupEntry.learningText
+ * when the DSR is submitted. Mirrors getYesterdayIncompleteTasks() for the learning section.
  */
 export async function getYesterdayIncompleteLearningItems(): Promise<string[]> {
   const session = await auth();
@@ -555,13 +555,15 @@ export async function getYesterdayIncompleteLearningItems(): Promise<string[]> {
 
   const dsr = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date: entry.date } },
-    include: { additionalWorks: { select: { text: true } } },
+    include: { learningItems: { select: { text: true, completed: true } } },
   });
 
   if (!dsr) return lines;
 
   const completedTexts = new Set(
-    (dsr.additionalWorks ?? []).map((w: { text: string }) => w.text.trim().toLowerCase())
+    (dsr.learningItems ?? [])
+      .filter((l: { completed: boolean }) => l.completed)
+      .map((l: { text: string }) => l.text.trim().toLowerCase())
   );
 
   return lines.filter((text) => !completedTexts.has(text.trim().toLowerCase()));

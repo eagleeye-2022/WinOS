@@ -705,7 +705,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative text-xs">
+    <div className="flex flex-col h-full min-h-0 bg-background text-foreground overflow-hidden relative text-xs">
       {/* ── Top App Title Bar with Role Switcher (Commented out per user request) ────────────────
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-3">
@@ -1119,9 +1119,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       )}
 
       {/* ── Main Data Table (Group By Date View) ─────────────────────────────────── */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
+      <div className="dsm-columns-scrollbar flex-1 overflow-x-auto overflow-y-auto p-4">
         {groupBy === "Group By Date" ? (
-          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-2.5 px-3 border-r border-border w-10 text-center">
@@ -1396,7 +1396,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </table>
         ) : groupBy === "Group By Project" ? (
           /* Mode: Group By Project */
-          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
@@ -1470,9 +1470,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-foreground font-bold" title="Total Logged Hours">Total: {totalStr}</span>
-                        <span className="text-info font-bold" title="Billable Hours">Billable: {billableStr}</span>
-                        <span className="text-warning font-bold" title="Non-Billable Hours">Non-Billable: {nonBillableStr}</span>
+                        <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
+                        <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>
+                        <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>
                       </div>
                     </td>
 
@@ -1619,7 +1619,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </table>
         ) : (
           /* Mode: Group By User */
-          <table className="w-full text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
@@ -1692,9 +1692,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-foreground font-bold" title="Total Logged Hours">Total: {totalStr}</span>
-                        <span className="text-info font-bold" title="Billable Hours">Billable: {billableStr}</span>
-                        <span className="text-warning font-bold" title="Non-Billable Hours">Non-Billable: {nonBillableStr}</span>
+                        <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
+                        <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>
+                        <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>
                       </div>
                     </td>
 
@@ -1843,7 +1843,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       </div>
 
       {/* ── Bottom Summary Footer Bar ────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-t border-border px-6 py-2.5 bg-muted/40 text-xs font-semibold shrink-0 text-foreground">
+      <div className="flex items-center justify-between border-t border-border px-6 py-2.5 bg-muted/40 text-xs font-semibold shrink-0 text-foreground overflow-x-auto dsm-columns-scrollbar">
         <div className="flex items-center gap-6">
           <div>
             <span className="text-muted-foreground font-normal">Billable</span>{" "}

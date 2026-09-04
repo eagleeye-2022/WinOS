@@ -251,8 +251,8 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
       )}
 
       {/* Main Phases Data Table */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="flex-1 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
+        <table className="w-full min-w-[900px] text-left text-xs border-collapse">
           <thead>
             <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
               <th className="py-3 px-4 border-r w-12 text-center">

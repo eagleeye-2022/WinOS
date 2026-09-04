@@ -459,6 +459,68 @@ export async function getProjectsAction(): Promise<Project[]> {
   return dbProjects.map((p) => toProject(p, userMap));
 }
 
+/**
+ * Projects where the current user has an explicit `ProjectMember` row — narrower than
+ * `getProjectsAction`, which also surfaces public/owned/task-involvement projects. Backs the
+ * "My Dashboard" view.
+ */
+export async function getMyProjectsAction(): Promise<Project[]> {
+  const session = await requireAuth();
+  const userMap = await getUserMap();
+
+  const dbProjects = await db.project.findMany({
+    where: { members: { some: { userId: session.user.id } } },
+    include: PROJECT_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return dbProjects.map((p) => toProject(p, userMap));
+}
+
+export type MyProjectCalendarItem = {
+  id: string;
+  projectId: string;
+  projectName: string;
+  taskTitle: string;
+  dueDate: Date;
+};
+
+/**
+ * Derives a lightweight calendar feed from task due dates on the current user's member projects.
+ * No dedicated calendar/event model backs this — `ProjectTask.dueDate` is a free-form string
+ * (often the literal placeholder "--"), so unparsable values are dropped rather than surfaced.
+ */
+export async function getMyProjectCalendarEventsAction(): Promise<MyProjectCalendarItem[]> {
+  const session = await requireAuth();
+
+  const dbProjects = await db.project.findMany({
+    where: { members: { some: { userId: session.user.id } } },
+    select: {
+      id: true,
+      name: true,
+      tasks: { select: { id: true, title: true, dueDate: true } },
+    },
+  });
+
+  const items: MyProjectCalendarItem[] = [];
+  for (const project of dbProjects) {
+    for (const task of project.tasks) {
+      if (!task.dueDate || task.dueDate === "--") continue;
+      const parsed = new Date(task.dueDate);
+      if (isNaN(parsed.getTime())) continue;
+      items.push({
+        id: task.id,
+        projectId: project.id,
+        projectName: project.name,
+        taskTitle: task.title,
+        dueDate: parsed,
+      });
+    }
+  }
+
+  return items;
+}
+
 export async function getProjectByIdAction(projectId: string): Promise<Project | null> {
   const session = await requireAuth();
   const userMap = await getUserMap();

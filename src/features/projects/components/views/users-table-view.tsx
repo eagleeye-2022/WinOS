@@ -84,8 +84,33 @@ export function UsersTableView({
   const handleResend = async (invitationId: string) => {
     setActionLoading(true);
     try {
-      await resendClientInvitationAction(invitationId);
+      const res = await resendClientInvitationAction(invitationId);
+      if (res.success && res.data?.acceptUrl) {
+        try {
+          await navigator.clipboard.writeText(res.data.acceptUrl);
+          const sender = res.data.fromEmail || "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
+          const recipient = res.data.toEmail || "client";
+          if (res.data.emailSent === false) {
+            alert(
+              `Invitation link regenerated & copied to clipboard!\n\nEmail Delivery Note: Failed to send from ${sender} to ${recipient} (${res.data.emailError || "SMTP issue"}).\n\nShare this invitation link directly with the client:\n${res.data.acceptUrl}`
+            );
+          } else {
+            alert(
+              `Email successfully sent from ${sender} to ${recipient}!\n\nInvitation Link (copied to clipboard):\n${res.data.acceptUrl}`
+            );
+          }
+        } catch {
+          const sender = res.data.fromEmail || "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
+          const recipient = res.data.toEmail || "client";
+          alert(`Email sent from ${sender} to ${recipient}.\nInvitation Link:\n${res.data.acceptUrl}`);
+        }
+      } else if (!res.success) {
+        alert(res.error || "Failed to resend invitation.");
+      }
       onRefreshData?.();
+    } catch (err) {
+      console.error("Failed to resend invitation:", err);
+      alert("Failed to resend invitation.");
     } finally {
       setActionLoading(false);
       setActiveMenuId(null);
@@ -213,8 +238,8 @@ export function UsersTableView({
       </div>
 
       {/* Main Table */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="flex-1 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
+        <table className="w-full min-w-[950px] text-left text-xs border-collapse">
           <thead>
             <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
               <th className="py-3 px-4 border-r whitespace-nowrap">

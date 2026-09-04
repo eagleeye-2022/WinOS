@@ -417,29 +417,41 @@ body {
   height: 0 !important;
 }
 
-/* Custom scrollbar utility to show scrollbars specifically for DSM columns */
+/* Custom scrollbar utility to show scrollbars specifically for DSM columns and tables */
 .dsm-columns-scrollbar {
   scrollbar-width: auto !important;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05) !important;
   -ms-overflow-style: auto !important;
 }
 
 .dsm-columns-scrollbar::-webkit-scrollbar {
   display: block !important;
-  width: 6px !important;
-  height: 6px !important;
+  width: 10px !important;
+  height: 10px !important;
 }
 
 .dsm-columns-scrollbar::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.dsm-columns-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--border) !important;
+  background: rgba(0, 0, 0, 0.1) !important;
   border-radius: 9999px !important;
 }
 
+.dark .dsm-columns-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dsm-columns-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(120, 130, 160, 0.5) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+.dark .dsm-columns-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
 .dsm-columns-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--muted-foreground) !important;
+  background-color: var(--primary) !important;
 }
 
 /* Ensure all buttons, links, clickable items, and interactive elements across WinOS have pointer cursor */

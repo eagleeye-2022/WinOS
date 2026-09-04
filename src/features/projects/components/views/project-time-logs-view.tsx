@@ -460,8 +460,8 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
 
                   {/* Expanded User Time Logs Table */}
                   {!isCollapsed && (
-                    <div className="border-t border-border overflow-x-auto">
-                      <table className="w-full text-left text-xs">
+                    <div className="border-t border-border overflow-x-auto dsm-columns-scrollbar">
+                      <table className="w-full min-w-[900px] text-left text-xs">
                         <thead className="bg-muted/20 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                           <tr>
                             <th className="px-4 py-2.5">Date</th>
@@ -525,8 +525,8 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto dsm-columns-scrollbar">
+            <table className="w-full min-w-[900px] text-left text-xs">
               <thead className="bg-muted/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
                 <tr>
                   <th className="px-4 py-3">Date</th>
