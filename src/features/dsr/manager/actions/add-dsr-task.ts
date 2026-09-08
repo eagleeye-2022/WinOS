@@ -67,7 +67,7 @@ export async function addDsrTask(
     data: {
       dsrEntryId: entryId,
       type: "TASK_ADDED",
-      label: `${managerName} added a task`,
+      label: `${managerName} added a task: "${text}"`,
       occurredAt: new Date(),
     },
   });

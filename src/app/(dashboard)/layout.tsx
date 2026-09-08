@@ -58,6 +58,11 @@ export default async function DashboardLayout({
     redirect(ROUTES.login);
   }
 
+  const profileRole = (session.user as { profileRole?: string })?.profileRole;
+  if (profileRole === "CLIENT") {
+    redirect(ROUTES.clientPortal);
+  }
+
   const userRole = (session.user as { role?: string })?.role ?? "TEAM_MEMBER";
   const userName = session.user?.name ?? session.user?.email ?? "";
   const initials = userName

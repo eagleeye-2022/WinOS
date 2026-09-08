@@ -20,18 +20,25 @@ import {
   ChevronRight,
   UserCheck,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import {
   getTimeLogsAction,
   getProjectTimeLogSummaryAction,
   getCurrentUserRoleAction,
   deleteTimeLogAction,
+  updateTimeLogAction,
   ProjectTimeSummary,
 } from "../../actions/project-actions";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
-import { parseDurationMinutes } from "../../utils/time-helpers";
+import {
+  parseDurationMinutes,
+  formatDurationDisplay,
+  formatTimePeriodRange,
+  calculateMinutesFromTimeRange,
+} from "../../utils/time-helpers";
 
 interface ProjectTimeLogsViewProps {
   projectId: string;
@@ -63,8 +70,8 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
 
   const canViewAll = isManagerOrAdmin || isClient;
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setIsLoading(true);
     try {
       const [groups, summaryData, role] = await Promise.all([
         getTimeLogsAction(projectId),
@@ -77,7 +84,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
     } catch (err) {
       console.error("Failed to load project time logs:", err);
     } finally {
-      setIsLoading(false);
+      if (showSpinner) setIsLoading(false);
     }
   }, [projectId]);
 
@@ -179,11 +186,66 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
     return `${String(h).padStart(2, "0")}:${String(mins).padStart(2, "0")} h`;
   };
 
+  type EditableField = "remarks" | "duration" | "timePeriod";
+  const [editingCell, setEditingCell] = useState<{ logId: string; field: EditableField } | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+
+  const getFieldValue = (log: TimeLogEntry, field: EditableField): string => {
+    if (field === "remarks") return log.remarks || log.title || "";
+    if (field === "timePeriod") return log.timePeriod || "";
+    return log.duration || "";
+  };
+
+  const handleStartEditCell = (log: TimeLogEntry, field: EditableField) => {
+    if (isClient) return;
+    setEditingCell({ logId: log.id, field });
+    setEditDraft(getFieldValue(log, field));
+  };
+
+  const commitCellEdit = async (log: TimeLogEntry, field: EditableField) => {
+    setEditingCell(null);
+    const original = getFieldValue(log, field);
+    if (editDraft === original) return;
+    try {
+      const updatePayload: Partial<TimeLogEntry> = { [field]: editDraft };
+
+      // Daily Log Hours (duration) is derived from the Time Period range whenever it's editable.
+      if (field === "timePeriod" && (editDraft.includes("-") || editDraft.includes("–"))) {
+        const parts = editDraft.split(/[-–]/);
+        if (parts.length === 2) {
+          const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
+          const mins = calculateMinutesFromTimeRange(parts[0], parts[1]);
+          if (rangeStr) updatePayload.timePeriod = rangeStr;
+          if (mins && mins > 0) {
+            updatePayload.duration = formatDurationDisplay(mins);
+          }
+        }
+      }
+
+      await updateTimeLogAction(log.id, updatePayload);
+      await loadData(false);
+    } catch (err) {
+      console.error("Failed to update time log:", err);
+      alert(err instanceof Error ? err.message : "Failed to update time log.");
+    }
+  };
+
+  const handleChangeBillingType = async (log: TimeLogEntry, billingType: "BILLABLE" | "NON BILLABLE") => {
+    if (isClient || billingType === log.billingType) return;
+    try {
+      await updateTimeLogAction(log.id, { billingType });
+      await loadData(false);
+    } catch (err) {
+      console.error("Failed to update billing type:", err);
+      alert(err instanceof Error ? err.message : "Failed to update billing type.");
+    }
+  };
+
   const handleDeleteLog = async (logId: string) => {
     if (!confirm("Are you sure you want to delete this time log?")) return;
     try {
       await deleteTimeLogAction(logId);
-      await loadData();
+      await loadData(false);
     } catch (err) {
       console.error("Failed to delete log:", err);
       alert("Failed to delete time log. You may only delete your own logs.");
@@ -203,10 +265,10 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       {/* Top Header & Metrics Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+          {/* <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Clock size={20} className="text-primary" />
             Project Time Logs
-          </h2>
+          </h2> */}
           {/* <p className="text-xs text-muted-foreground mt-0.5">
             {isManagerOrAdmin
               ? "Viewing all time logs for this project (Manager / Admin view)"
@@ -214,7 +276,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           </p> */}
         </div>
 
-        {!isClient ? (
+        {/* {!isClient ? (
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
@@ -223,12 +285,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             <Plus size={15} />
             Add Time Log
           </button>
-        ) : (
+        ) : ( */}
+        {isClient && (
           <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
             <Lock size={13} />
             Client Read-Only Mode
           </span>
         )}
+        {/* )} */}
       </div>
 
       {/* Summary KPI Cards */}
@@ -461,55 +525,127 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                   {/* Expanded User Time Logs Table */}
                   {!isCollapsed && (
                     <div className="border-t border-border overflow-x-auto dsm-columns-scrollbar">
-                      <table className="w-full min-w-[900px] text-left text-xs">
-                        <thead className="bg-muted/20 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                          <tr>
-                            <th className="px-4 py-2.5">Date</th>
-                            <th className="px-4 py-2.5">Task</th>
-                            <th className="px-4 py-2.5">Description / Remarks</th>
-                            <th className="px-4 py-2.5">Duration</th>
-                            <th className="px-4 py-2.5">Billing</th>
-                            <th className="px-4 py-2.5">Status</th>
-                            <th className="px-4 py-2.5 text-right">Actions</th>
+                      <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">ID</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DATE</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">APPROVAL STATUS</th>
+                            <th className="py-2.5 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {userGroup.timeLogs.map((log) => (
                             <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                              <td className="px-4 py-2.5 font-medium whitespace-nowrap text-foreground">{log.date}</td>
-                              <td className="px-4 py-2.5 whitespace-nowrap">
-                                {log.taskCode ? (
-                                  <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                                    {log.taskCode}
-                                  </span>
+                              <td className="px-4 py-2.5 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                                {log.taskCode || log.code}
+                              </td>
+                              <td className="px-4 py-2.5 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                                {log.title}
+                              </td>
+                              <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
+                                {log.project || projectName}
+                              </td>
+                              <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                {editingCell?.logId === log.id && editingCell.field === "duration" ? (
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onBlur={() => commitCellEdit(log, "duration")}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                      if (e.key === "Escape") setEditingCell(null);
+                                    }}
+                                    className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono font-bold text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                  />
                                 ) : (
-                                  <span className="text-muted-foreground italic">General</span>
+                                  <span
+                                    onClick={() => handleStartEditCell(log, "duration")}
+                                    title="Click to edit"
+                                    className={cn("inline-block rounded-md px-1 -mx-1 font-mono font-bold text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                                  >
+                                    {log.duration}
+                                  </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 max-w-xs truncate text-foreground/80">{log.remarks || log.title}</td>
-                              <td className="px-4 py-2.5 font-mono font-bold text-foreground whitespace-nowrap">{log.duration}</td>
-                              <td className="px-4 py-2.5 whitespace-nowrap">
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${log.billingType === "BILLABLE" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"}`}>
-                                  {log.billingType}
-                                </span>
+                              <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                {editingCell?.logId === log.id && editingCell.field === "timePeriod" ? (
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onBlur={() => commitCellEdit(log, "timePeriod")}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                      if (e.key === "Escape") setEditingCell(null);
+                                    }}
+                                    placeholder="00:00 - 00:00"
+                                    className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-[11px] text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() => handleStartEditCell(log, "timePeriod")}
+                                    title="Click to edit"
+                                    className={cn("inline-block rounded-md px-1 -mx-1 text-[11px] text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                                  >
+                                    {log.timePeriod || "—"}
+                                  </span>
+                                )}
                               </td>
-                              <td className="px-4 py-2.5 whitespace-nowrap">
+                              <td className="px-4 py-2.5 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                                {log.date}
+                              </td>
+                              <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={log.billingType}
+                                  onChange={(e) => handleChangeBillingType(log, e.target.value as "BILLABLE" | "NON BILLABLE")}
+                                  disabled={isClient}
+                                  title="Click to edit Billing Type inline"
+                                  className={cn(
+                                    "rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold outline-hidden transition-all",
+                                    isClient ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                                    log.billingType === "BILLABLE" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                  )}
+                                >
+                                  <option value="BILLABLE" className="bg-card text-emerald-600 font-bold">BILLABLE</option>
+                                  <option value="NON BILLABLE" className="bg-card text-amber-600 font-bold">NON BILLABLE</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2.5 border-r border-border whitespace-nowrap">
                                 <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
                                   {log.approvalStatus || "Pending"}
                                 </span>
                               </td>
-                              <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                {!isClient ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <button type="button" onClick={() => setEditingLog(log)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Edit Log">
-                                      <Edit2 size={13} />
-                                    </button>
-                                    <button type="button" onClick={() => handleDeleteLog(log.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer" title="Delete Log">
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
+                              <td className="px-4 py-2.5 text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
+                                {editingCell?.logId === log.id && editingCell.field === "remarks" ? (
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onBlur={() => commitCellEdit(log, "remarks")}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                      if (e.key === "Escape") setEditingCell(null);
+                                    }}
+                                    className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                  />
                                 ) : (
-                                  <span className="text-[10px] font-mono text-muted-foreground italic">Read Only</span>
+                                  <span
+                                    onClick={() => handleStartEditCell(log, "remarks")}
+                                    title="Click to edit"
+                                    className={cn("block truncate rounded-md px-1 -mx-1", !isClient && "cursor-text hover:bg-muted/60")}
+                                  >
+                                    {log.remarks || "—"}
+                                  </span>
                                 )}
                               </td>
                             </tr>
@@ -526,84 +662,134 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       ) : (
         <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
           <div className="overflow-x-auto dsm-columns-scrollbar">
-            <table className="w-full min-w-[900px] text-left text-xs">
-              <thead className="bg-muted/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Task</th>
-                  <th className="px-4 py-3">Description / Remarks</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Billing</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+            <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">APPROVAL STATUS</th>
+                  <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground italic">
+                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground italic">
                       No time logs found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground">
-                        {log.date}
+                      <td className="px-4 py-3 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                        {log.taskCode || log.code}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[9px]">
-                            {log.userInitials}
-                          </span>
-                          <span className="font-medium text-foreground">{log.userName}</span>
-                        </div>
+                      <td className="px-4 py-3 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                        {log.title}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {log.taskCode ? (
-                          <span className="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 font-mono text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                            {log.taskCode}
-                          </span>
+                      <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
+                        {log.project || projectName}
+                      </td>
+                      <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {editingCell?.logId === log.id && editingCell.field === "duration" ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onBlur={() => commitCellEdit(log, "duration")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                            className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono font-bold text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                          />
                         ) : (
-                          <span className="text-muted-foreground italic">General</span>
+                          <span
+                            onClick={() => handleStartEditCell(log, "duration")}
+                            title="Click to edit"
+                            className={cn("inline-block rounded-md px-1 -mx-1 font-mono font-bold text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                          >
+                            {log.duration}
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 max-w-xs truncate text-foreground/80">
-                        {log.remarks || log.title}
+                      <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {editingCell?.logId === log.id && editingCell.field === "timePeriod" ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onBlur={() => commitCellEdit(log, "timePeriod")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                            className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-[11px] text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                          />
+                        ) : (
+                          <span
+                            onClick={() => handleStartEditCell(log, "timePeriod")}
+                            title="Click to edit"
+                            className={cn("inline-block rounded-md px-1 -mx-1 text-[11px] text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                          >
+                            {log.timePeriod || "—"}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 font-mono font-bold text-foreground whitespace-nowrap">
-                        {log.duration}
+                      <td className="px-4 py-3 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                        {log.date}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            log.billingType === "BILLABLE"
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                          }`}
+                      <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={log.billingType}
+                          onChange={(e) => handleChangeBillingType(log, e.target.value as "BILLABLE" | "NON BILLABLE")}
+                          disabled={isClient}
+                          title="Click to edit Billing Type inline"
+                          className={cn(
+                            "rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold outline-hidden transition-all",
+                            isClient ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+                            log.billingType === "BILLABLE" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                          )}
                         >
-                          {log.billingType}
+                          <option value="BILLABLE" className="bg-card text-emerald-600 font-bold">BILLABLE</option>
+                          <option value="NON BILLABLE" className="bg-card text-amber-600 font-bold">NON BILLABLE</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 border-r border-border whitespace-nowrap">
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
+                          {log.approvalStatus || "Pending"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditingLog(log)}
-                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                            title="Edit Log"
+                      <td className="px-4 py-3 text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
+                        {editingCell?.logId === log.id && editingCell.field === "remarks" ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onBlur={() => commitCellEdit(log, "remarks")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                            className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                          />
+                        ) : (
+                          <span
+                            onClick={() => handleStartEditCell(log, "remarks")}
+                            title="Click to edit"
+                            className={cn("block truncate rounded-md px-1 -mx-1", !isClient && "cursor-text hover:bg-muted/60")}
                           >
-                            <Edit2 size={13} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteLog(log.id)}
-                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                            title="Delete Log"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                            {log.remarks || "—"}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

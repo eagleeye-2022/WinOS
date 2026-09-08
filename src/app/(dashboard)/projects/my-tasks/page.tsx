@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ListTodo, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { getMyTasksAction, updateTaskAction } from "@/features/projects/actions/project-actions";
 import { TaskItem } from "@/features/projects/types";
-import { TasksBoardView } from "@/features/projects/components/views/tasks-board-view";
+import { TasksListView } from "@/features/projects/components/views/tasks-list-view";
 
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -60,15 +60,12 @@ export default function MyTasksPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
-      {/* Header Bar */}
+      {/* Header Bar
       <div className="flex items-center justify-between border-b px-6 py-4 bg-card">
         <div className="flex items-center gap-3">
           <ListTodo size={22} className="text-primary" />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">My Assigned Tasks</h1>
-            {/* <p className="text-xs text-muted-foreground">
-              Cross-project task list filtered by your active user assignment.
-            </p> */}
           </div>
         </div>
 
@@ -78,6 +75,7 @@ export default function MyTasksPage() {
           </span>
         </div>
       </div>
+      */}
 
       {/* Required-Owner Workflow Nudge Banner */}
       {unassignedCount > 0 && (
@@ -92,9 +90,9 @@ export default function MyTasksPage() {
         </div>
       )}
 
-      {/* Tasks Board View */}
+      {/* Tasks List View */}
       <div className="flex-1 overflow-hidden">
-        <TasksBoardView
+        <TasksListView
           tasks={tasks}
           onAddTask={handleAddTask}
           onUpdateTask={handleUpdateTask}

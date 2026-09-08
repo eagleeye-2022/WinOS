@@ -1,6 +1,8 @@
 export const ROUTES = {
   home: "/",
   login: "/login",
+  clientLogin: "/client/login",
+  clientPortal: "/portal",
   dashboard: "/dashboard",
   dsm: "/dsm",
   dsmMy: "/dsm/my",
@@ -22,4 +24,4 @@ export const ROUTES = {
   settingsProfileAccess: "/settings/profile-access",
 } as const;
 
-export const PUBLIC_ROUTES: string[] = [ROUTES.login];
+export const PUBLIC_ROUTES: string[] = [ROUTES.login, ROUTES.clientLogin];

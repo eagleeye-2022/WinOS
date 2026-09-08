@@ -5,6 +5,8 @@ import { ROUTES } from "@/constants/routes";
 export default async function RootPage() {
   const session = await auth();
   if (!session) redirect(ROUTES.login);
+  const profileRole = (session.user as { profileRole?: string })?.profileRole;
+  if (profileRole === "CLIENT") redirect(ROUTES.clientPortal);
   const role = (session.user as { role?: string })?.role;
   redirect(role === "MANAGER" ? ROUTES.dashboard : ROUTES.dsm);
 }

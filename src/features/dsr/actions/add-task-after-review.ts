@@ -68,7 +68,7 @@ export async function addTaskAfterReview(
     data: {
       dsrEntryId: entryId,
       type: "TASK_ADDED",
-      label: `${userName} added a task`,
+      label: `${userName} added a task: "${text}"`,
       occurredAt: new Date(),
     },
   });

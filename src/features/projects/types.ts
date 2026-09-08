@@ -81,6 +81,25 @@ export interface ProjectOwner {
   email?: string;
 }
 
+/** A single assignee slot on a project (Project Lead, Tech/Creative Assignee, Marketing SEO/Content/PM). */
+export interface ProjectAssignee {
+  id: string;
+  name: string;
+  initials: string;
+  avatarColor?: string;
+}
+
+/** Lightweight team-member record used by the assignee picker popover — driven by live User rows. */
+export interface TeamMemberOption {
+  id: string;
+  name: string;
+  email: string;
+  title?: string;
+  department?: string;
+  initials: string;
+  avatarColor?: string;
+}
+
 export interface ProjectTaskInfo {
   associatedTeam?: string;
   ownerId?: string;
@@ -126,6 +145,21 @@ export interface Project {
   businessHours?: string;
   taskLayout?: string;
   createdAt: string;
+
+  // Table-view assignment/tracking columns (see all-projects-table-view.tsx) — each role can
+  // hold multiple people at once (backed by the ProjectRoleAssignment join table).
+  projectLead?: ProjectAssignee[];
+  techAssignee?: ProjectAssignee[];
+  creativeAssignee?: ProjectAssignee[];
+  marketingSeo?: ProjectAssignee[];
+  marketingContent?: ProjectAssignee[];
+  marketingPm?: ProjectAssignee[];
+  driveLink?: string;
+  webLink?: string;
+  designLink?: string;
+  techNotes?: string;
+  creativeNotes?: string;
+  marketingNotes?: string;
 }
 
 export interface NewProjectFormData {
@@ -212,6 +246,7 @@ export interface TaskItem {
   title: string;
   parentTaskId?: string; // set when this task is really a subtask of another ProjectTask
   projectId?: string; // the owning Project's id — needed to build /projects/:projectId links from cross-project views
+  projectName?: string; // the owning Project's name — used by cross-project views like "My Tasks"
   phaseCode: string; // e.g. "2.1"
   phaseName: string; // e.g. "IDEATION & CONCEPTUALIZATION" or "UI/UX DESIGNING"
   taskListId?: string;
@@ -230,6 +265,7 @@ export interface TaskItem {
   startDate?: string;
   duration?: string; // e.g. "2 days/hrs"
   completionPercentage?: number; // e.g. 0
+  order?: number; // manual drag-reorder position within its Kanban phase column
   recurrence?: string;
   dueDate?: string;
   priority?: ProjectPriority;

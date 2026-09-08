@@ -21,13 +21,32 @@ import {
   LayoutGrid,
   List,
 } from "lucide-react";
-import { Project, WorkspaceRole } from "../../types";
+import { Project, WorkspaceRole, TeamMemberOption } from "../../types";
 import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
-import { getCurrentUserRoleAction } from "../../actions/project-actions";
+import {
+  getCurrentUserRoleAction,
+  getTeamMembersForAssignmentAction,
+  bulkUpdateProjectRoleAssigneesAction,
+  bulkShiftProjectDatesAction,
+  ProjectAssigneeField,
+} from "../../actions/project-actions";
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
+import { AssigneeCell, CalendarCell, LinksCell, NotesCell } from "../project-table-cells";
+import { BulkProjectActionsBar } from "../bulk-project-actions-bar";
+import { getInitials, getAvatarColor } from "../assignee-picker-popover";
+import { useConfirm } from "@/components/shared/confirm-dialog";
+
+const ASSIGNEE_ROLE_TO_PROJECT_KEY: Record<ProjectAssigneeField, keyof Project> = {
+  PROJECT_LEAD: "projectLead",
+  TECH_ASSIGNEE: "techAssignee",
+  CREATIVE_ASSIGNEE: "creativeAssignee",
+  MARKETING_SEO: "marketingSeo",
+  MARKETING_CONTENT: "marketingContent",
+  MARKETING_PM: "marketingPm",
+};
 
 interface AllProjectsTableViewProps {
   projects: Project[];
@@ -65,6 +84,113 @@ export function AllProjectsTableView({
   }, [propUserRole]);
 
   const userRole = propUserRole || effectiveUserRole;
+
+  // Local mutable copy of the projects list so assignee/calendar/link/notes edits made through
+  // the table cells below can render optimistically without waiting on a full page revalidation.
+  const [localProjects, setLocalProjects] = useState<Project[]>(projects);
+  const [prevProjectsProp, setPrevProjectsProp] = useState(projects);
+  if (projects !== prevProjectsProp) {
+    setPrevProjectsProp(projects);
+    setLocalProjects(projects);
+  }
+
+  const patchProject = (projectId: string, patch: Partial<Project>) => {
+    setLocalProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...patch } : p)));
+  };
+
+  // Live team member roster for the assignee picker popovers — never hardcoded.
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
+  useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const members = await getTeamMembersForAssignmentAction();
+        setTeamMembers(
+          members.map((m) => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            title: m.title,
+            department: m.department,
+            initials: m.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase(),
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch team members:", err);
+      }
+    }
+    fetchMembers();
+  }, []);
+
+  const canEditAssignments = userRole !== "TEAM_MEMBER";
+  const { confirm, ConfirmDialog } = useConfirm();
+
+  // Bulk-select state for the "select multiple projects, assign a role / shift dates" toolbar.
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
+  const toggleProjectSelected = (id: string) => {
+    setSelectedProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedProjectIds(new Set());
+
+  const handleBulkApplyAssignees = async (role: ProjectAssigneeField, memberIds: string[]) => {
+    const ids = Array.from(selectedProjectIds);
+    const selectedMembers = teamMembers.filter((m) => memberIds.includes(m.id));
+    const projectKey = ASSIGNEE_ROLE_TO_PROJECT_KEY[role];
+    const nextAssignees =
+      selectedMembers.length > 0
+        ? selectedMembers.map((m) => ({
+            id: m.id,
+            name: m.name,
+            initials: getInitials(m.name),
+            avatarColor: getAvatarColor(m.name),
+          }))
+        : undefined;
+
+    setLocalProjects((prev) =>
+      prev.map((p) => (ids.includes(p.id) ? { ...p, [projectKey]: nextAssignees } : p))
+    );
+
+    const result = await bulkUpdateProjectRoleAssigneesAction(ids, role, memberIds);
+    if (!result.success) {
+      alert(result.error || "Some projects could not be updated.");
+    }
+    clearSelection();
+  };
+
+  const handleBulkApplyDateShift = async (deltaDays: number) => {
+    const ids = Array.from(selectedProjectIds);
+    const shiftMs = deltaDays * 86400000;
+
+    setLocalProjects((prev) =>
+      prev.map((p) => {
+        if (!ids.includes(p.id)) return p;
+        const start = p.startDate ? new Date(p.startDate) : null;
+        const end = p.deadline ? new Date(p.deadline) : null;
+        if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) return p;
+        return {
+          ...p,
+          startDate: new Date(start.getTime() + shiftMs).toISOString().split("T")[0],
+          deadline: new Date(end.getTime() + shiftMs).toISOString().split("T")[0],
+        };
+      })
+    );
+
+    const result = await bulkShiftProjectDatesAction(ids, deltaDays);
+    if (!result.success) {
+      alert(result.error || "Some projects could not be shifted.");
+    }
+    clearSelection();
+  };
+
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "COMPLETED" | "TEMPLATES">("ACTIVE");
   const [viewLayout, setViewLayout] = useState<"LIST" | "GRID">("LIST");
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,30 +203,74 @@ export function AllProjectsTableView({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [ownerFilter, setOwnerFilter] = useState<string>("ALL");
 
   // AI Client Report Modal State
   const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
 
+  // Dynamic filter options derived from current projects list
+  const uniqueOwners = Array.from(
+    new Set(localProjects.map((p) => p.owner?.name).filter(Boolean))
+  ) as string[];
+
+  const uniqueDepartments = Array.from(
+    new Set(localProjects.map((p) => p.departmentAlias).filter(Boolean))
+  ) as string[];
+
+  const hasActiveFilters =
+    categoryFilter !== "ALL" ||
+    ownerFilter !== "ALL" ||
+    departmentFilter !== "ALL" ||
+    statusFilter !== "ALL" ||
+    searchQuery.trim() !== "";
+
+  const handleResetFilters = () => {
+    setCategoryFilter("ALL");
+    setOwnerFilter("ALL");
+    setDepartmentFilter("ALL");
+    setStatusFilter("ALL");
+    setSearchQuery("");
+  };
+
   // Filter projects
-  const filteredProjects = projects.filter((project) => {
+  const filteredProjects = localProjects.filter((project) => {
     const matchesTab =
       activeTab === "ACTIVE"
         ? project.status === "ACTIVE"
-        : project.status === "COMPLETED";
+        : activeTab === "COMPLETED"
+        ? project.status === "COMPLETED"
+        : true;
 
     const matchesStatusDropdown =
       statusFilter === "ALL" || project.status === statusFilter;
 
     const matchesDepartment =
-      departmentFilter === "ALL" || project.departmentAlias === departmentFilter;
+      departmentFilter === "ALL" ||
+      (project.departmentAlias || "").toLowerCase() === departmentFilter.toLowerCase();
+
+    const matchesCategory =
+      categoryFilter === "ALL" || project.projectCategory === categoryFilter;
+
+    const matchesOwner =
+      ownerFilter === "ALL" || (project.owner?.name || "") === ownerFilter;
 
     const matchesSearch =
+      searchQuery.trim() === "" ||
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.owner.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (project.owner?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.departmentAlias || "").toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesTab && matchesStatusDropdown && matchesDepartment && matchesSearch;
+    return (
+      matchesTab &&
+      matchesStatusDropdown &&
+      matchesDepartment &&
+      matchesCategory &&
+      matchesOwner &&
+      matchesSearch
+    );
   });
 
   const handleCopyLink = (id: string) => {
@@ -127,11 +297,11 @@ export function AllProjectsTableView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden relative">
+    <div className="flex flex-col h-full min-w-0 bg-background text-foreground overflow-hidden relative">
       {/* Top Main Bar: Title & Action Button */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {userRole === "TEAM_MEMBER" ? "My Assigned Projects" : "All Projects"}
           </h1>
           {userRole === "TEAM_MEMBER" && (
@@ -271,7 +441,7 @@ export function AllProjectsTableView({
           >
             Completed Projects
           </button>
-          <button
+          {/* <button
             type="button"
             onClick={() => setActiveTab("TEMPLATES")}
             className={`pb-3 transition-colors relative ${activeTab === "TEMPLATES"
@@ -280,7 +450,7 @@ export function AllProjectsTableView({
               }`}
           >
             Project Templates
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -320,41 +490,77 @@ export function AllProjectsTableView({
       ) : (
       <>
       {/* Table Action Filter Bar */}
-      <div className="flex items-center justify-between border-b px-6 py-2.5 bg-muted/20 relative">
-        <div className="flex items-center gap-3">
-          {/* <select
-            value={statusFilter}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-medium text-info cursor-pointer outline-none"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active Projects</option>
-            <option value="COMPLETED">Completed Projects</option>
-          </select> */}
-
-          {/* Department Alias Filter */}
-          {/* <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer outline-none"
-          >
-            <option value="ALL">All Departments</option>
-            <option value="digitalproducts@">digitalproducts@</option>
-            <option value="design@">design@</option>
-            <option value="dev@">dev@</option>
-            <option value="seo@">seo@</option>
-          </select> */}
-
+      <div className="flex flex-wrap items-center justify-between border-b px-6 py-2.5 bg-muted/20 gap-3 relative">
+        <div className="flex flex-wrap items-center gap-2.5">
           <input
             type="text"
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded border border-input bg-background px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary w-48"
+            className="rounded border border-input bg-background px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary w-44"
           />
+
+          {/* Category Filter */}
+          {/* <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="ALL">All Categories</option>
+            <option value="INTERNAL_BUILD">Internal Build</option>
+            <option value="SOP_7_PHASE">7-Phase SOP</option>
+          </select> */}
+
+          {/* Owner Filter */}
+          {/* <select
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary max-w-[140px] truncate"
+          >
+            <option value="ALL">All Owners</option>
+            {uniqueOwners.map((owner) => (
+              <option key={owner} value={owner}>
+                {owner}
+              </option>
+            ))}
+          </select> */}
+
+          {/* Department Filter */}
+          {/* <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground cursor-pointer outline-none focus:ring-1 focus:ring-primary max-w-[140px] truncate"
+          >
+            <option value="ALL">All Departments</option>
+            {uniqueDepartments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
+            ))}
+            {!uniqueDepartments.includes("digitalproducts@") && (
+              <option value="digitalproducts@">digitalproducts@</option>
+            )}
+            {!uniqueDepartments.includes("design@") && (
+              <option value="design@">design@</option>
+            )}
+            {!uniqueDepartments.includes("dev@") && <option value="dev@">dev@</option>}
+            {!uniqueDepartments.includes("seo@") && <option value="seo@">seo@</option>}
+          </select> */}
+
+          {/* Reset button if any filter is active */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1 rounded bg-muted hover:bg-accent px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              title="Reset all filters"
+            >
+              <RotateCw size={11} /> Reset Filters
+            </button>
+          )}
         </div>
 
+        {false && (
         <div className="flex items-center gap-2 text-muted-foreground">
           {/* List / Grid Toggle */}
           <div className="inline-flex rounded-md border p-0.5 bg-background">
@@ -383,14 +589,20 @@ export function AllProjectsTableView({
           </div>
 
           {/* Filter Panel Toggle */}
-          <button
+          {/* <button
             type="button"
             onClick={() => setShowFilterPanel(!showFilterPanel)}
-            className="p-1.5 hover:bg-accent rounded hover:text-foreground transition-colors"
-            title="Filter Columns"
+            className={`p-1.5 rounded transition-colors relative ${showFilterPanel || hasActiveFilters
+              ? "bg-primary/15 text-primary font-bold border border-primary/30"
+              : "hover:bg-accent hover:text-foreground"
+              }`}
+            title="Filter Panel"
           >
             <Filter size={15} />
-          </button>
+            {hasActiveFilters && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary animate-pulse" />
+            )}
+          </button> */}
 
           {/* Options Menu Toggle */}
           <button
@@ -401,6 +613,111 @@ export function AllProjectsTableView({
           >
             <MoreHorizontal size={15} />
           </button>
+
+          {/* Filter Panel Popover */}
+          {/* {showFilterPanel && (
+            <div className="absolute right-12 top-11 z-40 w-72 rounded-lg border bg-popover p-4 shadow-xl text-xs space-y-3 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="font-bold text-foreground flex items-center gap-1.5">
+                  <Filter size={14} className="text-primary" /> Filter Projects
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFilterPanel(false)}
+                  className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-accent"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Category
+                </label>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="INTERNAL_BUILD">Internal Build</option>
+                  <option value="SOP_7_PHASE">7-Phase SOP</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Owner
+                </label>
+                <select
+                  value={ownerFilter}
+                  onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Owners</option>
+                  {uniqueOwners.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Department
+                </label>
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Departments</option>
+                  {uniqueDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                  {!uniqueDepartments.includes("digitalproducts@") && (
+                    <option value="digitalproducts@">digitalproducts@</option>
+                  )}
+                  {!uniqueDepartments.includes("design@") && (
+                    <option value="design@">design@</option>
+                  )}
+                  {!uniqueDepartments.includes("dev@") && <option value="dev@">dev@</option>}
+                  {!uniqueDepartments.includes("seo@") && <option value="seo@">seo@</option>}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground">
+                  Status
+                </label>
+                <select
+                  value={statusFilter}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ACTIVE">Active Projects</option>
+                  <option value="COMPLETED">Completed Projects</option>
+                </select>
+              </div>
+
+              {hasActiveFilters && (
+                <div className="pt-2 border-t flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <RotateCw size={12} /> Reset all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )} */}
 
           {/* Options Dropdown */}
           {showOptionsMenu && (
@@ -415,7 +732,7 @@ export function AllProjectsTableView({
               <button
                 type="button"
                 onClick={() => {
-                  setSearchQuery("");
+                  handleResetFilters();
                   setShowOptionsMenu(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
@@ -425,7 +742,18 @@ export function AllProjectsTableView({
             </div>
           )}
         </div>
+        )}
       </div>
+
+      {canEditAssignments && selectedProjectIds.size > 0 && (
+        <BulkProjectActionsBar
+          selectedCount={selectedProjectIds.size}
+          members={teamMembers}
+          onApplyAssignees={handleBulkApplyAssignees}
+          onApplyDateShift={handleBulkApplyDateShift}
+          onClear={clearSelection}
+        />
+      )}
 
       {viewLayout === "GRID" ? (
         /* Card Grid Layout */
@@ -525,41 +853,47 @@ export function AllProjectsTableView({
         </div>
       ) : (
         /* Main Responsive Table */
-        <div className="flex-1 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
-          <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
+        <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
+          <table className="w-full min-w-[1950px] text-left text-xs border-collapse">
             <thead>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Project ID</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[240px] text-left">
-                  Project Name & Category
-                </th>
-                <th className="py-3 px-2 border-r text-center whitespace-nowrap w-10">
-                  Link
-                </th>
-                <th className="py-3 px-3 border-r whitespace-nowrap text-center">%</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Owner</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">
-                  <span className="flex items-center justify-center gap-1">
-                    Status <ArrowUpDown size={12} />
-                  </span>
-                </th>
-                {/* <th className="py-3 px-4 border-r whitespace-nowrap">Department Tag</th> */}
-                {/* <th className="py-3 px-4 border-r whitespace-nowrap">AI Status</th> */}
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Total Hours</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Start Date</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap text-center">Deadline</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px] text-center">Tasks</th>
-                <th className="py-3 px-4 border-r whitespace-nowrap min-w-[140px] text-center">Phases</th>
-                {userRole === "ADMIN" && <th className="py-3 px-3 text-center">Action</th>}
+                {canEditAssignments && (
+                  <th rowSpan={2} className="py-3 px-3 border-r text-center align-middle w-8">
+                    <input
+                      type="checkbox"
+                      checked={filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))}
+                      onChange={(e) => {
+                        setSelectedProjectIds(
+                          e.target.checked ? new Set(filteredProjects.map((p) => p.id)) : new Set()
+                        );
+                      }}
+                      className="cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap text-center align-middle">Project ID</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[200px] text-left align-middle">Project Name</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[130px] text-left align-middle">Project Lead</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[130px] text-left align-middle">Tech Assignee</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[140px] text-left align-middle">Creative Assignee</th>
+                <th colSpan={3} className="py-2 px-4 border-r whitespace-nowrap text-center border-b">Marketing</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[210px] text-left align-middle">Project Calendar</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[190px] text-left align-middle">Asset Link</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[160px] text-left align-middle">Tech Notes</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[160px] text-left align-middle">Creative Notes</th>
+                <th rowSpan={2} className="py-3 px-4 border-r whitespace-nowrap min-w-[160px] text-left align-middle">Marketing Notes</th>
+                <th rowSpan={2} className="py-3 px-3 text-center align-middle">Actions</th>
+              </tr>
+              <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
+                <th className="py-2 px-3 border-r whitespace-nowrap min-w-[120px] text-left">SEO</th>
+                <th className="py-2 px-3 border-r whitespace-nowrap min-w-[120px] text-left">Content</th>
+                <th className="py-2 px-3 border-r whitespace-nowrap min-w-[120px] text-left">PM</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={userRole === "ADMIN" ? 13 : 12}
-                    className="py-12 text-center text-muted-foreground"
-                  >
+                  <td colSpan={canEditAssignments ? 14 : 13} className="py-12 text-center text-muted-foreground">
                     No projects found matching current department or status filter.
                   </td>
                 </tr>
@@ -567,15 +901,41 @@ export function AllProjectsTableView({
                 filteredProjects.map((project) => (
                   <tr
                     key={project.id}
-                    className="hover:bg-accent/30 transition-colors group"
+                    className={`hover:bg-accent/30 transition-colors group ${
+                      selectedProjectIds.has(project.id) ? "bg-primary/5" : ""
+                    }`}
                   >
+                    {canEditAssignments && (
+                      <td className="py-3 px-3 border-r text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedProjectIds.has(project.id)}
+                          onChange={() => toggleProjectSelected(project.id)}
+                          className="cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="py-3 px-4 border-r font-medium text-foreground whitespace-nowrap text-center">
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="hover:text-primary hover:underline transition-colors"
-                      >
-                        {project.id}
-                      </Link>
+                      <div className="flex items-center justify-center gap-1">
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="hover:text-primary hover:underline transition-colors"
+                        >
+                          {project.id}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyLink(project.id)}
+                          className="p-1 text-muted-foreground hover:text-primary transition-colors rounded opacity-0 group-hover:opacity-100"
+                          title="Copy Project Link"
+                        >
+                          {copiedId === project.id ? (
+                            <Check size={12} className="text-success" />
+                          ) : (
+                            <Copy size={12} />
+                          )}
+                        </button>
+                      </div>
                     </td>
 
                     <td className="py-3 px-4 border-r whitespace-nowrap">
@@ -586,154 +946,149 @@ export function AllProjectsTableView({
                         >
                           {project.name}
                         </Link>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
-                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                              : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
-                              }`}
-                          >
-                            {project.projectCategory === "INTERNAL_BUILD"
-                              ? "Internal Build"
-                              : "7-Phase SOP"}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-2 border-r text-center whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyLink(project.id)}
-                        className="p-1 text-muted-foreground hover:text-primary transition-colors rounded"
-                        title="Copy Project Link"
-                      >
-                        {copiedId === project.id ? (
-                          <Check size={14} className="text-success" />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
-                    </td>
-
-                    <td className="py-3 px-3 border-r text-center font-medium text-muted-foreground whitespace-nowrap">
-                      {project.progressPercent}%
-                    </td>
-
-                    <td className="py-3 px-4 border-r whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-2">
                         <span
-                          className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
+                          className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
                             }`}
                         >
-                          {project.owner.initials}
-                        </span>
-                        <span className="font-medium text-foreground">
-                          {project.owner.name}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 border-r whitespace-nowrap text-center">
-                      <span className="inline-flex items-center gap-1 rounded bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                        {project.status === "ACTIVE" ? "Active" : "Completed"}
-                      </span>
-                    </td>
-
-                    {/* Department Alias Tag */}
-                    {/* <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-[11px] font-mono text-secondary-foreground">
-                        {project.departmentAlias || "digitalproducts@"}
-                      </span>
-                    </td> */}
-
-                    {/* AI Status Report Generator Button */}
-                    {/* <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const report = generateAIClientStatusReport(project, []);
-                          setActiveAIReport(report);
-                        }}
-                        className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
-                        title="Generate Client Status Report via AI"
-                      >
-                        <Sparkles size={12} className="text-amber-500 animate-pulse" /> AI Report
-                      </button>
-                    </td> */}
-
-                    <td className="py-3 px-4 border-r font-mono text-[11px] text-foreground whitespace-nowrap text-center">
-                      {project.totalHours}
-                    </td>
-
-                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap text-center">
-                      {project.startDate}
-                    </td>
-
-                    <td className="py-3 px-4 border-r text-muted-foreground whitespace-nowrap text-center">
-                      {project.deadline}
-                    </td>
-
-                    <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 text-right font-medium">
-                          {project.completedTasksCount}
-                        </span>
-                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-3 overflow-hidden flex items-center p-0.5">
-                          <div
-                            className="bg-success h-full rounded-full transition-all duration-300 flex items-center justify-center text-[9px] text-success-foreground font-bold px-1"
-                            style={{
-                              width: `${Math.max(
-                                project.taskProgressPercent,
-                                project.completedTasksCount > 0 ? 15 : 0
-                              )}%`,
-                            }}
-                          >
-                            {project.taskProgressPercent > 0 &&
-                              `${project.taskProgressPercent}%`}
-                          </div>
-                        </div>
-                        <span className="w-7 text-muted-foreground text-[11px]">
-                          {project.totalTasksCount}
+                          {project.projectCategory === "INTERNAL_BUILD"
+                            ? "Internal Build"
+                            : "7-Phase SOP"}
                         </span>
                       </div>
                     </td>
 
                     <td className="py-3 px-4 border-r whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="w-4 font-medium">
-                          {project.completedPhasesCount}
-                        </span>
-                        <div className="flex-1 min-w-[70px] bg-muted rounded-full h-2 overflow-hidden">
-                          <div
-                            className="bg-success h-full rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(project.completedPhasesCount /
-                                (project.totalPhasesCount || 7)) *
-                                100
-                                }%`,
-                            }}
-                          />
-                        </div>
-                        <span className="w-4 text-muted-foreground text-[11px]">
-                          {project.totalPhasesCount}
-                        </span>
-                      </div>
+                      <AssigneeCell
+                        project={project}
+                        field="PROJECT_LEAD"
+                        assignees={project.projectLead}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
                     </td>
 
-                    {/* Delete Action (Admin mode only) */}
-                    {userRole === "ADMIN" && (
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <AssigneeCell
+                        project={project}
+                        field="TECH_ASSIGNEE"
+                        assignees={project.techAssignee}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <AssigneeCell
+                        project={project}
+                        field="CREATIVE_ASSIGNEE"
+                        assignees={project.creativeAssignee}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-3 border-r whitespace-nowrap">
+                      <AssigneeCell
+                        project={project}
+                        field="MARKETING_SEO"
+                        assignees={project.marketingSeo}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-3 border-r whitespace-nowrap">
+                      <AssigneeCell
+                        project={project}
+                        field="MARKETING_CONTENT"
+                        assignees={project.marketingContent}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-3 border-r whitespace-nowrap">
+                      <AssigneeCell
+                        project={project}
+                        field="MARKETING_PM"
+                        assignees={project.marketingPm}
+                        members={teamMembers}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <CalendarCell
+                        project={project}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r whitespace-nowrap">
+                      <LinksCell
+                        project={project}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r">
+                      <NotesCell
+                        project={project}
+                        field="techNotes"
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r">
+                      <NotesCell
+                        project={project}
+                        field="creativeNotes"
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-4 border-r">
+                      <NotesCell
+                        project={project}
+                        field="marketingNotes"
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
+                    </td>
+
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      {canEditAssignments ? (
                         <button
                           type="button"
-                          onClick={() => onDeleteProject && onDeleteProject(project.id)}
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: "Delete project?",
+                              description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
+                            });
+                            if (!ok) return;
+                            onDeleteProject && onDeleteProject(project.id);
+                          }}
                           className="p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
                           title="Delete Project"
                         >
                           <Trash2 size={14} />
                         </button>
-                      </td>
-                    )}
+                      ) : (
+                        <span className="text-muted-foreground/40">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -789,7 +1144,7 @@ export function AllProjectsTableView({
 
       {/* Bottom Stats Footer Bar */}
       {userRole === "TEAM_MEMBER" && (() => {
-        const activeProjects = projects.filter((p) => p.status === "ACTIVE");
+        const activeProjects = localProjects.filter((p) => p.status === "ACTIVE");
         const avgCompletion =
           activeProjects.length > 0
             ? Math.round(
@@ -797,7 +1152,7 @@ export function AllProjectsTableView({
                   activeProjects.length
               )
             : 0;
-        const totalTaskCount = projects.reduce((sum, p) => sum + p.totalTasksCount, 0);
+        const totalTaskCount = localProjects.reduce((sum, p) => sum + p.totalTasksCount, 0);
 
         return (
           <div className="flex items-center justify-between border-t px-6 py-2 bg-background text-xs text-muted-foreground font-medium shrink-0">
@@ -818,6 +1173,8 @@ export function AllProjectsTableView({
         onClose={() => setIsTimeLogModalOpen(false)}
         initialProject="EED Core"
       />
+
+      {ConfirmDialog}
     </div>
   );
 }

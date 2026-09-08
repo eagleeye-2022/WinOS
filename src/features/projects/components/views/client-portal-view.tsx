@@ -1,54 +1,122 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, Eye, Lock, CheckCircle2, FileText, ExternalLink, Sparkles, Loader2 } from "lucide-react";
-import { getProjectsAction, getTasksAction } from "../../actions/project-actions";
-import { Project, TaskItem } from "../../types";
+import {
+  ShieldCheck,
+  Lock,
+  Loader2,
+  Clock,
+  Flag,
+  ListTodo,
+  DollarSign,
+  Coffee,
+  PieChart,
+  FolderKanban,
+} from "lucide-react";
+import {
+  getProjectsAction,
+  getMyProjectsAction,
+  getTasksAction,
+  getTimeLogsAction,
+} from "../../actions/project-actions";
+import { Project, TaskItem, UserTimeGroup } from "../../types";
+import { PhasesTableView } from "./phases-table-view";
+import { ProjectTimeLogsView } from "./project-time-logs-view";
+import { parseDurationMinutes } from "../../utils/time-helpers";
 
 export function ClientPortalView() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<"MILESTONES" | "TIME_LOGS">("MILESTONES");
 
+  // Load projects accessible to this client
   useEffect(() => {
-    async function loadClientData() {
+    async function loadClientProjects() {
       setIsLoading(true);
       try {
-        const [fetchedProjects, fetchedTasks] = await Promise.all([
-          getProjectsAction(),
-          getTasksAction(),
-        ]);
-        const clientProjects = fetchedProjects.filter((p) => p.isClientVisible);
+        let fetchedProjects = await getProjectsAction();
+        if (!fetchedProjects || fetchedProjects.length === 0) {
+          fetchedProjects = await getMyProjectsAction();
+        }
+        const clientProjects = fetchedProjects.filter((p) => p.isClientVisible !== false);
         setProjects(clientProjects);
-        setTasks(fetchedTasks.filter((t) => t.isExternal));
         if (clientProjects.length > 0) {
           setSelectedProjectId(clientProjects[0].id);
         }
       } catch (err) {
-        console.error("Failed to load client portal data:", err);
+        console.error("Failed to load client portal projects:", err);
       } finally {
         setIsLoading(false);
       }
     }
-    loadClientData();
+    loadClientProjects();
   }, []);
 
-  const currentProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
-  const clientVisibleTasks = tasks.filter((t) => t.isExternal);
-
-  // Group tasks by phase for current project
-  const phaseMap: Record<string, { code: string; name: string; tasks: TaskItem[] }> = {};
-  clientVisibleTasks.forEach((t) => {
-    const code = t.phaseCode || "1.1";
-    const name = t.phaseName || "Client Deliverables";
-    if (!phaseMap[code]) {
-      phaseMap[code] = { code, name, tasks: [] };
+  // Load tasks & time logs for selected project
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    let cancelled = false;
+    async function loadProjectDetails() {
+      setIsLoadingDetails(true);
+      try {
+        const [fetchedTasks, fetchedTimeLogs] = await Promise.all([
+          getTasksAction(selectedProjectId),
+          getTimeLogsAction(selectedProjectId),
+        ]);
+        if (!cancelled) {
+          setTasks(fetchedTasks);
+          setTimeGroups(fetchedTimeLogs);
+        }
+      } catch (err) {
+        console.error("Failed to load project details:", err);
+      } finally {
+        if (!cancelled) setIsLoadingDetails(false);
+      }
     }
-    phaseMap[code].tasks.push(t);
+    loadProjectDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId]);
+
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Compute Task & Phase completion status
+  const totalTasksCount = tasks.length;
+  const completedTasksCount = tasks.filter(
+    (t) => t.status === "Closed" || (t.completionPercentage !== undefined && t.completionPercentage >= 100)
+  ).length;
+  const progressPercent =
+    totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  const phases = selectedProject?.phases || [];
+  const totalPhasesCount = phases.length;
+  const completedPhasesCount = phases.filter((p) => p.isCompleted).length;
+
+  // Compute Billable, Non-Billable & Total Hours
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  let nonBillableMinutes = 0;
+
+  timeGroups.forEach((group) => {
+    (group.timeLogs || []).forEach((entry) => {
+      const mins = parseDurationMinutes(entry.duration || "0");
+      totalMinutes += mins;
+      if (entry.billingType === "BILLABLE") {
+        billableMinutes += mins;
+      } else {
+        nonBillableMinutes += mins;
+      }
+    });
   });
 
-  const clientVisiblePhases = Object.values(phaseMap);
+  const totalHoursText = `${(totalMinutes / 60).toFixed(1)} h`;
+  const billableHoursText = `${(billableMinutes / 60).toFixed(1)} h`;
+  const nonBillableHoursText = `${(nonBillableMinutes / 60).toFixed(1)} h`;
 
   if (isLoading) {
     return (
@@ -59,33 +127,36 @@ export function ClientPortalView() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-6 space-y-6">
-      {/* Top Banner Notice */}
-      <div className="flex items-center justify-between border-b pb-4 bg-primary/5 p-4 rounded-lg border border-primary/20">
+    <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-4 sm:p-6 space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 bg-card p-4 rounded-xl border shadow-2xs gap-4">
         <div className="flex items-center gap-3">
-          <ShieldCheck size={26} className="text-primary" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <ShieldCheck size={26} />
+          </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">Restricted Client Portal View</h1>
-              <span className="rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-bold">
-                Client Mode Active
+              <h1 className="text-lg font-bold tracking-tight">Client Portal Workspace</h1>
+              <span className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-bold flex items-center gap-1">
+                <Lock size={12} /> Read-Only Mode
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Showing strictly client-visible task lists (<code>isExternal: true</code>). Internal engineering task lists are automatically filtered out.
+              Project Status & Time Tracking Overview
             </p>
           </div>
         </div>
 
+        {/* Project Selector */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground">Viewing Project:</span>
+          <span className="text-xs font-semibold text-muted-foreground shrink-0">Viewing Project:</span>
           {projects.length === 0 ? (
-            <span className="text-xs text-muted-foreground">No client projects available</span>
+            <span className="text-xs text-muted-foreground font-semibold">No client projects available</span>
           ) : (
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="rounded border border-input bg-background px-3 py-1.5 text-xs font-bold text-foreground outline-none"
+              className="rounded-lg border border-input bg-background px-3.5 py-2 text-xs font-bold text-foreground outline-none focus:ring-2 focus:ring-primary cursor-pointer shadow-2xs"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -97,52 +168,163 @@ export function ClientPortalView() {
         </div>
       </div>
 
-      {/* Security Privacy Notice */}
-      <div className="flex items-center justify-between rounded-md bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-        <div className="flex items-center gap-2">
-          <Lock size={16} className="text-emerald-500 shrink-0" />
-          <span>
-            Access Control Enforced: Internal developer notes, technical specification documents, and internal QA task lists are hidden.
-          </span>
+      {/* Associated Projects Badges Bar */}
+      {projects.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-2xs">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mr-1">
+            <FolderKanban size={15} className="text-primary" />
+            <span>Associated Projects ({projects.length}):</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {projects.map((p) => {
+              const isSelected = p.id === selectedProjectId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedProjectId(p.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-xs font-bold ring-2 ring-primary/20"
+                      : "bg-muted/60 text-muted-foreground hover:bg-accent hover:text-foreground border border-border/50"
+                  }`}
+                >
+                  <span>{p.name}</span>
+                  <span className="font-mono text-[10px] opacity-75">({p.id})</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <span className="font-mono text-[11px]">is_client_visible = true</span>
+      )}
+
+      {/* Metric Cards Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Project Progress */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Overall Progress</span>
+            <PieChart size={15} className="text-primary" />
+          </div>
+          <div className="text-lg font-bold text-foreground">{progressPercent}%</div>
+          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Tasks Completed */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Tasks Completed</span>
+            <ListTodo size={15} className="text-emerald-500" />
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {completedTasksCount} / {totalTasksCount}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Tasks Closed</p>
+        </div>
+
+        {/* Phases Completed */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Phases Completed</span>
+            <Flag size={15} className="text-indigo-500" />
+          </div>
+          <div className="text-lg font-bold text-foreground">
+            {completedPhasesCount} / {totalPhasesCount}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Phases Verified</p>
+        </div>
+
+        {/* Total Hours */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Total Hours</span>
+            <Clock size={15} className="text-sky-500" />
+          </div>
+          <div className="text-lg font-bold text-foreground">{totalHoursText}</div>
+          <p className="text-[10px] text-muted-foreground">Total Time Logged</p>
+        </div>
+
+        {/* Billable Hours */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Billable Hours</span>
+            <DollarSign size={15} className="text-emerald-500" />
+          </div>
+          <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+            {billableHoursText}
+          </div>
+          <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-medium">Billable Work</p>
+        </div>
+
+        {/* Non-Billable Hours */}
+        <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-semibold">Non-Billable Hours</span>
+            <Coffee size={15} className="text-amber-500" />
+          </div>
+          <div className="text-lg font-bold text-muted-foreground">{nonBillableHoursText}</div>
+          <p className="text-[10px] text-muted-foreground">Internal / Standard</p>
+        </div>
       </div>
 
-      {/* Client Visible Phases & Task Lists */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-          Client Milestone Deliverables ({clientVisiblePhases.length} Phases Visible)
-        </h2>
+      {/* Navigation Tabs (Milestones vs Time Logs) */}
+      <div className="flex items-center gap-2 border-b pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("MILESTONES")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "MILESTONES"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "border bg-card text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Flag size={14} />
+          <span>Milestones & Tasks Status</span>
+        </button>
 
-        <div className="space-y-4">
-          {clientVisiblePhases.map((phase) => (
-            <div key={phase.code} className="rounded-lg border bg-card p-5 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-success" />
-                  {phase.name}
-                </h3>
-                <span className="rounded bg-success/15 text-success px-2.5 py-0.5 text-[10px] font-bold">
-                  Verified Client Milestone
-                </span>
-              </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("TIME_LOGS")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+            activeTab === "TIME_LOGS"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "border bg-card text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Clock size={14} />
+          <span>Time Logs & Hours</span>
+        </button>
+      </div>
 
-              <div className="space-y-1.5 pt-1">
-                {phase.tasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/50 last:border-none">
-                    <span className="text-foreground font-medium">• {t.title}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground font-mono">{t.duration || "1 day"}</span>
-                      <span className="rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-bold">
-                        {t.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+      {/* Main Tab Content */}
+      <div className="flex-1 min-h-[400px]">
+        {isLoadingDetails ? (
+          <div className="flex h-64 w-full items-center justify-center p-8">
+            <Loader2 size={24} className="animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
+            {activeTab === "MILESTONES" && (
+              <div className="space-y-4">
+                <PhasesTableView projectId={selectedProjectId} />
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+
+            {activeTab === "TIME_LOGS" && (
+              <div className="space-y-4">
+                <ProjectTimeLogsView
+                  projectId={selectedProjectId}
+                  projectName={selectedProject?.name || "Client Project"}
+                />
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

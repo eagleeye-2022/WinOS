@@ -1,8 +1,12 @@
 "use server";
 
-import { signOut } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 
 export async function logoutAction() {
-  await signOut({ redirectTo: ROUTES.login });
+  const session = await auth();
+  const profileRole = (session?.user as { profileRole?: string } | undefined)?.profileRole;
+  await signOut({
+    redirectTo: profileRole === "CLIENT" ? ROUTES.clientLogin : ROUTES.login,
+  });
 }

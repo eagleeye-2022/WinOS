@@ -10,6 +10,51 @@
 > fully DB-backed with real per-route pages — see those sections for current
 > facts. The rest of the document (auth, DSM/DSR, permissions, etc.) was not
 > re-verified in this pass and may have continued to drift since 08-17.
+>
+> **Updated 2026-09-04**: targeted refresh covering everything that changed
+> since 08-21, all directly read in source (commit `d1233d2`, "fix scrollable
+> and invite client", plus the surrounding working tree at the time of this
+> pass):
+> - **New: client-invitation flow** (§8, §11, §12, §17, new §18 flow) — a
+>   real, DB-backed invite-a-`CLIENT`-user system (`ClientInvitation` /
+>   `ClientInvitationProject` Prisma models + `client-invitation-actions.ts`),
+>   fully read in this pass. **Flagging a real security concern**: SMTP
+>   credentials are hardcoded as source-level fallback values in
+>   `src/lib/email.ts` (`buildTransport()`) — see §12/§19 for detail.
+> - **`src/lib/email.ts`** re-read in full — `sendClientInvitationEmail` is a
+>   real exported function (§12).
+> - **DSM/DSR learning-item carry-forward bug fix** (§11) —
+>   `getYesterdayIncompleteLearningItems()` in `src/features/dsm/queries.ts`
+>   now correctly reads `DsrEntry.learningItems`/`DsrLearningItem.completed`
+>   instead of the old broken heuristic matching against
+>   `DsrEntry.additionalWorks`. Also: `src/features/dsr/actions/save-dsr.ts`
+>   was read in full for the first time this pass — the prior "not read in
+>   full" open question in §20 is resolved and removed; findings folded into
+>   §11.
+> - **Projects module dashboard route** confirmed wired: `/projects/dashboard`
+>   (`src/app/(dashboard)/projects/dashboard/page.tsx`) renders
+>   `MyProjectsDashboardWorkspace`, backed by two new server actions,
+>   `getMyProjectsAction`/`getMyProjectCalendarEventsAction`, in
+>   `project-actions.ts`; sidebar now links to it as "My Dashboard" (§5, §6,
+>   §18).
+> - **`ProfileRole` enum has grown**: confirmed via schema read it now also
+>   includes `ADMIN` and `PORTAL_OWNER` in addition to the six values
+>   previously documented (§8, §10).
+> - Sidebar (`app-sidebar.tsx`) and `globals.css` changes verified as
+>   additive/cosmetic — a new "My Dashboard" nav entry and a shared
+>   `.dsm-columns-scrollbar` utility class rolled out across most Projects
+>   table views for a themed, wider scrollbar plus horizontal-scroll min-width
+>   tables (§6).
+> - Found one likely UI bug while reading the diff (not otherwise part of the
+>   requested scope, noting for the record): `dsr-history-card.tsx`'s
+>   "Outcome of the Day" truncation uses
+>   `entry.resultOfDay.slice(50)` (everything *after* char 50) where
+>   `.slice(0, 50)` (the first 50 chars) was almost certainly intended — see
+>   §19.
+> - Everything else not listed above (auth internals, permission-matrix
+>   precedence, notes/boards, calendar/Zoho integration) was spot-checked but
+>   not re-read line-by-line in this pass; treat those areas as still dated
+>   to 08-17/08-21 unless flagged otherwise here.
 
 ---
 
@@ -186,7 +231,7 @@ business domain:
 | `org-calendar/` | Separate org-level calendar feature (actions + components) — relationship to `calendar/` not fully disambiguated (**UNCLEAR**) |
 | `notifications/` | In-app notification bell, mark-read, send-reminder (DSM reminders per README) |
 | `users/` | Team/employee management: department tree, employee tree, permission matrix, add/edit member, team table — backs the `settings/users` and `settings/profile-access` pages and the granular `PermissionModule/Action/Rule` Prisma models |
-| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists, users/invites). **(Updated 08-21, CONFIRMED)** Now fully DB-backed via `src/features/projects/actions/project-actions.ts` — every list/detail view (`getProjectsAction`, `getTasksAction`, `getMyTasksAction`, `getUsersAction`, `getTimeLogsAction`, `getCurrentUserRoleAction`) reads real Prisma rows, and writes (`createProjectAction`, `inviteUserAction`, `updateUserRoleAction`, etc.) persist to the DB and `revalidatePath(...)`. The `src/features/projects/data/mock-*.ts` files still exist on disk but are **no longer imported anywhere** (confirmed via grep) — dead code, safe to ignore or remove. Role for this module (`WorkspaceRole`: `ADMIN`/`TEAM_MEMBER`) is derived server-side from the real `User.role`/`profileRole` fields, not a client toggle. |
+| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists, users/invites). **(Updated 08-21, CONFIRMED)** Now fully DB-backed via `src/features/projects/actions/project-actions.ts` — every list/detail view (`getProjectsAction`, `getTasksAction`, `getMyTasksAction`, `getUsersAction`, `getTimeLogsAction`, `getCurrentUserRoleAction`) reads real Prisma rows, and writes (`createProjectAction`, `inviteUserAction`, `updateUserRoleAction`, etc.) persist to the DB and `revalidatePath(...)`. The `src/features/projects/data/mock-*.ts` files still exist on disk but are **no longer imported anywhere** (confirmed via grep) — dead code, safe to ignore or remove. Role for this module (`WorkspaceRole`: `ADMIN`/`TEAM_MEMBER`) is derived server-side from the real `User.role`/`profileRole` fields, not a client toggle. **(Updated 09-04, CONFIRMED)** Two additions read in full this pass: (1) a **client-invitation subsystem** (`src/features/projects/actions/client-invitation-actions.ts`, `components/modals/invite-client-modal.tsx`, `components/views/users-table-view.tsx`) that invites external `CLIENT`-profileRole users into specific projects via a hashed-token email link — see §11/§18 for the full flow and §19 for a security flag on hardcoded SMTP fallback creds. (2) a new **`/projects/dashboard`** route (`src/app/(dashboard)/projects/dashboard/page.tsx` → `MyProjectsDashboardWorkspace`) showing the current user's member-projects table plus a calendar of their task due dates, backed by new `getMyProjectsAction`/`getMyProjectCalendarEventsAction` in `project-actions.ts`; linked from the sidebar as "My Dashboard". |
 | `dashboard/` | Landing dashboard after login (components dir present but currently only a `.gitkeep` + `index.ts` — likely minimal/placeholder, **INFERRED**) |
 
 Additional top-level app routes without a dedicated `features/` folder:
@@ -221,7 +266,19 @@ document workspace, `people-workspace.tsx`, `ica-workspace.tsx`), `sales/`
   active-match rule per label (e.g. `/projects` vs `/projects/my-tasks` are
   matched separately so they don't both light up together). For the
   Projects module specifically, `isManager` (from `userRole === "MANAGER"`)
-  gates whether "Users" and "My Tasks" links even render.
+  gates whether "Users" and "My Tasks" links even render. **(Updated 09-04,
+  CONFIRMED, `git show d1233d2`)**: both the manager and non-manager Projects
+  `navItems` arrays now include a `"My Dashboard"` entry (`href:
+  "/projects/dashboard"`, `LayoutDashboard` icon) right after "All Projects",
+  with a matching `isSubItemActive()` rule (`pathname === "/projects/dashboard"`).
+  The "Active Timers"/"Effort Logs" icons were also swapped from a shared
+  `Clock` icon to distinct `AlarmClock`/`ClockFading` icons — cosmetic only.
+- **`src/app/globals.css`** (**Updated 09-04, CONFIRMED**, same commit): the
+  `.dsm-columns-scrollbar` utility (previously DSM-column-specific per its
+  name) was generalized and restyled — themed track/thumb colors for both
+  light and dark (`rgba(...)` values plus a `.dark` override block), a wider
+  10px scrollbar (up from 6px), and a `--primary`-colored hover state. It's
+  now applied broadly across Projects table views (see below), not just DSM.
 - A `RouteDarkScope` component wraps sections conditionally matched against
   `/dsm` — suggests per-route theme overrides exist (**CONFIRMED** usage,
   internals not inspected).
@@ -315,8 +372,12 @@ sticky-note board with per-board/thread/note sharing and edit permissions.
 enum) — implying DSM has (or had) an alternate board-based UI.
 
 **Permissions**: `PermissionModule` → `PermissionAction` → `PermissionRule`
-(keyed by `ProfileRole` enum: `EMPLOYEE|MANAGER|CONTRACTOR|CLIENT|GUEST|
-DEVELOPER|SUPPORT`), with `PermissionScope` enum (`NONE|OWNED|ALL|BOTH`) and
+(keyed by `ProfileRole` enum — **(Updated 09-04, CONFIRMED via schema read)**
+now nine values: `EMPLOYEE|MANAGER|CONTRACTOR|CLIENT|GUEST|
+DEVELOPER|SUPPORT|ADMIN|PORTAL_OWNER`, up from the seven previously
+documented — `ADMIN` and `PORTAL_OWNER` were added since the last full
+verification and match the `"ADMIN"` string checks called out in `CLAUDE.md`'s
+"Two parallel authorization systems" note), with `PermissionScope` enum (`NONE|OWNED|ALL|BOTH`) and
 boolean/scope control types — this is a **fully data-driven RBAC matrix**,
 separate from the simpler `User.role` (`TEAM_MEMBER|MANAGER`) used for
 route/session gating. The matrix is exposed in the UI via
@@ -347,6 +408,16 @@ been genericized (`ownerName String? @default("Unassigned")`, `startDate
 String? @default("--")`) — the earlier hardcoded person-name/future-date
 defaults are gone. The module is live-DB-backed end to end (see §5); the
 `src/features/projects/data/mock-*.ts` files are unused leftovers.
+
+**Client invitations** (**New 09-04, CONFIRMED**, `prisma/schema.prisma:1113-1154`):
+`ClientInvitationStatus` enum (`PENDING|ACCEPTED|EXPIRED|REVOKED`),
+`ClientInvitation` model (`email`, `clientName?`, `invitedById` → `User`
+relation `"ClientInvitationsSent"`, `tokenHash String @unique`, `status`,
+`expiresAt`, `acceptedAt?`, `revokedAt?`, indexed on `email`/`status`/
+`expiresAt`/`invitedById`), and a join model `ClientInvitationProject`
+(`invitationId` + `projectId`, unique compound, `projectRole String? @default("Client")`)
+linking one invitation to multiple `Project` rows. Real, migrated model —
+not a mock. See §11/§18 for the full accept flow.
 
 Migrations: only one migration folder present, `prisma/migrations/0_init/`
 (**CONFIRMED** via `find`), meaning schema evolution has mostly happened via
@@ -487,16 +558,88 @@ carrying `error.message` when available.
   optionally links a support request to a `CalendarEvent`
   (`support-needed/actions/link-support-event.ts`) — i.e. a support request
   can be resolved by scheduling a meeting.
-- **DSR mirrors DSM structurally**: same status enum, similar
-  draft/submit/review lifecycle (inferred from schema symmetry; only
-  `queries.ts` types were read for DSR, not the save action itself, so the
-  exact save-time business rules for DSR were **not directly confirmed** —
-  reasonable to assume parity with `save-dsm.ts` given the shared
-  `DsrStatus` enum values).
+- **DSR mirrors DSM structurally, now CONFIRMED** (**Updated 09-04**,
+  `src/features/dsr/actions/save-dsr.ts` read in full — this resolves the
+  §20 open question from prior passes): `saveDsr` follows the same
+  auth-check → session/DB-user pattern as `saveDsm`, but adds two guards not
+  present in DSM: (1) **DSM-before-DSR gate** — a DSR cannot be created/edited
+  at all unless that same-date `StandupEntry.status === "REVIEWED"`
+  (`save-dsr.ts:68-74`), returning a friendly message otherwise; (2) the same
+  "no edits once `REVIEWED`" and "editing a submitted entry stays
+  `PENDING_REVIEW`, never regresses to `DRAFT`" rules as DSM. Child
+  collections (`DsrPlannedTask`, `DsrAdditionalWork`, `DsrResolvedBlocker`,
+  `DsrFollowUpDone`, `DsrLearningItem`) use the same delete-then-recreate
+  sync pattern, **also not wrapped in `db.$transaction`**. One extra
+  DSR-specific behavior: `DsrPlannedTask.priority` writes are wrapped in a
+  try/catch that retries with normalized/validated enum values
+  (`P1`/`P2`/`P3`) if the first `createMany` throws on an invalid priority
+  string (`save-dsr.ts:130-148`) — a defensive workaround for free-text
+  priority values not matching the Prisma enum. There is also a **best-effort
+  text-matching sync**: on save, `saveDsr` tries to auto-resolve the
+  corresponding `StandupBlocker`/`StandupSupportNeed` rows for that day by
+  fuzzy-matching (`@mention`-stripped, lowercased, substring-inclusive)
+  `resolvedBlockers`/`followUpsDone` text against the morning's blocker/
+  support-need text (`save-dsr.ts:183-222`) — wrapped in its own try/catch so
+  a match failure doesn't fail the whole save, but means resolution state can
+  silently fail to sync if the text was edited enough to break the match.
+- **DSM↔DSR learning-item carry-forward, fixed 09-04 (CONFIRMED)**:
+  `getYesterdayIncompleteLearningItems()` in `src/features/dsm/queries.ts`
+  (used to pre-fill "yesterday's incomplete learnings" on today's DSM) used
+  to compare yesterday's `StandupEntry.learningText` lines against
+  `DsrEntry.additionalWorks` text — the wrong model, a broken heuristic. It
+  now correctly reads `DsrEntry.learningItems` (`DsrLearningItem.completed`
+  boolean, `queries.ts:556-569`) and filters out lines whose lowercased/
+  trimmed text matches a `completed: true` learning item. This is a good
+  concrete example of the DSM→DSR relationship: `DsrLearningItem` rows are
+  seeded/synced from `StandupEntry.learningText` when that day's DSR is
+  filled out (via `saveDsr`'s `learningItemsJson` field, §11 above), and the
+  next day's DSM reads them back to nudge carry-forward of anything not
+  marked done.
 - **Sentiment tracking**: DSR entries capture `BREAKTHROUGH`/`BREAKDOWN`
   sentiment plus `resultOfDay`/`reflection` free text and `completionPercent`
   — used to compute `DsrInsights` (streaks, weekly trend, "insight quote") per
   `src/features/dsr/queries.ts` type definitions.
+- **Client invitation flow (New 09-04, CONFIRMED)** —
+  `src/features/projects/actions/client-invitation-actions.ts` read in full:
+  1. A manager/admin calls `createClientInvitationAction({ email, clientName?,
+     projectIds })` from `invite-client-modal.tsx`. It rejects emails already
+     belonging to a non-`CLIENT` internal user, rejects if a `PENDING`,
+     non-expired invitation already exists for that email, generates a
+     32-byte random hex token (`crypto.randomBytes(32)`) plus its SHA-256
+     hash (`hashToken`), and stores **only the hash** as
+     `ClientInvitation.tokenHash` (`@unique`) — the raw token is never
+     persisted, only returned once to the caller and embedded in the email
+     link (`/invitations/client/accept?token=<rawToken>`). This is a sound
+     "hashed lookup token" pattern (comparable to password-reset tokens):
+     even a DB read/leak of the `ClientInvitation` table doesn't expose usable
+     tokens. Invitations expire after 7 days.
+  2. `validateClientInvitationAction(rawToken)` (used by the not-yet-located
+     `/invitations/client/accept` page — that page itself was not read in
+     this pass, **UNCLEAR** on its own implementation) re-hashes the
+     submitted token and looks it up by `tokenHash`, checking status/
+     `revokedAt`/`expiresAt`, auto-flipping to `EXPIRED` in the DB on a
+     lazy expiry check.
+  3. `acceptClientInvitationAction(rawToken, password?, clientName?)` runs
+     inside `db.$transaction` (unlike most other multi-step writes in this
+     codebase — a deliberate exception, and the only invitation action
+     wrapped this way): creates a new `User` with `profileRole: "CLIENT"`,
+     `role: "TEAM_MEMBER"`, bcrypt-hashed password (min 6 chars) if none
+     exists yet for that email, or reactivates/updates an existing `CLIENT`
+     user; upserts `ProjectMember` rows for every invited project; marks the
+     invitation `ACCEPTED`; and creates a `Notification` (`type:
+     "CLIENT_INVITATION_ACCEPTED"`) to the inviter. This is the concrete
+     mechanism by which a `CLIENT`-profileRole user (§10's password-login
+     branch) comes into existence outside the OTP auto-provisioning path.
+  4. `resendClientInvitationAction`/`revokeClientInvitationAction`/
+     `deactivateClientUserAction`/`removeClientFromProjectAction`/
+     `getClientInvitationsAction` round out CRUD for the admin-facing
+     `users-table-view.tsx` list. `createClientInvitationAction` and the
+     four mutating actions each check only that a session exists
+     (`session?.user?.id`, no role/manager/`ADMIN` check of any kind); the
+     read action `getClientInvitationsAction` has **no `auth()` call at
+     all** — **CONFIRMED** by reading the full file. None of these six
+     functions re-check that the caller is a manager/admin. Flagged as a
+     risk in §19.
 
 ---
 
@@ -511,11 +654,35 @@ carrying `error.message` when available.
   `ZOHO_ORG_MASTER_CALENDAR_ID` (names only — see §13), implying there's
   both a per-user OAuth flow *and* an org-master token/calendar used for
   some org-wide calendar operations.
-- **SMTP email** (`src/lib/email.ts`, using `nodemailer`): used at least
-  for calendar invite emails (`sendCalendarInviteEmail`, referenced in
-  `api/zohocalendar/events/route.ts`) and OTP delivery. Per `README.md`,
-  when `SMTP_HOST` is unset, OTPs print to console instead — dev-friendly
-  fallback.
+- **SMTP email** (`src/lib/email.ts`, **CONFIRMED re-read in full 09-04**,
+  using `nodemailer`): exports three send functions — `sendOtpEmail`,
+  `sendCalendarInviteEmail` (referenced in
+  `api/zohocalendar/events/route.ts`), and (**new since 08-17**)
+  `sendClientInvitationEmail(params)` — a real, fully implemented function
+  (not a stub) that renders both text and HTML versions of a client-portal
+  invitation email containing the accept link and project list, used by
+  `createClientInvitationAction`/`resendClientInvitationAction` (§11). A
+  shared `buildTransport()` creates one `nodemailer` transport per call from
+  `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS`/`SMTP_PORT`/`SMTP_SECURE`, and
+  `getFromEmail()` resolves `MAIL_FROM`/`SMTP_FROM`. In development (no SMTP
+  configured), all three functions fall back to console-logging instead of
+  sending — `sendOtpEmail`'s fallback additionally throws in production if
+  SMTP isn't configured (fail loudly), while `sendClientInvitationEmail`
+  also throws in production without SMTP, and `sendCalendarInviteEmail`
+  merely logs and returns (silent no-op in prod without SMTP — inconsistent
+  with the other two, **CONFIRMED** by reading all three functions).
+  **Security flag (see §19)**: `buildTransport()` hardcodes real-looking
+  fallback SMTP credentials directly in source
+  (`src/lib/email.ts:13-14`: `user = process.env.SMTP_USER ||
+  process.env.MAIL_USER || "ishita.vishwakarma@eagleeyedigital.io"`, `pass =
+  process.env.SMTP_PASS || process.env.MAIL_PASS || "TsTHEvxZEG3C"`) — i.e.
+  if none of the four env vars are set, the app silently authenticates to
+  Zoho SMTP as this specific mailbox using a password committed to the repo.
+  The same fallback account name also appears hardcoded in two frontend
+  components (`invite-client-modal.tsx`, `users-table-view.tsx`) as a display
+  fallback string. This looks like a live/working credential left in source
+  rather than a placeholder — worth confirming with the team and rotating if
+  so.
 - **Figma API**: `.env` contains a `FIGMA_API_KEY` — no source-code usage of
   it was found in this exploration; likely tooling/design-sync related
   rather than a runtime app dependency (**UNCLEAR** actual usage — possibly
@@ -688,6 +855,9 @@ dev work at a shared/remote database rather than an isolated local one.
 | `amplify.yml` | Full prod build/deploy spec including the prebuild env-var injection and `prisma migrate deploy` step |
 | `.github/workflows/ci.yml` | CI gate: generate → lint → test → build |
 | `AGENTS.md` | Warns that this Next.js version (16.2.6) has training-data-diverging APIs; instructs reading `node_modules/next/dist/docs/` before writing code — important operational note for any AI agent working in this repo |
+| `src/features/dsr/actions/save-dsr.ts` **(added 09-04)** | DSR counterpart to `save-dsm.ts`: DSM-must-be-REVIEWED gate, same draft/submit + immutability + no-regress-to-DRAFT rules, delete-then-recreate child sync, priority-enum retry-on-failure, best-effort fuzzy-text sync of resolved blockers/support-needs back onto `StandupBlocker`/`StandupSupportNeed` |
+| `src/features/projects/actions/client-invitation-actions.ts` **(added 09-04)** | Full client-invitation lifecycle: hashed-token create/validate/accept (atomic `$transaction`)/resend/revoke, plus client-user deactivate/remove-from-project/list actions; none of the CRUD actions besides `acceptClientInvitationAction` re-check caller role beyond session existence |
+| `src/lib/email.ts` **(re-read 09-04)** | `sendOtpEmail`/`sendCalendarInviteEmail`/`sendClientInvitationEmail`, shared `buildTransport()`/`getFromEmail()` — contains hardcoded fallback SMTP credentials (see §12/§19) |
 
 ---
 
@@ -767,6 +937,47 @@ but non-fatal) → best-effort `getValidZohoAccessToken` + `createZohoEvent`
 sync (also non-fatal on failure) → `revalidatePath("/calendar")` and
 `/zohocalendar` → JSON response with the created event and Zoho sync status.
 
+### Flow: Inviting and onboarding a client user (New 09-04, fully read)
+
+1. A manager opens `InviteClientModal` from `users-table-view.tsx` on
+   `/projects/users`, picks an email/name and one or more projects, and
+   submits → `createClientInvitationAction` (§11 for the internal logic).
+2. On success the modal shows either "email sent" or (if `emailSent: false`)
+   an inline "email delivery failed, here's the direct link" fallback with a
+   copy-to-clipboard button showing the raw `acceptUrl` — the UI treats email
+   failure as recoverable rather than fatal, consistent with
+   `sendClientInvitationEmail` being allowed to throw without aborting the
+   whole action (the `try/catch` around the email send in
+   `createClientInvitationAction` swallows the error and still returns
+   `success: true`).
+3. The client visits `${baseUrl}/invitations/client/accept?token=<rawToken>`
+   (base URL resolved from request headers via `getAppBaseUrl()`, falling
+   back to `APP_URL`/`NEXTAUTH_URL`/a hardcoded prod URL/`localhost:3000`) —
+   **this page itself (`src/app/.../invitations/client/accept/...`) was not
+   located/read in this pass**, so its exact route path and UI were not
+   confirmed (**UNCLEAR**, flagged in §20).
+4. That page presumably calls `validateClientInvitationAction(token)` to
+   show invitation details, then `acceptClientInvitationAction(token,
+   password, clientName)` on submit, which atomically creates/reactivates
+   the `CLIENT` user, grants `ProjectMember` access to every invited
+   project, marks the invitation `ACCEPTED`, and notifies the inviter.
+5. The new/reactivated `CLIENT` user can now log in via the **password**
+   branch of `authorize()` in `src/lib/auth.ts` (§10) rather than OTP.
+
+### Flow: "My Dashboard" for Projects (New 09-04, fully read)
+
+`AppSidebar` "My Dashboard" link → `/projects/dashboard`
+(`src/app/(dashboard)/projects/dashboard/page.tsx`) → client component
+`MyProjectsDashboardWorkspace` fetches `getMyProjectsAction()` (projects
+where the user has a `ProjectMember` row — narrower than the general
+`getProjectsAction`) and `getMyProjectCalendarEventsAction()` (derives a
+lightweight calendar feed purely from `ProjectTask.dueDate` strings on those
+projects, skipping unparsable/placeholder `"--"` values — there's no
+dedicated project-calendar model) → renders the existing
+`AllProjectsTableView` plus `CalendarMonthView` (reused from the `calendar`
+feature), clicking a project row or calendar event navigates to
+`/projects/[projectId]`.
+
 ---
 
 ## 19. Potential Areas of Complexity
@@ -816,6 +1027,34 @@ sync (also non-fatal on failure) → `revalidatePath("/calendar")` and
    differ from an LLM's training data; this is a standing instruction to
    consult `node_modules/next/dist/docs/` before writing new code against
    the framework.
+9. **(New 09-04, CONFIRMED) Hardcoded SMTP credentials in `src/lib/email.ts`**:
+   `buildTransport()` falls back to a literal email address
+   (`ishita.vishwakarma@eagleeyedigital.io`) and password
+   (`TsTHEvxZEG3C`) when `SMTP_USER`/`SMTP_PASS` (or `MAIL_USER`/`MAIL_PASS`)
+   aren't set, rather than returning `null`/failing closed. This means the
+   app can silently send real email through a specific personal-looking
+   mailbox using a credential committed to source — worth flagging to the
+   team for rotation regardless of whether it's still valid, and worth
+   changing the fallback to `null` so a missing env var fails loudly instead
+   of using a hardcoded account.
+10. **(New 09-04, CONFIRMED) Client-invitation actions have no role/manager
+    gate**: `createClientInvitationAction`, `resendClientInvitationAction`,
+    `revokeClientInvitationAction`, `deactivateClientUserAction`,
+    `removeClientFromProjectAction` all check only `session?.user?.id`
+    (any authenticated user), and `getClientInvitationsAction` has no
+    `auth()` call at all. If these Server Actions are reachable by a
+    non-manager (including a `CLIENT`-profileRole user, if they can load the
+    Projects Users UI or call the action directly), they could invite,
+    revoke, or deactivate client accounts — likely an oversight rather than
+    intended, given every other mutating Projects action in this codebase
+    that was sampled does check role/tier server-side.
+11. **(New 09-04) Likely UI bug in `dsr-history-card.tsx`**: the "Outcome of
+    the Day" preview truncation is
+    `entry.resultOfDay.length > 50 ? entry.resultOfDay.slice(50) : ...` —
+    `.slice(50)` returns everything *after* the 50th character, not a
+    50-character prefix; `.slice(0, 50)` was almost certainly intended. As
+    written, long entries display a truncated *tail* instead of a preview
+    *head*.
 
 ---
 
@@ -841,9 +1080,17 @@ sync (also non-fatal on failure) → `revalidatePath("/calendar")` and
 - **Whether `@auth/prisma-adapter` is actually wired into the `NextAuth()`
   config** — not seen in the portion of `auth.ts` read (no `adapter:` key
   present in the config object as read), despite being a listed dependency.
-- **Exact DSR save action** (`src/features/dsr/actions/save-dsr.ts`) was
-  not read in full — only its `queries.ts` type definitions were sampled;
-  business rules there are assumed (not confirmed) to mirror `save-dsm.ts`.
 - **Whether uploads actually proxy to the external `REMOTE_UPLOAD_URL`
   Hostinger endpoint or use it for something else** — `api/uploads/route.ts`
   was not read in full.
+- **(New 09-04) The `/invitations/client/accept` page** — the frontend page
+  that presumably calls `validateClientInvitationAction`/
+  `acceptClientInvitationAction` was not located/read in this pass (only the
+  Server Actions it must call were confirmed). Its exact route file, form
+  fields, and error-state handling are unconfirmed.
+- **(New 09-04) Whether the client-invitation actions' missing role checks
+  (§19 item 10) are intentionally deferred to a UI-only gate** — i.e.
+  whether `/projects/users` itself is reachable only by managers via some
+  other mechanism not sampled in this pass (e.g. a layout-level check), which
+  would reduce but not eliminate the risk since Server Actions remain
+  directly callable. Not established.
