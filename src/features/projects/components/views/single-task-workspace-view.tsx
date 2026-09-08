@@ -55,8 +55,9 @@ import {
   CopyCheck,
 } from "lucide-react";
 import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry } from "../../types";
-import { parseDurationMinutes } from "../../utils/time-helpers";
+import { parseDurationMinutes, formatTimePeriodRange } from "../../utils/time-helpers";
 import { TimerWidget } from "../timer-widget";
+import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { AddSubtaskDrawer } from "../modals/add-subtask-drawer";
 import { TimerStoppedModal } from "../modals/timer-stopped-modal";
@@ -79,11 +80,11 @@ import {
 } from "../../actions/project-actions";
 import {
   createActiveTimerAction,
-  stopActiveTimerAction,
-  discardActiveTimerAction,
+  endActiveTimerAction,
   getActiveTimerAction,
 } from "../../actions/active-timer-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 
@@ -97,6 +98,7 @@ export function SingleTaskWorkspaceView({
   taskId,
 }: SingleTaskWorkspaceViewProps) {
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -163,7 +165,11 @@ export function SingleTaskWorkspaceView({
 
   const handleDeleteTask = async () => {
     setIsMoreMenuOpen(false);
-    if (!confirm(`Are you sure you want to delete task ${activeTask.code}?`)) return;
+    const ok = await confirm({
+      title: "Delete task?",
+      description: `Are you sure you want to delete task ${activeTask.code}? This cannot be undone.`,
+    });
+    if (!ok) return;
     try {
       const success = await deleteTaskAction(activeTask.id);
       if (success) {
@@ -467,7 +473,13 @@ export function SingleTaskWorkspaceView({
     );
   };
 
-  const handleDeleteSubtask = (id: string) => {
+  const handleDeleteSubtask = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete subtask?",
+      description: "Delete this subtask? This cannot be undone.",
+    });
+    if (!ok) return;
+
     const updatedSubtasks = subtasks.filter((st) => st.id !== id);
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
@@ -532,47 +544,42 @@ export function SingleTaskWorkspaceView({
     isBillable: boolean;
     notes: string;
   }) => {
+    const ctx = stoppedTimerContextRef.current;
+    const targetProjectId = ctx?.projectId || activeTask.projectId || projectId;
     try {
-      // 1. Call stopActiveTimerAction to delete active timer from DB & persist ProjectTimeLog in DB
-      const res = await stopActiveTimerAction({
+      // The ActiveTimer row is already gone (deleted in handleStopTimer) —
+      // create the actual ProjectTimeLog now with the details the user confirmed.
+      const payload: Partial<TimeLogEntry> = {
+        taskCode: activeTask.code || ctx?.taskId || activeTask.id,
+        projectId: targetProjectId,
         duration: logData.duration,
-        description: logData.notes || `Logged from task ${activeTask.code}`,
-        billingType: logData.isBillable ? "BILLABLE" : "NON_BILLABLE",
-        startTime: logData.startTime,
-        endTime: logData.endTime,
-      });
-
-      // 2. Fallback: If stopActiveTimerAction returns error (e.g. no activeTimer in DB), create time log directly
-      if (!res?.success) {
-        await (createTimeLogAction as any)({
-          taskId: activeTask.id,
-          taskCode: activeTask.code,
-          projectId: activeTask.projectId || projectId,
-          duration: logData.duration,
-          billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
-          description: logData.notes || `Logged from task ${activeTask.code}`,
-          date: new Date().toISOString().split("T")[0],
-        });
-      }
+        billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
+        remarks: logData.notes || `Logged from task ${activeTask.code}`,
+        timePeriod: formatTimePeriodRange(logData.startTime, logData.endTime),
+        date: (ctx?.startedAt ? new Date(ctx.startedAt) : new Date())
+          .toISOString()
+          .split("T")[0],
+      };
+      await createTimeLogAction(payload, targetProjectId);
 
       showToast("Time log saved & timer stopped in DB");
       refreshTaskTimeLogs();
     } catch (err) {
       console.error("Failed to save timer time log to DB:", err);
       showToast("Failed to save timer log");
+    } finally {
+      stoppedTimerContextRef.current = null;
     }
   };
 
-  const handleTimerLogDiscarded = async () => {
-    try {
-      await discardActiveTimerAction();
-      setActiveTimerStatus("IDLE");
-      setActiveTimerSeconds(0);
-      setActiveTimerStartTime(undefined);
-      showToast("Active timer discarded");
-    } catch (err) {
-      console.error("Failed to discard active timer from DB:", err);
-    }
+  const handleTimerLogDiscarded = () => {
+    // Nothing left to delete server-side — the ActiveTimer was already removed
+    // when Stop was clicked. Discarding here just means "don't log this time".
+    stoppedTimerContextRef.current = null;
+    setActiveTimerStatus("IDLE");
+    setActiveTimerSeconds(0);
+    setActiveTimerStartTime(undefined);
+    showToast("Active timer discarded");
   };
 
   const totalTaskMinutes = taskTimeLogs.reduce((sum, log) => {
@@ -650,6 +657,16 @@ export function SingleTaskWorkspaceView({
   const [activeTimerStartTime, setActiveTimerStartTime] = useState<Date | undefined>(undefined);
   const [isStoppedModalOpen, setIsStoppedModalOpen] = useState(false);
   const [stoppedSeconds, setStoppedSeconds] = useState<number>(0);
+  // Context captured from the DB ActiveTimer row at the moment Stop is clicked
+  // (it's deleted immediately at that point) — used to create the real time log
+  // once the user confirms details in the stopped-timer modal.
+  const stoppedTimerContextRef = React.useRef<{
+    projectId?: string;
+    phaseId?: string;
+    taskId?: string;
+    startedAt?: string;
+    elapsedSeconds?: number;
+  } | null>(null);
 
   // Sync active timer from DB on load
   useEffect(() => {
@@ -711,12 +728,26 @@ export function SingleTaskWorkspaceView({
     setActiveTimerStatus("PAUSED");
   };
 
-  const handleStopTimer = () => {
+  const handleStopTimer = async () => {
     const elapsed = activeTimerSeconds;
     setActiveTimerStatus("IDLE");
-    setStoppedSeconds(elapsed > 0 ? elapsed : 8400);
-    setIsStoppedModalOpen(true);
     setActiveTimerSeconds(0);
+    stoppedTimerContextRef.current = null;
+
+    // Stop the timer everywhere the instant Stop is clicked: delete the DB
+    // ActiveTimer row right now rather than waiting on the follow-up modal.
+    try {
+      const res = await endActiveTimerAction();
+      if (res.success && res.data) {
+        stoppedTimerContextRef.current = res.data;
+      }
+    } catch (err) {
+      console.error("Failed to end active timer in DB:", err);
+    }
+
+    const finalElapsed = stoppedTimerContextRef.current?.elapsedSeconds ?? elapsed;
+    setStoppedSeconds(finalElapsed > 0 ? finalElapsed : 8400);
+    setIsStoppedModalOpen(true);
   };
 
   const formatHMS = (totalSecs: number): string => {
@@ -860,6 +891,7 @@ export function SingleTaskWorkspaceView({
   }
 
   return (
+    <ActiveTimerProvider>
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] dark:text-neutral-100">
       {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
       {!isExpandedView && (
@@ -1024,6 +1056,7 @@ export function SingleTaskWorkspaceView({
                 projectId={activeTask.projectId || projectId}
                 onSaveLog={handleTimerLogSaved}
                 canStart={canStartTimer}
+                defaultExpanded
               />
 
               <Info size={14} className="text-muted-foreground cursor-pointer hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-200" />
@@ -2018,7 +2051,11 @@ export function SingleTaskWorkspaceView({
                                             type="button"
                                             onClick={async (e) => {
                                               e.stopPropagation();
-                                              if (confirm("Are you sure you want to delete this time log?")) {
+                                              const ok = await confirm({
+                                                title: "Delete time log?",
+                                                description: "Are you sure you want to delete this time log?",
+                                              });
+                                              if (ok) {
                                                 await deleteTimeLogAction(log.id);
                                                 refreshTaskTimeLogs();
                                               }
@@ -2160,6 +2197,9 @@ export function SingleTaskWorkspaceView({
         onSaveLog={handleTimerLogSaved}
         onDiscardLog={handleTimerLogDiscarded}
       />
+
+      {ConfirmDialog}
     </div>
+    </ActiveTimerProvider>
   );
 }

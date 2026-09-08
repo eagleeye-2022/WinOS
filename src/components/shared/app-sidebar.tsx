@@ -174,7 +174,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = isManager
       ? [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
-          { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
+          // { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
           { label: "Users", href: "/projects/users", icon: Users2 },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
@@ -183,7 +183,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         ]
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
-          { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
+          // { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
@@ -232,7 +232,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       <div>
         {/* Top Header matching exact screenshot design */}
         <div className="px-5 pt-6 pb-4">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
             {activeModuleTitle}
           </h2>
           <p className="text-sm font-medium text-muted-foreground/80">
@@ -242,7 +242,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
         {/* Navigation links */}
         <nav className="flex flex-col gap-1.5 px-3 py-2 text-sm">
-          {navItems.map((item, idx) => {
+          {(() => {
+            const firstSectionIdx = navItems.findIndex((i) => Boolean(i.section));
+            return navItems.map((item, idx) => {
             const active = isSubItemActive(pathname, item.href, item.label);
             const Icon = item.icon;
             const prevSection = idx > 0 ? navItems[idx - 1].section : undefined;
@@ -250,7 +252,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
             return (
               <div key={item.label} className="contents">
-                {showSectionHeader && (
+                {/* First OVERVIEW header commented out per request */}
+                {showSectionHeader && idx !== firstSectionIdx && (
                   <p className="px-3 pt-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
                     {item.section}
                   </p>
@@ -269,7 +272,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
                 </Link>
               </div>
             );
-          })}
+            });
+          })()}
         </nav>
 
         {/* Recent Projects shortcuts (Projects module only) */}
@@ -279,7 +283,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
               Recent Projects
             </p>
             <div className="flex flex-col gap-1">
-              {recentProjects.map((rp) => (
+              {recentProjects.slice(0, 2).map((rp) => (
                 <Link
                   key={rp.id}
                   href={`/projects/${rp.id}`}

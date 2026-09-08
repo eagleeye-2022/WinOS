@@ -197,12 +197,12 @@ export function ProjectsWorkspace() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-full w-full bg-background overflow-hidden">
       {/* Left Sidebar Navigation */}
 
 
       {/* Right Main Content Area */}
-      <main className="flex-1 overflow-hidden bg-background">
+      <main className="flex-1 min-w-0 overflow-hidden bg-background">
         {isLoading ? (
           <div className="flex h-full flex-col items-center justify-center space-y-3">
             <Loader2 size={28} className="animate-spin text-primary" />

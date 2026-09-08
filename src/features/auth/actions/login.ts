@@ -78,7 +78,13 @@ export async function requestOtpAction(
   if (!email) return { step: "email", error: "Email is required.", captcha: createCaptcha() };
 
   // Account active status & client role check
-  let existingUser: any = null;
+  let existingUser: {
+    id: string;
+    isActive: boolean;
+    role: string;
+    profileRole: string | null;
+    password: string | null;
+  } | null = null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     existingUser = await (db as any).user.findUnique({

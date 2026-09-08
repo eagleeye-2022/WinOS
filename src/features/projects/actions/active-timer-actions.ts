@@ -331,6 +331,55 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
 }
 
 /**
+ * Ends the current user's ActiveTimer immediately by deleting it from the
+ * database — used when the Stop button is clicked, so the timer stops in the
+ * DB right then, regardless of whether the user goes on to save, discard, or
+ * simply dismiss the follow-up "log details" modal. Returns the timer's
+ * context so the caller can create the actual ProjectTimeLog afterwards.
+ */
+export async function endActiveTimerAction() {
+  const { sessionUser, error } = await getAuthenticatedUser();
+  if (error || !sessionUser) {
+    return { success: false, error: error || "Unauthorized" };
+  }
+
+  const d = db as any;
+
+  const activeTimer = await d.activeTimer.findUnique({
+    where: { userId: sessionUser.id },
+    include: { task: { select: { id: true, code: true, title: true } } },
+  });
+
+  if (!activeTimer) {
+    return { success: false, error: "No active timer found" };
+  }
+
+  const now = new Date();
+  const startedAt = new Date(activeTimer.startedAt);
+  const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
+
+  await d.activeTimer.delete({ where: { id: activeTimer.id } });
+
+  revalidatePath(`/projects/${activeTimer.projectId}`);
+  revalidatePath(`/projects/${activeTimer.projectId}/time-tracker`);
+  revalidatePath("/projects/time-tracker");
+
+  return {
+    success: true,
+    data: {
+      projectId: activeTimer.projectId as string,
+      phaseId: activeTimer.phaseId as string,
+      taskId: activeTimer.taskId as string,
+      taskCode: activeTimer.task?.code as string | undefined,
+      billingType: activeTimer.billingType as BillingTypeEnum,
+      startedAt: startedAt.toISOString(),
+      endedAt: now.toISOString(),
+      elapsedSeconds,
+    },
+  };
+}
+
+/**
  * Gets the current user's active timer from the database.
  * Returns null if no timer is currently active.
  * If active timer exists, calculates elapsed = now() - startedAt.

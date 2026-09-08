@@ -84,6 +84,7 @@ model User {
   eventAttending        CalendarEventAttendee[]
   ownedProjects         Project[]              @relation("ProjectOwner")
   createdProjects       Project[]              @relation("ProjectCreator")
+  projectRoleAssignments ProjectRoleAssignment[] @relation("ProjectRoleAssignmentUser")
   ownedTasks            ProjectTask[]          @relation("TaskOwner")
   authoredTasks         ProjectTask[]          @relation("TaskAuthor")
   taskOwnerships        ProjectTaskOwner[]     @relation("TaskOwners")
@@ -862,11 +863,20 @@ model Project {
   group            String?
   businessHours    String?           @default("Standard Business Hours")
   taskLayout       String?           @default("New Project Template")
+
+  driveLink        String?
+  webLink          String?
+  designLink       String?
+  techNotes        String?
+  creativeNotes    String?
+  marketingNotes   String?
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   owner            User?             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   createdByUser    User?             @relation("ProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  roleAssignments  ProjectRoleAssignment[]
   phases           ProjectPhase[]
   taskLists        ProjectTaskList[]
   tasks            ProjectTask[]
@@ -892,6 +902,20 @@ model ProjectMember {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+}
+
+/** Multi-assignee slots on the "All Projects" table (Project Lead, Tech/Creative Assignee,
+ *  Marketing SEO/Content/PM) — a project can have several people in the same role. */
+model ProjectRoleAssignment {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String // "PROJECT_LEAD" | "TECH_ASSIGNEE" | "CREATIVE_ASSIGNEE" | "MARKETING_SEO" | "MARKETING_CONTENT" | "MARKETING_PM"
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation("ProjectRoleAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, role])
 }
 
 model ProjectTemplate {
@@ -938,6 +962,9 @@ model ProjectTask {
   id                   String                @id @default(cuid())
   code                 String
   title                String
+  // Manual drag-reorder position of this card within its Kanban phase column — lower sorts
+  // first. Not unique/sequential across phases; only relative order within a phase matters.
+  order                Int                   @default(0)
   phaseId              String?
   phaseCode            String?
   phaseName            String?
