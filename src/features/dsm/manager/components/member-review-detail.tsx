@@ -1615,8 +1615,7 @@ function EntryExpanded({
       />
 
       {/* Blockers */}
-      {(entry.blockers.length > 0 || !isLocked) && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+      <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-destructive">
             <span className="flex items-center gap-2">
               <AlertCircle size={15} className="text-destructive" />
@@ -1668,13 +1667,11 @@ function EntryExpanded({
               );
             })}
           </div>
-          {!isLocked && <AddBlockerRow entryId={entry.id} teamMembers={teamMembers} />}
-        </div>
-      )}
+          <AddBlockerRow entryId={entry.id} teamMembers={teamMembers} />
+      </div>
 
       {/* Support needed */}
-      {(entry.supportNeeds.length > 0 || !isLocked) && (
-        <div className="rounded-xl border border-info/30 bg-info/10 p-4">
+      <div className="rounded-xl border border-info/30 bg-info/10 p-4">
           <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-info">
             <span className="flex items-center gap-2">
               <SupportNeededIcon size={15} className="text-info" />
@@ -1771,17 +1768,14 @@ function EntryExpanded({
               );
             })}
           </div>
-          {!isLocked && (
-            <AddSupportRow
-              entryId={entry.id}
-              teamMembers={teamMembers}
-              onScheduleMeeting={(title, participantIds, onCreated) =>
-                setScheduleModal({ mode: "create", title, participantIds, onCreated })
-              }
-            />
-          )}
-        </div>
-      )}
+          <AddSupportRow
+            entryId={entry.id}
+            teamMembers={teamMembers}
+            onScheduleMeeting={(title, participantIds, onCreated) =>
+              setScheduleModal({ mode: "create", title, participantIds, onCreated })
+            }
+          />
+      </div>
 
       {/* Review action */}
       {isReviewable && (
