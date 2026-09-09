@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Check, ListChecks, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Trash2, ListChecks, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { TaskItem, TaskStatus, WorkspaceRole } from "../../types";
 import { TimerWidget } from "../timer-widget";
+import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import {
   getCurrentUserContextAction,
@@ -45,10 +46,10 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
     });
   }, []);
 
-  const [userOptions, setUserOptions] = useState<{ id: string; name: string }[]>([]);
+  const [userOptions, setUserOptions] = useState<{ id: string; name: string; email: string }[]>([]);
   useEffect(() => {
     getAllUserOptionsAction().then((opts) => {
-      if (opts && opts.length > 0) setUserOptions(opts);
+      if (opts && opts.length > 0) setUserOptions(opts.map((o) => ({ ...o, email: "" })));
     });
   }, []);
 
@@ -116,11 +117,10 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
     }
   };
 
-  const handleAssignTaskOwner = async (e: React.MouseEvent, task: TaskItem, ownerName: string) => {
-    e.stopPropagation();
-    onUpdateTask({ ...task, owner: ownerName, owners: [ownerName] });
+  const handleChangeTaskOwners = async (task: TaskItem, nextOwners: string[]) => {
+    onUpdateTask({ ...task, owner: nextOwners[0] || "Unassigned", owners: nextOwners });
     try {
-      await updateTaskAction(task.id, { owner: ownerName, owners: [ownerName] });
+      await updateTaskAction(task.id, { owners: nextOwners });
       router.refresh();
     } catch (err) {
       console.error("[TasksListView] Error assigning owner:", err);
@@ -250,51 +250,45 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                 className="flex items-center gap-2 rounded-full pr-1.5 hover:bg-accent transition-colors cursor-pointer"
                 title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-[11px] font-bold shrink-0">
+                <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-[11px] font-bold shrink-0">
                   {ownerInitials}
+                  {task.owners && task.owners.length > 1 && (
+                    <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[8px] font-bold ring-2 ring-background">
+                      +{task.owners.length - 1}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs font-medium text-foreground whitespace-nowrap max-w-[100px] truncate">
-                  {task.owner || "Unassigned"}
+                  {task.owners && task.owners.length > 1 ? task.owners.join(", ") : task.owner || "Unassigned"}
                 </span>
               </button>
             </PopoverTrigger>
             <PopoverContent
               side="bottom"
               align="start"
-              className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+              className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
-                Assign Task Owner
-              </p>
               {currentUser && !isOwner && (
                 <button
                   type="button"
-                  onClick={(e) => handleAssignTaskOwner(e, task, currentUser.name)}
-                  className="w-full text-left px-2 py-1.5 mb-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold cursor-pointer"
+                  onClick={() =>
+                    handleChangeTaskOwners(task, [
+                      ...(task.owners && task.owners.length > 0 ? task.owners : task.owner ? [task.owner] : []),
+                      currentUser.name,
+                    ])
+                  }
+                  className="w-full text-left px-2 py-1.5 mb-2 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold cursor-pointer"
                 >
                   Assign to me
                 </button>
               )}
-              <div className="max-h-48 overflow-y-auto space-y-0.5">
-                {(userOptions.length > 0
-                  ? userOptions
-                  : [{ id: "u-default", name: task.owner || "Unassigned" }]
-                ).map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={(e) => handleAssignTaskOwner(e, task, u.name)}
-                    className={cn(
-                      "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
-                      task.owner === u.name ? "bg-primary/10 text-primary font-bold" : "text-foreground"
-                    )}
-                  >
-                    <span className="truncate">{u.name}</span>
-                    {task.owner === u.name && <Check size={12} className="shrink-0 text-primary" />}
-                  </button>
-                ))}
-              </div>
+              <TaskMultiOwnerSelect
+                selectedOwners={task.owners && task.owners.length > 0 ? task.owners : task.owner && task.owner !== "Unassigned" ? [task.owner] : []}
+                onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}
+                ownersList={userOptions}
+                listLabel="Project Users"
+              />
             </PopoverContent>
           </Popover>
         </td>

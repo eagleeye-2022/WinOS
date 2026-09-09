@@ -68,6 +68,7 @@ export function TimerStoppedModal({
   const [startInput, setStartInput] = useState("");
   const [endInput, setEndInput] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   if (isOpen !== prevIsOpen) {
@@ -83,6 +84,7 @@ export function TimerStoppedModal({
       setNotes("");
       setErrorMsg("");
       setIsEditingTimes(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -132,10 +134,14 @@ export function TimerStoppedModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isSubmitting) return;
+
     if (!durationObj.valid) {
       setErrorMsg("End time must be after Start time.");
       return;
     }
+
+    setIsSubmitting(true);
 
     if (onSaveLog) {
       onSaveLog({
@@ -335,7 +341,8 @@ export function TimerStoppedModal({
           <div className="flex items-center justify-between pt-3 border-t border-border dark:border-neutral-800">
             <button
               type="submit"
-              className="rounded-lg bg-[#0088ff] px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-[#0077ee] transition-all cursor-pointer"
+              disabled={isSubmitting}
+              className="rounded-lg bg-[#0088ff] px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-[#0077ee] transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
               Update
             </button>
@@ -343,7 +350,8 @@ export function TimerStoppedModal({
             <button
               type="button"
               onClick={handleDiscard}
-              className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className="text-destructive hover:bg-destructive/10 p-2 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               title="Discard Log"
             >
               <Trash2 size={18} />

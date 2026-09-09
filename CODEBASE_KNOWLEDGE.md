@@ -55,6 +55,58 @@
 >   precedence, notes/boards, calendar/Zoho integration) was spot-checked but
 >   not re-read line-by-line in this pass; treat those areas as still dated
 >   to 08-17/08-21 unless flagged otherwise here.
+>
+> **Updated 2026-09-08**: targeted refresh covering two commits the prior pass
+> missed or left half-described — `b89556c` ("fix: client invite main",
+> 2026-09-04, which added several files it never actually wrote up) and
+> `1d80939` ("feat project dashboad", 2026-09-08, current `HEAD` of this
+> branch, `fix/login-validation`). All facts below confirmed by direct source
+> read in this pass:
+> - **Client login is now a real, separate flow** (§10, §18) — `/client/login`
+>   (`src/app/(auth)/client/login/page.tsx` + `client-login-form.tsx`) is a
+>   password-only form (no OTP/CAPTCHA) posting to a new
+>   `loginWithPasswordAction` in `src/features/auth/actions/login.ts`. A new
+>   `/portal` route group (`src/app/portal/layout.tsx`) is the chromeless
+>   client-portal shell, gated on `session.user.profileRole === "CLIENT"`.
+>   `(dashboard)/layout.tsx` and `src/app/page.tsx` now redirect
+>   `CLIENT`-profileRole sessions to `/portal` instead of the staff dashboard;
+>   `logoutAction` now redirects `CLIENT` users to `/client/login` instead of
+>   `/login`. This resolves the prior pass's §20 open question about where
+>   `/invitations/client/accept` lives — it's a real page, confirmed read, see
+>   §18.
+> - **`fix/login-validation` branch name is a bit of a misnomer** for the
+>   latest commit: `1d80939`'s only change to `login.ts` is a type-safety fix
+>   (typed `existingUser` shape instead of `any`), not new validation logic —
+>   the actual login-validation changes (domain-restriction now allows
+>   `role === "CLIENT"` too, not just `profileRole === "CLIENT"`) were made
+>   earlier, in `b89556c`. See §10.
+> - **Projects module: multi-assignee rework + shared active-timer context**
+>   (§5, §8, §17, §19) — `1d80939` is a large commit (~4,100 lines across 21
+>   files). Headline changes: a new `ProjectRoleAssignment` join table
+>   replaces single-string assignee fields with per-role arrays of assignees;
+>   a new `ActiveTimerProvider` context de-duplicates timer polling so a
+>   Kanban board with N task cards doesn't fire N redundant DB polls; Kanban
+>   drag-and-drop reordering persisted via `reorderProjectTasksAction`
+>   (backed by a new `ProjectTask.order` column); a new flat/grouped
+>   `tasks-list-view.tsx` as an alternative to the Kanban board; bulk
+>   assignee/date-shift actions on the All-Projects table; a new reusable
+>   `useConfirm()` dialog hook replacing `window.confirm(...)` calls across
+>   the reworked views.
+> - **No tracked Prisma migration for any of this** — the new
+>   `ProjectRoleAssignment` table, `Project`'s six new link/notes columns, and
+>   `ProjectTask.order` were all applied via `prisma db push
+>   --accept-data-loss` (confirmed by the header comment in a one-off
+>   root-level script, `restore-project-assignees.ts` — see §19) rather than
+>   a committed migration.
+> - **The "My Dashboard" sidebar link (`/projects/dashboard`), added in the
+>   prior pass, was commented out again in this same commit** — despite the
+>   commit message "feat project dashboad," `1d80939`'s diff to
+>   `app-sidebar.tsx` hides that nav entry for both manager and non-manager
+>   users. The route/page itself still exists and works if navigated to
+>   directly; it's just not linked from the sidebar right now.
+> - `restore-project-assignees.ts` (new, repo root) is a one-off backfill
+>   script with a comment saying to delete it after running — **it has not
+>   been deleted**, flagged as pending cleanup in §19.
 
 ---
 
@@ -231,7 +283,7 @@ business domain:
 | `org-calendar/` | Separate org-level calendar feature (actions + components) — relationship to `calendar/` not fully disambiguated (**UNCLEAR**) |
 | `notifications/` | In-app notification bell, mark-read, send-reminder (DSM reminders per README) |
 | `users/` | Team/employee management: department tree, employee tree, permission matrix, add/edit member, team table — backs the `settings/users` and `settings/profile-access` pages and the granular `PermissionModule/Action/Rule` Prisma models |
-| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists, users/invites). **(Updated 08-21, CONFIRMED)** Now fully DB-backed via `src/features/projects/actions/project-actions.ts` — every list/detail view (`getProjectsAction`, `getTasksAction`, `getMyTasksAction`, `getUsersAction`, `getTimeLogsAction`, `getCurrentUserRoleAction`) reads real Prisma rows, and writes (`createProjectAction`, `inviteUserAction`, `updateUserRoleAction`, etc.) persist to the DB and `revalidatePath(...)`. The `src/features/projects/data/mock-*.ts` files still exist on disk but are **no longer imported anywhere** (confirmed via grep) — dead code, safe to ignore or remove. Role for this module (`WorkspaceRole`: `ADMIN`/`TEAM_MEMBER`) is derived server-side from the real `User.role`/`profileRole` fields, not a client toggle. **(Updated 09-04, CONFIRMED)** Two additions read in full this pass: (1) a **client-invitation subsystem** (`src/features/projects/actions/client-invitation-actions.ts`, `components/modals/invite-client-modal.tsx`, `components/views/users-table-view.tsx`) that invites external `CLIENT`-profileRole users into specific projects via a hashed-token email link — see §11/§18 for the full flow and §19 for a security flag on hardcoded SMTP fallback creds. (2) a new **`/projects/dashboard`** route (`src/app/(dashboard)/projects/dashboard/page.tsx` → `MyProjectsDashboardWorkspace`) showing the current user's member-projects table plus a calendar of their task due dates, backed by new `getMyProjectsAction`/`getMyProjectCalendarEventsAction` in `project-actions.ts`; linked from the sidebar as "My Dashboard". |
+| `projects/` | Kanban/PM-style module (phases, tasks, subtasks, time logs, checklists, users/invites). **(Updated 08-21, CONFIRMED)** Now fully DB-backed via `src/features/projects/actions/project-actions.ts` — every list/detail view (`getProjectsAction`, `getTasksAction`, `getMyTasksAction`, `getUsersAction`, `getTimeLogsAction`, `getCurrentUserRoleAction`) reads real Prisma rows, and writes (`createProjectAction`, `inviteUserAction`, `updateUserRoleAction`, etc.) persist to the DB and `revalidatePath(...)`. The `src/features/projects/data/mock-*.ts` files still exist on disk but are **no longer imported anywhere** (confirmed via grep) — dead code, safe to ignore or remove. Role for this module (`WorkspaceRole`: `ADMIN`/`TEAM_MEMBER`) is derived server-side from the real `User.role`/`profileRole` fields, not a client toggle. **(Updated 09-04, CONFIRMED)** Two additions read in full this pass: (1) a **client-invitation subsystem** (`src/features/projects/actions/client-invitation-actions.ts`, `components/modals/invite-client-modal.tsx`, `components/views/users-table-view.tsx`) that invites external `CLIENT`-profileRole users into specific projects via a hashed-token email link — see §11/§18 for the full flow and §19 for a security flag on hardcoded SMTP fallback creds. (2) a new **`/projects/dashboard`** route (`src/app/(dashboard)/projects/dashboard/page.tsx` → `MyProjectsDashboardWorkspace`) showing the current user's member-projects table plus a calendar of their task due dates, backed by new `getMyProjectsAction`/`getMyProjectCalendarEventsAction` in `project-actions.ts` — the route works but is **no longer linked from the sidebar** as of `1d80939` (commented out, see below). **(Updated 09-08, CONFIRMED, `1d80939`)** Third major addition: a **multi-assignee + shared-timer rework**. `Project`'s single-string role fields (project lead, tech, creative, marketing SEO/content/PM) were replaced with per-role arrays backed by a new `ProjectRoleAssignment` join table (§8), edited inline in the All-Projects table via `AssigneePickerPopover`/`project-table-cells.tsx`, with bulk apply-to-many-projects support (`BulkProjectActionsBar` → `bulkUpdateProjectRoleAssigneesAction`/`bulkShiftProjectDatesAction` in `project-actions.ts`). A new `ActiveTimerProvider` context (`src/features/projects/context/active-timer-context.tsx`) de-duplicates `getActiveTimerAction()` polling so a Kanban board with many visible `TimerWidget` cards fires one shared 30s poll instead of one per card; `TimerWidget` now consumes this context when present and falls back to its own independent polling otherwise. `tasks-board-view.tsx` gained real drag-and-drop Kanban reordering (persisted via `reorderProjectTasksAction`, backed by a new `ProjectTask.order` column) and lost its old `STATUS_COLUMNS`/`PHASE_COLUMNS` view-mode toggle (now Kanban-only) and its own inline timer start/stop logic (superseded by the shared context). A new alternative `tasks-list-view.tsx` (flat/grouped list, same `TaskItem[]` props shape as the board) was added alongside it. A new reusable `useConfirm()` hook (`src/components/shared/confirm-dialog.tsx`) replaces `window.confirm(...)` across these reworked views for destructive actions (delete task/subtask, bulk delete). None of this schema change (`ProjectRoleAssignment` table, `Project`'s new link/notes columns, `ProjectTask.order`) has a tracked Prisma migration — applied via `db push --accept-data-loss` (§19). |
 | `dashboard/` | Landing dashboard after login (components dir present but currently only a `.gitkeep` + `index.ts` — likely minimal/placeholder, **INFERRED**) |
 
 Additional top-level app routes without a dedicated `features/` folder:
@@ -419,6 +471,26 @@ relation `"ClientInvitationsSent"`, `tokenHash String @unique`, `status`,
 linking one invitation to multiple `Project` rows. Real, migrated model —
 not a mock. See §11/§18 for the full accept flow.
 
+**Projects: multi-assignee rework (New 09-08, CONFIRMED, `prisma/schema.prisma` diff in `1d80939`)**:
+new model `ProjectRoleAssignment` (`id`, `projectId`, `userId`, `role` —
+informally one of `PROJECT_LEAD|TECH_ASSIGNEE|CREATIVE_ASSIGNEE|
+MARKETING_SEO|MARKETING_CONTENT|MARKETING_PM`, string not enum —
+`createdAt`), cascade-deletes on both `project`/`user`, unique on
+`[projectId, userId, role]`; its doc comment states a project can now have
+*several* people in the same role (the old schema was one string per role).
+`Project` gained the inverse `roleAssignments ProjectRoleAssignment[]`
+relation plus six new nullable string columns: `driveLink`, `webLink`,
+`designLink`, `techNotes`, `creativeNotes`, `marketingNotes`. `ProjectTask`
+gained `order Int @default(0)` (manual drag-reorder position within a Kanban
+phase column, not unique/sequential across phases). `User` gained the
+inverse `projectRoleAssignments` relation. **None of this shipped as a
+tracked migration** — applied via `prisma db push --accept-data-loss`
+(confirmed by the header comment in `restore-project-assignees.ts`, a
+one-off root-level backfill script that restored the old single-assignee
+values into the new join table before the old columns were dropped; it was
+meant to be deleted after running and, as of this pass, has not been — see
+§19).
+
 Migrations: only one migration folder present, `prisma/migrations/0_init/`
 (**CONFIRMED** via `find`), meaning schema evolution has mostly happened via
 `db push` in dev (per `README.md`'s dev instructions using `prisma db push`
@@ -513,6 +585,53 @@ carrying `error.message` when available.
   otherwise cause FK-constraint failures on every write). This is a
   recurring defensive pattern worth knowing about when debugging "session
   no longer valid" errors during local dev.
+- **Client (password) login is now a fully separate flow (New 09-08,
+  CONFIRMED, `b89556c`)**: `src/features/auth/actions/login.ts` gained
+  `loginWithPasswordAction(prev, formData)` — looks up the user, blocks if
+  `isActive === false`, returns a friendly "No password-enabled account
+  found... use OTP login" message if the user has no `password` hash set,
+  otherwise calls `signIn("credentials", { email, password, redirectTo:
+  ROUTES.home })`, catching `AuthError` → "Incorrect email or password." The
+  OTP-request action (`requestOtpAction`) was also loosened: previously any
+  non-`@eagleeyedigital.io` email was rejected outright; now it first looks
+  up the user and computes `isClientUser = profileRole === "CLIENT" || role
+  === "CLIENT" || !!password`, only enforcing the domain restriction when
+  `!isClientUser`. Note: `role === "CLIENT"` is checked here even though
+  `role` (`UserRole`) is documented elsewhere (§8, CLAUDE.md) as only having
+  values `TEAM_MEMBER|MANAGER` — this is either an undocumented third value
+  in practice or defensive dead code; worth confirming before relying on it.
+  `src/lib/auth.ts`'s `authorize()` OTP-domain check was changed identically
+  (`b89556c`, 6-line diff) to accept `user?.role !== "CLIENT"` in addition to
+  the pre-existing `user?.profileRole !== "CLIENT"` check.
+- **New `/client/login` route and `/portal` route group (New 09-08,
+  CONFIRMED, `b89556c`)**: `src/app/(auth)/client/login/page.tsx` (server
+  component, reads `error`/`accepted`/`email` search params, shows a green
+  "Invitation accepted!" banner when `accepted=true`) +
+  `src/features/auth/components/client-login-form.tsx` (client component,
+  `useActionState(loginWithPasswordAction, undefined)`, password-only — no
+  OTP/CAPTCHA UI unlike the staff login form) form the client-facing login
+  page, registered at `ROUTES.clientLogin = "/client/login"`
+  (`src/constants/routes.ts`, added to `PUBLIC_ROUTES`). Separately,
+  `src/app/portal/layout.tsx` is a new, chromeless route-group layout (no
+  `AppSidebar`, just a minimal header + `<SessionGuard />`) that calls
+  `auth()`, redirects to `ROUTES.clientLogin` if unauthenticated, and
+  redirects to `ROUTES.home` if `session.user.profileRole !== "CLIENT"` —
+  i.e. `/portal` is exclusively for `CLIENT`-profileRole sessions.
+  `src/app/portal/page.tsx` renders `<ClientPortalView />`
+  (`src/features/projects/components/views/client-portal-view.tsx`, not
+  re-read in this pass). Both `src/app/(dashboard)/layout.tsx` and
+  `src/app/page.tsx` now redirect `profileRole === "CLIENT"` sessions to
+  `ROUTES.clientPortal` before their existing MANAGER/TEAM_MEMBER
+  role-branching logic runs, keeping CLIENT users out of the staff dashboard
+  shell entirely. `logoutAction` (`src/features/auth/actions/logout.ts`) was
+  changed from an unconditional `signOut({ redirectTo: ROUTES.login })` to
+  reading `profileRole` first and redirecting CLIENT users to
+  `ROUTES.clientLogin` instead.
+- **`fix/login-validation` branch note**: the current branch's tip commit
+  (`1d80939`) only changes `login.ts` cosmetically — typing
+  `existingUser: any` into an explicit shape — with no behavioral change; the
+  actual login-validation logic changes described above all landed earlier,
+  in `b89556c`.
 
 ---
 
@@ -858,6 +977,13 @@ dev work at a shared/remote database rather than an isolated local one.
 | `src/features/dsr/actions/save-dsr.ts` **(added 09-04)** | DSR counterpart to `save-dsm.ts`: DSM-must-be-REVIEWED gate, same draft/submit + immutability + no-regress-to-DRAFT rules, delete-then-recreate child sync, priority-enum retry-on-failure, best-effort fuzzy-text sync of resolved blockers/support-needs back onto `StandupBlocker`/`StandupSupportNeed` |
 | `src/features/projects/actions/client-invitation-actions.ts` **(added 09-04)** | Full client-invitation lifecycle: hashed-token create/validate/accept (atomic `$transaction`)/resend/revoke, plus client-user deactivate/remove-from-project/list actions; none of the CRUD actions besides `acceptClientInvitationAction` re-check caller role beyond session existence |
 | `src/lib/email.ts` **(re-read 09-04)** | `sendOtpEmail`/`sendCalendarInviteEmail`/`sendClientInvitationEmail`, shared `buildTransport()`/`getFromEmail()` — contains hardcoded fallback SMTP credentials (see §12/§19) |
+| `src/app/invitations/client/accept/page.tsx` **(added 09-08)** | Client-invite acceptance UI: validates the token, collects name/password for new invitees (or a simple confirm for existing CLIENT users being added to another project), then redirects to `/client/login?accepted=true` on success |
+| `src/app/portal/layout.tsx` **(added 09-08)** | Chromeless route-group shell for `/portal/*`, gated on `profileRole === "CLIENT"` (redirects non-CLIENT to `/`, unauthenticated to `/client/login`) |
+| `src/features/auth/actions/login.ts` **(re-read 09-08)** | Both `requestOtpAction` (loosened domain check for CLIENT users) and the new `loginWithPasswordAction` (password-only sign-in used by the client login form) |
+| `src/features/projects/context/active-timer-context.tsx` **(added 09-08)** | `ActiveTimerProvider`/`useActiveTimerContext` — de-duplicates `getActiveTimerAction()` polling across many `TimerWidget` instances on one page |
+| `src/features/projects/actions/project-actions.ts` **(grew 09-08)** | Added multi-assignee actions (`updateProjectRoleAssigneesAction`, `bulkUpdateProjectRoleAssigneesAction`), date/link/notes cell actions, `getTeamMembersForAssignmentAction`, and Kanban `reorderProjectTasksAction` |
+| `src/components/shared/confirm-dialog.tsx` **(added 09-08)** | `useConfirm()` hook — promise-based confirm modal replacing `window.confirm(...)` across the reworked Projects views |
+| `restore-project-assignees.ts` **(added 09-08, repo root)** | One-off backfill script restoring pre-rework single-assignee values into the new `ProjectRoleAssignment` table; meant to be deleted after running but still present — see §19 |
 
 ---
 
@@ -952,19 +1078,31 @@ sync (also non-fatal on failure) → `revalidatePath("/calendar")` and
    `success: true`).
 3. The client visits `${baseUrl}/invitations/client/accept?token=<rawToken>`
    (base URL resolved from request headers via `getAppBaseUrl()`, falling
-   back to `APP_URL`/`NEXTAUTH_URL`/a hardcoded prod URL/`localhost:3000`) —
-   **this page itself (`src/app/.../invitations/client/accept/...`) was not
-   located/read in this pass**, so its exact route path and UI were not
-   confirmed (**UNCLEAR**, flagged in §20).
-4. That page presumably calls `validateClientInvitationAction(token)` to
-   show invitation details, then `acceptClientInvitationAction(token,
-   password, clientName)` on submit, which atomically creates/reactivates
-   the `CLIENT` user, grants `ProjectMember` access to every invited
-   project, marks the invitation `ACCEPTED`, and notifies the inviter.
-5. The new/reactivated `CLIENT` user can now log in via the **password**
-   branch of `authorize()` in `src/lib/auth.ts` (§10) rather than OTP.
+   back to `APP_URL`/`NEXTAUTH_URL`/a hardcoded prod URL/`localhost:3000`).
+   **(Updated 09-08, CONFIRMED, resolves the prior pass's open question)**
+   This page is `src/app/invitations/client/accept/page.tsx` — a client
+   component (`"use client"`) that reads the `token` search param and, on
+   mount, calls `validateClientInvitationAction(token)` to fetch invitation
+   details (inviter name, assigned project list, invited email, and whether
+   `invitation.isExistingUser`). An invalid/missing token shows an error
+   card linking back to `/client/login`. A **new** invitee sees a form to set
+   their full name + a password (min 6 chars, confirm-match, client-side
+   validated); an **existing** CLIENT user (being added to another project)
+   sees a simplified confirmation with no password fields.
+4. Submitting calls `acceptClientInvitationAction(token, password?,
+   clientName?)`, which atomically creates/reactivates the `CLIENT` user,
+   grants `ProjectMember` access to every invited project, marks the
+   invitation `ACCEPTED`, and notifies the inviter (§11 — unchanged this
+   pass). On success the page shows a 2-second "Invitation Accepted!" state,
+   then redirects to `/client/login?accepted=true&email=<email>` — the query
+   params that make `client/login/page.tsx`'s green confirmation banner
+   appear (§10).
+5. The new/reactivated `CLIENT` user can now log in via `/client/login`
+   using `loginWithPasswordAction` (§10) — the client-specific password
+   login path added 09-08, distinct from the general password branch inside
+   `authorize()` that this flow also satisfies.
 
-### Flow: "My Dashboard" for Projects (New 09-04, fully read)
+### Flow: "My Dashboard" for Projects (New 09-04, fully read; sidebar link removed 09-08)
 
 `AppSidebar` "My Dashboard" link → `/projects/dashboard`
 (`src/app/(dashboard)/projects/dashboard/page.tsx`) → client component
@@ -976,7 +1114,41 @@ projects, skipping unparsable/placeholder `"--"` values — there's no
 dedicated project-calendar model) → renders the existing
 `AllProjectsTableView` plus `CalendarMonthView` (reused from the `calendar`
 feature), clicking a project row or calendar event navigates to
-`/projects/[projectId]`.
+`/projects/[projectId]`. **(Updated 09-08, CONFIRMED, `1d80939`)**: the
+route and its data actions still work if visited directly, but the sidebar
+"My Dashboard" nav entry linking to it was commented out (not deleted) in
+`app-sidebar.tsx` for both manager and non-manager nav arrays, in the same
+commit whose message was "feat project dashboad" — so this flow is
+currently unreachable from the UI's normal navigation.
+
+### Flow: Client (password) login and portal access (New 09-08, fully read)
+
+1. A `CLIENT`-profileRole user (created via the invitation-accept flow above)
+   visits `/client/login` instead of the staff `/login`. `ClientLoginForm`
+   submits email+password directly to `loginWithPasswordAction` — no OTP
+   step, no CAPTCHA.
+2. `loginWithPasswordAction` looks up the user, rejects if `isActive ===
+   false` or if the account has no `password` hash set (message points them
+   to OTP login instead — i.e. a staff account without a client password
+   can't accidentally "succeed" here), then delegates to Auth.js's
+   `signIn("credentials", ...)`, which re-enters `authorize()` in
+   `src/lib/auth.ts` and takes its password-comparison branch (`bcrypt.compare`).
+3. On success, `redirectTo: ROUTES.home` (`/`) — `src/app/page.tsx` then
+   checks `profileRole === "CLIENT"` and redirects to `ROUTES.clientPortal`
+   (`/portal`) rather than the staff `/dashboard` or `/dsm` redirect used for
+   `MANAGER`/`TEAM_MEMBER`.
+4. `src/app/portal/layout.tsx` re-checks `profileRole === "CLIENT"` on every
+   request to `/portal/*` (bouncing non-CLIENT sessions to `/` and
+   unauthenticated ones to `/client/login`), then renders a chromeless shell
+   (no `AppSidebar`) around `<ClientPortalView />`
+   (`src/features/projects/components/views/client-portal-view.tsx`, not
+   itself read in this pass).
+5. If a CLIENT user instead lands on `/` or any `(dashboard)/*` route with a
+   valid session (e.g. an old bookmark), both `src/app/page.tsx` and
+   `src/app/(dashboard)/layout.tsx` independently redirect them to `/portal`
+   — the gate is enforced in two places, not just one.
+6. Signing out (`logoutAction`) checks `profileRole` and sends CLIENT users
+   back to `/client/login` instead of the staff `/login`.
 
 ---
 
@@ -1055,6 +1227,44 @@ feature), clicking a project row or calendar event navigates to
     50-character prefix; `.slice(0, 50)` was almost certainly intended. As
     written, long entries display a truncated *tail* instead of a preview
     *head*.
+12. **(New 09-08, CONFIRMED) Schema changes shipped without a tracked
+    migration**: `1d80939`'s new `ProjectRoleAssignment` table, `Project`'s
+    six new link/notes columns, and `ProjectTask.order` were all applied via
+    `prisma db push --accept-data-loss` rather than a committed migration
+    (no new folder under `prisma/migrations/`, confirmed by `git log` on that
+    path). `--accept-data-loss` is a strong signal that this push dropped
+    existing columns (the old single-assignee string fields on `Project`) —
+    corroborated by `restore-project-assignees.ts`'s own header comment,
+    which says it captured the old values via raw SQL *before* the push
+    dropped them. Since prod deploys apply `prisma migrate deploy` (§15),
+    this change cannot reach production as-is until a real migration is
+    generated for it — worth flagging before this branch merges.
+13. **(New 09-08, CONFIRMED) Leftover one-off script at repo root**:
+    `restore-project-assignees.ts` contains its own instruction to run once
+    then delete itself; it is still present in the repo as of this pass,
+    hardcoding 5 specific `{projectId, role, userId}` rows captured from a
+    point-in-time DB read. It should not be treated as reusable tooling and
+    is a candidate for deletion once confirmed unneeded.
+14. **(New 09-08) Client/staff routing is enforced in multiple independent
+    places**: `profileRole === "CLIENT"` gating is duplicated across
+    `src/app/page.tsx`, `src/app/(dashboard)/layout.tsx`,
+    `src/app/portal/layout.tsx`, and `logoutAction` — each redirecting
+    slightly differently (to `/portal`, or bouncing *out* of `/portal`, or to
+    `/client/login` on sign-out). There's no single shared helper/guard
+    function for this check (each site re-reads `session.user.profileRole`
+    independently) — a future profileRole-related change would need to be
+    applied in all of these spots, similar in shape to the existing "two
+    parallel authorization systems" risk (#3 above).
+15. **(New 09-08) `role === "CLIENT"` checked in two places despite `role`'s
+    documented enum being `TEAM_MEMBER|MANAGER` only**: both
+    `requestOtpAction` (`isClientUser` check) and `authorize()`'s OTP-domain
+    condition in `src/lib/auth.ts` now check `user?.role !== "CLIENT"` /
+    `role === "CLIENT"` alongside the expected `profileRole === "CLIENT"`
+    check. If `UserRole` genuinely only has two values, this half of each
+    condition is dead code that can never be true; if `role` can actually
+    hold `"CLIENT"` in practice (e.g. via direct DB writes or a code path not
+    sampled here), the schema/CLAUDE.md documentation of `UserRole` is
+    incomplete. Worth clarifying before relying on either branch.
 
 ---
 
@@ -1083,14 +1293,31 @@ feature), clicking a project row or calendar event navigates to
 - **Whether uploads actually proxy to the external `REMOTE_UPLOAD_URL`
   Hostinger endpoint or use it for something else** — `api/uploads/route.ts`
   was not read in full.
-- **(New 09-04) The `/invitations/client/accept` page** — the frontend page
-  that presumably calls `validateClientInvitationAction`/
-  `acceptClientInvitationAction` was not located/read in this pass (only the
-  Server Actions it must call were confirmed). Its exact route file, form
-  fields, and error-state handling are unconfirmed.
+- **(Resolved 09-08)** The `/invitations/client/accept` page was located and
+  read in full — see updated §18 "Flow: Inviting and onboarding a client
+  user" and §17.
 - **(New 09-04) Whether the client-invitation actions' missing role checks
   (§19 item 10) are intentionally deferred to a UI-only gate** — i.e.
   whether `/projects/users` itself is reachable only by managers via some
   other mechanism not sampled in this pass (e.g. a layout-level check), which
   would reduce but not eliminate the risk since Server Actions remain
   directly callable. Not established.
+- **(New 09-08) `src/features/projects/components/views/client-portal-view.tsx`**
+  — the actual content of the client portal (`/portal` → `<ClientPortalView
+  />`) was not read in this pass; only the routing/gating around it (§10,
+  §18) was confirmed. What a CLIENT user actually sees/can do inside the
+  portal is unconfirmed.
+- **(New 09-08) `role === "CLIENT"` as a live value** — see §19 item 15;
+  unconfirmed whether any `User` row in practice has `role: "CLIENT"` (as
+  opposed to the documented `TEAM_MEMBER|MANAGER`) or whether that half of
+  the two new checks is unreachable dead code.
+- **(New 09-08) Whether a migration will be generated for `1d80939`'s schema
+  changes before this branch merges to `main`** — see §19 item 12. Given
+  prod deploys run `prisma migrate deploy` (§15), the `ProjectRoleAssignment`
+  table and related columns won't exist in production until a real migration
+  file is added; not established whether this is already planned.
+- **`src/features/projects/components/project-table-cells.tsx` and
+  `date-range-picker-popover.tsx` (added 09-08)** — only partially read
+  (~70/379 and ~60/282 lines respectively); the full set of inline-editable
+  cell types and the date-range picker's complete behavior weren't
+  exhaustively traced.
