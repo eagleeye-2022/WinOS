@@ -84,6 +84,7 @@ import {
   getActiveTimerAction,
 } from "../../actions/active-timer-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { LinkifyEditableTextarea } from "../linkify-editable-textarea";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
@@ -91,6 +92,43 @@ import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
   taskId: string;
+}
+
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+/** Splits free-text on bare URLs and renders each URL as a clickable link, keeping
+ *  everything else as plain text — used for descriptions/notes that mix prose with links. */
+function linkifyText(text: string): React.ReactNode[] {
+  // Splitting on a capturing-group regex interleaves the matches back into the
+  // result, alternating [text, url, text, url, ...] — odd indices are always URLs.
+  const parts = text.split(URL_PATTERN);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      // Trim trailing punctuation (commas, periods) that's more likely sentence
+      // punctuation than part of the URL, without eating a real path segment.
+      (() => {
+        const trailingMatch = part.match(/[.,;:!?)]+$/);
+        const trailing = trailingMatch ? trailingMatch[0] : "";
+        const url = trailing ? part.slice(0, -trailing.length) : part;
+        return (
+          <React.Fragment key={i}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-info underline hover:text-info/80 dark:text-sky-400 dark:hover:text-sky-300 break-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {url}
+            </a>
+            {trailing}
+          </React.Fragment>
+        );
+      })()
+    ) : (
+      <React.Fragment key={i}>{part}</React.Fragment>
+    )
+  );
 }
 
 export function SingleTaskWorkspaceView({
@@ -1042,9 +1080,14 @@ export function SingleTaskWorkspaceView({
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5 dark:text-neutral-400">
               <span>By {activeTask.authorName || activeTask.owner || project?.owner.name || "System"}</span>
               <span>|</span>
-              <span className="flex items-center gap-1 text-foreground font-medium dark:text-neutral-300">
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${projectId}`)}
+                title="Go to project"
+                className="flex items-center gap-1 text-foreground font-medium dark:text-neutral-300 hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer"
+              >
                 <Folder size={12} className="text-info dark:text-sky-400" /> {project?.name || projectId}
-              </span>
+              </button>
               {/* <span>💬 📎</span> */}
               <span>|</span>
 
@@ -1257,13 +1300,13 @@ export function SingleTaskWorkspaceView({
               <div className="px-4 pb-4 pt-1 text-xs text-muted-foreground border-t border-border/60 dark:text-neutral-400 dark:border-neutral-800/60">
                 {isEditingDescription ? (
                   <div className="space-y-2 pt-2">
-                    <textarea
+                    <LinkifyEditableTextarea
                       autoFocus
                       rows={4}
                       value={descriptionDraft}
-                      onChange={(e) => setDescriptionDraft(e.target.value)}
+                      onChange={setDescriptionDraft}
                       placeholder="Add a description..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary font-sans"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <div className="flex items-center gap-2">
                       <button
@@ -1300,7 +1343,7 @@ export function SingleTaskWorkspaceView({
                       onClick={() => startEditingDescription()}
                       className="whitespace-pre-wrap break-words cursor-text hover:text-foreground transition-colors"
                     >
-                      {activeTask.description}
+                      {linkifyText(activeTask.description)}
                     </p>
                   )
                 ) : (

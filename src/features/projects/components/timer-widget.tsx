@@ -72,6 +72,7 @@ export function TimerWidget({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isStoppingRef = useRef<boolean>(false);
+  const isSavingLogRef = useRef<boolean>(false);
   const originalTitleRef = useRef<string | null>(null);
   // Context captured from the DB ActiveTimer row at the moment Stop is clicked
   // (it's deleted immediately at that point) — used to create the real time log
@@ -273,6 +274,9 @@ export function TimerWidget({
     isBillable: boolean;
     notes: string;
   }) => {
+    if (isSavingLogRef.current) return;
+    isSavingLogRef.current = true;
+
     const ctx = stoppedContextRef.current;
     // createTimeLogAction resolves the task by id OR code from this one field,
     // so either identifier works here even though it's typed as `taskCode`.
@@ -301,6 +305,7 @@ export function TimerWidget({
     }
 
     isStoppingRef.current = false;
+    isSavingLogRef.current = false;
     stoppedContextRef.current = null;
     setTimerState("IDLE");
     setSeconds(0);

@@ -15,6 +15,8 @@ interface TaskMultiOwnerSelectProps {
   onChangeOwners: (owners: string[]) => void;
   ownersList: OwnerUserOption[];
   label?: string;
+  /** Caption shown above the dropdown's member list, e.g. "Project Users". */
+  listLabel?: string;
   className?: string;
   /** Only the current task owner may reassign ownership — disables the picker for everyone else. */
   disabled?: boolean;
@@ -44,6 +46,7 @@ export function TaskMultiOwnerSelect({
   onChangeOwners,
   ownersList,
   label,
+  listLabel,
   className = "",
   disabled = false,
   disabledReason = "Only the task owner can change the owner",
@@ -296,6 +299,11 @@ export function TaskMultiOwnerSelect({
 
             {/* Member Options List */}
             <div className="max-h-56 overflow-y-auto py-1 space-y-0.5">
+              {listLabel && (
+                <p className="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  {listLabel}
+                </p>
+              )}
               {filteredList.length === 0 ? (
                 <div className="py-4 text-center text-xs text-muted-foreground/70 italic">
                   No matching members found

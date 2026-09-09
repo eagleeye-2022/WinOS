@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
+import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
 import { ChecklistWorkspaceView } from "./checklist-workspace-view";
 import { PhasesTableView } from "./phases-table-view";
@@ -253,7 +254,7 @@ export function TasksBoardView({
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("ALL");
 
   // Owner Assignment State
-  const [userOptions, setUserOptions] = useState<{ id: string; name: string }[]>([]);
+  const [userOptions, setUserOptions] = useState<{ id: string; name: string; email: string }[]>([]);
   const [expandedSubtaskCardIds, setExpandedSubtaskCardIds] = useState<Set<string>>(new Set());
   const [collapsedPhaseCodes, setCollapsedPhaseCodes] = useState<Set<string>>(new Set());
 
@@ -281,13 +282,13 @@ export function TasksBoardView({
     if (realProjectId) {
       getProjectMembersAction(realProjectId).then((members) => {
         if (members && members.length > 0) {
-          setUserOptions(members.map((m) => ({ id: m.id, name: m.name })));
+          setUserOptions(members.map((m) => ({ id: m.id, name: m.name, email: m.email })));
         }
       });
     } else {
       getAllUserOptionsAction().then((opts) => {
         if (opts && opts.length > 0) {
-          setUserOptions(opts);
+          setUserOptions(opts.map((o) => ({ ...o, email: "" })));
         }
       });
     }
@@ -315,16 +316,15 @@ export function TasksBoardView({
     [currentUser]
   );
 
-  const handleAssignTaskOwner = async (e: React.MouseEvent, task: TaskItem, ownerName: string) => {
-    e.stopPropagation();
+  const handleChangeTaskOwners = async (task: TaskItem, nextOwners: string[]) => {
     const updatedTask = {
       ...task,
-      owner: ownerName,
-      owners: [ownerName],
+      owner: nextOwners[0] || "Unassigned",
+      owners: nextOwners,
     };
     onUpdateTask(updatedTask);
     try {
-      await updateTaskAction(task.id, { owner: ownerName, owners: [ownerName] });
+      await updateTaskAction(task.id, { owners: nextOwners });
       router.refresh();
     } catch (err) {
       console.error("[TasksBoardView] Error assigning owner:", err);
@@ -505,10 +505,20 @@ export function TasksBoardView({
   const handleBulkAssignOwner = async (ownerName: string) => {
     const selected = displayTasks.filter((t) => selectedTaskIds.has(t.id));
     if (selected.length === 0) return;
-    selected.forEach((t) => onUpdateTask({ ...t, owner: ownerName, owners: [ownerName] }));
+    const nextOwnersByTask = new Map(
+      selected.map((t) => {
+        const current = t.owners && t.owners.length > 0 ? t.owners : t.owner ? [t.owner] : [];
+        const nextOwners = current.includes(ownerName) ? current : [...current, ownerName];
+        return [t.id, nextOwners];
+      })
+    );
+    selected.forEach((t) => {
+      const nextOwners = nextOwnersByTask.get(t.id)!;
+      onUpdateTask({ ...t, owner: nextOwners[0] || "Unassigned", owners: nextOwners });
+    });
     try {
       await Promise.all(
-        selected.map((t) => updateTaskAction(t.id, { owner: ownerName, owners: [ownerName] }))
+        selected.map((t) => updateTaskAction(t.id, { owners: nextOwnersByTask.get(t.id)! }))
       );
       clearSelection();
       router.refresh();
@@ -998,49 +1008,43 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer"
-                  title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
+                  className="relative flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer"
+                  title={`Owners: ${(task.owners && task.owners.length > 0 ? task.owners : [task.owner || "Unassigned"]).join(", ")} (Click to assign owners)`}
                 >
                   {ownerInitials}
+                  {task.owners && task.owners.length > 1 && (
+                    <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[8px] font-bold ring-2 ring-background">
+                      +{task.owners.length - 1}
+                    </span>
+                  )}
                 </button>
               </PopoverTrigger>
               <PopoverContent
                 side="top"
                 align="end"
-                className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+                className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 onClick={(e) => e.stopPropagation()}
               >
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
-                  Assign Task Owner
-                </p>
                 {currentUser && !isOwner && (
                   <button
                     type="button"
-                    onClick={(e) => handleAssignTaskOwner(e, task, currentUser.name)}
-                    className="w-full text-left px-2 py-1.5 mb-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold cursor-pointer"
+                    onClick={() =>
+                      handleChangeTaskOwners(task, [
+                        ...(task.owners && task.owners.length > 0 ? task.owners : task.owner ? [task.owner] : []),
+                        currentUser.name,
+                      ])
+                    }
+                    className="w-full text-left px-2 py-1.5 mb-2 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold cursor-pointer"
                   >
                     Assign to me
                   </button>
                 )}
-                <div className="max-h-48 overflow-y-auto space-y-0.5">
-                  {(userOptions.length > 0
-                    ? userOptions
-                    : [{ id: "u-default", name: task.owner || "Unassigned" }]
-                  ).map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={(e) => handleAssignTaskOwner(e, task, u.name)}
-                      className={cn(
-                        "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
-                        task.owner === u.name ? "bg-primary/10 text-primary font-bold" : "text-foreground"
-                      )}
-                    >
-                      <span className="truncate">{u.name}</span>
-                      {task.owner === u.name && <Check size={12} className="shrink-0 text-primary" />}
-                    </button>
-                  ))}
-                </div>
+                <TaskMultiOwnerSelect
+                  selectedOwners={task.owners && task.owners.length > 0 ? task.owners : task.owner && task.owner !== "Unassigned" ? [task.owner] : []}
+                  onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}
+                  ownersList={userOptions}
+                  listLabel="Project Users"
+                />
               </PopoverContent>
             </Popover>
           </div>
