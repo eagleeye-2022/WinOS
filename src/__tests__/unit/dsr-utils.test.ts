@@ -93,12 +93,14 @@ describe("dsrReviewStatus", () => {
     expect(r.label).toBe("None");
   });
 
-  it("does NOT return missed-deadline when entry is exactly 2 days old", () => {
-    // ageDays = 2 is NOT > 2, so still pending
-    const twoDaysAgo = new Date(Date.now() - 2 * 86400 * 1000);
+  it("does NOT return missed-deadline when entry is just under 2 days old", () => {
+    // ageDays < 2, so still pending. A few seconds under the boundary rather than
+    // exactly 2 days avoids flaking on the ms of execution delay between computing
+    // this timestamp and dsrReviewStatus's own internal Date.now() call.
+    const justUnderTwoDays = new Date(Date.now() - (2 * 86400 - 5) * 1000);
     const r = dsrReviewStatus({
       status: "SUBMITTED",
-      date: twoDaysAgo,
+      date: justUnderTwoDays,
       reviewedAt: null,
       reviewedBy: null,
     });
