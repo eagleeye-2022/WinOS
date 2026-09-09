@@ -468,3 +468,16 @@ a *,
 [role="button"] * {
   cursor: pointer !important;
 }
+
+/* LinkifyEditableTextarea — live blue/clickable URL highlighting inside an editable box. */
+.linkify-editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.linkify-editable .linkify-url {
+  color: var(--info, #0ea5e9);
+  text-decoration: underline;
+  cursor: pointer;
+}
