@@ -58,21 +58,40 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
   const isTaskOwner = useCallback(
     (task: TaskItem): boolean => {
       if (!currentUser) return false;
+
+      const uId = currentUser.id.toLowerCase();
       const uName = currentUser.name.trim().toLowerCase();
       const uEmail = currentUser.email.trim().toLowerCase();
 
-      if (task.ownerIds && task.ownerIds.length > 0) {
-        if (task.ownerIds.includes(currentUser.id)) return true;
+      if (task.ownerIds && task.ownerIds.length > 0 && task.ownerIds.includes(currentUser.id)) {
+        return true;
       }
-      const ownerName = (task.owner || "").trim().toLowerCase();
-      const ownersList = (task.owners || []).map((o) => o.trim().toLowerCase());
+      if (task.ownerId && task.ownerId.toLowerCase() === uId) {
+        return true;
+      }
 
-      return (
-        ownerName === uName ||
-        ownerName === uEmail ||
-        ownersList.includes(uName) ||
-        ownersList.includes(uEmail)
-      );
+      const ownerNames =
+        task.owners && task.owners.length > 0
+          ? task.owners
+          : task.owner && task.owner !== "Unassigned"
+          ? task.owner.split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+
+      if (ownerNames.length === 0) {
+        return false;
+      }
+
+      return ownerNames.some((raw) => {
+        const o = raw.trim().toLowerCase();
+        if (!o || o === "unassigned") return false;
+        return (
+          o === uId ||
+          o === uName ||
+          o === uEmail ||
+          (uName.length > 2 && o.includes(uName)) ||
+          (o.length > 2 && uName.includes(o))
+        );
+      });
     },
     [currentUser]
   );
@@ -89,6 +108,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
 
   const handleStartEditTitle = (e: React.MouseEvent, task: TaskItem) => {
     e.stopPropagation();
+    if (!isTaskOwner(task)) return;
     setEditingTitleTaskId(task.id);
     setTitleDraft(task.title);
   };
@@ -118,9 +138,21 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
   };
 
   const handleChangeTaskOwners = async (task: TaskItem, nextOwners: string[]) => {
-    onUpdateTask({ ...task, owner: nextOwners[0] || "Unassigned", owners: nextOwners });
+    const cleanOwners = nextOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+    const displayNames = cleanOwners.map((raw) => {
+      const match = userOptions.find(
+        (u) =>
+          u.id === raw ||
+          u.name.toLowerCase() === raw.toLowerCase() ||
+          u.email.toLowerCase() === raw.toLowerCase()
+      );
+      return match ? match.name : raw;
+    });
+
+    const primaryOwner = displayNames.length > 0 ? displayNames.join(", ") : "Unassigned";
+    onUpdateTask({ ...task, owner: primaryOwner, owners: displayNames });
     try {
-      await updateTaskAction(task.id, { owners: nextOwners });
+      await updateTaskAction(task.id, { owners: cleanOwners, owner: primaryOwner });
       router.refresh();
     } catch (err) {
       console.error("[TasksListView] Error assigning owner:", err);
@@ -182,14 +214,36 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
     const statusUpper = (task.status || "OPEN").toUpperCase();
     const isClosed = statusUpper === "CLOSED" || statusUpper === "DONE";
     const isInProgress = statusUpper === "IN PROGRESS" || statusUpper === "IN_PROGRESS";
-    const ownerInitials = task.owner
-      ? task.owner
+    const firstOwner =
+      task.owners && task.owners.length > 0 && task.owners[0] !== "Unassigned"
+        ? task.owners[0]
+        : task.owner;
+
+    const resolveOwnerName = (ownerKey?: string): string => {
+      if (!ownerKey || ownerKey === "Unassigned") return "";
+      const match = userOptions.find(
+        (u) =>
+          u.id === ownerKey ||
+          u.name.toLowerCase() === ownerKey.toLowerCase() ||
+          u.email.toLowerCase() === ownerKey.toLowerCase()
+      );
+      if (match) return match.name;
+      if (ownerKey.length > 15 && !ownerKey.includes(" ")) return "";
+      return ownerKey;
+    };
+
+    const resolvedName = resolveOwnerName(firstOwner);
+    const isUnassigned = !resolvedName || resolvedName === "Unassigned";
+
+    const ownerInitials = isUnassigned
+      ? ""
+      : resolvedName
           .split(" ")
           .map((n) => n[0])
+          .filter(Boolean)
           .join("")
           .substring(0, 2)
-          .toUpperCase()
-      : "—";
+          .toUpperCase();
 
     return (
       <tr
@@ -218,10 +272,15 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
             />
           ) : (
             <div
-              onClick={(e) => handleStartEditTitle(e, task)}
-              title={task.title}
+              onClick={(e) => {
+                if (isOwner) {
+                  handleStartEditTitle(e, task);
+                }
+              }}
+              title={isOwner ? "Click to rename" : task.title}
               className={cn(
-                "rounded-md px-1 -mx-1 text-xs font-medium leading-snug transition-colors hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text truncate",
+                "rounded-md px-1 -mx-1 text-xs font-medium leading-snug transition-colors truncate",
+                isOwner ? "hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text" : "cursor-pointer",
                 isClosed ? "line-through text-muted-foreground" : "text-foreground"
               )}
             >
@@ -269,14 +328,11 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
               className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
               onClick={(e) => e.stopPropagation()}
             >
-              {currentUser && !isOwner && (
+              {currentUser && (!task.owner || task.owner === "Unassigned") && (
                 <button
                   type="button"
                   onClick={() =>
-                    handleChangeTaskOwners(task, [
-                      ...(task.owners && task.owners.length > 0 ? task.owners : task.owner ? [task.owner] : []),
-                      currentUser.name,
-                    ])
+                    handleChangeTaskOwners(task, [currentUser.name])
                   }
                   className="w-full text-left px-2 py-1.5 mb-2 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold cursor-pointer"
                 >
@@ -284,7 +340,16 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                 </button>
               )}
               <TaskMultiOwnerSelect
-                selectedOwners={task.owners && task.owners.length > 0 ? task.owners : task.owner && task.owner !== "Unassigned" ? [task.owner] : []}
+                selectedOwners={
+                  (task.owners && task.owners.length > 0
+                    ? task.owners
+                    : task.owner && task.owner !== "Unassigned"
+                    ? [task.owner]
+                    : []
+                  ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
+                }
+                disabled={!isOwner && Boolean(task.owner && task.owner !== "Unassigned")}
+                disabledReason={!isOwner && Boolean(task.owner && task.owner !== "Unassigned") ? `Only the task owner (${task.owner}) can change ownership` : undefined}
                 onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}
                 ownersList={userOptions}
                 listLabel="Project Users"

@@ -55,13 +55,19 @@ export function TaskMultiOwnerSelect({
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Clean owner list so 'Unassigned' is never stored as a team member entry
+  const sanitizeOwners = (owners: string[] | undefined): string[] => {
+    if (!owners) return [];
+    return owners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+  };
+
   // Internal state for immediate responsive UI feedback
-  const [internalSelected, setInternalSelected] = useState<string[]>(selectedOwners || []);
+  const [internalSelected, setInternalSelected] = useState<string[]>(sanitizeOwners(selectedOwners));
   const [prevSelectedOwners, setPrevSelectedOwners] = useState(selectedOwners);
 
   if (selectedOwners !== prevSelectedOwners) {
     setPrevSelectedOwners(selectedOwners);
-    setInternalSelected(selectedOwners || []);
+    setInternalSelected(sanitizeOwners(selectedOwners));
   }
 
   const [dropUp, setDropUp] = useState(false);
@@ -92,7 +98,7 @@ export function TaskMultiOwnerSelect({
   // Use provided DB list if available, otherwise fall back to default team members
   const effectiveOwnersList = React.useMemo(() => {
     if (ownersList && ownersList.length > 0) {
-      return ownersList;
+      return ownersList.filter((u) => u.name.toLowerCase() !== "unassigned" && u.id.toLowerCase() !== "unassigned");
     }
     return DEFAULT_TEAM_MEMBERS;
   }, [ownersList]);
@@ -152,22 +158,25 @@ export function TaskMultiOwnerSelect({
 
   const handleToggleOwner = (u: OwnerUserOption) => {
     const valueToUse = u.id && !u.id.startsWith("u-") ? u.id : u.name;
+    const isUnassigned = u.id.toLowerCase() === "unassigned" || u.name.toLowerCase() === "unassigned";
+
     let next: string[];
-    const isAlreadySelected = internalSelected.some(
-      (o) =>
-        o === u.id ||
-        o.toLowerCase() === u.name.toLowerCase() ||
-        o.toLowerCase() === u.email.toLowerCase()
-    );
-    if (isAlreadySelected) {
-      next = internalSelected.filter(
-        (o) =>
-          o !== u.id &&
-          o.toLowerCase() !== u.name.toLowerCase() &&
-          o.toLowerCase() !== u.email.toLowerCase()
-      );
+    if (isUnassigned) {
+      next = [];
     } else {
-      next = [...internalSelected, valueToUse];
+      const isAlreadySelected = isUserSelected(u);
+      if (isAlreadySelected) {
+        next = internalSelected.filter(
+          (o) =>
+            o !== u.id &&
+            o.toLowerCase() !== u.name.toLowerCase() &&
+            o.toLowerCase() !== u.email.toLowerCase() &&
+            o.toLowerCase() !== "unassigned"
+        );
+      } else {
+        // Strip any 'Unassigned' entry so selecting a new owner automatically replaces Unassigned
+        next = [...internalSelected.filter((o) => o.toLowerCase() !== "unassigned"), valueToUse];
+      }
     }
     setInternalSelected(next);
     onChangeOwners(next);
@@ -175,7 +184,7 @@ export function TaskMultiOwnerSelect({
 
   const handleRemoveOwner = (ownerKey: string) => {
     const matched = findUserByKey(ownerKey);
-    const next = (selectedOwners || []).filter((o) => {
+    const next = internalSelected.filter((o) => {
       if (matched) {
         return (
           o !== matched.id &&
@@ -212,7 +221,7 @@ export function TaskMultiOwnerSelect({
           onClick={() => {
             if (!disabled) {
               if (!isOpen) {
-                setInternalSelected(selectedOwners || []);
+                setInternalSelected(sanitizeOwners(selectedOwners));
               }
               setIsOpen(true);
             }
@@ -225,7 +234,7 @@ export function TaskMultiOwnerSelect({
           {/* Selected member pills */}
           <div className="flex flex-wrap items-center gap-1.5 flex-1 px-3 py-1.5 min-w-0">
             {internalSelected.length === 0 && (
-              <span className="text-xs text-muted-foreground/70 py-1">Select members...</span>
+              <span className="text-xs italic text-muted-foreground/70 py-1">Unassigned</span>
             )}
             {internalSelected.map((key) => {
               const matched = findUserByKey(key);
@@ -303,6 +312,26 @@ export function TaskMultiOwnerSelect({
                 <p className="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
                   {listLabel}
                 </p>
+              )}
+              {(!searchQuery || "unassigned".includes(searchQuery.toLowerCase())) && (
+                <div
+                  onClick={() => handleToggleOwner({ id: "unassigned", name: "Unassigned", email: "" })}
+                  className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer select-none transition-colors border-b border-border/40 dark:border-[#2a2d37] ${
+                    internalSelected.length === 0
+                      ? "bg-slate-100 font-semibold text-slate-800 dark:bg-[#1a1d24] dark:text-neutral-300"
+                      : "hover:bg-accent text-muted-foreground dark:hover:bg-white/5 dark:text-neutral-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+                      Ø
+                    </span>
+                    <span className="truncate italic">Unassigned</span>
+                  </div>
+                  {internalSelected.length === 0 && (
+                    <Check size={14} className="text-muted-foreground shrink-0" />
+                  )}
+                </div>
               )}
               {filteredList.length === 0 ? (
                 <div className="py-4 text-center text-xs text-muted-foreground/70 italic">

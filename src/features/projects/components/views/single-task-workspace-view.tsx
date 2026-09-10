@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -76,6 +76,7 @@ import {
   updateSubtaskAction,
   deleteSubtaskAction,
   createTaskRemarkAction,
+  getTaskRemarksAction,
   getCurrentUserContextAction,
 } from "../../actions/project-actions";
 import {
@@ -295,26 +296,33 @@ export function SingleTaskWorkspaceView({
   // wrongly be denied edit/timer access on a multi-owner task.
   const isTaskOwner = Boolean(
     currentUser &&
-      (activeTask.ownerIds && activeTask.ownerIds.length > 0
-        ? activeTask.ownerIds.includes(currentUser.id)
-        : (activeTask.ownerId && activeTask.ownerId === currentUser.id) ||
-          taskOwnerNames.some(
-            (name) => name.toLowerCase() === currentUser.name.toLowerCase()
-          ))
+      ((currentUser.role === "ADMIN") ||
+        (activeTask.ownerIds && activeTask.ownerIds.includes(currentUser.id)) ||
+        (activeTask.ownerId && activeTask.ownerId.toLowerCase() === currentUser.id.toLowerCase()) ||
+        taskOwnerNames.some((raw) => {
+          const o = raw.trim().toLowerCase();
+          const uName = currentUser.name.trim().toLowerCase();
+          const uEmail = currentUser.email.trim().toLowerCase();
+          const uId = currentUser.id.toLowerCase();
+          if (!o || o === "unassigned") return false;
+          return (
+            o === uId ||
+            o === uName ||
+            o === uEmail ||
+            (uName.length > 2 && o.includes(uName)) ||
+            (o.length > 2 && uName.includes(o))
+          );
+        }))
   );
   // The owner of the project has full control over every task inside it, not just tasks they
   // personally own — mirrors the same rule enforced server-side in updateTaskAction.
   const isProjectOwner = Boolean(currentUser && project && project.owner.id === currentUser.id);
   const canStartTimer = isTaskOwner || isProjectOwner;
-  // A task with no owner yet is editable by whoever authored it, mirroring the backend rule
-  // in updateTaskAction — otherwise a freshly-created, unassigned task would be uneditable.
   const canEditTask = Boolean(
     currentUser &&
       (isTaskOwner ||
         isProjectOwner ||
-        (!activeTask.ownerId &&
-          taskOwnerNames.length === 0 &&
-          activeTask.authorId === currentUser.id))
+        (taskOwnerNames.length === 0 && activeTask.authorId === currentUser.id))
   );
 
   // Active Task Form & Section States
@@ -525,9 +533,31 @@ export function SingleTaskWorkspaceView({
     deleteSubtaskAction(id).catch((err) => console.error("Failed to delete subtask in DB:", err));
   };
 
-  const [prevCommentsTaskId, setPrevCommentsTaskId] = useState(activeTask.id);
-  if (activeTask.id !== prevCommentsTaskId) {
-    setPrevCommentsTaskId(activeTask.id);
+  const refreshComments = useCallback(async () => {
+    try {
+      const dbRemarks = await getTaskRemarksAction(activeTask.id);
+      if (dbRemarks && dbRemarks.length > 0) {
+        setCommentsList(
+          dbRemarks.map((r, idx) => ({
+            id: r.id || `c-${idx}`,
+            author: r.authorName || activeTask.owner || project?.owner.name || "Team Member",
+            text: r.content,
+            time: r.createdAt
+              ? new Date(r.createdAt).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : "Recently",
+          }))
+        );
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to fetch task remarks from DB:", err);
+    }
+
     if (activeTask && activeTask.remarks && activeTask.remarks.length > 0) {
       setCommentsList(
         activeTask.remarks.map((r, idx) => ({
@@ -540,7 +570,11 @@ export function SingleTaskWorkspaceView({
     } else {
       setCommentsList([]);
     }
-  }
+  }, [activeTask.id, activeTask.remarks, activeTask.owner, project?.owner.name]);
+
+  useEffect(() => {
+    refreshComments();
+  }, [refreshComments]);
 
   // Dynamic Time Logs State & Calculations for this specific task — loaded from the DB
   const [taskTimeLogs, setTaskTimeLogs] = useState<TimeLogEntry[]>([]);
@@ -575,6 +609,14 @@ export function SingleTaskWorkspaceView({
     refreshTaskTimeLogs();
   }, [refreshTaskTimeLogs]);
 
+  const handleTimerWidgetLogSaved = () => {
+    showToast("Time log saved & timer stopped in DB");
+    setActiveTimerStatus("IDLE");
+    setActiveTimerSeconds(0);
+    setActiveTimerStartTime(undefined);
+    refreshTaskTimeLogs();
+  };
+
   const handleTimerLogSaved = async (logData: {
     duration: string;
     startTime: string;
@@ -601,6 +643,9 @@ export function SingleTaskWorkspaceView({
       await createTimeLogAction(payload, targetProjectId);
 
       showToast("Time log saved & timer stopped in DB");
+      setActiveTimerStatus("IDLE");
+      setActiveTimerSeconds(0);
+      setActiveTimerStartTime(undefined);
       refreshTaskTimeLogs();
     } catch (err) {
       console.error("Failed to save timer time log to DB:", err);
@@ -838,9 +883,13 @@ export function SingleTaskWorkspaceView({
           },
           ...prev,
         ]);
+        showToast("Comment saved");
+        await refreshComments();
+        router.refresh();
       }
     } catch (err) {
       console.error("Failed to save comment:", err);
+      showToast("Failed to save comment");
     } finally {
       setIsSavingComment(false);
     }
@@ -1097,7 +1146,7 @@ export function SingleTaskWorkspaceView({
                 taskCode={activeTask.code}
                 taskId={activeTask.id}
                 projectId={activeTask.projectId || projectId}
-                onSaveLog={handleTimerLogSaved}
+                onSaveLog={handleTimerWidgetLogSaved}
                 canStart={canStartTimer}
                 defaultExpanded
               />
@@ -1191,15 +1240,20 @@ export function SingleTaskWorkspaceView({
                   <TaskMultiOwnerSelect
                     label="Assign Task Members"
                     selectedOwners={
-                      activeTask.owners && activeTask.owners.length > 0
+                      (activeTask.owners && activeTask.owners.length > 0
                         ? activeTask.owners
                         : activeTask.owner && activeTask.owner !== "Unassigned"
                         ? activeTask.owner.split(",").map((s) => s.trim()).filter(Boolean)
                         : []
+                      ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                     }
+                    disabled={!canEditTask}
+                    disabledReason={!canEditTask ? `Only the task owner (${activeTask.owner || "Unassigned"}) can change ownership` : undefined}
                     onChangeOwners={(newOwners) => {
-                      const primaryOwner = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
-                      handleUpdateTaskField({ owners: newOwners, owner: primaryOwner }).then((ok) => {
+                      if (!canEditTask) return;
+                      const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+                      const primaryOwner = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
+                      handleUpdateTaskField({ owners: cleanOwners, owner: primaryOwner }).then((ok) => {
                         if (ok) showToast("Task assigned members updated");
                       });
                     }}
@@ -1376,28 +1430,30 @@ export function SingleTaskWorkspaceView({
                   <TaskMultiOwnerSelect
                     label="Owner"
                     selectedOwners={
-                      activeTask.owners && activeTask.owners.length > 0
+                      (activeTask.owners && activeTask.owners.length > 0
                         ? activeTask.owners
                         : activeTask.owner && activeTask.owner !== "Unassigned"
                         ? activeTask.owner.split(",").map((s) => s.trim()).filter(Boolean)
                         : []
+                      ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                     }
                     onChangeOwners={(newOwners) => {
                       if (!canEditTask) {
                         alert("Only the task owner can change the owner.");
                         return;
                       }
-                      const primaryOwnerStr = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
+                      const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+                      const primaryOwnerStr = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
                       const updatedTask = {
                         ...activeTask,
-                        owners: newOwners,
+                        owners: cleanOwners,
                         owner: primaryOwnerStr,
                       };
                       setTasks((prev) =>
                         prev.map((t) => (t.id === activeTask.id ? updatedTask : t))
                       );
                       updateTaskAction(activeTask.id, {
-                        owners: newOwners,
+                        owners: cleanOwners,
                         owner: primaryOwnerStr,
                       })
                         .then((result) => {

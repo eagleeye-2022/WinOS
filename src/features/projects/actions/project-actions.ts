@@ -1676,12 +1676,13 @@ export async function createTaskAction(
   // Resolve explicit owners from the UI picker (names/ids passed in taskData).
   // When the caller didn't supply any explicit owner, we skip name-resolution entirely
   // and rely on projectOwnerId (the FK) directly below.
-  const explicitOwnerInput =
+  const explicitOwnerInput = (
     taskData.owners && taskData.owners.length > 0
       ? taskData.owners
       : taskData.owner && taskData.owner !== "Unassigned"
       ? [taskData.owner]
-      : [];
+      : []
+  ).filter((o) => o && o.trim().toLowerCase() !== "unassigned");
 
   const resolvedOwners = explicitOwnerInput.length
     ? await db.user.findMany({
@@ -1880,26 +1881,28 @@ export async function updateTaskAction(
       ? [task.owner]
       : []
   ).map((o) => o.trim().toLowerCase());
-  const hasOwnerRows = task.owners.length > 0;
+  const hasOwnerRows = ownerNamesOnTask.length > 0 || ownerIdsOnTask.length > 0 || Boolean(task.ownerId);
   const isTaskOwnerCheck = hasOwnerRows
-    ? ownerIdsOnTask.includes(session.user.id)
-    : (Boolean(task.ownerId) && task.ownerId === session.user.id) ||
-      (Boolean(actorNameLower) && ownerNamesOnTask.includes(actorNameLower));
+    ? ownerIdsOnTask.includes(session.user.id) ||
+      (Boolean(task.ownerId) && task.ownerId === session.user.id) ||
+      (Boolean(actorNameLower) &&
+        ownerNamesOnTask.some(
+          (n) => n === actorNameLower || (actorNameLower.length > 2 && n.includes(actorNameLower)) || (n.length > 2 && actorNameLower.includes(n))
+        ))
+    : false;
   const isProjectOwner = Boolean(task.project?.ownerId) && task.project?.ownerId === session.user.id;
-  const isUnownedAuthor =
+  const isUnownedAssignOrAuthor =
     !hasOwnerRows &&
-    !task.ownerId &&
-    ownerNamesOnTask.length === 0 &&
-    task.authorId === session.user.id;
-  if (!isTaskOwnerCheck && !isProjectOwner && !isUnownedAuthor) {
-    return { success: false, error: "You do not have permission to edit this task." };
+    (updates.owners !== undefined || updates.owner !== undefined || task.authorId === session.user.id);
+  if (!isTaskOwnerCheck && !isProjectOwner && !isUnownedAssignOrAuthor) {
+    return { success: false, error: "Only the task owner can edit or perform actions on this task." };
   }
 
   let ownerNames: string[] = [];
   let ownerIdsResolved: string[] = [];
   let primaryOwnerId: string | null = null;
   if (updates.owners !== undefined) {
-    const namesInput = updates.owners;
+    const namesInput = updates.owners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
     const resolvedOwners = namesInput.length
       ? await db.user.findMany({
           where: {
@@ -1944,7 +1947,7 @@ export async function updateTaskAction(
     );
     ownerNames = Array.from(new Set(ownerNames));
     primaryOwnerId = ownerIdsResolved[0] ?? null;
-  } else if (updates.owner) {
+  } else if (updates.owner && updates.owner.trim().toLowerCase() !== "unassigned") {
     const clean = updates.owner.trim();
     const ownerUser = await db.user.findFirst({
       where: {
@@ -2381,9 +2384,18 @@ export async function createTaskRemarkAction(
       content,
       taskId: dbTaskId,
     },
+    include: {
+      task: { select: { projectId: true, code: true } },
+    },
   });
 
   revalidatePath("/projects");
+  if (created.task?.projectId) {
+    revalidatePath(`/projects/${created.task.projectId}`, "layout");
+    if (created.task.code) {
+      revalidatePath(`/projects/${created.task.projectId}/tasks/${created.task.code}`);
+    }
+  }
 
   return {
     id: created.id,
@@ -2393,6 +2405,26 @@ export async function createTaskRemarkAction(
     content: created.content,
     createdAt: created.createdAt.toISOString(),
   };
+}
+
+export async function getTaskRemarksAction(taskId: string): Promise<TaskRemark[]> {
+  await requireAuth();
+  const dbTaskId = await resolveTaskDbId(taskId);
+  if (!dbTaskId) return [];
+
+  const remarks = await db.projectTaskRemark.findMany({
+    where: { taskId: dbTaskId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return remarks.map((r) => ({
+    id: r.id,
+    authorName: r.authorName,
+    authorInitials: r.authorInitials,
+    authorAvatarColor: r.authorAvatarColor || undefined,
+    content: r.content,
+    createdAt: r.createdAt.toISOString(),
+  }));
 }
 
 /**

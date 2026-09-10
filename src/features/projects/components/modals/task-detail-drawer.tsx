@@ -36,7 +36,7 @@ import { TaskItem, TaskRemark, TaskStatus, TaskSubtask } from "../../types";
 import { PickTemplateModal } from "./pick-template-modal";
 import { NewTimeLogModal } from "./new-time-log-modal";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
-import { getOwnersAndTeamsAction } from "../../actions/project-actions";
+import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -90,15 +90,63 @@ export function TaskDetailDrawer({
     task?.associatedTeam || "--"
   );
   const [selectedOwners, setSelectedOwners] = useState<string[]>(
-    task?.owners && task.owners.length > 0
+    (task?.owners && task.owners.length > 0
       ? task.owners
       : task?.owner && task.owner !== "Unassigned"
       ? task.owner.split(",").map((s) => s.trim()).filter(Boolean)
       : []
+    ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
   );
   const [ownersList, setOwnersList] = useState<
     { id: string; name: string; email: string }[]
   >([]);
+
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null>(null);
+
+  useEffect(() => {
+    getCurrentUserContextAction().then((u) => {
+      if (u) setCurrentUser(u);
+    });
+  }, []);
+
+  const isOwner = React.useMemo(() => {
+    if (!currentUser || !task) return false;
+    if (currentUser.role === "ADMIN") return true;
+
+    const uId = currentUser.id.toLowerCase();
+    const uName = currentUser.name.trim().toLowerCase();
+    const uEmail = currentUser.email.trim().toLowerCase();
+
+    if (task.ownerIds && task.ownerIds.includes(currentUser.id)) return true;
+    if (task.ownerId && task.ownerId.toLowerCase() === uId) return true;
+
+    const ownerNames =
+      task.owners && task.owners.length > 0
+        ? task.owners
+        : task.owner && task.owner !== "Unassigned"
+        ? task.owner.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+
+    const isUnowned = ownerNames.length === 0 && !task.ownerId && (!task.ownerIds || task.ownerIds.length === 0);
+    if (isUnowned) return true;
+
+    return ownerNames.some((raw) => {
+      const o = raw.trim().toLowerCase();
+      if (!o || o === "unassigned") return false;
+      return (
+        o === uId ||
+        o === uName ||
+        o === uEmail ||
+        (uName.length > 2 && o.includes(uName)) ||
+        (o.length > 2 && uName.includes(o))
+      );
+    });
+  }, [currentUser, task]);
 
   useEffect(() => {
     const pCode = (task as { projectId?: string } | null)?.projectId || (task?.code ? task.code.split("-T")[0] : undefined);
@@ -438,8 +486,15 @@ export function TaskDetailDrawer({
                 <span className="h-2 w-2 rounded-full bg-primary" />
                 <select
                   value={status}
-                  onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
-                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
+                  onChange={(e) => {
+                    if (!isOwner) return;
+                    const newStatus = e.target.value as TaskStatus;
+                    setStatus(newStatus);
+                    if (task) onUpdateTask({ ...task, status: newStatus });
+                  }}
+                  disabled={!isOwner}
+                  title={isOwner ? "Change status" : `Only the task owner (${task?.owner || "Unassigned"}) can change the status`}
+                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="Open">Open</option>
                   <option value="In Progress">In Progress</option>
@@ -456,10 +511,14 @@ export function TaskDetailDrawer({
               <TaskMultiOwnerSelect
                 label="Owner"
                 selectedOwners={selectedOwners}
+                disabled={!isOwner}
+                disabledReason={!isOwner ? `Only the task owner (${task?.owner || "Unassigned"}) can change the owner` : undefined}
                 onChangeOwners={(newOwners) => {
-                  setSelectedOwners(newOwners);
-                  const primaryOwner = newOwners.length > 0 ? newOwners.join(", ") : "Unassigned";
-                  onUpdateTask({ ...task, owners: newOwners, owner: primaryOwner });
+                  if (!isOwner) return;
+                  const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+                  setSelectedOwners(cleanOwners);
+                  const primaryOwner = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
+                  if (task) onUpdateTask({ ...task, owners: cleanOwners, owner: primaryOwner });
                 }}
                 ownersList={ownersList}
               />
