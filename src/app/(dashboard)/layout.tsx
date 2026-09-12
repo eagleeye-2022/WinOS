@@ -78,7 +78,7 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    <div className="dsm-scope flex h-screen w-screen flex-col overflow-hidden">
+    <div className="flex h-screen w-screen flex-col overflow-hidden">
       <SessionGuard />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">

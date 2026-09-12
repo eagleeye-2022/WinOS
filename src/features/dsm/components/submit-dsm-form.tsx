@@ -11,6 +11,9 @@ import { formatTime } from "@/features/calendar/utils";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
+import { fetchUserOpenProjectTasksAction, fetchLinkedTimeLogsAction, fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
+import type { OpenProjectTaskOption, CascadingProjectOption } from "../queries";
+import { ProjectTaskCascadingPicker } from "@/features/projects/components/project-task-cascading-picker";
 
 function supportEventToView(event: NonNullable<EntryWithDetails["supportNeeds"][number]["event"]>): CalendarEventView {
   return {
@@ -42,18 +45,24 @@ const inputCls =
 
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-type Task = { id: string; text: string; priority: string; carried: boolean };
+type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string };
 
 function TaskRows({
   tasks,
   teamMembers,
+  openProjectTasks,
+  cascadingProjects,
+  linkedTimeLogs,
   onChange,
 }: {
   tasks: Task[];
   teamMembers: TeamMember[];
+  openProjectTasks: OpenProjectTaskOption[];
+  cascadingProjects: CascadingProjectOption[];
+  linkedTimeLogs: Record<string, number>;
   onChange: (t: Task[]) => void;
 }) {
-  const updateField = (i: number, field: "text" | "priority", v: string) => {
+  const updateField = <K extends keyof Task>(i: number, field: K, v: Task[K]) => {
     const n = [...tasks];
     n[i] = { ...n[i], [field]: v };
     onChange(n);
@@ -73,8 +82,12 @@ function TaskRows({
           (p) => !takenPriorities.includes(p) || p === task.priority
         );
 
+        const projectTaskId = task.projectTaskId || "";
+        const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
+
         return (
           <div key={task.id} className="flex flex-col gap-1.5 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+            <input type="hidden" name="taskProjectTaskId" value={projectTaskId} />
             <div className="flex items-center gap-2">
               <span className={cn(
                 "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
@@ -102,27 +115,52 @@ function TaskRows({
                 </button>
               )}
             </div>
-            {/* Dynamic Priority Selection (P1..PN matching task count, unique per task) */}
-            <div className="flex items-center gap-2 border-t pt-1.5 px-0.5">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Priority:
-              </span>
-              <select
-                name="taskPriority"
-                value={task.priority}
-                onChange={(e) => updateField(i, "priority", e.target.value)}
-                className={cn(
-                  "cursor-pointer bg-transparent text-xs outline-none rounded px-1.5 py-0.5 border font-semibold transition-colors",
-                  task.priority ? "border-primary/40 bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground font-normal"
-                )}
-              >
-                <option value="">Select priority</option>
-                {availableLevels.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+            {/* Priority & Project Task Linkage */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-1.5 px-0.5 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap min-w-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Priority:
+                  </span>
+                  <select
+                    name="taskPriority"
+                    value={task.priority}
+                    onChange={(e) => updateField(i, "priority", e.target.value)}
+                    className={cn(
+                      "cursor-pointer bg-transparent text-xs outline-none rounded px-1.5 py-0.5 border font-semibold transition-colors",
+                      task.priority ? "border-primary/40 bg-primary/10 text-primary font-bold" : "border-border text-muted-foreground font-normal"
+                    )}
+                  >
+                    <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select priority</option>
+                    {availableLevels.map((p) => (
+                      <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5 border-l pl-2 border-border/60 min-w-0">
+                  <ProjectTaskCascadingPicker
+                    projects={cascadingProjects}
+                    selectedTaskId={projectTaskId}
+                    onSelectTask={(selected) => {
+                      const n = [...tasks];
+                      n[i] = {
+                        ...n[i],
+                        projectTaskId: selected ? selected.id : "",
+                      };
+                      onChange(n);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {loggedMins !== undefined && loggedMins > 0 && (
+                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5 flex items-center gap-1">
+                  <Clock size={11} /> {Math.floor(loggedMins / 60)}h {loggedMins % 60}m logged yesterday
+                </span>
+              )}
             </div>
           </div>
         );
@@ -201,20 +239,22 @@ function LearningRows({
 
 // ── Blocker rows ──────────────────────────────────────────────────────────────
 
-type BlockerItem = { id: string; text: string; priority: string; mentionedUserIds: string[]; carried?: boolean };
+type BlockerItem = { id: string; text: string; priority: string; mentionedUserIds: string[]; carried?: boolean; projectTaskId?: string };
 
 function BlockerRows({
   blockers,
   teamMembers,
+  openProjectTasks,
   onChange,
   onScheduleMeeting,
 }: {
   blockers: BlockerItem[];
   teamMembers: TeamMember[];
+  openProjectTasks: OpenProjectTaskOption[];
   onChange: (b: BlockerItem[]) => void;
   onScheduleMeeting?: (title: string, participantIds: string[]) => void;
 }) {
-  const updateField = (i: number, field: "text" | "priority", v: string) => {
+  const updateField = <K extends keyof BlockerItem>(i: number, field: K, v: BlockerItem[K]) => {
     const n = [...blockers];
     n[i] = { ...n[i], [field]: v };
     onChange(n);
@@ -237,6 +277,7 @@ function BlockerRows({
           <div key={b.id} className="flex items-start gap-2">
             {/* Emit comma-separated user IDs in a single hidden input to preserve row-index alignment */}
             <input type="hidden" name="blockerUserId" value={b.mentionedUserIds.join(",")} />
+            <input type="hidden" name="blockerProjectTaskId" value={b.projectTaskId || ""} />
 
             {/* Main input card */}
             <div className="flex-1 rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
@@ -261,29 +302,51 @@ function BlockerRows({
                 )}
               </div>
 
-              {/* Bottom: priority picker & schedule meeting action */}
-              <div className="flex items-center justify-between border-t px-3 py-1.5 bg-muted/20">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Priority:
-                  </span>
-                  <select
-                    name="blockerPriority"
-                    value={b.priority}
-                    onChange={(e) => updateField(i, "priority", e.target.value)}
-                    className={cn(
-                      "cursor-pointer bg-transparent text-xs outline-none rounded px-1",
-                      b.priority === "HIGH" && "font-semibold text-destructive",
-                      b.priority === "MEDIUM" && "font-semibold text-warning",
-                      b.priority === "LOW" && "font-semibold text-info",
-                      !b.priority && "text-muted-foreground"
-                    )}
-                  >
-                    <option value="">Select priority</option>
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-                    ))}
-                  </select>
+              {/* Bottom: priority picker & project task link & schedule meeting action */}
+              <div className="flex flex-wrap items-center justify-between border-t px-3 py-1.5 bg-muted/20 gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Priority:
+                    </span>
+                    <select
+                      name="blockerPriority"
+                      value={b.priority}
+                      onChange={(e) => updateField(i, "priority", e.target.value)}
+                      className={cn(
+                        "cursor-pointer bg-transparent text-xs outline-none rounded px-1",
+                        b.priority === "HIGH" && "font-semibold text-destructive",
+                        b.priority === "MEDIUM" && "font-semibold text-warning",
+                        b.priority === "LOW" && "font-semibold text-info",
+                        !b.priority && "text-muted-foreground"
+                      )}
+                    >
+                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select priority</option>
+                      {PRIORITIES.map((p) => (
+                        <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{PRIORITY_LABELS[p]}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {openProjectTasks.length > 0 && (
+                    <div className="flex items-center gap-1.5 border-l pl-2 border-border/60">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Project Task:
+                      </span>
+                      <select
+                        value={b.projectTaskId || ""}
+                        onChange={(e) => updateField(i, "projectTaskId", e.target.value)}
+                        className="cursor-pointer bg-transparent text-xs outline-none rounded px-1 py-0.5 border border-border text-foreground hover:border-primary/40 max-w-[180px] truncate"
+                      >
+                        <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">None (General)</option>
+                        {openProjectTasks.map((pt) => (
+                          <option key={pt.id} value={pt.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            [{pt.code}] {pt.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 {onScheduleMeeting && (
                   <button
@@ -672,6 +735,28 @@ export function SubmitDsmForm({
     event?: CalendarEventView;
   } | null>(null);
 
+  const [openProjectTasks, setOpenProjectTasks] = useState<OpenProjectTaskOption[]>([]);
+  const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+  const [linkedTimeLogs, setLinkedTimeLogs] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    fetchUserOpenProjectTasksAction().then((res) => {
+      if (res) setOpenProjectTasks(res);
+    });
+    fetchUserProjectsWithTasksAction().then((res) => {
+      if (res) setCascadingProjects(res);
+    });
+  }, []);
+
+  useEffect(() => {
+    const taskIds = tasks.map((t) => t.projectTaskId).filter(Boolean) as string[];
+    if (taskIds.length > 0) {
+      fetchLinkedTimeLogsAction(taskIds).then((res) => {
+        if (res) setLinkedTimeLogs(res);
+      });
+    }
+  }, [tasks]);
+
   useEffect(() => {
     isLoadedRef.current = true;
   }, []);
@@ -809,7 +894,14 @@ export function SubmitDsmForm({
           title="What Will You Do Today?"
           required
         >
-          <TaskRows tasks={tasks} teamMembers={teamMembers} onChange={setTasks} />
+          <TaskRows
+            tasks={tasks}
+            teamMembers={teamMembers}
+            openProjectTasks={openProjectTasks}
+            cascadingProjects={cascadingProjects}
+            linkedTimeLogs={linkedTimeLogs}
+            onChange={setTasks}
+          />
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
@@ -837,6 +929,7 @@ export function SubmitDsmForm({
           <BlockerRows
             blockers={blockers}
             teamMembers={teamMembers}
+            openProjectTasks={openProjectTasks}
             onChange={setBlockers}
           // onScheduleMeeting={(title, participantIds) => setScheduleModal({ title, participantIds })}
           />

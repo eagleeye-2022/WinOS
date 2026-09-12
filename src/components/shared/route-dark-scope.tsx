@@ -15,5 +15,5 @@ export function RouteDarkScope({ match, children }: RouteDarkScopeProps) {
   const pathname = usePathname();
   const active = !match || pathname.startsWith(match);
 
-  return <div className={cn("contents", "dsm-scope")}>{children}</div>;
+  return <div className={cn("contents", active && "dsm-scope")}>{children}</div>;
 }

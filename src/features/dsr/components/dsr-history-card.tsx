@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
+import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
+import type { ProjectLinkSummary } from "../queries";
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
@@ -13,11 +15,25 @@ import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 export function DsrHistoryCard({
   entry,
   defaultOpen = false,
+  memberId,
 }: {
   entry: DsrEntryData;
   defaultOpen?: boolean;
+  /** Pass when rendering another user's DSR (manager review) — omit for the current user's own. */
+  memberId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+
+  useEffect(() => {
+    const texts = entry.plannedTasks.map((t) => t.text).filter(Boolean);
+    if (texts.length === 0) return;
+    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
+    fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
+      if (res) setProjectLinks(res);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.id]);
 
   const review = dsrReviewStatus({
     status: entry.status,
@@ -157,25 +173,51 @@ export function DsrHistoryCard({
                 Today&apos;s Task Completed
               </p>
               <div className="flex flex-col gap-1.5">
-                {entry.plannedTasks.filter((t) => t.completed).map((task, i) => (
-                  <div key={task.id} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                      T{i + 1}
-                    </span>
-                    <span>{renderTextWithMentions(task.text)}</span>
-                    {task.priority && (
-                      <span className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                        task.priority.toUpperCase() === "P1" && "bg-success/15 text-success border border-success/30",
-                        task.priority.toUpperCase() === "P2" && "bg-info/15 text-info border border-info/30",
-                        task.priority.toUpperCase() === "P3" && "bg-warning/15 text-warning border border-warning/30",
-                        !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-                      )}>
-                        {task.priority.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
+                  const link = projectLinks[task.text];
+                  return (
+                    <div key={task.id} className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                          T{i + 1}
+                        </span>
+                        {link && (
+                          <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0">
+                            [{link.projectTask.code}]
+                          </span>
+                        )}
+                        <span>{renderTextWithMentions(task.text)}</span>
+                        {task.priority && (
+                          <span className={cn(
+                            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                            task.priority.toUpperCase() === "P1" && "bg-success/15 text-success border border-success/30",
+                            task.priority.toUpperCase() === "P2" && "bg-info/15 text-info border border-info/30",
+                            task.priority.toUpperCase() === "P3" && "bg-warning/15 text-warning border border-warning/30",
+                            !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+                          )}>
+                            {task.priority.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      {link && (
+                        <div className="ml-7 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          {link.projectTask.project && (
+                            <span>in <span className="font-medium text-foreground">{link.projectTask.project.name}</span></span>
+                          )}
+                          {link.timeSummary.totalMinutes > 0 && (
+                            <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
+                              <Clock size={10} />
+                              {Math.floor(link.timeSummary.totalMinutes / 60)}h {link.timeSummary.totalMinutes % 60}m logged
+                              {link.timeSummary.firstStart && link.timeSummary.lastStop && (
+                                <> · {link.timeSummary.firstStart} – {link.timeSummary.lastStop}</>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

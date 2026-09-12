@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
 import { TeamMemberOption } from "../types";
+import { AnchoredPopover } from "./popover-portal";
 
 const AVATAR_COLORS = [
   "bg-amber-500 text-white",
@@ -37,29 +38,26 @@ interface AssigneePickerPopoverProps {
   onToggle: (member: TeamMemberOption) => void;
   onClearAll: () => void;
   onClose: () => void;
-  anchorClassName?: string;
+  isOpen: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  align?: "left" | "right";
 }
 
-/** Multi-select team member picker popover: search + department tabs + checkmark list. */
+/** Multi-select team member picker popover: search + department tabs + checkmark list. Portals to
+ *  `document.body` (via `AnchoredPopover`) so it isn't clipped when triggered from inside an
+ *  `overflow-hidden` table cell. */
 export function AssigneePickerPopover({
   members,
   selectedIds,
   onToggle,
   onClearAll,
   onClose,
-  anchorClassName = "",
+  isOpen,
+  anchorRef,
+  align = "left",
 }: AssigneePickerPopoverProps) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
 
   const departments = useMemo(() => {
     const present = new Set(members.map((m) => m.department).filter(Boolean));
@@ -78,10 +76,7 @@ export function AssigneePickerPopover({
   }, [members, activeTab, search]);
 
   return (
-    <div
-      ref={ref}
-      className={`absolute z-50 w-72 rounded-lg border bg-popover shadow-2xl overflow-hidden text-xs animate-in fade-in zoom-in-95 duration-100 ${anchorClassName}`}
-    >
+    <AnchoredPopover anchorRef={anchorRef} isOpen={isOpen} onClose={onClose} className="w-72" align={align}>
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
         <Search size={13} className="text-muted-foreground shrink-0" />
         <input
@@ -180,6 +175,6 @@ export function AssigneePickerPopover({
           Done
         </button>
       </div>
-    </div>
+    </AnchoredPopover>
   );
 }

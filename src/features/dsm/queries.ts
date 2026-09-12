@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "./utils";
+import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,19 @@ export type EntryTask = {
   priority?: string | null;
   managerPriority?: string | null;
   addedAfterReview?: boolean;
+  projectTaskId?: string | null;
+  isCompleted?: boolean;
+  projectTask?: {
+    id: string;
+    code: string;
+    title: string;
+    status: string;
+    completionPercentage: number;
+    ownerId?: string | null;
+    owner?: string | null;
+    owners?: { userId: string }[];
+    project?: { id: string; name: string; code?: string | null; ownerId?: string | null } | null;
+  } | null;
   createdAt?: Date;
   updatedAt?: Date;
   addedBy?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
@@ -32,6 +46,17 @@ export type EntryBlocker = {
   resolved: boolean;
   mentionedUserId?: string | null;
   mentionedUserIds?: string | null;
+  projectTaskId?: string | null;
+  projectTask?: {
+    id: string;
+    code: string;
+    title: string;
+    status: string;
+    ownerId?: string | null;
+    owner?: string | null;
+    owners?: { userId: string }[];
+    project?: { id: string; name: string; code?: string | null; ownerId?: string | null } | null;
+  } | null;
   mentionedUser?: { id: string; name: string | null; email: string } | null;
   mentionedUsers?: { id: string; name: string | null; email: string }[];
   editedById?: string | null;
@@ -111,12 +136,37 @@ const entryInclude = {
     include: {
       addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
       editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+      projectTask: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          status: true,
+          completionPercentage: true,
+          ownerId: true,
+          owner: true,
+          owners: { select: { userId: true } },
+          project: { select: { id: true, name: true, code: true, ownerId: true } },
+        },
+      },
     },
   },
   blockers: {
     include: {
       mentionedUser: { select: { id: true, name: true, email: true } },
       editedBy: { select: { id: true, name: true, email: true } },
+      projectTask: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          status: true,
+          ownerId: true,
+          owner: true,
+          owners: { select: { userId: true } },
+          project: { select: { id: true, name: true, code: true, ownerId: true } },
+        },
+      },
     },
   },
   supportNeeds: {
@@ -748,3 +798,315 @@ export async function getSharedWorkspaceNotes(targetUserId?: string): Promise<{ 
 
   return { notes, threads };
 }
+
+// ── Project Task Linkage Queries ──────────────────────────────────────────────
+
+export type OpenProjectTaskOption = {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  completionPercentage: number;
+  projectId: string | null;
+  projectName: string | null;
+};
+
+export async function getUserOpenProjectTasks(userIdInput?: string): Promise<OpenProjectTaskOption[]> {
+  let userId = userIdInput;
+  if (!userId) {
+    const session = await auth();
+    userId = session?.user?.id;
+  }
+  if (!userId) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const tasks = await d.projectTask.findMany({
+    where: {
+      status: { notIn: ["Closed", "Closed/Done", "Completed"] },
+      OR: [
+        { ownerId: userId },
+        { owners: { some: { userId } } },
+      ],
+    },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      status: true,
+      completionPercentage: true,
+      projectId: true,
+      project: { select: { name: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 50,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return tasks.map((t: any) => ({
+    id: t.id,
+    code: t.code,
+    title: t.title,
+    status: t.status,
+    completionPercentage: t.completionPercentage,
+    projectId: t.projectId,
+    projectName: t.project?.name ?? null,
+  }));
+}
+
+export type ProjectStandupRollupItem = {
+  type: "TASK" | "BLOCKER";
+  id: string;
+  text: string;
+  date: Date;
+  user: { id: string; name: string | null; email: string; image?: string | null };
+  taskCode: string;
+  taskTitle: string;
+  priority?: string | null;
+  isCompleted?: boolean;
+};
+
+export async function getProjectStandupRollup(projectId: string): Promise<ProjectStandupRollupItem[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const standupTasks = await d.standupTask.findMany({
+    where: {
+      projectTask: { projectId },
+      createdAt: { gte: sevenDaysAgo },
+    },
+    include: {
+      entry: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+      projectTask: { select: { code: true, title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+
+  const standupBlockers = await d.standupBlocker.findMany({
+    where: {
+      projectTask: { projectId },
+      createdAt: { gte: sevenDaysAgo },
+    },
+    include: {
+      entry: { include: { user: { select: { id: true, name: true, email: true, image: true } } } },
+      projectTask: { select: { code: true, title: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  });
+
+  const items: ProjectStandupRollupItem[] = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...standupTasks.map((t: any) => ({
+      type: "TASK" as const,
+      id: t.id,
+      text: t.text,
+      date: t.entry?.date ?? t.createdAt,
+      user: t.entry?.user,
+      taskCode: t.projectTask?.code ?? "",
+      taskTitle: t.projectTask?.title ?? "",
+      priority: t.priority,
+      isCompleted: t.isCompleted,
+    })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...standupBlockers.map((b: any) => ({
+      type: "BLOCKER" as const,
+      id: b.id,
+      text: b.text,
+      date: b.entry?.date ?? b.createdAt,
+      user: b.entry?.user,
+      taskCode: b.projectTask?.code ?? "",
+      taskTitle: b.projectTask?.title ?? "",
+      priority: b.priority,
+    })),
+  ];
+
+  items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return items;
+}
+
+export async function getLinkedTimeLogsYesterday(
+  userIdInput?: string,
+  projectTaskIds?: string[]
+): Promise<Record<string, number>> {
+  let userId = userIdInput;
+  if (!userId) {
+    const session = await auth();
+    userId = session?.user?.id;
+  }
+  if (!userId || !projectTaskIds || projectTaskIds.length === 0) return {};
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+
+  const endYesterday = new Date(yesterday);
+  endYesterday.setHours(23, 59, 59, 999);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const timeLogs = await d.projectTimeLog.findMany({
+    where: {
+      userId,
+      taskId: { in: projectTaskIds },
+      date: { gte: yesterday, lte: endYesterday },
+    },
+    select: { taskId: true, duration: true },
+  });
+
+  const result: Record<string, number> = {};
+  for (const log of timeLogs) {
+    result[log.taskId] = (result[log.taskId] || 0) + log.duration;
+  }
+  return result;
+}
+
+export type DailyTimeSummary = {
+  totalMinutes: number;
+  firstStart: string | null;
+  lastStop: string | null;
+};
+
+/**
+ * Per-task total logged minutes plus first-start/last-stop times for a given user + calendar
+ * day, decoded from `ProjectTimeLog.description`'s "[start - stop] remarks" encoding (see
+ * `encodeDescriptionWithTimePeriod`). Reused by the Standup Card, Manager review, and DSR display
+ * so "time spent" reads identically everywhere it's shown.
+ */
+export async function getDailyTimeSummaryForTasks(
+  userId: string,
+  taskIds: string[],
+  date: Date
+): Promise<Record<string, DailyTimeSummary>> {
+  if (!userId || taskIds.length === 0) return {};
+
+  const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(date);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const logs = await d.projectTimeLog.findMany({
+    where: { userId, taskId: { in: taskIds }, date: { gte: dayStart, lte: dayEnd } },
+    select: { taskId: true, duration: true, description: true },
+    orderBy: { date: "asc" as const },
+  });
+
+  const result: Record<string, DailyTimeSummary> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const log of logs as any[]) {
+    const { timePeriod } = decodeDescriptionWithTimePeriod(log.description);
+    const [start, stop] = timePeriod
+      ? timePeriod.split(/[-–]/).map((s: string) => s.trim())
+      : [null, null];
+    const existing: DailyTimeSummary = result[log.taskId] || {
+      totalMinutes: 0,
+      firstStart: null,
+      lastStop: null,
+    };
+    existing.totalMinutes += log.duration;
+    if (start && !existing.firstStart) existing.firstStart = start;
+    if (stop) existing.lastStop = stop;
+    result[log.taskId] = existing;
+  }
+  return result;
+}
+
+export type CascadingSubtaskOption = {
+  id: string;
+  code: string | null;
+  title: string;
+  status: string;
+};
+
+export type CascadingTaskOption = {
+  id: string;
+  code: string | null;
+  title: string;
+  status: string;
+  subtasks: CascadingSubtaskOption[];
+};
+
+export type CascadingProjectOption = {
+  id: string;
+  code: string | null;
+  name: string;
+  tasks: CascadingTaskOption[];
+};
+
+export async function getUserProjectsWithTasksAndSubtasks(
+  userIdInput?: string
+): Promise<CascadingProjectOption[]> {
+  let userId = userIdInput;
+  if (!userId) {
+    const session = await auth();
+    userId = session?.user?.id;
+  }
+  if (!userId) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const projects = await d.project.findMany({
+    where: { status: "ACTIVE" },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      tasks: {
+        where: {
+          status: { notIn: ["Closed", "Closed/Done", "Completed"] },
+          parentTaskId: null,
+          OR: [{ ownerId: userId }, { owners: { some: { userId } } }],
+        },
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          status: true,
+          childTasks: {
+            where: {
+              status: { notIn: ["Closed", "Closed/Done", "Completed"] },
+              OR: [{ ownerId: userId }, { owners: { some: { userId } } }],
+            },
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              status: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  type QuerySubtask = { id: string; code: string | null; title: string; status: string };
+  type QueryTask = { id: string; code: string | null; title: string; status: string; childTasks?: QuerySubtask[] };
+  type QueryProject = { id: string; code: string | null; name: string; tasks?: QueryTask[] };
+
+  return (projects as QueryProject[]).map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    tasks: (p.tasks || []).map((t) => ({
+      id: t.id,
+      code: t.code,
+      title: t.title,
+      status: t.status,
+      subtasks: (t.childTasks || []).map((st) => ({
+        id: st.id,
+        code: st.code,
+        title: st.title,
+        status: st.status,
+      })),
+    })),
+  }));
+}
+

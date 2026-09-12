@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Calendar, Plus, ExternalLink, Copy, Pencil, Check, X } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Calendar, Plus, ExternalLink, Copy, Check, X, History } from "lucide-react";
 import { Project, ProjectAssignee, TeamMemberOption } from "../types";
 import {
   updateProjectRoleAssigneesAction,
@@ -19,8 +19,14 @@ import { DateRangePickerPopover } from "./date-range-picker-popover";
 // client-facing `Project` type is camelCase, so patches must go through this map, not `field` itself.
 const ROLE_TO_PROJECT_KEY: Record<ProjectAssigneeField, keyof Project> = {
   PROJECT_LEAD: "projectLead",
+  TECH_LEAD: "techLead",
   TECH_ASSIGNEE: "techAssignee",
   CREATIVE_ASSIGNEE: "creativeAssignee",
+  CREATIVE_UIUX_LEAD: "creativeUiuxLead",
+  CREATIVE_UIUX_ASSIGNEE: "creativeUiuxAssignee",
+  CREATIVE_GRAPHIC_LEAD: "creativeGraphicLead",
+  CREATIVE_GRAPHIC_ASSIGNEE: "creativeGraphicAssignee",
+  MARKETING_LEAD: "marketingLead",
   MARKETING_SEO: "marketingSeo",
   MARKETING_CONTENT: "marketingContent",
   MARKETING_PM: "marketingPm",
@@ -45,6 +51,7 @@ export function AssigneeCell({
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const current = assignees || [];
 
   const projectKey = ROLE_TO_PROJECT_KEY[field];
@@ -70,12 +77,13 @@ export function AssigneeCell({
   };
 
   return (
-    <div className="relative flex items-center justify-start">
+    <div className="relative flex items-center justify-start w-full">
       <button
+        ref={triggerRef}
         type="button"
         disabled={!editable}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 rounded px-1 py-1 -mx-1 transition-colors ${
+        className={`flex items-center gap-1.5 rounded px-1 py-1 max-w-full transition-colors ${
           editable ? "hover:bg-accent cursor-pointer" : "cursor-default"
         } ${saving ? "opacity-50" : ""}`}
       >
@@ -99,7 +107,7 @@ export function AssigneeCell({
                 </span>
               )}
             </span>
-            <span className="font-medium text-foreground truncate max-w-[110px]">
+            <span className="font-medium text-foreground truncate">
               {current.length === 1 ? current[0].name : `${current.length} assigned`}
             </span>
           </>
@@ -110,16 +118,15 @@ export function AssigneeCell({
           </span>
         )}
       </button>
-      {open && (
-        <AssigneePickerPopover
-          members={members}
-          selectedIds={current.map((a) => a.id)}
-          onToggle={handleToggle}
-          onClearAll={() => commit([])}
-          onClose={() => setOpen(false)}
-          anchorClassName="top-full left-0 mt-1"
-        />
-      )}
+      <AssigneePickerPopover
+        members={members}
+        selectedIds={current.map((a) => a.id)}
+        onToggle={handleToggle}
+        onClearAll={() => commit([])}
+        onClose={() => setOpen(false)}
+        isOpen={open}
+        anchorRef={triggerRef}
+      />
     </div>
   );
 }
@@ -136,6 +143,7 @@ export function CalendarCell({
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const formatShort = (iso?: string) => {
     if (!iso) return null;
@@ -163,27 +171,27 @@ export function CalendarCell({
   };
 
   return (
-    <div className="relative flex items-center justify-start">
+    <div className="relative flex items-center justify-start w-full">
       <button
+        ref={triggerRef}
         type="button"
         disabled={!editable}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${
+        className={`flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-medium transition-colors max-w-full ${
           editable ? "hover:bg-accent cursor-pointer" : "cursor-default"
         } ${saving ? "opacity-50" : ""}`}
       >
         <Calendar size={12} className="text-muted-foreground shrink-0" />
-        {label}
+        <span className="truncate">{label}</span>
       </button>
-      {open && (
-        <DateRangePickerPopover
-          startDate={project.startDate}
-          endDate={project.deadline}
-          onApply={handleApply}
-          onClose={() => setOpen(false)}
-          anchorClassName="top-full left-0 mt-1"
-        />
-      )}
+      <DateRangePickerPopover
+        startDate={project.startDate}
+        endDate={project.deadline}
+        onApply={handleApply}
+        onClose={() => setOpen(false)}
+        isOpen={open}
+        anchorRef={triggerRef}
+      />
     </div>
   );
 }
@@ -226,7 +234,7 @@ export function LinksCell({
 
   if (editingField) {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-start gap-1 w-full">
         <input
           autoFocus
           type="text"
@@ -250,55 +258,55 @@ export function LinksCell({
   }
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center justify-start gap-1.5 flex-nowrap overflow-x-auto w-full min-w-0">
       {LINK_DEFS.map(({ field, label }) => {
         const url = project[field];
         return (
           <span
             key={field}
-            className="group inline-flex items-center gap-1 rounded border bg-muted/40 px-1.5 py-0.5 text-[11px]"
+            className="group inline-flex shrink-0 items-center gap-1 rounded border bg-muted/40 px-1.5 py-0.5 text-[11px]"
           >
             {url ? (
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onDoubleClick={(e) => {
+                  if (!editable) return;
+                  e.preventDefault();
+                  startEdit(field, url);
+                }}
+                title={editable ? "Click to open · double-click to edit" : undefined}
                 className="text-foreground hover:text-primary hover:underline"
               >
                 {label}
               </a>
             ) : (
-              <span className="text-muted-foreground/60">{label}</span>
+              <span
+                onClick={() => editable && startEdit(field, url)}
+                className={editable ? "text-muted-foreground/60 hover:text-foreground cursor-pointer" : "text-muted-foreground/60"}
+                title={editable ? "Click to add link" : undefined}
+              >
+                {label}
+              </span>
             )}
-            {editable && (
+            {editable && url && (
               <span className="hidden group-hover:inline-flex items-center gap-0.5">
-                {url && (
-                  <button
-                    type="button"
-                    title="Copy link"
-                    onClick={() => {
-                      navigator.clipboard.writeText(url);
-                      setCopiedField(field);
-                      setTimeout(() => setCopiedField(null), 1500);
-                    }}
-                    className="text-muted-foreground hover:text-primary"
-                  >
-                    {copiedField === field ? <Check size={11} className="text-success" /> : <Copy size={11} />}
-                  </button>
-                )}
-                {url && (
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                    <ExternalLink size={11} />
-                  </a>
-                )}
                 <button
                   type="button"
-                  title="Edit link"
-                  onClick={() => startEdit(field, url)}
+                  title="Copy link"
+                  onClick={() => {
+                    navigator.clipboard.writeText(url);
+                    setCopiedField(field);
+                    setTimeout(() => setCopiedField(null), 1500);
+                  }}
                   className="text-muted-foreground hover:text-primary"
                 >
-                  <Pencil size={11} />
+                  {copiedField === field ? <Check size={11} className="text-success" /> : <Copy size={11} />}
                 </button>
+                <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                  <ExternalLink size={11} />
+                </a>
               </span>
             )}
           </span>
@@ -369,11 +377,25 @@ export function NotesCell({
         setEditing(true);
       }}
       title={value}
-      className={`block w-full max-w-[180px] truncate text-left text-[11px] rounded px-1 py-0.5 -mx-1 transition-colors ${
+      className={`block w-full truncate text-left text-[11px] rounded px-1 py-0.5 transition-colors ${
         editable ? "hover:bg-accent cursor-pointer" : "cursor-default"
       } ${value ? "text-foreground" : "text-muted-foreground/60 italic"}`}
     >
       {value || (editable ? "Add note..." : "—")}
+    </button>
+  );
+}
+
+/** "View Timeline" trigger cell — opens the read-only project activity drawer. */
+export function TimelineCell({ onOpen }: { project: Project; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-accent transition-colors"
+    >
+      <History size={12} />
+      View Timeline
     </button>
   );
 }

@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { X, ChevronDown } from "lucide-react";
 import { TeamMemberOption } from "../types";
 import { ProjectAssigneeField } from "../actions/project-actions";
 import { AssigneePickerPopover } from "./assignee-picker-popover";
 
 const ROLE_OPTIONS: { value: ProjectAssigneeField; label: string }[] = [
-  { value: "PROJECT_LEAD", label: "Project Lead" },
-  { value: "TECH_ASSIGNEE", label: "Tech Assignee" },
-  { value: "CREATIVE_ASSIGNEE", label: "Creative Assignee" },
-  { value: "MARKETING_SEO", label: "Marketing – SEO" },
-  { value: "MARKETING_CONTENT", label: "Marketing – Content" },
-  { value: "MARKETING_PM", label: "Marketing – PM" },
+  { value: "PROJECT_LEAD", label: "Project Lead / SPOC" },
+  { value: "TECH_LEAD", label: "Tech – Lead" },
+  { value: "TECH_ASSIGNEE", label: "Tech – Assignee" },
+  { value: "CREATIVE_UIUX_LEAD", label: "Creative – UI/UX Lead" },
+  { value: "CREATIVE_UIUX_ASSIGNEE", label: "Creative – UI/UX Assignee" },
+  { value: "CREATIVE_GRAPHIC_LEAD", label: "Creative – Graphic Lead" },
+  { value: "CREATIVE_GRAPHIC_ASSIGNEE", label: "Creative – Graphic Assignee" },
+  { value: "MARKETING_LEAD", label: "Marketing – Lead" },
+  { value: "MARKETING_SEO", label: "Marketing – SEO Assignee" },
+  { value: "MARKETING_CONTENT", label: "Marketing – Content Assignee" },
 ];
 
 interface BulkProjectActionsBarProps {
@@ -39,6 +43,7 @@ export function BulkProjectActionsBar({
   const [deltaDays, setDeltaDays] = useState("");
   const [applyingAssignees, setApplyingAssignees] = useState(false);
   const [applyingShift, setApplyingShift] = useState(false);
+  const pickerTriggerRef = useRef<HTMLButtonElement>(null);
 
   const pendingMembers = members.filter((m) => pendingMemberIds.includes(m.id));
 
@@ -94,6 +99,7 @@ export function BulkProjectActionsBar({
 
         <div className="relative">
           <button
+            ref={pickerTriggerRef}
             type="button"
             onClick={() => setShowPicker((v) => !v)}
             className="flex items-center gap-1 rounded border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent transition-colors"
@@ -103,16 +109,15 @@ export function BulkProjectActionsBar({
               : "Choose members"}
             <ChevronDown size={12} />
           </button>
-          {showPicker && (
-            <AssigneePickerPopover
-              members={members}
-              selectedIds={pendingMemberIds}
-              onToggle={handleToggleMember}
-              onClearAll={() => setPendingMemberIds([])}
-              onClose={() => setShowPicker(false)}
-              anchorClassName="top-full left-0 mt-1"
-            />
-          )}
+          <AssigneePickerPopover
+            members={members}
+            selectedIds={pendingMemberIds}
+            onToggle={handleToggleMember}
+            onClearAll={() => setPendingMemberIds([])}
+            onClose={() => setShowPicker(false)}
+            isOpen={showPicker}
+            anchorRef={pickerTriggerRef}
+          />
         </div>
 
         <button

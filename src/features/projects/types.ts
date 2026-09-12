@@ -149,8 +149,14 @@ export interface Project {
   // Table-view assignment/tracking columns (see all-projects-table-view.tsx) — each role can
   // hold multiple people at once (backed by the ProjectRoleAssignment join table).
   projectLead?: ProjectAssignee[];
+  techLead?: ProjectAssignee[];
   techAssignee?: ProjectAssignee[];
   creativeAssignee?: ProjectAssignee[];
+  creativeUiuxLead?: ProjectAssignee[];
+  creativeUiuxAssignee?: ProjectAssignee[];
+  creativeGraphicLead?: ProjectAssignee[];
+  creativeGraphicAssignee?: ProjectAssignee[];
+  marketingLead?: ProjectAssignee[];
   marketingSeo?: ProjectAssignee[];
   marketingContent?: ProjectAssignee[];
   marketingPm?: ProjectAssignee[];

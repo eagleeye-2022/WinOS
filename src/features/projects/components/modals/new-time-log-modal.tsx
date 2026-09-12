@@ -98,9 +98,19 @@ export function NewTimeLogModal({
     getTasksAction(activeProjectId)
       .then((tasks) => {
         if (cancelled) return;
-        setProjectTasksList(tasks.map((t) => ({ code: t.code || t.id, title: t.title })));
+        // Filter tasks: show ONLY tasks that have an owner assigned (excluding "Unassigned" tasks)
+        const ownedTasks = tasks.filter((t) => {
+          const mainOwner = t.owner;
+          const ownerList = t.owners || [];
+          return (
+            Boolean(mainOwner && mainOwner !== "Unassigned") ||
+            ownerList.some((o) => o && o !== "Unassigned")
+          );
+        });
+
+        setProjectTasksList(ownedTasks.map((t) => ({ code: t.code || t.id, title: t.title })));
         if (initialTaskCode) {
-          const match = tasks.find((t) => (t.code || t.id) === initialTaskCode);
+          const match = ownedTasks.find((t) => (t.code || t.id) === initialTaskCode);
           if (match) {
             const option = `${match.code || match.id} - ${match.title}`;
             setTaskSearchQuery(option);

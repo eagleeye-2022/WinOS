@@ -34,6 +34,7 @@ import { TaskAuditHistoryPopover } from "@/features/dsm/components/task-audit-hi
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
+import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 
 
 function supportEventToView(event: {
@@ -1151,7 +1152,7 @@ function TaskHistoryIcon({
 }: {
   task: TaskItem;
   chain: TaskCarryLink[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   return <TaskAuditHistoryPopover task={task} chain={chain} memberUser={memberUser} />;
 }
@@ -1164,6 +1165,7 @@ function TaskRow({
   totalTasks,
   carryChain,
   memberUser,
+  entryDate,
 }: {
   task: TaskItem;
   rank: number;
@@ -1171,11 +1173,13 @@ function TaskRow({
   takenPriorities: string[];
   totalTasks: number;
   carryChain: TaskCarryLink[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
+  entryDate?: Date;
 }) {
   const isCarriedOver = carryChain.length > 1;
   return (
-    <div className="group/task flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
+    <div className="group/task flex flex-col gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
+    <div className="flex items-center gap-2">
       {/* Rank badge */}
       <span
         className={cn(
@@ -1186,6 +1190,11 @@ function TaskRow({
         {task.managerPriority ?? rank}
       </span>
       <span className="flex-1 text-sm flex items-center flex-wrap gap-1.5">
+        {task.projectTask && (
+          <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0">
+            [{task.projectTask.code}]
+          </span>
+        )}
         <span>{task.text}</span>
         {task.priority && (
           <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
@@ -1227,6 +1236,21 @@ function TaskRow({
         )}>
           {task.managerPriority}
         </span>
+      )}
+    </div>
+      {task.projectTask && (
+        <div className="ml-8 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          {task.projectTask.project && (
+            <span>in <span className="font-medium text-foreground">{task.projectTask.project.name}</span></span>
+          )}
+          {memberUser?.id && (
+            <MemberTaskTimerBadge
+              taskId={task.projectTaskId || task.projectTask.id}
+              memberId={memberUser.id}
+              dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -1305,7 +1329,7 @@ function TodayTasksSection({
   entryId: string;
   entry?: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   // Sort: P1 first, unassigned last
   const sorted = sortByPriority(tasks);
@@ -1337,6 +1361,7 @@ function TodayTasksSection({
             totalTasks={tasks.length}
             carryChain={entry ? getTaskCarryChain(task.text, entry, allEntries) : [{ date: task.createdAt, task }]}
             memberUser={memberUser}
+            entryDate={entry?.date}
           />
         ))}
       </div>
@@ -1567,7 +1592,7 @@ function EntryExpanded({
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const router = useRouter();
   const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
@@ -1839,7 +1864,7 @@ function TodayEntryCard({
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const [expanded, setExpanded] = useState(true);
   const review = reviewStatus({
@@ -1925,7 +1950,7 @@ function DayCardCollapsed({
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
-  memberUser?: { name?: string | null; email?: string | null; image?: string | null } | null;
+  memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);

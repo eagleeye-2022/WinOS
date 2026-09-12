@@ -106,8 +106,9 @@ export function AddTaskDrawer({
     else if (selectedPhase.code === "5.1") derivedDeptAlias = "qa@";
 
     const taskCode = `WI1-T${Math.floor(40 + Math.random() * 50)}`;
-    const primaryOwner = selectedOwners.length > 0 ? selectedOwners.join(", ") : "Unassigned";
-    const assigneesList = selectedOwners.map((oName) => ({
+    const cleanOwners = selectedOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+    const primaryOwner = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
+    const assigneesList = cleanOwners.map((oName) => ({
       id: `u-${oName}`,
       name: oName,
       initials: oName.slice(0, 2).toUpperCase(),
@@ -259,7 +260,9 @@ export function AddTaskDrawer({
           <TaskMultiOwnerSelect
             label="Owner"
             selectedOwners={selectedOwners}
-            onChangeOwners={setSelectedOwners}
+            onChangeOwners={(newOwners) =>
+              setSelectedOwners(newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned"))
+            }
             ownersList={ownersList}
           />
 

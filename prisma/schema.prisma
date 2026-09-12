@@ -164,11 +164,14 @@ model StandupTask {
   addedAfterReview Boolean       @default(false)
   addedById        String?
   editedById       String?
+  projectTaskId    String?
+  isCompleted      Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
   addedBy          User?         @relation("TaskAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
   editedBy         User?         @relation("TaskEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  projectTask      ProjectTask?  @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
 }
 
 model StandupTimelineEvent {
@@ -192,11 +195,13 @@ model StandupBlocker {
   mentionedUserId String?
   mentionedUserIds String?
   editedById      String?
+  projectTaskId   String?
   comments        BlockerComment[]
   mentions        StandupBlockerMention[]
   entry           StandupEntry            @relation(fields: [entryId], references: [id], onDelete: Cascade)
   mentionedUser   User?                   @relation("BlockerMentions", fields: [mentionedUserId], references: [id], onDelete: SetNull)
   editedBy        User?                   @relation("BlockerEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  projectTask     ProjectTask?            @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
 }
 
 model StandupBlockerMention {
@@ -910,7 +915,7 @@ model ProjectRoleAssignment {
   id        String   @id @default(cuid())
   projectId String
   userId    String
-  role      String // "PROJECT_LEAD" | "TECH_ASSIGNEE" | "CREATIVE_ASSIGNEE" | "MARKETING_SEO" | "MARKETING_CONTENT" | "MARKETING_PM"
+  role      String // "PROJECT_LEAD" | "TECH_LEAD" | "TECH_ASSIGNEE" | "CREATIVE_ASSIGNEE" | "CREATIVE_UIUX_LEAD" | "CREATIVE_UIUX_ASSIGNEE" | "CREATIVE_GRAPHIC_LEAD" | "CREATIVE_GRAPHIC_ASSIGNEE" | "MARKETING_LEAD" | "MARKETING_SEO" | "MARKETING_CONTENT" | "MARKETING_PM"
   createdAt DateTime @default(now())
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User     @relation("ProjectRoleAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -1023,6 +1028,8 @@ model ProjectTask {
   activities           ProjectTaskActivity[]
   timeLogs             ProjectTimeLog[]
   activeTimers         ActiveTimer[]
+  standupTasks         StandupTask[]
+  standupBlockers      StandupBlocker[]
 }
 
 model ProjectTaskOwner {

@@ -77,6 +77,17 @@ export type MemberReviewEntry = {
     addedAfterReview?: boolean;
     createdAt: Date;
     updatedAt: Date;
+    projectTaskId?: string | null;
+    projectTask?: {
+      id: string;
+      code: string;
+      title: string;
+      status: string;
+      ownerId?: string | null;
+      owner?: string | null;
+      owners?: { userId: string }[];
+      project?: { id: string; name: string; code?: string | null; ownerId?: string | null } | null;
+    } | null;
     addedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
     editedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
   }[];
@@ -483,6 +494,18 @@ export async function getMemberReview(
         include: {
           addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
           editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+          projectTask: {
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              status: true,
+              ownerId: true,
+              owner: true,
+              owners: { select: { userId: true } },
+              project: { select: { id: true, name: true, code: true, ownerId: true } },
+            },
+          },
         },
       },
       blockers: {
@@ -534,6 +557,18 @@ export async function getMemberReview(
         include: {
           addedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
           editedBy: { select: { id: true, name: true, email: true, image: true, role: true } },
+          projectTask: {
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              status: true,
+              ownerId: true,
+              owner: true,
+              owners: { select: { userId: true } },
+              project: { select: { id: true, name: true, code: true, ownerId: true } },
+            },
+          },
         },
       },
           blockers: {
