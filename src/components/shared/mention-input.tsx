@@ -163,6 +163,15 @@ export function MentionInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const root = editorRef.current;
+    if (!root) return;
+    if (document.activeElement !== root && root.textContent !== defaultValue) {
+      root.textContent = defaultValue;
+      setHiddenValue(defaultValue);
+    }
+  }, [defaultValue]);
+
   // Load files for @file: mode
   useEffect(() => {
     let active = true;

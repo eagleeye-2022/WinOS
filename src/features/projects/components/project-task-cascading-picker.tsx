@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FolderGit2, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
@@ -27,34 +27,38 @@ export function ProjectTaskCascadingPicker({
   onSelectTask,
   className,
 }: ProjectTaskCascadingPickerProps) {
-  const [projectId, setProjectId] = useState<string>("");
-  const [taskId, setTaskId] = useState<string>("");
-  const [subtaskId, setSubtaskId] = useState<string>("");
-
-  // Sync selectedTaskId from external prop
-  useEffect(() => {
-    if (!selectedTaskId || !projects || projects.length === 0) return;
+  // Helper to resolve selections from selectedTaskId prop
+  const resolveSelection = (targetId?: string) => {
+    if (!targetId || !projects || projects.length === 0) return { pId: "", tId: "", stId: "" };
     for (const p of projects) {
       for (const t of p.tasks || []) {
-        if (t.id === selectedTaskId) {
-          setProjectId(p.id);
-          setTaskId(t.id);
-          setSubtaskId("");
-          return;
+        if (t.id === targetId) {
+          return { pId: p.id, tId: t.id, stId: "" };
         }
         if (t.subtasks) {
           for (const st of t.subtasks) {
-            if (st.id === selectedTaskId) {
-              setProjectId(p.id);
-              setTaskId(t.id);
-              setSubtaskId(st.id);
-              return;
+            if (st.id === targetId) {
+              return { pId: p.id, tId: t.id, stId: st.id };
             }
           }
         }
       }
     }
-  }, [selectedTaskId, projects]);
+    return { pId: "", tId: "", stId: "" };
+  };
+
+  const [prevSelectedTaskId, setPrevSelectedTaskId] = useState(selectedTaskId);
+  const [projectId, setProjectId] = useState(() => resolveSelection(selectedTaskId).pId);
+  const [taskId, setTaskId] = useState(() => resolveSelection(selectedTaskId).tId);
+  const [subtaskId, setSubtaskId] = useState(() => resolveSelection(selectedTaskId).stId);
+
+  if (prevSelectedTaskId !== selectedTaskId) {
+    setPrevSelectedTaskId(selectedTaskId);
+    const resolved = resolveSelection(selectedTaskId);
+    setProjectId(resolved.pId);
+    setTaskId(resolved.tId);
+    setSubtaskId(resolved.stId);
+  }
 
   // Derive selected project object
   const currentProject = projects.find((p) => p.id === projectId);

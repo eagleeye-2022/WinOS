@@ -540,29 +540,67 @@ export function SingleTaskWorkspaceView({
               : "Recently",
           }))
         );
-        return;
       }
     } catch (err) {
       console.error("Failed to fetch task remarks from DB:", err);
     }
-
-    if (activeTask && activeTask.remarks && activeTask.remarks.length > 0) {
-      setCommentsList(
-        activeTask.remarks.map((r, idx) => ({
-          id: r.id || `c-${idx}`,
-          author: r.authorName || activeTask.owner || project?.owner.name || "Team Member",
-          text: r.content,
-          time: r.createdAt || "Recently",
-        }))
-      );
-    } else {
-      setCommentsList([]);
-    }
-  }, [activeTask.id, activeTask.remarks, activeTask.owner, project?.owner.name]);
+  }, [activeTask.id, activeTask.owner, project?.owner.name]);
 
   useEffect(() => {
-    refreshComments();
-  }, [refreshComments]);
+    let cancelled = false;
+    getTaskRemarksAction(activeTask.id)
+      .then((dbRemarks) => {
+        if (cancelled) return;
+        if (dbRemarks && dbRemarks.length > 0) {
+          setCommentsList(
+            dbRemarks.map((r, idx) => ({
+              id: r.id || `c-${idx}`,
+              author: r.authorName || activeTask.owner || project?.owner.name || "Team Member",
+              text: r.content,
+              time: r.createdAt
+                ? new Date(r.createdAt).toLocaleString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                : "Recently",
+            }))
+          );
+        } else if (activeTask?.remarks?.length) {
+          setCommentsList(
+            activeTask.remarks.map((r, idx) => ({
+              id: r.id || `c-${idx}`,
+              author: r.authorName || activeTask.owner || project?.owner.name || "Team Member",
+              text: r.content,
+              time: r.createdAt || "Recently",
+            }))
+          );
+        } else {
+          setCommentsList([]);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to fetch task remarks from DB:", err);
+        if (activeTask?.remarks?.length) {
+          setCommentsList(
+            activeTask.remarks.map((r, idx) => ({
+              id: r.id || `c-${idx}`,
+              author: r.authorName || activeTask.owner || project?.owner.name || "Team Member",
+              text: r.content,
+              time: r.createdAt || "Recently",
+            }))
+          );
+        } else {
+          setCommentsList([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTask.id, activeTask.remarks, activeTask.owner, project?.owner.name]);
 
   // Dynamic Time Logs State & Calculations for this specific task — loaded from the DB
   const [taskTimeLogs, setTaskTimeLogs] = useState<TimeLogEntry[]>([]);

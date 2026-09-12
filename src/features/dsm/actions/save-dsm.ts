@@ -61,17 +61,23 @@ export async function saveDsm(
   }
   const rawTaskTexts = formData.getAll("taskText") as string[];
   const rawTaskPriorities = formData.getAll("taskPriority") as string[];
-  const tasksToCreate: { text: string; priority: string | null }[] = [];
+  const rawTaskProjectIds = formData.getAll("taskProjectTaskId") as string[];
+  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null }[] = [];
   for (let i = 0; i < rawTaskTexts.length; i++) {
     const t = rawTaskTexts[i]?.trim();
     if (t) {
-      tasksToCreate.push({ text: t, priority: rawTaskPriorities[i] || null });
+      tasksToCreate.push({
+        text: t,
+        priority: rawTaskPriorities[i] || null,
+        projectTaskId: rawTaskProjectIds[i]?.trim() || null,
+      });
     }
   }
   const taskTexts = tasksToCreate.map((t) => t.text);
 
   const blockerTexts = (formData.getAll("blockerText") as string[]).map((t) => t.trim());
   const blockerPriorities = formData.getAll("blockerPriority") as string[];
+  const blockerProjectTaskIds = formData.getAll("blockerProjectTaskId") as string[];
   // Each blockerUserId value is a comma-separated list of mentioned user IDs
   const blockerUserIdRaw = formData.getAll("blockerUserId") as string[];
   const supportTexts = (formData.getAll("supportText") as string[]).map((t) => t.trim());
@@ -137,6 +143,7 @@ export async function saveDsm(
           kind: "TODAY",
           order: i,
           priority: item.priority,
+          projectTaskId: item.projectTaskId,
           entryId: entry.id,
           addedById: userId,
         })),
@@ -149,6 +156,7 @@ export async function saveDsm(
       const text = blockerTexts[i];
       if (!text) continue;
       const rawIds = blockerUserIdRaw[i] ? blockerUserIdRaw[i].split(",").filter(Boolean) : [];
+      const projectTaskId = blockerProjectTaskIds[i]?.trim() || null;
       const blocker = await d.standupBlocker.create({
         data: {
           entryId: entry.id,
@@ -157,11 +165,30 @@ export async function saveDsm(
           resolved: false,
           mentionedUserId: rawIds[0] ?? null,
           mentionedUserIds: rawIds.length > 0 ? rawIds.join(",") : null,
+          projectTaskId,
         },
       });
       if (rawIds.length > 0 && d.standupBlockerMention) {
         await d.standupBlockerMention.createMany({
           data: rawIds.map((userId: string) => ({ blockerId: blocker.id, userId })),
+        });
+      }
+      if (projectTaskId) {
+        const userName = session.user.name ?? "User";
+        const initials = userName
+          .split(" ")
+          .map((n: string) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2);
+        await d.projectTaskActivity.create({
+          data: {
+            taskId: projectTaskId,
+            userId,
+            userName,
+            userInitials: initials || "U",
+            actionText: `reported a blocker in DSM: "${text}"`,
+          },
         });
       }
     }

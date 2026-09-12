@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "./utils";
+import { getDailyTimeSummaryForTasks, type DailyTimeSummary } from "@/features/dsm/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,74 @@ export async function getWeeklyDsrHistory(weekOffset = 0): Promise<DsrEntryData[
   });
 
   return entries as DsrEntryData[];
+}
+
+export type ProjectLinkSummary = {
+  projectTask: { code: string; title: string; project: { name: string } | null };
+  timeSummary: DailyTimeSummary;
+};
+
+/**
+ * Read-time join from a day's DSR planned tasks back to that same day's StandupEntry — matches
+ * `DsrPlannedTask.text` to `StandupTask.text` (same normalization `getYesterdayIncompleteTasks`
+ * in the DSM feature already uses) to surface the linked project/task and logged time without
+ * requiring a schema change on DsrPlannedTask. Keyed by the planned task's text.
+ */
+export async function getDsrProjectTaskLinks(
+  userId: string,
+  date: Date,
+  plannedTaskTexts: string[]
+): Promise<Record<string, ProjectLinkSummary>> {
+  if (!userId || plannedTaskTexts.length === 0) return {};
+
+  const dayUtc = toUtcDate(date);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const standup = await d.standupEntry.findUnique({
+    where: { userId_date: { userId, date: dayUtc } },
+    include: {
+      tasks: {
+        where: { kind: "TODAY" },
+        select: {
+          text: true,
+          projectTaskId: true,
+          projectTask: {
+            select: { code: true, title: true, project: { select: { name: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!standup) return {};
+
+  const norm = (s: string) => s.trim().toLowerCase();
+  const wanted = new Set(plannedTaskTexts.map(norm));
+
+  const linkedTaskIds: string[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byNormalizedText: Record<string, { projectTaskId: string; projectTask: any }> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const t of standup.tasks as any[]) {
+    if (!t.projectTaskId || !t.projectTask) continue;
+    const key = norm(t.text);
+    if (!wanted.has(key)) continue;
+    byNormalizedText[key] = { projectTaskId: t.projectTaskId, projectTask: t.projectTask };
+    linkedTaskIds.push(t.projectTaskId);
+  }
+  if (linkedTaskIds.length === 0) return {};
+
+  const summaries = await getDailyTimeSummaryForTasks(userId, linkedTaskIds, dayUtc);
+
+  const result: Record<string, ProjectLinkSummary> = {};
+  for (const text of plannedTaskTexts) {
+    const match = byNormalizedText[norm(text)];
+    if (!match) continue;
+    result[text] = {
+      projectTask: match.projectTask,
+      timeSummary: summaries[match.projectTaskId] || { totalMinutes: 0, firstStart: null, lastStop: null },
+    };
+  }
+  return result;
 }
 
 /** Computed insights for the right panel. */

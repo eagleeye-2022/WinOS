@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2, Plus, Check, X,
+  Star, Clock3, Clock, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2, Plus, Check, X,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -20,6 +20,8 @@ import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
 import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
+import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
+import type { ProjectLinkSummary } from "@/features/dsr/queries";
 
 // ── Date entry header — static strip matching Figma image 2 ──────────────────
 
@@ -119,55 +121,86 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
 
 // ── Task progress card ────────────────────────────────────────────────────────
 
-function TaskItemRow({ task, locked }: { task: DsrEntryData["plannedTasks"][number]; locked?: boolean }) {
+function TaskItemRow({
+  task,
+  locked,
+  projectLink,
+}: {
+  task: DsrEntryData["plannedTasks"][number];
+  locked?: boolean;
+  projectLink?: ProjectLinkSummary;
+}) {
   const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
   const [, startTransition] = useTransition();
 
   return (
-    <form
-      action={(fd) => {
-        startTransition(() => action(fd));
-      }}
-      className="flex items-center gap-2.5"
-    >
-      <input type="hidden" name="taskId" value={task.id} />
-      <button
-        type="submit"
-        disabled={pending || locked}
-        title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
-        className={cn(
-          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
-          task.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
-        )}
+    <div className="flex flex-col gap-1">
+      <form
+        action={(fd) => {
+          startTransition(() => action(fd));
+        }}
+        className="flex items-center gap-2.5"
       >
-        {pending ? (
-          <Loader2 size={10} className="animate-spin" />
-        ) : task.completed ? (
-          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-            <polyline points="1,4 3,6 7,2" />
-          </svg>
-        ) : null}
-      </button>
-      <span className={cn("flex-1 text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-        {task.text}
-      </span>
-      {task.priority && (
-        <span className={cn(
-          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-          task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
-          task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
-          task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-          !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-        )}>
-          {task.priority.toUpperCase()}
+        <input type="hidden" name="taskId" value={task.id} />
+        <button
+          type="submit"
+          disabled={pending || locked}
+          title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
+            task.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
+          )}
+        >
+          {pending ? (
+            <Loader2 size={10} className="animate-spin" />
+          ) : task.completed ? (
+            <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+              <polyline points="1,4 3,6 7,2" />
+            </svg>
+          ) : null}
+        </button>
+        {projectLink && (
+          <span className="shrink-0 rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[10px] font-mono font-bold">
+            [{projectLink.projectTask.code}]
+          </span>
+        )}
+        <span className={cn("flex-1 text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+          {task.text}
         </span>
+        {task.priority && (
+          <span className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+            task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
+            task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
+            task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
+            !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+          )}>
+            {task.priority.toUpperCase()}
+          </span>
+        )}
+        {task.addedAfterReview && (
+          <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
+            NT
+          </span>
+        )}
+      </form>
+      {projectLink && (
+        <div className="ml-6 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          {projectLink.projectTask.project && (
+            <span>in <span className="font-medium text-foreground">{projectLink.projectTask.project.name}</span></span>
+          )}
+          {projectLink.timeSummary.totalMinutes > 0 && (
+            <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
+              <Clock size={10} />
+              {Math.floor(projectLink.timeSummary.totalMinutes / 60)}h {projectLink.timeSummary.totalMinutes % 60}m logged
+              {projectLink.timeSummary.firstStart && projectLink.timeSummary.lastStop && (
+                <> · {projectLink.timeSummary.firstStart} – {projectLink.timeSummary.lastStop}</>
+              )}
+            </span>
+          )}
+        </div>
       )}
-      {task.addedAfterReview && (
-        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
-          NT
-        </span>
-      )}
-    </form>
+    </div>
   );
 }
 
@@ -241,11 +274,23 @@ function AddDsrTaskRow({ entryId }: { entryId: string }) {
   );
 }
 
-function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
+function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; locked?: boolean; memberId?: string }) {
   const { completedTaskCount, plannedTaskCount, plannedTasks } = entry;
   const percent = plannedTaskCount > 0
     ? Math.round((completedTaskCount / plannedTaskCount) * 100)
     : 0;
+
+  const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+
+  useEffect(() => {
+    const texts = plannedTasks.map((t) => t.text).filter(Boolean);
+    if (texts.length === 0) return;
+    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
+    fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
+      if (res) setProjectLinks(res);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.id]);
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -266,7 +311,7 @@ function TaskProgressCard({ entry, locked }: { entry: DsrEntryData; locked?: boo
       </div>
       <div className="flex flex-col gap-2">
         {plannedTasks.map((task) => (
-          <TaskItemRow key={task.id} task={task} locked={locked} />
+          <TaskItemRow key={task.id} task={task} locked={locked} projectLink={projectLinks[task.text]} />
         ))}
       </div>
       <AddDsrTaskRow entryId={entry.id} />
@@ -845,7 +890,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
               {/* Left: content cards */}
               <div className="flex min-w-0 flex-col gap-4">
                 <ResultCard entry={activeEntry} />
-                <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} />
+                <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} memberId={user.id} />
                 <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
                 <BlockersSupportCard entry={activeEntry} />
                 <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
@@ -884,6 +929,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
                 <DsrHistoryCard
                   key={entry.id}
                   entry={entry}
+                  memberId={user.id}
                   defaultOpen={selectedDateStr ? relativeDayLabel(entry.date) === "Yesterday" || relativeDayLabel(entry.date) === "Today" : relativeDayLabel(entry.date) === "Today"}
                 />
               ))

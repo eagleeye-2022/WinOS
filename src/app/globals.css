@@ -94,6 +94,7 @@
 }
 
 :root {
+  color-scheme: light;
   /* dark-mode palette — single source of truth, referenced by .dark below */
   --dark-bg: #000000;
   --dark-surface: #000000;
@@ -148,6 +149,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* subtle variations derived from the four core colors — used for elevation & states */
   --dark-surface-elevated: color-mix(in srgb, var(--dark-surface) 80%, white 20%);
   --dark-primary-hover: color-mix(in srgb, var(--dark-primary) 78%, white 22%);
@@ -480,4 +482,29 @@ a *,
   color: var(--info, #0ea5e9);
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* Fix native select & option dropdown menu styling in dark and light mode */
+select {
+  color-scheme: light;
+}
+
+.dark select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: var(--card, #ffffff);
+  color: var(--card-foreground, #0f172a);
+}
+
+.dark select option,
+.dark option {
+  background-color: var(--popover, #1a1f26);
+  color: var(--popover-foreground, #f8fafc);
+}
+
+.dark .dsm-scope select option {
+  background-color: #1a1f26;
+  color: #f8fafc;
 }

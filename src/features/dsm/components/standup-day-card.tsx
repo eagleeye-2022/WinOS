@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, CheckCircle2, Play, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
 import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
+import { toggleStandupTask } from "../actions/toggle-standup-task";
+import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
+import { TimerWidget } from "@/features/projects/components/timer-widget";
+import { canUserActOnTask } from "@/features/projects/utils/task-authorization";
 
 type StandupDayCardProps = {
   entry: EntryWithDetails;
@@ -22,6 +26,7 @@ const PRIORITY_COLORS = {
 export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
   const isToday = relativeDayLabel(entry.date) === "Today";
   const [open, setOpen] = useState(defaultOpen ?? isToday);
+  const [timeSummary, setTimeSummary] = useState<Record<string, { totalMinutes: number; firstStart: string | null; lastStop: string | null }>>({});
 
   const review = reviewStatus({
     status: entry.status,
@@ -35,6 +40,19 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
   const dateStr = formatShortDate(entry.date);
   const blockerCount = entry.blockers.length;
   const supportCount = entry.supportNeeds.length;
+  // This card only ever renders the viewing user's own standup history (WeekHistory/dsm-self-panel),
+  // so entry.user is always the current viewer — safe to use directly for the timer ownership check.
+  const viewer = entry.user ? { id: entry.user.id, name: entry.user.name, email: entry.user.email } : null;
+
+  useEffect(() => {
+    const taskIds = todayTasks.map((t) => t.projectTaskId).filter(Boolean) as string[];
+    if (taskIds.length === 0) return;
+    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
+    fetchDailyTimeSummaryAction(taskIds, dateStr).then((res) => {
+      if (res) setTimeSummary(res);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.id]);
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
@@ -126,24 +144,83 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
               <div className="flex flex-col gap-1.5">
                 {todayTasks.map((task, i) => {
                   const p = task.managerPriority ?? task.priority;
+                  const canStart = Boolean(
+                    task.projectTask &&
+                      viewer &&
+                      canUserActOnTask(
+                        {
+                          ownerId: task.projectTask.ownerId,
+                          ownerIds: (task.projectTask.owners || []).map((o) => o.userId),
+                          ownerNames: task.projectTask.owner ? [task.projectTask.owner] : [],
+                          projectOwnerId: task.projectTask.project?.ownerId,
+                        },
+                        viewer
+                      )
+                  );
+                  const summary = task.projectTaskId ? timeSummary[task.projectTaskId] : undefined;
                   return (
-                    <div key={task.id} className="flex items-center gap-2 text-sm">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                        T{i + 1}
-                      </span>
-                      <span>{task.text}</span>
-                      {p && (
-                        <span className={cn(
-                          "rounded px-1.5 py-0.5 text-xs font-bold uppercase",
-                          p.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
-                          p.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
-                          p.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-                          !["P1","P2","P3"].includes(p.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-                        )}>
-                          {p.toUpperCase()}
+                    <div key={task.id} className="flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        {entry.status === "DRAFT" && (
+                          <input
+                            type="checkbox"
+                            checked={task.isCompleted ?? false}
+                            onChange={async (e) => {
+                              await toggleStandupTask(task.id, e.target.checked);
+                            }}
+                            className="h-3.5 w-3.5 rounded border-muted-foreground accent-primary cursor-pointer shrink-0"
+                          />
+                        )}
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                          T{i + 1}
                         </span>
+                        {task.projectTask && (
+                          <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0">
+                            [{task.projectTask.code}]
+                          </span>
+                        )}
+                        <span className={cn(task.isCompleted && "line-through text-muted-foreground")}>
+                          {task.text}
+                        </span>
+                        {task.projectTaskId && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <TimerWidget
+                              taskId={task.projectTaskId}
+                              taskCode={task.projectTask?.code}
+                              taskTitle={task.text}
+                              defaultExpanded={true}
+                              canStart={canStart}
+                              disabledReason="Only the assigned task owner can start this timer"
+                            />
+                          </div>
+                        )}
+                        {p && (
+                          <span className={cn(
+                            "rounded px-1.5 py-0.5 text-xs font-bold uppercase",
+                            p.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
+                            p.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
+                            p.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
+                            !["P1","P2","P3"].includes(p.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
+                          )}>
+                            {p.toUpperCase()}
+                          </span>
+                        )}
+                        <TaskAuditHistoryPopover task={task} memberUser={entry.user} />
+                      </div>
+                      {task.projectTask?.project && (
+                        <div className="ml-7 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span>in <span className="font-medium text-foreground">{task.projectTask.project.name}</span></span>
+                          {summary && summary.totalMinutes > 0 && (
+                            <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
+                              <Clock size={10} />
+                              {Math.floor(summary.totalMinutes / 60)}h {summary.totalMinutes % 60}m logged
+                              {summary.firstStart && summary.lastStop && (
+                                <> · {summary.firstStart} – {summary.lastStop}</>
+                              )}
+                            </span>
+                          )}
+                        </div>
                       )}
-                      <TaskAuditHistoryPopover task={task} memberUser={entry.user} />
                     </div>
                   );
                 })}
@@ -194,8 +271,13 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                     const mentioned = b.mentionedUsers ?? (b.mentionedUser ? [b.mentionedUser] : []);
                     return (
                       <div key={b.id} className="flex flex-col gap-0.5">
-                        <p className={cn("text-xs leading-relaxed", PRIORITY_COLORS[b.priority])}>
-                          {i + 1}){" "}
+                        <p className={cn("text-xs leading-relaxed flex flex-wrap items-center gap-1", PRIORITY_COLORS[b.priority])}>
+                          <span>{i + 1})</span>
+                          {b.projectTask && (
+                            <span className="rounded bg-destructive/10 border border-destructive/20 text-destructive px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0">
+                              [{b.projectTask.code}]
+                            </span>
+                          )}
                           {renderTextWithMentions(b.text, mentioned, "font-semibold underline")}
                           {b.editedBy && (
                             <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
