@@ -8,7 +8,7 @@ import { TimerWidget } from "./timer-widget";
 
 export type SelectedTaskPayload = {
   id: string;
-  code: string;
+  code: string | null;
   title: string;
   projectId: string;
   isSubtask: boolean;
@@ -164,7 +164,7 @@ export function ProjectTaskCascadingPicker({
           <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{!projectId ? "2. Select Task..." : currentProject?.tasks?.length === 0 ? "No tasks found" : "2. Select Task..."}</option>
           {(currentProject?.tasks || []).map((t) => (
             <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-              [{t.code}] {t.title} {t.subtasks?.length > 0 ? `(${t.subtasks.length} subtasks)` : ""}
+              {t.code ? `[${t.code}] ` : ""}{t.title} {t.subtasks?.length > 0 ? `(${t.subtasks.length} subtasks)` : ""}
             </option>
           ))}
         </select>
@@ -182,7 +182,7 @@ export function ProjectTaskCascadingPicker({
             <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">3. Subtask (Optional)...</option>
             {currentTask.subtasks.map((st) => (
               <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                [{st.code}] {st.title}
+                {st.code ? `[${st.code}] ` : ""}{st.title}
               </option>
             ))}
           </select>
@@ -192,7 +192,7 @@ export function ProjectTaskCascadingPicker({
       {/* 4. Timer Widget (Identical to Project Module Timer with live time counter) */}
       <TimerWidget
         taskId={activeTargetTask?.id}
-        taskCode={activeTargetTask?.code}
+        taskCode={activeTargetTask?.code ?? undefined}
         taskTitle={activeTargetTask?.title}
         projectId={currentProject?.id}
         canStart={!!activeTargetTask}

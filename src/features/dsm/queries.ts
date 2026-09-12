@@ -1018,14 +1018,14 @@ export async function getDailyTimeSummaryForTasks(
 
 export type CascadingSubtaskOption = {
   id: string;
-  code: string;
+  code: string | null;
   title: string;
   status: string;
 };
 
 export type CascadingTaskOption = {
   id: string;
-  code: string;
+  code: string | null;
   title: string;
   status: string;
   subtasks: CascadingSubtaskOption[];
