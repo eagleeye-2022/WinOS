@@ -96,6 +96,7 @@
 :root {
   color-scheme: light;
   /* dark-mode palette — single source of truth, referenced by .dark below */
+  /* --- previous palette (commented out) ---
   --dark-bg: #000000;
   --dark-surface: #000000;
   --dark-primary: #ffffff;
@@ -105,6 +106,24 @@
   --dark-text-secondary: #d9dce7;
   --dark-text-muted: #d2d2d2;
   --dark-border: #70769a;
+  --- end previous palette --- */
+
+  /* new palette — layered zinc/black hierarchy */
+  --dark-bg: #0a0b0e; /* Base Canvas */
+  --dark-sidebar: #09090b; /* Sidebar & Header */
+  --dark-surface: #121215; /* Cards & Modals */
+  --dark-surface-hover: #18181c; /* Hover Surfaces */
+  --dark-primary: #ffffff; /* Primary CTA bg (mono-btn) */
+  --dark-secondary: #27272a; /* Secondary CTA bg */
+
+  --dark-text-primary: #ffffff; /* Headings, active values */
+  --dark-text-secondary: #d4d4d8; /* Body / code text (zinc-300) */
+  --dark-text-muted: #a1a1aa; /* Secondary text (zinc-400) */
+  --dark-text-meta: #71717a; /* Muted meta (zinc-500) */
+  --dark-border: #27272a; /* Default border (zinc-800) */
+  --dark-border-hover: #3f3f46; /* Hover / highlight border (zinc-700) */
+  --dark-destructive: #fb7185; /* rose-400 */
+  --dark-destructive-border: rgb(244 63 94 / 0.3); /* rose-500/30 */
 
   /* WinOS brand blue — matches Figma primary (~#1976D2 / Material Blue 700) */
   --primary: oklch(0.546 0.200 260);
@@ -150,18 +169,27 @@
 
 .dark {
   color-scheme: dark;
-  /* subtle variations derived from the four core colors — used for elevation & states */
+  /* subtle variations derived from the core colors — used for elevation & states */
+  /* --- previous derived tokens (commented out) ---
   --dark-surface-elevated: color-mix(in srgb, var(--dark-surface) 80%, white 20%);
-  --dark-primary-hover: color-mix(in srgb, var(--dark-primary) 78%, white 22%);
-  --dark-accent: color-mix(in srgb, var(--dark-primary) 65%, var(--dark-surface) 35%);
   --dark-muted-bg: color-mix(in srgb, var(--dark-bg) 65%, var(--dark-surface) 35%);
-  --dark-disabled-text: color-mix(in srgb, var(--dark-text-muted) 55%, var(--dark-bg) 45%);
+  --- end previous derived tokens --- */
+  --dark-surface-elevated: var(--dark-surface-hover);
+  --dark-primary-hover: color-mix(in srgb, var(--dark-primary) 78%, white 22%);
+  --dark-accent: var(--dark-surface-hover);
+  --dark-muted-bg: var(--dark-sidebar);
+  --dark-disabled-text: var(--dark-text-meta);
   --dark-link: var(--dark-primary-hover);
   --dark-link-hover: color-mix(in srgb, var(--dark-primary-hover) 75%, white 25%);
 
   /** semantic tokens mapped from the dark-mode palette */
+  /* --- previous (commented out — CTA used the mono black/white palette, differing from light mode) ---
   --primary: var(--dark-primary);
-  --primary-foreground: var(--dark-text-primary);
+  --primary-foreground: var(--dark-bg);
+  --- end previous --- */
+  /* CTA stays the same brand blue as light mode in both themes */
+  --primary: oklch(0.546 0.200 260);
+  --primary-foreground: oklch(0.985 0 0);
 
   --background: var(--dark-bg);
   --foreground: var(--dark-text-primary);
@@ -181,8 +209,12 @@
   --accent: var(--dark-accent);
   --accent-foreground: var(--dark-text-primary);
 
+  /* --- previous destructive (commented out) ---
   --destructive: #ff8080;
   --destructive-foreground: #000000;
+  --- end previous destructive --- */
+  --destructive: var(--dark-destructive);
+  --destructive-foreground: #ffffff;
 
   --success: #7dff95;
   --success-foreground: #000000;
@@ -256,7 +288,10 @@ body {
 }
 
 .dark body {
+  /* --- previous gradient background (commented out) ---
   background: linear-gradient(180deg, var(--dark-bg) 0%, var(--dark-surface) 60%, var(--dark-secondary) 100%);
+  --- end previous gradient --- */
+  background: var(--dark-bg);
   background-attachment: fixed;
 }
 
