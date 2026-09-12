@@ -4,6 +4,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { canUserActOnTask } from "../utils/task-authorization";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -100,11 +101,43 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
 
   const task = await d.projectTask.findFirst({
     where: { OR: [{ id: rawTaskId }, { code: rawTaskId }] },
-    select: { id: true, code: true, title: true, phaseId: true, projectId: true },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      phaseId: true,
+      projectId: true,
+      ownerId: true,
+      owner: true,
+      owners: { select: { userId: true, user: { select: { name: true, email: true } } } },
+      project: { select: { ownerId: true } },
+    },
   });
 
   if (!task) {
     return { success: false, error: "Task not found" };
+  }
+
+  const ownerIdsOnTask = task.owners.map((o: { userId: string }) => o.userId);
+  const ownerNamesOnTask =
+    task.owners.length > 0
+      ? task.owners.map((o: { user: { name: string | null; email: string } }) => o.user.name || o.user.email)
+      : task.owner && task.owner !== "Unassigned"
+      ? [task.owner]
+      : [];
+  const isAuthorized =
+    isPrivilegedViewer(sessionUser) ||
+    canUserActOnTask(
+      {
+        ownerId: task.ownerId,
+        ownerIds: ownerIdsOnTask,
+        ownerNames: ownerNamesOnTask,
+        projectOwnerId: task.project?.ownerId,
+      },
+      { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
+    );
+  if (!isAuthorized) {
+    return { success: false, error: "You are not authorized to start a timer for this task" };
   }
 
   const rawProjectId = params.projectId || params.project || task.projectId;

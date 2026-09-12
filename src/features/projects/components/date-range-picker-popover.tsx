@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AnchoredPopover } from "./popover-portal";
 
 interface DateRangePickerPopoverProps {
   startDate?: string; // ISO yyyy-mm-dd
   endDate?: string;
   onApply: (startDate: string, endDate: string) => void;
   onClose: () => void;
-  anchorClassName?: string;
+  isOpen: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  align?: "left" | "right";
 }
 
 const MONTH_NAMES = [
@@ -108,23 +111,16 @@ export function DateRangePickerPopover({
   endDate,
   onApply,
   onClose,
-  anchorClassName = "",
+  isOpen,
+  anchorRef,
+  align = "left",
 }: DateRangePickerPopoverProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const initialStart = parseISO(startDate);
   const initialEnd = parseISO(endDate);
 
   const [rangeStart, setRangeStart] = useState<Date | null>(initialStart);
   const [rangeEnd, setRangeEnd] = useState<Date | null>(initialEnd);
   const [viewDate, setViewDate] = useState<Date>(initialStart || new Date());
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -175,9 +171,12 @@ export function DateRangePickerPopover({
   ];
 
   return (
-    <div
-      ref={ref}
-      className={`absolute z-50 w-[520px] rounded-lg border bg-popover shadow-2xl p-4 text-xs animate-in fade-in zoom-in-95 duration-100 ${anchorClassName}`}
+    <AnchoredPopover
+      anchorRef={anchorRef}
+      isOpen={isOpen}
+      onClose={onClose}
+      className="w-[520px] p-4"
+      align={align}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -277,6 +276,6 @@ export function DateRangePickerPopover({
           </button>
         </div>
       </div>
-    </div>
+    </AnchoredPopover>
   );
 }

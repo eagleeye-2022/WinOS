@@ -4,6 +4,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { canUserActOnTask } from "../utils/task-authorization";
 import {
   Project,
   TaskItem,
@@ -406,8 +407,14 @@ function toProject(
     tags: p.tags,
     createdAt: p.createdAt.toISOString().split("T")[0],
     projectLead: assigneesForRole(p.roleAssignments, "PROJECT_LEAD"),
+    techLead: assigneesForRole(p.roleAssignments, "TECH_LEAD"),
     techAssignee: assigneesForRole(p.roleAssignments, "TECH_ASSIGNEE"),
     creativeAssignee: assigneesForRole(p.roleAssignments, "CREATIVE_ASSIGNEE"),
+    creativeUiuxLead: assigneesForRole(p.roleAssignments, "CREATIVE_UIUX_LEAD"),
+    creativeUiuxAssignee: assigneesForRole(p.roleAssignments, "CREATIVE_UIUX_ASSIGNEE"),
+    creativeGraphicLead: assigneesForRole(p.roleAssignments, "CREATIVE_GRAPHIC_LEAD"),
+    creativeGraphicAssignee: assigneesForRole(p.roleAssignments, "CREATIVE_GRAPHIC_ASSIGNEE"),
+    marketingLead: assigneesForRole(p.roleAssignments, "MARKETING_LEAD"),
     marketingSeo: assigneesForRole(p.roleAssignments, "MARKETING_SEO"),
     marketingContent: assigneesForRole(p.roleAssignments, "MARKETING_CONTENT"),
     marketingPm: assigneesForRole(p.roleAssignments, "MARKETING_PM"),
@@ -465,8 +472,14 @@ function toAssigneeRef(user: { id: string; name: string | null; email: string })
  *  a "use server" file may only export async functions, so this stays module-private. */
 const PROJECT_ROLES = [
   "PROJECT_LEAD",
+  "TECH_LEAD",
   "TECH_ASSIGNEE",
   "CREATIVE_ASSIGNEE",
+  "CREATIVE_UIUX_LEAD",
+  "CREATIVE_UIUX_ASSIGNEE",
+  "CREATIVE_GRAPHIC_LEAD",
+  "CREATIVE_GRAPHIC_ASSIGNEE",
+  "MARKETING_LEAD",
   "MARKETING_SEO",
   "MARKETING_CONTENT",
   "MARKETING_PM",
@@ -1124,10 +1137,11 @@ export async function updateProjectLinkAction(
   return { success: true };
 }
 
-const NOTES_FIELDS = ["techNotes", "creativeNotes", "marketingNotes"] as const;
+const NOTES_FIELDS = ["techNotes", "creativeNotes", "marketingNotes", "description"] as const;
 export type ProjectNotesField = (typeof NOTES_FIELDS)[number];
 
-/** Updates one of the three free-text notes columns (Tech / Creative / Marketing Notes). */
+/** Updates one of the free-text single-line fields (Tech / Creative / Marketing Notes, or the
+ *  "Project iNotes" cell which is backed by the project's `description` column). */
 export async function updateProjectNotesAction(
   projectId: string,
   field: ProjectNotesField,
@@ -1872,29 +1886,27 @@ export async function updateTaskAction(
   // the project the task belongs to (a project owner has full control over every task inside
   // their project, not just ones they personally own), or — for a task with no owner yet —
   // whoever authored/created it, so it isn't permanently locked before anyone claims ownership.
-  const actorNameLower = (session.user.name || "").trim().toLowerCase();
   const ownerIdsOnTask = task.owners.map((o) => o.userId);
-  const ownerNamesOnTask = (
+  const ownerNamesOnTask =
     task.owners.length > 0
       ? task.owners.map((o) => o.user.name || o.user.email)
       : task.owner && task.owner !== "Unassigned"
       ? [task.owner]
-      : []
-  ).map((o) => o.trim().toLowerCase());
+      : [];
   const hasOwnerRows = ownerNamesOnTask.length > 0 || ownerIdsOnTask.length > 0 || Boolean(task.ownerId);
-  const isTaskOwnerCheck = hasOwnerRows
-    ? ownerIdsOnTask.includes(session.user.id) ||
-      (Boolean(task.ownerId) && task.ownerId === session.user.id) ||
-      (Boolean(actorNameLower) &&
-        ownerNamesOnTask.some(
-          (n) => n === actorNameLower || (actorNameLower.length > 2 && n.includes(actorNameLower)) || (n.length > 2 && actorNameLower.includes(n))
-        ))
-    : false;
-  const isProjectOwner = Boolean(task.project?.ownerId) && task.project?.ownerId === session.user.id;
+  const isAuthorized = canUserActOnTask(
+    {
+      ownerId: task.ownerId,
+      ownerIds: ownerIdsOnTask,
+      ownerNames: ownerNamesOnTask,
+      projectOwnerId: task.project?.ownerId,
+    },
+    { id: session.user.id, name: session.user.name, email: session.user.email }
+  );
   const isUnownedAssignOrAuthor =
     !hasOwnerRows &&
     (updates.owners !== undefined || updates.owner !== undefined || task.authorId === session.user.id);
-  if (!isTaskOwnerCheck && !isProjectOwner && !isUnownedAssignOrAuthor) {
+  if (!isAuthorized && !isUnownedAssignOrAuthor) {
     return { success: false, error: "Only the task owner can edit or perform actions on this task." };
   }
 
@@ -2115,27 +2127,29 @@ export async function deleteTaskAction(taskId: string): Promise<boolean> {
 
   // Same permission rule as updateTaskAction: the task's own owner(s), the owner of the
   // project it belongs to, or — for a still-unowned task — whoever authored it.
-  const actorNameLower = (session.user.name || "").trim().toLowerCase();
   const ownerIdsOnTask = task.owners.map((o) => o.userId);
-  const ownerNamesOnTask = (
+  const ownerNamesOnTask =
     task.owners.length > 0
       ? task.owners.map((o) => o.user.name || o.user.email)
       : task.owner && task.owner !== "Unassigned"
       ? [task.owner]
-      : []
-  ).map((o) => o.trim().toLowerCase());
+      : [];
   const hasOwnerRows = task.owners.length > 0;
-  const isTaskOwnerCheck = hasOwnerRows
-    ? ownerIdsOnTask.includes(session.user.id)
-    : (Boolean(task.ownerId) && task.ownerId === session.user.id) ||
-      (Boolean(actorNameLower) && ownerNamesOnTask.includes(actorNameLower));
-  const isProjectOwner = Boolean(task.project?.ownerId) && task.project?.ownerId === session.user.id;
+  const isAuthorized = canUserActOnTask(
+    {
+      ownerId: task.ownerId,
+      ownerIds: ownerIdsOnTask,
+      ownerNames: ownerNamesOnTask,
+      projectOwnerId: task.project?.ownerId,
+    },
+    { id: session.user.id, name: session.user.name, email: session.user.email }
+  );
   const isUnownedAuthor =
     !hasOwnerRows &&
     !task.ownerId &&
     ownerNamesOnTask.length === 0 &&
     task.authorId === session.user.id;
-  if (!isTaskOwnerCheck && !isProjectOwner && !isUnownedAuthor) {
+  if (!isAuthorized && !isUnownedAuthor) {
     return false;
   }
 
@@ -3996,6 +4010,22 @@ export async function deleteProjectDocumentAction(docId: string, projectId: stri
   return true;
 }
 
+/** Human-readable labels for `ProjectRoleAssignment.role` values, used by the timeline drawer. */
+const ROLE_ASSIGNMENT_LABELS: Record<string, string> = {
+  PROJECT_LEAD: "Project Lead",
+  TECH_LEAD: "Tech Lead",
+  TECH_ASSIGNEE: "Tech Assignee",
+  CREATIVE_ASSIGNEE: "Creative Assignee",
+  CREATIVE_UIUX_LEAD: "Creative UI/UX Lead",
+  CREATIVE_UIUX_ASSIGNEE: "Creative UI/UX Assignee",
+  CREATIVE_GRAPHIC_LEAD: "Creative Graphic Lead",
+  CREATIVE_GRAPHIC_ASSIGNEE: "Creative Graphic Assignee",
+  MARKETING_LEAD: "Marketing Lead",
+  MARKETING_SEO: "Marketing SEO Assignee",
+  MARKETING_CONTENT: "Marketing Content Assignee",
+  MARKETING_PM: "Marketing PM",
+};
+
 export async function getProjectTimelineAction(projectId: string): Promise<ProjectTimelineEvent[]> {
   await requireAuth();
 
@@ -4006,6 +4036,7 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
         owner: { select: { name: true, email: true } },
         createdByUser: { select: { name: true, email: true } },
         phases: true,
+        roleAssignments: { include: { user: { select: { name: true, email: true } } } },
       },
     }),
     db.projectTask.findMany({
@@ -4057,6 +4088,22 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
       actorName: creatorName,
       actorAvatarColor: "bg-blue-600 text-white",
       timestamp: project.updatedAt.toISOString(),
+    });
+  }
+
+  // Lead / Assignee Role Assignment Events (Project Lead, Tech, Creative, Marketing, etc.)
+  for (const ra of project.roleAssignments) {
+    const roleLabel = ROLE_ASSIGNMENT_LABELS[ra.role] || ra.role;
+    const assigneeName = ra.user?.name || ra.user?.email || "a team member";
+    timelineEvents.push({
+      id: `role-${ra.id}`,
+      projectId: project.id,
+      type: "USER_ASSIGNED",
+      title: `${roleLabel} Assigned`,
+      description: `${assigneeName} assigned as ${roleLabel}.`,
+      actorName: creatorName,
+      actorAvatarColor: "bg-teal-600 text-white",
+      timestamp: ra.createdAt.toISOString(),
     });
   }
 

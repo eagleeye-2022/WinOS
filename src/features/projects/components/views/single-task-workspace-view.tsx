@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { canUserActOnTask } from "../../utils/task-authorization";
 import {
   ArrowLeft,
   X,
@@ -89,6 +90,7 @@ import { LinkifyEditableTextarea } from "../linkify-editable-textarea";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
+import { ProjectStandupRollup } from "../project-standup-rollup";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -283,36 +285,21 @@ export function SingleTaskWorkspaceView({
 
   // Only the task's own owner may start the live timer on it or edit it — everyone else can
   // still view read-only data (subject to the admin/team-member visibility scoping server-side).
-  // Matches by ownerId first (the real rule); falls back to an exact name match only for legacy
-  // rows that predate ownerId being reliably set on write.
+  // Shared with the server-side check in project-actions.ts and the DSM-side timer entry points
+  // via canUserActOnTask.
   const taskOwnerNames =
     activeTask.owners && activeTask.owners.length > 0
       ? activeTask.owners
       : activeTask.owner && activeTask.owner !== "Unassigned"
       ? activeTask.owner.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
-  // `ownerId` only ever points at the single *primary* owner, so it's checked alongside — never
-  // instead of — the `owners` name list, otherwise a co-owner who isn't the primary owner would
-  // wrongly be denied edit/timer access on a multi-owner task.
   const isTaskOwner = Boolean(
     currentUser &&
-      ((currentUser.role === "ADMIN") ||
-        (activeTask.ownerIds && activeTask.ownerIds.includes(currentUser.id)) ||
-        (activeTask.ownerId && activeTask.ownerId.toLowerCase() === currentUser.id.toLowerCase()) ||
-        taskOwnerNames.some((raw) => {
-          const o = raw.trim().toLowerCase();
-          const uName = currentUser.name.trim().toLowerCase();
-          const uEmail = currentUser.email.trim().toLowerCase();
-          const uId = currentUser.id.toLowerCase();
-          if (!o || o === "unassigned") return false;
-          return (
-            o === uId ||
-            o === uName ||
-            o === uEmail ||
-            (uName.length > 2 && o.includes(uName)) ||
-            (o.length > 2 && uName.includes(o))
-          );
-        }))
+      (currentUser.role === "ADMIN" ||
+        canUserActOnTask(
+          { ownerId: activeTask.ownerId, ownerIds: activeTask.ownerIds, ownerNames: taskOwnerNames },
+          currentUser
+        ))
   );
   // The owner of the project has full control over every task inside it, not just tasks they
   // personally own — mirrors the same rule enforced server-side in updateTaskAction.
@@ -436,6 +423,7 @@ export function SingleTaskWorkspaceView({
     | "ACTIVITY"
     | "DRIVE"
     | "CHECKLIST"
+    | "STANDUP_ACTIVITY"
   >("COMMENTS");
 
   const [commentText, setCommentText] = useState("");
@@ -1553,12 +1541,8 @@ export function SingleTaskWorkspaceView({
                 { key: "SUBTASKS", label: "Subtasks" },
                 { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                 { key: "DOCUMENTS", label: "Documents" },
-                // { key: "DEPENDENCY", label: "Dependency" },
                 { key: "STATUS_TIMELINE", label: "Status Timeline" },
-                // { key: "BUGS", label: "Bugs" },
-                // { key: "ACTIVITY", label: "Activity Stream" },
-                // { key: "DRIVE", label: "Google Drive" },
-                // { key: "CHECKLIST", label: "Checklist" },
+                { key: "STANDUP_ACTIVITY", label: "Standup Activity" },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -2236,6 +2220,12 @@ export function SingleTaskWorkspaceView({
 
               {activeTab === "STATUS_TIMELINE" && (
                 <TaskStatusTimelineTab taskId={activeTask.id} />
+              )}
+
+              {activeTab === "STANDUP_ACTIVITY" && projectId && (
+                <div className="p-4">
+                  <ProjectStandupRollup projectId={projectId} />
+                </div>
               )}
 
               {activeTab === "CHECKLIST" && (
