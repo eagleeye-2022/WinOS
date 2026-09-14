@@ -56,7 +56,7 @@ export function AddSubtaskDrawer({
       ownerName: undefined, // Owner is dynamically inherited from parent task
       startDate: formatDateDisplay(startDate),
       dueDate: formatDateDisplay(dueDate),
-      completed: status === "Closed",
+      completed: status === "Closed" || status === "Approved",
     };
 
     onAddSubtask(newSubtask);
@@ -129,6 +129,8 @@ export function AddSubtaskDrawer({
               >
                 <option value="Open">Open</option>
                 <option value="In Progress">In Progress</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Approved">Approved</option>
                 <option value="Closed">Closed</option>
               </select>
             </div>

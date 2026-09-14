@@ -126,7 +126,9 @@ export function DateRangePickerPopover({
   const currentYear = now.getFullYear();
   const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
 
-  const applyPreset = (preset: "THIS_MONTH" | "NEXT_MONTH" | "QUARTER" | "FULL_YEAR") => {
+  type PresetKey = "THIS_MONTH" | "NEXT_MONTH" | "Q1" | "Q2" | "Q3" | "Q4" | "FULL_YEAR";
+
+  const applyPreset = (preset: PresetKey) => {
     let s: Date, e: Date;
     if (preset === "THIS_MONTH") {
       s = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -134,10 +136,18 @@ export function DateRangePickerPopover({
     } else if (preset === "NEXT_MONTH") {
       s = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       e = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-    } else if (preset === "QUARTER") {
-      const qStartMonth = (currentQuarter - 1) * 3;
-      s = new Date(currentYear, qStartMonth, 1);
-      e = new Date(currentYear, qStartMonth + 3, 0);
+    } else if (preset === "Q1") {
+      s = new Date(currentYear, 0, 1);
+      e = new Date(currentYear, 3, 0);
+    } else if (preset === "Q2") {
+      s = new Date(currentYear, 3, 1);
+      e = new Date(currentYear, 6, 0);
+    } else if (preset === "Q3") {
+      s = new Date(currentYear, 6, 1);
+      e = new Date(currentYear, 9, 0);
+    } else if (preset === "Q4") {
+      s = new Date(currentYear, 9, 1);
+      e = new Date(currentYear, 12, 0);
     } else {
       s = new Date(currentYear, 0, 1);
       e = new Date(currentYear, 11, 31);
@@ -163,10 +173,13 @@ export function DateRangePickerPopover({
 
   const secondMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
 
-  const presets: { key: "THIS_MONTH" | "NEXT_MONTH" | "QUARTER" | "FULL_YEAR"; label: string }[] = [
+  const presets: { key: PresetKey; label: string }[] = [
     { key: "THIS_MONTH", label: "This Month" },
     { key: "NEXT_MONTH", label: "Next Month" },
-    { key: "QUARTER", label: `Q${currentQuarter} ${currentYear}` },
+    { key: "Q1", label: `Q1 ${currentYear}` },
+    { key: "Q2", label: `Q2 ${currentYear}` },
+    { key: "Q3", label: `Q3 ${currentYear}` },
+    { key: "Q4", label: `Q4 ${currentYear}` },
     { key: "FULL_YEAR", label: "Full Year" },
   ];
 

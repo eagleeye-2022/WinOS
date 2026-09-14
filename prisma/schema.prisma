@@ -93,6 +93,7 @@ model User {
   projectTimeLogs       ProjectTimeLog[]
   activeTimer           ActiveTimer?
   sentClientInvitations ClientInvitation[]     @relation("ClientInvitationsSent")
+  projectActivities     ProjectActivity[]      @relation("ProjectActivityUser")
 }
 
 model Account {
@@ -889,6 +890,26 @@ model Project {
   members                  ProjectMember[]
   activeTimers             ActiveTimer[]
   clientInvitationProjects ClientInvitationProject[]
+  activities               ProjectActivity[]
+}
+
+model ProjectActivity {
+  id              String   @id @default(cuid())
+  projectId       String
+  userId          String?
+  userName        String
+  userAvatarColor String?
+  action          String
+  fieldName       String?
+  oldValue        String?
+  newValue        String?
+  createdAt       DateTime @default(now())
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User?    @relation("ProjectActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 model ProjectMember {

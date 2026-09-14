@@ -58,6 +58,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
   const isTaskOwner = useCallback(
     (task: TaskItem): boolean => {
       if (!currentUser) return false;
+      if (currentUser.role === "ADMIN") return true;
 
       const uId = currentUser.id.toLowerCase();
       const uName = currentUser.name.trim().toLowerCase();
@@ -362,11 +363,13 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
           <div
             className={cn(
               "relative inline-flex items-center rounded-md text-xs font-bold transition-colors",
-              isClosed
-                ? "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400"
-                : isInProgress
+              task.status === "Closed" || task.status === "Approved"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+                : task.status === "In Progress"
                 ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
-                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+                : task.status === "Under Review"
+                ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400"
+                : "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400"
             )}
           >
             <select
@@ -382,6 +385,8 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
             >
               <option value="Open">Open</option>
               <option value="In Progress">In Progress</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Approved">Approved</option>
               <option value="Closed">Closed</option>
             </select>
             <ChevronDown

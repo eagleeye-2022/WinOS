@@ -130,10 +130,10 @@ export function BulkProjectActionsBar({
         </button>
       </div>
 
-      <div className="h-4 w-px bg-border" />
+      {/* <div className="h-4 w-px bg-border" /> */}
 
       {/* Bulk date shift */}
-      <div className="flex items-center gap-1.5">
+      {/* <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Shift dates by</span>
         <input
           type="number"
@@ -151,7 +151,7 @@ export function BulkProjectActionsBar({
         >
           {applyingShift ? "Applying..." : "Apply"}
         </button>
-      </div>
+      </div> */}
     </div>
   );
 }

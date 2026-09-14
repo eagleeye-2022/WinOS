@@ -50,6 +50,7 @@ import { AdminSettingsView } from "./views/admin-settings-view";
 import { AddProjectDrawer } from "./modals/add-project-drawer";
 import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-modal";
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
+import { toast } from "@/components/shared/toast";
 
 export function ProjectsWorkspace() {
   const pathname = usePathname();
@@ -139,9 +140,11 @@ export function ProjectsWorkspace() {
 
       if (createdProject) {
         setProjects((prev) => [createdProject, ...prev]);
+        toast.success(`Project "${data.name}" created successfully`);
       }
     } catch (err) {
       console.error("Failed to create project:", err);
+      toast.error("Failed to create project");
     } finally {
       setIsLoading(false);
     }
@@ -150,18 +153,24 @@ export function ProjectsWorkspace() {
   const handleDeleteProject = async (id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
     await deleteProjectAction(id);
+    toast.success("Project deleted");
   };
 
   const handleInviteUser = async (data: InviteFormSubmission) => {
-    const createdUser = await inviteUserAction(
-      data.email,
-      data.name,
-      data.role,
-      "Development",
-      undefined,
-      data.projectIds
-    );
-    setUsers((prev) => [createdUser, ...prev]);
+    try {
+      const createdUser = await inviteUserAction(
+        data.email,
+        data.name,
+        data.role,
+        "Development",
+        undefined,
+        data.projectIds
+      );
+      setUsers((prev) => [createdUser, ...prev]);
+      toast.success(`Invitation sent to ${data.email}`);
+    } catch {
+      toast.error("Failed to send invitation");
+    }
   };
 
   const handleUpdateUserRole = async (
@@ -169,12 +178,18 @@ export function ProjectsWorkspace() {
     role: MemberRoleTier,
     profileRole: ProfileRoleValue
   ) => {
-    const updatedUser = await updateUserRoleAction(userId, role, profileRole);
-    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    try {
+      const updatedUser = await updateUserRoleAction(userId, role, profileRole);
+      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+      toast.success("User role updated");
+    } catch {
+      toast.error("Failed to update user role");
+    }
   };
 
   const handleAddTask = (newTask: TaskItem) => {
     setTasks((prev) => [newTask, ...prev]);
+    toast.success("Task created");
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
@@ -187,7 +202,9 @@ export function ProjectsWorkspace() {
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      alert(result.error || "You do not have permission to edit this task.");
+      toast.error(result.error || "You do not have permission to edit this task.");
+    } else {
+      toast.success("Task updated");
     }
   };
 

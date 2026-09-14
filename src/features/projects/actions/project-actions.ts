@@ -18,12 +18,14 @@ import {
   UserDepartment,
   BillingType,
   TaskStatus,
+  ProjectStatus,
   WorkspaceRole,
   MemberRoleTier,
   ProfileRoleValue,
   ProjectDocument,
   ProjectTimelineEvent,
   ProjectTemplate,
+  ProjectPhase,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -31,6 +33,7 @@ import {
   scaffoldTaskListsFromTemplate,
   scaffoldTasksFromTemplate,
 } from "../data/sop-templates";
+import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
 
 /**
  * Display label for each Prisma `ProfileRole` value — backs the "Portal Profile" column.
@@ -379,13 +382,17 @@ function toProject(
     group: p.group || undefined,
     businessHours: p.businessHours || undefined,
     taskLayout: p.taskLayout || undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    priority: ((p as any).priority as any) || undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    billingType: ((p as any).billingType as any) || undefined,
     owner: {
       id: p.owner?.id || p.ownerId || "u-default",
       name: resolvedOwnerName,
       initials: initials || "UN",
       avatarColor: p.ownerAvatarColor || "bg-primary text-primary-foreground",
     },
-    status: p.status as "ACTIVE" | "COMPLETED" | "ARCHIVED",
+    status: (p.status as ProjectStatus) || "ACTIVE",
     totalHours: p.totalHours || "00:00 h",
     billableHours: p.billableHours || "00:00 h",
     nonBillableHours: p.nonBillableHours || "00:00 h",
@@ -853,6 +860,16 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
     });
   }
 
+  await logProjectActivity({
+    projectId: newProject.id,
+    userId: session.user.id,
+    userName: session.user.name,
+    action: "created Project",
+    fieldName: "project",
+    oldValue: null,
+    newValue: newProject.name,
+  });
+
   revalidatePath("/projects");
 
   return {
@@ -932,12 +949,98 @@ async function requireManager(userId: string) {
   }
 }
 
+/** Human-readable labels for `ProjectRoleAssignment.role` values. */
+const ROLE_ASSIGNMENT_LABELS: Record<string, string> = {
+  PROJECT_LEAD: "Project Lead",
+  TECH_LEAD: "Tech Lead",
+  TECH_ASSIGNEE: "Tech Assignee",
+  CREATIVE_ASSIGNEE: "Creative Assignee",
+  CREATIVE_UIUX_LEAD: "UI/UX Lead",
+  CREATIVE_UIUX_ASSIGNEE: "UI/UX Assignee",
+  CREATIVE_GRAPHIC_LEAD: "Graphic Lead",
+  CREATIVE_GRAPHIC_ASSIGNEE: "Graphic Assignee",
+  MARKETING_LEAD: "Marketing Lead",
+  MARKETING_SEO: "SEO Assignee",
+  MARKETING_CONTENT: "Content Assignee",
+  MARKETING_PM: "Marketing PM",
+};
+
+/** Logs a change activity event to the database for audit timeline tracking. */
+async function logProjectActivity({
+  projectId,
+  userId,
+  userName,
+  userAvatarColor,
+  action,
+  fieldName,
+  oldValue,
+  newValue,
+}: {
+  projectId: string;
+  userId?: string;
+  userName?: string;
+  userAvatarColor?: string;
+  action: string;
+  fieldName?: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+}) {
+  try {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+    if (!project) return;
+
+    const finalUserId = userId;
+    let finalUserName = userName;
+    if (!finalUserName && finalUserId) {
+      const u = await db.user.findUnique({ where: { id: finalUserId }, select: { name: true, email: true } });
+      finalUserName = u?.name || u?.email || "Team Member";
+    }
+    if (!finalUserName) finalUserName = "Team Member";
+
+    const cleanOld =
+      oldValue !== undefined && oldValue !== null
+        ? String(oldValue).replace(/\s+/g, " ").trim()
+        : null;
+    const cleanNew =
+      newValue !== undefined && newValue !== null
+        ? String(newValue).replace(/\s+/g, " ").trim()
+        : null;
+
+    if (cleanOld !== null && cleanNew !== null && cleanOld === cleanNew) {
+      return;
+    }
+
+    // Limit value length to 300 characters to prevent huge diff text bloating the timeline and DB
+    const safeOld = cleanOld ? (cleanOld.length > 300 ? cleanOld.slice(0, 297) + "..." : cleanOld) : null;
+    const safeNew = cleanNew ? (cleanNew.length > 300 ? cleanNew.slice(0, 297) + "..." : cleanNew) : null;
+
+    await db.projectActivity.create({
+      data: {
+        projectId: project.id,
+        userId: finalUserId || null,
+        userName: finalUserName,
+        userAvatarColor: userAvatarColor || "bg-primary text-primary-foreground",
+        action,
+        fieldName,
+        oldValue: safeOld,
+        newValue: safeNew,
+      },
+    });
+  } catch (err) {
+    console.error("[logProjectActivity] failed to record project activity:", err);
+  }
+}
+
 /** Core of the role-assignee sync, shared by the single-project and bulk actions below —
  *  looks up the project once, validates the user ids, then diffs against existing rows. */
 async function setProjectRoleAssignees(
   projectId: string,
   role: ProjectAssigneeField,
-  userIds: string[]
+  userIds: string[],
+  actor?: { id: string; name?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
   const project = await db.project.findFirst({
     where: { OR: [{ id: projectId }, { code: projectId }] },
@@ -946,8 +1049,9 @@ async function setProjectRoleAssignees(
   if (!project) return { success: false, error: "Project not found." };
 
   const uniqueIds = Array.from(new Set(userIds));
+  let validUsers: { id: string; name: string | null; email: string }[] = [];
   if (uniqueIds.length > 0) {
-    const validUsers = await db.user.findMany({ where: { id: { in: uniqueIds } }, select: { id: true } });
+    validUsers = await db.user.findMany({ where: { id: { in: uniqueIds } }, select: { id: true, name: true, email: true } });
     if (validUsers.length !== uniqueIds.length) {
       return { success: false, error: "One or more selected users could not be found." };
     }
@@ -955,7 +1059,7 @@ async function setProjectRoleAssignees(
 
   const existing = await db.projectRoleAssignment.findMany({
     where: { projectId: project.id, role },
-    select: { userId: true },
+    include: { user: { select: { id: true, name: true, email: true } } },
   });
   const existingIds = new Set(existing.map((r) => r.userId));
   const toAdd = uniqueIds.filter((id) => !existingIds.has(id));
@@ -970,6 +1074,23 @@ async function setProjectRoleAssignees(
     await db.projectRoleAssignment.createMany({
       data: toAdd.map((userId) => ({ projectId: project.id, role, userId })),
       skipDuplicates: true,
+    });
+  }
+
+  // If there was any change, record it in ProjectActivity
+  if (toAdd.length > 0 || toRemove.length > 0) {
+    const oldNames = existing.map((r) => r.user?.name || r.user?.email || "User").join(", ") || "Unassigned";
+    const newNames = validUsers.map((u) => u.name || u.email || "User").join(", ") || "Unassigned";
+    const roleLabel = ROLE_ASSIGNMENT_LABELS[role] || role;
+
+    await logProjectActivity({
+      projectId: project.id,
+      userId: actor?.id,
+      userName: actor?.name || undefined,
+      action: `changed ${roleLabel}`,
+      fieldName: role,
+      oldValue: oldNames,
+      newValue: newNames,
     });
   }
 
@@ -990,7 +1111,10 @@ export async function updateProjectRoleAssigneesAction(
     return { success: false, error: (err as Error).message };
   }
 
-  const result = await setProjectRoleAssignees(projectId, role, userIds);
+  const result = await setProjectRoleAssignees(projectId, role, userIds, {
+    id: session.user.id,
+    name: session.user.name,
+  });
   if (result.success) revalidatePath("/projects");
   return result;
 }
@@ -1014,7 +1138,10 @@ export async function bulkUpdateProjectRoleAssigneesAction(
 
   const failedIds: string[] = [];
   for (const projectId of projectIds) {
-    const result = await setProjectRoleAssignees(projectId, role, userIds);
+    const result = await setProjectRoleAssignees(projectId, role, userIds, {
+      id: session.user.id,
+      name: session.user.name,
+    });
     if (!result.success) failedIds.push(projectId);
   }
 
@@ -1027,17 +1154,82 @@ export async function bulkUpdateProjectRoleAssigneesAction(
   };
 }
 
+/** Updates a project's overall status (Active / Completed / Inactive / Paused / Archived),
+ *  shown as the Status column on the projects table. Manager-only, same gate as the role
+ *  assignee fields above. */
+export async function updateProjectStatusAction(
+  projectId: string,
+  status: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await requireAuth();
+  try {
+    await requireManager(session.user.id);
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+
+  const project = await db.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true, status: true },
+  });
+  if (!project) return { success: false, error: "Project not found." };
+
+  const oldStatus = project.status;
+  await db.project.update({
+    where: { id: project.id },
+    data: { status },
+  });
+
+  if (oldStatus !== status) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Status",
+      fieldName: "status",
+      oldValue: oldStatus,
+      newValue: status,
+    });
+  }
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return { success: true };
+}
+
 /** Core of the calendar-range update, shared by the single-project and bulk shift actions. */
 async function setProjectCalendar(
   projectId: string,
   startDate: string,
-  deadline: string
+  deadline: string,
+  actor?: { id: string; name?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await db.project.updateMany({
+  const project = await db.project.findFirst({
     where: { OR: [{ id: projectId }, { code: projectId }] },
+    select: { id: true, startDate: true, deadline: true },
+  });
+  if (!project) return { success: false, error: "Project not found." };
+
+  const oldRange = `${project.startDate || "--"} → ${project.deadline || "--"}`;
+  const newRange = `${startDate || "--"} → ${deadline || "--"}`;
+
+  await db.project.update({
+    where: { id: project.id },
     data: { startDate, deadline },
   });
-  if (result.count === 0) return { success: false, error: "Project not found." };
+
+  if (oldRange !== newRange) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: actor?.id,
+      userName: actor?.name || undefined,
+      action: "changed Project Calendar",
+      fieldName: "calendar",
+      oldValue: oldRange,
+      newValue: newRange,
+    });
+  }
+
   return { success: true };
 }
 
@@ -1054,7 +1246,10 @@ export async function updateProjectCalendarAction(
     return { success: false, error: (err as Error).message };
   }
 
-  const result = await setProjectCalendar(projectId, startDate, deadline);
+  const result = await setProjectCalendar(projectId, startDate, deadline, {
+    id: session.user.id,
+    name: session.user.name,
+  });
   if (result.success) revalidatePath("/projects");
   return result;
 }
@@ -1096,7 +1291,10 @@ export async function bulkShiftProjectDatesAction(
     }
     const newStart = new Date(start.getTime() + shiftMs).toISOString().split("T")[0];
     const newEnd = new Date(end.getTime() + shiftMs).toISOString().split("T")[0];
-    const result = await setProjectCalendar(project.id, newStart, newEnd);
+    const result = await setProjectCalendar(project.id, newStart, newEnd, {
+      id: session.user.id,
+      name: session.user.name,
+    });
     if (!result.success) failedIds.push(projectId);
   }
 
@@ -1111,6 +1309,11 @@ export async function bulkShiftProjectDatesAction(
 
 const LINK_FIELDS = ["driveLink", "webLink", "designLink"] as const;
 export type ProjectLinkField = (typeof LINK_FIELDS)[number];
+const LINK_LABELS: Record<ProjectLinkField, string> = {
+  driveLink: "Drive Link",
+  webLink: "Web Link",
+  designLink: "Design Link",
+};
 
 /** Updates one of the three "Asset Link" fields (Drive / Web / Design). */
 export async function updateProjectLinkAction(
@@ -1128,10 +1331,30 @@ export async function updateProjectLinkAction(
     return { success: false, error: "Invalid link field." };
   }
 
-  await db.project.updateMany({
+  const project = await db.project.findFirst({
     where: { OR: [{ id: projectId }, { code: projectId }] },
-    data: { [field]: url || null },
   });
+  if (!project) return { success: false, error: "Project not found." };
+
+  const oldVal = (project as any)[field] ? String((project as any)[field]) : "None";
+  const newVal = url ? String(url) : "None";
+
+  await db.project.update({
+    where: { id: project.id },
+    data: { [field]: url || null } as any,
+  });
+
+  if (oldVal !== newVal) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: `changed ${LINK_LABELS[field] || "Asset Link"}`,
+      fieldName: field,
+      oldValue: oldVal,
+      newValue: newVal,
+    });
+  }
 
   revalidatePath("/projects");
   return { success: true };
@@ -1139,6 +1362,12 @@ export async function updateProjectLinkAction(
 
 const NOTES_FIELDS = ["techNotes", "creativeNotes", "marketingNotes", "description"] as const;
 export type ProjectNotesField = (typeof NOTES_FIELDS)[number];
+const NOTES_LABELS: Record<ProjectNotesField, string> = {
+  techNotes: "Tech Notes",
+  creativeNotes: "Creative Notes",
+  marketingNotes: "Marketing Notes",
+  description: "Project iNotes",
+};
 
 /** Updates one of the free-text single-line fields (Tech / Creative / Marketing Notes, or the
  *  "Project iNotes" cell which is backed by the project's `description` column). */
@@ -1157,10 +1386,30 @@ export async function updateProjectNotesAction(
     return { success: false, error: "Invalid notes field." };
   }
 
-  await db.project.updateMany({
+  const project = await db.project.findFirst({
     where: { OR: [{ id: projectId }, { code: projectId }] },
-    data: { [field]: content || null },
   });
+  if (!project) return { success: false, error: "Project not found." };
+
+  const oldVal = (project as any)[field] ? String((project as any)[field]) : "None";
+  const newVal = content ? String(content) : "None";
+
+  await db.project.update({
+    where: { id: project.id },
+    data: { [field]: content || null } as any,
+  });
+
+  if (oldVal !== newVal) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: `changed ${NOTES_LABELS[field] || "Notes"}`,
+      fieldName: field,
+      oldValue: oldVal,
+      newValue: newVal,
+    });
+  }
 
   revalidatePath("/projects");
   return { success: true };
@@ -1894,15 +2143,17 @@ export async function updateTaskAction(
       ? [task.owner]
       : [];
   const hasOwnerRows = ownerNamesOnTask.length > 0 || ownerIdsOnTask.length > 0 || Boolean(task.ownerId);
-  const isAuthorized = canUserActOnTask(
-    {
-      ownerId: task.ownerId,
-      ownerIds: ownerIdsOnTask,
-      ownerNames: ownerNamesOnTask,
-      projectOwnerId: task.project?.ownerId,
-    },
-    { id: session.user.id, name: session.user.name, email: session.user.email }
-  );
+  const isAuthorized =
+    (await isPrivilegedViewer(session.user.id)) ||
+    canUserActOnTask(
+      {
+        ownerId: task.ownerId,
+        ownerIds: ownerIdsOnTask,
+        ownerNames: ownerNamesOnTask,
+        projectOwnerId: task.project?.ownerId,
+      },
+      { id: session.user.id, name: session.user.name, email: session.user.email }
+    );
   const isUnownedAssignOrAuthor =
     !hasOwnerRows &&
     (updates.owners !== undefined || updates.owner !== undefined || task.authorId === session.user.id);
@@ -2135,15 +2386,17 @@ export async function deleteTaskAction(taskId: string): Promise<boolean> {
       ? [task.owner]
       : [];
   const hasOwnerRows = task.owners.length > 0;
-  const isAuthorized = canUserActOnTask(
-    {
-      ownerId: task.ownerId,
-      ownerIds: ownerIdsOnTask,
-      ownerNames: ownerNamesOnTask,
-      projectOwnerId: task.project?.ownerId,
-    },
-    { id: session.user.id, name: session.user.name, email: session.user.email }
-  );
+  const isAuthorized =
+    (await isPrivilegedViewer(session.user.id)) ||
+    canUserActOnTask(
+      {
+        ownerId: task.ownerId,
+        ownerIds: ownerIdsOnTask,
+        ownerNames: ownerNamesOnTask,
+        projectOwnerId: task.project?.ownerId,
+      },
+      { id: session.user.id, name: session.user.name, email: session.user.email }
+    );
   const isUnownedAuthor =
     !hasOwnerRows &&
     !task.ownerId &&
@@ -4010,26 +4263,10 @@ export async function deleteProjectDocumentAction(docId: string, projectId: stri
   return true;
 }
 
-/** Human-readable labels for `ProjectRoleAssignment.role` values, used by the timeline drawer. */
-const ROLE_ASSIGNMENT_LABELS: Record<string, string> = {
-  PROJECT_LEAD: "Project Lead",
-  TECH_LEAD: "Tech Lead",
-  TECH_ASSIGNEE: "Tech Assignee",
-  CREATIVE_ASSIGNEE: "Creative Assignee",
-  CREATIVE_UIUX_LEAD: "Creative UI/UX Lead",
-  CREATIVE_UIUX_ASSIGNEE: "Creative UI/UX Assignee",
-  CREATIVE_GRAPHIC_LEAD: "Creative Graphic Lead",
-  CREATIVE_GRAPHIC_ASSIGNEE: "Creative Graphic Assignee",
-  MARKETING_LEAD: "Marketing Lead",
-  MARKETING_SEO: "Marketing SEO Assignee",
-  MARKETING_CONTENT: "Marketing Content Assignee",
-  MARKETING_PM: "Marketing PM",
-};
-
 export async function getProjectTimelineAction(projectId: string): Promise<ProjectTimelineEvent[]> {
   await requireAuth();
 
-  const [project, tasks, docs] = await Promise.all([
+  const [project, activities, tasks, docs] = await Promise.all([
     db.project.findFirst({
       where: { OR: [{ id: projectId }, { code: projectId }] },
       include: {
@@ -4038,6 +4275,16 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
         phases: true,
         roleAssignments: { include: { user: { select: { name: true, email: true } } } },
       },
+    }),
+    db.projectActivity.findMany({
+      where: {
+        OR: [
+          { projectId },
+          { project: { code: projectId } },
+          { project: { id: projectId } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
     }),
     db.projectTask.findMany({
       where: { OR: [{ projectId }, { project: { code: projectId } }] },
@@ -4065,49 +4312,64 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
     project.ownerName ||
     "System Administrator";
 
-  // Project Creation Event
-  timelineEvents.push({
-    id: `creation-${project.id}`,
-    projectId: project.id,
-    type: "CREATED",
-    title: "Project Created",
-    description: `Project "${project.name}" (${project.code || project.id}) was created with owner "${project.ownerName || creatorName}".`,
-    actorName: creatorName,
-    actorAvatarColor: "bg-emerald-600 text-white",
-    timestamp: project.createdAt.toISOString(),
-  });
+  // 1. Explicit ProjectActivity records (from database changes)
+  for (const act of activities) {
+    let eventType: ProjectTimelineEvent["type"] = "UPDATED";
+    if (act.fieldName === "status") {
+      eventType = "STATUS_CHANGE";
+    } else if (
+      act.fieldName?.includes("Lead") ||
+      act.fieldName?.includes("Assignee") ||
+      act.fieldName?.includes("LEAD") ||
+      act.fieldName?.includes("ASSIGNEE") ||
+      act.fieldName === "PROJECT_LEAD" ||
+      act.fieldName === "owner"
+    ) {
+      eventType = "USER_ASSIGNED";
+    } else if (act.action.includes("created")) {
+      eventType = "CREATED";
+    }
 
-  // Project Update Event
-  if (project.updatedAt > project.createdAt) {
     timelineEvents.push({
-      id: `updated-${project.id}`,
+      id: `act-${act.id}`,
       projectId: project.id,
-      type: "UPDATED",
-      title: "Project Details Updated",
-      description: `Project status is currently "${project.status}" and progress is ${project.progressPercent}%.`,
-      actorName: creatorName,
-      actorAvatarColor: "bg-blue-600 text-white",
-      timestamp: project.updatedAt.toISOString(),
+      type: eventType,
+      title: `${act.userName} ${act.action}`,
+      description:
+        act.oldValue && act.newValue
+          ? `${act.oldValue} → ${act.newValue}`
+          : act.newValue
+          ? `Set to "${act.newValue}"`
+          : act.action,
+      actorName: act.userName,
+      actorAvatarColor: act.userAvatarColor || "bg-primary text-primary-foreground",
+      timestamp: act.createdAt.toISOString(),
+      oldValue: act.oldValue || undefined,
+      newValue: act.newValue || undefined,
+      actionText: act.action,
+      fieldName: act.fieldName || undefined,
     });
   }
 
-  // Lead / Assignee Role Assignment Events (Project Lead, Tech, Creative, Marketing, etc.)
-  for (const ra of project.roleAssignments) {
-    const roleLabel = ROLE_ASSIGNMENT_LABELS[ra.role] || ra.role;
-    const assigneeName = ra.user?.name || ra.user?.email || "a team member";
+  // 2. Fallback Project Creation Event (if no creation activity log exists yet)
+  const hasCreationActivity = activities.some((a) => a.action.includes("created"));
+  if (!hasCreationActivity) {
     timelineEvents.push({
-      id: `role-${ra.id}`,
+      id: `creation-${project.id}`,
       projectId: project.id,
-      type: "USER_ASSIGNED",
-      title: `${roleLabel} Assigned`,
-      description: `${assigneeName} assigned as ${roleLabel}.`,
+      type: "CREATED",
+      title: `${creatorName} created Project`,
+      description: `Project "${project.name}" (${project.code || project.id}) was created.`,
       actorName: creatorName,
-      actorAvatarColor: "bg-teal-600 text-white",
-      timestamp: ra.createdAt.toISOString(),
+      actorAvatarColor: "bg-emerald-600 text-white",
+      timestamp: project.createdAt.toISOString(),
+      oldValue: undefined,
+      newValue: project.name,
+      actionText: "created Project",
     });
   }
 
-  // Phase Completion Events
+  // 3. Phase Completion Events
   for (const ph of project.phases) {
     if (ph.isCompleted) {
       timelineEvents.push({
@@ -4117,13 +4379,13 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
         title: `Phase ${ph.code} Completed`,
         description: `Phase "${ph.name}" was marked as completed.`,
         actorName: creatorName,
-        actorAvatarColor: "bg-[var(--theme-info)] text-white",
+        actorAvatarColor: "bg-teal-600 text-white",
         timestamp: ph.createdAt.toISOString(),
       });
     }
   }
 
-  // Task Creation and Activity Events
+  // 4. Task Creation and Activity Events
   for (const task of tasks) {
     timelineEvents.push({
       id: `task-${task.id}`,
@@ -4135,28 +4397,15 @@ export async function getProjectTimelineAction(projectId: string): Promise<Proje
       actorAvatarColor: "bg-indigo-600 text-white",
       timestamp: task.createdAt.toISOString(),
     });
-
-    for (const act of task.activities) {
-      timelineEvents.push({
-        id: `act-${act.id}`,
-        projectId: project.id,
-        type: "UPDATED",
-        title: `Task Activity (${task.code})`,
-        description: act.actionText,
-        actorName: act.userName,
-        actorAvatarColor: "bg-purple-600 text-white",
-        timestamp: act.createdAt.toISOString(),
-      });
-    }
   }
 
-  // Document Upload Events
+  // 5. Document Upload Events
   for (const d of docs) {
     timelineEvents.push({
       id: `doc-${d.id}`,
       projectId: project.id,
       type: "DOCUMENT_UPLOADED",
-      title: "Document Uploaded",
+      title: `${d.user?.name || "User"} uploaded document`,
       description: `Uploaded attachment "${d.fileName}".`,
       actorName: d.user?.name || d.user?.email || "Team Member",
       actorAvatarColor: "bg-amber-600 text-white",
@@ -4356,4 +4605,236 @@ export async function getTaskTimelineAction(taskIdOrCode: string): Promise<Proje
 
   return timelineEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
+
+/**
+ * Updates full project details (Name, description, dates, priority, owner, billing type, category, etc.).
+ */
+export async function updateProjectDetailsAction(
+  projectId: string,
+  data: Partial<NewProjectFormData>
+): Promise<{ success: boolean; project?: Project; error?: string }> {
+  const session = await requireAuth();
+  try {
+    await requireProjectEditor(projectId, session.user.id);
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+
+  const project = await db.project.findFirst({
+    where: { OR: [{ id: projectId }, { code: projectId }] },
+    include: { owner: { select: { id: true, name: true, email: true } } },
+  });
+  if (!project) return { success: false, error: "Project not found." };
+
+  let ownerUser = null;
+  if (data.owner) {
+    ownerUser = await db.user.findFirst({
+      where: {
+        OR: [{ id: data.owner }, { name: data.owner }, { email: data.owner }],
+      },
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.startDate !== undefined) updateData.startDate = data.startDate;
+  if (data.dueDate !== undefined) updateData.deadline = data.dueDate;
+  if (data.billingType !== undefined) updateData.billingType = data.billingType;
+  if (data.associatedTeam !== undefined) updateData.associatedTeam = data.associatedTeam;
+  if (data.projectCategory !== undefined) updateData.projectCategory = data.projectCategory;
+  if (data.group !== undefined) updateData.group = data.group;
+  if (data.businessHours !== undefined) updateData.businessHours = data.businessHours;
+  if (data.taskLayout !== undefined) updateData.taskLayout = data.taskLayout;
+  if (data.accessType !== undefined) updateData.accessType = data.accessType;
+  if (data.tags !== undefined) {
+    updateData.tags =
+      typeof data.tags === "string"
+        ? data.tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : data.tags;
+  }
+  if (ownerUser) {
+    updateData.ownerId = ownerUser.id;
+    updateData.ownerName = ownerUser.name || "Project Owner";
+    const initials = (ownerUser.name || "PO")
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+    updateData.ownerInitials = initials;
+  }
+
+  await db.project.update({
+    where: { id: project.id },
+    data: updateData,
+  });
+
+  // Log activity for each field that changed
+  if (data.name !== undefined && data.name !== project.name) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Name",
+      fieldName: "name",
+      oldValue: project.name,
+      newValue: data.name,
+    });
+  }
+  if (data.description !== undefined && data.description !== (project.description || "")) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Description",
+      fieldName: "description",
+      oldValue: project.description || "None",
+      newValue: data.description || "None",
+    });
+  }
+  if (ownerUser && ownerUser.id !== project.ownerId) {
+    const oldOwner = project.owner?.name || project.ownerName || "Unassigned";
+    const newOwner = ownerUser.name || ownerUser.email || "Unassigned";
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Owner",
+      fieldName: "owner",
+      oldValue: oldOwner,
+      newValue: newOwner,
+    });
+  }
+  if (
+    (data.startDate !== undefined && data.startDate !== (project.startDate || "")) ||
+    (data.dueDate !== undefined && data.dueDate !== (project.deadline || ""))
+  ) {
+    const oldCal = `${project.startDate || "--"} → ${project.deadline || "--"}`;
+    const newCal = `${data.startDate !== undefined ? data.startDate : project.startDate || "--"} → ${
+      data.dueDate !== undefined ? data.dueDate : project.deadline || "--"
+    }`;
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Calendar",
+      fieldName: "calendar",
+      oldValue: oldCal,
+      newValue: newCal,
+    });
+  }
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  return { success: true };
+}
+
+export async function createProjectTaskListAction(
+  projectId: string,
+  data: { name: string; code?: string }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) throw new Error("Unauthorized");
+
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true, code: true },
+    });
+
+    if (!project) return { success: false, error: "Project not found" };
+
+    const cleanName = data.name.trim();
+    const cleanCode = (data.code || "").trim();
+
+    let existingPhases = await db.projectPhase.findMany({
+      where: { projectId: project.id },
+      orderBy: { order: "asc" },
+    });
+
+    // If project has no phases in DB yet, seed the default 17 phases first so they are preserved
+    if (existingPhases.length === 0) {
+      await db.projectPhase.createMany({
+        data: DEFAULT_PROJECT_PHASES.map((ph, idx) => ({
+          code: ph.code,
+          name: ph.name.toUpperCase(),
+          order: idx,
+          projectId: project.id,
+        })),
+      });
+
+      existingPhases = await db.projectPhase.findMany({
+        where: { projectId: project.id },
+        orderBy: { order: "asc" },
+      });
+    }
+
+    const nextOrder = existingPhases.length;
+    const finalCode = cleanCode || `${nextOrder + 1}.1`;
+
+    const phase = await db.projectPhase.create({
+      data: {
+        code: finalCode,
+        name: cleanName.toUpperCase(),
+        order: nextOrder,
+        projectId: project.id,
+      },
+    });
+
+    await db.projectTaskList.create({
+      data: {
+        name: cleanName,
+        phaseCode: finalCode,
+        sequence: nextOrder + 1,
+        projectId: project.id,
+      },
+    });
+
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name || "User",
+      action: `created task list "${cleanName}"`,
+      fieldName: "phase",
+      newValue: finalCode,
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true, phase: { code: phase.code, name: phase.name, id: phase.id } };
+  } catch (err) {
+    console.error("[createProjectTaskListAction] Error creating task list:", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+export async function getProjectPhasesAction(projectId: string): Promise<ProjectPhase[]> {
+  try {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+
+    if (!project) return [];
+
+    const dbPhases = await db.projectPhase.findMany({
+      where: { projectId: project.id },
+      orderBy: { order: "asc" },
+    });
+
+    return dbPhases.map((ph) => ({
+      id: ph.id,
+      code: ph.code,
+      name: ph.name,
+      isCompleted: ph.isCompleted,
+      ownerId: ph.ownerId || undefined,
+    }));
+  } catch (err) {
+    console.error("[getProjectPhasesAction] Error fetching phases:", err);
+    return [];
+  }
+}
+
 

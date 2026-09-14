@@ -5,6 +5,7 @@ import { ListTodo, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
 import { getMyTasksAction, updateTaskAction } from "@/features/projects/actions/project-actions";
 import { TaskItem } from "@/features/projects/types";
 import { TasksListView } from "@/features/projects/components/views/tasks-list-view";
+import { toast } from "@/components/shared/toast";
 
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -30,6 +31,7 @@ export default function MyTasksPage() {
 
   const handleAddTask = (newTask: TaskItem) => {
     setTasks((prev) => [newTask, ...prev]);
+    toast.success("Task created");
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
@@ -40,7 +42,9 @@ export default function MyTasksPage() {
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      alert(result.error || "You do not have permission to edit this task.");
+      toast.error(result.error || "You do not have permission to edit this task.");
+    } else {
+      toast.success("Task updated");
     }
   };
 

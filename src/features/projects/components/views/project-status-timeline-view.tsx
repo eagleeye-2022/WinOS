@@ -62,6 +62,13 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
     }
   };
 
+  const formatTimelineValue = (val?: string | null, maxLen = 60): string => {
+    if (!val) return "";
+    const singleLine = val.replace(/\s+/g, " ").trim();
+    if (singleLine.length <= maxLen) return singleLine;
+    return singleLine.slice(0, maxLen) + "…";
+  };
+
   const filteredEvents = events.filter((ev) => {
     if (filterType === "ALL") return true;
     return ev.type === filterType;
@@ -149,7 +156,27 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
                     </div>
                   </div>
 
-                  <p className="text-muted-foreground text-xs">{ev.description}</p>
+                  {ev.oldValue && ev.newValue ? (
+                    <div className="py-1 flex items-center flex-wrap gap-1.5 text-xs">
+                      <span
+                        className="inline-block max-w-[240px] truncate rounded px-2 py-0.5 bg-muted text-muted-foreground font-mono line-through text-xs align-middle"
+                        title={ev.oldValue}
+                      >
+                        {formatTimelineValue(ev.oldValue, 50)}
+                      </span>
+                      <span className="text-muted-foreground font-bold shrink-0">→</span>
+                      <span
+                        className="inline-block max-w-[240px] truncate rounded px-2 py-0.5 bg-primary/10 text-primary font-mono font-semibold text-xs align-middle"
+                        title={ev.newValue}
+                      >
+                        {formatTimelineValue(ev.newValue, 50)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-xs line-clamp-3 break-words" title={ev.description}>
+                      {ev.description}
+                    </p>
+                  )}
 
                   <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] text-muted-foreground">
                     <div className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold ${ev.actorAvatarColor || "bg-primary text-primary-foreground"}`}>
