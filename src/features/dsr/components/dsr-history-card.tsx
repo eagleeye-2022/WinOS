@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { ProjectLinkSummary } from "../queries";
+import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
@@ -172,52 +173,45 @@ export function DsrHistoryCard({
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task Completed
               </p>
-              <div className="flex flex-col gap-1.5">
-                {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
-                  const link = projectLinks[task.text];
-                  return (
-                    <div key={task.id} className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                          T{i + 1}
-                        </span>
-                        {link && (
-                          <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0">
-                            [{link.projectTask.code}]
-                          </span>
-                        )}
-                        <span>{renderTextWithMentions(task.text)}</span>
-                        {task.priority && (
-                          <span className={cn(
-                            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                            task.priority.toUpperCase() === "P1" && "bg-success/15 text-success border border-success/30",
-                            task.priority.toUpperCase() === "P2" && "bg-info/15 text-info border border-info/30",
-                            task.priority.toUpperCase() === "P3" && "bg-warning/15 text-warning border border-warning/30",
-                            !["P1","P2","P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-                          )}>
-                            {task.priority.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      {link && (
-                        <div className="ml-7 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                          {link.projectTask.project && (
-                            <span>in <span className="font-medium text-foreground">{link.projectTask.project.name}</span></span>
-                          )}
-                          {link.timeSummary.totalMinutes > 0 && (
-                            <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
-                              <Clock size={10} />
-                              {Math.floor(link.timeSummary.totalMinutes / 60)}h {link.timeSummary.totalMinutes % 60}m logged
-                              {link.timeSummary.firstStart && link.timeSummary.lastStop && (
-                                <> · {link.timeSummary.firstStart} – {link.timeSummary.lastStop}</>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <TaskTableHead />
+                  <tbody>
+                    {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
+                      const link = projectLinks[task.text];
+                      return (
+                        <tr key={task.id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                          <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
+                          <td className="py-2 pr-3 align-top">
+                            {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                          </td>
+                          <td className="py-2 pr-3 align-top">
+                            {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                          </td>
+                          <td className="py-2 pr-3 align-top">
+                            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                              <ExpandableTaskText text={task.text} />
+                              {task.addedAfterReview && (
+                                <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
+                                  NT
+                                </span>
                               )}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            </div>
+                          </td>
+                          <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+                            <PriorityBadge priority={task.priority} />
+                          </td>
+                          <td className="py-2 pr-3 align-top">
+                            <DueDateCell dueDate={link?.dueDate} />
+                          </td>
+                          <td className="py-2 pr-3 align-top">
+                            <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

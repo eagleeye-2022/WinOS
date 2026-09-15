@@ -35,6 +35,75 @@ import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
+import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
+import type { CascadingProjectOption } from "@/features/dsm/queries";
+
+/** Resolves the selected project-task's code/project-name by walking the cascading tree. */
+function findSelectedTaskMeta(
+  projects: CascadingProjectOption[],
+  projectTaskId: string
+): { code: string | null; projectName: string } | null {
+  if (!projectTaskId) return null;
+  for (const project of projects) {
+    for (const task of project.tasks) {
+      if (task.id === projectTaskId) {
+        return { code: task.code, projectName: project.name };
+      }
+      for (const subtask of task.subtasks) {
+        if (subtask.id === projectTaskId) {
+          return { code: subtask.code, projectName: project.name };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function resolveTaskTree(projectTaskId: string | null | undefined, cascadingProjects: CascadingProjectOption[]) {
+  const pTaskId = projectTaskId || "";
+  let resolvedPId = "";
+  let resolvedTId = "";
+  let resolvedStId = "";
+
+  if (pTaskId) {
+    for (const p of cascadingProjects) {
+      for (const t of p.tasks || []) {
+        if (t.id === pTaskId) {
+          resolvedPId = p.id;
+          resolvedTId = t.id;
+          resolvedStId = "";
+          break;
+        }
+        if (t.subtasks) {
+          for (const st of t.subtasks) {
+            if (st.id === pTaskId) {
+              resolvedPId = p.id;
+              resolvedTId = t.id;
+              resolvedStId = st.id;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const currentProject = cascadingProjects.find((p) => p.id === resolvedPId);
+  const currentTask = currentProject?.tasks?.find((t) => t.id === resolvedTId);
+  const currentSubtask = currentTask?.subtasks?.find((st) => st.id === resolvedStId);
+  const activeTargetTask = currentSubtask || currentTask;
+
+  return {
+    projectId: resolvedPId,
+    taskId: resolvedTId,
+    subtaskId: resolvedStId,
+    currentProject,
+    currentTask,
+    currentSubtask,
+    activeTargetTask,
+  };
+}
 
 
 function supportEventToView(event: {
@@ -118,8 +187,8 @@ function PriorityDropdown({
   const available = priorityLevels(totalTasks).filter((p) => !takenPriorities.includes(p) || p === current);
 
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      <form action={action} className="relative flex items-center">
+    <div className="flex flex-col items-start gap-0.5">
+      <form action={action} className="relative inline-flex items-center">
         <input type="hidden" name="taskId" value={taskId} />
         <select
           name="priority"
@@ -132,23 +201,22 @@ function PriorityDropdown({
               startTransition(() => action(fd));
             }
           }}
-
           disabled={pending}
           className={cn(
-            "appearance-none rounded-lg border py-1.5 pl-3 pr-7 text-xs outline-none transition-colors cursor-pointer",
+            "appearance-none rounded-lg border py-1 pl-2 pr-5 text-xs font-semibold outline-none transition-colors cursor-pointer w-auto min-w-[52px]",
             current ? priorityColor(current) : "border-border bg-background text-muted-foreground"
           )}
         >
-          <option value="">Set Priority</option>
+          <option value="">—</option>
           {available.map((p) => (
             <option key={p} value={p}>{p}</option>
           ))}
         </select>
-        <ChevronDown size={12} className="pointer-events-none absolute right-2 text-current opacity-60" />
+        <ChevronDown size={11} className="pointer-events-none absolute right-1.5 text-current opacity-60" />
       </form>
       {/* Conflict / error feedback */}
       {state.message && state.message !== "updated" && (
-        <p className="text-xs text-destructive leading-tight max-w-[140px] text-right">
+        <p className="text-xs text-destructive leading-tight max-w-[120px]">
           {state.message}
         </p>
       )}
@@ -156,62 +224,6 @@ function PriorityDropdown({
   );
 }
 
-
-// ── Manager: Edit task inline ─────────────────────────────────────────────────
-
-function EditTaskRow({ taskId, text }: { taskId: string; text: string }) {
-  const [editing, setEditing] = useState(false);
-  const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        title="Edit task"
-        className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-      >
-        <Pencil size={13} />
-      </button>
-    );
-  }
-
-  return (
-    <form
-      action={async (fd) => {
-        await action(fd);
-        setEditing(false);
-      }}
-      className="flex flex-1 items-center gap-1.5"
-    >
-      <input type="hidden" name="taskId" value={taskId} />
-      <input
-        ref={inputRef}
-        name="text"
-        defaultValue={text}
-        autoFocus
-        className="flex-1 rounded border bg-background px-2 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        title="Save"
-        className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-      >
-        {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
-      </button>
-      <button
-        type="button"
-        onClick={() => setEditing(false)}
-        title="Cancel"
-        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
-      >
-        <X size={16} strokeWidth={2} />
-      </button>
-    </form>
-  );
-}
 
 // ── Manager: Delete task ──────────────────────────────────────────────────────
 
@@ -235,10 +247,81 @@ function DeleteTaskButton({ taskId }: { taskId: string }) {
 
 // ── Manager: Add task ─────────────────────────────────────────────────────────
 
-function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODAY" | "YESTERDAY" }) {
+function AddTaskRow({
+  entryId,
+  kind = "TODAY",
+  cascadingProjects = [],
+  totalTasks = 0,
+  takenPriorities = [],
+}: {
+  entryId: string;
+  kind?: "TODAY" | "YESTERDAY";
+  cascadingProjects?: CascadingProjectOption[];
+  totalTasks?: number;
+  takenPriorities?: string[];
+}) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
+  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState("");
+  const [text, setText] = useState("");
+  const [priority, setPriority] = useState("");
+  const [dueDate, setDueDate] = useState("");
+
+  const resetForm = () => {
+    setSelectedProjectId("");
+    setSelectedTaskId("");
+    setSelectedSubtaskId("");
+    setSelectedProjectTaskId("");
+    setText("");
+    setPriority("");
+    setDueDate("");
+    setAdding(false);
+  };
+
+  const handleProjectChange = (pId: string) => {
+    setSelectedProjectId(pId);
+    setSelectedTaskId("");
+    setSelectedSubtaskId("");
+    setSelectedProjectTaskId("");
+  };
+
+  const handleTaskChange = (tId: string) => {
+    setSelectedTaskId(tId);
+    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
+    const chosen = proj?.tasks.find((t) => t.id === tId);
+    if (chosen && chosen.subtasks && chosen.subtasks.length > 0) {
+      setSelectedSubtaskId("");
+      setSelectedProjectTaskId("");
+    } else {
+      setSelectedSubtaskId("");
+      setSelectedProjectTaskId(chosen?.id || "");
+      if (!text.trim() && chosen) {
+        setText(chosen.title);
+      }
+    }
+  };
+
+  const handleSubtaskChange = (stId: string) => {
+    setSelectedSubtaskId(stId);
+    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
+    const chosenTask = proj?.tasks.find((t) => t.id === selectedTaskId);
+    const chosenSubtask = chosenTask?.subtasks?.find((st) => st.id === stId);
+    setSelectedProjectTaskId(stId || chosenTask?.id || "");
+    if (chosenSubtask && (!text.trim() || text === chosenTask?.title)) {
+      setText(chosenSubtask.title);
+    }
+  };
+
+  const currentProject = cascadingProjects.find((p) => p.id === selectedProjectId);
+  const currentTask = currentProject?.tasks?.find((t) => t.id === selectedTaskId);
+  const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
+
+  const availableLevels = priorityLevels(totalTasks + 1).filter(
+    (p) => !takenPriorities.includes(p) || p === priority
+  );
 
   if (!adding) {
     return (
@@ -256,45 +339,147 @@ function AddTaskRow({ entryId, kind = "TODAY" }: { entryId: string; kind?: "TODA
     <form
       action={async (fd) => {
         await action(fd);
-        setAdding(false);
+        resetForm();
       }}
-      className="mt-2 flex flex-col gap-1.5 rounded-lg border p-2 bg-background"
+      className="mt-3 flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
     >
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
 
-      <div className="flex items-center gap-2">
-        <input
-          ref={inputRef}
-          name="text"
-          placeholder="Type new task description..."
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && inputRef.current?.value.trim()) {
-              e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
-            }
-          }}
-          className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-        />
+      {/* Top row: Project, Task, Subtask Selectors */}
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
 
-        <button
-          type="submit"
-          disabled={pending}
-          title="Add task"
-          className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-        >
-          {pending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
-        </button>
-        <button
-          type="button"
-          onClick={() => setAdding(false)}
-          title="Cancel"
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
-        >
-          <X size={16} strokeWidth={2} />
-        </button>
+        {/* Project Select */}
+        <div className="relative flex items-center">
+          <select
+            value={selectedProjectId}
+            onChange={(e) => handleProjectChange(e.target.value)}
+            className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[170px] truncate"
+          >
+            <option value="">Select Project</option>
+            {cascadingProjects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+        </div>
+
+        {/* Task Select */}
+        {currentProject && (
+          <div className="relative flex items-center">
+            <select
+              value={selectedTaskId}
+              onChange={(e) => handleTaskChange(e.target.value)}
+              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate"
+            >
+              <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
+              {currentProject.tasks.map((t) => (
+                <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+          </div>
+        )}
+
+        {/* Subtask Select */}
+        {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
+          <div className="relative flex items-center">
+            <select
+              value={selectedSubtaskId}
+              onChange={(e) => handleSubtaskChange(e.target.value)}
+              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[180px] truncate"
+            >
+              <option value="">Select Subtask</option>
+              {currentTask.subtasks.map((st) => (
+                <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+          </div>
+        )}
       </div>
+
+      {/* Middle: Code chip + Text Input */}
+      <div className="flex items-center gap-2">
+        {selectedMeta?.code && (
+          <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+            {selectedMeta.code}
+          </span>
+        )}
+        <input
+          name="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          placeholder="Describe what will be done..."
+          className="flex-1 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {/* Bottom Row: Priority + Due Date + Actions */}
+      <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-2 border-border/50">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Priority */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Priority:</span>
+            <div className="relative flex items-center">
+              <select
+                name="priority"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className={cn(
+                  "cursor-pointer appearance-none rounded-lg border py-1 pl-2.5 pr-6 text-xs font-semibold outline-none",
+                  priority ? priorityColor(priority) : "border-border bg-background text-muted-foreground"
+                )}
+              >
+                <option value="">Select Priority</option>
+                {availableLevels.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+            </div>
+          </div>
+
+          {/* Due Date */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+            <Calendar size={12} className="text-muted-foreground" />
+            <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+            <input
+              type="date"
+              name="dueDate"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
+            />
+          </div>
+        </div>
+
+        {/* Add / Cancel */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="submit"
+            disabled={pending || !text.trim()}
+            title="Add task"
+            className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+          >
+            {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2.5} />}
+            Add Task
+          </button>
+          <button
+            type="button"
+            onClick={resetForm}
+            title="Cancel"
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <X size={14} strokeWidth={2} />
+            Cancel
+          </button>
+        </div>
+      </div>
+
       {state.message && state.message !== "created" && (
         <p className="text-xs text-destructive">{state.message}</p>
       )}
@@ -873,16 +1058,15 @@ function getYesterdayTasksForEntry(
 
   if (prevEntry) {
     const prevTodayTasks = prevEntry.tasks.filter((t) => t.kind === "TODAY");
-    const currentTodayTasksText = entry.tasks
-      .filter((t) => t.kind === "TODAY")
-      .map((t) => t.text.trim().toLowerCase());
+    const currentTodayTasks = entry.tasks.filter((t) => t.kind === "TODAY" && !t.addedAfterReview);
+    const currentTodayTasksText = currentTodayTasks.map((t) => t.text.trim().toLowerCase());
 
     prevTodayTasks.forEach((t) => {
-      const isCarriedOver = currentTodayTasksText.includes(t.text.trim().toLowerCase());
+      const isCarriedOver = !t.isCompleted && currentTodayTasksText.includes(t.text.trim().toLowerCase());
       result.push({
         id: t.id,
         text: t.text,
-        isCompleted: !isCarriedOver,
+        isCompleted: t.isCompleted ?? !isCarriedOver,
       });
     });
   }
@@ -893,7 +1077,7 @@ function getYesterdayTasksForEntry(
       result.push({
         id: t.id,
         text: t.text,
-        isCompleted: true,
+        isCompleted: t.isCompleted ?? true,
       });
     }
   });
@@ -902,10 +1086,17 @@ function getYesterdayTasksForEntry(
 }
 
 function isTaskCarriedOver(
-  taskText: string,
+  task: MemberReviewEntry["tasks"][number] | string,
   entry: MemberReviewEntry,
   allEntries: MemberReviewEntry[] = []
 ): boolean {
+  const taskText = typeof task === "string" ? task : task.text;
+  const currentTask = typeof task === "object"
+    ? task
+    : entry.tasks.find((t) => t.kind === "TODAY" && t.text.trim().toLowerCase() === taskText.trim().toLowerCase());
+
+  if (currentTask?.addedAfterReview) return false;
+
   const entryTime = new Date(entry.date).getTime();
   const prevEntry = allEntries
     .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
@@ -913,11 +1104,11 @@ function isTaskCarriedOver(
 
   if (!prevEntry) return false;
 
-  const prevTodayTasksText = prevEntry.tasks
-    .filter((t) => t.kind === "TODAY")
-    .map((t) => t.text.trim().toLowerCase());
+  const prevMatch = prevEntry.tasks.find(
+    (t) => t.kind === "TODAY" && t.text.trim().toLowerCase() === taskText.trim().toLowerCase()
+  );
 
-  return prevTodayTasksText.includes(taskText.trim().toLowerCase());
+  return Boolean(prevMatch && !prevMatch.isCompleted);
 }
 
 /** Find the most recent *submitted* entry strictly before the given entry's date. */
@@ -933,30 +1124,31 @@ export type TaskCarryLink = { date: Date; task: MemberReviewEntry["tasks"][numbe
 /**
  * Walk backwards day-by-day through carried-over occurrences of the same TODAY
  * task text and return the full chain, oldest first, ending with today's own
- * row. Each day's carried-over task is a distinct DB row (its own
- * createdAt/addedBy/editedBy), so the chain is reconstructed by text match —
- * this lets the UI preserve "originally created" info even though the current
- * row's own createdAt reflects only the day it was last (re)submitted.
+ * row. A task is only carried over if the previous day's task was NOT completed.
  */
 function getTaskCarryChain(
-  taskText: string,
+  task: MemberReviewEntry["tasks"][number],
   entry: MemberReviewEntry,
   allEntries: MemberReviewEntry[] = []
 ): TaskCarryLink[] {
-  const norm = taskText.trim().toLowerCase();
+  if (task.addedAfterReview) {
+    return [{ date: entry.date, task }];
+  }
+
+  const norm = task.text.trim().toLowerCase();
   const matchIn = (e: MemberReviewEntry) =>
     e.tasks.find((t) => t.kind === "TODAY" && t.text.trim().toLowerCase() === norm);
 
-  const chain: TaskCarryLink[] = [];
+  const chain: TaskCarryLink[] = [{ date: entry.date, task }];
   let currentEntry: MemberReviewEntry | undefined = entry;
-  let currentMatch = matchIn(entry);
-  while (currentEntry && currentMatch) {
-    chain.unshift({ date: currentEntry.date, task: currentMatch });
+
+  while (currentEntry) {
     const prevEntry = getPrevEntry(currentEntry, allEntries);
-    const prevMatch = prevEntry ? matchIn(prevEntry) : undefined;
-    if (!prevEntry || !prevMatch) break;
+    if (!prevEntry) break;
+    const prevMatch = matchIn(prevEntry);
+    if (!prevMatch || prevMatch.isCompleted) break;
+    chain.unshift({ date: prevEntry.date, task: prevMatch });
     currentEntry = prevEntry;
-    currentMatch = prevMatch;
   }
   return chain;
 }
@@ -1043,7 +1235,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
           </p>
           <div className="space-y-1.5">
             {todayTasks.map((task, i) => {
-              const carried = isTaskCarriedOver(task.text, entry, allEntries);
+              const carried = isTaskCarriedOver(task, entry, allEntries);
               return (
                 <div key={task.id} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
@@ -1053,6 +1245,11 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                   {carried && (
                     <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                       CO
+                    </span>
+                  )}
+                  {task.addedAfterReview && (
+                    <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-primary" title="Added After Review">
+                      NT
                     </span>
                   )}
                 </div>
@@ -1166,6 +1363,7 @@ function TaskRow({
   carryChain,
   memberUser,
   entryDate,
+  cascadingProjects = [],
 }: {
   task: TaskItem;
   rank: number;
@@ -1175,84 +1373,321 @@ function TaskRow({
   carryChain: TaskCarryLink[];
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
   entryDate?: Date;
+  cascadingProjects?: CascadingProjectOption[];
 }) {
-  const isCarriedOver = carryChain.length > 1;
-  return (
-    <div className="group/task flex flex-col gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40">
-    <div className="flex items-center gap-2">
-      {/* Rank badge */}
-      <span
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-          task.managerPriority ? priorityColor(task.managerPriority) + " border" : "bg-muted text-muted-foreground"
-        )}
-      >
-        {task.managerPriority ?? rank}
-      </span>
-      <span className="flex-1 text-sm flex items-center flex-wrap gap-1.5">
-        {task.projectTask && (
-          <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0">
-            [{task.projectTask.code}]
-          </span>
-        )}
-        <span>{task.text}</span>
-        {task.priority && (
-          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-            {task.priority}
-          </span>
-        )}
-        {isCarriedOver && (
-          <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning shrink-0">
-            CO
-          </span>
-        )}
-        {task.addedAfterReview && (
-          <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary shrink-0" title="Added After Review">
-            NT
-          </span>
-        )}
-        <TaskHistoryIcon task={task} chain={carryChain} memberUser={memberUser} />
-      </span>
+  const [editing, setEditing] = useState(false);
+  const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
 
-      {/* Manager controls — hidden once reviewed */}
-      {!isLocked && (
-        <div className="flex shrink-0 items-center gap-1">
-          <EditTaskRow taskId={task.id} text={task.text} />
+  // Edit form state
+  const initialTree = resolveTaskTree(task.projectTaskId, cascadingProjects);
+  const [selectedProjectId, setSelectedProjectId] = useState(initialTree.projectId);
+  const [selectedTaskId, setSelectedTaskId] = useState(initialTree.taskId);
+  const [selectedSubtaskId, setSelectedSubtaskId] = useState(initialTree.subtaskId);
+  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState(task.projectTaskId || "");
+  const [text, setText] = useState(task.text);
+  const [priority, setPriority] = useState(task.managerPriority || task.priority || "");
+  const [dueDate, setDueDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
+
+  const handleStartEdit = () => {
+    const tree = resolveTaskTree(task.projectTaskId, cascadingProjects);
+    setSelectedProjectId(tree.projectId);
+    setSelectedTaskId(tree.taskId);
+    setSelectedSubtaskId(tree.subtaskId);
+    setSelectedProjectTaskId(task.projectTaskId || "");
+    setText(task.text);
+    setPriority(task.managerPriority || task.priority || "");
+    setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
+    setEditing(true);
+  };
+
+  const handleProjectChange = (pId: string) => {
+    setSelectedProjectId(pId);
+    setSelectedTaskId("");
+    setSelectedSubtaskId("");
+    setSelectedProjectTaskId("");
+  };
+
+  const handleTaskChange = (tId: string) => {
+    setSelectedTaskId(tId);
+    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
+    const chosen = proj?.tasks.find((t) => t.id === tId);
+    if (chosen && chosen.subtasks && chosen.subtasks.length > 0) {
+      setSelectedSubtaskId("");
+      setSelectedProjectTaskId("");
+    } else {
+      setSelectedSubtaskId("");
+      setSelectedProjectTaskId(chosen?.id || "");
+      if (!text.trim() && chosen) {
+        setText(chosen.title);
+      }
+    }
+  };
+
+  const handleSubtaskChange = (stId: string) => {
+    setSelectedSubtaskId(stId);
+    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
+    const chosenTask = proj?.tasks.find((t) => t.id === selectedTaskId);
+    const chosenSubtask = chosenTask?.subtasks?.find((st) => st.id === stId);
+    setSelectedProjectTaskId(stId || chosenTask?.id || "");
+    if (chosenSubtask && (!text.trim() || text === chosenTask?.title)) {
+      setText(chosenSubtask.title);
+    }
+  };
+
+  const currentProject = cascadingProjects.find((p) => p.id === selectedProjectId);
+  const currentTask = currentProject?.tasks?.find((t) => t.id === selectedTaskId);
+  const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
+
+  const isCarriedOver = carryChain.length > 1;
+  const availableLevels = priorityLevels(totalTasks).filter(
+    (p) => !takenPriorities.includes(p) || p === priority
+  );
+
+  if (editing) {
+    return (
+      <tr className="border-b bg-muted/20">
+        <td colSpan={8} className="p-2">
+          <form
+            action={async (fd) => {
+              await action(fd);
+              setEditing(false);
+            }}
+            className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
+          >
+            <input type="hidden" name="taskId" value={task.id} />
+            <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
+
+            {/* Top row: Project, Task, Subtask Selectors */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="font-semibold text-muted-foreground uppercase text-[11px]">Edit Task:</span>
+
+              {/* Project Select */}
+              <div className="relative flex items-center">
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[170px] truncate"
+                >
+                  <option value="">Select Project</option>
+                  {cascadingProjects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+              </div>
+
+              {/* Task Select */}
+              {currentProject && (
+                <div className="relative flex items-center">
+                  <select
+                    value={selectedTaskId}
+                    onChange={(e) => handleTaskChange(e.target.value)}
+                    className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate"
+                  >
+                    <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
+                    {currentProject.tasks.map((t) => (
+                      <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+                </div>
+              )}
+
+              {/* Subtask Select */}
+              {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
+                <div className="relative flex items-center">
+                  <select
+                    value={selectedSubtaskId}
+                    onChange={(e) => handleSubtaskChange(e.target.value)}
+                    className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[180px] truncate"
+                  >
+                    <option value="">Select Subtask</option>
+                    {currentTask.subtasks.map((st) => (
+                      <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+
+            {/* Middle: Code chip + Text Input */}
+            <div className="flex items-center gap-2">
+              {selectedMeta?.code && (
+                <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+                  {selectedMeta.code}
+                </span>
+              )}
+              <input
+                name="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                autoFocus
+                placeholder="Task description..."
+                className="flex-1 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+
+            {/* Bottom Row: Priority + Due Date + Actions */}
+            <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-2 border-border/50">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Priority */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Priority:</span>
+                  <div className="relative flex items-center">
+                    <select
+                      name="managerPriority"
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value)}
+                      className={cn(
+                        "cursor-pointer appearance-none rounded-lg border py-1 pl-2.5 pr-6 text-xs font-semibold outline-none",
+                        priority ? priorityColor(priority) : "border-border bg-background text-muted-foreground"
+                      )}
+                    >
+                      <option value="">Select Priority</option>
+                      {availableLevels.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+                  </div>
+                </div>
+
+                {/* Due Date */}
+                <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                  <Calendar size={12} className="text-muted-foreground" />
+                  <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                  <input
+                    type="date"
+                    name="dueDate"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+              </div>
+
+              {/* Save / Cancel */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="submit"
+                  disabled={pending || !text.trim()}
+                  title="Save changes"
+                  className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+                >
+                  {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  title="Cancel"
+                  className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <X size={14} strokeWidth={2} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            {state.message && state.message !== "updated" && (
+              <p className="text-xs text-destructive">{state.message}</p>
+            )}
+          </form>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="group/task border-b last:border-b-0 transition-colors hover:bg-muted/40">
+      <td className="py-2 pr-2 align-top">
+        <span
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+            task.managerPriority ? priorityColor(task.managerPriority) + " border" : "bg-muted text-muted-foreground"
+          )}
+        >
+          {task.managerPriority ?? rank}
+        </span>
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
+          <ExpandableTaskText text={task.text} />
+          {isCarriedOver && (
+            <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning shrink-0">
+              CO
+            </span>
+          )}
+          {task.addedAfterReview && (
+            <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary shrink-0" title="Added After Review">
+              NT
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+        {!isLocked ? (
           <PriorityDropdown
             taskId={task.id}
             current={task.managerPriority ?? null}
             takenPriorities={takenPriorities}
             totalTasks={totalTasks}
           />
-          <DeleteTaskButton taskId={task.id} />
-        </div>
-      )}
+        ) : task.managerPriority ? (
+          <span className={cn(
+            "shrink-0 rounded-lg border px-2 py-0.5 text-xs font-bold inline-block",
+            priorityColor(task.managerPriority)
+          )}>
+            {task.managerPriority}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <DueDateCell dueDate={task.dueDate} />
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {task.projectTask && memberUser?.id ? (
+          <MemberTaskTimerBadge
+            taskId={task.projectTaskId || task.projectTask.id}
+            taskCode={task.projectTask.code}
+            memberId={memberUser.id}
+            dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
+          />
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-2 align-top text-center">
+        <div className="flex items-center justify-center gap-1">
+          {/* Edit button */}
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              title="Edit task (Project, Task ID, Text, Priority, Due Date)"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
 
-      {/* Locked: show priority as read-only coloured badge */}
-      {isLocked && task.managerPriority && (
-        <span className={cn(
-          "shrink-0 rounded-lg border px-2 py-0.5 text-xs font-bold",
-          priorityColor(task.managerPriority)
-        )}>
-          {task.managerPriority}
-        </span>
-      )}
-    </div>
-      {task.projectTask && (
-        <div className="ml-8 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-          {task.projectTask.project && (
-            <span>in <span className="font-medium text-foreground">{task.projectTask.project.name}</span></span>
-          )}
-          {memberUser?.id && (
-            <MemberTaskTimerBadge
-              taskId={task.projectTaskId || task.projectTask.id}
-              memberId={memberUser.id}
-              dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
-            />
-          )}
+          {/* Delete button */}
+          {!isLocked && <DeleteTaskButton taskId={task.id} />}
+
+          {/* Info button */}
+          <TaskHistoryIcon task={task} chain={carryChain} memberUser={memberUser} />
         </div>
-      )}
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -1288,8 +1723,8 @@ function YesterdayTasksSection({
                     •
                   </span>
                 )}
-                <span className={cn("text-sm leading-snug truncate flex-1", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
-                  {task.text}
+                <span className={cn("text-sm leading-snug flex-1", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
+                  <ExpandableTaskText text={task.text} />
                 </span>
                 {/* {!task.isCompleted && (
                   <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
@@ -1331,6 +1766,14 @@ function TodayTasksSection({
   allEntries?: MemberReviewEntry[];
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
+  const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+
+  useEffect(() => {
+    fetchUserProjectsWithTasksAction(memberUser?.id).then((res) => {
+      if (res) setCascadingProjects(res);
+    });
+  }, [memberUser?.id]);
+
   // Sort: P1 first, unassigned last
   const sorted = sortByPriority(tasks);
 
@@ -1339,6 +1782,10 @@ function TodayTasksSection({
       .filter((t) => t.id !== taskId && t.managerPriority)
       .map((t) => t.managerPriority as string);
   }
+
+  const allTakenPriorities = tasks
+    .filter((t) => t.managerPriority)
+    .map((t) => t.managerPriority as string);
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -1350,24 +1797,35 @@ function TodayTasksSection({
         </span>
       </h3>
 
-      <div className="space-y-1 mt-3">
-        {sorted.map((task, i) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            rank={i + 1}
-            isLocked={isLocked}
-            takenPriorities={takenFor(task.id)}
-            totalTasks={tasks.length}
-            carryChain={entry ? getTaskCarryChain(task.text, entry, allEntries) : [{ date: task.createdAt, task }]}
-            memberUser={memberUser}
-            entryDate={entry?.date}
-          />
-        ))}
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full border-collapse">
+          <TaskTableHead withAction />
+          <tbody>
+            {sorted.map((task, i) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                rank={i + 1}
+                isLocked={isLocked}
+                takenPriorities={takenFor(task.id)}
+                totalTasks={tasks.length}
+                carryChain={entry ? getTaskCarryChain(task, entry, allEntries) : [{ date: task.createdAt, task }]}
+                memberUser={memberUser}
+                entryDate={entry?.date}
+                cascadingProjects={cascadingProjects}
+              />
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Manager can add tasks — still allowed after review */}
-      <AddTaskRow entryId={entryId} />
+      <AddTaskRow
+        entryId={entryId}
+        cascadingProjects={cascadingProjects}
+        totalTasks={tasks.length}
+        takenPriorities={allTakenPriorities}
+      />
     </div>
   );
 }
@@ -2057,13 +2515,9 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
   const { user, entries } = review;
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 6000);
     const handleFocus = () => router.refresh();
     window.addEventListener("focus", handleFocus);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
   }, [router]);

@@ -18,8 +18,8 @@ export async function fetchUserOpenProjectTasksAction(): Promise<OpenProjectTask
   return await getUserOpenProjectTasks();
 }
 
-export async function fetchUserProjectsWithTasksAction(): Promise<CascadingProjectOption[]> {
-  return await getUserProjectsWithTasksAndSubtasks();
+export async function fetchUserProjectsWithTasksAction(userId?: string): Promise<CascadingProjectOption[]> {
+  return await getUserProjectsWithTasksAndSubtasks(userId);
 }
 
 export async function fetchLinkedTimeLogsAction(projectTaskIds: string[]): Promise<Record<string, number>> {

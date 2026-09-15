@@ -167,6 +167,9 @@ model StandupTask {
   editedById       String?
   projectTaskId    String?
   isCompleted      Boolean       @default(false)
+  isNewRequest     Boolean       @default(false)
+  isParked         Boolean       @default(false)
+  dueDate          DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -787,6 +790,7 @@ enum StandupStatus {
 enum TaskKind {
   YESTERDAY
   TODAY
+  PARKED
 }
 
 enum BlockerPriority {

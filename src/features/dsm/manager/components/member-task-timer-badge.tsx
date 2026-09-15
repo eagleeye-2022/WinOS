@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Clock, CircleDot } from "lucide-react";
-import { getAllActiveTimersAction } from "@/features/projects/actions/active-timer-actions";
+import { Timer } from "lucide-react";
+import { getMemberActiveTimerAction } from "@/features/projects/actions/active-timer-actions";
 import { fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 
 function formatTime(totalSecs: number): string {
@@ -13,67 +13,151 @@ function formatTime(totalSecs: number): string {
   return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
 }
 
+type MemberActiveTimerData = {
+  taskId?: string;
+  task?: { id: string; code?: string };
+  startedAt: string | Date;
+} | null;
+
+type Listener = (data: MemberActiveTimerData) => void;
+
+class MemberActiveTimerManager {
+  private listeners = new Map<string, Set<Listener>>();
+  private timers = new Map<string, NodeJS.Timeout>();
+  private cache = new Map<string, MemberActiveTimerData>();
+
+  subscribe(memberId: string, listener: Listener) {
+    if (!this.listeners.has(memberId)) {
+      this.listeners.set(memberId, new Set());
+    }
+    const set = this.listeners.get(memberId)!;
+    set.add(listener);
+
+    if (this.cache.has(memberId)) {
+      listener(this.cache.get(memberId)!);
+    }
+
+    if (set.size === 1) {
+      this.fetch(memberId);
+      const timer = setInterval(() => this.fetch(memberId), 10000);
+      this.timers.set(memberId, timer);
+    }
+
+    return () => {
+      set.delete(listener);
+      if (set.size === 0) {
+        this.listeners.delete(memberId);
+        const timer = this.timers.get(memberId);
+        if (timer) clearInterval(timer);
+        this.timers.delete(memberId);
+        this.cache.delete(memberId);
+      }
+    };
+  }
+
+  async fetch(memberId: string) {
+    try {
+      const res = await getMemberActiveTimerAction(memberId);
+      if (res?.success) {
+        const data = res.data ?? null;
+        this.cache.set(memberId, data);
+        const set = this.listeners.get(memberId);
+        if (set) {
+          set.forEach((l) => l(data));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  refetch(memberId: string) {
+    this.fetch(memberId);
+  }
+}
+
+const memberTimerManager = new MemberActiveTimerManager();
+
 /**
  * Read-only "is this task's timer running, and how much time has been logged today" badge for
- * the manager review screen. Unlike `TimerWidget` (which only ever reflects the *current
- * session user's* own ActiveTimer), this reads the reviewed member's timer via
- * `getAllActiveTimersAction` — manager/admin-gated server-side — so it can show another user's
- * live status without granting any control over it.
+ * the manager review screen. Matches the exact look and feel of `TimerWidget`'s live timer display.
  */
 export function MemberTaskTimerBadge({
   taskId,
+  taskCode,
   memberId,
   dateStr,
 }: {
   taskId: string;
+  taskCode?: string;
   memberId: string;
   dateStr: string; // "YYYY-MM-DD"
 }) {
   const [runningSince, setRunningSince] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [summary, setSummary] = useState<{ totalMinutes: number; firstStart: string | null; lastStop: string | null } | null>(null);
+  const runningSinceRef = useRef<Date | null>(null);
   const tickRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch summary once on mount or when props change
+  useEffect(() => {
+    let cancelled = false;
+    fetchDailyTimeSummaryAction([taskId], dateStr, memberId).then((res) => {
+      if (!cancelled && res) {
+        setSummary(res[taskId] ?? null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, dateStr, memberId]);
+
+  // Subscribe to member's active timer via single shared manager
   useEffect(() => {
     let cancelled = false;
 
-    const poll = async () => {
-      try {
-        const res = await getAllActiveTimersAction();
-        if (cancelled || !res.success) return;
-        const match = (res.data || []).find(
-          (t: { userId: string; taskId: string; startedAt: string | Date }) => t.userId === memberId && t.taskId === taskId
-        );
-        setRunningSince(match ? new Date(match.startedAt) : null);
-      } catch {
-        // ignore transient poll failures
+    const unsubscribe = memberTimerManager.subscribe(memberId, (activeData) => {
+      if (cancelled) return;
+      if (activeData) {
+        const isMatch =
+          activeData.taskId === taskId ||
+          activeData.task?.id === taskId ||
+          (taskCode && (activeData.task?.code === taskCode || activeData.taskId === taskCode));
+        const newDate = isMatch ? new Date(activeData.startedAt) : null;
+        const currentMs = runningSinceRef.current?.getTime() ?? null;
+        const newMs = newDate?.getTime() ?? null;
+        if (currentMs !== newMs) {
+          runningSinceRef.current = newDate;
+          setRunningSince(newDate);
+        }
+      } else if (runningSinceRef.current !== null) {
+        runningSinceRef.current = null;
+        setRunningSince(null);
+        fetchDailyTimeSummaryAction([taskId], dateStr, memberId).then((res) => {
+          if (!cancelled && res) setSummary(res[taskId] ?? null);
+        });
       }
-    };
+    });
 
-    const fetchSummary = async () => {
-      const res = await fetchDailyTimeSummaryAction([taskId], dateStr, memberId);
-      if (!cancelled && res) setSummary(res[taskId] ?? null);
-    };
-
-    poll();
-    fetchSummary();
-    const pollInterval = setInterval(() => {
-      poll();
-      fetchSummary();
-    }, 20000);
+    const onFocus = () => memberTimerManager.refetch(memberId);
+    window.addEventListener("focus", onFocus);
 
     return () => {
       cancelled = true;
-      clearInterval(pollInterval);
+      unsubscribe();
+      window.removeEventListener("focus", onFocus);
     };
-  }, [taskId, memberId, dateStr]);
+  }, [taskId, taskCode, memberId, dateStr]);
 
+  // Smooth local 1-second tick when running
   useEffect(() => {
     if (!runningSince) {
       if (tickRef.current) clearInterval(tickRef.current);
+      setElapsed(0);
       return;
     }
-    const update = () => setElapsed(Math.max(0, Math.floor((Date.now() - runningSince.getTime()) / 1000)));
+    const startedMs = runningSince.getTime();
+    const update = () => setElapsed(Math.max(0, Math.floor((Date.now() - startedMs) / 1000)));
     update();
     tickRef.current = setInterval(update, 1000);
     return () => {
@@ -81,26 +165,43 @@ export function MemberTaskTimerBadge({
     };
   }, [runningSince]);
 
-  if (!runningSince && !summary) return null;
-
   if (runningSince) {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-success/10 border border-success/30 px-1.5 py-0.5 text-[11px] font-mono font-semibold text-success">
-        <CircleDot size={10} className="animate-pulse" />
-        {formatTime(elapsed)} running
-      </span>
+      <div
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40"
+        title={`Live timer is running (started at ${new Date(runningSince).toLocaleTimeString()})`}
+      >
+        <Timer
+          size={13}
+          className="shrink-0 text-sky-500 dark:text-sky-400 animate-pulse"
+        />
+        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-sky-600 dark:text-sky-300">
+          {formatTime(elapsed)}
+        </span>
+      </div>
     );
   }
 
   if (summary && summary.totalMinutes > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-        <Clock size={10} />
-        {Math.floor(summary.totalMinutes / 60)}h {summary.totalMinutes % 60}m logged
-        {summary.firstStart && summary.lastStop && <> · {summary.firstStart} – {summary.lastStop}</>}
-      </span>
+      <div
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+        title={summary.firstStart && summary.lastStop ? `${summary.firstStart} – ${summary.lastStop}` : `${Math.floor(summary.totalMinutes / 60)}h ${summary.totalMinutes % 60}m logged`}
+      >
+        <Timer size={13} className="shrink-0 text-info" />
+        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-foreground dark:text-neutral-100">
+          {formatTime(summary.totalMinutes * 60)}
+        </span>
+      </div>
     );
   }
 
-  return null;
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10">
+      <Timer size={13} className="shrink-0 text-info" />
+      <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-foreground dark:text-neutral-100">
+        00:00:00
+      </span>
+    </div>
+  );
 }

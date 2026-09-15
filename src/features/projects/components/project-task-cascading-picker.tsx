@@ -129,7 +129,7 @@ export function ProjectTaskCascadingPicker({
   };
 
   return (
-    <div className={cn("flex items-center gap-1.5 flex-wrap sm:flex-nowrap min-w-0", className)}>
+    <div className={cn("flex items-center gap-1.5 flex-wrap min-w-0", className)}>
       {/* 1. Project Selector */}
       <div className="flex items-center gap-1 min-w-0">
         <FolderGit2 size={12} className="text-muted-foreground shrink-0" />

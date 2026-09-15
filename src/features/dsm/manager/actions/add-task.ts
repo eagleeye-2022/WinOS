@@ -19,6 +19,9 @@ export async function addTask(
   const text = (formData.get("text") as string)?.trim();
   const kind = (formData.get("kind") as string) || "TODAY";
   const priority = (formData.get("priority") as string) || null;
+  const projectTaskId = (formData.get("projectTaskId") as string)?.trim() || null;
+  const dueDateStr = (formData.get("dueDate") as string)?.trim();
+  const dueDate = dueDateStr ? new Date(dueDateStr) : null;
 
   if (!entryId) return { message: "Missing entry ID" };
   if (!text) return { message: "Task text cannot be empty" };
@@ -47,6 +50,8 @@ export async function addTask(
       text,
       priority,
       managerPriority: priority,
+      projectTaskId,
+      dueDate,
       order: maxOrder + 1,
       addedAfterReview,
       addedById: session.user.id,

@@ -196,15 +196,18 @@ export async function getWeeklyDsrHistory(weekOffset = 0): Promise<DsrEntryData[
 }
 
 export type ProjectLinkSummary = {
-  projectTask: { code: string; title: string; project: { name: string } | null };
+  /** The DSM task's own due date, set directly by the team member — independent of any linked project task. */
+  dueDate: Date | null;
+  projectTaskId: string | null;
+  projectTask: { id: string; code: string; title: string; project: { name: string } | null } | null;
   timeSummary: DailyTimeSummary;
 };
 
 /**
  * Read-time join from a day's DSR planned tasks back to that same day's StandupEntry — matches
  * `DsrPlannedTask.text` to `StandupTask.text` (same normalization `getYesterdayIncompleteTasks`
- * in the DSM feature already uses) to surface the linked project/task and logged time without
- * requiring a schema change on DsrPlannedTask. Keyed by the planned task's text.
+ * in the DSM feature already uses) to surface the linked project/task, due date, and logged time
+ * without requiring a schema change on DsrPlannedTask. Keyed by the planned task's text.
  */
 export async function getDsrProjectTaskLinks(
   userId: string,
@@ -223,9 +226,10 @@ export async function getDsrProjectTaskLinks(
         where: { kind: "TODAY" },
         select: {
           text: true,
+          dueDate: true,
           projectTaskId: true,
           projectTask: {
-            select: { code: true, title: true, project: { select: { name: true } } },
+            select: { id: true, code: true, title: true, project: { select: { name: true } } },
           },
         },
       },
@@ -238,26 +242,29 @@ export async function getDsrProjectTaskLinks(
 
   const linkedTaskIds: string[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byNormalizedText: Record<string, { projectTaskId: string; projectTask: any }> = {};
+  const byNormalizedText: Record<string, { projectTaskId: string | null; projectTask: any; dueDate: Date | null }> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const t of standup.tasks as any[]) {
-    if (!t.projectTaskId || !t.projectTask) continue;
     const key = norm(t.text);
     if (!wanted.has(key)) continue;
-    byNormalizedText[key] = { projectTaskId: t.projectTaskId, projectTask: t.projectTask };
-    linkedTaskIds.push(t.projectTaskId);
+    byNormalizedText[key] = { projectTaskId: t.projectTaskId, projectTask: t.projectTask, dueDate: t.dueDate };
+    if (t.projectTaskId) linkedTaskIds.push(t.projectTaskId);
   }
-  if (linkedTaskIds.length === 0) return {};
+  if (Object.keys(byNormalizedText).length === 0) return {};
 
-  const summaries = await getDailyTimeSummaryForTasks(userId, linkedTaskIds, dayUtc);
+  const summaries = linkedTaskIds.length > 0
+    ? await getDailyTimeSummaryForTasks(userId, linkedTaskIds, dayUtc)
+    : {};
 
   const result: Record<string, ProjectLinkSummary> = {};
   for (const text of plannedTaskTexts) {
     const match = byNormalizedText[norm(text)];
     if (!match) continue;
     result[text] = {
+      dueDate: match.dueDate,
+      projectTaskId: match.projectTaskId,
       projectTask: match.projectTask,
-      timeSummary: summaries[match.projectTaskId] || { totalMinutes: 0, firstStart: null, lastStop: null },
+      timeSummary: (match.projectTaskId && summaries[match.projectTaskId]) || { totalMinutes: 0, firstStart: null, lastStop: null },
     };
   }
   return result;

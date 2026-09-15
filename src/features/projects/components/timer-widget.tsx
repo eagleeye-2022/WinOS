@@ -57,7 +57,7 @@ export function TimerWidget({
   // reveals the full timer chip (matches the Zoho-style reference design). Callers with more
   // room (e.g. the task workspace header) can opt into showing the full chip immediately.
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const isTimerExpanded = isExpanded || timerState !== "IDLE";
+  const isTimerExpanded = defaultExpanded || isExpanded || timerState !== "IDLE";
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -204,7 +204,7 @@ export function TimerWidget({
     isStoppingRef.current = true;
     setTimerState("IDLE");
     setSeconds(0);
-    setIsExpanded(false);
+    setIsExpanded(defaultExpanded);
     stoppedContextRef.current = null;
 
     // Stop the timer everywhere the instant Stop is clicked: delete the DB
@@ -273,6 +273,7 @@ export function TimerWidget({
     stoppedContextRef.current = null;
     setTimerState("IDLE");
     setSeconds(0);
+    setIsExpanded(defaultExpanded);
 
     if (onSaveLog) {
       onSaveLog(data);
@@ -287,6 +288,7 @@ export function TimerWidget({
     setTimerState("IDLE");
     setSeconds(0);
     setIsStoppedModalOpen(false);
+    setIsExpanded(defaultExpanded);
   };
 
   const formatTime = (totalSecs: number): string => {
@@ -463,6 +465,7 @@ export function TimerWidget({
         onClose={() => {
           isStoppingRef.current = false;
           setIsStoppedModalOpen(false);
+          setIsExpanded(defaultExpanded);
         }}
         initialStartTime={startTimeRef}
         elapsedSeconds={stoppedSeconds}
