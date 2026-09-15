@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
-  Calendar,
   Paperclip,
   Bold,
   Italic,
@@ -15,6 +14,8 @@ import {
   Maximize2,
   AlignLeft,
   Loader2,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES, scaffoldPhasesFromTemplate } from "../../data/sop-templates";
 import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
@@ -25,6 +26,8 @@ interface AddProjectDrawerProps {
   onClose: () => void;
   onAddProject: (data: NewProjectFormData) => Promise<void>;
   projects: Project[];
+  projectToEdit?: Project | null;
+  onUpdateProject?: (id: string, data: NewProjectFormData) => Promise<void>;
 }
 
 export function AddProjectDrawer({
@@ -32,8 +35,10 @@ export function AddProjectDrawer({
   onClose,
   onAddProject,
   projects,
+  projectToEdit,
+  onUpdateProject,
 }: AddProjectDrawerProps) {
-  const [projectName, setProjectName] = useState("EagleEye Client Website");
+  const [projectName, setProjectName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate>(
     DEFAULT_PROJECT_TEMPLATES[0]
   );
@@ -77,6 +82,20 @@ export function AddProjectDrawer({
   const [projectAccess, setProjectAccess] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
   const [notifyAddedUsers, setNotifyAddedUsers] = useState(true);
 
+  // Description & Attachments
+  const [description, setDescription] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
+
+  // Expanded Phase Sub-Accordion State
+  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
+
+  // New Phase Add Inline State
+  const [showAddPhaseModal, setShowAddPhaseModal] = useState(false);
+  const [newPhaseCode, setNewPhaseCode] = useState("");
+  const [newPhaseName, setNewPhaseName] = useState("");
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const existingGroups = Array.from(
     new Set(projects.map((p) => p.group).filter((g): g is string => Boolean(g)))
   );
@@ -114,23 +133,40 @@ export function AddProjectDrawer({
     }
   }, [isOpen]);
 
-  // Description & Attachments
-  const [description, setDescription] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
-
-  // Expanded Phase Sub-Accordion State
-  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (projectToEdit) {
+      setProjectName(projectToEdit.name || "");
+      setStartDate(projectToEdit.startDate || "");
+      setDueDate(projectToEdit.deadline || "");
+      setOwner(projectToEdit.owner?.name || "");
+      setDescription(projectToEdit.description || "");
+      setBillingType(projectToEdit.billingType || "Fixed Rate");
+      setPriority(projectToEdit.priority || "None");
+      setProjectGroup(projectToEdit.group || "");
+      setBusinessHours(projectToEdit.businessHours || "Standard Business Hours");
+      setTaskLayout(projectToEdit.taskLayout || "New Project Template");
+      setProjectAccess(projectToEdit.accessType || "PUBLIC");
+      setProjectCategory(projectToEdit.projectCategory || "CLIENT_DELIVERY");
+      setTags(projectToEdit.tags || []);
+      if (projectToEdit.phases && projectToEdit.phases.length > 0) {
+        setPhases(projectToEdit.phases);
+      }
+    } else {
+      setProjectName("");
+      setStartDate("");
+      setDueDate("");
+      setDescription("");
+      setTags([]);
+      setProjectGroup("");
+      setProjectAccess("PRIVATE");
+      setProjectCategory("CLIENT_DELIVERY");
+      setPhases(scaffoldPhasesFromTemplate(DEFAULT_PROJECT_TEMPLATES[0]));
+    }
+  }, [projectToEdit, isOpen]);
 
   const toggleExpandPhase = (phaseId: string) => {
     setExpandedPhaseId((prev) => (prev === phaseId ? null : phaseId));
   };
-
-  // New Phase Add Inline State
-  const [showAddPhaseModal, setShowAddPhaseModal] = useState(false);
-  const [newPhaseCode, setNewPhaseCode] = useState("");
-  const [newPhaseName, setNewPhaseName] = useState("");
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -202,7 +238,12 @@ export function AddProjectDrawer({
     };
 
     try {
-      await onAddProject(formData);
+      if (projectToEdit && onUpdateProject) {
+        await onUpdateProject(projectToEdit.id, formData);
+      } else {
+        await onAddProject(formData);
+      }
+      setProjectName("");
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -214,7 +255,16 @@ export function AddProjectDrawer({
       <div className="relative flex h-full w-full max-w-2xl flex-col bg-background shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Drawer Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-bold text-foreground">Add New Project</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-foreground">
+              {projectToEdit ? "Edit Project Details" : "Add New Project"}
+            </h2>
+            {projectToEdit && (
+              <span className="font-mono text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                {projectToEdit.id}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -230,14 +280,11 @@ export function AddProjectDrawer({
           className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm"
         >
           {/* First-Class SOP Project Template Selector */}
-          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+          {/* <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-foreground uppercase tracking-wider">
                 Select Project Template
               </label>
-              {/* <span className="text-[10px] font-semibold text-primary">
-                Instant 17-Task-List Scaffolding
-              </span> */}
             </div>
 
             <select
@@ -248,14 +295,10 @@ export function AddProjectDrawer({
               {DEFAULT_PROJECT_TEMPLATES.map((tmpl) => (
                 <option key={tmpl.id} value={tmpl.id}>
                   {tmpl.name}
-                  {/* ({tmpl.category}) */}
                 </option>
               ))}
             </select>
-            {/* <p className="text-[11px] text-muted-foreground pt-0.5">
-              {selectedTemplate.description}
-            </p> */}
-          </div>
+          </div> */}
 
           {/* Department Alias Assignment */}
           {/* <div className="space-y-1.5">
@@ -292,7 +335,7 @@ export function AddProjectDrawer({
           </div>
 
           {/* Collapsible: Phases Section */}
-          <div className="rounded-md border border-border bg-card">
+          {/* <div className="rounded-md border border-border bg-card">
             <button
               type="button"
               onClick={() => setPhasesOpen(!phasesOpen)}
@@ -319,7 +362,6 @@ export function AddProjectDrawer({
                   {phases.map((phase) => {
                     const isExpanded = expandedPhaseId === phase.id;
 
-                    // Find matching default tasks for this phase from template
                     const matchingTaskLists = selectedTemplate.phases
                       .flatMap((p) => p.taskLists || [])
                       .filter((tl) => tl && (tl.name.startsWith(phase.code) || tl.name.includes(phase.name)));
@@ -357,7 +399,6 @@ export function AddProjectDrawer({
                           </div>
                         </div>
 
-                        {/* Expanded Sub-Task Details */}
                         {isExpanded && (
                           <div className="border-t bg-muted/20 px-3 py-2 space-y-1.5 text-[11px]">
                             <div className="font-bold text-muted-foreground uppercase text-[10px] tracking-wide pb-0.5">
@@ -376,9 +417,6 @@ export function AddProjectDrawer({
                                     <span className="font-mono text-[10px] text-muted-foreground">
                                       {t.duration}
                                     </span>
-                                    {/* <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-mono text-secondary-foreground">
-                                      {t.departmentAlias}
-                                    </span> */}
                                   </div>
                                 </div>
                               ))
@@ -394,7 +432,6 @@ export function AddProjectDrawer({
                   })}
                 </div>
 
-                {/* Add New Phase Button */}
                 <button
                   type="button"
                   onClick={() => setShowAddPhaseModal(true)}
@@ -403,7 +440,6 @@ export function AddProjectDrawer({
                   Add Custom Phase <Plus size={15} />
                 </button>
 
-                {/* Inline Add Phase Input if toggled */}
                 {showAddPhaseModal && (
                   <div className="mt-3 rounded-md border p-3 bg-muted/30 space-y-2.5 animate-in fade-in duration-150">
                     <div className="text-xs font-semibold text-foreground">
@@ -445,7 +481,7 @@ export function AddProjectDrawer({
                 )}
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Collapsible: Task Information */}
           <div className="rounded-md border border-border bg-card">
@@ -579,18 +615,12 @@ export function AddProjectDrawer({
                     <label className="text-xs text-muted-foreground font-medium">
                       Start Date
                     </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary pr-8"
-                      />
-                      <Calendar
-                        size={14}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                      />
-                    </div>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
@@ -605,18 +635,12 @@ export function AddProjectDrawer({
                         Enter Duration
                       </button>
                     </div>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary pr-8"
-                      />
-                      <Calendar
-                        size={14}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                      />
-                    </div>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
                   </div>
                 </div>
 
@@ -821,42 +845,89 @@ export function AddProjectDrawer({
 
           {/* Project Access */}
           <div className="space-y-2 pt-1">
-            <label className="text-xs font-semibold text-foreground">Project Access</label>
-            <div className="space-y-2">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="projectAccess"
-                  checked={projectAccess === "PUBLIC"}
-                  onChange={() => setProjectAccess("PUBLIC")}
-                  className="mt-0.5 text-primary focus:ring-primary"
-                />
-                <span>
-                  <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
-                    Public Project
-                  </span>
-                  {/* <span className="block text-[11px] text-muted-foreground">
-                    Available to all portal users. No need to assign users explicitly to this project.
-                  </span> */}
-                </span>
-              </label>
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="projectAccess"
-                  checked={projectAccess === "PRIVATE"}
-                  onChange={() => setProjectAccess("PRIVATE")}
-                  className="mt-0.5 text-primary focus:ring-primary"
-                />
-                <span>
-                  <span className="block text-xs font-semibold text-foreground flex items-center gap-1">
-                    Private Project
-                  </span>
-                  {/* <span className="block text-[11px] text-muted-foreground">
-                    Restricted access. Visible only to assigned project users, owner, and creator.
-                  </span> */}
-                </span>
-              </label>
+            {/* <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Project Access
+            </label> */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Public Project Card */}
+              <button
+                type="button"
+                onClick={() => setProjectAccess("PUBLIC")}
+                className={`relative flex items-start gap-3 rounded-lg border p-3.5 text-left transition-all duration-150 cursor-pointer ${
+                  projectAccess === "PUBLIC"
+                    ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/30"
+                    : "border-border bg-card/60 hover:bg-accent/40 hover:border-border/80"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                    projectAccess === "PUBLIC"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <Globe size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">Public Project</span>
+                    <div
+                      className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ${
+                        projectAccess === "PUBLIC"
+                          ? "border-primary bg-primary"
+                          : "border-muted-foreground/40"
+                      }`}
+                    >
+                      {projectAccess === "PUBLIC" && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                    Accessible to all workspace members
+                  </p>
+                </div>
+              </button>
+
+              {/* Private Project Card */}
+              <button
+                type="button"
+                onClick={() => setProjectAccess("PRIVATE")}
+                className={`relative flex items-start gap-3 rounded-lg border p-3.5 text-left transition-all duration-150 cursor-pointer ${
+                  projectAccess === "PRIVATE"
+                    ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/30"
+                    : "border-border bg-card/60 hover:bg-accent/40 hover:border-border/80"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                    projectAccess === "PRIVATE"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <Lock size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">Private Project</span>
+                    <div
+                      className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ${
+                        projectAccess === "PRIVATE"
+                          ? "border-primary bg-primary"
+                          : "border-muted-foreground/40"
+                      }`}
+                    >
+                      {projectAccess === "PRIVATE" && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                    Only assigned members & leads
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -869,7 +940,13 @@ export function AddProjectDrawer({
                 className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
               >
                 {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-                Add
+                {isSubmitting
+                  ? projectToEdit
+                    ? "Saving..."
+                    : "Adding..."
+                  : projectToEdit
+                  ? "Save Changes"
+                  : "Add"}
               </button>
               <button
                 type="button"

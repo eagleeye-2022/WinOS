@@ -66,7 +66,7 @@ export function RemoveUserReassignModal({
             <span className="font-bold text-primary">{userToRemove.name}</span> ({userToRemove.email}) from this project?
           </p>
 
-          {openTasks > 0 ? (
+          {/* {openTasks > 0 ? (
             <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 space-y-2">
               <div className="flex items-center gap-2 font-bold text-xs">
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
@@ -98,7 +98,7 @@ export function RemoveUserReassignModal({
             <p className="text-muted-foreground text-[11px]">
               This user has no open assigned tasks. Removing them will revoke their access to this project.
             </p>
-          )}
+          )} */}
         </div>
 
         {/* Actions Footer */}

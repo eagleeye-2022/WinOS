@@ -15,6 +15,8 @@ export type EntryTask = {
   addedAfterReview?: boolean;
   projectTaskId?: string | null;
   isCompleted?: boolean;
+  /** The task's own due date, set directly by the team member — independent of any linked project task. */
+  dueDate?: Date | null;
   projectTask?: {
     id: string;
     code: string;

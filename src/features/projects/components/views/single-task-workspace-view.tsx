@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry } from "../../types";
 import { parseDurationMinutes, formatTimePeriodRange } from "../../utils/time-helpers";
+import { cn } from "@/lib/utils";
 import { TimerWidget } from "../timer-widget";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
@@ -91,6 +92,7 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 import { ProjectStandupRollup } from "../project-standup-rollup";
+import { toast } from "@/components/shared/toast";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -164,11 +166,12 @@ export function SingleTaskWorkspaceView({
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isExpandedView, setIsExpandedView] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    if (msg.toLowerCase().includes("fail") || msg.toLowerCase().includes("error")) {
+      toast.error(msg);
+    } else {
+      toast.success(msg);
+    }
   };
 
   const handleCopyTaskLink = () => {
@@ -317,6 +320,22 @@ export function SingleTaskWorkspaceView({
     activeTask.status || "Open"
   );
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(activeTask.title || "");
+
+  const [descriptionOpen, setDescriptionOpen] = useState(true);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(activeTask.description || "");
+
+  // Synchronize local form states when activeTask loads or changes
+  useEffect(() => {
+    if (activeTask) {
+      if (activeTask.status) setTaskStatus(activeTask.status);
+      setTitleDraft(activeTask.title || "");
+      setDescriptionDraft(activeTask.description || "");
+    }
+  }, [activeTask?.id, activeTask?.status, activeTask?.title, activeTask?.description]);
+
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!canEditTask) {
       alert("Only the task owner can edit this task.");
@@ -334,20 +353,16 @@ export function SingleTaskWorkspaceView({
         if (!result.success) {
           setTaskStatus(previousStatus);
           setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
-          alert(result.error || "You do not have permission to edit this task.");
+          toast.error(result.error || "You do not have permission to edit this task.");
+        } else {
+          toast.success(`Task status changed to ${newStatus}`);
         }
       } catch (err) {
         console.error("Failed to update task status in DB:", err);
+        toast.error("Failed to update task status");
       }
     }
   };
-
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(activeTask.title);
-
-  const [descriptionOpen, setDescriptionOpen] = useState(true);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionDraft, setDescriptionDraft] = useState(activeTask.description || "");
 
   const startEditingDescription = () => {
     if (!canEditTask) return;
@@ -369,10 +384,13 @@ export function SingleTaskWorkspaceView({
       const result = await updateTaskAction(activeTask.id, { description: trimmed });
       if (!result.success) {
         setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
-        alert(result.error || "You do not have permission to edit this task.");
+        toast.error(result.error || "You do not have permission to edit this task.");
+      } else {
+        toast.success("Task description updated");
       }
     } catch (err) {
       console.error("Failed to update task description in DB:", err);
+      toast.error("Failed to update description");
     }
   };
 
@@ -389,9 +407,10 @@ export function SingleTaskWorkspaceView({
       const result = await updateTaskAction(activeTask.id, updates);
       if (!result.success) {
         setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
-        alert(result.error || "You do not have permission to edit this task.");
+        toast.error(result.error || "You do not have permission to edit this task.");
         return false;
       }
+      toast.success("Task updated");
       return true;
     } catch (err) {
       console.error("Failed to update task in DB:", err);
@@ -475,7 +494,8 @@ export function SingleTaskWorkspaceView({
   const handleToggleSubtask = (id: string) => {
     const target = subtasks.find((st) => st.id === id);
     if (!target) return;
-    const newCompleted = !target.completed;
+    const isCurrentlyDone = target.completed || target.status === "Closed" || target.status === "Approved";
+    const newCompleted = !isCurrentlyDone;
     const newStatus: TaskStatus = newCompleted ? "Closed" : "Open";
 
     const updatedSubtasks = subtasks.map((st) =>
@@ -490,19 +510,20 @@ export function SingleTaskWorkspaceView({
   };
 
   const handleSubtaskStatusChange = (id: string, newStatus: TaskStatus) => {
+    const isDone = newStatus === "Closed" || newStatus === "Approved";
     const updatedSubtasks = subtasks.map((st) =>
       st.id === id
         ? {
             ...st,
             status: newStatus,
-            completed: newStatus === "Closed",
+            completed: isDone,
           }
         : st
     );
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
 
-    updateSubtaskAction(id, { status: newStatus, completed: newStatus === "Closed" }).catch(
+    updateSubtaskAction(id, { status: newStatus, completed: isDone }).catch(
       (err) => console.error("Failed to update subtask status in DB:", err)
     );
   };
@@ -867,14 +888,97 @@ export function SingleTaskWorkspaceView({
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
   };
 
-  // Dynamically compute list of unique phases from all available tasks
-  const availablePhases = Array.from(
-    new Set(
-      leftTaskItems.map(
-        (t) => `${t.phaseCode || "1.1"} ${t.phaseName || "Client On Boarding"}`
-      )
-    )
-  );
+  // Helper to format phase label cleanly without duplicate code prefix
+  const formatPhaseLabel = (phaseCode?: string, phaseName?: string): string => {
+    const code = (phaseCode || "").trim();
+    const name = (phaseName || "").trim();
+    if (!code && !name) return "General";
+    if (!code) return name;
+    if (!name) return code;
+    // Avoid duplicate prefixes like "1.2 1.2 Requirement..."
+    if (name.toLowerCase().startsWith(code.toLowerCase())) return name;
+    if (/^\d+(\.\d+)*\s+/.test(name)) return name;
+    return `${code} ${name}`;
+  };
+
+  // Convert DD/MM/YYYY, ISO, or other string into YYYY-MM-DD for <input type="date">
+  const parseDateForInput = (dateStr?: string): string => {
+    if (!dateStr || dateStr === "--" || dateStr.startsWith("-") || !/\d/.test(dateStr)) return "";
+    const trimmed = dateStr.trim();
+    const slashParts = trimmed.split(/[/.-]/);
+    if (slashParts.length === 3) {
+      if (slashParts[0].length === 4) {
+        return `${slashParts[0]}-${slashParts[1].padStart(2, "0")}-${slashParts[2].padStart(2, "0")}`;
+      }
+      if (slashParts[2].length === 4) {
+        return `${slashParts[2]}-${slashParts[1].padStart(2, "0")}-${slashParts[0].padStart(2, "0")}`;
+      }
+    }
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split("T")[0];
+    }
+    return "";
+  };
+
+  // Convert YYYY-MM-DD back to DD/MM/YYYY for display / persistence
+  const formatInputToDisplayDate = (isoDate: string): string => {
+    if (!isoDate) return "--";
+    const parts = isoDate.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return isoDate;
+  };
+
+  // Safe display for date string, returning "--" if invalid (e.g. "-asdfasdf-")
+  const formatSafeDisplayDate = (dateStr?: string): string => {
+    if (!dateStr || dateStr === "--" || dateStr.includes("asdf") || !/\d/.test(dateStr)) {
+      return "--";
+    }
+    const iso = parseDateForInput(dateStr);
+    if (!iso) return "--";
+    return formatInputToDisplayDate(iso);
+  };
+
+  // Compute duration in days from start date and due date
+  const computeDuration = (startDateStr?: string, dueDateStr?: string, fallbackDuration?: string): string => {
+    const startIso = parseDateForInput(startDateStr);
+    const dueIso = parseDateForInput(dueDateStr);
+    if (startIso && dueIso) {
+      const s = new Date(startIso);
+      const d = new Date(dueIso);
+      const diff = d.getTime() - s.getTime();
+      if (!isNaN(diff)) {
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+        if (days > 1) return `${days} days`;
+        if (days === 1) return "1 day";
+        if (days <= 0) return "0 days";
+      }
+    }
+    if (fallbackDuration && !fallbackDuration.includes("asdf") && /\d/.test(fallbackDuration)) {
+      return fallbackDuration;
+    }
+    return "--";
+  };
+
+  // Dynamically compute list of unique phases from all available tasks and project phases
+  const availablePhases = React.useMemo(() => {
+    const phaseMap = new Map<string, string>();
+    (project?.phases || []).forEach((p) => {
+      const label = formatPhaseLabel(p.code, p.name);
+      if (label && !phaseMap.has(label)) {
+        phaseMap.set(label, label);
+      }
+    });
+    leftTaskItems.forEach((t) => {
+      const label = formatPhaseLabel(t.phaseCode, t.phaseName);
+      if (label && !phaseMap.has(label)) {
+        phaseMap.set(label, label);
+      }
+    });
+    return Array.from(phaseMap.values());
+  }, [leftTaskItems, project?.phases]);
 
   // Auto-sync status to match the active task when navigating to a new taskId
   const [prevTaskId, setPrevTaskId] = useState(taskId);
@@ -927,11 +1031,13 @@ export function SingleTaskWorkspaceView({
   const filteredLeftTasks = leftTaskItems.filter((item) => {
     if (item.parentTaskId) return false;
     if (selectedPhase === "ALL") return true;
-    const phaseCombined = `${item.phaseCode || ""} ${item.phaseName || ""}`.trim().toLowerCase();
+    const formattedItemPhase = formatPhaseLabel(item.phaseCode, item.phaseName).toLowerCase();
+    const targetPhase = selectedPhase.toLowerCase();
     return (
-      phaseCombined === selectedPhase.toLowerCase() ||
-      item.phaseName?.toLowerCase() === selectedPhase.toLowerCase() ||
-      item.phaseCode === selectedPhase
+      formattedItemPhase === targetPhase ||
+      item.phaseName?.toLowerCase() === targetPhase ||
+      item.phaseCode?.toLowerCase() === targetPhase ||
+      `${item.phaseCode || ""} ${item.phaseName || ""}`.trim().toLowerCase() === targetPhase
     );
   });
 
@@ -1029,13 +1135,6 @@ export function SingleTaskWorkspaceView({
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-neutral-400"
               />
             </div>
-            <button
-              type="button"
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-info transition-colors dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800"
-              title="Filter List"
-            >
-              <SlidersHorizontal size={14} />
-            </button>
           </div>
 
           {/* Task Cards Stack */}
@@ -1067,11 +1166,13 @@ export function SingleTaskWorkspaceView({
                       </span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          item.status === "Closed"
+                          item.status === "Closed" || item.status === "Approved"
                             ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
                             : item.status === "In Progress"
                               ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300"
-                              : "bg-info/15 text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-300"
+                              : item.status === "Under Review"
+                                ? "bg-purple-500/15 text-purple-600 border border-purple-500/30 dark:bg-purple-500/20 dark:text-purple-300"
+                                : "bg-info/15 text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-300"
                         }`}
                       >
                         {item.status}
@@ -1081,7 +1182,7 @@ export function SingleTaskWorkspaceView({
                     {/* Title */}
                     <h4
                       className={`text-xs font-semibold leading-snug line-clamp-2 ${
-                        item.status === "Closed"
+                        item.status === "Closed" || item.status === "Approved"
                           ? "line-through text-muted-foreground dark:text-neutral-400"
                           : "text-foreground dark:text-neutral-100"
                       }`}
@@ -1176,19 +1277,11 @@ export function SingleTaskWorkspaceView({
                 canStart={canStartTimer}
                 defaultExpanded
               />
-
-              <Info size={14} className="text-muted-foreground cursor-pointer hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-200" />
             </div>
           </div>
 
           {/* Right Header Action Icons */}
           <div className="flex items-center gap-2 relative">
-            {toastMessage && (
-              <div className="absolute -bottom-10 right-0 z-50 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background shadow-lg animate-in fade-in-0 duration-200">
-                {toastMessage}
-              </div>
-            )}
-
             <button
               type="button"
               onClick={() => setIsTimeLogModalOpen(true)}
@@ -1336,7 +1429,16 @@ export function SingleTaskWorkspaceView({
                 onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
                 disabled={!canEditTask}
                 title={canEditTask ? undefined : "Only the task owner can change the status"}
-                className="appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-semibold text-info outline-none focus:ring-1 focus:ring-primary dark:border-neutral-700 dark:bg-[#1c1e24] dark:text-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(
+                  "appearance-none rounded-lg border bg-card px-3 py-1.5 pr-8 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary dark:bg-[#1c1e24] disabled:cursor-not-allowed disabled:opacity-60",
+                  taskStatus === "Closed" || taskStatus === "Approved"
+                    ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                    : taskStatus === "In Progress"
+                    ? "border-amber-500/40 text-amber-600 dark:text-amber-400"
+                    : taskStatus === "Under Review"
+                    ? "border-purple-500/40 text-purple-600 dark:text-purple-400"
+                    : "border-border text-info dark:border-neutral-700 dark:text-sky-400"
+                )}
               >
                 <option value="Open">● Open</option>
                 <option value="In Progress">● In Progress</option>
@@ -1361,19 +1463,6 @@ export function SingleTaskWorkspaceView({
               <span className="flex items-center gap-2">
                 {descriptionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 Description
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDescriptionOpen(true);
-                    startEditingDescription();
-                  }}
-                  className="p-0.5 rounded hover:bg-accent"
-                  title="Edit description"
-                >
-                  <Plus size={13} className="text-info dark:text-sky-400" />
-                </span>
               </span>
             </button>
             {descriptionOpen && (
@@ -1503,68 +1592,76 @@ export function SingleTaskWorkspaceView({
                   />
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Start Date</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Start Date</span>
                   {canEditTask ? (
                     <input
-                      type="text"
-                      defaultValue={activeTask.startDate || "--"}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim() || "--";
-                        if (val !== (activeTask.startDate || "--")) {
-                          handleUpdateTaskField({ startDate: val });
-                        }
+                      type="date"
+                      value={parseDateForInput(activeTask.startDate)}
+                      onChange={(e) => {
+                        const newIso = e.target.value;
+                        const newDisplay = newIso ? formatInputToDisplayDate(newIso) : "--";
+                        handleUpdateTaskField({
+                          startDate: newDisplay,
+                          duration: computeDuration(newDisplay, activeTask.dueDate, activeTask.duration),
+                        });
                       }}
-                      placeholder="DD/MM/YYYY"
-                      className="w-full bg-transparent font-medium text-foreground outline-none focus:underline dark:text-neutral-100"
+                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-neutral-100 dark:[color-scheme:dark]"
                     />
                   ) : (
-                    <span className="font-medium text-foreground dark:text-neutral-100">{activeTask.startDate || "--"}</span>
+                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                      {formatSafeDisplayDate(activeTask.startDate)}
+                    </span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Due Date</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Due Date</span>
                   {canEditTask ? (
                     <input
-                      type="text"
-                      defaultValue={activeTask.dueDate || "--"}
-                      onBlur={(e) => {
-                        const val = e.target.value.trim() || "--";
-                        if (val !== (activeTask.dueDate || "--")) {
-                          handleUpdateTaskField({ dueDate: val });
-                        }
+                      type="date"
+                      value={parseDateForInput(activeTask.dueDate)}
+                      onChange={(e) => {
+                        const newIso = e.target.value;
+                        const newDisplay = newIso ? formatInputToDisplayDate(newIso) : "--";
+                        handleUpdateTaskField({
+                          dueDate: newDisplay,
+                          duration: computeDuration(activeTask.startDate, newDisplay, activeTask.duration),
+                        });
                       }}
-                      placeholder="DD/MM/YYYY"
-                      className="w-full bg-transparent font-medium text-foreground outline-none focus:underline dark:text-neutral-100"
+                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-neutral-100 dark:[color-scheme:dark]"
                     />
                   ) : (
-                    <span className="font-medium text-foreground dark:text-neutral-100">{activeTask.dueDate || "--"}</span>
+                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                      {formatSafeDisplayDate(activeTask.dueDate)}
+                    </span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Priority</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Priority</span>
                   {canEditTask ? (
                     <select
                       value={activeTask.priority || "None"}
                       onChange={(e) => handleUpdateTaskField({ priority: e.target.value as TaskItem["priority"] })}
-                      className="w-full bg-transparent font-medium text-foreground outline-none cursor-pointer dark:text-neutral-100"
+                      className="w-auto max-w-fit pr-1 bg-transparent font-semibold text-foreground outline-none cursor-pointer dark:text-neutral-100 text-sm"
                     >
-                      <option value="None">None</option>
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                      <option value="Urgent">Urgent</option>
+                      <option value="None" className="bg-card text-foreground">None</option>
+                      <option value="Low" className="bg-card text-foreground">Low</option>
+                      <option value="Medium" className="bg-card text-foreground">Medium</option>
+                      <option value="High" className="bg-card text-foreground">High</option>
+                      <option value="Urgent" className="bg-card text-foreground">Urgent</option>
                     </select>
                   ) : (
-                    <span className="font-medium text-foreground dark:text-neutral-100">{activeTask.priority || "None"}</span>
+                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">{activeTask.priority || "None"}</span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Duration</span>
-                  <span className="font-medium text-foreground dark:text-neutral-100">{activeTask.duration || "2 days"}</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Duration</span>
+                  <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                    {computeDuration(activeTask.startDate, activeTask.dueDate, activeTask.duration)}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] dark:text-neutral-400">Total Logged Hours</span>
-                  <span className="font-bold text-info font-mono text-xs dark:text-sky-400">{formattedTotalTaskHours} h</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Total Logged Hours</span>
+                  <span className="font-bold text-info font-mono text-sm dark:text-sky-400">{formattedTotalTaskHours} h</span>
                 </div>
               </div>
             )}
@@ -1724,12 +1821,12 @@ export function SingleTaskWorkspaceView({
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
-                                    checked={st.completed || st.status === "Closed"}
+                                    checked={st.completed || st.status === "Closed" || st.status === "Approved"}
                                     onChange={() => handleToggleSubtask(st.id)}
                                     onClick={(e) => e.stopPropagation()}
                                     className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
                                   />
-                                  <span className={st.completed || st.status === "Closed" ? "line-through text-muted-foreground" : "hover:underline"}>
+                                  <span className={st.completed || st.status === "Closed" || st.status === "Approved" ? "line-through text-muted-foreground" : "hover:underline"}>
                                     {st.title}
                                   </span>
                                 </div>
@@ -1739,11 +1836,22 @@ export function SingleTaskWorkspaceView({
                                   value={st.status}
                                   onChange={(e) => handleSubtaskStatusChange(st.id, e.target.value as TaskStatus)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer dark:text-neutral-200"
+                                  className={cn(
+                                    "rounded px-2 py-0.5 text-xs font-semibold outline-none cursor-pointer border transition-colors",
+                                    st.status === "Closed" || st.status === "Approved"
+                                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                      : st.status === "In Progress"
+                                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                      : st.status === "Under Review"
+                                      ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                                      : "border-blue-500/30 bg-blue-500/10 text-info dark:text-sky-400"
+                                  )}
                                 >
-                                  <option value="Open">Open</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Closed">Closed</option>
+                                  <option value="Open" className="bg-card text-foreground">Open</option>
+                                  <option value="In Progress" className="bg-card text-foreground">In Progress</option>
+                                  <option value="Under Review" className="bg-card text-foreground">Under Review</option>
+                                  <option value="Approved" className="bg-card text-foreground">Approved</option>
+                                  <option value="Closed" className="bg-card text-foreground">Closed</option>
                                 </select>
                               </td>
                               {/* <td className="py-2 px-3 border-r border-border truncate text-muted-foreground dark:border-neutral-800 dark:text-neutral-300 font-medium">

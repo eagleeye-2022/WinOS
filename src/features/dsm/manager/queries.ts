@@ -75,9 +75,12 @@ export type MemberReviewEntry = {
     priority?: string | null;
     managerPriority: string | null;
     addedAfterReview?: boolean;
+    isCompleted?: boolean;
     createdAt: Date;
     updatedAt: Date;
     projectTaskId?: string | null;
+    /** The task's own due date, set directly by the team member — independent of any linked project task. */
+    dueDate?: Date | null;
     projectTask?: {
       id: string;
       code: string;

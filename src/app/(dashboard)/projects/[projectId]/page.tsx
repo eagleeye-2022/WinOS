@@ -16,6 +16,7 @@ import { ProjectUsersView } from "@/features/projects/components/views/project-u
 import { ProjectDocumentsView } from "@/features/projects/components/views/project-documents-view";
 import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
 import { ProjectTimeLogsView } from "@/features/projects/components/views/project-time-logs-view";
+import { toast } from "@/components/shared/toast";
 
 const RECENT_PROJECTS_KEY = "winos:recentProjects";
 const RECENT_PROJECTS_LIMIT = 4;
@@ -99,8 +100,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         },
         projectId
       );
+      toast.success("Task created");
     } catch (err) {
       console.error("Failed to persist task in DB:", err);
+      toast.error("Failed to create task");
     }
   };
 
@@ -112,7 +115,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      alert(result.error || "You do not have permission to edit this task.");
+      toast.error(result.error || "You do not have permission to edit this task.");
+    } else {
+      toast.success("Task updated");
     }
   };
 
@@ -223,10 +228,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === "TASKS" && (
           <TasksBoardView
             tasks={tasks}
+            phases={project.phases}
             onAddTask={handleAddTask}
             onUpdateTask={handleUpdateTask}
             assignedToMeCount={assignedToMeCount}

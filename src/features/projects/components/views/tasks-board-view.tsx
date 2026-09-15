@@ -22,16 +22,20 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   MoreVertical,
+  MoreHorizontal,
   Trash2,
   Eye,
   X,
+  Loader2,
 } from "lucide-react";
+import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/shared/confirm-dialog";
-import { TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole } from "../../types";
+import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { getAvatarColor } from "../assignee-picker-popover";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
 import { ChecklistWorkspaceView } from "./checklist-workspace-view";
 import { PhasesTableView } from "./phases-table-view";
@@ -47,11 +51,14 @@ import {
   deleteTaskAction,
   getProjectMembersAction,
   reorderProjectTasksAction,
+  createProjectTaskListAction,
+  getProjectPhasesAction,
 } from "../../actions/project-actions";
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
 
 interface TasksBoardViewProps {
   tasks: TaskItem[];
+  phases?: ProjectPhase[];
   onAddTask: (newTask: TaskItem) => void;
   onUpdateTask: (updatedTask: TaskItem) => void;
   assignedToMeCount?: number;
@@ -195,6 +202,7 @@ const DEFAULT_KANBAN_PHASES = [
 
 export function TasksBoardView({
   tasks,
+  phases,
   onAddTask,
   onUpdateTask,
   assignedToMeCount: propAssignedToMeCount = 0,
@@ -238,6 +246,79 @@ export function TasksBoardView({
     });
   }, []);
 
+  const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const params = useParams();
+  const realProjectId = (params?.projectId as string | undefined) || projectCode;
+
+  // Custom task lists / phases created on the board
+  const [customPhases, setCustomPhases] = useState<{ code: string; name: string }[]>([]);
+  const [dbPhases, setDbPhases] = useState<ProjectPhase[]>(phases || []);
+  const [isAddingTaskList, setIsAddingTaskList] = useState(false);
+  const [newTaskListName, setNewTaskListName] = useState("");
+  const [newTaskListCode, setNewTaskListCode] = useState("");
+  const [isCreatingTaskList, setIsCreatingTaskList] = useState(false);
+
+  useEffect(() => {
+    if (phases && phases.length > 0) {
+      setDbPhases(phases);
+    }
+    const targetId = realProjectId || projectCode;
+    if (targetId) {
+      getProjectPhasesAction(targetId).then((res) => {
+        if (res && res.length > 0) {
+          setDbPhases(res);
+        }
+      });
+    }
+  }, [phases, realProjectId, projectCode]);
+
+  const handleCreateTaskList = async () => {
+    const rawName = newTaskListName.trim();
+    if (!rawName || isCreatingTaskList) return;
+
+    setIsCreatingTaskList(true);
+    try {
+      const code = newTaskListCode.trim() || `${phaseColumns.length + 1}.1`;
+      const formattedName = rawName.toUpperCase().startsWith(code)
+        ? rawName.toUpperCase()
+        : `${code} ${rawName.toUpperCase()}`;
+
+      const newPhaseItem: ProjectPhase = {
+        id: `ph-${Date.now()}`,
+        code,
+        name: formattedName,
+        isCompleted: false,
+      };
+      setCustomPhases((prev) => [...prev, { code, name: formattedName }]);
+      setDbPhases((prev) => [...prev, newPhaseItem]);
+
+      const targetProjectId = realProjectId || projectCode;
+      if (targetProjectId) {
+        const res = await createProjectTaskListAction(targetProjectId, {
+          name: formattedName,
+          code,
+        });
+        if (res.success && res.phase) {
+          setDbPhases((prev) => {
+            if (prev.some((p) => p.code === res.phase!.code)) return prev;
+            return [...prev, res.phase!];
+          });
+        }
+      }
+
+      toast.success(`Task list "${formattedName}" created`);
+      setNewTaskListName("");
+      setNewTaskListCode("");
+      setIsAddingTaskList(false);
+    } catch (err) {
+      console.error("Failed to create task list:", err);
+      toast.error("Failed to create task list");
+    } finally {
+      setIsCreatingTaskList(false);
+    }
+  };
+
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [isAddTaskDrawerOpen, setIsAddTaskDrawerOpen] = useState(false);
@@ -247,6 +328,76 @@ export function TasksBoardView({
   const handleOpenAddTaskForPhase = (phaseCode?: string) => {
     setSelectedAddTaskPhase(phaseCode);
     setIsAddTaskDrawerOpen(true);
+  };
+
+  // Zoho-style inline quick-add task card per phase column
+  const [inlineAddingPhaseCode, setInlineAddingPhaseCode] = useState<string | null>(null);
+  const [inlineTaskTitle, setInlineTaskTitle] = useState("");
+  const [isCreatingInlineTask, setIsCreatingInlineTask] = useState(false);
+
+  const handleCreateInlineTask = async (phaseCode: string, phaseName: string) => {
+    const title = inlineTaskTitle.trim();
+    if (!title || isCreatingInlineTask) return;
+
+    setIsCreatingInlineTask(true);
+    try {
+      const codePrefix = projectCode || "TASK";
+      const nextTaskIndex = localTasks.length + 1;
+      const taskCode = `${codePrefix}-T${nextTaskIndex < 10 ? `0${nextTaskIndex}` : nextTaskIndex}`;
+
+      let derivedDeptAlias = "digitalproducts@";
+      if (phaseCode === "3.1" || phaseCode === "3.2") derivedDeptAlias = "design@";
+      else if (phaseCode === "4.1") derivedDeptAlias = "dev@";
+      else if (phaseCode === "5.1") derivedDeptAlias = "qa@";
+
+      const primaryOwner = currentUser?.name || "Unassigned";
+
+      const tempTask: TaskItem = {
+        id: `t-${Date.now()}`,
+        code: taskCode,
+        title,
+        phaseCode,
+        phaseName,
+        status: "Open",
+        authorName: currentUser?.name || "Team Member",
+        associatedTeam: "Engineering",
+        departmentAlias: derivedDeptAlias,
+        owner: primaryOwner,
+        owners: primaryOwner !== "Unassigned" ? [primaryOwner] : [],
+        workHours: "00:00",
+        startDate: new Date().toLocaleDateString("en-GB"),
+        dueDate: "",
+        duration: "1 day",
+        completionPercentage: 0,
+        priority: "Medium",
+        tags: [],
+        description: "",
+        subtasks: [],
+        remarks: [],
+        activities: [
+          {
+            id: `act-${Date.now()}`,
+            date: new Date().toLocaleDateString("en-GB"),
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            userName: currentUser?.name || "Team Member",
+            actionText: `created task "${title}"`,
+          },
+        ],
+      };
+
+      // Optimistically update local tasks
+      setLocalTasks((prev) => [tempTask, ...prev]);
+      setInlineTaskTitle("");
+      setInlineAddingPhaseCode(null);
+
+      // Call parent onAddTask which persists to DB via createTaskAction
+      onAddTask(tempTask);
+    } catch (err) {
+      console.error("[TasksBoardView] Error creating inline task:", err);
+      toast.error("Failed to create task");
+    } finally {
+      setIsCreatingInlineTask(false);
+    }
   };
 
   // Filter & Options Popover States
@@ -270,11 +421,6 @@ export function TasksBoardView({
     });
   };
 
-  const router = useRouter();
-  const { confirm, ConfirmDialog } = useConfirm();
-  const params = useParams();
-  const realProjectId = params?.projectId as string | undefined;
-
   // Only members actually on this project can be assigned as a task owner — cross-project
   // views (e.g. "My Tasks", no :projectId in the route) fall back to the full user directory
   // since there's no single project to scope the list to.
@@ -297,6 +443,7 @@ export function TasksBoardView({
   const isTaskOwner = useCallback(
     (task: TaskItem): boolean => {
       if (!currentUser) return false;
+      if (currentUser.role === "ADMIN") return true;
 
       const uId = currentUser.id.toLowerCase();
       const uName = currentUser.name.trim().toLowerCase();
@@ -391,11 +538,19 @@ export function TasksBoardView({
     setTitleDraft(task.title);
   };
 
+  const handleOpenTaskDrawer = (task: TaskItem) => {
+    const fresh = localTasks.find((t) => t.id === task.id) || task;
+    setSelectedTask(fresh);
+    setIsDetailDrawerOpen(true);
+  };
+
   const commitTitleEdit = async (task: TaskItem) => {
     const trimmed = titleDraft.trim();
     setEditingTitleTaskId(null);
     if (!trimmed || trimmed === task.title) return;
     const updatedTask = { ...task, title: trimmed };
+    setLocalTasks((prev) => prev.map((t) => (t.id === task.id ? updatedTask : t)));
+    if (selectedTask?.id === task.id) setSelectedTask(updatedTask);
     onUpdateTask(updatedTask);
     try {
       await updateTaskAction(task.id, { title: trimmed });
@@ -408,6 +563,10 @@ export function TasksBoardView({
   const handleChangeTaskStatus = async (task: TaskItem, newStatus: TaskStatus) => {
     if (newStatus === task.status) return;
     const updatedTask = { ...task, status: newStatus };
+    setLocalTasks((prev) => prev.map((t) => (t.id === task.id ? updatedTask : t)));
+    if (selectedTask?.id === task.id) {
+      setSelectedTask(updatedTask);
+    }
     onUpdateTask(updatedTask);
     try {
       await updateTaskAction(task.id, { status: newStatus });
@@ -424,6 +583,8 @@ export function TasksBoardView({
       description: `Delete task "${task.title}" (${task.code})? This cannot be undone.`,
     });
     if (!ok) return;
+    setLocalTasks((prev) => prev.filter((t) => t.id !== task.id));
+    if (selectedTask?.id === task.id) setSelectedTask(null);
     try {
       const success = await deleteTaskAction(task.id);
       if (success) {
@@ -640,6 +801,18 @@ export function TasksBoardView({
     phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
   });
 
+  dbPhases.forEach((p) => {
+    if (!phaseMap[p.code]) {
+      phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
+    }
+  });
+
+  customPhases.forEach((p) => {
+    if (!phaseMap[p.code]) {
+      phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
+    }
+  });
+
   filteredTasks.forEach((t) => {
     let code = (t.phaseCode || "").trim();
     if (!code && t.phaseName) {
@@ -808,7 +981,7 @@ export function TasksBoardView({
         )}
       >
         {/* Top Row: Select checkbox, Task Code & Status Select matching reference screenshot */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 shrink-0">
             <input
               type="checkbox"
@@ -827,15 +1000,17 @@ export function TasksBoardView({
               {task.code}
             </span>
           </div>
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
           <div
             className={cn(
-              "relative inline-flex items-center rounded-full text-[9px] font-extrabold uppercase tracking-wider transition-colors",
-              isClosed
-                ? "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400"
-                : isInProgress
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+              "relative inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-tight text-white transition-all shadow-2xs",
+              task.status === "Closed" || task.status === "Approved"
+                ? "bg-emerald-500 hover:bg-emerald-600"
+                : task.status === "In Progress"
+                ? "bg-amber-500 hover:bg-amber-600"
+                : task.status === "Under Review"
+                ? "bg-purple-500 hover:bg-purple-600"
+                : "bg-[#0088ff] hover:bg-[#0077ee]"
             )}
           >
             <select
@@ -843,15 +1018,17 @@ export function TasksBoardView({
               onChange={(e) => handleChangeTaskStatus(task, e.target.value as TaskStatus)}
               disabled={!isOwner}
               title={isOwner ? "Change status" : `Only the task owner (${task.owner || "Unassigned"}) can change the status`}
-              className="appearance-none rounded-full bg-transparent py-0.5 pl-2.5 pr-5 outline-none cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all disabled:cursor-not-allowed disabled:opacity-70"
+              className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-[10px]"
             >
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Closed">Closed</option>
+              <option value="Open" className="bg-card text-foreground">Open</option>
+              <option value="In Progress" className="bg-card text-foreground">In Progress</option>
+              <option value="Under Review" className="bg-card text-foreground">Under Review</option>
+              <option value="Approved" className="bg-card text-foreground">Approved</option>
+              <option value="Closed" className="bg-card text-foreground">Closed</option>
             </select>
             <ChevronDown
-              size={10}
-              className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2"
+              size={11}
+              className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-white/90"
             />
           </div>
 
@@ -860,10 +1037,10 @@ export function TasksBoardView({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleOpenTask(task);
+                handleOpenTaskDrawer(task);
               }}
               className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer"
-              title="View Details"
+              title="View Details in Drawer"
             >
               <Eye size={13} />
             </button>
@@ -970,7 +1147,10 @@ export function TasksBoardView({
             }}
             title={isOwner ? "Click to rename" : task.title}
             className={cn(
-              "rounded-md px-1 -mx-1 text-xs font-bold text-slate-800 dark:text-neutral-200 leading-snug transition-colors group-hover:text-primary",
+              "rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary",
+              isClosed
+                ? "line-through text-slate-400 dark:text-neutral-500 decoration-slate-400/80 dark:decoration-neutral-500/80"
+                : "text-slate-800 dark:text-neutral-200",
               isOwner ? "hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text" : "cursor-pointer"
             )}
           >
@@ -1074,10 +1254,19 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  className="relative flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-white text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer"
+                  className={cn(
+                    "relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer",
+                    isUnassigned
+                      ? "bg-slate-100 text-slate-400 border border-slate-200/80 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
+                      : getAvatarColor(resolvedName)
+                  )}
                   title={`Owners: ${(task.owners && task.owners.length > 0 ? task.owners : [task.owner || "Unassigned"]).join(", ")} (Click to assign owners)`}
                 >
-                  {ownerInitials}
+                  {isUnassigned ? (
+                    <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" />
+                  ) : (
+                    ownerInitials
+                  )}
                   {task.owners && task.owners.length > 1 && (
                     <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[8px] font-bold ring-2 ring-background">
                       +{task.owners.length - 1}
@@ -1346,7 +1535,7 @@ export function TasksBoardView({
                   align="start"
                   className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 >
-                  {(["Open", "In Progress", "Closed"] as TaskStatus[]).map((s) => (
+                  {(["Open", "In Progress", "Under Review", "Approved", "Closed"] as TaskStatus[]).map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -1509,8 +1698,8 @@ export function TasksBoardView({
 
           {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
-            <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-6 bg-slate-50/50 dark:bg-background/40">
-              <div className="flex gap-5 h-full items-stretch">
+            <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40">
+              <div className="flex gap-3.5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   const isCollapsed = collapsedPhaseCodes.has(col.code);
 
@@ -1546,28 +1735,17 @@ export function TasksBoardView({
                   return (
                     <div
                       key={col.code}
-                      className="w-80 shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
+                      className="w-[360px] shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
                     >
                       {/* Column Header matching reference screenshot */}
                       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider truncate max-w-[180px]">
-                            {col.name}
-                          </span>
-                          <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 font-mono">
-                            {col.count}
+                          <span className="font-extrabold text-xs text-foreground tracking-wide truncate max-w-[240px]">
+                            {col.name} ({col.count})
                           </span>
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAddTaskForPhase(col.code)}
-                            className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title="Add Task to Phase"
-                          >
-                            <Plus size={14} />
-                          </button>
                           <button
                             type="button"
                             onClick={() => handleTogglePhaseCollapse(col.code)}
@@ -1576,6 +1754,63 @@ export function TasksBoardView({
                           >
                             <ArrowLeftToLine size={14} />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineAddingPhaseCode((prev) => (prev === col.code ? null : col.code));
+                              setInlineTaskTitle("");
+                            }}
+                            className={`p-1 rounded transition-colors cursor-pointer ${
+                              inlineAddingPhaseCode === col.code
+                                ? "bg-primary text-primary-foreground"
+                                : "text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800"
+                            }`}
+                            title="Add Task"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          {/* Phase Options */}
+                          {/* <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="Phase Options"
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              side="bottom"
+                              align="end"
+                              className="w-44 p-1 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setInlineAddingPhaseCode(col.code);
+                                  setInlineTaskTitle("");
+                                }}
+                                className="flex w-full items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-xs font-medium cursor-pointer"
+                              >
+                                <Plus size={12} /> Add Task
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddTaskForPhase(col.code)}
+                                className="flex w-full items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-xs font-medium cursor-pointer"
+                              >
+                                <FileText size={12} /> Full Task Form
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePhaseCollapse(col.code)}
+                                className="flex w-full items-center gap-2 px-2.5 py-1.5 rounded hover:bg-accent text-xs font-medium cursor-pointer"
+                              >
+                                <ArrowLeftToLine size={12} /> Collapse Phase
+                              </button>
+                            </PopoverContent>
+                          </Popover> */}
                         </div>
                       </div>
 
@@ -1588,12 +1823,62 @@ export function TasksBoardView({
                         onDragOver={(e) => handleColumnDragOver(e, col.code)}
                         onDrop={(e) => handleCardDrop(e, col.code)}
                       >
-                        {col.tasks.length === 0 ? (
+                        {/* Inline Quick Add Task Textarea Box (matching reference image) */}
+                        {inlineAddingPhaseCode === col.code && (
+                          <div className="rounded-xl border border-slate-700/80 bg-[#16181d] p-3 shadow-md space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+                            <textarea
+                              autoFocus
+                              rows={3}
+                              value={inlineTaskTitle}
+                              onChange={(e) => setInlineTaskTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleCreateInlineTask(col.code, col.name);
+                                } else if (e.key === "Escape") {
+                                  setInlineAddingPhaseCode(null);
+                                  setInlineTaskTitle("");
+                                }
+                              }}
+                              placeholder="Enter task name..."
+                              className="w-full resize-y rounded-lg border border-neutral-700/80 bg-[#111216] p-2.5 text-xs font-medium text-white outline-none focus:ring-1 focus:ring-primary placeholder:text-neutral-500 min-h-[70px]"
+                            />
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-800">
+                              <span className="text-[10px] text-neutral-400 font-mono">↵ Enter to create</span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineAddingPhaseCode(null);
+                                    setInlineTaskTitle("");
+                                  }}
+                                  className="px-2.5 py-1 rounded text-[11px] font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={!inlineTaskTitle.trim() || isCreatingInlineTask}
+                                  onClick={() => handleCreateInlineTask(col.code, col.name)}
+                                  className="px-3 py-1 rounded bg-[#0088ff] text-white text-[11px] font-bold hover:bg-[#0077ee] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shadow-xs"
+                                >
+                                  {isCreatingInlineTask ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
+                                  <span>Add Task</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {col.tasks.length === 0 && inlineAddingPhaseCode !== col.code ? (
                           <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-300/70 dark:border-neutral-800 rounded-xl text-center text-muted-foreground/60 space-y-2 h-36">
                             <span className="text-[11px] font-medium">No tasks in this phase</span>
                             <button
                               type="button"
-                              onClick={() => handleOpenAddTaskForPhase(col.code)}
+                              onClick={() => {
+                                setInlineAddingPhaseCode(col.code);
+                                setInlineTaskTitle("");
+                              }}
                               className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                             >
                               <Plus size={12} /> Add Task
@@ -1606,6 +1891,106 @@ export function TasksBoardView({
                     </div>
                   );
                 })}
+
+                {/* ── Create Task List Option Column (matching user screenshot) ────────────────────── */}
+                {!isAddingTaskList ? (
+                  <div className="w-[300px] shrink-0 rounded-2xl border-2 border-dashed border-slate-200 dark:border-neutral-800 bg-slate-50/60 dark:bg-neutral-900/30 p-3.5 flex flex-col justify-start h-full shadow-2xs hover:border-primary/50 transition-all duration-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingTaskList(true);
+                        const lastCode = phaseColumns[phaseColumns.length - 1]?.code || "1.1";
+                        const match = lastCode.match(/^(\d+)/);
+                        const nextMajor = match ? parseInt(match[1], 10) + 1 : 8;
+                        setNewTaskListCode(`${nextMajor}.1`);
+                      }}
+                      className="w-full py-4 px-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary dark:text-sky-400 flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer group"
+                    >
+                      <span>Create Task List</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-[340px] shrink-0 rounded-2xl border border-slate-300 dark:border-neutral-700 bg-card dark:bg-[#16181d] p-4 flex flex-col h-full shadow-md transition-all duration-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
+                        <Layers size={14} className="text-[#0088ff]" />
+                        <span>Create Task List</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingTaskList(false);
+                          setNewTaskListName("");
+                          setNewTaskListCode("");
+                        }}
+                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div>
+                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                          Task List / Phase Name <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          value={newTaskListName}
+                          onChange={(e) => setNewTaskListName(e.target.value)}
+                          placeholder="e.g. POST LAUNCH, QA AUDIT"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newTaskListName.trim()) {
+                              e.preventDefault();
+                              handleCreateTaskList();
+                            } else if (e.key === "Escape") {
+                              setIsAddingTaskList(false);
+                            }
+                          }}
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary font-medium"
+                        />
+                      </div>
+
+                      {/* <div>
+                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                          Phase Code <span className="text-muted-foreground/60">(Optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={newTaskListCode}
+                          onChange={(e) => setNewTaskListCode(e.target.value)}
+                          placeholder="e.g. 8.1"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary font-mono font-medium"
+                        />
+                      </div> */}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border dark:border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingTaskList(false);
+                          setNewTaskListName("");
+                          setNewTaskListCode("");
+                        }}
+                        className="px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!newTaskListName.trim() || isCreatingTaskList}
+                        onClick={handleCreateTaskList}
+                        className="flex items-center gap-1.5 rounded-md bg-[#0088ff] hover:bg-[#0077ee] text-white px-3.5 py-1.5 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                      >
+                        {isCreatingTaskList && <Loader2 size={13} className="animate-spin" />}
+                        <span>Create List</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1630,7 +2015,11 @@ export function TasksBoardView({
         task={selectedTask}
         isOpen={isDetailDrawerOpen}
         onClose={() => setIsDetailDrawerOpen(false)}
-        onUpdateTask={onUpdateTask}
+        onUpdateTask={(updated) => {
+          setLocalTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          setSelectedTask(updated);
+          onUpdateTask(updated);
+        }}
       />
 
       {/* Add Task Drawer */}

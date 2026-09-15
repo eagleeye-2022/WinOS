@@ -23,8 +23,8 @@ export function SessionGuard() {
       }
     }
 
-    // Periodically verify session active state (every 5 seconds)
-    const interval = setInterval(verifySession, 5000);
+    // Periodically verify session active state (every 60 seconds)
+    const interval = setInterval(verifySession, 60000);
 
     // Re-verify on tab focus / visibility change
     function handleVisibilityChange() {

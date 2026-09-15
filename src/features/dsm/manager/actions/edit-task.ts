@@ -34,9 +34,24 @@ export async function editTask(
     return { message: "This entry has already been reviewed and cannot be changed." };
   }
 
+  const dataToUpdate: Record<string, unknown> = { text, editedById: session.user.id };
+
+  if (formData.has("projectTaskId")) {
+    const ptId = (formData.get("projectTaskId") as string)?.trim() || null;
+    dataToUpdate.projectTaskId = ptId;
+  }
+  if (formData.has("dueDate")) {
+    const dStr = (formData.get("dueDate") as string)?.trim();
+    dataToUpdate.dueDate = dStr ? new Date(dStr) : null;
+  }
+  if (formData.has("managerPriority")) {
+    const p = (formData.get("managerPriority") as string)?.trim() || null;
+    dataToUpdate.managerPriority = p;
+  }
+
   const task = await d.standupTask.update({
     where: { id: taskId },
-    data: { text, editedById: session.user.id },
+    data: dataToUpdate,
     select: { entry: { select: { userId: true } } },
   });
 

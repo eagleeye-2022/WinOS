@@ -34,6 +34,7 @@ import {
 import { AddProjectUsersModal } from "../modals/add-project-users-modal";
 import { UserDetailDrawer } from "../modals/user-detail-drawer";
 import { RemoveUserReassignModal } from "../modals/remove-user-reassign-modal";
+import { toast } from "@/components/shared/toast";
 
 interface ProjectUsersViewProps {
   projectId: string;
@@ -116,9 +117,10 @@ export function ProjectUsersView({
       if (onMembersCountChange) {
         onMembersCountChange(members.length - 1);
       }
+      toast.success(`Removed ${userToRemove.name} from project`);
     } catch (err) {
       console.error("Failed to remove member:", err);
-      alert("Failed to remove user from project.");
+      toast.error("Failed to remove user from project.");
     }
   };
 
@@ -255,7 +257,7 @@ export function ProjectUsersView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto p-6 space-y-6">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background text-foreground p-6 gap-4 overflow-hidden">
       {/* KPI Stats Bar */}
       {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
@@ -316,15 +318,15 @@ export function ProjectUsersView({
       </div> */}
 
       {/* Top Controls Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b shrink-0">
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="text-xl font-bold tracking-tight text-foreground">Project Users</h2>
-            {!isLoading && (
+            {/* {!isLoading && (
               <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary font-mono">
                 {filteredMembers.length} Showing
               </span>
-            )}
+            )} */}
           </div>
           {/* <p className="text-xs text-muted-foreground mt-1">
             Manage users, project roles, hourly rates, and task allocations for {projectName ? `"${projectName}"` : "this project"}.
@@ -455,7 +457,7 @@ export function ProjectUsersView({
         </div>
       ) : viewMode === "GRID" ? (
         /* GRID CARD VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex-1 min-h-0 overflow-y-auto dsm-columns-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-1">
           {filteredMembers.map((member) => (
             <div
               key={member.id}
@@ -496,22 +498,12 @@ export function ProjectUsersView({
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setSelectedDrawerUserId(member.id)}
-                      className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                      title="Inspect User Details"
+                      onClick={() => setUserToRemove(member)}
+                      title="Remove user from project"
+                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                     >
-                      <Eye size={15} />
+                      <Trash2 size={15} />
                     </button>
-                    {!member.isOwner && (
-                      <button
-                        type="button"
-                        onClick={() => setUserToRemove(member)}
-                        title="Remove user from project"
-                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -609,11 +601,11 @@ export function ProjectUsersView({
         </div>
       ) : (
         /* TABLE VIEW */
-        <div className="rounded-xl border bg-card shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto dsm-columns-scrollbar">
+        <div className="flex-1 min-h-0 rounded-xl border bg-card shadow-2xs overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
             <table className="w-full min-w-[800px] text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
+              <thead className="sticky top-0 z-10 bg-card">
+                <tr className="border-b bg-muted/60 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4 border-r">User Name</th>
                   <th className="py-3 px-4 border-r">Email ID</th>
                   {/* <th className="py-3 px-4 border-r">Project Role</th> */}
@@ -621,7 +613,7 @@ export function ProjectUsersView({
                   <th className="py-3 px-4 border-r text-center">Open Tasks</th>
                   <th className="py-3 px-4 border-r text-center">Logged Hours</th>
                   {/* <th className="py-3 px-4 border-r text-right">Hourly Rate</th> */}
-                  {/* <th className="py-3 px-4 text-center">Actions</th> */}
+                  <th className="py-3 px-4 text-center w-24">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -695,36 +687,18 @@ export function ProjectUsersView({
                     </td> */}
 
                     {/* Actions */}
-                    {/* <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2">
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center">
                         <button
                           type="button"
-                          onClick={() => setSelectedDrawerUserId(member.id)}
-                          className="p-1 text-muted-foreground hover:text-primary transition-colors"
-                          title="Inspect Details"
+                          onClick={() => setUserToRemove(member)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer"
+                          title="Remove User from Project"
                         >
-                          <Eye size={15} />
+                          <Trash2 size={16} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => startEditUser(member)}
-                          className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                          title="Edit Role & Rate"
-                        >
-                          <Edit2 size={15} />
-                        </button>
-                        {!member.isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => setUserToRemove(member)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                            title="Remove User"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        )}
                       </div>
-                    </td> */}
+                    </td>
                   </tr>
                 ))}
               </tbody>

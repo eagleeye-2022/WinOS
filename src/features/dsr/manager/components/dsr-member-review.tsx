@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, CheckCheck,
-  Star, Clock3, Clock, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2, Plus, Check, X,
+  Star, Clock3, AlertCircle, Zap, TrendingDown, ArrowLeft, Loader2, Plus, Check, X,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -22,6 +22,8 @@ import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
+import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 // ── Date entry header — static strip matching Figma image 2 ──────────────────
 
@@ -122,85 +124,89 @@ function ResultCard({ entry }: { entry: DsrEntryData }) {
 // ── Task progress card ────────────────────────────────────────────────────────
 
 function TaskItemRow({
+  index,
   task,
   locked,
   projectLink,
+  memberId,
+  dateStr,
 }: {
+  index: number;
   task: DsrEntryData["plannedTasks"][number];
   locked?: boolean;
   projectLink?: ProjectLinkSummary;
+  memberId?: string;
+  dateStr?: string;
 }) {
   const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
   const [, startTransition] = useTransition();
 
   return (
-    <div className="flex flex-col gap-1">
-      <form
-        action={(fd) => {
-          startTransition(() => action(fd));
-        }}
-        className="flex items-center gap-2.5"
-      >
-        <input type="hidden" name="taskId" value={task.id} />
-        <button
-          type="submit"
-          disabled={pending || locked}
-          title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
-          className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
-            task.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
-          )}
+    <tr className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+      <td className="py-2 pr-2 align-top">
+        <form
+          action={(fd) => {
+            startTransition(() => action(fd));
+          }}
         >
-          {pending ? (
-            <Loader2 size={10} className="animate-spin" />
-          ) : task.completed ? (
-            <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-              <polyline points="1,4 3,6 7,2" />
-            </svg>
-          ) : null}
-        </button>
-        {projectLink && (
-          <span className="shrink-0 rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[10px] font-mono font-bold">
-            [{projectLink.projectTask.code}]
+          <input type="hidden" name="taskId" value={task.id} />
+          <button
+            type="submit"
+            disabled={pending || locked}
+            title={locked ? "Waiting on DSM review" : task.completed ? "Mark as uncompleted" : "Mark as completed"}
+            className={cn(
+              "flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
+              task.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
+            )}
+          >
+            {pending ? (
+              <Loader2 size={10} className="animate-spin" />
+            ) : task.completed ? (
+              <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+                <polyline points="1,4 3,6 7,2" />
+              </svg>
+            ) : null}
+          </button>
+        </form>
+      </td>
+      <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{index + 1}</td>
+      <td className="py-2 pr-3 align-top">
+        {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className={cn("select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
+            <ExpandableTaskText text={task.text} />
           </span>
-        )}
-        <span className={cn("flex-1 text-sm select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-          {task.text}
-        </span>
-        {task.priority && (
-          <span className={cn(
-            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
-            task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
-            task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
-            task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-            !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-          )}>
-            {task.priority.toUpperCase()}
-          </span>
-        )}
-        {task.addedAfterReview && (
-          <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
-            NT
-          </span>
-        )}
-      </form>
-      {projectLink && (
-        <div className="ml-6 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-          {projectLink.projectTask.project && (
-            <span>in <span className="font-medium text-foreground">{projectLink.projectTask.project.name}</span></span>
-          )}
-          {projectLink.timeSummary.totalMinutes > 0 && (
-            <span className="flex items-center gap-1 rounded bg-muted/60 px-1.5 py-0.5">
-              <Clock size={10} />
-              {Math.floor(projectLink.timeSummary.totalMinutes / 60)}h {projectLink.timeSummary.totalMinutes % 60}m logged
-              {projectLink.timeSummary.firstStart && projectLink.timeSummary.lastStop && (
-                <> · {projectLink.timeSummary.firstStart} – {projectLink.timeSummary.lastStop}</>
-              )}
+          {task.addedAfterReview && (
+            <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
+              NT
             </span>
           )}
         </div>
-      )}
-    </div>
+      </td>
+      <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+        <PriorityBadge priority={task.priority} />
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <DueDateCell dueDate={projectLink?.dueDate} />
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {projectLink?.projectTask && memberId && dateStr ? (
+          <MemberTaskTimerBadge
+            taskId={projectLink.projectTask.id}
+            taskCode={projectLink.projectTask.code}
+            memberId={memberId}
+            dateStr={dateStr}
+          />
+        ) : (
+          <TimeTrackedBadge totalMinutes={projectLink?.timeSummary.totalMinutes ?? 0} />
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -281,11 +287,11 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     : 0;
 
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+  const dateStr = new Date(entry.date).toISOString().slice(0, 10);
 
   useEffect(() => {
     const texts = plannedTasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
-    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
       if (res) setProjectLinks(res);
     });
@@ -309,10 +315,23 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
           style={{ width: `${percent}%` }}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        {plannedTasks.map((task) => (
-          <TaskItemRow key={task.id} task={task} locked={locked} projectLink={projectLinks[task.text]} />
-        ))}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <TaskTableHead withCheckbox />
+          <tbody>
+            {plannedTasks.map((task, i) => (
+              <TaskItemRow
+                key={task.id}
+                index={i}
+                task={task}
+                locked={locked}
+                projectLink={projectLinks[task.text]}
+                memberId={memberId}
+                dateStr={dateStr}
+              />
+            ))}
+          </tbody>
+        </table>
       </div>
       <AddDsrTaskRow entryId={entry.id} />
     </div>
@@ -808,13 +827,9 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
   const { user, todayEntry, focusedEntry, weekEntries, todayDsmReviewed, focusedDsmReviewed } = review;
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 6000);
     const handleFocus = () => router.refresh();
     window.addEventListener("focus", handleFocus);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
   }, [router]);
@@ -885,31 +900,21 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             {/* Date entry header strip — matches image 2 */}
             <DateEntryHeader entry={activeEntry} />
 
-            {/* Review detail — left content wider (3fr), right actions narrower (2fr) */}
-            <div className="grid min-w-0 gap-4 lg:grid-cols-[3fr_2fr]">
-              {/* Left: content cards */}
-              <div className="flex min-w-0 flex-col gap-4">
-                <ResultCard entry={activeEntry} />
-                <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} memberId={user.id} />
-                <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
-                <BlockersSupportCard entry={activeEntry} />
-                <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
-                {/* <SentimentCard entry={activeEntry} /> */}
-              </div>
-
-              {/* Right: reviewer actions + timeline */}
-              <div className="flex flex-col gap-4">
-                <ReviewerActionsCard
-                  entryId={activeEntry.id}
-                  userId={user.id}
-                  memberName={memberFirstName}
-                  isReviewed={isReviewed}
-                  dsmReviewed={activeDsmReviewed}
-                  managerComment={activeEntry.managerComment}
-                />
-                <TimelineCard events={activeEntry.timelineEvents} />
-              </div>
-            </div>
+            {/* Review detail — all cards stacked in flex-col for full table width */}
+            <ResultCard entry={activeEntry} />
+            <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} memberId={user.id} />
+            <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
+            <BlockersSupportCard entry={activeEntry} />
+            <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
+            <ReviewerActionsCard
+              entryId={activeEntry.id}
+              userId={user.id}
+              memberName={memberFirstName}
+              isReviewed={isReviewed}
+              dsmReviewed={activeDsmReviewed}
+              managerComment={activeEntry.managerComment}
+            />
+            <TimelineCard events={activeEntry.timelineEvents} />
           </div>
         ) : (
           /* Weekly history view */

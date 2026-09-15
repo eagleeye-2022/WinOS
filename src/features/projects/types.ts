@@ -1,4 +1,4 @@
-export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
+export type ProjectStatus = "ACTIVE" | "INACTIVE" | "COMPLETED";
 
 export type ProjectPriority = "None" | "Low" | "Medium" | "High" | "Urgent";
 
@@ -144,6 +144,8 @@ export interface Project {
   group?: string;
   businessHours?: string;
   taskLayout?: string;
+  priority?: ProjectPriority;
+  billingType?: BillingType;
   createdAt: string;
 
   // Table-view assignment/tracking columns (see all-projects-table-view.tsx) — each role can
@@ -213,7 +215,7 @@ export interface ProjectUser {
   avatarUrl?: string;
 }
 
-export type TaskStatus = "Open" | "In Progress" | "Closed";
+export type TaskStatus = "Open" | "In Progress" | "Under Review" | "Approved" | "Closed";
 
 export interface TaskRemark {
   id: string;
@@ -350,10 +352,14 @@ export interface ProjectDocument {
 export interface ProjectTimelineEvent {
   id: string;
   projectId: string;
-  type: "CREATED" | "UPDATED" | "STATUS_CHANGE" | "TASK_ADDED" | "PHASE_COMPLETED" | "USER_ASSIGNED" | "DOCUMENT_UPLOADED";
+  type: "CREATED" | "UPDATED" | "STATUS_CHANGE" | "TASK_ADDED" | "PHASE_COMPLETED" | "USER_ASSIGNED" | "DOCUMENT_UPLOADED" | "ACTIVITY";
   title: string;
   description: string;
   actorName: string;
   actorAvatarColor?: string;
   timestamp: string;
+  oldValue?: string;
+  newValue?: string;
+  actionText?: string;
+  fieldName?: string;
 }

@@ -498,6 +498,8 @@ export function TaskDetailDrawer({
                 >
                   <option value="Open">Open</option>
                   <option value="In Progress">In Progress</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Approved">Approved</option>
                   <option value="Closed">Closed</option>
                 </select>
               </div>

@@ -195,7 +195,7 @@ export function UserDetailDrawer({
               </div>
 
               {/* Roles & Info Grid */}
-              <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+              {/* <div className="grid grid-cols-2 gap-2 text-xs pt-2">
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border">
                   <Briefcase size={14} className="text-primary" />
                   <div>
@@ -231,7 +231,7 @@ export function UserDetailDrawer({
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Navigation Tabs */}

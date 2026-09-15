@@ -93,6 +93,7 @@ model User {
   projectTimeLogs       ProjectTimeLog[]
   activeTimer           ActiveTimer?
   sentClientInvitations ClientInvitation[]     @relation("ClientInvitationsSent")
+  projectActivities     ProjectActivity[]      @relation("ProjectActivityUser")
 }
 
 model Account {
@@ -166,6 +167,9 @@ model StandupTask {
   editedById       String?
   projectTaskId    String?
   isCompleted      Boolean       @default(false)
+  isNewRequest     Boolean       @default(false)
+  isParked         Boolean       @default(false)
+  dueDate          DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -786,6 +790,7 @@ enum StandupStatus {
 enum TaskKind {
   YESTERDAY
   TODAY
+  PARKED
 }
 
 enum BlockerPriority {
@@ -889,6 +894,26 @@ model Project {
   members                  ProjectMember[]
   activeTimers             ActiveTimer[]
   clientInvitationProjects ClientInvitationProject[]
+  activities               ProjectActivity[]
+}
+
+model ProjectActivity {
+  id              String   @id @default(cuid())
+  projectId       String
+  userId          String?
+  userName        String
+  userAvatarColor String?
+  action          String
+  fieldName       String?
+  oldValue        String?
+  newValue        String?
+  createdAt       DateTime @default(now())
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User?    @relation("ProjectActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 model ProjectMember {

@@ -4,7 +4,9 @@ import { useActionState, useState, useRef, useEffect, startTransition } from "re
 import { PlusCircle, X, Loader2, Zap, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
-import type { DsrEntryData, DsrStandupPrefill } from "../queries";
+import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
+import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary } from "../queries";
+import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,16 +190,30 @@ function PlannedTasksSection({
   tasks,
   onChange,
   readOnly,
+  memberId,
 }: {
   tasks: TaskItem[];
   onChange: (t: TaskItem[]) => void;
   readOnly?: boolean;
+  /** Pass when rendering another user's DSR (manager review) — omit for the current user's own. */
+  memberId?: string;
 }) {
   const completed = tasks.filter((t) => t.completed).length;
+  const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
   const toggle = (i: number) => {
     if (readOnly) return;
     onChange(tasks.map((t, j) => (j === i ? { ...t, completed: !t.completed } : t)));
   };
+
+  useEffect(() => {
+    const texts = tasks.map((t) => t.text).filter(Boolean);
+    if (texts.length === 0) return;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
+      if (res) setProjectLinks(res);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks.map((t) => t.text).join("|")]);
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -205,46 +221,62 @@ function PlannedTasksSection({
         <h3 className="text-sm font-semibold">Today&apos;s Planned Tasks Completed</h3>
         <span className="text-xs text-muted-foreground">{completed}/{tasks.length} TASKS PLANNED</span>
       </div>
-      <div className="flex flex-col gap-2.5">
-        {tasks.map((task, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled={readOnly}
-              onClick={() => toggle(i)}
-              className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                task.completed
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background",
-                readOnly && "cursor-not-allowed opacity-80"
-              )}
-            >
-              {task.completed && (
-                <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-                  <polyline points="1,4 3,6 7,2" />
-                </svg>
-              )}
-            </button>
-            <span className={cn(
-              "flex-1 text-sm",
-              !task.completed && "text-muted-foreground"
-            )}>
-              T{i + 1}: {renderTextWithMentions(task.text)}
-            </span>
-            {task.priority && (
-              <span className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase",
-                task.priority.toUpperCase() === "P1" && "bg-success/10 text-success border border-success/30",
-                task.priority.toUpperCase() === "P2" && "bg-info/10 text-info border border-info/30",
-                task.priority.toUpperCase() === "P3" && "bg-warning/10 text-warning border border-warning/30",
-                !["P1", "P2", "P3"].includes(task.priority.toUpperCase()) && "bg-primary/10 text-primary border border-primary/20"
-              )}>
-                {task.priority.toUpperCase()}
-              </span>
-            )}
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <TaskTableHead withCheckbox />
+          <tbody>
+            {tasks.map((task, i) => {
+              const link = projectLinks[task.text];
+              return (
+                <tr key={i} className="border-b last:border-b-0">
+                  <td className="py-2 pr-2 align-top">
+                    <button
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => toggle(i)}
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                        task.completed
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background",
+                        readOnly && "cursor-not-allowed opacity-80"
+                      )}
+                    >
+                      {task.completed && (
+                        <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+                          <polyline points="1,4 3,6 7,2" />
+                        </svg>
+                      )}
+                    </button>
+                  </td>
+                  <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
+                  <td className="py-2 pr-3 align-top">
+                    {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                  </td>
+                  <td className="py-2 pr-3 align-top">
+                    {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                  </td>
+                  <td className="py-2 pr-3 align-top">
+                    <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                      <span className={cn(!task.completed && "text-muted-foreground")}>
+                        <ExpandableTaskText text={task.text} />
+                      </span>
+                    </div>
+                  </td>
+                  <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+                    <PriorityBadge priority={task.priority} />
+                  </td>
+                  <td className="py-2 pr-3 align-top">
+                    <DueDateCell dueDate={link?.dueDate} />
+                  </td>
+                  <td className="py-2 pr-3 align-top">
+                    <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
         {tasks.length === 0 && (
           <p className="text-sm text-muted-foreground/60">
             No Planned Tasks from Today&apos;s DSM. Add Tasks in the Blockers Section or Submit Anyway.

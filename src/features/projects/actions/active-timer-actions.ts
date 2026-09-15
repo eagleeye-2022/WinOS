@@ -65,12 +65,14 @@ async function getAuthenticatedUser() {
 function isPrivilegedViewer(user: { role?: string | null; profileRole?: string | null } | null): boolean {
   if (!user) return false;
   const roleStr = String(user.role || "").toUpperCase();
+  const profileRoleStr = String(user.profileRole || "").toUpperCase();
   return (
     roleStr === "ADMIN" ||
     roleStr === "SUPER_ADMIN" ||
     roleStr === "PROJECT_MANAGER" ||
     roleStr === "MANAGER" ||
-    user.profileRole === "ADMIN"
+    profileRoleStr === "ADMIN" ||
+    profileRoleStr === "MANAGER"
   );
 }
 
@@ -528,6 +530,45 @@ export async function getAllActiveTimersAction(projectId?: string) {
   } catch (err: any) {
     console.error("[getAllActiveTimersAction] error:", err);
     return { success: false, error: err?.message || "Failed to fetch team active timers", data: [] };
+  }
+}
+
+/**
+ * Gets a specific member's currently active timer from the database.
+ */
+export async function getMemberActiveTimerAction(memberId: string) {
+  const { sessionUser, error } = await getAuthenticatedUser();
+  if (error || !sessionUser) {
+    return { success: false, error: error || "Unauthorized", data: null };
+  }
+
+  const d = db as any;
+
+  try {
+    const activeTimer = await d.activeTimer.findUnique({
+      where: { userId: memberId },
+      include: {
+        task: { select: { id: true, code: true, title: true } },
+        project: { select: { id: true, code: true, name: true } },
+      },
+    });
+
+    if (!activeTimer) {
+      return { success: true, data: null };
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(activeTimer.startedAt).getTime()) / 1000));
+    return {
+      success: true,
+      data: {
+        ...activeTimer,
+        elapsedSeconds,
+        formattedTime: formatTimeSeconds(elapsedSeconds),
+      },
+    };
+  } catch (err: any) {
+    console.error("[getMemberActiveTimerAction] error:", err);
+    return { success: false, error: err?.message || "Failed to fetch member active timer", data: null };
   }
 }
 

@@ -25,13 +25,14 @@ interface ProjectTimelineDrawerProps {
 }
 
 const EVENT_DOT_COLOR: Record<ProjectTimelineEvent["type"], string> = {
-  CREATED: "bg-blue-500",
+  CREATED: "bg-emerald-500",
   UPDATED: "bg-blue-500",
   STATUS_CHANGE: "bg-purple-500",
-  TASK_ADDED: "bg-emerald-500",
+  TASK_ADDED: "bg-indigo-500",
   PHASE_COMPLETED: "bg-teal-500",
-  USER_ASSIGNED: "bg-emerald-500",
+  USER_ASSIGNED: "bg-cyan-500",
   DOCUMENT_UPLOADED: "bg-amber-500",
+  ACTIVITY: "bg-blue-500",
 };
 
 function getEventIcon(type: ProjectTimelineEvent["type"]) {
@@ -51,6 +52,13 @@ function getEventIcon(type: ProjectTimelineEvent["type"]) {
     default:
       return <Clock size={13} className="text-white" />;
   }
+}
+
+function formatTimelineValue(val?: string | null, maxLen = 45): string {
+  if (!val) return "";
+  const singleLine = val.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= maxLen) return singleLine;
+  return singleLine.slice(0, maxLen) + "…";
 }
 
 export function ProjectTimelineDrawer({
@@ -98,7 +106,9 @@ export function ProjectTimelineDrawer({
       (ev) =>
         ev.title.toLowerCase().includes(q) ||
         ev.description.toLowerCase().includes(q) ||
-        ev.actorName.toLowerCase().includes(q)
+        ev.actorName.toLowerCase().includes(q) ||
+        (ev.oldValue && ev.oldValue.toLowerCase().includes(q)) ||
+        (ev.newValue && ev.newValue.toLowerCase().includes(q))
     );
   }, [events, search]);
 
@@ -112,7 +122,7 @@ export function ProjectTimelineDrawer({
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div>
-            <h3 className="text-sm font-bold text-foreground">Project Timeline</h3>
+            <h3 className="text-sm font-bold text-foreground">Project Activity</h3>
             {(projectCode || projectName) && (
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {projectCode ? `${projectCode} - ` : ""}
@@ -137,7 +147,7 @@ export function ProjectTimelineDrawer({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, activity..."
+              placeholder="Search by name, change, value..."
               className="w-full rounded-md border bg-muted/30 pl-8 pr-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -153,39 +163,67 @@ export function ProjectTimelineDrawer({
             <div className="p-12 text-center text-muted-foreground space-y-2">
               <Clock size={32} className="mx-auto opacity-40" />
               <p className="font-semibold text-foreground text-xs">
-                {events.length === 0 ? "No timeline activity recorded yet." : "No activity matches your search."}
+                {events.length === 0 ? "No activity recorded yet." : "No activity matches your search."}
               </p>
             </div>
           ) : (
             <div className="relative pl-5 space-y-5 before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-px before:bg-border">
               {filteredEvents.map((ev) => {
                 const dateObj = new Date(ev.timestamp);
-                const formattedDate = dateObj.toLocaleDateString(undefined, {
+                const formattedDate = dateObj.toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "short",
                   day: "numeric",
                 });
-                const formattedTime = dateObj.toLocaleTimeString([], {
-                  hour: "2-digit",
+                const formattedTime = dateObj.toLocaleTimeString("en-US", {
+                  hour: "numeric",
                   minute: "2-digit",
+                  hour12: true,
                 });
 
                 return (
                   <div key={ev.id} className="relative">
                     <div
-                      className={`absolute -left-5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-background ${EVENT_DOT_COLOR[ev.type]}`}
+                      className={`absolute -left-5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full ring-4 ring-background ${
+                        EVENT_DOT_COLOR[ev.type] || "bg-blue-500"
+                      }`}
                     >
                       {getEventIcon(ev.type)}
                     </div>
 
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-bold text-foreground leading-snug">{ev.title}</p>
-                      <p className="text-[11px] text-muted-foreground leading-snug">{ev.description}</p>
-                      <p className="text-[10px] text-muted-foreground/80 pt-0.5">
-                        by <span className="font-semibold text-foreground/80">{ev.actorName}</span>
-                        {" · "}
-                        {formattedDate} {formattedTime}
+                    <div className="space-y-1">
+                      {/* Date & Time header */}
+                      <p className="text-[10px] text-muted-foreground font-medium">
+                        {formattedDate} · {formattedTime}
                       </p>
+
+                      {/* Change Title */}
+                      <p className="text-xs font-semibold text-foreground leading-snug">
+                        {ev.title}
+                      </p>
+
+                      {/* Value Diff (Previous value → New value) */}
+                      {ev.oldValue && ev.newValue ? (
+                        <div className="mt-1 flex items-center flex-wrap gap-1.5 text-xs">
+                          <span
+                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground font-mono line-through text-[11px] align-middle"
+                            title={ev.oldValue}
+                          >
+                            {formatTimelineValue(ev.oldValue, 40)}
+                          </span>
+                          <span className="text-muted-foreground font-bold text-xs shrink-0">→</span>
+                          <span
+                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-primary/10 text-primary font-mono font-semibold text-[11px] align-middle"
+                            title={ev.newValue}
+                          >
+                            {formatTimelineValue(ev.newValue, 40)}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3 break-words" title={ev.description}>
+                          {ev.description}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

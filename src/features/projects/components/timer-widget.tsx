@@ -14,14 +14,6 @@ import { formatTimePeriodRange } from "../utils/time-helpers";
 import { useActiveTimerContext, type ActiveTimerData } from "../context/active-timer-context";
 import type { TimeLogEntry } from "../types";
 
-/** Parses a "HH:MM:SS" string into total seconds, or null if malformed. */
-function parseHms(value: string): number | null {
-  const match = value.trim().match(/^(\d{1,3}):([0-5]?\d):([0-5]?\d)$/);
-  if (!match) return null;
-  const [, h, m, s] = match;
-  return parseInt(h, 10) * 3600 + parseInt(m, 10) * 60 + parseInt(s, 10);
-}
-
 interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
   onSaveLog?: (data: {
@@ -65,9 +57,7 @@ export function TimerWidget({
   // reveals the full timer chip (matches the Zoho-style reference design). Callers with more
   // room (e.g. the task workspace header) can opt into showing the full chip immediately.
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [isEditingTime, setIsEditingTime] = useState(false);
-  const [timeDraft, setTimeDraft] = useState("00:00:00");
-  const isTimerExpanded = isExpanded || timerState !== "IDLE";
+  const isTimerExpanded = defaultExpanded || isExpanded || timerState !== "IDLE";
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -169,37 +159,16 @@ export function TimerWidget({
 
   const handleExpandTimer = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(true);
-    if (canStart && timerState === "IDLE") {
-      setTimeDraft(formatTime(seconds));
-      setIsEditingTime(true);
+    if (canStart) {
+      handleStart();
+    } else {
+      setIsExpanded(true);
     }
-  };
-
-  const handleStartTimeClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (timerState !== "IDLE") return;
-    setTimeDraft(formatTime(seconds));
-    setIsEditingTime(true);
-  };
-
-  const commitTimeEdit = () => {
-    const parsed = parseHms(timeDraft);
-    if (parsed !== null) {
-      setSeconds(parsed);
-    }
-    setIsEditingTime(false);
   };
 
   const handleStart = async () => {
     if (!canStart) return;
-    setIsEditingTime(false);
     setIsExpanded(true);
-
-    // A manually-set starting point (via the editable time field) is only
-    // meaningful while idle; carry it forward as the local baseline so the
-    // display doesn't jump back to 0 the moment Start is pressed.
-    const manualSeconds = timerState === "IDLE" ? seconds : 0;
 
     const startTask = taskCode || taskId;
     if (startTask) {
@@ -209,12 +178,8 @@ export function TimerWidget({
       });
 
       if (res.success && res.data) {
-        const baselineSeconds = manualSeconds > 0 ? manualSeconds : res.data.elapsedSeconds || 0;
-        setStartTimeRef(
-          manualSeconds > 0
-            ? new Date(Date.now() - manualSeconds * 1000)
-            : new Date(res.data.startedAt)
-        );
+        const baselineSeconds = res.data.elapsedSeconds || 0;
+        setStartTimeRef(new Date(res.data.startedAt));
         setSeconds(baselineSeconds);
         setTimerState("RUNNING");
         activeTimerCtx?.setLocalActiveTimer(res.data as ActiveTimerData);
@@ -223,7 +188,7 @@ export function TimerWidget({
     }
 
     // Fallback local start
-    if (timerState === "IDLE" && manualSeconds === 0) {
+    if (timerState === "IDLE") {
       setStartTimeRef(new Date());
     }
     setTimerState("RUNNING");
@@ -239,8 +204,7 @@ export function TimerWidget({
     isStoppingRef.current = true;
     setTimerState("IDLE");
     setSeconds(0);
-    setIsExpanded(false);
-    setIsEditingTime(false);
+    setIsExpanded(defaultExpanded);
     stoppedContextRef.current = null;
 
     // Stop the timer everywhere the instant Stop is clicked: delete the DB
@@ -309,6 +273,7 @@ export function TimerWidget({
     stoppedContextRef.current = null;
     setTimerState("IDLE");
     setSeconds(0);
+    setIsExpanded(defaultExpanded);
 
     if (onSaveLog) {
       onSaveLog(data);
@@ -323,6 +288,7 @@ export function TimerWidget({
     setTimerState("IDLE");
     setSeconds(0);
     setIsStoppedModalOpen(false);
+    setIsExpanded(defaultExpanded);
   };
 
   const formatTime = (totalSecs: number): string => {
@@ -363,7 +329,7 @@ export function TimerWidget({
           type="button"
           onClick={handleExpandTimer}
           className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-muted-foreground hover:text-info hover:bg-muted hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10"
-          title={canStart ? "Show timer" : disabledReason}
+          title={canStart ? "Start timer" : disabledReason}
         >
           <Clock size={13} />
         </button>
@@ -397,57 +363,54 @@ export function TimerWidget({
       }
     >
       {/* Stopwatch icon + formatted time display container */}
-      <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 dark:bg-[#121316] dark:border-white/10">
-        <Timer size={13} className="text-info shrink-0" />
-        {isEditingTime && timerState === "IDLE" ? (
-          <input
-            type="text"
-            autoFocus
-            value={timeDraft}
-            onChange={(e) => setTimeDraft(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={commitTimeEdit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setIsEditingTime(false);
-            }}
-            placeholder="HH:MM:SS"
-            className="w-14 bg-transparent font-mono text-xs font-bold tracking-tight text-foreground outline-none dark:text-neutral-100"
-          />
-        ) : (
-          <span
-            onClick={timerState === "IDLE" ? handleStartTimeClick : undefined}
-            className={cn(
-              "font-mono text-xs font-bold tracking-tight text-foreground dark:text-neutral-100",
-              timerState === "IDLE" && "cursor-pointer hover:text-primary transition-colors"
-            )}
-            title={timerState === "IDLE" ? "Click to set a starting time" : undefined}
-          >
-            {formatTime(seconds)}
-          </span>
+      <div
+        className={cn(
+          "flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all",
+          timerState === "RUNNING"
+            ? "border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40"
+            : "border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
         )}
+      >
+        <Timer
+          size={13}
+          className={cn(
+            "shrink-0",
+            timerState === "RUNNING"
+              ? "text-sky-500 dark:text-sky-400 animate-pulse"
+              : "text-info"
+          )}
+        />
+        <span
+          className={cn(
+            "font-mono text-xs font-bold tracking-tight select-none cursor-default",
+            timerState === "RUNNING"
+              ? "text-sky-600 dark:text-sky-300"
+              : "text-foreground dark:text-neutral-100"
+          )}
+        >
+          {formatTime(seconds)}
+        </span>
       </div>
 
       {/* Control Buttons */}
       <div className="flex items-center gap-1">
         {timerState === "RUNNING" ? (
           <>
-            {/* Pause Button */}
-            <button
+            {/* Pause Button (commented out) */}
+            {/* <button
               type="button"
               onClick={handlePause}
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-warning text-warning-foreground dark:bg-[#f59e0b] dark:text-neutral-950 transition-all hover:scale-105 hover:bg-warning/90 active:scale-95 shadow-2xs cursor-pointer"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-warning text-warning-foreground dark:bg-[#f59e0b] dark:text-neutral-950 transition-all hover:scale-110 hover:bg-warning/90 active:scale-95 shadow-2xs cursor-pointer"
               title="Pause Timer"
             >
               <Pause size={10} fill="currentColor" />
-            </button>
+            </button> */}
 
             {/* Stop Button */}
             <button
               type="button"
               onClick={handleStop}
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground dark:bg-[#ef4444] dark:text-white transition-all hover:scale-105 hover:bg-destructive/90 active:scale-95 shadow-2xs cursor-pointer"
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground dark:bg-[#ef4444] dark:text-white transition-all hover:scale-110 hover:bg-destructive/90 active:scale-95 shadow-2xs cursor-pointer ring-1 ring-destructive/40"
               title="Stop Timer"
             >
               <Square size={8} fill="currentColor" />
@@ -502,6 +465,7 @@ export function TimerWidget({
         onClose={() => {
           isStoppingRef.current = false;
           setIsStoppedModalOpen(false);
+          setIsExpanded(defaultExpanded);
         }}
         initialStartTime={startTimeRef}
         elapsedSeconds={stoppedSeconds}
