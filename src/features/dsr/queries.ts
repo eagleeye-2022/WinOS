@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange } from "./utils";
+import { toUtcDate, isoToUtcDate, getWeekRange } from "./utils";
 import { getDailyTimeSummaryForTasks, type DailyTimeSummary } from "@/features/dsm/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -22,6 +22,7 @@ export type DsrTimelineEventData = { id: string; type: string; label: string; oc
 
 export type DsrEntryData = {
   id: string;
+  userId?: string;
   date: Date;
   status: "DRAFT" | "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "MISSED";
   completionPercent: number;
@@ -211,12 +212,16 @@ export type ProjectLinkSummary = {
  */
 export async function getDsrProjectTaskLinks(
   userId: string,
-  date: Date,
+  date: Date | string,
   plannedTaskTexts: string[]
 ): Promise<Record<string, ProjectLinkSummary>> {
   if (!userId || plannedTaskTexts.length === 0) return {};
 
-  const dayUtc = toUtcDate(date);
+  const dStr = typeof date === "string"
+    ? date.slice(0, 10)
+    : (date instanceof Date ? date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+  const dayUtc = isoToUtcDate(dStr);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   const standup = await d.standupEntry.findUnique({
@@ -253,7 +258,7 @@ export async function getDsrProjectTaskLinks(
   if (Object.keys(byNormalizedText).length === 0) return {};
 
   const summaries = linkedTaskIds.length > 0
-    ? await getDailyTimeSummaryForTasks(userId, linkedTaskIds, dayUtc)
+    ? await getDailyTimeSummaryForTasks(userId, linkedTaskIds, dStr)
     : {};
 
   const result: Record<string, ProjectLinkSummary> = {};

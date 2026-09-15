@@ -9,6 +9,7 @@ import type { DsrEntryData } from "../queries";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { ProjectLinkSummary } from "../queries";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
@@ -205,7 +206,16 @@ export function DsrHistoryCard({
                             <DueDateCell dueDate={link?.dueDate} />
                           </td>
                           <td className="py-2 pr-3 align-top">
-                            <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                            {link?.projectTask ? (
+                              <MemberTaskTimerBadge
+                                taskId={link.projectTaskId || link.projectTask.id}
+                                taskCode={link.projectTask.code}
+                                memberId={memberId || entry.userId}
+                                dateStr={new Date(entry.date).toISOString().slice(0, 10)}
+                              />
+                            ) : (
+                              <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                            )}
                           </td>
                         </tr>
                       );

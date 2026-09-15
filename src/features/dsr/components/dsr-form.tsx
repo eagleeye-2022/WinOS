@@ -7,6 +7,7 @@ import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary } from "../queries";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -191,12 +192,14 @@ function PlannedTasksSection({
   onChange,
   readOnly,
   memberId,
+  dateStr = new Date().toISOString().slice(0, 10),
 }: {
   tasks: TaskItem[];
   onChange: (t: TaskItem[]) => void;
   readOnly?: boolean;
   /** Pass when rendering another user's DSR (manager review) — omit for the current user's own. */
   memberId?: string;
+  dateStr?: string;
 }) {
   const completed = tasks.filter((t) => t.completed).length;
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
@@ -208,12 +211,11 @@ function PlannedTasksSection({
   useEffect(() => {
     const texts = tasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
-    const dateStr = new Date().toISOString().slice(0, 10);
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
       if (res) setProjectLinks(res);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks.map((t) => t.text).join("|")]);
+  }, [tasks.map((t) => t.text).join("|"), dateStr]);
 
   return (
     <div className="rounded-xl border bg-card p-5">
@@ -270,7 +272,16 @@ function PlannedTasksSection({
                     <DueDateCell dueDate={link?.dueDate} />
                   </td>
                   <td className="py-2 pr-3 align-top">
-                    <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                    {link?.projectTask ? (
+                      <MemberTaskTimerBadge
+                        taskId={link.projectTaskId || link.projectTask.id}
+                        taskCode={link.projectTask.code}
+                        memberId={memberId || ""}
+                        dateStr={dateStr}
+                      />
+                    ) : (
+                      <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                    )}
                   </td>
                 </tr>
               );
@@ -640,7 +651,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
         </div>
       )}
 
-      <PlannedTasksSection tasks={tasks} onChange={setTasks} readOnly={readOnly} />
+      <PlannedTasksSection tasks={tasks} onChange={setTasks} readOnly={readOnly} dateStr={todayDateStr} />
 
       <AdditionalWorkSection
         items={additionalWorks}

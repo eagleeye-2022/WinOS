@@ -50,5 +50,5 @@ export async function fetchDailyTimeSummaryAction(
   }
 
   if (taskIds.length === 0) return {};
-  return await getDailyTimeSummaryForTasks(targetUserId, taskIds, new Date(date));
+  return await getDailyTimeSummaryForTasks(targetUserId, taskIds, date);
 }

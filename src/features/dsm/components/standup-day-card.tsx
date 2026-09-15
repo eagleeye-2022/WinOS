@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronDown, CheckCircle2, Play, Clock } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
 import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
 import { toggleStandupTask } from "../actions/toggle-standup-task";
-import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
-import { TimerWidget } from "@/features/projects/components/timer-widget";
-import { canUserActOnTask } from "@/features/projects/utils/task-authorization";
+import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 
 type StandupDayCardProps = {
@@ -27,7 +25,6 @@ const PRIORITY_COLORS = {
 export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
   const isToday = relativeDayLabel(entry.date) === "Today";
   const [open, setOpen] = useState(defaultOpen ?? isToday);
-  const [timeSummary, setTimeSummary] = useState<Record<string, { totalMinutes: number; firstStart: string | null; lastStop: string | null }>>({});
 
   const review = reviewStatus({
     status: entry.status,
@@ -41,19 +38,6 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
   const dateStr = formatShortDate(entry.date);
   const blockerCount = entry.blockers.length;
   const supportCount = entry.supportNeeds.length;
-  // This card only ever renders the viewing user's own standup history (WeekHistory/dsm-self-panel),
-  // so entry.user is always the current viewer — safe to use directly for the timer ownership check.
-  const viewer = entry.user ? { id: entry.user.id, name: entry.user.name, email: entry.user.email } : null;
-
-  useEffect(() => {
-    const taskIds = todayTasks.map((t) => t.projectTaskId).filter(Boolean) as string[];
-    if (taskIds.length === 0) return;
-    const dateStr = new Date(entry.date).toISOString().slice(0, 10);
-    fetchDailyTimeSummaryAction(taskIds, dateStr).then((res) => {
-      if (res) setTimeSummary(res);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entry.id]);
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
@@ -148,20 +132,6 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                   <tbody>
                     {todayTasks.map((task, i) => {
                       const p = task.managerPriority ?? task.priority;
-                      const canStart = Boolean(
-                        task.projectTask &&
-                          viewer &&
-                          canUserActOnTask(
-                            {
-                              ownerId: task.projectTask.ownerId,
-                              ownerIds: (task.projectTask.owners || []).map((o) => o.userId),
-                              ownerNames: task.projectTask.owner ? [task.projectTask.owner] : [],
-                              projectOwnerId: task.projectTask.project?.ownerId,
-                            },
-                            viewer
-                          )
-                      );
-                      const summary = task.projectTaskId ? timeSummary[task.projectTaskId] : undefined;
                       return (
                         <tr key={task.id} className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
                           {entry.status === "DRAFT" && (
@@ -207,22 +177,12 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                           </td>
                           <td className="py-2.5 pr-3 align-top">
                             {task.projectTaskId ? (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <TimerWidget
-                                  taskId={task.projectTaskId}
-                                  taskCode={task.projectTask?.code}
-                                  taskTitle={task.text}
-                                  defaultExpanded={true}
-                                  canStart={canStart}
-                                  disabledReason="Only the assigned task owner can start this timer"
-                                />
-                                {summary && summary.totalMinutes > 0 && (
-                                  <span className="mt-1 flex items-center gap-1 whitespace-nowrap rounded bg-muted/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                                    <Clock size={10} />
-                                    {Math.floor(summary.totalMinutes / 60)}h {summary.totalMinutes % 60}m logged
-                                  </span>
-                                )}
-                              </div>
+                              <MemberTaskTimerBadge
+                                taskId={task.projectTaskId}
+                                taskCode={task.projectTask?.code}
+                                memberId={entry.user?.id}
+                                dateStr={new Date(entry.date).toISOString().slice(0, 10)}
+                              />
                             ) : (
                               <span className="text-xs text-muted-foreground/60">—</span>
                             )}

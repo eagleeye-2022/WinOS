@@ -981,26 +981,44 @@ export type DailyTimeSummary = {
 export async function getDailyTimeSummaryForTasks(
   userId: string,
   taskIds: string[],
-  date: Date
+  date: Date | string
 ): Promise<Record<string, DailyTimeSummary>> {
   if (!userId || taskIds.length === 0) return {};
 
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const dStr = typeof date === "string"
+    ? date.slice(0, 10)
+    : (date instanceof Date ? date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+  const dayStartUtc = new Date(`${dStr}T00:00:00.000Z`);
+  const dayEndUtc = new Date(`${dStr}T23:59:59.999Z`);
+
+  // Broaden the query window slightly by 14 hours on each side to account for any timezone offset differences
+  const queryStart = new Date(dayStartUtc.getTime() - 14 * 3600 * 1000);
+  const queryEnd = new Date(dayEndUtc.getTime() + 14 * 3600 * 1000);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   const logs = await d.projectTimeLog.findMany({
-    where: { userId, taskId: { in: taskIds }, date: { gte: dayStart, lte: dayEnd } },
-    select: { taskId: true, duration: true, description: true },
+    where: { userId, taskId: { in: taskIds }, date: { gte: queryStart, lte: queryEnd } },
+    select: { taskId: true, duration: true, description: true, date: true },
     orderBy: { date: "asc" as const },
   });
 
   const result: Record<string, DailyTimeSummary> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const log of logs as any[]) {
+    const logDate = new Date(log.date);
+    const logUtc = logDate.toISOString().slice(0, 10);
+    const logIst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(logDate);
+    const logLocal = logDate.toLocaleDateString("en-CA");
+
+    const isMidnightUtc = logDate.getUTCHours() === 0 && logDate.getUTCMinutes() === 0 && logDate.getUTCSeconds() === 0;
+    const matches = isMidnightUtc ? logUtc === dStr : (logIst === dStr || logLocal === dStr || logUtc === dStr);
+
+    if (!matches) {
+      continue;
+    }
+
     const { timePeriod } = decodeDescriptionWithTimePeriod(log.description);
     const [start, stop] = timePeriod
       ? timePeriod.split(/[-–]/).map((s: string) => s.trim())
