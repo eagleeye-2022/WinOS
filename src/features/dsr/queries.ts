@@ -12,6 +12,7 @@ export type DsrPlannedTaskData = {
   completed: boolean;
   order: number;
   addedAfterReview?: boolean;
+  createdAt: Date;
 };
 
 export type DsrAdditionalWorkData = { id: string; text: string; completed: boolean; order: number };

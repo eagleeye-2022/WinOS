@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState, useEffect, useRef } from "react";
-import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2 } from "lucide-react";
+import { useActionState, useState, useEffect, useRef, useTransition } from "react";
+import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
-import type { EntryWithDetails, TeamMember } from "../queries";
+import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
+import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { formatTime } from "@/features/calendar/utils";
@@ -14,6 +15,7 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { fetchUserOpenProjectTasksAction, fetchLinkedTimeLogsAction, fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { OpenProjectTaskOption, CascadingProjectOption } from "../queries";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
+import { SortFilterButton } from "@/components/shared/task-table-parts";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -66,9 +68,9 @@ const inputCls =
 
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; dueDate?: string };
+type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; dueDate?: string; createdAt?: string };
 
-function resolveTaskTree(task: Task, cascadingProjects: CascadingProjectOption[]) {
+function resolveTaskTree(task: { projectTaskId?: string; projectId?: string }, cascadingProjects: CascadingProjectOption[]) {
   const pTaskId = task.projectTaskId || "";
   let resolvedPId = task.projectId || "";
   let resolvedTId = "";
@@ -134,7 +136,7 @@ function TaskRows({
     onChange(n);
   };
   const remove = (i: number) => onChange(tasks.filter((_, j) => j !== i));
-  const add = () => onChange([...tasks, { id: crypto.randomUUID(), text: "", priority: "", carried: false }]);
+  const add = () => onChange([...tasks, { id: crypto.randomUUID(), text: "", priority: "", carried: false, createdAt: new Date().toISOString() }]);
 
   const handleProjectChange = (i: number, newProjectId: string) => {
     const n = [...tasks];
@@ -171,8 +173,68 @@ function TaskRows({
 
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
 
+  const [filterText, setFilterText] = useState("");
+  const [sortMode, setSortMode] = useState("");
+
+  const applySort = (mode: string) => {
+    setSortMode(mode);
+    if (!mode) return;
+    const cmpDeadline = (a: Task, b: Task) => {
+      const ad = a.dueDate || "";
+      const bd = b.dueDate || "";
+      if (!ad && !bd) return 0;
+      if (!ad) return 1;
+      if (!bd) return -1;
+      return ad.localeCompare(bd);
+    };
+    const cmpRecent = (a: Task, b: Task) => {
+      const ad = a.createdAt ? new Date(a.createdAt).getTime() : null;
+      const bd = b.createdAt ? new Date(b.createdAt).getTime() : null;
+      if (ad === null && bd === null) return 0;
+      if (ad === null) return 1;
+      if (bd === null) return -1;
+      return bd - ad;
+    };
+    const sorted = [...tasks].sort((a, b) => {
+      if (mode === "text-asc") return a.text.localeCompare(b.text);
+      if (mode === "text-desc") return b.text.localeCompare(a.text);
+      if (mode === "deadline") return cmpDeadline(a, b);
+      if (mode === "recent") return cmpRecent(a, b);
+      return 0;
+    });
+    onChange(sorted);
+  };
+
+  const normalizedFilter = filterText.trim().toLowerCase();
+
   return (
     <div className="flex flex-col gap-3">
+      {tasks.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative flex-1 min-w-[160px]">
+            <input
+              type="text"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              placeholder="Filter tasks..."
+              className="w-full rounded-md border bg-background py-1.5 pl-3 pr-3 text-xs outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+            />
+          </div>
+          <SortFilterButton
+            options={[
+              { value: "text-asc", label: "A → Z" },
+              { value: "text-desc", label: "Z → A" },
+              { value: "recent", label: "Recent" },
+              { value: "deadline", label: "Deadline" },
+            ]}
+            activeValue={sortMode}
+            onSelect={applySort}
+          />
+        </div>
+      )}
+      {normalizedFilter && tasks.filter((t) => t.text.toLowerCase().includes(normalizedFilter)).length === 0 && (
+        <p className="text-xs text-muted-foreground/70">No tasks match &quot;{filterText.trim()}&quot;.</p>
+      )}
       {tasks.map((task, i) => {
         const takenPriorities = tasks
           .filter((_, idx) => idx !== i && _.priority)
@@ -186,8 +248,10 @@ function TaskRows({
         const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
 
+        const isFilteredOut = Boolean(normalizedFilter) && !task.text.toLowerCase().includes(normalizedFilter);
+
         return (
-          <div key={task.id} className="flex items-center gap-3">
+          <div key={task.id} className={cn("items-center gap-3", isFilteredOut ? "hidden" : "flex")}>
             {/* Left index label: T1, T2, T3 */}
             <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
               T{i + 1}
@@ -784,6 +848,303 @@ function SupportRows({
   );
 }
 
+// ── Parking lot rows ──────────────────────────────────────────────────────────
+
+type ParkedTaskItem = {
+  id: string;
+  text: string;
+  priority: string;
+  projectTaskId: string;
+  /** Client-only: tracks the chosen project before/without a specific task being picked yet. Not persisted directly — only projectTaskId is saved. */
+  projectId: string;
+  dueDate: string;
+  persisted: boolean;
+};
+
+function parkedTaskToItem(t: ParkedTask): ParkedTaskItem {
+  return {
+    id: t.id,
+    text: t.text,
+    priority: t.priority ?? "",
+    projectTaskId: t.projectTaskId ?? "",
+    projectId: t.projectTask?.project?.id ?? "",
+    dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
+    persisted: true,
+  };
+}
+
+function daysFromToday(dueDate: string): number | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate + "T00:00:00.000Z");
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  return Math.round((due.getTime() - todayUtc.getTime()) / 86400000);
+}
+
+function ParkingLotRows({
+  items,
+  cascadingProjects,
+  onChange,
+  onMoveToToday,
+}: {
+  items: ParkedTaskItem[];
+  cascadingProjects: CascadingProjectOption[];
+  onChange: (items: ParkedTaskItem[]) => void;
+  onMoveToToday: (item: ParkedTaskItem) => void;
+}) {
+  const [, startTransition] = useTransition();
+  const [movingId, setMovingId] = useState<string | null>(null);
+
+  const updateLocal = <K extends keyof ParkedTaskItem>(i: number, field: K, v: ParkedTaskItem[K]) => {
+    const n = [...items];
+    n[i] = { ...n[i], [field]: v };
+    onChange(n);
+  };
+
+  const handleProjectChange = (i: number, newProjectId: string) => {
+    const n = [...items];
+    n[i] = { ...n[i], projectId: newProjectId, projectTaskId: "" };
+    onChange(n);
+    persistField(i, { projectTaskId: "" });
+  };
+
+  const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
+    const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
+    const hasSubtasks = Boolean(chosenTask && chosenTask.subtasks && chosenTask.subtasks.length > 0);
+    const resolvedProjectTaskId = hasSubtasks ? "" : (chosenTask?.id || "");
+    const n = [...items];
+    n[i] = {
+      ...n[i],
+      projectTaskId: resolvedProjectTaskId,
+      text: (!n[i].text.trim() && chosenTask) ? chosenTask.title : n[i].text,
+    };
+    onChange(n);
+    persistField(i, { projectTaskId: resolvedProjectTaskId, ...(n[i].text !== items[i].text ? { text: n[i].text } : {}) });
+  };
+
+  const handleSubtaskChange = (i: number, newSubtaskId: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
+    const chosenSubtask = currentTask?.subtasks?.find((st) => st.id === newSubtaskId);
+    const resolvedProjectTaskId = newSubtaskId || (currentTask ? currentTask.id : "");
+    const n = [...items];
+    n[i] = {
+      ...n[i],
+      projectTaskId: resolvedProjectTaskId,
+      text: chosenSubtask && (!n[i].text.trim() || n[i].text === currentTask?.title) ? chosenSubtask.title : n[i].text,
+    };
+    onChange(n);
+    persistField(i, { projectTaskId: resolvedProjectTaskId, ...(n[i].text !== items[i].text ? { text: n[i].text } : {}) });
+  };
+
+  const persistNew = (i: number) => {
+    const item = items[i];
+    if (item.persisted || !item.text.trim()) return;
+    startTransition(async () => {
+      const res = await parkNewTask({
+        text: item.text,
+        priority: item.priority || undefined,
+        projectTaskId: item.projectTaskId || undefined,
+        dueDate: item.dueDate || undefined,
+      });
+      if (res.success && res.task) {
+        onChange(items.map((it, idx) => (idx === i ? { ...it, id: res.task!.id, persisted: true } : it)));
+      }
+    });
+  };
+
+  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; dueDate?: string; text?: string }) => {
+    const item = items[i];
+    if (!item.persisted) return;
+    startTransition(async () => {
+      await updateParkedTask(item.id, patch);
+    });
+  };
+
+  const add = () => onChange([...items, { id: crypto.randomUUID(), text: "", priority: "", projectTaskId: "", projectId: "", dueDate: "", persisted: false }]);
+
+  const remove = (i: number) => {
+    const item = items[i];
+    onChange(items.filter((_, j) => j !== i));
+    if (item.persisted) {
+      startTransition(async () => {
+        await removeParkedTask(item.id);
+      });
+    }
+  };
+
+  const moveToToday = (i: number) => {
+    const item = items[i];
+    if (!item.persisted) {
+      onChange(items.filter((_, j) => j !== i));
+      onMoveToToday(item);
+      return;
+    }
+    setMovingId(item.id);
+    startTransition(async () => {
+      const res = await moveParkedTaskToToday(item.id);
+      setMovingId(null);
+      if (res.success) {
+        onChange(items.filter((_, j) => j !== i));
+        onMoveToToday(item);
+      }
+    });
+  };
+
+  const levels = ["P1", "P2", "P3"];
+
+  return (
+    <div className="flex flex-col gap-2">
+      {items.map((item, i) => {
+        const tree = resolveTaskTree(item, cascadingProjects);
+        const selectedMeta = findSelectedTaskMeta(cascadingProjects, item.projectTaskId);
+        const daysOut = daysFromToday(item.dueDate);
+        return (
+          <div key={item.id} className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/30 transition-colors">
+            <div className="relative flex items-center shrink-0">
+              <select
+                value={item.priority}
+                onChange={(e) => {
+                  updateLocal(i, "priority", e.target.value);
+                  persistField(i, { priority: e.target.value });
+                }}
+                className={cn(
+                  "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-5 text-xs font-bold outline-none transition-colors",
+                  item.priority === "P1" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                  item.priority === "P2" && "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                  item.priority === "P3" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                  !item.priority && "border-border text-muted-foreground font-normal"
+                )}
+              >
+                <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">–</option>
+                {levels.map((p) => (
+                  <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{p}</option>
+                ))}
+              </select>
+              <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
+            </div>
+
+            {selectedMeta?.code && (
+              <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                {selectedMeta.code}
+              </span>
+            )}
+
+            <input
+              type="text"
+              value={item.text}
+              onChange={(e) => updateLocal(i, "text", e.target.value)}
+              onBlur={() => persistNew(i)}
+              placeholder="Add task details..."
+              className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+            />
+
+            {/* Project selector */}
+            <div className="relative flex items-center shrink-0">
+              <select
+                value={tree.projectId}
+                onChange={(e) => handleProjectChange(i, e.target.value)}
+                className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate"
+              >
+                <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                  {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                </option>
+                {cascadingProjects.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+            </div>
+
+            {/* Task selector (once a project is chosen) */}
+            {tree.currentProject && (
+              <div className="relative flex items-center shrink-0">
+                <select
+                  value={tree.taskId}
+                  onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
+                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[130px] truncate"
+                >
+                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                    {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                  </option>
+                  {tree.currentProject.tasks.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                      {t.code ? `[${t.code}] ` : ""}{t.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+              </div>
+            )}
+
+            {/* Subtask selector (when the chosen task has subtasks) */}
+            {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+              <div className="relative flex items-center shrink-0">
+                <select
+                  value={tree.subtaskId}
+                  onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
+                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[120px] truncate"
+                >
+                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
+                  {tree.currentTask.subtasks.map((st) => (
+                    <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                      {st.code ? `[${st.code}] ` : ""}{st.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
+              <CalendarIcon size={11} />
+              <input
+                type="date"
+                value={item.dueDate}
+                onChange={(e) => {
+                  updateLocal(i, "dueDate", e.target.value);
+                  persistField(i, { dueDate: e.target.value });
+                }}
+                className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
+              />
+              {daysOut !== null && daysOut >= 0 && (
+                <span className="whitespace-nowrap">(In {daysOut}d)</span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => moveToToday(i)}
+              disabled={!item.text.trim() || movingId === item.id}
+              className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6]"
+            >
+              {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
+              To Today
+            </button>
+
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              title="Remove from parking lot"
+              className="shrink-0 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+      >
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Park Task
+      </button>
+    </div>
+  );
+}
+
 // ── Section header ────────────────────────────────────────────────────────────
 
 function Section({ icon, title, required, children }: {
@@ -818,6 +1179,7 @@ type SubmitDsmFormProps = {
   teamMembers: TeamMember[];
   todayDateStr: string; // "YYYY-MM-DD"
   todayCalendarEvents?: CalendarEventView[];
+  parkedTasks?: ParkedTask[];
   onCancel?: () => void;
 };
 
@@ -833,6 +1195,7 @@ export function SubmitDsmForm({
   teamMembers,
   todayDateStr,
   todayCalendarEvents,
+  parkedTasks: parkedTasksProp,
   onCancel,
 }: SubmitDsmFormProps) {
   const [state, action, pending] = useActionState(saveDsm, initialState);
@@ -861,6 +1224,7 @@ export function SubmitDsmForm({
         priority: t.priority ?? "",
         carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
         dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
       }));
     }
     if (yesterdayIncompleteTasks.length > 0) {
@@ -944,6 +1308,10 @@ export function SubmitDsmForm({
     }
     return [{ id: crypto.randomUUID(), text: "", carried: false }];
   });
+  const [parkedTasks, setParkedTasks] = useState<ParkedTaskItem[]>(() =>
+    (parkedTasksProp ?? []).map(parkedTaskToItem)
+  );
+
   const [scheduleModal, setScheduleModal] = useState<{
     index: number;
     mode: "create" | "edit";
@@ -1172,6 +1540,30 @@ export function SubmitDsmForm({
                 const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                 setScheduleModal({ index, mode: "create", title: titleText, participantIds: s.mentionedUserIds });
               }
+            }}
+          />
+        </Section>
+
+        {/* Parking lot */}
+        <Section icon={<Archive size={16} className="text-muted-foreground" />} title="Parking Lot">
+          <ParkingLotRows
+            items={parkedTasks}
+            cascadingProjects={cascadingProjects}
+            onChange={setParkedTasks}
+            onMoveToToday={(item) => {
+              setTasks((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  text: item.text,
+                  priority: item.priority,
+                  carried: false,
+                  projectTaskId: item.projectTaskId || undefined,
+                  projectId: item.projectId || undefined,
+                  dueDate: item.dueDate || undefined,
+                  createdAt: new Date().toISOString(),
+                },
+              ]);
             }}
           />
         </Section>

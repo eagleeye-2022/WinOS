@@ -473,6 +473,53 @@ export async function getMemberWorkspaceNote(userId: string): Promise<WorkspaceN
   return note as WorkspaceNoteData | null;
 }
 
+export type ParkedTask = {
+  id: string;
+  text: string;
+  priority: string | null;
+  projectTaskId: string | null;
+  dueDate: Date | null;
+  createdAt: Date;
+  projectTask?: {
+    id: string;
+    code: string;
+    title: string;
+    project?: { id: string; name: string } | null;
+  } | null;
+};
+
+/**
+ * Tasks the user has parked ("saved for later") from any past standup entry.
+ * Unlike TODAY/YESTERDAY tasks, parked tasks are not scoped to a single day — a task
+ * stays in the parking lot (visible on every DSM day) until it's moved back to
+ * "Today" or removed, mirroring how the mock UI shows the same parked items across
+ * different dates.
+ */
+export async function getParkedTasks(): Promise<ParkedTask[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const tasks = await d.standupTask.findMany({
+    where: { kind: "PARKED", entry: { userId: session.user.id } },
+    include: {
+      projectTask: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          project: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return tasks as ParkedTask[];
+}
+
 /** All users for @mention support. */
 export async function getTeamMembers(): Promise<TeamMember[]> {
   const session = await auth();

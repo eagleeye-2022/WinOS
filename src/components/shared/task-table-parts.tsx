@@ -1,8 +1,81 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, Clock, Timer } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Calendar, Clock, Timer, Filter, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export type SortFilterOption = { value: string; label: string };
+
+/**
+ * "Filter" button that opens a dropdown of sort options — clicking an option
+ * immediately applies that sort and closes the menu (the caller owns the actual
+ * sorting logic; this component is purely the trigger + menu UI).
+ */
+export function SortFilterButton({
+  options,
+  activeValue,
+  onSelect,
+  label = "Filter",
+}: {
+  options: SortFilterOption[];
+  activeValue?: string;
+  onSelect: (value: string) => void;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const activeOption = options.find((o) => o.value === activeValue);
+  const isActive = Boolean(activeOption && activeValue !== options[0]?.value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+          isActive
+            ? "border-primary/40 bg-primary/10 text-primary"
+            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+        )}
+      >
+        <Filter size={12} />
+        {isActive ? activeOption!.label : label}
+        <ChevronDown size={12} className={cn("transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border bg-card p-1 shadow-lg">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                onSelect(opt.value);
+                setOpen(false);
+              }}
+              className={cn(
+                "block w-full rounded px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent cursor-pointer",
+                opt.value === activeValue ? "font-semibold text-primary" : "text-foreground"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Expandable text component with "See more" / "See less" toggle. */
 export function ExpandableTaskText({
@@ -134,6 +207,30 @@ export function PriorityBadge({ priority }: { priority?: string | null }) {
       )}
     >
       {priority}
+    </span>
+  );
+}
+
+/** Formats a task's creation timestamp as e.g. "16 Sep 2026, 11:02 AM". */
+export function formatCreatedAt(date: Date | string): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(parsed);
+}
+
+/** Small "Created <date, time>" subtitle shown under a task's text. */
+export function TaskCreatedAtLabel({ date }: { date: Date | string | null | undefined }) {
+  if (!date) return null;
+  return (
+    <span className="mt-0.5 block text-[10px] text-muted-foreground/60 whitespace-nowrap">
+      Created {formatCreatedAt(date)}
     </span>
   );
 }

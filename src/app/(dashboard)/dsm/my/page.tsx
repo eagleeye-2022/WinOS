@@ -13,6 +13,7 @@ import {
   getKpiStats,
   getTeamMembers,
   isUserInAnyTeam,
+  getParkedTasks,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -36,7 +37,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
@@ -50,6 +51,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       getTeamMembers(),
       getTodayCalendarEvents(),
       isUserInAnyTeam(),
+      getParkedTasks(),
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
@@ -85,6 +87,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           kpiStats={kpiStats}
           basePath="/dsm/my"
           todayCalendarEvents={todayCalendarEvents}
+          parkedTasks={parkedTasks}
         />
       </div>
 

@@ -35,7 +35,7 @@ import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
-import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
@@ -1631,6 +1631,7 @@ function TaskRow({
             </span>
           )}
         </div>
+        <TaskCreatedAtLabel date={task.createdAt} />
       </td>
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         {!isLocked ? (
@@ -1767,6 +1768,7 @@ function TodayTasksSection({
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+  const [sortMode, setSortMode] = useState("priority");
 
   useEffect(() => {
     fetchUserProjectsWithTasksAction(memberUser?.id).then((res) => {
@@ -1774,8 +1776,22 @@ function TodayTasksSection({
     });
   }, [memberUser?.id]);
 
-  // Sort: P1 first, unassigned last
-  const sorted = sortByPriority(tasks);
+  const cmpDue = (a: TaskItem, b: TaskItem, dir: 1 | -1) => {
+    const ad = a.dueDate ? new Date(a.dueDate).getTime() : null;
+    const bd = b.dueDate ? new Date(b.dueDate).getTime() : null;
+    if (ad === null && bd === null) return 0;
+    if (ad === null) return 1;
+    if (bd === null) return -1;
+    return dir * (ad - bd);
+  };
+
+  const sorted = (() => {
+    if (sortMode === "text-asc") return [...tasks].sort((a, b) => a.text.localeCompare(b.text));
+    if (sortMode === "text-desc") return [...tasks].sort((a, b) => b.text.localeCompare(a.text));
+    if (sortMode === "deadline") return [...tasks].sort((a, b) => cmpDue(a, b, 1));
+    if (sortMode === "recent") return [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortByPriority(tasks); // default: P1 first, unassigned last
+  })();
 
   function takenFor(taskId: string) {
     return tasks
@@ -1789,13 +1805,27 @@ function TodayTasksSection({
 
   return (
     <div className="rounded-xl border bg-card p-4">
-      <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-primary">
-        <Calendar size={15} className="text-primary" />
-        What Will You Do Today?
-        <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-          {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-        </span>
-      </h3>
+      <div className="mb-1 flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <Calendar size={15} className="text-primary" />
+          What Will You Do Today?
+          <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+          </span>
+        </h3>
+        {tasks.length > 1 && (
+          <SortFilterButton
+            options={[
+              { value: "text-asc", label: "A → Z" },
+              { value: "text-desc", label: "Z → A" },
+              { value: "recent", label: "Recent" },
+              { value: "deadline", label: "Deadline" },
+            ]}
+            activeValue={sortMode}
+            onSelect={setSortMode}
+          />
+        )}
+      </div>
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full border-collapse">

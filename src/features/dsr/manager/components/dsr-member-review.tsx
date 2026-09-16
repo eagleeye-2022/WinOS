@@ -22,7 +22,7 @@ import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
-import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 // ── Date entry header — static strip matching Figma image 2 ──────────────────
@@ -187,6 +187,7 @@ function TaskItemRow({
             </span>
           )}
         </div>
+        <TaskCreatedAtLabel date={task.createdAt} />
       </td>
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         <PriorityBadge priority={task.priority} />
@@ -287,6 +288,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     : 0;
 
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+  const [sortMode, setSortMode] = useState("order");
   const dateStr = new Date(entry.date).toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -298,16 +300,47 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
 
+  const cmpDeadline = (a: DsrEntryData["plannedTasks"][number], b: DsrEntryData["plannedTasks"][number]) => {
+    const ad = projectLinks[a.text]?.dueDate ? new Date(projectLinks[a.text]!.dueDate!).getTime() : null;
+    const bd = projectLinks[b.text]?.dueDate ? new Date(projectLinks[b.text]!.dueDate!).getTime() : null;
+    if (ad === null && bd === null) return 0;
+    if (ad === null) return 1;
+    if (bd === null) return -1;
+    return ad - bd;
+  };
+
+  const sortedTasks = (() => {
+    if (sortMode === "text-asc") return [...plannedTasks].sort((a, b) => a.text.localeCompare(b.text));
+    if (sortMode === "text-desc") return [...plannedTasks].sort((a, b) => b.text.localeCompare(a.text));
+    if (sortMode === "deadline") return [...plannedTasks].sort(cmpDeadline);
+    if (sortMode === "recent") return [...plannedTasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return [...plannedTasks].sort((a, b) => a.order - b.order); // default: manual order
+  })();
+
   return (
     <div className="rounded-xl border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2 size={14} className="text-success" />
           Task Progress
         </h3>
-        <span className="text-sm font-bold text-primary">
-          {completedTaskCount}/{plannedTaskCount}
-        </span>
+        <div className="flex items-center gap-3">
+          {plannedTasks.length > 1 && (
+            <SortFilterButton
+              options={[
+                { value: "text-asc", label: "A → Z" },
+                { value: "text-desc", label: "Z → A" },
+                { value: "recent", label: "Recent" },
+                { value: "deadline", label: "Deadline" },
+              ]}
+              activeValue={sortMode}
+              onSelect={setSortMode}
+            />
+          )}
+          <span className="text-sm font-bold text-primary">
+            {completedTaskCount}/{plannedTaskCount}
+          </span>
+        </div>
       </div>
       <div className="mb-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -319,7 +352,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
         <table className="w-full border-collapse">
           <TaskTableHead withCheckbox />
           <tbody>
-            {plannedTasks.map((task, i) => (
+            {sortedTasks.map((task, i) => (
               <TaskItemRow
                 key={task.id}
                 index={i}
