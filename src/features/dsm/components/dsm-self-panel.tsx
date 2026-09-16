@@ -7,7 +7,7 @@ import { SubmitDsmForm } from "./submit-dsm-form";
 import { WeekHistory } from "./week-history";
 import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
-import type { EntryWithDetails, KpiStats, TeamMember } from "../queries";
+import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
 
 type DsmSelfPanelProps = {
@@ -24,6 +24,7 @@ type DsmSelfPanelProps = {
   kpiStats: KpiStats;
   basePath?: string;
   todayCalendarEvents?: CalendarEventView[];
+  parkedTasks?: ParkedTask[];
 };
 
 export function DsmSelfPanel({
@@ -40,6 +41,7 @@ export function DsmSelfPanel({
   kpiStats,
   basePath = "/dsm",
   todayCalendarEvents,
+  parkedTasks,
 }: DsmSelfPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const canEdit = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
@@ -59,6 +61,7 @@ export function DsmSelfPanel({
           teamMembers={teamMembers}
           todayDateStr={todayDateStr}
           todayCalendarEvents={todayCalendarEvents}
+          parkedTasks={parkedTasks ?? []}
           onCancel={isEditing ? () => setIsEditing(false) : undefined}
         />
       </>

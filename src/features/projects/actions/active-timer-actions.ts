@@ -545,8 +545,9 @@ export async function getMemberActiveTimerAction(memberId: string) {
   const d = db as any;
 
   try {
+    const targetUserId = memberId?.trim() || sessionUser.id;
     const activeTimer = await d.activeTimer.findUnique({
-      where: { userId: memberId },
+      where: { userId: targetUserId },
       include: {
         task: { select: { id: true, code: true, title: true } },
         project: { select: { id: true, code: true, name: true } },

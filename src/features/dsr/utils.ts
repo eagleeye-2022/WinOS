@@ -1,6 +1,6 @@
-import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
+import { toUtcDate, isoToUtcDate, getWeekRange } from "@/features/dsm/utils";
 
-export { toUtcDate, getWeekRange };
+export { toUtcDate, isoToUtcDate, getWeekRange };
 
 export type DsrReviewStatus =
   | { label: "Pending Review"; kind: "pending" }

@@ -473,6 +473,53 @@ export async function getMemberWorkspaceNote(userId: string): Promise<WorkspaceN
   return note as WorkspaceNoteData | null;
 }
 
+export type ParkedTask = {
+  id: string;
+  text: string;
+  priority: string | null;
+  projectTaskId: string | null;
+  dueDate: Date | null;
+  createdAt: Date;
+  projectTask?: {
+    id: string;
+    code: string;
+    title: string;
+    project?: { id: string; name: string } | null;
+  } | null;
+};
+
+/**
+ * Tasks the user has parked ("saved for later") from any past standup entry.
+ * Unlike TODAY/YESTERDAY tasks, parked tasks are not scoped to a single day — a task
+ * stays in the parking lot (visible on every DSM day) until it's moved back to
+ * "Today" or removed, mirroring how the mock UI shows the same parked items across
+ * different dates.
+ */
+export async function getParkedTasks(): Promise<ParkedTask[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const tasks = await d.standupTask.findMany({
+    where: { kind: "PARKED", entry: { userId: session.user.id } },
+    include: {
+      projectTask: {
+        select: {
+          id: true,
+          code: true,
+          title: true,
+          project: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return tasks as ParkedTask[];
+}
+
 /** All users for @mention support. */
 export async function getTeamMembers(): Promise<TeamMember[]> {
   const session = await auth();
@@ -981,26 +1028,44 @@ export type DailyTimeSummary = {
 export async function getDailyTimeSummaryForTasks(
   userId: string,
   taskIds: string[],
-  date: Date
+  date: Date | string
 ): Promise<Record<string, DailyTimeSummary>> {
   if (!userId || taskIds.length === 0) return {};
 
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const dStr = typeof date === "string"
+    ? date.slice(0, 10)
+    : (date instanceof Date ? date.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+
+  const dayStartUtc = new Date(`${dStr}T00:00:00.000Z`);
+  const dayEndUtc = new Date(`${dStr}T23:59:59.999Z`);
+
+  // Broaden the query window slightly by 14 hours on each side to account for any timezone offset differences
+  const queryStart = new Date(dayStartUtc.getTime() - 14 * 3600 * 1000);
+  const queryEnd = new Date(dayEndUtc.getTime() + 14 * 3600 * 1000);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   const logs = await d.projectTimeLog.findMany({
-    where: { userId, taskId: { in: taskIds }, date: { gte: dayStart, lte: dayEnd } },
-    select: { taskId: true, duration: true, description: true },
+    where: { userId, taskId: { in: taskIds }, date: { gte: queryStart, lte: queryEnd } },
+    select: { taskId: true, duration: true, description: true, date: true },
     orderBy: { date: "asc" as const },
   });
 
   const result: Record<string, DailyTimeSummary> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const log of logs as any[]) {
+    const logDate = new Date(log.date);
+    const logUtc = logDate.toISOString().slice(0, 10);
+    const logIst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(logDate);
+    const logLocal = logDate.toLocaleDateString("en-CA");
+
+    const isMidnightUtc = logDate.getUTCHours() === 0 && logDate.getUTCMinutes() === 0 && logDate.getUTCSeconds() === 0;
+    const matches = isMidnightUtc ? logUtc === dStr : (logIst === dStr || logLocal === dStr || logUtc === dStr);
+
+    if (!matches) {
+      continue;
+    }
+
     const { timePeriod } = decodeDescriptionWithTimePeriod(log.description);
     const [start, stop] = timePeriod
       ? timePeriod.split(/[-–]/).map((s: string) => s.trim())
