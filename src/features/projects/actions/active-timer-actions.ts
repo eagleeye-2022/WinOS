@@ -546,6 +546,9 @@ export async function getMemberActiveTimerAction(memberId: string) {
 
   try {
     const targetUserId = memberId?.trim() || sessionUser.id;
+    if (targetUserId !== sessionUser.id && !isPrivilegedViewer(sessionUser)) {
+      return { success: false, error: "You are not authorized to view this user's timer", data: null };
+    }
     const activeTimer = await d.activeTimer.findUnique({
       where: { userId: targetUserId },
       include: {

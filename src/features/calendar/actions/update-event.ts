@@ -22,6 +22,7 @@ export async function updateCalendarEvent(
 ): Promise<UpdateEventState> {
   const session = await auth();
   if (!session?.user?.id) return { message: "Unauthorized" };
+  const userId = session.user.id;
 
   const eventId = getStr(formData, "eventId");
   if (!eventId) return { message: "Missing eventId" };
@@ -80,14 +81,11 @@ export async function updateCalendarEvent(
       },
     });
 
-    // Delete existing non-organizer attendees and re-insert
+    // Delete all attendees and re-insert from the current selection — the
+    // organizer is only re-added if they explicitly checked themselves in
+    // the participant list, same as any other participant.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (db as any).calendarEventAttendee.deleteMany({
-      where: {
-        eventId,
-        role: { not: "ORGANIZER" },
-      },
-    });
+    await (db as any).calendarEventAttendee.deleteMany({ where: { eventId } });
 
     if (invitees.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,8 +95,8 @@ export async function updateCalendarEvent(
           eventId,
           userId: u.id,
           email: u.email,
-          status: "NEEDS_ACTION",
-          role: "PARTICIPANT",
+          status: u.id === userId ? "ACCEPTED" : "NEEDS_ACTION",
+          role: u.id === userId ? "ORGANIZER" : "PARTICIPANT",
         })),
         skipDuplicates: true,
       });

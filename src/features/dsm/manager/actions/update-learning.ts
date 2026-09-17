@@ -11,7 +11,7 @@ export async function updateLearningText(
   formData: FormData
 ): Promise<UpdateLearningState> {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "MANAGER") {
+  if (!session?.user?.id) {
     return { message: "Unauthorized" };
   }
 
@@ -29,6 +29,10 @@ export async function updateLearningText(
   });
 
   if (!entry) return { message: "Entry not found" };
+
+  const isOwner = entry.userId === session.user.id;
+  const isManager = session.user.role === "MANAGER";
+  if (!isOwner && !isManager) return { message: "Unauthorized" };
 
   await d.standupEntry.update({
     where: { id: entryId },

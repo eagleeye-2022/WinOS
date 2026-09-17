@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 export type AddTaskAfterReviewState = { message?: string };
 
-/** Lets a team member add a task to their own standup entry after a manager has reviewed it. */
+/** Lets a team member or manager add a task to a standup entry after it has been reviewed. */
 export async function addTaskAfterReview(
   _prev: AddTaskAfterReviewState,
   formData: FormData
@@ -17,7 +17,10 @@ export async function addTaskAfterReview(
   const entryId = formData.get("entryId") as string;
   const text = (formData.get("text") as string)?.trim();
   const kind = (formData.get("kind") as string) || "TODAY";
-  const priority = (formData.get("priority") as string) || "P1";
+  const priority = (formData.get("priority") as string) || null;
+  const projectTaskId = (formData.get("projectTaskId") as string)?.trim() || null;
+  const dueDateStr = (formData.get("dueDate") as string)?.trim();
+  const dueDate = dueDateStr ? new Date(dueDateStr) : null;
 
   if (!entryId) return { message: "Missing entry ID" };
   if (!text) return { message: "Task text cannot be empty" };
@@ -43,19 +46,26 @@ export async function addTaskAfterReview(
     -1
   );
 
+  const isParking = priority === "PARKING";
+  const resolvedKind = isParking ? "PARKED" : (kind as "TODAY" | "YESTERDAY");
+
   await d.standupTask.create({
     data: {
       entryId,
-      kind: kind as "TODAY" | "YESTERDAY",
+      kind: resolvedKind,
+      isParked: isParking,
       text,
-      priority,
+      priority: isParking ? null : priority,
+      managerPriority: isParking ? null : (isManager ? priority : null),
+      projectTaskId,
+      dueDate,
       order: maxOrder + 1,
       addedAfterReview: true,
       addedById: session.user.id,
     },
   });
 
-  const userName = session.user.name ?? "Member";
+  const userName = session.user.name ?? (isManager ? "Manager" : "Member");
   await d.standupTimelineEvent.create({
     data: {
       entryId,
@@ -67,6 +77,7 @@ export async function addTaskAfterReview(
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
+  revalidatePath("/dsm/all");
   revalidatePath(`/dsm/member/${entry.userId}`);
   return { message: "created" };
 }

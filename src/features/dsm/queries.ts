@@ -495,15 +495,17 @@ export type ParkedTask = {
  * "Today" or removed, mirroring how the mock UI shows the same parked items across
  * different dates.
  */
-export async function getParkedTasks(): Promise<ParkedTask[]> {
+export async function getParkedTasks(targetUserId?: string): Promise<ParkedTask[]> {
   const session = await auth();
   if (!session?.user?.id) return [];
+
+  const effectiveUserId = (session.user.role === "MANAGER" && targetUserId) ? targetUserId : session.user.id;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
   const tasks = await d.standupTask.findMany({
-    where: { kind: "PARKED", entry: { userId: session.user.id } },
+    where: { kind: "PARKED", entry: { userId: effectiveUserId } },
     include: {
       projectTask: {
         select: {

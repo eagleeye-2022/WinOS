@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
-  PenIcon, GraduationCap, Loader2, Info,
+  PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -24,9 +24,10 @@ import { addBlocker, type AddBlockerState } from "@/features/blockers/actions/ad
 import { editSupport, type EditSupportState } from "@/features/support-needed/actions/edit-support";
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
+import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
 import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
-import type { TeamMember } from "@/features/dsm/queries";
+import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
@@ -60,9 +61,9 @@ function findSelectedTaskMeta(
   return null;
 }
 
-function resolveTaskTree(projectTaskId: string | null | undefined, cascadingProjects: CascadingProjectOption[]) {
+function resolveTaskTree(projectTaskId: string | null | undefined, cascadingProjects: CascadingProjectOption[], fallbackProjectId: string = "") {
   const pTaskId = projectTaskId || "";
-  let resolvedPId = "";
+  let resolvedPId = fallbackProjectId;
   let resolvedTId = "";
   let resolvedStId = "";
 
@@ -211,6 +212,7 @@ function PriorityDropdown({
           {available.map((p) => (
             <option key={p} value={p}>{p}</option>
           ))}
+          <option value="PARKING">Parking</option>
         </select>
         <ChevronDown size={11} className="pointer-events-none absolute right-1.5 text-current opacity-60" />
       </form>
@@ -251,14 +253,10 @@ function AddTaskRow({
   entryId,
   kind = "TODAY",
   cascadingProjects = [],
-  totalTasks = 0,
-  takenPriorities = [],
 }: {
   entryId: string;
   kind?: "TODAY" | "YESTERDAY";
   cascadingProjects?: CascadingProjectOption[];
-  totalTasks?: number;
-  takenPriorities?: string[];
 }) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
@@ -267,7 +265,6 @@ function AddTaskRow({
   const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
   const [selectedProjectTaskId, setSelectedProjectTaskId] = useState("");
   const [text, setText] = useState("");
-  const [priority, setPriority] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   const resetForm = () => {
@@ -276,7 +273,6 @@ function AddTaskRow({
     setSelectedSubtaskId("");
     setSelectedProjectTaskId("");
     setText("");
-    setPriority("");
     setDueDate("");
     setAdding(false);
   };
@@ -319,10 +315,6 @@ function AddTaskRow({
   const currentTask = currentProject?.tasks?.find((t) => t.id === selectedTaskId);
   const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
 
-  const availableLevels = priorityLevels(totalTasks + 1).filter(
-    (p) => !takenPriorities.includes(p) || p === priority
-  );
-
   if (!adding) {
     return (
       <button
@@ -346,6 +338,7 @@ function AddTaskRow({
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
+      <input type="hidden" name="priority" value="" />
 
       {/* Top row: Project, Task, Subtask Selectors */}
       <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -421,28 +414,6 @@ function AddTaskRow({
       {/* Bottom Row: Priority + Due Date + Actions */}
       <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-2 border-border/50">
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Priority */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Priority:</span>
-            <div className="relative flex items-center">
-              <select
-                name="priority"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className={cn(
-                  "cursor-pointer appearance-none rounded-lg border py-1 pl-2.5 pr-6 text-xs font-semibold outline-none",
-                  priority ? priorityColor(priority) : "border-border bg-background text-muted-foreground"
-                )}
-              >
-                <option value="">Select Priority</option>
-                {availableLevels.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-            </div>
-          </div>
-
           {/* Due Date */}
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <Calendar size={12} className="text-muted-foreground" />
@@ -1548,6 +1519,7 @@ function TaskRow({
                       {availableLevels.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
+                      <option value="PARKING">Parking</option>
                     </select>
                     <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
                   </div>
@@ -1662,6 +1634,7 @@ function TaskRow({
             taskCode={task.projectTask.code}
             memberId={memberUser.id}
             dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
+            liveOnly
           />
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
@@ -1799,10 +1772,6 @@ function TodayTasksSection({
       .map((t) => t.managerPriority as string);
   }
 
-  const allTakenPriorities = tasks
-    .filter((t) => t.managerPriority)
-    .map((t) => t.managerPriority as string);
-
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-1 flex items-center justify-between gap-3 flex-wrap">
@@ -1827,34 +1796,36 @@ function TodayTasksSection({
         )}
       </div>
 
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full border-collapse">
-          <TaskTableHead withAction />
-          <tbody>
-            {sorted.map((task, i) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                rank={i + 1}
-                isLocked={isLocked}
-                takenPriorities={takenFor(task.id)}
-                totalTasks={tasks.length}
-                carryChain={entry ? getTaskCarryChain(task, entry, allEntries) : [{ date: task.createdAt, task }]}
-                memberUser={memberUser}
-                entryDate={entry?.date}
-                cascadingProjects={cascadingProjects}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {tasks.length > 0 ? (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full border-collapse">
+            <TaskTableHead withAction />
+            <tbody>
+              {sorted.map((task, i) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  rank={i + 1}
+                  isLocked={isLocked}
+                  takenPriorities={takenFor(task.id)}
+                  totalTasks={tasks.length}
+                  carryChain={entry ? getTaskCarryChain(task, entry, allEntries) : [{ date: task.createdAt, task }]}
+                  memberUser={memberUser}
+                  entryDate={entry?.date}
+                  cascadingProjects={cascadingProjects}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground italic">No tasks logged for today.</p>
+      )}
 
       {/* Manager can add tasks — still allowed after review */}
       <AddTaskRow
         entryId={entryId}
         cascadingProjects={cascadingProjects}
-        totalTasks={tasks.length}
-        takenPriorities={allTakenPriorities}
       />
     </div>
   );
@@ -2069,6 +2040,336 @@ function LearningSection({
   );
 }
 
+// ── Parking lot section (Manager Review) ─────────────────────────────────────
+
+type ParkedTaskItem = {
+  id: string;
+  text: string;
+  priority: string;
+  projectTaskId: string;
+  projectId: string;
+  dueDate: string;
+  persisted: boolean;
+};
+
+function parkedTaskToItem(t: ParkedTask): ParkedTaskItem {
+  return {
+    id: t.id,
+    text: t.text,
+    priority: t.priority ?? "",
+    projectTaskId: t.projectTaskId ?? "",
+    projectId: t.projectTask?.project?.id ?? "",
+    dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
+    persisted: true,
+  };
+}
+
+function daysFromToday(dueDate: string): number | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate + "T00:00:00.000Z");
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  return Math.round((due.getTime() - todayUtc.getTime()) / 86400000);
+}
+
+function ParkingLotSection({
+  memberUserId,
+  parkedTasks: initialParkedTasks = [],
+  cascadingProjects = [],
+  isLocked = false,
+}: {
+  memberUserId: string;
+  parkedTasks?: ParkedTask[];
+  cascadingProjects?: CascadingProjectOption[];
+  isLocked?: boolean;
+}) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [items, setItems] = useState<ParkedTaskItem[]>(() =>
+    initialParkedTasks.map(parkedTaskToItem)
+  );
+  const [movingId, setMovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setItems(initialParkedTasks.map(parkedTaskToItem));
+  }, [initialParkedTasks]);
+
+  const updateLocal = <K extends keyof ParkedTaskItem>(i: number, field: K, v: ParkedTaskItem[K]) => {
+    const n = [...items];
+    n[i] = { ...n[i], [field]: v };
+    setItems(n);
+  };
+
+  const handleProjectChange = (i: number, newProjectId: string) => {
+    const n = [...items];
+    n[i] = { ...n[i], projectId: newProjectId, projectTaskId: "" };
+    setItems(n);
+    persistField(i, { projectTaskId: "" });
+  };
+
+  const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
+    const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
+    const hasSubtasks = Boolean(chosenTask && chosenTask.subtasks && chosenTask.subtasks.length > 0);
+    const resolvedProjectTaskId = hasSubtasks ? "" : (chosenTask?.id || "");
+    const n = [...items];
+    n[i] = {
+      ...n[i],
+      projectTaskId: resolvedProjectTaskId,
+      text: (!n[i].text.trim() && chosenTask) ? chosenTask.title : n[i].text,
+    };
+    setItems(n);
+    persistField(i, { projectTaskId: resolvedProjectTaskId, ...(n[i].text !== items[i].text ? { text: n[i].text } : {}) });
+  };
+
+  const handleSubtaskChange = (i: number, newSubtaskId: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
+    const chosenSubtask = currentTask?.subtasks?.find((st) => st.id === newSubtaskId);
+    const resolvedProjectTaskId = newSubtaskId || (currentTask ? currentTask.id : "");
+    const n = [...items];
+    n[i] = {
+      ...n[i],
+      projectTaskId: resolvedProjectTaskId,
+      text: chosenSubtask && (!n[i].text.trim() || n[i].text === currentTask?.title) ? chosenSubtask.title : n[i].text,
+    };
+    setItems(n);
+    persistField(i, { projectTaskId: resolvedProjectTaskId, ...(n[i].text !== items[i].text ? { text: n[i].text } : {}) });
+  };
+
+  const persistNew = (i: number) => {
+    const item = items[i];
+    if (item.persisted || !item.text.trim()) return;
+    startTransition(async () => {
+      const res = await parkNewTask({
+        text: item.text,
+        priority: item.priority || undefined,
+        projectTaskId: item.projectTaskId || undefined,
+        dueDate: item.dueDate || undefined,
+        targetUserId: memberUserId,
+      });
+      if (res.success && res.task) {
+        setItems(items.map((it, idx) => (idx === i ? { ...it, id: res.task!.id, persisted: true } : it)));
+        router.refresh();
+      }
+    });
+  };
+
+  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; dueDate?: string; text?: string }) => {
+    const item = items[i];
+    if (!item.persisted) return;
+    startTransition(async () => {
+      await updateParkedTask(item.id, patch);
+      router.refresh();
+    });
+  };
+
+  const add = () => setItems([...items, { id: crypto.randomUUID(), text: "", priority: "", projectTaskId: "", projectId: "", dueDate: "", persisted: false }]);
+
+  const remove = (i: number) => {
+    const item = items[i];
+    setItems(items.filter((_, j) => j !== i));
+    if (item.persisted) {
+      startTransition(async () => {
+        await removeParkedTask(item.id);
+        router.refresh();
+      });
+    }
+  };
+
+  const moveToToday = (i: number) => {
+    const item = items[i];
+    if (!item.persisted) {
+      setItems(items.filter((_, j) => j !== i));
+      return;
+    }
+    setMovingId(item.id);
+    startTransition(async () => {
+      const res = await moveParkedTaskToToday(item.id);
+      setMovingId(null);
+      if (res.success) {
+        setItems(items.filter((_, j) => j !== i));
+        router.refresh();
+      }
+    });
+  };
+
+  const levels = ["P1", "P2", "P3"];
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <h3 className="mb-3 flex items-center justify-between text-sm font-semibold text-primary">
+        <span className="flex items-center gap-2">
+          <Archive size={15} className="text-primary" />
+          Parking Lot
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {items.length}
+          </span>
+        </span>
+      </h3>
+
+      <div className="flex flex-col gap-2">
+        {items.map((item, i) => {
+          const tree = resolveTaskTree(item.projectTaskId, cascadingProjects, item.projectId);
+          const selectedMeta = findSelectedTaskMeta(cascadingProjects, item.projectTaskId);
+          const daysOut = daysFromToday(item.dueDate);
+          return (
+            <div key={item.id} className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/30 transition-colors">
+              {/* <div className="relative flex items-center shrink-0">
+                <select
+                  value={item.priority}
+                  disabled={isLocked}
+                  onChange={(e) => {
+                    updateLocal(i, "priority", e.target.value);
+                    persistField(i, { priority: e.target.value });
+                  }}
+                  className={cn(
+                    "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-5 text-xs font-bold outline-none transition-colors",
+                    item.priority === "P1" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                    item.priority === "P2" && "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                    item.priority === "P3" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                    !item.priority && "border-border text-muted-foreground font-normal"
+                  )}
+                >
+                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">–</option>
+                  {levels.map((p) => (
+                    <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{p}</option>
+                  ))}
+                </select>
+                <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
+              </div> */}
+
+              {selectedMeta?.code && (
+                <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                  {selectedMeta.code}
+                </span>
+              )}
+
+              <input
+                type="text"
+                value={item.text}
+                disabled={isLocked && item.persisted}
+                onChange={(e) => updateLocal(i, "text", e.target.value)}
+                onBlur={() => persistNew(i)}
+                placeholder="Add task details..."
+                className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:opacity-75"
+              />
+
+              {/* Project selector */}
+              <div className="relative flex items-center shrink-0">
+                <select
+                  value={tree.projectId}
+                  disabled={isLocked && item.persisted}
+                  onChange={(e) => handleProjectChange(i, e.target.value)}
+                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate disabled:opacity-75"
+                >
+                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                    {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                  </option>
+                  {cascadingProjects.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+              </div>
+
+              {/* Task selector (once a project is chosen) */}
+              {tree.currentProject && (
+                <div className="relative flex items-center shrink-0">
+                  <select
+                    value={tree.taskId}
+                    disabled={isLocked && item.persisted}
+                    onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
+                    className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[130px] truncate disabled:opacity-75"
+                  >
+                    <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                      {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                    </option>
+                    {tree.currentProject.tasks.map((t) => (
+                      <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {t.code ? `[${t.code}] ` : ""}{t.title}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                </div>
+              )}
+
+              {/* Subtask selector (when the chosen task has subtasks) */}
+              {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+                <div className="relative flex items-center shrink-0">
+                  <select
+                    value={tree.subtaskId}
+                    disabled={isLocked && item.persisted}
+                    onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
+                    className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[120px] truncate disabled:opacity-75"
+                  >
+                    <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
+                    {tree.currentTask.subtasks.map((st) => (
+                      <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {st.code ? `[${st.code}] ` : ""}{st.title}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                </div>
+              )}
+
+              <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
+                <Calendar size={11} />
+                <input
+                  type="date"
+                  value={item.dueDate}
+                  disabled={isLocked && item.persisted}
+                  onChange={(e) => {
+                    updateLocal(i, "dueDate", e.target.value);
+                    persistField(i, { dueDate: e.target.value });
+                  }}
+                  className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark] disabled:opacity-75"
+                />
+                {daysOut !== null && daysOut >= 0 && (
+                  <span className="whitespace-nowrap">(In {daysOut}d)</span>
+                )}
+              </div>
+
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => moveToToday(i)}
+                  disabled={!item.text.trim() || movingId === item.id}
+                  className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6]"
+                >
+                  {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
+                  To Today
+                </button>
+              )}
+
+              {(!isLocked || !item.persisted) && (
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  title="Remove from parking lot"
+                  className="shrink-0 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Adding to the parking lot is still allowed after review */}
+      <button
+        type="button"
+        onClick={add}
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+      >
+        <Plus size={13} className="dark:text-[#93C5FD]" /> Park Task
+      </button>
+    </div>
+  );
+}
+
 // ── Day entry expanded (full review form) ─────────────────────────────────────
 
 function EntryExpanded({
@@ -2076,11 +2377,17 @@ function EntryExpanded({
   allEntries = [],
   teamMembers = [],
   memberUser,
+  currentUserId,
+  parkedTasks = [],
+  cascadingProjects = [],
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
+  currentUserId: string;
+  parkedTasks?: ParkedTask[];
+  cascadingProjects?: CascadingProjectOption[];
 }) {
   const router = useRouter();
   const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
@@ -2107,16 +2414,22 @@ function EntryExpanded({
       />
 
       {/* Today tasks + priority */}
-      {(todayTasks.length > 0 || !isLocked) && (
-        <TodayTasksSection
-          tasks={todayTasks}
-          isLocked={isLocked}
-          entryId={entry.id}
-          entry={entry}
-          allEntries={allEntries}
-          memberUser={memberUser}
-        />
-      )}
+      <TodayTasksSection
+        tasks={todayTasks}
+        isLocked={isLocked}
+        entryId={entry.id}
+        entry={entry}
+        allEntries={allEntries}
+        memberUser={memberUser}
+      />
+
+      {/* Parking lot */}
+      <ParkingLotSection
+        memberUserId={memberUser?.id ?? ""}
+        parkedTasks={parkedTasks}
+        cascadingProjects={cascadingProjects}
+        isLocked={isLocked}
+      />
 
       {/* What will you learn today */}
       <LearningSection
@@ -2317,7 +2630,7 @@ function EntryExpanded({
           })() : undefined}
           defaultParticipantIds={scheduleModal.participantIds}
           internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
-          currentUserId=""
+          currentUserId={currentUserId}
           onClose={() => setScheduleModal(null)}
           onSaved={(view) => {
             if (scheduleModal.supportId) {
@@ -2348,11 +2661,17 @@ function TodayEntryCard({
   allEntries = [],
   teamMembers = [],
   memberUser,
+  currentUserId,
+  parkedTasks = [],
+  cascadingProjects = [],
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
+  currentUserId: string;
+  parkedTasks?: ParkedTask[];
+  cascadingProjects?: CascadingProjectOption[];
 }) {
   const [expanded, setExpanded] = useState(true);
   const review = reviewStatus({
@@ -2415,7 +2734,15 @@ function TodayEntryCard({
         <div className="border-t">
           {expanded ? (
             <div className="px-4 pb-4 pt-3">
-              <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} memberUser={memberUser} />
+              <EntryExpanded
+                entry={entry}
+                allEntries={allEntries}
+                teamMembers={teamMembers}
+                memberUser={memberUser}
+                currentUserId={currentUserId}
+                parkedTasks={parkedTasks}
+                cascadingProjects={cascadingProjects}
+              />
             </div>
           ) : (
             <CompactEntryPreview entry={entry} allEntries={allEntries} />
@@ -2434,12 +2761,18 @@ function DayCardCollapsed({
   teamMembers = [],
   memberUser,
   defaultOpen = false,
+  currentUserId,
+  parkedTasks = [],
+  cascadingProjects = [],
 }: {
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
   teamMembers?: TeamMember[];
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
   defaultOpen?: boolean;
+  currentUserId: string;
+  parkedTasks?: ParkedTask[];
+  cascadingProjects?: CascadingProjectOption[];
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const review = reviewStatus({
@@ -2524,7 +2857,15 @@ function DayCardCollapsed({
 
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-4 pb-4 pt-3">
-          <EntryExpanded entry={entry} allEntries={allEntries} teamMembers={teamMembers} memberUser={memberUser} />
+          <EntryExpanded
+            entry={entry}
+            allEntries={allEntries}
+            teamMembers={teamMembers}
+            memberUser={memberUser}
+            currentUserId={currentUserId}
+            parkedTasks={parkedTasks}
+            cascadingProjects={cascadingProjects}
+          />
         </div>
       )}
     </div>
@@ -2538,11 +2879,23 @@ type Props = {
   weekOffset: number;
   teamMembers?: TeamMember[];
   selectedDateStr?: string;
+  currentUserId: string;
+  parkedTasks?: ParkedTask[];
 };
 
-export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr }: Props) {
+export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr, currentUserId, parkedTasks = [] }: Props) {
   const router = useRouter();
   const { user, entries } = review;
+
+  const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserProjectsWithTasksAction(user.id).then((res) => {
+        if (res) setCascadingProjects(res);
+      });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     const handleFocus = () => router.refresh();
@@ -2613,7 +2966,17 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
       <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-0">
         <div className="flex flex-col gap-5">
           {/* Today entry — expanded by default */}
-          {todayEntry && <TodayEntryCard entry={todayEntry} allEntries={entries} teamMembers={teamMembers} memberUser={user} />}
+          {todayEntry && (
+            <TodayEntryCard
+              entry={todayEntry}
+              allEntries={entries}
+              teamMembers={teamMembers}
+              memberUser={user}
+              currentUserId={currentUserId}
+              parkedTasks={parkedTasks}
+              cascadingProjects={cascadingProjects}
+            />
+          )}
 
           {/* Previous days — auto-expanded if matching selectedDateStr */}
           {otherEntries.map((entry) => {
@@ -2626,6 +2989,9 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
                 teamMembers={teamMembers}
                 memberUser={user}
                 defaultOpen={isTargetDate}
+                currentUserId={currentUserId}
+                parkedTasks={parkedTasks}
+                cascadingProjects={cascadingProjects}
               />
             );
           })}

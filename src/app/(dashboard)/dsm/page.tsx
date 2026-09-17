@@ -32,9 +32,10 @@ export default async function DSMPage({ searchParams }: Props) {
   const justSubmitted = sp.submitted === "1";
 
   const session = await auth();
+  if (!session?.user?.id) redirect("/login");
 
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
-  if (session?.user?.role === "MANAGER") redirect("/dsm/all");
+  if (session.user.role === "MANAGER") redirect("/dsm/all");
 
   const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents, parkedTasks] =
     await Promise.all([
@@ -92,6 +93,7 @@ export default async function DSMPage({ searchParams }: Props) {
           weekOffset={weekOffset}
           kpiStats={kpiStats}
           basePath="/dsm"
+          currentUserId={session.user.id}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks}
         />

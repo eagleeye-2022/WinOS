@@ -207,12 +207,10 @@ export function EventDialog({
     selectedUsers.forEach((u) => attendeeEmails.add(u.email));
     if (participantEmail) attendeeEmails.add(participantEmail.trim());
 
-    const attendeesList = [
-      { email: currentUser?.email ?? "mohit.thakre@zylker.com", status: "ACCEPTED" },
-      ...Array.from(attendeeEmails)
-        .filter((e) => e !== currentUser?.email)
-        .map((email) => ({ email, status: "NEEDS_ACTION" })),
-    ];
+    const attendeesList = Array.from(attendeeEmails).map((email) => ({
+      email,
+      status: email === currentUser?.email ? "ACCEPTED" : "NEEDS_ACTION",
+    }));
 
     const newEvt: CalendarEventView = {
       id: event?.id ?? `local-evt-${Date.now()}`,
@@ -258,12 +256,10 @@ export function EventDialog({
       end: new Date(end),
       isAllDay: false,
       organizerEmail: userEmail,
-      attendees: [
-        { email: userEmail, status: "ACCEPTED" },
-        ...Array.from(attendeeEmails)
-          .filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
-          .map((email) => ({ email, status: "NEEDS_ACTION" })),
-      ],
+      attendees: Array.from(attendeeEmails).map((email) => ({
+        email,
+        status: email.toLowerCase() === userEmail.toLowerCase() ? "ACCEPTED" : "NEEDS_ACTION",
+      })),
       recurrenceRule,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -276,12 +272,10 @@ export function EventDialog({
     if (participantEmail) attendeeEmails.add(participantEmail.trim());
 
     const userEmail = currentUser?.email ?? "mohit.thakre@zylker.com";
-    const attendeesList = [
-      { email: userEmail, status: "ACCEPTED" },
-      ...Array.from(attendeeEmails)
-        .filter((e) => e.toLowerCase() !== userEmail.toLowerCase())
-        .map((email) => ({ email, status: "NEEDS_ACTION" })),
-    ];
+    const attendeesList = Array.from(attendeeEmails).map((email) => ({
+      email,
+      status: email.toLowerCase() === userEmail.toLowerCase() ? "ACCEPTED" : "NEEDS_ACTION",
+    }));
 
     const createdEventView: CalendarEventView = {
       id: state.eventId || effectiveEventId || event?.id || "local-evt-created",

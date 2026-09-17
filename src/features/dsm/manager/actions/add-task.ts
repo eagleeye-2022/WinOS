@@ -43,13 +43,17 @@ export async function addTask(
     -1
   );
 
+  const isParking = priority === "PARKING";
+  const resolvedKind = isParking ? "PARKED" : (kind as "TODAY" | "YESTERDAY");
+
   await d.standupTask.create({
     data: {
       entryId,
-      kind: kind as "TODAY" | "YESTERDAY",
+      kind: resolvedKind,
+      isParked: isParking,
       text,
-      priority,
-      managerPriority: priority,
+      priority: isParking ? null : priority,
+      managerPriority: isParking ? null : priority,
       projectTaskId,
       dueDate,
       order: maxOrder + 1,

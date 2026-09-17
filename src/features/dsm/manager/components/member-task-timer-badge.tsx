@@ -23,8 +23,8 @@ type Listener = (data: MemberActiveTimerData) => void;
 
 class MemberActiveTimerManager {
   private listeners = new Map<string, Set<Listener>>();
-  private timers = new Map<string, NodeJS.Timeout>();
   private cache = new Map<string, MemberActiveTimerData>();
+  private intervals = new Map<string, NodeJS.Timeout>();
 
   subscribe(memberId: string, listener: Listener) {
     if (!this.listeners.has(memberId)) {
@@ -39,18 +39,24 @@ class MemberActiveTimerManager {
 
     if (set.size === 1) {
       this.fetch(memberId);
-      const timer = setInterval(() => this.fetch(memberId), 10000);
-      this.timers.set(memberId, timer);
+      // Poll so the manager sees the member's start/stop without a page
+      // refresh — same 30s cadence as ActiveTimerProvider elsewhere in the app.
+      this.intervals.set(
+        memberId,
+        setInterval(() => this.fetch(memberId), 30000)
+      );
     }
 
     return () => {
       set.delete(listener);
       if (set.size === 0) {
         this.listeners.delete(memberId);
-        const timer = this.timers.get(memberId);
-        if (timer) clearInterval(timer);
-        this.timers.delete(memberId);
         this.cache.delete(memberId);
+        const interval = this.intervals.get(memberId);
+        if (interval) {
+          clearInterval(interval);
+          this.intervals.delete(memberId);
+        }
       }
     };
   }
@@ -87,11 +93,16 @@ export function MemberTaskTimerBadge({
   taskCode,
   memberId,
   dateStr,
+  liveOnly = false,
 }: {
   taskId: string;
   taskCode?: string;
   memberId?: string;
   dateStr: string; // "YYYY-MM-DD"
+  /** Manager live-monitoring mode: shows only the currently running session
+   *  (or "No active timer") and never the day's accumulated/historical total.
+   *  Historical daily totals belong to the DSR pages, not this DSM view. */
+  liveOnly?: boolean;
 }) {
   const [runningSince, setRunningSince] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -106,8 +117,11 @@ export function MemberTaskTimerBadge({
     return dateStr === todayUtc || dateStr === todayLocal;
   })();
 
-  // Fetch summary once on mount or when props change for this specific day
+  // Fetch summary once on mount or when props change for this specific day.
+  // Skipped entirely in liveOnly mode — the manager DSM view never shows the
+  // historical/accumulated total, so there's no need to fetch it.
   useEffect(() => {
+    if (liveOnly) return;
     let cancelled = false;
     fetchDailyTimeSummaryAction([taskId], dateStr, memberId || undefined).then((res) => {
       if (!cancelled && res) {
@@ -117,7 +131,7 @@ export function MemberTaskTimerBadge({
     return () => {
       cancelled = true;
     };
-  }, [taskId, dateStr, memberId]);
+  }, [taskId, dateStr, memberId, liveOnly]);
 
   // Subscribe to member's active timer only if viewing Today and memberId is present
   useEffect(() => {
@@ -146,9 +160,11 @@ export function MemberTaskTimerBadge({
       } else if (runningSinceRef.current !== null) {
         runningSinceRef.current = null;
         setRunningSince(null);
-        fetchDailyTimeSummaryAction([taskId], dateStr, memberId).then((res) => {
-          if (!cancelled && res) setSummary(res[taskId] ?? null);
-        });
+        if (!liveOnly) {
+          fetchDailyTimeSummaryAction([taskId], dateStr, memberId).then((res) => {
+            if (!cancelled && res) setSummary(res[taskId] ?? null);
+          });
+        }
       }
     });
 
@@ -160,7 +176,7 @@ export function MemberTaskTimerBadge({
       unsubscribe();
       window.removeEventListener("focus", onFocus);
     };
-  }, [taskId, taskCode, memberId, dateStr, isViewingToday]);
+  }, [taskId, taskCode, memberId, dateStr, isViewingToday, liveOnly]);
 
   // Smooth local 1-second tick when running
   useEffect(() => {
@@ -179,13 +195,19 @@ export function MemberTaskTimerBadge({
   }, [runningSince]);
 
   const priorSecondsToday = (summary?.totalMinutes ?? 0) * 60;
-  const totalDaySeconds = runningSince ? priorSecondsToday + elapsed : priorSecondsToday;
+  // liveOnly (manager DSM view): show only this session's elapsed time, never
+  // accumulated with prior completed sessions — those belong on DSR.
+  const totalDaySeconds = runningSince ? (liveOnly ? elapsed : priorSecondsToday + elapsed) : priorSecondsToday;
 
   if (runningSince) {
     return (
       <div
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40"
-        title={`Live timer is running (started at ${new Date(runningSince).toLocaleTimeString()}). Total for ${dateStr}: ${formatTime(totalDaySeconds)}`}
+        title={
+          liveOnly
+            ? `● Running — started at ${new Date(runningSince).toLocaleTimeString()}`
+            : `Live timer is running (started at ${new Date(runningSince).toLocaleTimeString()}). Total for ${dateStr}: ${formatTime(totalDaySeconds)}`
+        }
       >
         <Timer
           size={13}
@@ -193,6 +215,20 @@ export function MemberTaskTimerBadge({
         />
         <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-sky-600 dark:text-sky-300">
           {formatTime(totalDaySeconds)}
+        </span>
+      </div>
+    );
+  }
+
+  if (liveOnly) {
+    return (
+      <div
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+        title="No active timer"
+      >
+        <Timer size={13} className="shrink-0 text-muted-foreground/60" />
+        <span className="text-xs font-medium select-none cursor-default text-muted-foreground/60">
+          No active timer
         </span>
       </div>
     );

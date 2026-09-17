@@ -88,13 +88,17 @@ export async function createCalendarEvent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const attendeeDataMap = new Map<string, any>();
 
-  // Add Organizer
-  attendeeDataMap.set(organizerEmail.toLowerCase(), {
-    userId: userId,
-    email: organizerEmail,
-    status: "ACCEPTED",
-    role: "ORGANIZER",
-  });
+  // Add the organizer as an attendee only if they explicitly checked
+  // themselves in the participant list — scheduling a meeting shouldn't
+  // auto-add the organizer to it.
+  if (participantIds.includes(userId)) {
+    attendeeDataMap.set(organizerEmail.toLowerCase(), {
+      userId: userId,
+      email: organizerEmail,
+      status: "ACCEPTED",
+      role: "ORGANIZER",
+    });
+  }
 
   // Add Registered Users
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
