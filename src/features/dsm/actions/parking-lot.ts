@@ -36,6 +36,7 @@ export async function parkNewTask(input: {
   priority?: string;
   projectTaskId?: string;
   dueDate?: string;
+  targetUserId?: string;
 }): Promise<ParkedTaskResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, message: "Unauthorized" };
@@ -46,7 +47,8 @@ export async function parkNewTask(input: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  const entry = await ensureTodayEntry(session.user.id);
+  const effectiveUserId = (session.user.role === "MANAGER" && input.targetUserId) ? input.targetUserId : session.user.id;
+  const entry = await ensureTodayEntry(effectiveUserId);
   const parkedCount = await d.standupTask.count({ where: { entryId: entry.id, kind: "PARKED" } });
 
   const task = await d.standupTask.create({
@@ -66,18 +68,24 @@ export async function parkNewTask(input: {
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
+  revalidatePath(`/dsm/member/${effectiveUserId}`);
+  revalidatePath("/dsm/all");
   return { success: true, task };
 }
 
-/** Verifies the calling user owns the given parked task; returns it or null. */
+/** Verifies the calling user owns the given parked task (or is a manager); returns it or null. */
 async function loadOwnedParkedTask(taskId: string, userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   const task = await d.standupTask.findUnique({
     where: { id: taskId },
-    select: { id: true, kind: true, entry: { select: { userId: true } } },
+    select: { id: true, kind: true, entry: { select: { id: true, userId: true } } },
   });
-  if (!task || task.kind !== "PARKED" || task.entry.userId !== userId) return null;
+  if (!task || task.kind !== "PARKED") return null;
+  if (task.entry.userId !== userId) {
+    const user = await d.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (user?.role !== "MANAGER") return null;
+  }
   return task;
 }
 
@@ -109,6 +117,8 @@ export async function updateParkedTask(
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
+  revalidatePath(`/dsm/member/${owned.entry.userId}`);
+  revalidatePath("/dsm/all");
   return { success: true, task };
 }
 
@@ -126,6 +136,8 @@ export async function removeParkedTask(taskId: string): Promise<{ success: boole
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
+  revalidatePath(`/dsm/member/${owned.entry.userId}`);
+  revalidatePath("/dsm/all");
   return { success: true };
 }
 
@@ -139,7 +151,7 @@ export async function moveParkedTaskToToday(taskId: string): Promise<ParkedTaskR
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
-  const entry = await ensureTodayEntry(session.user.id);
+  const entry = await ensureTodayEntry(owned.entry.userId);
   const todayCount = await d.standupTask.count({ where: { entryId: entry.id, kind: "TODAY" } });
 
   const task = await d.standupTask.update({
@@ -155,5 +167,7 @@ export async function moveParkedTaskToToday(taskId: string): Promise<ParkedTaskR
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
+  revalidatePath(`/dsm/member/${owned.entry.userId}`);
+  revalidatePath("/dsm/all");
   return { success: true, task };
 }

@@ -6,9 +6,9 @@ import { revalidatePath } from "next/cache";
 
 export type SetTaskPriorityState = { message?: string };
 
-// Validate format: empty string (clear) or "P" followed by a positive integer (P1, P2, ..., unbounded)
+// Validate format: empty string (clear), "PARKING", or "P" followed by a positive integer (P1, P2, ..., unbounded)
 function isValidPriority(p: string): boolean {
-  if (p === "") return true;
+  if (p === "" || p === "PARKING") return true;
   return /^P[1-9]\d*$/.test(p);
 }
 
@@ -37,6 +37,7 @@ export async function setTaskPriority(
       id: true,
       entry: {
         select: {
+          id: true,
           userId: true,
           status: true,
           tasks: { select: { id: true, managerPriority: true } },
@@ -50,6 +51,28 @@ export async function setTaskPriority(
   // Guard: reviewed entries are locked
   if (task.entry.status === "REVIEWED") {
     return { message: "This entry has already been reviewed and cannot be changed." };
+  }
+
+  if (priority === "PARKING") {
+    const parkedCount = await d.standupTask.count({
+      where: { entryId: task.entry.id, kind: "PARKED" },
+    });
+    await d.standupTask.update({
+      where: { id: taskId },
+      data: {
+        kind: "PARKED",
+        isParked: true,
+        managerPriority: null,
+        priority: null,
+        order: parkedCount,
+      },
+    });
+
+    revalidatePath("/dsm");
+    revalidatePath(`/dsm/member/${task.entry.userId}`);
+    revalidatePath("/dsm/all");
+    revalidatePath("/dsm/my");
+    return { message: "updated" };
   }
 
   // Guard: uniqueness — if assigning a priority, ensure no sibling already holds it

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getMemberReview } from "@/features/dsm/manager/queries";
-import { getSharedWorkspaceNotes, getTeamMembers } from "@/features/dsm/queries";
+import { getSharedWorkspaceNotes, getTeamMembers, getParkedTasks } from "@/features/dsm/queries";
 import { MemberReviewDetail } from "@/features/dsm/manager/components/member-review-detail";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
@@ -23,10 +23,11 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const dateParam = sp.date;
 
-  const [review, sharedNotesData, teamMembers] = await Promise.all([
+  const [review, sharedNotesData, teamMembers, parkedTasks] = await Promise.all([
     getMemberReview(userId, weekOffset),
     getSharedWorkspaceNotes(userId),
     getTeamMembers(),
+    getParkedTasks(userId),
   ]);
 
   if (!review) redirect("/dsm/all");
@@ -38,7 +39,14 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
   return (
     <div className="flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <MemberReviewDetail review={review} weekOffset={weekOffset} teamMembers={teamMembers} selectedDateStr={dateParam} />
+        <MemberReviewDetail
+          review={review}
+          weekOffset={weekOffset}
+          teamMembers={teamMembers}
+          selectedDateStr={dateParam}
+          currentUserId={session.user.id}
+          parkedTasks={parkedTasks}
+        />
       </div>
       <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-y-auto border-l xl:w-96">
         <div className="max-h-[350px] shrink-0 overflow-y-auto border-b">

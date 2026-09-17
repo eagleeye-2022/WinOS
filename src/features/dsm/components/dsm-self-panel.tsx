@@ -25,6 +25,7 @@ type DsmSelfPanelProps = {
   basePath?: string;
   todayCalendarEvents?: CalendarEventView[];
   parkedTasks?: ParkedTask[];
+  currentUserId: string;
 };
 
 export function DsmSelfPanel({
@@ -42,6 +43,7 @@ export function DsmSelfPanel({
   basePath = "/dsm",
   todayCalendarEvents,
   parkedTasks,
+  currentUserId,
 }: DsmSelfPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const canEdit = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
@@ -62,6 +64,7 @@ export function DsmSelfPanel({
           todayDateStr={todayDateStr}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks ?? []}
+          currentUserId={currentUserId}
           onCancel={isEditing ? () => setIsEditing(false) : undefined}
         />
       </>

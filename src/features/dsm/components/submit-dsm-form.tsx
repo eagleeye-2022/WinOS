@@ -122,6 +122,7 @@ function TaskRows({
   cascadingProjects,
   linkedTimeLogs,
   onChange,
+  onParkTask,
 }: {
   tasks: Task[];
   teamMembers: TeamMember[];
@@ -129,6 +130,7 @@ function TaskRows({
   cascadingProjects: CascadingProjectOption[];
   linkedTimeLogs: Record<string, number>;
   onChange: (t: Task[]) => void;
+  onParkTask?: (task: Task, index: number) => void;
 }) {
   const updateField = <K extends keyof Task>(i: number, field: K, v: Task[K]) => {
     const n = [...tasks];
@@ -173,68 +175,8 @@ function TaskRows({
 
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
 
-  const [filterText, setFilterText] = useState("");
-  const [sortMode, setSortMode] = useState("");
-
-  const applySort = (mode: string) => {
-    setSortMode(mode);
-    if (!mode) return;
-    const cmpDeadline = (a: Task, b: Task) => {
-      const ad = a.dueDate || "";
-      const bd = b.dueDate || "";
-      if (!ad && !bd) return 0;
-      if (!ad) return 1;
-      if (!bd) return -1;
-      return ad.localeCompare(bd);
-    };
-    const cmpRecent = (a: Task, b: Task) => {
-      const ad = a.createdAt ? new Date(a.createdAt).getTime() : null;
-      const bd = b.createdAt ? new Date(b.createdAt).getTime() : null;
-      if (ad === null && bd === null) return 0;
-      if (ad === null) return 1;
-      if (bd === null) return -1;
-      return bd - ad;
-    };
-    const sorted = [...tasks].sort((a, b) => {
-      if (mode === "text-asc") return a.text.localeCompare(b.text);
-      if (mode === "text-desc") return b.text.localeCompare(a.text);
-      if (mode === "deadline") return cmpDeadline(a, b);
-      if (mode === "recent") return cmpRecent(a, b);
-      return 0;
-    });
-    onChange(sorted);
-  };
-
-  const normalizedFilter = filterText.trim().toLowerCase();
-
   return (
     <div className="flex flex-col gap-3">
-      {tasks.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative flex-1 min-w-[160px]">
-            <input
-              type="text"
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              placeholder="Filter tasks..."
-              className="w-full rounded-md border bg-background py-1.5 pl-3 pr-3 text-xs outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-            />
-          </div>
-          <SortFilterButton
-            options={[
-              { value: "text-asc", label: "A → Z" },
-              { value: "text-desc", label: "Z → A" },
-              { value: "recent", label: "Recent" },
-              { value: "deadline", label: "Deadline" },
-            ]}
-            activeValue={sortMode}
-            onSelect={applySort}
-          />
-        </div>
-      )}
-      {normalizedFilter && tasks.filter((t) => t.text.toLowerCase().includes(normalizedFilter)).length === 0 && (
-        <p className="text-xs text-muted-foreground/70">No tasks match &quot;{filterText.trim()}&quot;.</p>
-      )}
       {tasks.map((task, i) => {
         const takenPriorities = tasks
           .filter((_, idx) => idx !== i && _.priority)
@@ -248,10 +190,8 @@ function TaskRows({
         const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
 
-        const isFilteredOut = Boolean(normalizedFilter) && !task.text.toLowerCase().includes(normalizedFilter);
-
         return (
-          <div key={task.id} className={cn("items-center gap-3", isFilteredOut ? "hidden" : "flex")}>
+          <div key={task.id} className="flex items-center gap-3">
             {/* Left index label: T1, T2, T3 */}
             <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
               T{i + 1}
@@ -375,7 +315,13 @@ function TaskRows({
                       <select
                         name="taskPriority"
                         value={task.priority}
-                        onChange={(e) => updateField(i, "priority", e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value === "PARKING") {
+                            onParkTask?.(task, i);
+                          } else {
+                            updateField(i, "priority", e.target.value);
+                          }
+                        }}
                         className={cn(
                           "cursor-pointer appearance-none rounded-lg border bg-background py-1 pl-2.5 pr-7 text-xs font-semibold outline-none transition-colors",
                           task.priority === "P1" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold",
@@ -391,6 +337,9 @@ function TaskRows({
                             {p}
                           </option>
                         ))}
+                        <option value="PARKING" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          Parking
+                        </option>
                       </select>
                       <ChevronDown size={13} className="pointer-events-none absolute right-2 text-muted-foreground" />
                     </div>
@@ -999,7 +948,7 @@ function ParkingLotRows({
         const daysOut = daysFromToday(item.dueDate);
         return (
           <div key={item.id} className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/30 transition-colors">
-            <div className="relative flex items-center shrink-0">
+            {/* <div className="relative flex items-center shrink-0">
               <select
                 value={item.priority}
                 onChange={(e) => {
@@ -1020,7 +969,7 @@ function ParkingLotRows({
                 ))}
               </select>
               <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
-            </div>
+            </div> */}
 
             {selectedMeta?.code && (
               <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
@@ -1147,20 +1096,24 @@ function ParkingLotRows({
 
 // ── Section header ────────────────────────────────────────────────────────────
 
-function Section({ icon, title, required, children }: {
+function Section({ icon, title, required, headerAction, children }: {
   icon: React.ReactNode;
   title: string;
   required?: boolean;
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h3 className="text-sm font-semibold">
-          {title}
-          {required && <span className="ml-1 text-destructive">*</span>}
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className="text-sm font-semibold">
+            {title}
+            {required && <span className="ml-1 text-destructive">*</span>}
+          </h3>
+        </div>
+        {headerAction}
       </div>
       {children}
     </div>
@@ -1181,6 +1134,7 @@ type SubmitDsmFormProps = {
   todayCalendarEvents?: CalendarEventView[];
   parkedTasks?: ParkedTask[];
   onCancel?: () => void;
+  currentUserId: string;
 };
 
 const initialState: SaveDsmState = {};
@@ -1197,6 +1151,7 @@ export function SubmitDsmForm({
   todayCalendarEvents,
   parkedTasks: parkedTasksProp,
   onCancel,
+  currentUserId,
 }: SubmitDsmFormProps) {
   const [state, action, pending] = useActionState(saveDsm, initialState);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
@@ -1232,6 +1187,39 @@ export function SubmitDsmForm({
     }
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }, { id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
   });
+
+  const [taskSortMode, setTaskSortMode] = useState("");
+
+  const applyTaskSort = (mode: string) => {
+    setTaskSortMode(mode);
+    if (!mode) return;
+    const cmpDeadline = (a: Task, b: Task) => {
+      const ad = a.dueDate || "";
+      const bd = b.dueDate || "";
+      if (!ad && !bd) return 0;
+      if (!ad) return 1;
+      if (!bd) return -1;
+      return ad.localeCompare(bd);
+    };
+    const cmpRecent = (a: Task, b: Task) => {
+      const ad = a.createdAt ? new Date(a.createdAt).getTime() : null;
+      const bd = b.createdAt ? new Date(b.createdAt).getTime() : null;
+      if (ad === null && bd === null) return 0;
+      if (ad === null) return 1;
+      if (bd === null) return -1;
+      return bd - ad;
+    };
+    setTasks((prev) => {
+      const sorted = [...prev].sort((a, b) => {
+        if (mode === "text-asc") return a.text.localeCompare(b.text);
+        if (mode === "text-desc") return b.text.localeCompare(a.text);
+        if (mode === "deadline") return cmpDeadline(a, b);
+        if (mode === "recent") return cmpRecent(a, b);
+        return 0;
+      });
+      return sorted;
+    });
+  };
 
   const [blockers, setBlockers] = useState<BlockerItem[]>(() => {
     if (savedDraft?.blockers?.length) return savedDraft.blockers;
@@ -1311,6 +1299,52 @@ export function SubmitDsmForm({
   const [parkedTasks, setParkedTasks] = useState<ParkedTaskItem[]>(() =>
     (parkedTasksProp ?? []).map(parkedTaskToItem)
   );
+
+  const [, startTransition] = useTransition();
+
+  const handleParkTask = (taskToPark: Task, index: number) => {
+    // 1. Remove from today's tasks
+    setTasks((prev) => {
+      const remaining = prev.filter((_, j) => j !== index);
+      return remaining.length === 0
+        ? [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }]
+        : remaining;
+    });
+
+    // 2. Resolve tree to preserve project information if available
+    const tree = resolveTaskTree(taskToPark, cascadingProjects);
+    const resolvedProjectId = taskToPark.projectId || tree.projectId || "";
+    const resolvedProjectTaskId = taskToPark.projectTaskId || "";
+
+    const tempId = crypto.randomUUID();
+    const newParkedItem: ParkedTaskItem = {
+      id: tempId,
+      text: taskToPark.text,
+      priority: "",
+      projectTaskId: resolvedProjectTaskId,
+      projectId: resolvedProjectId,
+      dueDate: taskToPark.dueDate || "",
+      persisted: false,
+    };
+
+    setParkedTasks((prev) => [...prev, newParkedItem]);
+
+    // 3. Persist to DB if task text is not empty
+    if (taskToPark.text.trim()) {
+      startTransition(async () => {
+        const res = await parkNewTask({
+          text: taskToPark.text,
+          projectTaskId: resolvedProjectTaskId || undefined,
+          dueDate: taskToPark.dueDate || undefined,
+        });
+        if (res.success && res.task) {
+          setParkedTasks((prev) =>
+            prev.map((item) => (item.id === tempId ? { ...item, id: res.task!.id, persisted: true } : item))
+          );
+        }
+      });
+    }
+  };
 
   const [scheduleModal, setScheduleModal] = useState<{
     index: number;
@@ -1478,6 +1512,20 @@ export function SubmitDsmForm({
           icon={<ClipboardList size={16} className="text-primary" />}
           title="What Will You Do Today?"
           required
+          headerAction={
+            tasks.length > 1 ? (
+              <SortFilterButton
+                options={[
+                  { value: "text-asc", label: "A → Z" },
+                  { value: "text-desc", label: "Z → A" },
+                  { value: "recent", label: "Recent" },
+                  { value: "deadline", label: "Deadline" },
+                ]}
+                activeValue={taskSortMode}
+                onSelect={applyTaskSort}
+              />
+            ) : undefined
+          }
         >
           <TaskRows
             tasks={tasks}
@@ -1486,10 +1534,35 @@ export function SubmitDsmForm({
             cascadingProjects={cascadingProjects}
             linkedTimeLogs={linkedTimeLogs}
             onChange={setTasks}
+            onParkTask={handleParkTask}
           />
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
+        </Section>
+
+        {/* Parking lot */}
+        <Section icon={<Archive size={16} className="text-muted-foreground" />} title="Parking Lot">
+          <ParkingLotRows
+            items={parkedTasks}
+            cascadingProjects={cascadingProjects}
+            onChange={setParkedTasks}
+            onMoveToToday={(item) => {
+              setTasks((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  text: item.text,
+                  priority: item.priority,
+                  carried: false,
+                  projectTaskId: item.projectTaskId || undefined,
+                  projectId: item.projectId || undefined,
+                  dueDate: item.dueDate || undefined,
+                  createdAt: new Date().toISOString(),
+                },
+              ]);
+            }}
+          />
         </Section>
 
         {/* What will you learn today */}
@@ -1540,30 +1613,6 @@ export function SubmitDsmForm({
                 const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                 setScheduleModal({ index, mode: "create", title: titleText, participantIds: s.mentionedUserIds });
               }
-            }}
-          />
-        </Section>
-
-        {/* Parking lot */}
-        <Section icon={<Archive size={16} className="text-muted-foreground" />} title="Parking Lot">
-          <ParkingLotRows
-            items={parkedTasks}
-            cascadingProjects={cascadingProjects}
-            onChange={setParkedTasks}
-            onMoveToToday={(item) => {
-              setTasks((prev) => [
-                ...prev,
-                {
-                  id: crypto.randomUUID(),
-                  text: item.text,
-                  priority: item.priority,
-                  carried: false,
-                  projectTaskId: item.projectTaskId || undefined,
-                  projectId: item.projectId || undefined,
-                  dueDate: item.dueDate || undefined,
-                  createdAt: new Date().toISOString(),
-                },
-              ]);
             }}
           />
         </Section>
@@ -1619,7 +1668,7 @@ export function SubmitDsmForm({
           })() : undefined}
           defaultParticipantIds={scheduleModal.participantIds}
           internalUsers={teamMembers.map((m) => ({ id: m.id, name: m.name ?? null, email: m.email }))}
-          currentUserId=""
+          currentUserId={currentUserId}
           onClose={() => setScheduleModal(null)}
           onSaved={(view) => {
             const idx = scheduleModal.index;

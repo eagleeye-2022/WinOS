@@ -14,9 +14,13 @@ type Props = {
 
 export function ParticipantPicker({ users, currentUserId, selectedIds, onChange }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
-  const others = users.filter((u) => u.id !== currentUserId);
+  // The organizer is listed like anyone else — they're only added as an
+  // attendee if they explicitly check their own name here.
+  const ordered = [...users].sort((a, b) =>
+    a.id === currentUserId ? -1 : b.id === currentUserId ? 1 : 0,
+  );
 
-  const filtered = others.filter((u) => {
+  const filtered = ordered.filter((u) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     return (
@@ -76,6 +80,7 @@ export function ParticipantPicker({ users, currentUserId, selectedIds, onChange 
                 />
                 <span className="font-semibold text-foreground truncate">
                   {u.name ?? u.email.split("@")[0]}
+                  {u.id === currentUserId ? " (You)" : ""}
                 </span>
                 <span className="text-muted-foreground text-[11px] truncate">
                   ({u.email})

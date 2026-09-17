@@ -86,6 +86,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           weekOffset={weekOffset}
           kpiStats={kpiStats}
           basePath="/dsm/my"
+          currentUserId={session.user.id}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks}
         />

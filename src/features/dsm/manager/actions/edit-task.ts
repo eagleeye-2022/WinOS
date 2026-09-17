@@ -46,7 +46,14 @@ export async function editTask(
   }
   if (formData.has("managerPriority")) {
     const p = (formData.get("managerPriority") as string)?.trim() || null;
-    dataToUpdate.managerPriority = p;
+    if (p === "PARKING") {
+      dataToUpdate.kind = "PARKED";
+      dataToUpdate.isParked = true;
+      dataToUpdate.managerPriority = null;
+      dataToUpdate.priority = null;
+    } else {
+      dataToUpdate.managerPriority = p;
+    }
   }
 
   const task = await d.standupTask.update({
