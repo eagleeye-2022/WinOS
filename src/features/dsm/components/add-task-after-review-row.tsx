@@ -125,11 +125,10 @@ export function AddTaskAfterReviewRow({
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
       <input type="hidden" name="priority" value="" />
 
-      {/* Cascading selectors */}
+      {/* Cascading Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
 
-        {/* Project Select */}
         <div className="relative flex items-center">
           <select
             value={selectedProjectId}
@@ -144,7 +143,6 @@ export function AddTaskAfterReviewRow({
           <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
         </div>
 
-        {/* Task Select */}
         {currentProject && (
           <div className="relative flex items-center">
             <select
@@ -161,7 +159,6 @@ export function AddTaskAfterReviewRow({
           </div>
         )}
 
-        {/* Subtask Select */}
         {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
           <div className="relative flex items-center">
             <select
@@ -178,14 +175,17 @@ export function AddTaskAfterReviewRow({
           </div>
         )}
       </div>
+      */}
 
       {/* Task input */}
       <div className="flex items-center gap-2">
+        {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
         {selectedMeta?.code && (
           <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
             {selectedMeta.code}
           </span>
         )}
+        */}
         <input
           ref={inputRef}
           name="text"

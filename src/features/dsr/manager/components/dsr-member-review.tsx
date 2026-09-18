@@ -170,12 +170,14 @@ function TaskItemRow({
         </form>
       </td>
       <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{index + 1}</td>
+      {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
+      */}
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className={cn("select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
@@ -195,6 +197,7 @@ function TaskItemRow({
       <td className="py-2 pr-3 align-top">
         <DueDateCell dueDate={projectLink?.dueDate} />
       </td>
+      {/* Timer cell temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask && memberId && dateStr ? (
           <MemberTaskTimerBadge
@@ -207,6 +210,7 @@ function TaskItemRow({
           <TimeTrackedBadge totalMinutes={projectLink?.timeSummary.totalMinutes ?? 0} />
         )}
       </td>
+      */}
     </tr>
   );
 }
@@ -350,7 +354,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <TaskTableHead withCheckbox />
+          <TaskTableHead withCheckbox withProject={false} withTimeTracked={false} />
           <tbody>
             {sortedTasks.map((task, i) => (
               <TaskItemRow

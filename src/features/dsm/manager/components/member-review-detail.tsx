@@ -340,11 +340,10 @@ function AddTaskRow({
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
       <input type="hidden" name="priority" value="" />
 
-      {/* Top row: Project, Task, Subtask Selectors */}
+      {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
 
-        {/* Project Select */}
         <div className="relative flex items-center">
           <select
             value={selectedProjectId}
@@ -359,7 +358,6 @@ function AddTaskRow({
           <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
         </div>
 
-        {/* Task Select */}
         {currentProject && (
           <div className="relative flex items-center">
             <select
@@ -376,7 +374,6 @@ function AddTaskRow({
           </div>
         )}
 
-        {/* Subtask Select */}
         {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
           <div className="relative flex items-center">
             <select
@@ -393,14 +390,17 @@ function AddTaskRow({
           </div>
         )}
       </div>
+      */}
 
       {/* Middle: Code chip + Text Input */}
       <div className="flex items-center gap-2">
+        {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
         {selectedMeta?.code && (
           <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
             {selectedMeta.code}
           </span>
         )}
+        */}
         <input
           name="text"
           value={text}
@@ -1428,11 +1428,10 @@ function TaskRow({
             <input type="hidden" name="taskId" value={task.id} />
             <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
 
-            {/* Top row: Project, Task, Subtask Selectors */}
+            {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
             <div className="flex items-center gap-2 flex-wrap text-xs">
               <span className="font-semibold text-muted-foreground uppercase text-[11px]">Edit Task:</span>
 
-              {/* Project Select */}
               <div className="relative flex items-center">
                 <select
                   value={selectedProjectId}
@@ -1447,7 +1446,6 @@ function TaskRow({
                 <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
               </div>
 
-              {/* Task Select */}
               {currentProject && (
                 <div className="relative flex items-center">
                   <select
@@ -1464,7 +1462,6 @@ function TaskRow({
                 </div>
               )}
 
-              {/* Subtask Select */}
               {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
                 <div className="relative flex items-center">
                   <select
@@ -1481,14 +1478,17 @@ function TaskRow({
                 </div>
               )}
             </div>
+            */}
 
             {/* Middle: Code chip + Text Input */}
             <div className="flex items-center gap-2">
+              {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
               {selectedMeta?.code && (
                 <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
                   {selectedMeta.code}
                 </span>
               )}
+              */}
               <input
                 name="text"
                 value={text}
@@ -1583,12 +1583,14 @@ function TaskRow({
           {task.managerPriority ?? rank}
         </span>
       </td>
+      {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
+      */}
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
           <ExpandableTaskText text={task.text} />
@@ -1627,6 +1629,7 @@ function TaskRow({
       <td className="py-2 pr-3 align-top">
         <DueDateCell dueDate={task.dueDate} />
       </td>
+      {/* Timer cell temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {task.projectTask && memberUser?.id ? (
           <MemberTaskTimerBadge
@@ -1640,6 +1643,7 @@ function TaskRow({
           <span className="text-xs text-muted-foreground/60">—</span>
         )}
       </td>
+      */}
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-1">
           {/* Edit button */}
@@ -1799,7 +1803,7 @@ function TodayTasksSection({
       {tasks.length > 0 ? (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full border-collapse">
-            <TaskTableHead withAction />
+            <TaskTableHead withAction withProject={false} withTimeTracked={false} />
             <tbody>
               {sorted.map((task, i) => (
                 <TaskRow
@@ -2236,11 +2240,13 @@ function ParkingLotSection({
                 <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
               </div> */}
 
+              {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
               {selectedMeta?.code && (
                 <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
                   {selectedMeta.code}
                 </span>
               )}
+              */}
 
               <input
                 type="text"
@@ -2252,7 +2258,7 @@ function ParkingLotSection({
                 className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:opacity-75"
               />
 
-              {/* Project selector */}
+              {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
               <div className="relative flex items-center shrink-0">
                 <select
                   value={tree.projectId}
@@ -2272,7 +2278,6 @@ function ParkingLotSection({
                 <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
               </div>
 
-              {/* Task selector (once a project is chosen) */}
               {tree.currentProject && (
                 <div className="relative flex items-center shrink-0">
                   <select
@@ -2294,7 +2299,6 @@ function ParkingLotSection({
                 </div>
               )}
 
-              {/* Subtask selector (when the chosen task has subtasks) */}
               {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
                 <div className="relative flex items-center shrink-0">
                   <select
@@ -2313,6 +2317,7 @@ function ParkingLotSection({
                   <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
                 </div>
               )}
+              */}
 
               <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
                 <Calendar size={11} />
