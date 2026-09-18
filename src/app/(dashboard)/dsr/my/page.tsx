@@ -8,7 +8,7 @@ import {
   getDsrInsights,
   getTodayDsmStatus,
 } from "@/features/dsr/queries";
-import { getSharedWorkspaceNotes } from "@/features/dsm/queries";
+import { getSharedWorkspaceNotes, getParkedTasks } from "@/features/dsm/queries";
 import { toUtcDate } from "@/features/dsr/utils";
 import { toIsoDateStr } from "@/features/dsm/utils";
 import { DsrPageClient } from "@/features/dsr/components/dsr-page-client";
@@ -27,12 +27,13 @@ export default async function MyDsrPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [entry, prefill, weeklyEntries, sharedItems, dsmStatus] = await Promise.all([
+  const [entry, prefill, weeklyEntries, sharedItems, dsmStatus, parkedTasks] = await Promise.all([
     getCurrentDsrEntry(),
     getDsrStandupPrefill(),
     getWeeklyDsrHistory(weekOffset),
     getSharedWorkspaceNotes(),
     getTodayDsmStatus(),
+    getParkedTasks(),
   ]);
 
   const insights = await getDsrInsights(entry);
@@ -51,6 +52,8 @@ export default async function MyDsrPage({ searchParams }: Props) {
       sharedNotes={sharedItems?.notes || []}
       userRole={session.user.role}
       dsmReviewed={dsmStatus === "REVIEWED"}
+      memberUserId={session.user.id}
+      parkedTasks={parkedTasks}
     />
   );
 }

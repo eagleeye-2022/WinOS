@@ -1605,7 +1605,7 @@ function TaskRow({
             </span>
           )}
         </div>
-        <TaskCreatedAtLabel date={task.createdAt} />
+        {/* <TaskCreatedAtLabel date={task.createdAt} /> */}
       </td>
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         {!isLocked ? (
@@ -2076,7 +2076,7 @@ function daysFromToday(dueDate: string): number | null {
   return Math.round((due.getTime() - todayUtc.getTime()) / 86400000);
 }
 
-function ParkingLotSection({
+export function ParkingLotSection({
   memberUserId,
   parkedTasks: initialParkedTasks = [],
   cascadingProjects = [],
@@ -2409,6 +2409,11 @@ function EntryExpanded({
   } | null>(null);
   const [localEvents, setLocalEvents] = useState<Record<string, CalendarEventView>>({});
 
+  // Scheduling from this member's DSM page always includes them as a participant,
+  // on top of whichever users are @mentioned in the support-needed text.
+  const withMember = (ids: string[]) =>
+    memberUser?.id ? Array.from(new Set([memberUser.id, ...ids])) : ids;
+
   return (
     <div className="space-y-4">
       {/* Yesterday completed */}
@@ -2567,7 +2572,7 @@ function EntryExpanded({
                             supportId: s.id,
                             mode: view ? "edit" : "create",
                             title: view?.title ?? titleText,
-                            participantIds: uIds,
+                            participantIds: withMember(uIds),
                             event: view,
                           });
                         }}
@@ -2585,7 +2590,7 @@ function EntryExpanded({
                         type="button"
                         onClick={() => {
                           const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
-                          setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: uIds });
+                          setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: withMember(uIds) });
                         }}
                         className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
                       >
@@ -2603,7 +2608,7 @@ function EntryExpanded({
             entryId={entry.id}
             teamMembers={teamMembers}
             onScheduleMeeting={(title, participantIds, onCreated) =>
-              setScheduleModal({ mode: "create", title, participantIds, onCreated })
+              setScheduleModal({ mode: "create", title, participantIds: withMember(participantIds), onCreated })
             }
           />
       </div>

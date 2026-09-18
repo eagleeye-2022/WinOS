@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { getMemberDsrReview } from "@/features/dsr/manager/queries";
 import { getMemberReview } from "@/features/dsm/manager/queries";
-import { getMemberWorkspaceNote, getSharedWorkspaceNotes } from "@/features/dsm/queries";
+import { getMemberWorkspaceNote, getSharedWorkspaceNotes, getParkedTasks } from "@/features/dsm/queries";
 import { DsrMemberReview } from "@/features/dsr/manager/components/dsr-member-review";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
@@ -31,14 +31,15 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
   let targetDate: Date | undefined = undefined;
   if (dateParam) {
     const [year, month, day] = dateParam.split("-").map(Number);
-    targetDate = new Date(year, month - 1, day);
+    targetDate = new Date(Date.UTC(year, month - 1, day));
   }
 
-  const [review, workspaceNote, sharedItems, dsmReview] = await Promise.all([
+  const [review, workspaceNote, sharedItems, dsmReview, parkedTasks] = await Promise.all([
     getMemberDsrReview(userId, weekOffset, targetDate),
     getMemberWorkspaceNote(userId),
     getSharedWorkspaceNotes(userId),
     getMemberReview(userId, 0),
+    getParkedTasks(userId),
   ]);
 
   if (!review) redirect(ROUTES.dsrManage);
@@ -55,6 +56,7 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
           weekOffset={weekOffset}
           showHistory={justReviewed}
           selectedDateStr={dateParam}
+          parkedTasks={parkedTasks}
         />
       </div>
       <aside className="flex h-full min-h-0 w-80  flex-col overflow-y-auto border-l bg-card xl:w-96">

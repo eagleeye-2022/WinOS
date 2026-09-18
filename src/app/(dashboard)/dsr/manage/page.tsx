@@ -22,7 +22,7 @@ export default async function AllDsrPage({ searchParams }: Props) {
   let targetDate: Date | undefined = undefined;
   if (dateParam) {
     const [year, month, day] = dateParam.split("-").map(Number);
-    targetDate = new Date(year, month - 1, day);
+    targetDate = new Date(Date.UTC(year, month - 1, day));
   }
 
   const todayStr = toIsoDateStr(toUtcDate());

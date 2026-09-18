@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DsrForm } from "./dsr-form";
@@ -8,8 +8,10 @@ import { InsightsPanel } from "./insights-panel";
 import { DsrHistory } from "./dsr-history";
 import { DsrHistoryCard } from "./dsr-history-card";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
-import type { SharedNoteData } from "@/features/dsm/queries";
+import type { SharedNoteData, CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
 import { formatDayHeader, formatFullDate, formatShortDate, toUtcDate } from "@/features/dsm/utils";
+import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
+import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
 import type { DsrEntryData, DsrStandupPrefill, DsrInsights } from "../queries";
 
 type Props = {
@@ -24,6 +26,8 @@ type Props = {
   sharedNotes?: SharedNoteData[];
   userRole?: string;
   dsmReviewed?: boolean;
+  memberUserId?: string;
+  parkedTasks?: ParkedTask[];
 };
 
 export function DsrPageClient({
@@ -38,7 +42,16 @@ export function DsrPageClient({
   sharedNotes = [],
   userRole,
   dsmReviewed = true,
+  memberUserId,
+  parkedTasks = [],
 }: Props) {
+  const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+
+  useEffect(() => {
+    fetchUserProjectsWithTasksAction().then((res) => {
+      if (res) setCascadingProjects(res);
+    });
+  }, []);
   const submitFnRef = useRef<() => void>(() => { });
   const [, forceRender] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -66,9 +79,9 @@ export function DsrPageClient({
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
       {/* ── Main content ─────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-6">
         {/* Page header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -145,6 +158,15 @@ export function DsrPageClient({
               </p>
             </div>
           </div>
+        )}
+
+        {memberUserId && (
+          <ParkingLotSection
+            memberUserId={memberUserId}
+            parkedTasks={parkedTasks}
+            cascadingProjects={cascadingProjects}
+            isLocked={false}
+          />
         )}
 
         {isReviewed && entry ? (
