@@ -239,10 +239,17 @@ export function DsrHistoryCard({
               <div className="flex flex-col gap-1.5">
                 {entry.additionalWorks.map((work, i) => (
                   <div key={work.id || i} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
-                      +
+                    <span className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
+                      work.completed !== false
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      {work.completed !== false ? "✓" : "+"}
                     </span>
-                    <span>{renderTextWithMentions(work.text)}</span>
+                    <span className={cn(work.completed === false && "text-muted-foreground")}>
+                      {renderTextWithMentions(work.text)}
+                    </span>
                   </div>
                 ))}
               </div>

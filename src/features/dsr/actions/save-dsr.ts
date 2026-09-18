@@ -153,7 +153,12 @@ export async function saveDsr(
   const validAdditional = additionalWorks.filter((w) => w.text?.trim());
   if (validAdditional.length > 0) {
     await d.dsrAdditionalWork.createMany({
-      data: validAdditional.map((w, i) => ({ dsrEntryId: entry.id, text: w.text.trim(), order: i })),
+      data: validAdditional.map((w, i) => ({
+        dsrEntryId: entry.id,
+        text: w.text.trim(),
+        completed: w.completed !== undefined ? w.completed : (w.resolved ?? true),
+        order: i,
+      })),
     });
   }
 

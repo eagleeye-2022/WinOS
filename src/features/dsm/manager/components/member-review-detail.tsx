@@ -2081,11 +2081,15 @@ export function ParkingLotSection({
   parkedTasks: initialParkedTasks = [],
   cascadingProjects = [],
   isLocked = false,
+  markCompletedInDsr = false,
+  onMoveToToday,
 }: {
   memberUserId: string;
   parkedTasks?: ParkedTask[];
   cascadingProjects?: CascadingProjectOption[];
   isLocked?: boolean;
+  markCompletedInDsr?: boolean;
+  onMoveToToday?: (task: { id?: string; text: string; priority?: string | null }) => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -2182,14 +2186,16 @@ export function ParkingLotSection({
     const item = items[i];
     if (!item.persisted) {
       setItems(items.filter((_, j) => j !== i));
+      onMoveToToday?.({ text: item.text, priority: item.priority });
       return;
     }
     setMovingId(item.id);
     startTransition(async () => {
-      const res = await moveParkedTaskToToday(item.id);
+      const res = await moveParkedTaskToToday(item.id, { markCompletedInDsr });
       setMovingId(null);
       if (res.success) {
         setItems(items.filter((_, j) => j !== i));
+        onMoveToToday?.({ id: res.task?.id, text: item.text, priority: item.priority });
         router.refresh();
       }
     });
