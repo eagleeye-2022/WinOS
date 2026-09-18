@@ -17,6 +17,10 @@ export async function addDsrTask(
 
   const entryId = formData.get("entryId") as string;
   const text = (formData.get("text") as string)?.trim();
+  const priority = (formData.get("priority") as string)?.trim() || null;
+  const dueDateStr = (formData.get("dueDate") as string)?.trim();
+  const dueDate = dueDateStr ? new Date(dueDateStr) : null;
+  const projectTaskId = (formData.get("projectTaskId") as string)?.trim() || null;
 
   if (!entryId) return { message: "Missing entry ID" };
   if (!text) return { message: "Task text cannot be empty" };
@@ -28,6 +32,7 @@ export async function addDsrTask(
     where: { id: entryId },
     select: {
       userId: true,
+      date: true,
       status: true,
       plannedTasks: { select: { order: true, completed: true } },
     },
@@ -46,10 +51,39 @@ export async function addDsrTask(
     data: {
       dsrEntryId: entryId,
       text,
+      priority,
       order: maxOrder + 1,
       addedAfterReview,
     },
   });
+
+  // Mirror onto the member's DSM entry for the same day as an incomplete TODAY task,
+  // so DSM's existing carry-forward logic (getYesterdayIncompleteTasks, which matches
+  // by text against DsrPlannedTask.completed) picks it up for tomorrow automatically.
+  const standupEntry = await d.standupEntry.findUnique({
+    where: { userId_date: { userId: entry.userId, date: entry.date } },
+    select: { id: true, tasks: { select: { order: true } } },
+  });
+
+  if (standupEntry) {
+    const maxTaskOrder = standupEntry.tasks.reduce(
+      (max: number, t: { order: number }) => Math.max(max, t.order ?? 0),
+      -1
+    );
+    await d.standupTask.create({
+      data: {
+        entryId: standupEntry.id,
+        kind: "TODAY",
+        text,
+        priority,
+        dueDate,
+        projectTaskId,
+        order: maxTaskOrder + 1,
+        addedAfterReview: true,
+        addedById: session.user.id,
+      },
+    });
+  }
 
   const plannedTaskCount = entry.plannedTasks.length + 1;
   const completedTaskCount = entry.plannedTasks.filter((t: { completed: boolean }) => t.completed).length;
@@ -76,5 +110,10 @@ export async function addDsrTask(
   revalidatePath("/dsr/manage");
   revalidatePath("/dsr");
   revalidatePath("/dsr/my");
+  if (standupEntry) {
+    revalidatePath("/dsm");
+    revalidatePath(`/dsm/member/${entry.userId}`);
+    revalidatePath("/dsm/all");
+  }
   return { message: "created" };
 }

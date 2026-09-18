@@ -27,7 +27,7 @@ export default async function AllDsmPage({ searchParams }: Props) {
   let filterDate: Date | undefined = undefined;
   if (dateParam) {
     const [year, month, day] = dateParam.split("-").map(Number);
-    filterDate = new Date(year, month - 1, day);
+    filterDate = new Date(Date.UTC(year, month - 1, day));
   }
 
   const [stats, groups, teams, allUsers, blockerAndSupport] = await Promise.all([
