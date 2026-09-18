@@ -236,18 +236,28 @@ export function TaskCreatedAtLabel({ date }: { date: Date | string | null | unde
 }
 
 /** Shared table header row for the "Today's Task(s)" tables. */
-export function TaskTableHead({ withCheckbox, withAction }: { withCheckbox?: boolean; withAction?: boolean }) {
+export function TaskTableHead({
+  withCheckbox,
+  withAction,
+  withProject = true,
+  withTimeTracked = true,
+}: {
+  withCheckbox?: boolean;
+  withAction?: boolean;
+  withProject?: boolean;
+  withTimeTracked?: boolean;
+}) {
   return (
     <thead>
       <tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {withCheckbox && <th className="w-8 pb-2.5 pr-2 font-semibold whitespace-nowrap"></th>}
         <th className="w-10 pb-2.5 pr-2 font-semibold whitespace-nowrap">#</th>
-        <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Project</th>
-        <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Task ID</th>
+        {withProject && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Project</th>}
+        {withProject && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Task ID</th>}
         <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Task / Subtask</th>
         <th className="w-20 pb-2.5 pr-3 font-semibold whitespace-nowrap">Priority</th>
         <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Due Date</th>
-        <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Time Tracked</th>
+        {withTimeTracked && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Time Tracked</th>}
         {withAction && <th className="pb-2.5 pr-2 text-center font-semibold whitespace-nowrap w-24">Action</th>}
       </tr>
     </thead>

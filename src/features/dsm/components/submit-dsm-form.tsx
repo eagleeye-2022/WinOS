@@ -205,11 +205,13 @@ function TaskRows({
               <div className="flex items-center justify-between gap-2.5 flex-wrap">
                 {/* Left: Code chip + Input */}
                 <div className="flex flex-1 items-center gap-2 min-w-[220px]">
+                  {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
                   {selectedMeta?.code && (
                     <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
                       {selectedMeta.code}
                     </span>
                   )}
+                  */}
                   <div className="flex-1">
                     <MentionInput
                       key={`${task.id}-${tree.projectId}`}
@@ -234,7 +236,7 @@ function TaskRows({
 
                   <div className="h-4 w-px bg-border shrink-0" />
 
-                  {/* Project Selector Dropdown */}
+                  {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
                   <div className="relative flex items-center">
                     <select
                       value={tree.projectId}
@@ -253,7 +255,6 @@ function TaskRows({
                     <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
                   </div>
 
-                  {/* Task Selector Dropdown (when project is selected) */}
                   {tree.currentProject && (
                     <>
                       <div className="h-4 w-px bg-border shrink-0" />
@@ -277,7 +278,6 @@ function TaskRows({
                     </>
                   )}
 
-                  {/* Subtask Selector Dropdown (if chosen task has subtasks) */}
                   {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
                     <>
                       <div className="h-4 w-px bg-border shrink-0" />
@@ -300,6 +300,7 @@ function TaskRows({
                       </div>
                     </>
                   )}
+                  */}
                 </div>
               </div>
 
@@ -357,7 +358,7 @@ function TaskRows({
                   </div>
                 </div>
 
-                {/* Right: Live Timer Widget */}
+                {/* Live Timer Widget temporarily disabled — Projects module not part of this deploy
                 <div className="flex items-center gap-2">
                   <TimerWidget
                     taskId={tree.activeTargetTask?.id}
@@ -374,6 +375,7 @@ function TaskRows({
                     </span>
                   )}
                 </div>
+                */}
               </div>
             </div>
 
@@ -557,6 +559,7 @@ function BlockerRows({
                     </select>
                   </div>
 
+                  {/* Blocker project-task selector temporarily disabled — Projects module not part of this deploy
                   {openProjectTasks.length > 0 && (
                     <div className="flex items-center gap-1.5 border-l pl-2 border-border/60">
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -576,6 +579,7 @@ function BlockerRows({
                       </select>
                     </div>
                   )}
+                  */}
                 </div>
                 {onScheduleMeeting && (
                   <button
@@ -971,11 +975,13 @@ function ParkingLotRows({
               <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
             </div> */}
 
+            {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
             {selectedMeta?.code && (
               <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
                 {selectedMeta.code}
               </span>
             )}
+            */}
 
             <input
               type="text"
@@ -986,7 +992,7 @@ function ParkingLotRows({
               className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
             />
 
-            {/* Project selector */}
+            {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
             <div className="relative flex items-center shrink-0">
               <select
                 value={tree.projectId}
@@ -1005,7 +1011,6 @@ function ParkingLotRows({
               <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
             </div>
 
-            {/* Task selector (once a project is chosen) */}
             {tree.currentProject && (
               <div className="relative flex items-center shrink-0">
                 <select
@@ -1026,7 +1031,6 @@ function ParkingLotRows({
               </div>
             )}
 
-            {/* Subtask selector (when the chosen task has subtasks) */}
             {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
               <div className="relative flex items-center shrink-0">
                 <select
@@ -1044,6 +1048,7 @@ function ParkingLotRows({
                 <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
               </div>
             )}
+            */}
 
             <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
               <CalendarIcon size={11} />

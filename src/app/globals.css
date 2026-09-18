@@ -231,52 +231,13 @@
 }
 
 /*
- * ── /dsm dark-mode palette (Phase 1) ────────────────────────────────────────
- * Overrides the semantic tokens only when BOTH the app is in dark mode
- * (`.dark` on <html>, via next-themes) AND we're inside the /dsm page root
- * (`.dsm-scope`, applied only there). Light mode is completely untouched —
- * these rules are inert unless `.dark` is present — and every other route's
- * existing dark mode (the palette above) is untouched since none of them
- * carry `.dsm-scope`.
+ * ── /dsm dark-mode palette ───────────────────────────────────────────────────
+ * Previously overrode the semantic tokens with a blue-tinted palette whenever
+ * both dark mode (`.dark`) and `.dsm-scope` were present. Removed so every
+ * route — including /dsm and /dsr — shares the single black/zinc dark theme
+ * defined in the main `.dark` block above, with the CTA/primary button kept
+ * the same blue as light mode.
  */
-.dark .dsm-scope {
-  --background: #0b0f14;
-  --foreground: #f8fafc;
-
-  --card: #1a1f26;
-  --card-foreground: #f8fafc;
-
-  --popover: #20262e;
-  --popover-foreground: #f8fafc;
-
-  --primary: #3b82f6;
-  --primary-foreground: #f8fafc;
-
-  --secondary: #11161c;
-  --secondary-foreground: #f8fafc;
-
-  --muted: #11161c;
-  --muted-foreground: #94a3b8;
-
-  --accent: #1e293b;
-  --accent-foreground: #93c5fd;
-
-  --destructive: #ef4444;
-  --destructive-foreground: #f8fafc;
-
-  --success: #22c55e;
-  --success-foreground: #0b0f14;
-
-  --warning: #f59e0b;
-  --warning-foreground: #0b0f14;
-
-  --info: #3b82f6;
-  --info-foreground: #f8fafc;
-
-  --border: #2b313b;
-  --input: #2b313b;
-  --ring: #3b82f6;
-}
 
 * {
   border-color: var(--border);
@@ -537,9 +498,4 @@ select option {
 .dark option {
   background-color: var(--popover, #1a1f26);
   color: var(--popover-foreground, #f8fafc);
-}
-
-.dark .dsm-scope select option {
-  background-color: #1a1f26;
-  color: #f8fafc;
 }
