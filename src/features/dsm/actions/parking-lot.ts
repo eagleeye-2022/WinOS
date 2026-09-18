@@ -79,7 +79,15 @@ async function loadOwnedParkedTask(taskId: string, userId: string) {
   const d = db as any;
   const task = await d.standupTask.findUnique({
     where: { id: taskId },
-    select: { id: true, kind: true, entry: { select: { id: true, userId: true } } },
+    select: {
+      id: true,
+      kind: true,
+      text: true,
+      priority: true,
+      projectTaskId: true,
+      dueDate: true,
+      entry: { select: { id: true, userId: true } },
+    },
   });
   if (!task || task.kind !== "PARKED") return null;
   if (task.entry.userId !== userId) {
@@ -141,8 +149,11 @@ export async function removeParkedTask(taskId: string): Promise<{ success: boole
   return { success: true };
 }
 
-/** Moves a parked task onto today's "What Will You Do Today?" list. */
-export async function moveParkedTaskToToday(taskId: string): Promise<ParkedTaskResult> {
+/** Moves a parked task onto today's "What Will You Do Today?" list, and optionally records it as completed in today's DSR. */
+export async function moveParkedTaskToToday(
+  taskId: string,
+  options?: { markCompletedInDsr?: boolean }
+): Promise<ParkedTaskResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, message: "Unauthorized" };
 
@@ -165,9 +176,106 @@ export async function moveParkedTaskToToday(taskId: string): Promise<ParkedTaskR
     select: { id: true, text: true, priority: true, projectTaskId: true, dueDate: true },
   });
 
+  if (options?.markCompletedInDsr) {
+    const today = toUtcDate();
+    const VALID_ENUM_PRIORITIES = new Set(["P1", "P2", "P3"]);
+    const cleanPriority = task.priority && VALID_ENUM_PRIORITIES.has(task.priority.toUpperCase())
+      ? task.priority.toUpperCase()
+      : null;
+
+    let dsrEntry = await d.dsrEntry.findUnique({
+      where: { userId_date: { userId: owned.entry.userId, date: today } },
+      include: { plannedTasks: true },
+    });
+
+    if (!dsrEntry) {
+      type StandupTaskItem = { id: string; text: string; priority?: string | null };
+      type PlannedItem = { text: string; priority: string | null; completed: boolean; order: number };
+
+      // Create initial draft DSR entry populated from today's standup tasks
+      const standupTasks: StandupTaskItem[] = await d.standupTask.findMany({
+        where: { entryId: entry.id, kind: "TODAY" },
+        orderBy: { order: "asc" },
+      });
+
+      const plannedData: PlannedItem[] = standupTasks.map((st, i) => {
+        const p = st.priority && VALID_ENUM_PRIORITIES.has(st.priority.toUpperCase()) ? st.priority.toUpperCase() : null;
+        return {
+          text: st.text,
+          priority: p,
+          completed: st.id === taskId,
+          order: i,
+        };
+      });
+
+      const compCount = plannedData.filter((t) => t.completed).length;
+      const totalCount = plannedData.length;
+      const compPct = totalCount > 0 ? Math.round((compCount / totalCount) * 100) : 0;
+
+      dsrEntry = await d.dsrEntry.create({
+        data: {
+          userId: owned.entry.userId,
+          date: today,
+          status: "DRAFT",
+          plannedTaskCount: totalCount,
+          completedTaskCount: compCount,
+          completionPercent: compPct,
+          plannedTasks: {
+            create: plannedData,
+          },
+        },
+        include: { plannedTasks: true },
+      });
+    } else {
+      type DsrTaskItem = { id: string; text: string; completed: boolean };
+      const alreadyExists = (dsrEntry.plannedTasks as DsrTaskItem[]).some(
+        (pt) => pt.text.trim().toLowerCase() === task.text.trim().toLowerCase()
+      );
+
+      if (!alreadyExists) {
+        const plannedOrder = dsrEntry.plannedTasks.length;
+        await d.dsrPlannedTask.create({
+          data: {
+            dsrEntryId: dsrEntry.id,
+            text: task.text,
+            priority: cleanPriority,
+            completed: true,
+            order: plannedOrder,
+          },
+        });
+      } else {
+        await d.dsrPlannedTask.updateMany({
+          where: {
+            dsrEntryId: dsrEntry.id,
+            text: task.text,
+          },
+          data: { completed: true },
+        });
+      }
+
+      const allPlanned: DsrTaskItem[] = await d.dsrPlannedTask.findMany({ where: { dsrEntryId: dsrEntry.id } });
+      const compCount = allPlanned.filter((t) => t.completed).length;
+      const totalCount = allPlanned.length;
+      const compPct = totalCount > 0 ? Math.round((compCount / totalCount) * 100) : 0;
+
+      await d.dsrEntry.update({
+        where: { id: dsrEntry.id },
+        data: {
+          plannedTaskCount: totalCount,
+          completedTaskCount: compCount,
+          completionPercent: compPct,
+        },
+      });
+    }
+  }
+
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
   revalidatePath(`/dsm/member/${owned.entry.userId}`);
   revalidatePath("/dsm/all");
+  revalidatePath("/dsr");
+  revalidatePath("/dsr/my");
+  revalidatePath(`/dsr/member/${owned.entry.userId}`);
+  revalidatePath("/dsr/manage");
   return { success: true, task };
 }

@@ -53,6 +53,7 @@ export function DsrPageClient({
     });
   }, []);
   const submitFnRef = useRef<() => void>(() => { });
+  const addTaskFnRef = useRef<((task: { id?: string; text: string; priority: string | null; completed: boolean }) => void) | null>(null);
   const [, forceRender] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [rightTab, setRightTab] = useState<"insights" | "notes">("insights");
@@ -76,6 +77,17 @@ export function DsrPageClient({
   function handleRegisterSubmit(fn: () => void) {
     submitFnRef.current = fn;
     forceRender((n) => n + 1);
+  }
+
+  function handleTaskMovedToToday(task: { id?: string; text: string; priority?: string | null }) {
+    if (addTaskFnRef.current) {
+      addTaskFnRef.current({
+        id: task.id,
+        text: task.text,
+        priority: task.priority || null,
+        completed: true,
+      });
+    }
   }
 
   return (
@@ -166,6 +178,8 @@ export function DsrPageClient({
             parkedTasks={parkedTasks}
             cascadingProjects={cascadingProjects}
             isLocked={false}
+            markCompletedInDsr={true}
+            onMoveToToday={handleTaskMovedToToday}
           />
         )}
 
@@ -177,6 +191,7 @@ export function DsrPageClient({
             prefill={prefill}
             todayDateStr={todayDateStr}
             onRegisterSubmit={editable ? handleRegisterSubmit : undefined}
+            onRegisterAddTask={editable ? (fn) => { addTaskFnRef.current = fn; } : undefined}
             onPendingChange={setIsSubmitting}
             readOnly={!editable}
             onCancel={isEditing ? () => setIsEditing(false) : undefined}

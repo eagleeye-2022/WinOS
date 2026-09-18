@@ -1133,6 +1133,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
               parkedTasks={parkedTasks}
               cascadingProjects={cascadingProjects}
               isLocked={!activeDsmReviewed}
+              markCompletedInDsr={true}
             />
             <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
             <BlockersSupportCard entry={activeEntry} />

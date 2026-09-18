@@ -310,18 +310,22 @@ function AdditionalWorkSection({
   onChange,
   readOnly,
 }: {
-  items: TextItem[];
+  items: CheckItem[];
   taskLabels: string[];
-  onChange: (items: TextItem[]) => void;
+  onChange: (items: CheckItem[]) => void;
   readOnly?: boolean;
 }) {
+  const toggle = (i: number) => {
+    if (readOnly) return;
+    onChange(items.map((item, j) => (j === i ? { ...item, completed: !item.completed } : item)));
+  };
   const add = () => {
     if (readOnly) return;
-    onChange([...items, { text: "" }]);
+    onChange([...items, { text: "", completed: true }]);
   };
   const update = (i: number, text: string) => {
     if (readOnly) return;
-    onChange(items.map((item, j) => (j === i ? { text } : item)));
+    onChange(items.map((item, j) => (j === i ? { ...item, text } : item)));
   };
   const remove = (i: number) => {
     if (readOnly) return;
@@ -348,7 +352,25 @@ function AdditionalWorkSection({
             <span className="text-xs font-medium text-muted-foreground">
               {taskLabels[i] ? `T${i + 1}` : `T${i + 1}`}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() => toggle(i)}
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                  item.completed
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background",
+                  readOnly && "cursor-not-allowed opacity-80"
+                )}
+              >
+                {item.completed && (
+                  <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+                    <polyline points="1,4 3,6 7,2" />
+                  </svg>
+                )}
+              </button>
               <input
                 type="text"
                 disabled={readOnly}
@@ -365,7 +387,8 @@ function AdditionalWorkSection({
                 placeholder={`Additional Work for T${i + 1}...`}
                 className={cn(
                   "flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
-                  readOnly && "cursor-not-allowed bg-muted/20 text-foreground"
+                  readOnly && "cursor-not-allowed bg-muted/20 text-foreground",
+                  !item.completed && "opacity-70"
                 )}
               />
               {!readOnly && (
@@ -483,12 +506,13 @@ type Props = {
   prefill: DsrStandupPrefill;
   todayDateStr: string;
   onRegisterSubmit?: (fn: () => void) => void;
+  onRegisterAddTask?: (fn: (task: { id?: string; text: string; priority: string | null; completed: boolean }) => void) => void;
   onPendingChange?: (pending: boolean) => void;
   readOnly?: boolean;
   onCancel?: () => void;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPendingChange, readOnly, onCancel }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
 
   useEffect(() => {
@@ -523,9 +547,36 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
     }));
   });
 
-  const [additionalWorks, setAdditionalWorks] = useState<TextItem[]>(() => {
-    if (savedDraft?.additionalWorks) return savedDraft.additionalWorks;
-    return entry?.additionalWorks.map((w) => ({ id: w.id, text: w.text })) ?? [];
+  useEffect(() => {
+    onRegisterAddTask?.((newTask) => {
+      setTasks((prev) => {
+        const norm = (s: string) => s.trim().toLowerCase();
+        const existingIndex = prev.findIndex((t) => norm(t.text) === norm(newTask.text));
+        if (existingIndex >= 0) {
+          return prev.map((t, idx) =>
+            idx === existingIndex
+              ? { ...t, completed: true, ...(newTask.priority ? { priority: newTask.priority } : {}) }
+              : t
+          );
+        }
+        return [...prev, newTask];
+      });
+    });
+  }, [onRegisterAddTask]);
+
+  const [additionalWorks, setAdditionalWorks] = useState<CheckItem[]>(() => {
+    if (savedDraft?.additionalWorks) {
+      return savedDraft.additionalWorks.map((w: CheckItem) => ({
+        id: w.id,
+        text: w.text,
+        completed: w.completed !== undefined ? w.completed : true,
+      }));
+    }
+    return entry?.additionalWorks.map((w) => ({
+      id: w.id,
+      text: w.text,
+      completed: w.completed !== undefined ? w.completed : true,
+    })) ?? [];
   });
 
   const [blockers, setBlockers] = useState<CheckItem[]>(() => {
@@ -596,7 +647,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onPend
     const fd = new FormData(formRef.current);
     fd.set("action", actionValue);
     fd.set("plannedTasksJson", JSON.stringify(tasks));
-    fd.set("additionalWorksJson", JSON.stringify(additionalWorks.filter((w) => w.text.trim())));
+    fd.set("additionalWorksJson", JSON.stringify(additionalWorks.filter((w) => w.text.trim()).map((w) => ({
+      id: w.id, text: w.text.trim(), completed: w.completed !== undefined ? w.completed : true,
+    }))));
     fd.set("resolvedBlockersJson", JSON.stringify(blockers.filter((b) => b.text.trim()).map((b) => ({
       id: b.id, text: b.text.trim(), resolved: b.completed,
     }))));
