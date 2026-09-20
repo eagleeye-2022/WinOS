@@ -225,7 +225,7 @@ function PlannedTasksSection({
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <TaskTableHead withCheckbox withProject={false} withTimeTracked={false} />
+          <TaskTableHead withCheckbox />
           <tbody>
             {tasks.map((task, i) => {
               const link = projectLinks[task.text];
@@ -252,14 +252,12 @@ function PlannedTasksSection({
                     </button>
                   </td>
                   <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
-                  {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
                   <td className="py-2 pr-3 align-top">
                     {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                   </td>
                   <td className="py-2 pr-3 align-top">
                     {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                   </td>
-                  */}
                   <td className="py-2 pr-3 align-top">
                     <div className="flex flex-wrap items-center gap-1.5 text-sm">
                       <span className={cn(!task.completed && "text-muted-foreground")}>
@@ -273,7 +271,6 @@ function PlannedTasksSection({
                   <td className="py-2 pr-3 align-top">
                     <DueDateCell dueDate={link?.dueDate} />
                   </td>
-                  {/* Timer cell temporarily disabled — Projects module not part of this deploy
                   <td className="py-2 pr-3 align-top">
                     {link?.projectTask ? (
                       <MemberTaskTimerBadge
@@ -286,7 +283,6 @@ function PlannedTasksSection({
                       <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
                     )}
                   </td>
-                  */}
                 </tr>
               );
             })}

@@ -133,7 +133,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
               {todayTasks.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
-                    <TaskTableHead withCheckbox={entry.status === "DRAFT"} withAction={true} withProject={false} withTimeTracked={false} />
+                    <TaskTableHead withCheckbox={entry.status === "DRAFT"} withAction={true} />
                     <tbody>
                       {todayTasks.map((task, i) => {
                         const p = task.managerPriority ?? task.priority;
@@ -156,14 +156,12 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                                 T{i + 1}
                               </span>
                             </td>
-                            {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
-                            */}
                             <td className="py-2.5 pr-3 align-top">
                               <div className="flex flex-wrap items-center gap-1.5 text-sm">
                                 <span className={cn(task.isCompleted && "line-through text-muted-foreground")}>
@@ -182,7 +180,6 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                             <td className="py-2.5 pr-3 align-top">
                               <DueDateCell dueDate={task.dueDate} />
                             </td>
-                            {/* Timer cell temporarily disabled — Projects module not part of this deploy
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTaskId && isToday ? (
                                 <TimerWidget
@@ -203,7 +200,6 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                                 <span className="text-xs text-muted-foreground/60">—</span>
                               )}
                             </td>
-                            */}
                             <td className="py-2.5 pr-2 align-top text-center">
                               <div className="flex items-center justify-center">
                                 <TaskAuditHistoryPopover task={task} memberUser={entry.user} />
