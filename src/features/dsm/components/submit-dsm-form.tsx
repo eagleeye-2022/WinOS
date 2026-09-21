@@ -120,6 +120,7 @@ function TaskRows({
   teamMembers,
   openProjectTasks,
   cascadingProjects,
+  projectsLoading,
   linkedTimeLogs,
   onChange,
   onParkTask,
@@ -128,6 +129,7 @@ function TaskRows({
   teamMembers: TeamMember[];
   openProjectTasks: OpenProjectTaskOption[];
   cascadingProjects: CascadingProjectOption[];
+  projectsLoading: boolean;
   linkedTimeLogs: Record<string, number>;
   onChange: (t: Task[]) => void;
   onParkTask?: (task: Task, index: number) => void;
@@ -189,6 +191,7 @@ function TaskRows({
         const projectTaskId = task.projectTaskId || "";
         const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
+        const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
         return (
           <div key={task.id} className="flex items-center gap-3">
@@ -205,7 +208,7 @@ function TaskRows({
               <div className="flex items-center justify-between gap-2.5 flex-wrap">
                 {/* Left: Code chip + Input */}
                 <div className="flex flex-1 items-center gap-2 min-w-[220px]">
-                  {selectedMeta?.code && (
+                  {showProjectFeatures && selectedMeta?.code && (
                     <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
                       {selectedMeta.code}
                     </span>
@@ -232,25 +235,29 @@ function TaskRows({
                     </span>
                   )}
 
-                  <div className="h-4 w-px bg-border shrink-0" />
+                  {(cascadingProjects.length > 0 || projectsLoading) && (
+                    <>
+                      <div className="h-4 w-px bg-border shrink-0" />
 
-                  <div className="relative flex items-center">
-                    <select
-                      value={tree.projectId}
-                      onChange={(e) => handleProjectChange(i, e.target.value)}
-                      className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[150px] truncate"
-                    >
-                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                        {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                      </option>
-                      {cascadingProjects.map((p) => (
-                        <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                  </div>
+                      <div className="relative flex items-center">
+                        <select
+                          value={tree.projectId}
+                          onChange={(e) => handleProjectChange(i, e.target.value)}
+                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[150px] truncate"
+                        >
+                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                          </option>
+                          {cascadingProjects.map((p) => (
+                            <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                      </div>
+                    </>
+                  )}
 
                   {tree.currentProject && (
                     <>
@@ -354,22 +361,24 @@ function TaskRows({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <TimerWidget
-                    taskId={tree.activeTargetTask?.id}
-                    taskCode={tree.activeTargetTask?.code ?? undefined}
-                    taskTitle={task.text || tree.activeTargetTask?.title}
-                    projectId={tree.currentProject?.id}
-                    canStart={Boolean(tree.activeTargetTask)}
-                    disabledReason="Select a task to start timer"
-                    defaultExpanded={true}
-                  />
-                  {loggedMins !== undefined && loggedMins > 0 && (
-                    <span className="flex items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
-                      <Clock size={11} /> {Math.floor(loggedMins / 60)}h {loggedMins % 60}m logged
-                    </span>
-                  )}
-                </div>
+                {showProjectFeatures && (
+                  <div className="flex items-center gap-2">
+                    <TimerWidget
+                      taskId={tree.activeTargetTask?.id}
+                      taskCode={tree.activeTargetTask?.code ?? undefined}
+                      taskTitle={task.text || tree.activeTargetTask?.title}
+                      projectId={tree.currentProject?.id}
+                      canStart={Boolean(tree.activeTargetTask)}
+                      disabledReason="Select a task to start timer"
+                      defaultExpanded={true}
+                    />
+                    {loggedMins !== undefined && loggedMins > 0 && (
+                      <span className="flex items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <Clock size={11} /> {Math.floor(loggedMins / 60)}h {loggedMins % 60}m logged
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -829,11 +838,13 @@ function daysFromToday(dueDate: string): number | null {
 function ParkingLotRows({
   items,
   cascadingProjects,
+  projectsLoading,
   onChange,
   onMoveToToday,
 }: {
   items: ParkedTaskItem[];
   cascadingProjects: CascadingProjectOption[];
+  projectsLoading: boolean;
   onChange: (items: ParkedTaskItem[]) => void;
   onMoveToToday: (item: ParkedTaskItem) => void;
 }) {
@@ -982,23 +993,25 @@ function ParkingLotRows({
               className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
             />
 
-            <div className="relative flex items-center shrink-0">
-              <select
-                value={tree.projectId}
-                onChange={(e) => handleProjectChange(i, e.target.value)}
-                className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate"
-              >
-                <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                  {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                </option>
-                {cascadingProjects.map((p) => (
-                  <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                    {p.name}
+            {(cascadingProjects.length > 0 || projectsLoading) && (
+              <div className="relative flex items-center shrink-0">
+                <select
+                  value={tree.projectId}
+                  onChange={(e) => handleProjectChange(i, e.target.value)}
+                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate"
+                >
+                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                    {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
                   </option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
-            </div>
+                  {cascadingProjects.map((p) => (
+                    <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+              </div>
+            )}
 
             {tree.currentProject && (
               <div className="relative flex items-center shrink-0">
@@ -1349,15 +1362,18 @@ export function SubmitDsmForm({
 
   const [openProjectTasks, setOpenProjectTasks] = useState<OpenProjectTaskOption[]>([]);
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [linkedTimeLogs, setLinkedTimeLogs] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchUserOpenProjectTasksAction().then((res) => {
       if (res) setOpenProjectTasks(res);
     });
-    fetchUserProjectsWithTasksAction().then((res) => {
-      if (res) setCascadingProjects(res);
-    });
+    fetchUserProjectsWithTasksAction()
+      .then((res) => {
+        if (res) setCascadingProjects(res);
+      })
+      .finally(() => setProjectsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -1525,6 +1541,7 @@ export function SubmitDsmForm({
             teamMembers={teamMembers}
             openProjectTasks={openProjectTasks}
             cascadingProjects={cascadingProjects}
+            projectsLoading={projectsLoading}
             linkedTimeLogs={linkedTimeLogs}
             onChange={setTasks}
             onParkTask={handleParkTask}
@@ -1539,6 +1556,7 @@ export function SubmitDsmForm({
           <ParkingLotRows
             items={parkedTasks}
             cascadingProjects={cascadingProjects}
+            projectsLoading={projectsLoading}
             onChange={setParkedTasks}
             onMoveToToday={(item) => {
               setTasks((prev) => [

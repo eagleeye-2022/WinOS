@@ -468,7 +468,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     const texts = plannedTasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
-      if (res) setProjectLinks(res);
+      if (res) setProjectLinks(res.links);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);

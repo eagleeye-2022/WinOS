@@ -203,6 +203,7 @@ function PlannedTasksSection({
 }) {
   const completed = tasks.filter((t) => t.completed).length;
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+  const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
   const toggle = (i: number) => {
     if (readOnly) return;
     onChange(tasks.map((t, j) => (j === i ? { ...t, completed: !t.completed } : t)));
@@ -212,7 +213,10 @@ function PlannedTasksSection({
     const texts = tasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
-      if (res) setProjectLinks(res);
+      if (res) {
+        setProjectLinks(res.links);
+        setHasProjectsAccess(res.hasProjectsAccess);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.map((t) => t.text).join("|"), dateStr]);
@@ -225,7 +229,7 @@ function PlannedTasksSection({
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <TaskTableHead withCheckbox />
+          <TaskTableHead withCheckbox withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
           <tbody>
             {tasks.map((task, i) => {
               const link = projectLinks[task.text];
@@ -252,12 +256,16 @@ function PlannedTasksSection({
                     </button>
                   </td>
                   <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
-                  <td className="py-2 pr-3 align-top">
-                    {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-                  </td>
-                  <td className="py-2 pr-3 align-top">
-                    {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-                  </td>
+                  {hasProjectsAccess && (
+                    <td className="py-2 pr-3 align-top">
+                      {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                    </td>
+                  )}
+                  {hasProjectsAccess && (
+                    <td className="py-2 pr-3 align-top">
+                      {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                    </td>
+                  )}
                   <td className="py-2 pr-3 align-top">
                     <div className="flex flex-wrap items-center gap-1.5 text-sm">
                       <span className={cn(!task.completed && "text-muted-foreground")}>
@@ -271,18 +279,20 @@ function PlannedTasksSection({
                   <td className="py-2 pr-3 align-top">
                     <DueDateCell dueDate={link?.dueDate} />
                   </td>
-                  <td className="py-2 pr-3 align-top">
-                    {link?.projectTask ? (
-                      <MemberTaskTimerBadge
-                        taskId={link.projectTaskId || link.projectTask.id}
-                        taskCode={link.projectTask.code}
-                        memberId={memberId || ""}
-                        dateStr={dateStr}
-                      />
-                    ) : (
-                      <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
-                    )}
-                  </td>
+                  {hasProjectsAccess && (
+                    <td className="py-2 pr-3 align-top">
+                      {link?.projectTask ? (
+                        <MemberTaskTimerBadge
+                          taskId={link.projectTaskId || link.projectTask.id}
+                          taskCode={link.projectTask.code}
+                          memberId={memberId || ""}
+                          dateStr={dateStr}
+                        />
+                      ) : (
+                        <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

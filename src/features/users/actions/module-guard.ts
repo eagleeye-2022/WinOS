@@ -25,3 +25,19 @@ export async function requireModuleAccess(moduleKey: GuardedModuleKey): Promise<
     redirect(`${ROUTES.restricted}?module=${moduleKey}`);
   }
 }
+
+// Non-redirecting counterpart for Server Actions/queries (e.g. DSM actions
+// that read Projects data) — callers decide what to return when access is
+// denied instead of navigating the user away mid-action. Same MANAGER bypass
+// as requireModuleAccess, for the same reason.
+export async function hasModuleAccess(moduleKey: GuardedModuleKey): Promise<boolean> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return false;
+
+  const role = (session.user as { role?: string })?.role;
+  if (role === "MANAGER") return true;
+
+  const { accessByUser } = await getModuleAccessMapAction();
+  return accessByUser[userId]?.[moduleKey] ?? true;
+}

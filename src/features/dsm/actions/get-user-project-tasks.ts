@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasModuleAccess } from "@/features/users/actions/module-guard";
 import {
   getUserOpenProjectTasks,
   getLinkedTimeLogsYesterday,
@@ -15,10 +16,12 @@ import {
 } from "../queries";
 
 export async function fetchUserOpenProjectTasksAction(): Promise<OpenProjectTaskOption[]> {
+  if (!(await hasModuleAccess("PROJECTS"))) return [];
   return await getUserOpenProjectTasks();
 }
 
 export async function fetchUserProjectsWithTasksAction(userId?: string): Promise<CascadingProjectOption[]> {
+  if (!(await hasModuleAccess("PROJECTS"))) return [];
   return await getUserProjectsWithTasksAndSubtasks(userId);
 }
 
@@ -27,6 +30,7 @@ export async function fetchLinkedTimeLogsAction(projectTaskIds: string[]): Promi
 }
 
 export async function fetchProjectStandupRollupAction(projectId: string): Promise<ProjectStandupRollupItem[]> {
+  if (!(await hasModuleAccess("PROJECTS"))) return [];
   return await getProjectStandupRollup(projectId);
 }
 
