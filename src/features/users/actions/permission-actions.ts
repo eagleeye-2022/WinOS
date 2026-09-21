@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { PROFILE_CONFIG } from "@/features/users/permission-config";
 import type {
   ProfileType,
@@ -58,182 +59,9 @@ function genericModule(profileType: ProfileType, key: string, name: string): See
 }
 
 const USER_SEED_MODULES: SeedModule[] = [
-  {
-    profileType: "USER",
-    key: "TASK",
-    name: "Task",
-    actions: [
-      {
-        key: "VIEW",
-        label: "View",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "ALL" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "ALL" },
-        ],
-      },
-      { key: "ADD", label: "Add", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      {
-        key: "EDIT",
-        label: "Edit",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "BOTH", scopeAssignee: true, scopeOwner: true },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "BOTH", scopeAssignee: true, scopeOwner: true },
-        ],
-      },
-      {
-        key: "TRASH",
-        label: "Trash",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      { key: "REORDER", label: "Reorder", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      { key: "ADD_FOLLOWERS", label: "Add Followers", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      { key: "PREVIEW_BLUEPRINT", label: "Preview Blueprint", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      { key: "ASSOCIATE_BLUEPRINT", label: "Associate Blueprint", controlType: "BOOLEAN", defaults: allTrue("USER") },
-    ],
-  },
-  {
-    profileType: "USER",
-    key: "TASK_LIST",
-    name: "Task List",
-    actions: [
-      { key: "VIEW", label: "View", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      {
-        key: "ADD",
-        label: "Add",
-        controlType: "BOOLEAN",
-        defaults: [
-          { role: "EMPLOYEE", enabled: false },
-          { role: "MANAGER", enabled: true },
-          { role: "CONTRACTOR", enabled: false },
-        ],
-      },
-      {
-        key: "EDIT",
-        label: "Edit",
-        controlType: "BOOLEAN",
-        defaults: [
-          { role: "EMPLOYEE", enabled: false },
-          { role: "MANAGER", enabled: false },
-          { role: "CONTRACTOR", enabled: false },
-        ],
-      },
-      {
-        key: "TRASH",
-        label: "Trash",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      { key: "REORDER", label: "Reorder", controlType: "BOOLEAN", defaults: allTrue("USER") },
-    ],
-  },
-  {
-    profileType: "USER",
-    key: "TIME_LOGS",
-    name: "Time Logs",
-    actions: [
-      {
-        key: "VIEW",
-        label: "View",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      {
-        key: "ADD",
-        label: "Add",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "OWNED" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      {
-        key: "EDIT",
-        label: "Edit",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "OWNED" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      {
-        key: "TRASH",
-        label: "Trash",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      { key: "APPROVE", label: "Approve", controlType: "BOOLEAN", defaults: allTrue("USER") },
-    ],
-  },
-  {
-    profileType: "USER",
-    key: "TIMESHEET",
-    name: "Timesheet",
-    actions: [
-      {
-        key: "VIEW",
-        label: "View",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      { key: "ADD", label: "Add", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      { key: "EDIT", label: "Edit", controlType: "BOOLEAN", defaults: allTrue("USER") },
-      {
-        key: "DELETE",
-        label: "Delete",
-        controlType: "SCOPE",
-        defaults: [
-          { role: "EMPLOYEE", scope: "OWNED" },
-          { role: "MANAGER", scope: "ALL" },
-          { role: "CONTRACTOR", scope: "OWNED" },
-        ],
-      },
-      {
-        key: "APPROVE",
-        label: "Approve",
-        controlType: "BOOLEAN",
-        defaults: [
-          { role: "EMPLOYEE", enabled: true },
-          { role: "MANAGER", enabled: true },
-          { role: "CONTRACTOR", enabled: false },
-        ],
-      },
-    ],
-  },
-  genericModule("USER", "OTHERS", "Others"),
-  genericModule("USER", "PROJECT_REPORTS", "Project Reports"),
-  genericModule("USER", "GLOBAL_REPORTS", "Global Reports"),
-  genericModule("USER", "DASHBOARDS", "Dashboards"),
-  genericModule("USER", "PORTAL_PERMISSIONS", "Portal Permissions"),
-  genericModule("USER", "SETTINGS", "Settings"),
-  genericModule("USER", "INTEGRATIONS", "Integrations"),
-  genericModule("USER", "FIELD_PERMISSIONS", "Field Permissions"),
+  genericModule("USER", "STANDUP", "Standup"),
+  genericModule("USER", "PROJECTS", "Projects"),
+  genericModule("USER", "USER_MANAGEMENT", "User Management"),
 ];
 
 const CLIENT_SEED_MODULES: SeedModule[] = [
@@ -374,6 +202,117 @@ export async function getPermissionMatrixAction(profileType: ProfileType): Promi
       };
     }),
   }));
+}
+
+export interface UserModuleAccessRow {
+  userId: string;
+  name: string;
+  email: string;
+  image: string | null;
+  role: string;
+  isActive: boolean;
+  access: Record<string, boolean>; // moduleKey -> enabled
+}
+
+export interface UserModuleAccessView {
+  modules: { id: string; key: string; name: string }[];
+  users: UserModuleAccessRow[];
+}
+
+export interface ModuleAccessMap {
+  modules: { id: string; key: string; name: string }[];
+  // userId -> moduleKey -> enabled (only present when an explicit override exists)
+  accessByUser: Record<string, Record<string, boolean>>;
+}
+
+// Shared base for every per-user module access read: the seeded USER-profile
+// modules plus every explicit UserModuleAccess override. A missing override
+// for a (user, module) pair means "enabled" — existing users stay
+// unrestricted until an admin explicitly toggles a module off for them.
+export async function getModuleAccessMapAction(): Promise<ModuleAccessMap> {
+  await ensureSeeded("USER");
+
+  const modules = await db.permissionModule.findMany({
+    where: { profileType: "USER" },
+    orderBy: { order: "asc" },
+    select: { id: true, key: true, name: true },
+  });
+
+  const rows = await db.userModuleAccess.findMany({
+    where: { moduleId: { in: modules.map((m) => m.id) } },
+    select: { userId: true, moduleId: true, enabled: true },
+  });
+  const moduleKeyById = new Map(modules.map((m) => [m.id, m.key]));
+
+  const accessByUser: Record<string, Record<string, boolean>> = {};
+  for (const row of rows) {
+    const key = moduleKeyById.get(row.moduleId);
+    if (!key) continue;
+    (accessByUser[row.userId] ??= {})[key] = row.enabled;
+  }
+
+  return { modules, accessByUser };
+}
+
+export async function getUserModuleAccessAction(): Promise<UserModuleAccessView> {
+  const [{ modules, accessByUser }, users] = await Promise.all([
+    getModuleAccessMapAction(),
+    db.user.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true, image: true, role: true, isActive: true },
+    }),
+  ]);
+
+  return {
+    modules,
+    users: users.map((u) => ({
+      userId: u.id,
+      name: u.name || u.email,
+      email: u.email,
+      image: u.image,
+      role: u.role,
+      isActive: u.isActive,
+      access: Object.fromEntries(
+        modules.map((m) => [m.key, accessByUser[u.id]?.[m.key] ?? true])
+      ),
+    })),
+  };
+}
+
+// The signed-in user's own module access — used to gate navigation/routes.
+export async function getMyModuleAccessAction(): Promise<{
+  role: string | null;
+  access: Record<string, boolean>;
+}> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { role: null, access: {} };
+
+  const [{ modules, accessByUser }, role] = await Promise.all([
+    getModuleAccessMapAction(),
+    db.user.findUnique({ where: { id: userId }, select: { role: true } }).then((u) => u?.role ?? null),
+  ]);
+
+  return {
+    role,
+    access: Object.fromEntries(
+      modules.map((m) => [m.key, accessByUser[userId]?.[m.key] ?? true])
+    ),
+  };
+}
+
+export async function setUserModuleAccessAction(
+  userId: string,
+  moduleId: string,
+  enabled: boolean
+): Promise<void> {
+  await db.userModuleAccess.upsert({
+    where: { userId_moduleId: { userId, moduleId } },
+    create: { userId, moduleId, enabled },
+    update: { enabled },
+  });
+
+  revalidatePath("/settings/profile-access");
 }
 
 export interface UpdatePermissionRuleInput {

@@ -198,7 +198,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     navItems = isManager
       ? [
           { label: "User", href: ROUTES.settingsUsers, icon: User },
-          // { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
+          { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
         ]
       : [];
   } else {

@@ -94,6 +94,7 @@ model User {
   activeTimer           ActiveTimer?
   sentClientInvitations ClientInvitation[]     @relation("ClientInvitationsSent")
   projectActivities     ProjectActivity[]      @relation("ProjectActivityUser")
+  moduleAccess           UserModuleAccess[]
 }
 
 model Account {
@@ -361,8 +362,26 @@ model PermissionModule {
   name        String
   order       Int                 @default(0)
   actions     PermissionAction[]
+  userAccess  UserModuleAccess[]
 
   @@unique([profileType, key])
+}
+
+// Per-user override of module-level access (independent of the role-based
+// PermissionRule matrix above). Missing row for a (userId, moduleId) pair
+// means "enabled" — this keeps existing users unrestricted until an admin
+// explicitly toggles a module off for them from Profile Access.
+model UserModuleAccess {
+  id        String           @id @default(cuid())
+  userId    String
+  moduleId  String
+  enabled   Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    PermissionModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
 }
 
 model PermissionAction {

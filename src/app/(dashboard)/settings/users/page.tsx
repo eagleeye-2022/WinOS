@@ -5,6 +5,7 @@ import {
   getTeamMembersAction,
   getEmployeeTreeAction,
   getDepartmentTreeAction,
+  getModuleAccessColumnsAction,
 } from "@/features/users/actions/user-actions";
 import { TeamWorkspace } from "@/features/users/components/team-workspace";
 
@@ -15,10 +16,11 @@ export default async function SettingsUsersPage() {
     redirect(ROUTES.dashboard);
   }
 
-  const [members, employeeTree, departmentTree] = await Promise.all([
+  const [members, employeeTree, departmentTree, moduleColumns] = await Promise.all([
     getTeamMembersAction(),
     getEmployeeTreeAction(),
     getDepartmentTreeAction(),
+    getModuleAccessColumnsAction(),
   ]);
 
   return (
@@ -26,6 +28,7 @@ export default async function SettingsUsersPage() {
       members={members}
       employeeTree={employeeTree}
       departmentTree={departmentTree}
+      moduleColumns={moduleColumns}
     />
   );
 }

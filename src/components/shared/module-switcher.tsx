@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Briefcase, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MODULES = [
@@ -11,6 +11,7 @@ const MODULES = [
     label: "Standup",
     href: "/dashboard",
     icon: ClipboardList,
+    moduleKey: "STANDUP",
   },
   // {
   //   id: "people",
@@ -18,12 +19,20 @@ const MODULES = [
   //   href: "/people",
   //   icon: Users,
   // },
-  // {
-  //   id: "projects",
-  //   label: "Projects",
-  //   href: "/projects",
-  //   icon: Briefcase,
-  // },
+  {
+    id: "projects",
+    label: "Projects",
+    href: "/projects",
+    icon: Briefcase,
+    moduleKey: "PROJECTS",
+  },
+  {
+    id: "users",
+    label: "User Management",
+    href: "/settings/users",
+    icon: Users,
+    moduleKey: "USER_MANAGEMENT",
+  },
   // {
   //   id: "sales",
   //   label: "Sales",
@@ -32,9 +41,17 @@ const MODULES = [
   // },
  ] as const;
 
-export function ModuleSwitcher() {
+interface ModuleSwitcherProps {
+  access?: Record<string, boolean>;
+  isManager?: boolean;
+}
+
+export function ModuleSwitcher({ access, isManager }: ModuleSwitcherProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const visibleModules = MODULES.filter(
+    (m) => isManager || !access || access[m.moduleKey] !== false
+  );
 
   const [activeModule, setActiveModule] = useState<string | null>(null);
 
@@ -54,6 +71,8 @@ export function ModuleSwitcher() {
     activeModuleId = "projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleId = "sales";
+  } else if (pathname.startsWith("/settings/users") || activeModule === "users") {
+    activeModuleId = "users";
   }
 
   const handleSelect = (href: string) => {
@@ -62,8 +81,8 @@ export function ModuleSwitcher() {
 
   return (
     <nav className="flex items-center gap-1 bg-muted/65 p-1 rounded-full border shadow-2xs backdrop-blur-xs select-none">
-      {MODULES.map((m) => {
-        const Icon = m.icon;
+      {visibleModules.map((m) => {
+        // const Icon = m.icon;
         const isActive = m.id === activeModuleId;
         return (
           <button
@@ -77,7 +96,7 @@ export function ModuleSwitcher() {
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40"
             )}
           >
-            <Icon size={13} className={isActive ? "text-primary animate-pulse" : "text-muted-foreground/60"} />
+            {/* <Icon size={13} className={isActive ? "text-primary animate-pulse" : "text-muted-foreground/60"} /> */}
             <span>{m.label}</span>
           </button>
         );

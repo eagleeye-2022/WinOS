@@ -1,7 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
-import { getPermissionMatrixAction } from "@/features/users/actions/permission-actions";
+import {
+  getPermissionMatrixAction,
+  getUserModuleAccessAction,
+} from "@/features/users/actions/permission-actions";
 import { PermissionAccessWorkspace } from "@/features/users/components/permission-access-workspace";
 
 export default async function ProfileAccessPage() {
@@ -11,10 +14,11 @@ export default async function ProfileAccessPage() {
     redirect(ROUTES.dashboard);
   }
 
-  const [userModules, clientModules, systemModules] = await Promise.all([
+  const [userModules, clientModules, systemModules, userModuleAccess] = await Promise.all([
     getPermissionMatrixAction("USER"),
     getPermissionMatrixAction("CLIENT"),
     getPermissionMatrixAction("SYSTEM"),
+    getUserModuleAccessAction(),
   ]);
 
   return (
@@ -22,6 +26,7 @@ export default async function ProfileAccessPage() {
       userModules={userModules}
       clientModules={clientModules}
       systemModules={systemModules}
+      userModuleAccess={userModuleAccess}
     />
   );
 }

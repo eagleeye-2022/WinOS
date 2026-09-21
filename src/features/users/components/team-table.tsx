@@ -35,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { TeamMemberRow } from "@/features/users/actions/user-actions";
+import type { TeamMemberRow, ModuleAccessColumn } from "@/features/users/actions/user-actions";
 import {
   toggleUserLoginAction,
   deleteTeamMemberAction,
@@ -53,10 +53,11 @@ const ROLE_LABEL: Record<string, string> = {
 
 interface TeamTableProps {
   members: TeamMemberRow[];
+  moduleColumns: ModuleAccessColumn[];
   onSelectUser: (id: string) => void;
 }
 
-export function TeamTable({ members, onSelectUser }: TeamTableProps) {
+export function TeamTable({ members, moduleColumns, onSelectUser }: TeamTableProps) {
   const router = useRouter();
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");

@@ -10,6 +10,7 @@ import type {
   TeamMemberRow,
   EmployeeTreeNode,
   DepartmentTreeGroup,
+  ModuleAccessColumn,
 } from "@/features/users/actions/user-actions";
 import { TeamTable } from "./team-table";
 import { EmployeeTree } from "./employee-tree";
@@ -20,12 +21,14 @@ interface TeamWorkspaceProps {
   members: TeamMemberRow[];
   employeeTree: EmployeeTreeNode[];
   departmentTree: DepartmentTreeGroup[];
+  moduleColumns: ModuleAccessColumn[];
 }
 
 export function TeamWorkspace({
   members,
   employeeTree,
   departmentTree,
+  moduleColumns,
 }: TeamWorkspaceProps) {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
@@ -50,7 +53,7 @@ export function TeamWorkspace({
         </div>
 
         <TabsContent value="my-team" className="mt-0">
-          <TeamTable members={members} onSelectUser={setProfileUserId} />
+          <TeamTable members={members} moduleColumns={moduleColumns} onSelectUser={setProfileUserId} />
         </TabsContent>
 
         <TabsContent value="employee-tree" className="mt-0">
