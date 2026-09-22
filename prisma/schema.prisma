@@ -95,6 +95,17 @@ model User {
   sentClientInvitations ClientInvitation[]     @relation("ClientInvitationsSent")
   projectActivities     ProjectActivity[]      @relation("ProjectActivityUser")
   moduleAccess           UserModuleAccess[]
+  userLeaveBalances       UserLeaveBalance[]
+  leaveRequests           LeaveRequest[]              @relation("RequesterUser")
+  appliedLeavesOnBehalf   LeaveRequest[]              @relation("AppliedByUser")
+  compensatoryRequests    CompensatoryRequest[]
+  balanceAdjustments      LeaveBalanceAdjustment[]    @relation("AdjustedUser")
+  managerAdjustmentsMade  LeaveBalanceAdjustment[]    @relation("AdjustedByManager")
+  approvalStepsAssigned   LeaveApprovalStep[]
+  uploadedLeaveAttachments LeaveAttachment[]
+  attendanceRegularizations AttendanceRegularization[] @relation("UserRegularizations")
+  reviewedRegularizations AttendanceRegularization[]  @relation("RegularizationReviewer")
+  createdHolidays         Holiday[]
 }
 
 model Account {
@@ -1230,5 +1241,437 @@ model ClientInvitationProject {
 
   @@unique([invitationId, projectId])
   @@index([projectId])
+}
+
+// =============================================================================
+//                       WINOS LEAVE MODULE PRISMA SCHEMA
+// =============================================================================
+
+// ── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum LeaveCategory {
+  PAID
+  UNPAID
+  PARTIALLY_PAID
+}
+
+enum AllocationFrequency {
+  YEARLY
+  MONTHLY
+  QUARTERLY
+  ON_DEMAND
+}
+
+enum BalanceResetRule {
+  CARRY_FORWARD_UP_TO_LIMIT
+  ENCASH_UNUSED
+  LAPSE_ALL
+}
+
+enum ExceededEntitlementRule {
+  DO_NOT_ALLOW
+  ALLOW_WITHOUT_LIMIT
+  ALLOW_UNTIL_YEAR_END
+  MARK_AS_LOP
+}
+
+enum ApplicableAudience {
+  ALL_EMPLOYEES
+  FULL_TIME_ONLY
+  PROBATIONARY
+  CONTRACTORS
+  CUSTOM_DEPARTMENT
+}
+
+enum DurationType {
+  FULL_DAY
+  HALF_DAY
+  QUARTER_DAY
+  EARLY_LEAVE
+  HOURLY
+}
+
+enum HalfDayType {
+  FIRST_HALF
+  SECOND_HALF
+}
+
+enum TimeUnit {
+  DAYS
+  WEEKS
+  MONTHS
+  YEARS
+  HOURS
+}
+
+enum SupportingDocPolicy {
+  NOT_REQUIRED
+  ALWAYS_REQUIRED
+  REQUIRED_WHEN_EXCEEDS
+}
+
+enum ApprovalFlowType {
+  DIRECT_MANAGER
+  DEPARTMENT_HEAD
+  HR_ADMIN
+  CUSTOM_TWO_STEP
+}
+
+enum EmployeeVisibility {
+  COMPLETE_LEAVE_SUMMARY
+  REMAINING_BALANCE_ONLY
+  HIDE_IN_SELF_SERVICE
+}
+
+enum BalanceDisplayPreference {
+  LEAVE_REQUEST_START_DATE
+  CURRENT_DATE
+  YEAR_END_PROJECTION
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum CompensatoryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+  REDEEMED
+}
+
+enum HolidayType {
+  PUBLIC
+  OPTIONAL
+  COMPANY_SPECIAL
+}
+
+enum AdjustmentReason {
+  YEARLY_CORRECTION
+  SPECIAL_AWARD
+  POLICY_REVISION
+  LOSS_OF_PAY_REVERSAL
+  JOINING_PRORATION
+  OTHER
+}
+
+enum RegularizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ── 1. LEAVE TYPE & POLICY CONFIGURATION (Wizard Steps 1–6) ───────────────────
+
+model LeaveType {
+  id                      String                  @id @default(cuid())
+  name                    String                  // e.g., "Sick Leave", "Casual Leave", "Paid Leave"
+  code                    String                  @unique // e.g., "SL", "CL", "PL", "ML"
+  description             String?
+  icon                    String                  @default("Thermometer") // Lucide icon name or emoji
+  iconBgColor             String?                 // e.g., "bg-emerald-50"
+  iconTextColor           String?                 // e.g., "text-emerald-600"
+  isActive                Boolean                 @default(true)
+  effectiveDate           DateTime
+  expiryDate              DateTime?
+
+  // Step 2: Leave & Balance Setup
+  category                LeaveCategory           @default(PAID)
+  allocationFrequency     AllocationFrequency     @default(YEARLY)
+  annualEntitlement       Float                   @default(12.0)
+  allowCarryForward       Boolean                 @default(true)
+  carryForwardLimit       Float?                  @default(5.0)
+  balanceResetRule        BalanceResetRule        @default(CARRY_FORWARD_UP_TO_LIMIT)
+  exceededRule            ExceededEntitlementRule @default(MARK_AS_LOP)
+  yearEndDate             DateTime?
+
+  // Step 3: Eligibility & Duration
+  applicableTo            ApplicableAudience      @default(ALL_EMPLOYEES)
+  departments             String[]                @default([])
+  employmentTypes         String[]                @default([])
+  minServicePeriod        Int?                    @default(6)
+  minServiceUnit          TimeUnit                @default(MONTHS)
+  allowFullDay            Boolean                 @default(true)
+  allowHalfDay            Boolean                 @default(true)
+  allowQuarterDay         Boolean                 @default(false)
+  allowHourly             Boolean                 @default(true)
+
+  // Step 4: Application Rules
+  allowPastDays           Boolean                 @default(true)
+  pastDaysLimit           Int                     @default(7)
+  pastDaysUnit            TimeUnit                @default(DAYS)
+  allowAdvanceDays        Boolean                 @default(true)
+  advanceDaysLimit        Int                     @default(90)
+  advanceDaysUnit         TimeUnit                @default(DAYS)
+  minAdvanceNotice        Int                     @default(2)
+  minAdvanceNoticeUnit    TimeUnit                @default(DAYS)
+  minLeavePerRequest      Float                   @default(0.5)
+  maxLeavePerRequest      Float                   @default(10.0)
+  maxConsecutiveDays      Int                     @default(15)
+  minGapBetweenRequests   Int                     @default(2)
+  maxRequestsCount        Int                     @default(3)
+  maxRequestsPeriod       TimeUnit                @default(MONTHS)
+  applicableDays          String[]                @default(["Mon", "Tue", "Wed", "Thu", "Fri"])
+
+  // Step 5: Policies & Documents
+  sandwichPolicy          Boolean                 @default(true)
+  sandwichWeekends        Boolean                 @default(true)
+  sandwichHolidays        Boolean                 @default(true)
+  clubbingRestrictedCodes String[]                @default(["SL", "CL", "COMP"])
+  supportingDocPolicy     SupportingDocPolicy     @default(REQUIRED_WHEN_EXCEEDS)
+  docExceedsDays          Float?                  @default(3.0)
+  acceptedFileTypes       String[]                @default(["PDF", "JPG", "PNG"])
+  maxFileSizeMb           Int                     @default(5)
+
+  // Step 6: Approval & Visibility
+  managerApprovalRequired Boolean                 @default(true)
+  approvalFlow            ApprovalFlowType        @default(DIRECT_MANAGER)
+  allowAdminApplyOnBehalf Boolean                 @default(true)
+  employeeVisibility      EmployeeVisibility      @default(COMPLETE_LEAVE_SUMMARY)
+  balanceDisplayPref      BalanceDisplayPreference @default(LEAVE_REQUEST_START_DATE)
+
+  // Relations
+  userBalances            UserLeaveBalance[]
+  leaveRequests           LeaveRequest[]
+  adjustments             LeaveBalanceAdjustment[]
+
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// ── 2. USER LEAVE BALANCES & QUOTAS ──────────────────────────────────────────
+
+model UserLeaveBalance {
+  id                String            @id @default(cuid())
+  userId            String
+  leaveTypeId       String
+  year              Int
+  
+  allocatedDays     Float             @default(0.0)
+  carriedForward    Float             @default(0.0)
+  adjustedDays      Float             @default(0.0)
+  bookedDays        Float             @default(0.0)
+  pendingDays       Float             @default(0.0)
+  lossOfPayDays     Float             @default(0.0)
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType         LeaveType         @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([userId, leaveTypeId, year])
+  @@index([userId, year])
+}
+
+// ── 3. LEAVE BALANCE ADJUSTMENT AUDIT TRAIL ──────────────────────────────────
+
+model LeaveBalanceAdjustment {
+  id              String            @id @default(cuid())
+  userId          String
+  adjustedById    String
+  leaveTypeId     String
+  
+  previousBalance Float
+  adjustmentDays  Float
+  newBalance      Float
+  
+  reason          AdjustmentReason  @default(YEARLY_CORRECTION)
+  remarks         String?
+
+  user            User              @relation("AdjustedUser", fields: [userId], references: [id], onDelete: Cascade)
+  adjustedBy      User              @relation("AdjustedByManager", fields: [adjustedById], references: [id], onDelete: Cascade)
+  leaveType       LeaveType         @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime          @default(now())
+
+  @@index([userId])
+  @@index([adjustedById])
+}
+
+// ── 4. LEAVE REQUESTS ────────────────────────────────────────────────────────
+
+model LeaveRequest {
+  id              String            @id @default(cuid())
+  userId          String
+  appliedById     String?
+  leaveTypeId     String
+
+  durationType    DurationType      @default(FULL_DAY)
+  halfDayType     HalfDayType?
+  
+  fromDate        DateTime
+  toDate          DateTime
+  fromTime        String?
+  toTime          String?
+  
+  durationDays    Float             @default(1.0)
+  durationHours   Float?
+  
+  reason          String
+  status          LeaveStatus       @default(PENDING)
+  rejectionReason String?
+  
+  isLossOfPay     Boolean           @default(false)
+  lopDaysCount    Float             @default(0.0)
+
+  user            User              @relation("RequesterUser", fields: [userId], references: [id], onDelete: Cascade)
+  appliedBy       User?             @relation("AppliedByUser", fields: [appliedById], references: [id], onDelete: SetNull)
+  leaveType       LeaveType         @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  
+  attachments     LeaveAttachment[]
+  approvalSteps   LeaveApprovalStep[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([userId, status])
+  @@index([fromDate, toDate])
+}
+
+// ── 5. COMPENSATORY OFF REQUESTS ─────────────────────────────────────────────
+
+model CompensatoryRequest {
+  id              String              @id @default(cuid())
+  userId          String
+  
+  workDate        DateTime
+  fromTime        String
+  toTime          String
+  hoursWorked     Float
+  
+  duration        DurationType        @default(FULL_DAY)
+  creditedDays    Float               @default(1.0)
+  
+  reason          String
+  expiryDate      DateTime
+  
+  status          CompensatoryStatus  @default(PENDING)
+  rejectionReason String?
+  
+  redeemedLeaveId String?
+
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments     LeaveAttachment[]
+  approvalSteps   LeaveApprovalStep[]
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([userId, status])
+  @@index([expiryDate])
+}
+
+// ── 6. MULTI-LEVEL APPROVAL TIMELINE & STEPS ─────────────────────────────────
+
+model LeaveApprovalStep {
+  id                    String                @id @default(cuid())
+  leaveRequestId        String?
+  compensatoryRequestId String?
+
+  stepOrder             Int                   @default(1)
+  stepName              String
+  
+  approverId            String?
+  approverName          String?
+  approverRole          String?
+  
+  status                LeaveStatus           @default(PENDING)
+  actionDate            DateTime?
+  comments              String?
+
+  leaveRequest          LeaveRequest?         @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  compensatoryRequest   CompensatoryRequest?  @relation(fields: [compensatoryRequestId], references: [id], onDelete: Cascade)
+  approver              User?                 @relation(fields: [approverId], references: [id], onDelete: SetNull)
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([leaveRequestId])
+  @@index([compensatoryRequestId])
+}
+
+// ── 7. LEAVE & MEDICAL ATTACHMENTS ───────────────────────────────────────────
+
+model LeaveAttachment {
+  id                    String                @id @default(cuid())
+  leaveRequestId        String?
+  compensatoryRequestId String?
+
+  fileName              String
+  fileUrl               String
+  fileSize              String
+  fileType              String
+  
+  uploadedById          String
+  uploadedBy            User                  @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  
+  leaveRequest          LeaveRequest?         @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  compensatoryRequest   CompensatoryRequest?  @relation(fields: [compensatoryRequestId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime              @default(now())
+
+  @@index([leaveRequestId])
+  @@index([compensatoryRequestId])
+}
+
+// ── 8. ATTENDANCE REGULARIZATION (Action Required) ───────────────────────────
+
+model AttendanceRegularization {
+  id              String                @id @default(cuid())
+  userId          String
+  
+  missingDate     DateTime
+  issueDescription String               @default("No attendance or leave record found")
+  
+  checkInTime     String
+  checkOutTime    String
+  reason          String
+  
+  status          RegularizationStatus  @default(PENDING)
+  reviewedById    String?
+  reviewedAt      DateTime?
+
+  user            User                  @relation("UserRegularizations", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy      User?                 @relation("RegularizationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([userId, status])
+  @@index([missingDate])
+}
+
+// ── 9. COMPANY HOLIDAYS ──────────────────────────────────────────────────────
+
+model Holiday {
+  id              String            @id @default(cuid())
+  name            String
+  date            DateTime
+  dayOfWeek       String
+  year            Int               @default(2025)
+  type            HolidayType       @default(PUBLIC)
+  description     String?
+  
+  isOptional      Boolean           @default(false)
+  applicableDept  String?
+  applicableLoc   String?
+  
+  createdById     String?
+  createdBy       User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([date, name])
+  @@index([year, type])
 }
 
