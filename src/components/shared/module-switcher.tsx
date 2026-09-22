@@ -13,12 +13,13 @@ const MODULES = [
     icon: ClipboardList,
     moduleKey: "STANDUP",
   },
-  // {
-  //   id: "people",
-  //   label: "People",
-  //   href: "/people",
-  //   icon: Users,
-  // },
+  {
+    id: "people",
+    label: "People",
+    href: "/pulse/leave",
+    icon: Users,
+    moduleKey: "PEOPLE",
+  },
   {
     id: "projects",
     label: "Projects",
@@ -65,7 +66,13 @@ export function ModuleSwitcher({ access, isManager }: ModuleSwitcherProps) {
 
   // Determine active module based on path or query parameter (Standup includes /notes, /dsm, /dsr, /blockers, etc.)
   let activeModuleId = "standup"; // default to standup
-  if (pathname.startsWith("/people") || activeModule === "people") {
+  if (
+    pathname.startsWith("/people") ||
+    pathname.startsWith("/pulse") ||
+    pathname.startsWith("/leave") ||
+    activeModule === "people" ||
+    activeModule === "pulse"
+  ) {
     activeModuleId = "people";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleId = "projects";

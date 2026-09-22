@@ -87,8 +87,20 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "RTD Documents") {
     return pathname === "/people";
   }
-  if (label === "ICA Agreements") {
-    return pathname.startsWith("/people/ica");
+  if (label === "My Leaves" || label === "Leave Tracker") {
+    return (
+      (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) &&
+      !pathname.startsWith("/pulse/leave/team")
+    );
+  }
+  if (label === "Team Leave") {
+    return pathname.startsWith("/pulse/leave/team");
+  }
+  if (label === "Attendance") {
+    return pathname.startsWith("/pulse/attendance");
+  }
+  if (label === "Regularization") {
+    return pathname.startsWith("/pulse/regularization");
   }
   if (label === "All Projects" && pathname.startsWith("/projects")) {
     return pathname === "/projects" || pathname === "/projects/all";
@@ -150,7 +162,13 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
   // Determine active module title based on path
   let activeModuleTitle = "Standup";
-  if (pathname.startsWith("/people") || activeModule === "people") {
+  if (
+    pathname.startsWith("/people") ||
+    pathname.startsWith("/pulse") ||
+    pathname.startsWith("/leave") ||
+    activeModule === "people" ||
+    activeModule === "pulse"
+  ) {
     activeModuleTitle = "People";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleTitle = "Projects";
@@ -164,12 +182,20 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   let navItems: Array<{ label: string; href: string; icon: React.ElementType; section?: string }> = [];
 
   if (activeModuleTitle === "People") {
-    navItems = [
-      { label: "RTD Documents", href: "/people", icon: FileText },
-      { label: "ICA Agreements", href: "/people/ica", icon: UserCheck },
-      { label: "iNotes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
-      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
-    ];
+    navItems = isManager
+      ? [
+          { label: "Home", href: "/people", icon: Home },
+          { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
+          { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
+          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+        ]
+      : [
+          { label: "Home", href: "/people", icon: Home },
+          { label: "Leave Tracker", href: "/pulse/leave", icon: Calendar },
+          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+        ];
   } else if (activeModuleTitle === "Projects") {
     navItems = isManager
       ? [
