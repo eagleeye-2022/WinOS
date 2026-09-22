@@ -17,7 +17,10 @@
     "db:migrate": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "import:zoho": "npx tsx scripts/import-zoho.ts",
+    "fix:tasklists": "npx tsx scripts/fix-zoho-tasklists.ts",
+    "import:project-csv": "npx tsx scripts/import-project-csv.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
