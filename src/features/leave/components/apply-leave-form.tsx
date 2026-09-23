@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { applyLeaveAction } from "../actions/leave-actions";
 import {
   Select,
   SelectContent,
@@ -160,39 +161,53 @@ export function ApplyLeaveForm({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const newRequest: LeaveRequest = {
-      id: `lr-${Date.now()}`,
-      leaveTypeCode: selectedType.code,
-      leaveTypeName: selectedType.name,
-      dayType: isEarlyLeave ? "EARLY_LEAVE" : dayType,
-      fromDate: date,
-      toDate: date,
-      fromDateDisplay: isEarlyLeave
-        ? `${fromTime}\nFri`
-        : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
-      toDateDisplay: isEarlyLeave
-        ? `${toTime}\nFri`
-        : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
-      session: dayType === "HALF_DAY" ? session : undefined,
-      fromTime: isEarlyLeave ? fromTime : undefined,
-      toTime: isEarlyLeave ? toTime : undefined,
-      durationText: durationInfo.text,
-      durationDays: durationInfo.days,
-      reason,
-      status: "APPROVED",
-      appliedOn: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      attachments: attachments.length > 0 ? attachments : undefined,
-    };
+    try {
+      await applyLeaveAction({
+        leaveTypeCode: selectedType.code,
+        durationType: isEarlyLeave ? "EARLY_LEAVE" : dayType === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY",
+        halfDayType: dayType === "HALF_DAY" ? (session === "FIRST_HALF" ? "FIRST_HALF" : "SECOND_HALF") : undefined,
+        fromDate: date,
+        toDate: date,
+        fromTime: isEarlyLeave ? fromTime : undefined,
+        toTime: isEarlyLeave ? toTime : undefined,
+        durationDays: durationInfo.days,
+        durationHours: isEarlyLeave ? 2.5 : undefined,
+        reason,
+        attachmentFileName: attachments.length > 0 ? attachments[0].name : undefined,
+      });
 
-    setTimeout(() => {
+      const newRequest: LeaveRequest = {
+        id: `lr-${Date.now()}`,
+        leaveTypeCode: selectedType.code,
+        leaveTypeName: selectedType.name,
+        dayType: isEarlyLeave ? "EARLY_LEAVE" : dayType,
+        fromDate: date,
+        toDate: date,
+        fromDateDisplay: isEarlyLeave
+          ? `${fromTime}\nFri`
+          : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
+        toDateDisplay: isEarlyLeave
+          ? `${toTime}\nFri`
+          : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
+        session: dayType === "HALF_DAY" ? session : undefined,
+        fromTime: isEarlyLeave ? fromTime : undefined,
+        toTime: isEarlyLeave ? toTime : undefined,
+        durationText: durationInfo.text,
+        durationDays: durationInfo.days,
+        reason,
+        status: "PENDING",
+        appliedOn: new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+
       onSubmitLeave(newRequest);
       setIsSubmitting(false);
       setSubmittedSuccess(true);
@@ -203,7 +218,10 @@ export function ApplyLeaveForm({
           router.push("/pulse/leave");
         }
       }, 500);
-    }, 400);
+    } catch (err) {
+      console.error("Failed to submit leave request:", err);
+      setIsSubmitting(false);
+    }
   };
 
   const getIcon = (name: string) => {
@@ -302,7 +320,7 @@ export function ApplyLeaveForm({
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
                     {leaveTypes.map((lt) => {
-                      const Icon = getIcon(lt.iconName);
+                      const Icon = getIcon(lt.iconName || "Calendar");
                       return (
                         <SelectItem key={lt.code} value={lt.code} className="text-xs">
                           <div className="flex items-center gap-2">

@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { CompensatoryDetailsView } from "@/features/leave/components/compensatory-details-view";
-import { INITIAL_COMPENSATORY_REQUESTS } from "@/features/leave/data/mock-leave-data";
+import { LeaveWorkspace } from "@/features/leave/components/leave-workspace";
 
 export const metadata: Metadata = {
   title: "Compensatory Request Details | WinOS",
@@ -13,9 +12,11 @@ export default async function CompensatoryRequestDetailsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const request =
-    INITIAL_COMPENSATORY_REQUESTS.find((r) => r.id === id) ||
-    INITIAL_COMPENSATORY_REQUESTS[0];
-
-  return <CompensatoryDetailsView request={request} />;
+  return (
+    <LeaveWorkspace
+      initialTab="compensatory-details"
+      initialSelectedCompRequestId={id}
+    />
+  );
 }
+

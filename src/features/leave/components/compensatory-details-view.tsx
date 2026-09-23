@@ -18,6 +18,10 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { CompensatoryRequest } from "../types";
+import {
+  approveCompensatoryAction,
+  rejectCompensatoryAction,
+} from "../actions/leave-actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -33,23 +37,48 @@ export function CompensatoryDetailsView({
   onBack,
 }: CompensatoryDetailsViewProps) {
   const router = useRouter();
-  const [isCancelled, setIsCancelled] = useState(request.status === "CANCELLED");
+  const [status, setStatus] = useState(request.status);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const employee = {
-    name: "Vamshi R",
+    name: request.employeeName || "Employee",
     empId: "EMP00123",
-    role: "Product Manager",
+    role: request.designation || "Team Member",
   };
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleApprove = async () => {
+    setIsProcessing(true);
+    try {
+      await approveCompensatoryAction(request.id);
+      setStatus("APPROVED");
+    } catch (err) {
+      console.error("Failed to approve compensatory request:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setIsProcessing(true);
+    try {
+      await rejectCompensatoryAction(request.id);
+      setStatus("REJECTED");
+    } catch (err) {
+      console.error("Failed to reject compensatory request:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCancel = () => {
     if (onCancelRequest) {
       onCancelRequest(request.id);
     }
-    setIsCancelled(true);
+    setStatus("CANCELLED");
   };
 
   return (
@@ -76,16 +105,16 @@ export function CompensatoryDetailsView({
             <span
               className={cn(
                 "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                isCancelled
+                status === "CANCELLED"
                   ? "bg-muted text-muted-foreground border-border"
-                  : request.status === "APPROVED"
+                  : status === "APPROVED"
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : request.status === "REJECTED"
+                  : status === "REJECTED"
                   ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
                   : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
               )}
             >
-              {isCancelled ? "Cancelled" : request.status === "PENDING" ? "Pending" : request.status}
+              {status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}
             </span>
           </div>
 
@@ -224,32 +253,28 @@ export function CompensatoryDetailsView({
           </div>
 
           {/* Action Buttons: Reject / Approve */}
-          {!isCancelled && request.status === "PENDING" && (
+          {status === "PENDING" && (
             <div className="flex items-center gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  if (onCancelRequest) onCancelRequest(request.id);
-                  setIsCancelled(true);
-                }}
+                disabled={isProcessing}
+                onClick={handleReject}
                 className="h-10 px-8 rounded-xl text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
               >
                 <X className="w-4 h-4 text-red-500" />
-                <span>Reject</span>
+                <span>{isProcessing ? "Processing..." : "Reject"}</span>
               </Button>
 
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  request.status = "APPROVED";
-                  setIsCancelled(false);
-                }}
+                disabled={isProcessing}
+                onClick={handleApprove}
                 className="h-10 px-8 rounded-xl text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4 text-emerald-500" />
-                <span>Approve</span>
+                <span>{isProcessing ? "Processing..." : "Approve"}</span>
               </Button>
             </div>
           )}

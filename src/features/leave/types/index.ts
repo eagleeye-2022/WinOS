@@ -20,15 +20,15 @@ export interface LeaveTypeConfig {
   id: string;
   code: LeaveTypeCode;
   name: string;
-  shortName: string;
-  description: string;
-  iconName: string;
+  shortName?: string;
+  description?: string;
+  iconName?: string;
   iconBgColor: string;
   iconTextColor: string;
-  totalQuota: number;
+  totalQuota?: number;
   remainingDays: number;
   bookedDays: number;
-  unit: "Days" | "Hours";
+  unit: "Days" | "Hours" | string;
   allowNegative?: boolean;
 }
 
@@ -106,15 +106,21 @@ export interface CompensatoryRequest {
   id: string;
   workDate: string; // e.g., "18 Apr 2025"
   workDayOfWeek: string; // e.g., "Fri"
-  hoursWorkedDisplay: string; // e.g., "10:30 AM - 12:00 PM\n2h 30m"
-  fromTime: string;
-  toTime: string;
+  hoursWorkedDisplay?: string; // e.g., "10:30 AM - 12:00 PM\n2h 30m"
+  hoursWorked?: string;
+  fromTime?: string;
+  toTime?: string;
   durationHoursText?: string;
-  durationType: CompDurationType;
-  durationText: string; // "Full Day", "Half Day", "Quarter Day"
+  durationType?: CompDurationType;
+  durationText?: string; // "Full Day", "Half Day", "Quarter Day"
+  duration?: string;
   reason: string;
   status: LeaveStatus;
   requestedOn: string; // e.g., "19 Apr 2025"
   expiryDate: string; // e.g., "18 Jun 2025 (Wed)"
   attachments?: LeaveAttachment[];
+  employeeName?: string;
+  designation?: string;
+  avatarText?: string;
+  creditedDays?: number;
 }

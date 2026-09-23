@@ -17,6 +17,7 @@ import {
   PieChart,
 } from "lucide-react";
 import { CompDurationType, CompensatoryRequest, LeaveAttachment } from "../types";
+import { applyCompensatoryAction } from "../actions/leave-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,37 +115,46 @@ export function ApplyCompensatoryForm({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const d = new Date(workDate);
-    const day = d.getDate();
-    const month = d.toLocaleDateString("en-US", { month: "short" });
-    const year = d.getFullYear();
-    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+    try {
+      await applyCompensatoryAction({
+        workDate,
+        fromTime,
+        toTime,
+        hoursWorked: 8.0,
+        duration: durationType,
+        reason,
+      });
 
-    const newComp: CompensatoryRequest = {
-      id: `comp-${Date.now()}`,
-      workDate: `${day} ${month} ${year}`,
-      workDayOfWeek: weekday,
-      hoursWorkedDisplay: `${fromTime} - ${toTime}\n8h 00m`,
-      fromTime,
-      toTime,
-      durationType,
-      durationText: durationDetails.label,
-      reason,
-      status: "APPROVED",
-      requestedOn: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      expiryDate: expiryDateFormatted,
-      attachments: attachments.length > 0 ? attachments : undefined,
-    };
+      const d = new Date(workDate);
+      const day = d.getDate();
+      const month = d.toLocaleDateString("en-US", { month: "short" });
+      const year = d.getFullYear();
+      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
 
-    setTimeout(() => {
+      const newComp: CompensatoryRequest = {
+        id: `comp-${Date.now()}`,
+        workDate: `${day} ${month} ${year}`,
+        workDayOfWeek: weekday,
+        hoursWorkedDisplay: `${fromTime} - ${toTime}\n8h 00m`,
+        fromTime,
+        toTime,
+        durationType,
+        durationText: durationDetails.label,
+        reason,
+        status: "PENDING",
+        requestedOn: new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        expiryDate: expiryDateFormatted,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      };
+
       onSubmitCompensatory(newComp);
       setIsSubmitting(false);
       if (onCancel) {
@@ -152,7 +162,10 @@ export function ApplyCompensatoryForm({
       } else {
         router.push("/pulse/leave");
       }
-    }, 400);
+    } catch (err) {
+      console.error("Failed to submit compensatory request:", err);
+      setIsSubmitting(false);
+    }
   };
 
   return (

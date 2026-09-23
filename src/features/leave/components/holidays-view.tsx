@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   CalendarCheck,
@@ -10,6 +10,7 @@ import {
   Edit2,
   Trash2,
   X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,155 +30,94 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { getHolidaysAction } from "../queries/leave-queries";
+import {
+  createHolidayAction,
+  deleteHolidayAction,
+} from "../actions/leave-actions";
 
 interface HolidayRecord {
   id: string;
   name: string;
   date: string;
   dayOfWeek: string;
-  type: "Public Holiday" | "Special Holiday" | "Optional Holiday";
-  addedOn: string;
-  addedBy: string;
+  type: "PUBLIC" | "COMPANY_SPECIAL" | "OPTIONAL";
+  description?: string;
+  addedOn?: string;
+  addedBy?: string;
   iconType?: string;
 }
 
 export function HolidaysView() {
   const [selectedYear, setSelectedYear] = useState("2025");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State for Add Holiday Modal (Image 3)
+  // Form State for Add Holiday Modal
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
-  const [newHolidayType, setNewHolidayType] = useState("Public Holiday");
+  const [newHolidayType, setNewHolidayType] = useState<"PUBLIC" | "COMPANY_SPECIAL" | "OPTIONAL">("PUBLIC");
   const [newHolidayDesc, setNewHolidayDesc] = useState("");
 
-  const [holidayList, setHolidayList] = useState<HolidayRecord[]>([
-    {
-      id: "h-1",
-      name: "Republic Day",
-      date: "26 Jan 2025",
-      dayOfWeek: "Sunday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🏛️",
-    },
-    {
-      id: "h-2",
-      name: "Holi",
-      date: "14 Mar 2025",
-      dayOfWeek: "Friday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🎨",
-    },
-    {
-      id: "h-3",
-      name: "Eid-ul-Fitr",
-      date: "31 Mar 2025",
-      dayOfWeek: "Monday",
-      type: "Special Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🕌",
-    },
-    {
-      id: "h-4",
-      name: "Good Friday",
-      date: "18 Apr 2025",
-      dayOfWeek: "Friday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🙏",
-    },
-    {
-      id: "h-5",
-      name: "Independence Day",
-      date: "15 Aug 2025",
-      dayOfWeek: "Friday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🇮🇳",
-    },
-    {
-      id: "h-6",
-      name: "Ganesh Chaturthi",
-      date: "27 Aug 2025",
-      dayOfWeek: "Wednesday",
-      type: "Special Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🐘",
-    },
-    {
-      id: "h-7",
-      name: "Dussehra",
-      date: "02 Oct 2025",
-      dayOfWeek: "Thursday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🏹",
-    },
-    {
-      id: "h-8",
-      name: "Diwali",
-      date: "20 Oct 2025",
-      dayOfWeek: "Monday",
-      type: "Public Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🪔",
-    },
-    {
-      id: "h-9",
-      name: "Christmas",
-      date: "25 Dec 2025",
-      dayOfWeek: "Thursday",
-      type: "Special Holiday",
-      addedOn: "01 Jan 2025",
-      addedBy: "Admin",
-      iconType: "🎄",
-    },
-  ]);
+  const [holidayList, setHolidayList] = useState<HolidayRecord[]>([]);
+  const [metrics, setMetrics] = useState({
+    total: 0,
+    upcoming: 0,
+    passed: 0,
+    special: 0,
+  });
 
-  const handleAddHoliday = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newHolidayName || !newHolidayDate) return;
-
-    const d = new Date(newHolidayDate);
-    const day = d.getDate();
-    const month = d.toLocaleDateString("en-US", { month: "short" });
-    const year = d.getFullYear();
-    const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
-
-    const newH: HolidayRecord = {
-      id: `h-${Date.now()}`,
-      name: newHolidayName,
-      date: `${day} ${month} ${year}`,
-      dayOfWeek: weekday,
-      type: newHolidayType as any,
-      addedOn: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      addedBy: "Admin",
-      iconType: "✨",
-    };
-
-    setHolidayList([newH, ...holidayList]);
-    setIsAddModalOpen(false);
-    setNewHolidayName("");
-    setNewHolidayDate("");
-    setNewHolidayDesc("");
+  const loadHolidays = async (yearStr = selectedYear) => {
+    try {
+      setIsLoading(true);
+      const data = await getHolidaysAction(Number(yearStr));
+      setHolidayList(data.holidays as any);
+      setMetrics(data.metrics);
+    } catch (err) {
+      console.error("Failed to load holidays:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteHoliday = (id: string) => {
-    setHolidayList(holidayList.filter((h) => h.id !== id));
+  useEffect(() => {
+    loadHolidays(selectedYear);
+  }, [selectedYear]);
+
+  const handleAddHoliday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHolidayName || !newHolidayDate) return;
+    setIsSubmitting(true);
+
+    try {
+      await createHolidayAction({
+        name: newHolidayName,
+        date: newHolidayDate,
+        type: newHolidayType,
+        description: newHolidayDesc,
+      });
+
+      setIsAddModalOpen(false);
+      setNewHolidayName("");
+      setNewHolidayDate("");
+      setNewHolidayDesc("");
+      loadHolidays();
+    } catch (err) {
+      console.error("Failed to create holiday:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    try {
+      setHolidayList((prev) => prev.filter((h) => h.id !== id));
+      await deleteHolidayAction(id);
+      loadHolidays();
+    } catch (err) {
+      console.error("Failed to delete holiday:", err);
+    }
   };
 
   return (
@@ -211,9 +151,9 @@ export function HolidaysView() {
             <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">20</div>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.total}</div>
             <div className="text-xs font-semibold text-foreground">Total Holidays</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">This Year</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -223,9 +163,9 @@ export function HolidaysView() {
             <CalendarCheck className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">14</div>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.upcoming}</div>
             <div className="text-xs font-semibold text-foreground">Upcoming Holidays</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">This Year</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -235,9 +175,9 @@ export function HolidaysView() {
             <CalendarClock className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">6</div>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.passed}</div>
             <div className="text-xs font-semibold text-foreground">Holidays Passed</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">This Year</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -247,9 +187,9 @@ export function HolidaysView() {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">3</div>
-            <div className="text-xs font-semibold text-foreground">Special Holiday</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">This Year</div>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.special}</div>
+            <div className="text-xs font-semibold text-foreground">Special / Optional</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
       </div>
@@ -282,84 +222,90 @@ export function HolidaysView() {
                 <th className="py-3 px-4 font-semibold">DATE ↕</th>
                 <th className="py-3 px-4 font-semibold">DAY</th>
                 <th className="py-3 px-4 font-semibold">TYPE</th>
-                <th className="py-3 px-5 font-semibold">ADDED ON ↕</th>
+                <th className="py-3 px-5 font-semibold">DESCRIPTION</th>
                 <th className="py-3 px-4 font-semibold text-center">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {holidayList.map((holiday) => (
-                <tr key={holiday.id} className="hover:bg-muted/30 transition-colors">
-                  {/* Holiday Name */}
-                  <td className="py-3 px-5">
-                    <div className="flex items-center gap-3">
-                      <span className="text-base">{holiday.iconType}</span>
-                      <span className="font-semibold text-foreground">{holiday.name}</span>
-                    </div>
-                  </td>
-
-                  {/* Date */}
-                  <td className="py-3 px-4 font-medium text-foreground">
-                    {holiday.date}
-                  </td>
-
-                  {/* Day */}
-                  <td className="py-3 px-4 text-muted-foreground">
-                    {holiday.dayOfWeek}
-                  </td>
-
-                  {/* Type */}
-                  <td className="py-3 px-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
-                        holiday.type === "Public Holiday"
-                          ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
-                          : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      )}
-                    >
-                      {holiday.type}
-                    </span>
-                  </td>
-
-                  {/* Added On */}
-                  <td className="py-3 px-5">
-                    <div className="font-medium text-foreground">{holiday.addedOn}</div>
-                    <div className="text-[10px] text-muted-foreground">by {holiday.addedBy}</div>
-                  </td>
-
-                  {/* Actions (Image 5) */}
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <button
-                        type="button"
-                        className="hover:text-primary p-1 rounded"
-                        title="Edit Holiday"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteHoliday(holiday.id)}
-                        className="hover:text-red-500 p-1 rounded"
-                        title="Delete Holiday"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600" />
-                      </button>
-                    </div>
+              {holidayList.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    No holidays listed for {selectedYear}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                holidayList.map((holiday) => (
+                  <tr key={holiday.id} className="hover:bg-muted/30 transition-colors">
+                    {/* Holiday Name */}
+                    <td className="py-3 px-5">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base">{holiday.iconType || "🎉"}</span>
+                        <span className="font-semibold text-foreground">{holiday.name}</span>
+                      </div>
+                    </td>
+
+                    {/* Date */}
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      {holiday.date}
+                    </td>
+
+                    {/* Day */}
+                    <td className="py-3 px-4 text-muted-foreground">
+                      {holiday.dayOfWeek}
+                    </td>
+
+                    {/* Type */}
+                    <td className="py-3 px-4">
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
+                          holiday.type === "PUBLIC"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        )}
+                      >
+                        {holiday.type === "PUBLIC"
+                          ? "Public Holiday"
+                          : holiday.type === "COMPANY_SPECIAL"
+                          ? "Special Holiday"
+                          : "Optional Holiday"}
+                      </span>
+                    </td>
+
+                    {/* Description */}
+                    <td className="py-3 px-5">
+                      <div className="text-muted-foreground text-[11px] max-w-xs truncate">
+                        {holiday.description || "Company Holiday"}
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHoliday(holiday.id)}
+                          className="hover:text-red-500 p-1 rounded"
+                          title="Delete Holiday"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Showing Records Footer */}
         <div className="flex items-center justify-end text-xs text-muted-foreground pt-1">
-          <span>Showing: <strong className="text-foreground">05 ▾</strong> of 15 records</span>
+          <span>Showing: <strong className="text-foreground">{holidayList.length}</strong> records</span>
         </div>
       </div>
 
-      {/* Add Holiday Dialog (Image 3) */}
+      {/* Add Holiday Dialog */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
@@ -402,14 +348,17 @@ export function HolidaysView() {
               <label className="font-semibold text-foreground">
                 Holiday Type <span className="text-red-500">*</span>
               </label>
-              <Select value={newHolidayType} onValueChange={setNewHolidayType}>
+              <Select
+                value={newHolidayType}
+                onValueChange={(val) => setNewHolidayType(val as any)}
+              >
                 <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="Select holiday type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Public Holiday">Public Holiday</SelectItem>
-                  <SelectItem value="Special Holiday">Special Holiday</SelectItem>
-                  <SelectItem value="Optional Holiday">Optional Holiday</SelectItem>
+                  <SelectItem value="PUBLIC">Public Holiday</SelectItem>
+                  <SelectItem value="COMPANY_SPECIAL">Special Holiday</SelectItem>
+                  <SelectItem value="OPTIONAL">Optional Holiday</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">
@@ -455,10 +404,10 @@ export function HolidaysView() {
               <Button
                 type="submit"
                 size="sm"
-                disabled={!newHolidayName || !newHolidayDate}
+                disabled={isSubmitting || !newHolidayName || !newHolidayDate}
                 className="text-xs h-9 rounded-xl bg-primary text-primary-foreground"
               >
-                Add Holiday
+                {isSubmitting ? "Adding..." : "Add Holiday"}
               </Button>
             </DialogFooter>
           </form>

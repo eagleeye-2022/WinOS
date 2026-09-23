@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,8 +11,10 @@ import {
   Scale,
   ChevronRight,
   CheckCircle2,
+  User,
+  Loader2,
 } from "lucide-react";
-import { LeaveTypeCode, LeaveTypeConfig } from "../types";
+import { LeaveTypeCode } from "../types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,10 +25,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
+import { adjustLeaveBalanceAction } from "../actions/leave-actions";
 
 interface AdjustmentRow {
   id: string;
-  leaveTypeCode: LeaveTypeCode;
+  leaveTypeId: string;
+  leaveTypeCode: string;
   leaveTypeName: string;
   adjustmentType: "ADD" | "DEDUCT";
   days: number;
@@ -36,51 +41,91 @@ interface AdjustmentRow {
 export function LeaveBalanceAdjustmentView() {
   const router = useRouter();
 
-  const [rows, setRows] = useState<AdjustmentRow[]>([
-    {
-      id: "row-1",
-      leaveTypeCode: "CL",
-      leaveTypeName: "Casual Leave (CL)",
-      adjustmentType: "ADD",
-      days: 2,
-      currentBalance: 6,
-    },
-    {
-      id: "row-2",
-      leaveTypeCode: "SL",
-      leaveTypeName: "Sick Leave (SL)",
-      adjustmentType: "ADD",
-      days: 1,
-      currentBalance: 5,
-    },
-  ]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmpId, setSelectedEmpId] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [effectiveDate, setEffectiveDate] = useState("2025-05-20");
-  const [reason, setReason] = useState("Performance Reward");
-  const [remarks, setRemarks] = useState("Outstanding performance in Q1 2025");
+  const [rows, setRows] = useState<AdjustmentRow[]>([]);
+  const [effectiveDate, setEffectiveDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [reason, setReason] = useState<
+    "SPECIAL_AWARD" | "POLICY_REVISION" | "JOINING_PRORATION" | "YEARLY_CORRECTION" | "LOSS_OF_PAY_REVERSAL" | "OTHER"
+  >("SPECIAL_AWARD");
+  const [remarks, setRemarks] = useState("Performance Reward / Adjustment");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
-  // Available leave types to add
-  const availableTypes: { code: LeaveTypeCode; name: string; defaultBalance: number }[] = [
-    { code: "CL", name: "Casual Leave (CL)", defaultBalance: 6 },
-    { code: "SL", name: "Sick Leave (SL)", defaultBalance: 5 },
-    { code: "PL", name: "Paid Leave (PL)", defaultBalance: 12 },
-    { code: "AL", name: "Annual Leave", defaultBalance: 8 },
-    { code: "COMP", name: "Comp Off", defaultBalance: 2 },
-  ];
+  useEffect(() => {
+    async function load() {
+      try {
+        const emps = await getEmployeesForAdjustmentAction();
+        setEmployees(emps);
+        if (emps.length > 0) {
+          const firstEmp = emps[0];
+          setSelectedEmpId(firstEmp.id);
+          setupInitialRows(firstEmp);
+        }
+      } catch (err) {
+        console.error("Failed to load employees for adjustment:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const currentEmployee = useMemo(() => {
+    return employees.find((e) => e.id === selectedEmpId) || employees[0];
+  }, [employees, selectedEmpId]);
+
+  const availableTypes = useMemo(() => {
+    if (!currentEmployee?.balances) return [];
+    return currentEmployee.balances.map((b: any) => ({
+      id: b.leaveTypeId,
+      code: b.leaveTypeCode,
+      name: `${b.leaveTypeName} (${b.leaveTypeCode})`,
+      available: b.available,
+    }));
+  }, [currentEmployee]);
+
+  const setupInitialRows = (emp: any) => {
+    if (!emp?.balances || emp.balances.length === 0) return;
+    const initial = emp.balances.slice(0, 2).map((b: any, idx: number) => ({
+      id: `row-${idx + 1}`,
+      leaveTypeId: b.leaveTypeId,
+      leaveTypeCode: b.leaveTypeCode,
+      leaveTypeName: `${b.leaveTypeName} (${b.leaveTypeCode})`,
+      adjustmentType: "ADD" as const,
+      days: 1,
+      currentBalance: b.available,
+    }));
+    setRows(initial);
+  };
+
+  const handleSelectEmployee = (empId: string) => {
+    setSelectedEmpId(empId);
+    const emp = employees.find((e) => e.id === empId);
+    if (emp) {
+      setupInitialRows(emp);
+    }
+  };
 
   const handleAddRow = () => {
     const unusedType =
-      availableTypes.find((t) => !rows.some((r) => r.leaveTypeCode === t.code)) ||
+      availableTypes.find((t: any) => !rows.some((r) => r.leaveTypeId === t.id)) ||
       availableTypes[0];
+
+    if (!unusedType) return;
 
     const newRow: AdjustmentRow = {
       id: `row-${Date.now()}`,
+      leaveTypeId: unusedType.id,
       leaveTypeCode: unusedType.code,
       leaveTypeName: unusedType.name,
       adjustmentType: "ADD",
       days: 1,
-      currentBalance: unusedType.defaultBalance,
+      currentBalance: unusedType.available,
     };
     setRows([...rows, newRow]);
   };
@@ -91,19 +136,18 @@ export function LeaveBalanceAdjustmentView() {
     }
   };
 
-  const handleUpdateRow = (
-    id: string,
-    updates: Partial<AdjustmentRow>
-  ) => {
+  const handleUpdateRow = (id: string, updates: Partial<AdjustmentRow>) => {
     setRows((prev) =>
       prev.map((r) => {
         if (r.id === id) {
           const updated = { ...r, ...updates };
-          if (updates.leaveTypeCode) {
-            const matched = availableTypes.find((t) => t.code === updates.leaveTypeCode);
+          if (updates.leaveTypeId) {
+            const matched = availableTypes.find((t: any) => t.id === updates.leaveTypeId);
             if (matched) {
+              updated.leaveTypeId = matched.id;
+              updated.leaveTypeCode = matched.code;
               updated.leaveTypeName = matched.name;
-              updated.currentBalance = matched.defaultBalance;
+              updated.currentBalance = matched.available;
             }
           }
           return updated;
@@ -121,11 +165,29 @@ export function LeaveBalanceAdjustmentView() {
     }, 0);
   }, [rows]);
 
-  const handleConfirm = () => {
-    setIsSuccessModalOpen(true);
-    setTimeout(() => {
-      router.push("/pulse/leave/team");
-    }, 800);
+  const handleConfirm = async () => {
+    if (!currentEmployee) return;
+    setIsSubmitting(true);
+    try {
+      for (const row of rows) {
+        const adjustmentDays = row.adjustmentType === "ADD" ? row.days : -row.days;
+        await adjustLeaveBalanceAction({
+          employeeId: currentEmployee.id,
+          leaveTypeId: row.leaveTypeId,
+          adjustmentDays,
+          reason,
+          remarks,
+        });
+      }
+      setIsSuccessModalOpen(true);
+      setTimeout(() => {
+        router.push("/pulse/leave/team");
+      }, 500);
+    } catch (err) {
+      console.error("Failed to adjust balance:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -153,18 +215,40 @@ export function LeaveBalanceAdjustmentView() {
         </div>
       </div>
 
-      {/* Employee Banner Card */}
+      {/* Employee Banner / Selector Card */}
       <div className="bg-card border rounded-2xl p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-sm shrink-0 overflow-hidden">
-            <span>VR</span>
+            {currentEmployee?.avatarUrl ? (
+              <img
+                src={currentEmployee.avatarUrl}
+                alt={currentEmployee.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{(currentEmployee?.name || "EM").slice(0, 2).toUpperCase()}</span>
+            )}
           </div>
           <div>
-            <h3 className="text-base font-bold text-foreground leading-tight">
-              Vamshi R
-            </h3>
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedEmpId}
+                onValueChange={(val) => handleSelectEmployee(val)}
+              >
+                <SelectTrigger className="h-8 w-56 font-bold text-sm bg-background border-none p-0 focus:ring-0">
+                  <SelectValue placeholder="Select Employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.id} className="text-xs">
+                      {e.name} ({e.empId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              EMP00123 • Product Manager
+              {currentEmployee?.empId} • {currentEmployee?.role}
             </div>
           </div>
         </div>
@@ -179,7 +263,9 @@ export function LeaveBalanceAdjustmentView() {
               <div className="text-[10px] font-medium text-muted-foreground uppercase">
                 Department
               </div>
-              <div className="font-bold text-foreground">Engineering</div>
+              <div className="font-bold text-foreground">
+                {currentEmployee?.department || "Engineering"}
+              </div>
             </div>
           </div>
 
@@ -190,9 +276,11 @@ export function LeaveBalanceAdjustmentView() {
             </div>
             <div>
               <div className="text-[10px] font-medium text-muted-foreground uppercase">
-                Joining Date
+                Status
               </div>
-              <div className="font-bold text-foreground">15 Jan 2023</div>
+              <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                Active
+              </div>
             </div>
           </div>
         </div>
@@ -246,17 +334,17 @@ export function LeaveBalanceAdjustmentView() {
                     {/* Leave Type Select */}
                     <td className="py-3 px-4">
                       <Select
-                        value={row.leaveTypeCode}
+                        value={row.leaveTypeId}
                         onValueChange={(val) =>
-                          handleUpdateRow(row.id, { leaveTypeCode: val as LeaveTypeCode })
+                          handleUpdateRow(row.id, { leaveTypeId: val })
                         }
                       >
                         <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableTypes.map((t) => (
-                            <SelectItem key={t.code} value={t.code} className="text-xs">
+                          {availableTypes.map((t: any) => (
+                            <SelectItem key={t.id} value={t.id} className="text-xs">
                               {t.name}
                             </SelectItem>
                           ))}
@@ -366,16 +454,20 @@ export function LeaveBalanceAdjustmentView() {
             <label className="text-xs font-semibold text-foreground">
               Reason <span className="text-red-500">*</span>
             </label>
-            <Select value={reason} onValueChange={setReason}>
+            <Select
+              value={reason}
+              onValueChange={(val) => setReason(val as any)}
+            >
               <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
                 <SelectValue placeholder="Select Reason" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Performance Reward">Performance Reward</SelectItem>
-                <SelectItem value="Policy Correction">Policy Correction</SelectItem>
-                <SelectItem value="Joining Proration">Joining Proration</SelectItem>
-                <SelectItem value="Compensatory Conversion">Compensatory Conversion</SelectItem>
-                <SelectItem value="Manual Adjustment">Manual Adjustment</SelectItem>
+                <SelectItem value="SPECIAL_AWARD">Performance Reward</SelectItem>
+                <SelectItem value="POLICY_REVISION">Policy Revision</SelectItem>
+                <SelectItem value="JOINING_PRORATION">Joining Proration</SelectItem>
+                <SelectItem value="YEARLY_CORRECTION">Yearly Correction</SelectItem>
+                <SelectItem value="LOSS_OF_PAY_REVERSAL">Loss of Pay Reversal</SelectItem>
+                <SelectItem value="OTHER">Other Adjustment</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -443,10 +535,11 @@ export function LeaveBalanceAdjustmentView() {
 
           <Button
             type="button"
+            disabled={isSubmitting || rows.length === 0}
             onClick={handleConfirm}
             className="h-10 px-6 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
           >
-            Review & Confirm
+            {isSubmitting ? "Adjusting..." : "Review & Confirm"}
           </Button>
         </div>
       </div>

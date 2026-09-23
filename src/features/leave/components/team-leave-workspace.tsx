@@ -39,6 +39,17 @@ import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
 
+import {
+  getTeamLeaveRequestsAction,
+  getTeamCompensatoryRequestsAction,
+} from "../queries/leave-queries";
+import {
+  approveLeaveRequestAction,
+  rejectLeaveRequestAction,
+  approveCompensatoryAction,
+  rejectCompensatoryAction,
+} from "../actions/leave-actions";
+
 interface TeamLeaveItem {
   id: string;
   employeeName: string;
@@ -67,7 +78,18 @@ interface TeamCompItem {
   requestedOn: string;
 }
 
-export function TeamLeaveWorkspace() {
+export function TeamLeaveWorkspace({
+  initialTab = "leave-requests",
+}: {
+  initialTab?:
+    | "leave-requests"
+    | "employee-leave"
+    | "compensatory-requests"
+    | "team-calendar"
+    | "holidays"
+    | "leave-policy"
+    | "create-leave-type";
+}) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     | "leave-requests"
@@ -77,158 +99,24 @@ export function TeamLeaveWorkspace() {
     | "holidays"
     | "leave-policy"
     | "create-leave-type"
-  >("leave-requests");
+  >(initialTab);
 
-  // Team Leave Requests State (Image 3)
-  const [teamRequests, setTeamRequests] = useState<TeamLeaveItem[]>([
-    {
-      id: "req-1",
-      employeeName: "Rohit Sharma",
-      department: "Product Design",
-      avatarText: "RS",
-      leaveType: "Sick Leave (SL)",
-      leaveTypeCode: "SL",
-      duration: "2 Days",
-      dateTime: "21 May 2025 - 22 May 2025",
-      reason: "Fever and cold",
-      status: "PENDING",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-2",
-      employeeName: "Priya Nair",
-      department: "Engineering",
-      avatarText: "PN",
-      leaveType: "Early Leave",
-      leaveTypeCode: "EL",
-      duration: "-",
-      dateTime: "04:30 PM - 06:30 PM",
-      reason: "Personal work",
-      status: "PENDING",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-3",
-      employeeName: "Arjun Verma",
-      department: "Engineering",
-      avatarText: "AV",
-      leaveType: "Half Day (Second Half)",
-      leaveTypeCode: "HD",
-      duration: "0.5 Day",
-      dateTime: "26 May 2025 - 28 May 2025",
-      reason: "Family function",
-      status: "PENDING",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-4",
-      employeeName: "Meera",
-      department: "Marketing",
-      avatarText: "M",
-      leaveType: "Casual Leave (CL)",
-      leaveTypeCode: "CL",
-      duration: "1 Day",
-      dateTime: "19 May 2025",
-      reason: "Personal work",
-      status: "APPROVED",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-5",
-      employeeName: "Vikram Singh",
-      department: "Sales",
-      avatarText: "VS",
-      leaveType: "Sick Leave (SL)",
-      leaveTypeCode: "SL",
-      duration: "3 Days",
-      dateTime: "15 May 2025 - 17 May 2025",
-      reason: "Stomach infection",
-      status: "APPROVED",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-6",
-      employeeName: "Sneha Iyer",
-      department: "HR",
-      avatarText: "SI",
-      leaveType: "Privilege Leave (PL)",
-      leaveTypeCode: "PL",
-      duration: "2 Days",
-      dateTime: "12 May 2025 - 13 May 2025",
-      reason: "Birthday celebration",
-      status: "REJECTED",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-7",
-      employeeName: "Karan Mehta",
-      department: "Finance",
-      avatarText: "KM",
-      leaveType: "Casual Leave (CL)",
-      leaveTypeCode: "CL",
-      duration: "1 Day",
-      dateTime: "09 May 2025",
-      reason: "Bank work",
-      status: "CANCELLED",
-      appliedOn: "20 May 2025",
-    },
-    {
-      id: "req-8",
-      employeeName: "Ananya",
-      department: "Operations",
-      avatarText: "A",
-      leaveType: "Maternity Leave (ML)",
-      leaveTypeCode: "MAT",
-      duration: "60 Days",
-      dateTime: "01 May 2025 - 29 Jun 2025",
-      reason: "Maternity",
-      status: "APPROVED",
-      appliedOn: "20 May 2025",
-    },
-  ]);
-
-  // Team Compensatory Requests State (Image 5)
-  const [teamCompRequests, setTeamCompRequests] = useState<TeamCompItem[]>([
-    {
-      id: "tcomp-1",
-      employeeName: "Rohit Sharma",
-      designation: "Senior UI/UX Designer",
-      avatarText: "RS",
-      workDate: "15 May 2025",
-      workDay: "Thu",
-      hoursWorked: "10:30 AM - 08:30 PM\n10.0 Hours",
-      duration: "Full Day",
-      reason: "Worked on product release",
-      status: "PENDING",
-      requestedOn: "18 May 2025",
-    },
-    {
-      id: "tcomp-2",
-      employeeName: "Rohit Sharma",
-      designation: "Senior UI/UX Designer",
-      avatarText: "RS",
-      workDate: "15 May 2025",
-      workDay: "Thu",
-      hoursWorked: "10:30 AM - 08:30 PM\n10.0 Hours",
-      duration: "Full Day",
-      reason: "Worked on product release",
-      status: "PENDING",
-      requestedOn: "18 May 2025",
-    },
-    {
-      id: "tcomp-3",
-      employeeName: "Rohit Sharma",
-      designation: "Senior UI/UX Designer",
-      avatarText: "RS",
-      workDate: "15 May 2025",
-      workDay: "Thu",
-      hoursWorked: "10:30 AM - 08:30 PM\n10.0 Hours",
-      duration: "Full Day",
-      reason: "Worked on product release",
-      status: "PENDING",
-      requestedOn: "18 May 2025",
-    },
-  ]);
+  const [teamRequests, setTeamRequests] = useState<TeamLeaveItem[]>([]);
+  const [teamCompRequests, setTeamCompRequests] = useState<TeamCompItem[]>([]);
+  const [metrics, setMetrics] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    cancelled: 0,
+    total: 0,
+  });
+  const [compMetrics, setCompMetrics] = useState({
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    cancelled: 0,
+    total: 0,
+  });
 
   // Filters state
   const [searchEmployee, setSearchEmployee] = useState("");
@@ -237,23 +125,68 @@ export function TeamLeaveWorkspace() {
   const [selectedDept, setSelectedDept] = useState<string>("ALL");
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
+  // Load live team requests
+  const loadData = async () => {
+    try {
+      const res = await getTeamLeaveRequestsAction({
+        search: searchEmployee,
+        status: selectedStatus,
+        leaveTypeCode: selectedType,
+        department: selectedDept,
+      });
+      setTeamRequests(res.requests as any);
+      setMetrics(res.metrics);
+
+      const compRes = await getTeamCompensatoryRequestsAction({
+        search: searchEmployee,
+        status: selectedStatus,
+      });
+      setTeamCompRequests(compRes.requests as any);
+      setCompMetrics(compRes.metrics);
+    } catch (err) {
+      console.error("Failed to load team requests:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    loadData();
+  }, [searchEmployee, selectedStatus, selectedType, selectedDept]);
+
   // Actions
-  const handleQuickApprove = (id: string) => {
-    setTeamRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "APPROVED" } : r))
-    );
+  const handleQuickApprove = async (id: string) => {
+    try {
+      await approveLeaveRequestAction(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to approve request:", err);
+    }
   };
 
-  const handleQuickReject = (id: string) => {
-    setTeamRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "REJECTED" } : r))
-    );
+  const handleQuickReject = async (id: string) => {
+    try {
+      await rejectLeaveRequestAction(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to reject request:", err);
+    }
   };
 
-  const handleQuickCompApprove = (id: string) => {
-    setTeamCompRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "APPROVED" } : r))
-    );
+  const handleQuickCompApprove = async (id: string) => {
+    try {
+      await approveCompensatoryAction(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to approve comp request:", err);
+    }
+  };
+
+  const handleQuickCompReject = async (id: string) => {
+    try {
+      await rejectCompensatoryAction(id);
+      loadData();
+    } catch (err) {
+      console.error("Failed to reject comp request:", err);
+    }
   };
 
   const toggleSelectAll = () => {
@@ -746,7 +679,7 @@ export function TeamLeaveWorkspace() {
               </div>
               <div>
                 <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Pending</div>
-                <div className="text-lg font-bold text-foreground">12 <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.pending} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -756,7 +689,7 @@ export function TeamLeaveWorkspace() {
               </div>
               <div>
                 <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Approved</div>
-                <div className="text-lg font-bold text-foreground">28 <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.approved} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -766,7 +699,7 @@ export function TeamLeaveWorkspace() {
               </div>
               <div>
                 <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Rejected</div>
-                <div className="text-lg font-bold text-foreground">3 <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.rejected} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -776,7 +709,7 @@ export function TeamLeaveWorkspace() {
               </div>
               <div>
                 <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Cancelled</div>
-                <div className="text-lg font-bold text-foreground">1 <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.cancelled} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -786,7 +719,7 @@ export function TeamLeaveWorkspace() {
               </div>
               <div>
                 <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Total Requests</div>
-                <div className="text-lg font-bold text-foreground">44 <span className="text-[10px] font-normal text-muted-foreground">This Month</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-[10px] font-normal text-muted-foreground">This Month</span></div>
               </div>
             </div>
           </div>
@@ -904,14 +837,24 @@ export function TeamLeaveWorkspace() {
                           </Link>
 
                           {comp.status === "PENDING" && (
-                            <button
-                              type="button"
-                              onClick={() => handleQuickCompApprove(comp.id)}
-                              className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-600"
-                              title="Quick Approve"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickCompApprove(comp.id)}
+                                className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-600"
+                                title="Quick Approve"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickCompReject(comp.id)}
+                                className="p-1 rounded-lg hover:bg-red-50 text-red-600"
+                                title="Quick Reject"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

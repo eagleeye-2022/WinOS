@@ -23,6 +23,10 @@ import {
   History,
 } from "lucide-react";
 import { LeaveRequest, LeaveTypeConfig } from "../types";
+import {
+  approveLeaveRequestAction,
+  rejectLeaveRequestAction,
+} from "../actions/leave-actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +45,8 @@ export function LeaveRequestDetailsView({
 }: LeaveRequestDetailsViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"approval" | "balance">("approval");
-  const [isCancelled, setIsCancelled] = useState(request.status === "CANCELLED");
+  const [status, setStatus] = useState(request.status);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const employee = request.employee || {
     name: "Vamshi R",
@@ -53,11 +58,35 @@ export function LeaveRequestDetailsView({
     window.print();
   };
 
+  const handleApprove = async () => {
+    setIsProcessing(true);
+    try {
+      await approveLeaveRequestAction(request.id);
+      setStatus("APPROVED");
+    } catch (err) {
+      console.error("Failed to approve leave request:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setIsProcessing(true);
+    try {
+      await rejectLeaveRequestAction(request.id);
+      setStatus("REJECTED");
+    } catch (err) {
+      console.error("Failed to reject leave request:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCancel = () => {
     if (onCancelRequest) {
       onCancelRequest(request.id);
     }
-    setIsCancelled(true);
+    setStatus("CANCELLED");
   };
 
   return (
@@ -84,16 +113,16 @@ export function LeaveRequestDetailsView({
             <span
               className={cn(
                 "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                isCancelled
+                status === "CANCELLED"
                   ? "bg-muted text-muted-foreground border-border"
-                  : request.status === "APPROVED"
+                  : status === "APPROVED"
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : request.status === "REJECTED"
+                  : status === "REJECTED"
                   ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
                   : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
               )}
             >
-              {isCancelled ? "Cancelled" : request.status === "PENDING" ? "Pending" : request.status}
+              {status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}
             </span>
           </div>
 
@@ -174,7 +203,7 @@ export function LeaveRequestDetailsView({
                 <span className="text-muted-foreground font-medium text-[11px]">Status</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                  <span>{isCancelled ? "Cancelled" : request.status === "PENDING" ? "Pending" : request.status}</span>
+                  <span>{status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}</span>
                 </div>
               </div>
 
@@ -267,32 +296,28 @@ export function LeaveRequestDetailsView({
           </div>
 
           {/* Action Buttons: Manager Approve / Reject or Employee Cancel */}
-          {!isCancelled && request.status === "PENDING" && (
+          {status === "PENDING" && (
             <div className="flex items-center gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  if (onCancelRequest) onCancelRequest(request.id);
-                  setIsCancelled(true);
-                }}
+                disabled={isProcessing}
+                onClick={handleReject}
                 className="h-10 px-8 rounded-xl text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
               >
                 <X className="w-4 h-4 text-red-500" />
-                <span>Reject</span>
+                <span>{isProcessing ? "Processing..." : "Reject"}</span>
               </Button>
 
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  request.status = "APPROVED";
-                  setIsCancelled(false);
-                }}
+                disabled={isProcessing}
+                onClick={handleApprove}
                 className="h-10 px-8 rounded-xl text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4 text-emerald-500" />
-                <span>Approve</span>
+                <span>{isProcessing ? "Processing..." : "Approve"}</span>
               </Button>
             </div>
           )}

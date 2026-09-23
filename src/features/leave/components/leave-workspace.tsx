@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -8,15 +8,8 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  CheckCircle2,
+  Loader2,
 } from "lucide-react";
-import {
-  INITIAL_ACTION_REQUIRED,
-  INITIAL_COMPENSATORY_REQUESTS,
-  INITIAL_LEAVE_REQUESTS,
-  INITIAL_LEAVE_TYPES,
-} from "../data/mock-leave-data";
 import {
   ActionRequiredItem,
   CompensatoryRequest,
@@ -26,17 +19,20 @@ import {
 import { LeaveBalanceGrid } from "./leave-balance-grid";
 import { ActionRequiredBanner } from "./action-required-banner";
 import { LeaveRequestsTable } from "./leave-requests-table";
-import { LeaveDetailModal } from "./leave-detail-modal";
 import { RegularizeModal } from "./regularize-modal";
 import { CompensatoryRequestsTable } from "./compensatory-requests-table";
 import { ApplyCompensatoryForm } from "./apply-compensatory-form";
 import { HolidaysView } from "./holidays-view";
 import { ApplyLeaveForm } from "./apply-leave-form";
 import { LeaveRequestDetailsView } from "./leave-request-details-view";
-import { TeamLeaveWorkspace } from "./team-leave-workspace";
+import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
-import { User, Users2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getMyLeaveTrackerDataAction } from "../queries/leave-queries";
+import {
+  cancelLeaveRequestAction,
+  submitRegularizationAction,
+} from "../actions/leave-actions";
 
 type ActiveTab =
   | "overview"
@@ -45,44 +41,87 @@ type ActiveTab =
   | "holidays"
   | "apply"
   | "apply-compensatory"
-  | "request-details";
+  | "request-details"
+  | "compensatory-details";
 
 interface LeaveWorkspaceProps {
   initialTab?: ActiveTab;
   initialSelectedRequestId?: string;
-  initialViewMode?: "member" | "manager";
+  initialSelectedCompRequestId?: string;
 }
 
 export function LeaveWorkspace({
   initialTab = "overview",
   initialSelectedRequestId,
-  initialViewMode = "member",
+  initialSelectedCompRequestId,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<"member" | "manager">(initialViewMode);
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const [isPending, startTransition] = useTransition();
 
-  // Data state
-  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeConfig[]>(INITIAL_LEAVE_TYPES);
-  const [actionRequiredItems, setActionRequiredItems] =
-    useState<ActionRequiredItem[]>(INITIAL_ACTION_REQUIRED);
-  const [leaveRequests, setLeaveRequests] =
-    useState<LeaveRequest[]>(INITIAL_LEAVE_REQUESTS);
-  const [compensatoryRequests, setCompensatoryRequests] =
-    useState<CompensatoryRequest[]>(INITIAL_COMPENSATORY_REQUESTS);
+  // Data state from Database
+  const [leaveTypes, setLeaveTypes] = useState<LeaveTypeConfig[]>([]);
+  const [actionRequiredItems, setActionRequiredItems] = useState<ActionRequiredItem[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [compensatoryRequests, setCompensatoryRequests] = useState<CompensatoryRequest[]>([]);
+  const [stats, setStats] = useState({ bookedThisYear: 0, absentDays: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
   // Modals / View details state
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(
-    initialSelectedRequestId
-      ? leaveRequests.find((r) => r.id === initialSelectedRequestId) || leaveRequests[0]
-      : null
-  );
-  const [selectedCompRequest, setSelectedCompRequest] =
-    useState<CompensatoryRequest | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [selectedCompRequest, setSelectedCompRequest] = useState<CompensatoryRequest | null>(null);
   const [regularizeItem, setRegularizeItem] = useState<ActionRequiredItem | null>(null);
   const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
   const [prefilledApplyDate, setPrefilledApplyDate] = useState<string | undefined>(undefined);
+
+  // Load real data from DB
+  const loadData = () => {
+    startTransition(async () => {
+      try {
+        const data = await getMyLeaveTrackerDataAction();
+        setLeaveTypes(
+          data.balances.map((b) => ({
+            id: b.id,
+            code: b.code as any,
+            name: b.name,
+            remainingDays: b.remainingDays,
+            bookedDays: b.bookedDays,
+            unit: b.unit as any,
+            iconBgColor: b.iconBgColor,
+            iconTextColor: b.iconTextColor,
+          }))
+        );
+        setLeaveRequests(data.requests as any);
+        setCompensatoryRequests(data.compensatoryRequests as any);
+        setActionRequiredItems(data.actionRequiredItems as any);
+        setStats(data.stats);
+
+        if (initialSelectedRequestId) {
+          const matched = data.requests.find((r) => r.id === initialSelectedRequestId);
+          if (matched) {
+            setSelectedRequest(matched as any);
+            setActiveTab("request-details");
+          }
+        }
+
+        if (initialSelectedCompRequestId) {
+          const matchedComp = data.compensatoryRequests.find((c) => c.id === initialSelectedCompRequestId);
+          if (matchedComp) {
+            setSelectedCompRequest(matchedComp as any);
+            setActiveTab("compensatory-details");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load leave tracker data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // Handlers
   const handleViewRequest = (request: LeaveRequest) => {
@@ -92,12 +131,16 @@ export function LeaveWorkspace({
 
   const handleViewCompRequest = (request: CompensatoryRequest) => {
     setSelectedCompRequest(request);
+    setActiveTab("compensatory-details");
   };
 
-  const handleCancelRequest = (requestId: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) => (r.id === requestId ? { ...r, status: "CANCELLED" } : r))
-    );
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      await cancelLeaveRequestAction(requestId);
+      loadData();
+    } catch (err) {
+      console.error("Failed to cancel request:", err);
+    }
   };
 
   const handleRegularizeClick = (item: ActionRequiredItem) => {
@@ -105,81 +148,94 @@ export function LeaveWorkspace({
     setIsRegularizeModalOpen(true);
   };
 
-  const handleRegularizeSubmit = (
+  const handleRegularizeSubmit = async (
     itemId: string,
     checkIn: string,
     checkOut: string,
     reason: string
   ) => {
-    setActionRequiredItems((prev) => prev.filter((i) => i.id !== itemId));
+    try {
+      await submitRegularizationAction({
+        id: itemId,
+        checkIn,
+        checkOut,
+        reason,
+      });
+      loadData();
+    } catch (err) {
+      console.error("Failed to regularize attendance:", err);
+    }
   };
 
   const handleApplyLeaveFromAction = (item: ActionRequiredItem) => {
-    setPrefilledApplyDate("2026-08-14");
+    setPrefilledApplyDate(item.date);
     setActiveTab("apply");
   };
 
-  const handleNewLeaveSubmitted = (newLeave: LeaveRequest) => {
-    setLeaveRequests([newLeave, ...leaveRequests]);
-    // Deduct balance from matching leave type
-    setLeaveTypes((prev) =>
-      prev.map((lt) => {
-        if (lt.code === newLeave.leaveTypeCode) {
-          return {
-            ...lt,
-            remainingDays: lt.remainingDays - newLeave.durationDays,
-            bookedDays: lt.bookedDays + newLeave.durationDays,
-          };
-        }
-        return lt;
-      })
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-12">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground font-medium">Loading Leave Tracker...</p>
+        </div>
+      </div>
     );
-    setActiveTab("requests");
-  };
-
-  const handleNewCompensatorySubmitted = (newComp: CompensatoryRequest) => {
-    setCompensatoryRequests([newComp, ...compensatoryRequests]);
-    setActiveTab("compensatory");
-  };
+  }
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
       {/* 1. APPLY LEAVE VIEW */}
       {activeTab === "apply" && (
-            <ApplyLeaveForm
-              leaveTypes={leaveTypes}
-              onSubmitLeave={handleNewLeaveSubmitted}
-              onCancel={() => setActiveTab("overview")}
-              initialDate={prefilledApplyDate}
-            />
-          )}
+        <ApplyLeaveForm
+          leaveTypes={leaveTypes}
+          onSubmitLeave={() => {
+            loadData();
+            setActiveTab("requests");
+          }}
+          onCancel={() => setActiveTab("overview")}
+          initialDate={prefilledApplyDate}
+        />
+      )}
 
-          {/* 2. APPLY COMPENSATORY REQUEST VIEW */}
-          {activeTab === "apply-compensatory" && (
-            <ApplyCompensatoryForm
-              onSubmitCompensatory={handleNewCompensatorySubmitted}
-              onCancel={() => setActiveTab("compensatory")}
-            />
-          )}
+      {/* 2. APPLY COMPENSATORY REQUEST VIEW */}
+      {activeTab === "apply-compensatory" && (
+        <ApplyCompensatoryForm
+          onSubmitCompensatory={() => {
+            loadData();
+            setActiveTab("compensatory");
+          }}
+          onCancel={() => setActiveTab("compensatory")}
+        />
+      )}
 
-          {/* 3. LEAVE REQUEST DETAILS VIEW */}
-          {activeTab === "request-details" && selectedRequest && (
-            <LeaveRequestDetailsView
-              request={selectedRequest}
-              leaveTypes={leaveTypes}
-              onCancelRequest={handleCancelRequest}
-              onBack={() => setActiveTab("requests")}
-            />
-          )}
+      {/* 3. LEAVE REQUEST DETAILS VIEW */}
+      {activeTab === "request-details" && selectedRequest && (
+        <LeaveRequestDetailsView
+          request={selectedRequest}
+          leaveTypes={leaveTypes}
+          onCancelRequest={handleCancelRequest}
+          onBack={() => setActiveTab("requests")}
+        />
+      )}
 
-          {/* 4. MAIN TABS VIEW */}
-          {activeTab !== "apply" &&
-            activeTab !== "apply-compensatory" &&
-            activeTab !== "request-details" && (
-              <>
-                {/* Top Navigation Tabs */}
-                <div className="border-b border-border/80 pb-0">
-                  <nav className="flex items-center gap-8 -mb-px">
+      {/* 3b. COMPENSATORY REQUEST DETAILS VIEW */}
+      {activeTab === "compensatory-details" && selectedCompRequest && (
+        <CompensatoryDetailsView
+          request={selectedCompRequest}
+          onBack={() => setActiveTab("compensatory")}
+        />
+      )}
+
+      {/* 4. MAIN TABS VIEW */}
+      {activeTab !== "apply" &&
+        activeTab !== "apply-compensatory" &&
+        activeTab !== "request-details" &&
+        activeTab !== "compensatory-details" && (
+          <>
+            {/* Top Navigation Tabs */}
+            <div className="border-b border-border/80 pb-0">
+              <nav className="flex items-center gap-8 -mb-px">
                 <button
                   type="button"
                   onClick={() => setActiveTab("overview")}
@@ -264,11 +320,11 @@ export function LeaveWorkspace({
                     <div className="flex items-center gap-6 font-medium text-foreground">
                       <div>
                         <span className="text-muted-foreground">Leave booked this year : </span>
-                        <span className="font-bold text-foreground">6 day(s)</span>
+                        <span className="font-bold text-foreground">{stats.bookedThisYear} day(s)</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Absent : </span>
-                        <span className="font-bold text-foreground">23 day(s)</span>
+                        <span className="font-bold text-foreground">{stats.absentDays} day(s)</span>
                       </div>
                     </div>
 
@@ -299,7 +355,7 @@ export function LeaveWorkspace({
                   {/* 1. Leave Balance Grid */}
                   <LeaveBalanceGrid
                     leaveTypes={leaveTypes}
-                    onSelectType={(type) => {
+                    onSelectType={() => {
                       setSelectedRequest(null);
                       setActiveTab("apply");
                     }}
@@ -357,7 +413,7 @@ export function LeaveWorkspace({
               </div>
             )}
 
-            {/* COMPENSATORY REQUEST TAB (Matching Image 2) */}
+            {/* COMPENSATORY REQUEST TAB */}
             {activeTab === "compensatory" && (
               <CompensatoryRequestsTable
                 requests={compensatoryRequests}

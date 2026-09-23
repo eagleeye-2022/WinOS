@@ -66,7 +66,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
     }
   };
 
-  const Icon = getIcon(type.iconName);
+  const Icon = getIcon(type.iconName || "Calendar");
 
   return (
     <div

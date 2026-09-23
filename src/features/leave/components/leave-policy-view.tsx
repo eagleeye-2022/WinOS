@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import {
   MoreVertical,
   Sliders,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getLeaveTypesAction } from "../queries/leave-queries";
+import { toggleLeaveTypeStatusAction } from "../actions/leave-actions";
 
 export interface LeaveTypePolicyItem {
   id: string;
@@ -49,96 +52,48 @@ interface LeavePolicyViewProps {
 export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
   const router = useRouter();
 
-  const [leavePolicies, setLeavePolicies] = useState<LeaveTypePolicyItem[]>([
-    {
-      id: "lp-1",
-      name: "Paid Leave",
-      description: "General paid time off for employees",
-      code: "PL",
-      category: "Paid Leave",
-      unit: "Day(s)",
-      entitlement: "12 days / Year",
-      isActive: true,
-      iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40",
-      iconText: "text-emerald-600",
-      iconEmoji: "🗓️",
-    },
-    {
-      id: "lp-2",
-      name: "Sick Leave",
-      description: "For illness or medical reasons",
-      code: "SL",
-      category: "Paid Leave",
-      unit: "Day(s)",
-      entitlement: "3 days / month",
-      isActive: true,
-      iconBg: "bg-blue-50 text-blue-600 dark:bg-blue-950/40",
-      iconText: "text-blue-600",
-      iconEmoji: "🩺",
-    },
-    {
-      id: "lp-3",
-      name: "Casual Leave",
-      description: "For short personal work",
-      code: "CL",
-      category: "Paid Leave",
-      unit: "Day(s)",
-      entitlement: "6 days / Year",
-      isActive: true,
-      iconBg: "bg-orange-50 text-orange-600 dark:bg-orange-950/40",
-      iconText: "text-orange-600",
-      iconEmoji: "🏖️",
-    },
-    {
-      id: "lp-4",
-      name: "Maternity Leave",
-      description: "For female employees",
-      code: "ML",
-      category: "Paid Leave",
-      unit: "Day(s)",
-      entitlement: "180 days / Year",
-      isActive: true,
-      iconBg: "bg-purple-50 text-purple-600 dark:bg-purple-950/40",
-      iconText: "text-purple-600",
-      iconEmoji: "🤱",
-    },
-    {
-      id: "lp-5",
-      name: "Comp Off",
-      description: "Earned for extra weekend/holiday work",
-      code: "COMP",
-      category: "Paid Leave",
-      unit: "Day(s)",
-      entitlement: "On-demand",
-      isActive: true,
-      iconBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/40",
-      iconText: "text-amber-600",
-      iconEmoji: "⏱️",
-    },
-    {
-      id: "lp-6",
-      name: "Loss of Pay (LOP)",
-      description: "Unpaid leave beyond available quota",
-      code: "LOP",
-      category: "Unpaid Leave",
-      unit: "Day(s)",
-      entitlement: "Unlimited",
-      isActive: false,
-      iconBg: "bg-rose-50 text-rose-600 dark:bg-rose-950/40",
-      iconText: "text-rose-600",
-      iconEmoji: "🚫",
-    },
-  ]);
+  const [leavePolicies, setLeavePolicies] = useState<LeaveTypePolicyItem[]>([]);
+  const [metrics, setMetrics] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    paid: 0,
+    unpaid: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [unitFilter, setUnitFilter] = useState("ALL");
 
-  const togglePolicyStatus = (id: string) => {
-    setLeavePolicies((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
-    );
+  const loadPolicies = async () => {
+    try {
+      const data = await getLeaveTypesAction();
+      setLeavePolicies(data.leaveTypes as any);
+      setMetrics(data.metrics);
+    } catch (err) {
+      console.error("Failed to load leave types:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPolicies();
+  }, []);
+
+  const togglePolicyStatus = async (id: string, currentActive: boolean) => {
+    try {
+      const newStatus = !currentActive;
+      setLeavePolicies((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, isActive: newStatus } : p))
+      );
+      await toggleLeaveTypeStatusAction(id, newStatus);
+      loadPolicies();
+    } catch (err) {
+      console.error("Failed to toggle leave type status:", err);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -195,7 +150,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
         </Button>
       </div>
 
-      {/* 5 Metric Summary Cards (Image 4) */}
+      {/* 5 Metric Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* Total Leave Types */}
         <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
@@ -203,7 +158,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             <Calendar className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-lg font-bold text-foreground">12</div>
+            <div className="text-lg font-bold text-foreground">{metrics.total}</div>
             <div className="text-xs font-semibold text-muted-foreground">Total Leave Types</div>
           </div>
         </div>
@@ -214,7 +169,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-lg font-bold text-foreground">10</div>
+            <div className="text-lg font-bold text-foreground">{metrics.active}</div>
             <div className="text-xs font-semibold text-muted-foreground">Active Leave Types</div>
           </div>
         </div>
@@ -225,7 +180,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             <PauseCircle className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-lg font-bold text-foreground">1</div>
+            <div className="text-lg font-bold text-foreground">{metrics.inactive}</div>
             <div className="text-xs font-semibold text-muted-foreground">Inactive Leave Types</div>
           </div>
         </div>
@@ -236,7 +191,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             <Users className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-lg font-bold text-foreground">8</div>
+            <div className="text-lg font-bold text-foreground">{metrics.paid}</div>
             <div className="text-xs font-semibold text-muted-foreground">Paid Leave Types</div>
           </div>
         </div>
@@ -247,7 +202,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             <Home className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-lg font-bold text-foreground">4</div>
+            <div className="text-lg font-bold text-foreground">{metrics.unpaid}</div>
             <div className="text-xs font-semibold text-muted-foreground">Unpaid / LOP Types</div>
           </div>
         </div>
@@ -382,7 +337,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                   <td className="py-3 px-4">
                     <Switch
                       checked={item.isActive}
-                      onCheckedChange={() => togglePolicyStatus(item.id)}
+                      onCheckedChange={() => togglePolicyStatus(item.id, item.isActive)}
                     />
                   </td>
 

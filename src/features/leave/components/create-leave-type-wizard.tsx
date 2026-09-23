@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { createLeaveTypeAction } from "../actions/leave-actions";
 
 interface CreateLeaveTypeWizardProps {
   onCancel?: () => void;
@@ -165,14 +166,56 @@ export function CreateLeaveTypeWizard({
     setAcceptedFileTypes((prev) => prev.filter((t) => t !== type));
   };
 
-  const handleNext = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleNext = async () => {
     if (currentStep < 6) {
       setCurrentStep(currentStep + 1);
     } else {
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push("/pulse/leave/team");
+      setIsSubmitting(true);
+      try {
+        await createLeaveTypeAction({
+          name: leaveTypeName,
+          code: leaveCode,
+          description,
+          isActive: status === "Active",
+          effectiveDate,
+          expiryDate: expiryDate || undefined,
+          category: leaveCategory === "Paid" ? "PAID" : "UNPAID",
+          allocationFrequency: allocationFreq === "Monthly" ? "MONTHLY" : "YEARLY",
+          annualEntitlement,
+          allowCarryForward,
+          carryForwardLimit,
+          allowFullDay: durations.fullDay,
+          allowHalfDay: durations.halfDay,
+          allowQuarterDay: durations.quarterDay,
+          allowHourly: durations.hourly,
+          allowPastDays,
+          pastDaysLimit,
+          allowAdvanceDays,
+          advanceDaysLimit,
+          minAdvanceNotice,
+          minLeavePerRequest,
+          maxLeavePerRequest,
+          maxConsecutiveDays,
+          minGapBetweenRequests,
+          sandwichPolicy,
+          sandwichWeekends,
+          sandwichHolidays,
+          docExceedsDays,
+          acceptedFileTypes,
+          managerApprovalRequired,
+        });
+
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push("/pulse/leave/team");
+        }
+      } catch (err) {
+        console.error("Failed to create leave type:", err);
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -1813,11 +1856,14 @@ export function CreateLeaveTypeWizard({
 
         <Button
           type="button"
+          disabled={isSubmitting}
           onClick={handleNext}
           className="h-10 px-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs gap-1.5"
         >
           <span>
-            {currentStep === 6
+            {isSubmitting
+              ? "Creating..."
+              : currentStep === 6
               ? "Review & Create"
               : "Save & Next"}
           </span>
