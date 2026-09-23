@@ -2,7 +2,6 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { ensureLeaveDataSeeded, ensureUserBalances } from "../actions/leave-seed";
 
 export interface FormattedBalance {
   id: string;
@@ -13,6 +12,7 @@ export interface FormattedBalance {
   bookedDays: number;
   allocatedDays: number;
   unit: string;
+  iconName?: string;
   iconBgColor: string;
   iconTextColor: string;
   category: string;
@@ -49,6 +49,14 @@ export interface FormattedLeaveRequest {
     size: string;
     url: string;
   }[];
+  approvalFlow?: {
+    id: string;
+    title: string;
+    actorName: string;
+    actorRole?: string;
+    dateStr?: string;
+    status: "COMPLETED" | "PENDING" | "REJECTED";
+  }[];
 }
 
 export interface FormattedCompensatoryRequest {
@@ -76,12 +84,9 @@ export interface FormattedCompensatoryRequest {
 // ── 1. GET TRACKER DATA FOR LOGGED-IN USER ───────────────────────────────────
 
 export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear()) {
-  await ensureLeaveDataSeeded();
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   const userId = session.user.id;
-
-  await ensureUserBalances(userId, year);
 
   // 1. Fetch balances
   const userBalances = await db.userLeaveBalance.findMany({
@@ -99,6 +104,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     bookedDays: b.bookedDays,
     allocatedDays: b.allocatedDays,
     unit: b.leaveType.allowHourly ? "Hour(s)" : "Day(s)",
+    iconName: b.leaveType.icon,
     iconBgColor: b.leaveType.iconBgColor || "bg-primary/10 text-primary",
     iconTextColor: b.leaveType.iconTextColor || "text-primary",
     category: b.leaveType.category,
@@ -108,7 +114,12 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   // 2. Fetch my leave requests
   const requests = await db.leaveRequest.findMany({
     where: { userId },
-    include: { leaveType: true, user: true, attachments: true },
+    include: {
+      leaveType: true,
+      user: true,
+      attachments: true,
+      approvalSteps: { orderBy: { stepOrder: "asc" } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -167,6 +178,20 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
         size: att.fileSize,
         url: att.fileUrl,
       })),
+      approvalFlow: r.approvalSteps
+        .filter((s) => s.approverRole !== "HR Admin" && !s.stepName.toLowerCase().includes("hr"))
+        .map((s) => ({
+          id: s.id,
+          title: s.stepName,
+          actorName:
+            s.approverName ||
+            (s.approverRole === "Applicant" ? r.user.name || "Employee" : s.approverRole || "Approver"),
+          actorRole: s.approverRole || undefined,
+          dateStr: s.actionDate
+            ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+            : undefined,
+          status: s.status as any,
+        })),
     };
   });
 
@@ -238,6 +263,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   const totalAbsentDays = userBalances.reduce((acc, b) => acc + b.lossOfPayDays, 0);
 
   return {
+    currentUserId: userId,
     balances,
     requests: formattedRequests,
     compensatoryRequests: formattedCompRequests,
@@ -257,7 +283,6 @@ export async function getTeamLeaveRequestsAction(filters?: {
   leaveTypeCode?: string;
   department?: string;
 }) {
-  await ensureLeaveDataSeeded();
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -336,7 +361,6 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
   search?: string;
   status?: string;
 }) {
-  await ensureLeaveDataSeeded();
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
@@ -393,7 +417,6 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
 // ── 4. GET LEAVE TYPES & POLICIES ────────────────────────────────────────────
 
 export async function getLeaveTypesAction() {
-  await ensureLeaveDataSeeded();
   const types = await db.leaveType.findMany({
     orderBy: { name: "asc" },
   });
@@ -414,6 +437,7 @@ export async function getLeaveTypesAction() {
       unit: t.allowHourly ? "Hour(s)" : "Day(s)",
       entitlement: `${t.annualEntitlement} ${t.allowHourly ? "hours" : "days"} / ${t.allocationFrequency === "MONTHLY" ? "month" : "Year"}`,
       isActive: t.isActive,
+      icon: t.icon,
       iconBg: t.iconBgColor || "bg-primary/10 text-primary",
       iconText: t.iconTextColor || "text-primary",
       iconEmoji: t.icon === "Calendar" ? "🗓️" : t.icon === "Heart" ? "🩺" : t.icon === "Plane" ? "🏖️" : t.icon === "Baby" ? "🤱" : "⏱️",
@@ -425,7 +449,6 @@ export async function getLeaveTypesAction() {
 // ── 5. GET HOLIDAYS ──────────────────────────────────────────────────────────
 
 export async function getHolidaysAction(year = 2025) {
-  await ensureLeaveDataSeeded();
   const holidays = await db.holiday.findMany({
     where: { year },
     orderBy: { date: "asc" },
@@ -457,41 +480,331 @@ export async function getHolidaysAction(year = 2025) {
 // ── 6. GET EMPLOYEES FOR BALANCE ADJUSTMENT ──────────────────────────────────
 
 export async function getEmployeesForAdjustmentAction() {
-  await ensureLeaveDataSeeded();
-  const users = await db.user.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      employeeId: true,
-      department: true,
-      title: true,
-      image: true,
-      userLeaveBalances: {
-        include: { leaveType: true },
+  const [users, allLeaveTypes] = await Promise.all([
+    db.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        employeeId: true,
+        department: true,
+        title: true,
+        image: true,
+        userLeaveBalances: {
+          include: { leaveType: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    db.leaveType.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  return users.map((u) => {
+    const balanceMap = new Map(u.userLeaveBalances.map((b) => [b.leaveTypeId, b]));
+
+    const balances = allLeaveTypes.map((t) => {
+      const b = balanceMap.get(t.id);
+      if (b) {
+        return {
+          id: b.id,
+          leaveTypeId: t.id,
+          leaveTypeCode: t.code,
+          leaveTypeName: t.name,
+          allocated: b.allocatedDays,
+          booked: b.bookedDays,
+          adjusted: b.adjustedDays,
+          available: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
+          unit: t.allowHourly ? "Hours" : "Days",
+        };
+      }
+      return {
+        id: `virtual-${t.id}`,
+        leaveTypeId: t.id,
+        leaveTypeCode: t.code,
+        leaveTypeName: t.name,
+        allocated: 0,
+        booked: 0,
+        adjusted: 0,
+        available: 0,
+        unit: t.allowHourly ? "Hours" : "Days",
+      };
+    });
+
+    return {
+      id: u.id,
+      name: u.name || "Employee",
+      empId: u.employeeId || "EMP001",
+      role: u.title || "Team Member",
+      department: u.department || "General",
+      avatarUrl: u.image || undefined,
+      balances,
+    };
+  });
+}
+
+// ── 7. GET SINGLE LEAVE REQUEST DETAILS BY ID ────────────────────────────────
+
+export async function getLeaveRequestByIdAction(requestId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const request = await db.leaveRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      leaveType: true,
+      user: {
+        include: {
+          userLeaveBalances: {
+            where: { year: new Date().getFullYear() },
+            include: { leaveType: true },
+          },
+        },
+      },
+      attachments: true,
+      approvalSteps: {
+        orderBy: { stepOrder: "asc" },
       },
     },
-    orderBy: { name: "asc" },
   });
 
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name || "Employee",
-    empId: u.employeeId || "EMP001",
-    role: u.title || "Team Member",
-    department: u.department || "General",
-    avatarUrl: u.image || undefined,
-    balances: u.userLeaveBalances.map((b) => ({
-      id: b.id,
-      leaveTypeId: b.leaveTypeId,
-      leaveTypeCode: b.leaveType.code,
-      leaveTypeName: b.leaveType.name,
-      allocated: b.allocatedDays,
-      booked: b.bookedDays,
-      adjusted: b.adjustedDays,
-      available: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
-      unit: "Days",
+  if (!request) return null;
+
+  const fromStr = request.fromDate.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const toStr = request.toDate.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const formattedRequest: FormattedLeaveRequest = {
+    id: request.id,
+    leaveTypeCode: request.leaveType.code,
+    leaveTypeName: `${request.leaveType.name} (${request.leaveType.code})`,
+    leaveTypeIcon: request.leaveType.icon,
+    fromDate: request.fromDate.toISOString().split("T")[0],
+    toDate: request.toDate.toISOString().split("T")[0],
+    fromDateDisplay: fromStr,
+    toDateDisplay: toStr,
+    durationText:
+      request.durationType === "HALF_DAY"
+        ? `${request.durationDays} Day (${request.halfDayType === "FIRST_HALF" ? "First Half" : "Second Half"})`
+        : request.durationType === "EARLY_LEAVE"
+        ? `${request.fromTime || "04:30 PM"} - ${request.toTime || "06:30 PM"}`
+        : `${request.durationDays} Day${request.durationDays > 1 ? "s" : ""}`,
+    durationDays: request.durationDays,
+    durationType: request.durationType,
+    reason: request.reason,
+    status: request.status as any,
+    appliedOn: request.createdAt.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }),
+    appliedOnDateTime: `${request.createdAt.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })} at ${request.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+    employee: {
+      id: request.user.id,
+      name: request.user.name || "Employee",
+      empId: request.user.employeeId || "EMP001",
+      role: request.user.title || "Team Member",
+      avatarUrl: request.user.image || undefined,
+      department: request.user.department || undefined,
+    },
+    attachments: request.attachments.map((att) => ({
+      id: att.id,
+      name: att.fileName,
+      size: att.fileSize,
+      url: att.fileUrl,
     })),
+    approvalFlow: request.approvalSteps
+      .filter((s) => s.approverRole !== "HR Admin" && !s.stepName.toLowerCase().includes("hr"))
+      .map((s) => ({
+        id: s.id,
+        title: s.stepName,
+        actorName:
+          s.approverName ||
+          (s.approverRole === "Applicant" ? request.user.name || "Employee" : s.approverRole || "Approver"),
+        actorRole: s.approverRole || undefined,
+        dateStr: s.actionDate
+          ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+          : undefined,
+        status: s.status as any,
+      })),
+  };
+
+  const userBalances = request.user.userLeaveBalances.map((b) => ({
+    id: b.id,
+    code: b.leaveType.code as any,
+    name: b.leaveType.name,
+    remainingDays: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
+    bookedDays: b.bookedDays,
+    unit: b.leaveType.allowHourly ? "Hours" : "Days",
+    iconName: b.leaveType.icon,
+    iconBgColor: b.leaveType.iconBgColor || "bg-primary/10 text-primary",
+    iconTextColor: b.leaveType.iconTextColor || "text-primary",
   }));
+
+  return {
+    request: formattedRequest,
+    balances: userBalances,
+  };
+}
+
+// ── 8. GET TEAM CALENDAR EVENTS (DYNAMIC FOR SELECTED MONTH/YEAR) ─────────────
+
+export async function getTeamCalendarEventsAction(year: number, month: number) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  // Calculate start and end of month
+  const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+  // Fetch all leave requests that overlap with this month
+  const leaveRequests = await db.leaveRequest.findMany({
+    where: {
+      status: { in: ["APPROVED", "PENDING"] },
+      fromDate: { lte: endOfMonth },
+      toDate: { gte: startOfMonth },
+    },
+    include: {
+      user: true,
+      leaveType: true,
+    },
+    orderBy: { fromDate: "asc" },
+  });
+
+  // Fetch holidays around this month
+  const holidays = await db.holiday.findMany({
+    where: {
+      date: {
+        gte: new Date(year, month - 1, 1),
+        lte: new Date(year, month + 2, 0),
+      },
+    },
+    orderBy: { date: "asc" },
+  });
+
+  const uniqueEmployeeIds = new Set(leaveRequests.map((r) => r.userId));
+
+  const leavesByDate: Record<string, {
+    id: string;
+    employeeName: string;
+    employeeId: string;
+    avatarText: string;
+    avatarUrl?: string;
+    role: string;
+    department: string;
+    leaveType: string;
+    leaveTypeCode: string;
+    leaveTypeIcon?: string;
+    leaveTypeColor?: string;
+    status: string;
+    duration: string;
+    durationDays: number;
+    durationType: string;
+    fromDateStr: string;
+    toDateStr: string;
+    dateRangeDisplay: string;
+    reason: string;
+    isHalfDay: boolean;
+    halfDaySession?: string;
+    fromTime?: string;
+    toTime?: string;
+  }[]> = {};
+
+  for (const r of leaveRequests) {
+    const from = new Date(Math.max(r.fromDate.getTime(), startOfMonth.getTime()));
+    const to = new Date(Math.min(r.toDate.getTime(), endOfMonth.getTime()));
+
+    const cur = new Date(from);
+    while (cur <= to) {
+      const dateKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+      if (!leavesByDate[dateKey]) leavesByDate[dateKey] = [];
+
+      const fromStr = r.fromDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const toStr = r.toDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const dateRangeDisplay = r.durationType === "HALF_DAY"
+        ? `${fromStr} (${r.halfDayType === "FIRST_HALF" ? "First Half" : "Second Half"})`
+        : r.durationType === "EARLY_LEAVE"
+        ? `${fromStr} (${r.fromTime || "04:30 PM"} - ${r.toTime || "06:30 PM"})`
+        : r.durationDays === 1
+        ? `${fromStr} (1 Day)`
+        : `${fromStr} - ${toStr} (${r.durationDays} Days)`;
+
+      leavesByDate[dateKey].push({
+        id: r.id,
+        employeeName: r.user.name || "Employee",
+        employeeId: r.user.employeeId || "EMP001",
+        avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
+        avatarUrl: r.user.image || undefined,
+        role: r.user.title || "Team Member",
+        department: r.user.department || "General",
+        leaveType: r.leaveType.name,
+        leaveTypeCode: r.leaveType.code,
+        leaveTypeIcon: r.leaveType.icon,
+        leaveTypeColor: r.leaveType.iconBgColor || "bg-primary/10 text-primary",
+        status: r.status,
+        duration: `${r.durationDays} Day${r.durationDays > 1 ? "s" : ""}`,
+        durationDays: r.durationDays,
+        durationType: r.durationType,
+        fromDateStr: r.fromDate.toISOString().split("T")[0],
+        toDateStr: r.toDate.toISOString().split("T")[0],
+        dateRangeDisplay,
+        reason: r.reason,
+        isHalfDay: r.durationType === "HALF_DAY",
+        halfDaySession: r.halfDayType || undefined,
+        fromTime: r.fromTime || undefined,
+        toTime: r.toTime || undefined,
+      });
+
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  const holidaysByDate: Record<string, {
+    id: string;
+    name: string;
+    type: "PUBLIC" | "OPTIONAL" | "COMPANY_SPECIAL";
+    dayOfWeek: string;
+    description?: string;
+  }[]> = {};
+
+  for (const h of holidays) {
+    const d = new Date(h.date);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!holidaysByDate[dateKey]) holidaysByDate[dateKey] = [];
+    holidaysByDate[dateKey].push({
+      id: h.id,
+      name: h.name,
+      type: h.type as any,
+      dayOfWeek: h.dayOfWeek,
+      description: h.description || undefined,
+    });
+  }
+
+  const monthHolidays = holidays.filter((h) => h.date >= startOfMonth && h.date <= endOfMonth);
+  const publicHolidaysCount = monthHolidays.filter((h) => h.type === "PUBLIC").length;
+  const specialHolidaysCount = monthHolidays.filter((h) => h.type === "COMPANY_SPECIAL" || h.type === "OPTIONAL").length;
+
+  return {
+    leavesByDate,
+    holidaysByDate,
+    metrics: {
+      totalOnLeave: uniqueEmployeeIds.size,
+      totalHolidays: publicHolidaysCount,
+      totalSpecialHolidays: specialHolidaysCount,
+    },
+  };
 }

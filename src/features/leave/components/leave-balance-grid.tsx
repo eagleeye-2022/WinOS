@@ -65,19 +65,25 @@ export function LeaveBalanceGrid({
       </div>
 
       {/* Horizontal Carousel */}
-      <div
-        ref={scrollContainerRef}
-        className="flex items-center gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30 scroll-smooth"
-      >
-        {leaveTypes.map((type) => (
-          <LeaveBalanceCard
-            key={type.id}
-            type={type}
-            isSelected={selectedTypeId === type.id}
-            onClick={() => onSelectType?.(type)}
-          />
-        ))}
-      </div>
+      {leaveTypes.length === 0 ? (
+        <div className="py-6 text-center text-xs text-muted-foreground">
+          No leave balances found in the database.
+        </div>
+      ) : (
+        <div
+          ref={scrollContainerRef}
+          className="flex items-center gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30 scroll-smooth"
+        >
+          {leaveTypes.map((type) => (
+            <LeaveBalanceCard
+              key={type.id}
+              type={type}
+              isSelected={selectedTypeId === type.id}
+              onClick={() => onSelectType?.(type)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

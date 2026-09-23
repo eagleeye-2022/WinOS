@@ -169,7 +169,7 @@ export function ApplyCompensatoryForm({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Breadcrumb Header */}
       <div className="space-y-1">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

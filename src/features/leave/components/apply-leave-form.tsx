@@ -29,6 +29,8 @@ import {
   Heart,
   CalendarCheck,
   History,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 import {
   DayType,
@@ -65,23 +67,22 @@ export function ApplyLeaveForm({
 }: ApplyLeaveFormProps) {
   const router = useRouter();
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
   // Form State
-  const [selectedTypeCode, setSelectedTypeCode] = useState<string>("CL");
-  const [dayType, setDayType] = useState<DayType>("HALF_DAY");
-  const [date, setDate] = useState<string>(initialDate || "2026-08-21");
-  const [fromDate, setFromDate] = useState<string>("2026-08-21");
-  const [toDate, setToDate] = useState<string>("2026-08-21");
+  const [selectedTypeCode, setSelectedTypeCode] = useState<string>(
+    leaveTypes.length > 0 ? leaveTypes[0].code : "CL"
+  );
+  const [dayType, setDayType] = useState<DayType>("FULL_DAY");
+  const [date, setDate] = useState<string>(initialDate || todayStr);
+  const [fromDate, setFromDate] = useState<string>(initialDate || todayStr);
+  const [toDate, setToDate] = useState<string>(initialDate || todayStr);
   const [session, setSession] = useState<HalfDaySession>("FIRST_HALF");
   const [fromTime, setFromTime] = useState<string>("03:30 PM");
   const [toTime, setToTime] = useState<string>("06:00 PM");
-  const [reason, setReason] = useState<string>("Personal work at home.");
-  const [attachments, setAttachments] = useState<LeaveAttachment[]>([
-    {
-      id: "att-demo-1",
-      name: "Doctor_Appointment_Proof.pdf",
-      size: "245 KB",
-    },
-  ]);
+  const [reason, setReason] = useState<string>("");
+  const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<LeaveAttachment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
 
@@ -91,38 +92,6 @@ export function ApplyLeaveForm({
   }, [leaveTypes, selectedTypeCode]);
 
   const isEarlyLeave = selectedTypeCode === "EL";
-
-  // Calculate duration & summary text
-  const durationInfo = useMemo(() => {
-    if (isEarlyLeave) {
-      return {
-        text: "2.5 Hours",
-        days: 0.25,
-        summary: `You have selected early leave from ${fromTime} to ${toTime} (2.5 Hours)`,
-      };
-    }
-    if (dayType === "HALF_DAY") {
-      const sessionLabel = session === "FIRST_HALF" ? "First Half" : "Second Half";
-      return {
-        text: "0.5 Day",
-        days: 0.5,
-        summary: `You have selected Half Day (${sessionLabel})`,
-      };
-    }
-    if (dayType === "FULL_DAY") {
-      return {
-        text: "1 Day",
-        days: 1,
-        summary: "You have selected 1 day of leave",
-      };
-    }
-    // Multiple Days
-    return {
-      text: "2 Days",
-      days: 2,
-      summary: "You have selected 2 days of leave",
-    };
-  }, [isEarlyLeave, dayType, session, fromTime, toTime]);
 
   // Formatted date string (e.g. 21 Aug 2026 (Fri))
   const formatDateDisplay = (dStr: string) => {
@@ -139,8 +108,47 @@ export function ApplyLeaveForm({
     }
   };
 
-  // Balance calculation (Casual Leave uses -5 as in Image 5, otherwise -2)
-  const availableBalance = selectedTypeCode === "CL" ? -5 : -2;
+  // Calculate duration & summary text
+  const durationInfo = useMemo(() => {
+    if (isEarlyLeave) {
+      return {
+        text: "2.5 Hours",
+        days: 0.25,
+        summary: `You have selected early leave from ${fromTime} to ${toTime} (2.5 Hours)`,
+      };
+    }
+    if (dayType === "HALF_DAY") {
+      const sessionLabel = session === "FIRST_HALF" ? "First Half" : "Second Half";
+      return {
+        text: "0.5 Day",
+        days: 0.5,
+        summary: `You have selected Half Day (${sessionLabel}) on ${formatDateDisplay(date)}`,
+      };
+    }
+    if (dayType === "FULL_DAY") {
+      return {
+        text: "1 Day",
+        days: 1,
+        summary: `You have selected 1 day of leave on ${formatDateDisplay(date)}`,
+      };
+    }
+    // Multiple Days
+    const d1 = new Date(fromDate);
+    const d2 = new Date(toDate);
+    let diffDays = 1;
+    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
+      const diffTime = Math.max(0, d2.getTime() - d1.getTime());
+      diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+    return {
+      text: `${diffDays} Day${diffDays > 1 ? "s" : ""}`,
+      days: diffDays,
+      summary: `You have selected ${diffDays} day${diffDays > 1 ? "s" : ""} of leave (from ${formatDateDisplay(fromDate)} to ${formatDateDisplay(toDate)})`,
+    };
+  }, [isEarlyLeave, dayType, session, date, fromDate, toDate, fromTime, toTime]);
+
+  // Real balance calculation from DB leave type
+  const availableBalance = selectedType?.remainingDays ?? 0;
   const currentBooking = durationInfo.days;
   const balanceAfterBooking = availableBalance - currentBooking;
 
@@ -148,12 +156,37 @@ export function ApplyLeaveForm({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const blobUrl = URL.createObjectURL(file);
       const newAtt: LeaveAttachment = {
         id: `att-${Date.now()}`,
         name: file.name,
         size: `${Math.round(file.size / 1024)} KB`,
+        url: blobUrl,
+        type: file.type || "application/octet-stream",
       };
       setAttachments((prev) => [...prev, newAtt]);
+      e.target.value = "";
+    }
+  };
+
+  const handleDownload = (att: LeaveAttachment) => {
+    if (att.url) {
+      const link = document.createElement("a");
+      link.href = att.url;
+      link.download = att.name;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const blob = new Blob([`Document Content for ${att.name}`], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = att.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -163,15 +196,29 @@ export function ApplyLeaveForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedType) return;
+    if (!reason.trim()) {
+      alert("Please enter a reason for your leave request.");
+      return;
+    }
     setIsSubmitting(true);
 
+    const actualFromDate = dayType === "MULTIPLE_DAYS" ? fromDate : date;
+    const actualToDate = dayType === "MULTIPLE_DAYS" ? toDate : date;
+
     try {
-      await applyLeaveAction({
+      const res = await applyLeaveAction({
         leaveTypeCode: selectedType.code,
-        durationType: isEarlyLeave ? "EARLY_LEAVE" : dayType === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY",
+        durationType: isEarlyLeave
+          ? "EARLY_LEAVE"
+          : dayType === "HALF_DAY"
+          ? "HALF_DAY"
+          : dayType === "MULTIPLE_DAYS"
+          ? "FULL_DAY"
+          : "FULL_DAY",
         halfDayType: dayType === "HALF_DAY" ? (session === "FIRST_HALF" ? "FIRST_HALF" : "SECOND_HALF") : undefined,
-        fromDate: date,
-        toDate: date,
+        fromDate: actualFromDate,
+        toDate: actualToDate,
         fromTime: isEarlyLeave ? fromTime : undefined,
         toTime: isEarlyLeave ? toTime : undefined,
         durationDays: durationInfo.days,
@@ -181,18 +228,18 @@ export function ApplyLeaveForm({
       });
 
       const newRequest: LeaveRequest = {
-        id: `lr-${Date.now()}`,
+        id: res?.requestId || `lr-${Date.now()}`,
         leaveTypeCode: selectedType.code,
-        leaveTypeName: selectedType.name,
+        leaveTypeName: `${selectedType.name} (${selectedType.code})`,
         dayType: isEarlyLeave ? "EARLY_LEAVE" : dayType,
-        fromDate: date,
-        toDate: date,
+        fromDate: actualFromDate,
+        toDate: actualToDate,
         fromDateDisplay: isEarlyLeave
-          ? `${fromTime}\nFri`
-          : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
+          ? `${fromTime}`
+          : formatDateDisplay(actualFromDate),
         toDateDisplay: isEarlyLeave
-          ? `${toTime}\nFri`
-          : `${formatDateDisplay(date).split("(")[0].trim()}\n${formatDateDisplay(date).split("(")[1]?.replace(")", "") || ""}`,
+          ? `${toTime}`
+          : formatDateDisplay(actualToDate),
         session: dayType === "HALF_DAY" ? session : undefined,
         fromTime: isEarlyLeave ? fromTime : undefined,
         toTime: isEarlyLeave ? toTime : undefined,
@@ -200,24 +247,41 @@ export function ApplyLeaveForm({
         durationDays: durationInfo.days,
         reason,
         status: "PENDING",
+        leaveTypeIcon: selectedType.iconName || "Calendar",
+        leaveTypeColor: selectedType.iconBgColor,
         appliedOn: new Date().toLocaleDateString("en-GB", {
           day: "2-digit",
           month: "short",
           year: "numeric",
         }),
+        appliedOnDateTime: `${new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
         attachments: attachments.length > 0 ? attachments : undefined,
+        approvalFlow: [
+          {
+            id: "step-1",
+            title: "Requested",
+            actorName: "Applicant",
+            actorRole: "Applicant",
+            dateStr: `${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+            status: "COMPLETED",
+          },
+          {
+            id: "step-2",
+            title: "Manager Approval",
+            actorName: "Reporting Manager",
+            actorRole: "Reporting Manager",
+            status: "PENDING",
+          },
+        ],
       };
 
-      onSubmitLeave(newRequest);
       setIsSubmitting(false);
       setSubmittedSuccess(true);
-      setTimeout(() => {
-        if (onCancel) {
-          onCancel();
-        } else {
-          router.push("/pulse/leave");
-        }
-      }, 500);
+      onSubmitLeave(newRequest);
     } catch (err) {
       console.error("Failed to submit leave request:", err);
       setIsSubmitting(false);
@@ -262,7 +326,7 @@ export function ApplyLeaveForm({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Breadcrumb Header */}
       <div className="space-y-1">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -363,8 +427,8 @@ export function ApplyLeaveForm({
                     </Select>
                   </div>
 
-                  {dayType === "FULL_DAY" ? (
-                    /* Full Day: From Date & To Date */
+                  {dayType === "MULTIPLE_DAYS" ? (
+                    /* Multiple Days: From Date & To Date */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                       <div className="space-y-1.5">
                         <label className="text-xs font-medium text-foreground">
@@ -402,7 +466,7 @@ export function ApplyLeaveForm({
                       </div>
                     </div>
                   ) : (
-                    /* Half Day / Multi Day */
+                    /* Full Day / Half Day: Single Date Picker */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                       {/* Date Picker */}
                       <div className="space-y-1.5">
@@ -413,7 +477,11 @@ export function ApplyLeaveForm({
                           <Input
                             type="date"
                             value={date}
-                            onChange={(e) => setDate(e.target.value)}
+                            onChange={(e) => {
+                              setDate(e.target.value);
+                              setFromDate(e.target.value);
+                              setToDate(e.target.value);
+                            }}
                             className="h-10 rounded-xl text-xs bg-background"
                             required
                           />
@@ -605,6 +673,17 @@ export function ApplyLeaveForm({
                           type="button"
                           variant="ghost"
                           size="icon"
+                          onClick={() => setPreviewAttachment(att)}
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          title="View Document"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDownload(att)}
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           title="Download"
                         >
@@ -825,7 +904,14 @@ export function ApplyLeaveForm({
             <div className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between text-muted-foreground pb-1 border-b">
                 <span>
-                  As on <span className="text-primary font-semibold underline">21/08/2026</span>
+                  As on{" "}
+                  <span className="text-primary font-semibold underline">
+                    {new Date().toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </span>
                 </span>
                 <span className="font-medium text-foreground">Day(s)</span>
               </div>
@@ -854,6 +940,116 @@ export function ApplyLeaveForm({
           </div>
         </div>
       </div>
+
+      {/* Document Preview Modal */}
+      {previewAttachment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border/80 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
+              <div className="flex items-center gap-2.5 truncate pr-2">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="truncate">
+                  <h3 className="text-sm font-bold text-foreground truncate max-w-md">
+                    {previewAttachment.name}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {previewAttachment.size} • {previewAttachment.type || "Document"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {previewAttachment.url && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(previewAttachment.url, "_blank")}
+                    className="h-8 px-2.5 text-xs gap-1.5 rounded-lg border-border"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Open</span>
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(previewAttachment)}
+                  className="h-8 px-2.5 text-xs gap-1.5 rounded-lg border-border"
+                  title="Download Document"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Download</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPreviewAttachment(null)}
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[300px] bg-muted/10">
+              {previewAttachment.url &&
+              (previewAttachment.type?.startsWith("image/") ||
+                /\.(png|jpe?g|webp|gif|svg)$/i.test(previewAttachment.name)) ? (
+                <div className="w-full flex items-center justify-center">
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.name}
+                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-xs"
+                  />
+                </div>
+              ) : previewAttachment.url &&
+                (previewAttachment.type?.includes("pdf") ||
+                  /\.pdf$/i.test(previewAttachment.name)) ? (
+                <div className="w-full h-[55vh] rounded-lg border overflow-hidden bg-background">
+                  <iframe
+                    src={previewAttachment.url}
+                    className="w-full h-full border-0"
+                    title={previewAttachment.name}
+                  />
+                </div>
+              ) : (
+                <div className="text-center space-y-3 py-8 max-w-sm">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-2xs border border-primary/20">
+                    <FileText className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-foreground">
+                      {previewAttachment.name}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Document attached and ready for submission.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleDownload(previewAttachment)}
+                      className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Document
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

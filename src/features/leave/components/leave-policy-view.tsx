@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
+  CalendarDays,
   CheckCircle2,
   PauseCircle,
   Users,
@@ -16,6 +17,20 @@ import {
   Sliders,
   Sparkles,
   Loader2,
+  Thermometer,
+  Heart,
+  Pill,
+  Plane,
+  Baby,
+  Clock,
+  Gift,
+  AlertTriangle,
+  FileText,
+  Laptop2,
+  Coffee,
+  Sun,
+  Briefcase,
+  TimerReset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +55,7 @@ export interface LeaveTypePolicyItem {
   unit: "Day(s)" | "Hour(s)";
   entitlement: string;
   isActive: boolean;
+  icon?: string;
   iconBg: string;
   iconText: string;
   iconEmoji: string;
@@ -66,6 +82,47 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [unitFilter, setUnitFilter] = useState("ALL");
+
+  const getLeaveIcon = (iconName?: string) => {
+    switch (iconName) {
+      case "Thermometer":
+        return Thermometer;
+      case "Heart":
+        return Heart;
+      case "Pill":
+        return Pill;
+      case "Plane":
+        return Plane;
+      case "CalendarDays":
+        return CalendarDays;
+      case "Baby":
+        return Baby;
+      case "Users":
+        return Users;
+      case "Clock":
+        return Clock;
+      case "Gift":
+        return Gift;
+      case "AlertTriangle":
+        return AlertTriangle;
+      case "Sparkles":
+        return Sparkles;
+      case "FileText":
+        return FileText;
+      case "Laptop2":
+        return Laptop2;
+      case "Coffee":
+        return Coffee;
+      case "Sun":
+        return Sun;
+      case "Briefcase":
+        return Briefcase;
+      case "TimerReset":
+        return TimerReset;
+      default:
+        return Calendar;
+    }
+  };
 
   const loadPolicies = async () => {
     try {
@@ -210,62 +267,53 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
 
       {/* Filter Bar */}
       <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
           {/* Search */}
           <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search leave types..."
-              className="h-9 pl-9 rounded-xl text-xs bg-background"
+              className="h-9 pl-9 rounded-xl text-xs bg-background w-full"
             />
           </div>
 
           {/* Status */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">STATUS</span>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Category */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">LEAVE CATEGORY</span>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="Paid Leave">Paid Leave</SelectItem>
-                <SelectItem value="Unpaid Leave">Unpaid Leave</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Categories</SelectItem>
+              <SelectItem value="Paid Leave">Paid Leave</SelectItem>
+              <SelectItem value="Unpaid Leave">Unpaid Leave</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Unit */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">LEAVE UNIT</span>
-            <Select value={unitFilter} onValueChange={setUnitFilter}>
-              <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="Day(s)">Day(s)</SelectItem>
-                <SelectItem value="Hour(s)">Hour(s)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={unitFilter} onValueChange={setUnitFilter}>
+            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+              <SelectValue placeholder="All Units" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Units</SelectItem>
+              <SelectItem value="Day(s)">Day(s)</SelectItem>
+              <SelectItem value="Hour(s)">Hour(s)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Leave Types Table */}
@@ -283,14 +331,26 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {filtered.map((item) => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
+                    No leave types found matching the criteria.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                   {/* Leave Type Name & Icon */}
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-xl flex items-center justify-center text-sm", item.iconBg)}>
-                        <span>{item.iconEmoji}</span>
-                      </div>
+                      {(() => {
+                        const IconComponent = getLeaveIcon(item.icon);
+                        return (
+                          <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shadow-2xs shrink-0", item.iconBg)}>
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <div className="font-bold text-foreground leading-tight">
                           {item.name}
@@ -362,7 +422,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

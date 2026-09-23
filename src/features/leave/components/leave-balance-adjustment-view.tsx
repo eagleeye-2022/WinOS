@@ -38,7 +38,15 @@ interface AdjustmentRow {
   currentBalance: number;
 }
 
-export function LeaveBalanceAdjustmentView() {
+interface LeaveBalanceAdjustmentViewProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function LeaveBalanceAdjustmentView({
+  onSuccess,
+  onCancel,
+}: LeaveBalanceAdjustmentViewProps) {
   const router = useRouter();
 
   const [employees, setEmployees] = useState<any[]>([]);
@@ -166,11 +174,19 @@ export function LeaveBalanceAdjustmentView() {
   }, [rows]);
 
   const handleConfirm = async () => {
-    if (!currentEmployee) return;
+    if (!currentEmployee) {
+      alert("Please select an employee.");
+      return;
+    }
+    if (rows.length === 0) {
+      alert("Please add at least one leave type to adjust.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       for (const row of rows) {
-        const adjustmentDays = row.adjustmentType === "ADD" ? row.days : -row.days;
+        if (!row.leaveTypeId) continue;
+        const adjustmentDays = row.adjustmentType === "ADD" ? (Number(row.days) || 0) : -(Number(row.days) || 0);
         await adjustLeaveBalanceAction({
           employeeId: currentEmployee.id,
           leaveTypeId: row.leaveTypeId,
@@ -180,18 +196,16 @@ export function LeaveBalanceAdjustmentView() {
         });
       }
       setIsSuccessModalOpen(true);
-      setTimeout(() => {
-        router.push("/pulse/leave/team");
-      }, 500);
     } catch (err) {
       console.error("Failed to adjust balance:", err);
+      alert("Failed to adjust balance: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12 select-none">
+    <div className="space-y-6 w-full pb-12 select-none">
       {/* Breadcrumb Header */}
       <div className="space-y-1">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -527,8 +541,8 @@ export function LeaveBalanceAdjustmentView() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/pulse/leave/team")}
-            className="h-10 px-6 rounded-xl text-xs font-semibold"
+            onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
+            className="h-10 px-6 rounded-xl text-xs font-semibold cursor-pointer"
           >
             Cancel
           </Button>
@@ -537,12 +551,80 @@ export function LeaveBalanceAdjustmentView() {
             type="button"
             disabled={isSubmitting || rows.length === 0}
             onClick={handleConfirm}
-            className="h-10 px-6 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+            className="h-10 px-6 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
           >
             {isSubmitting ? "Adjusting..." : "Review & Confirm"}
           </Button>
         </div>
       </div>
+
+      {/* Success Confirmation Modal */}
+      {isSuccessModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-card border rounded-2xl shadow-2xl max-w-md w-full p-6 text-center space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-foreground">
+                Leave Balance Adjusted!
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Successfully updated leave balances for{" "}
+                <span className="font-semibold text-foreground">
+                  {currentEmployee?.name}
+                </span>.
+              </p>
+            </div>
+
+            <div className="bg-muted/40 rounded-xl p-3 text-xs space-y-1.5 border text-left">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Adjustment:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {totalDaysAdjustment >= 0 ? `+${totalDaysAdjustment}` : totalDaysAdjustment} Days
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reason:</span>
+                <span className="font-medium text-foreground">{reason.replace(/_/g, " ")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Effective Date:</span>
+                <span className="font-medium text-foreground">{effectiveDate}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsSuccessModalOpen(false);
+                  if (currentEmployee) setupInitialRows(currentEmployee);
+                }}
+                className="flex-1 h-10 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Adjust Another
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setIsSuccessModalOpen(false);
+                  if (onSuccess) {
+                    onSuccess();
+                  } else {
+                    router.push("/pulse/leave/team");
+                  }
+                }}
+                className="flex-1 h-10 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+              >
+                Done & View Team
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

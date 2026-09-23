@@ -28,7 +28,10 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getMyLeaveTrackerDataAction } from "../queries/leave-queries";
+import {
+  getMyLeaveTrackerDataAction,
+  getLeaveRequestByIdAction,
+} from "../queries/leave-queries";
 import {
   cancelLeaveRequestAction,
   submitRegularizationAction,
@@ -73,6 +76,7 @@ export function LeaveWorkspace({
   const [regularizeItem, setRegularizeItem] = useState<ActionRequiredItem | null>(null);
   const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
   const [prefilledApplyDate, setPrefilledApplyDate] = useState<string | undefined>(undefined);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Load real data from DB
   const loadData = () => {
@@ -87,6 +91,7 @@ export function LeaveWorkspace({
             remainingDays: b.remainingDays,
             bookedDays: b.bookedDays,
             unit: b.unit as any,
+            iconName: b.iconName,
             iconBgColor: b.iconBgColor,
             iconTextColor: b.iconTextColor,
           }))
@@ -95,9 +100,21 @@ export function LeaveWorkspace({
         setCompensatoryRequests(data.compensatoryRequests as any);
         setActionRequiredItems(data.actionRequiredItems as any);
         setStats(data.stats);
+        if (data.currentUserId) {
+          setCurrentUserId(data.currentUserId);
+        }
 
         if (initialSelectedRequestId) {
-          const matched = data.requests.find((r) => r.id === initialSelectedRequestId);
+          let matched = data.requests.find((r) => r.id === initialSelectedRequestId);
+          if (!matched) {
+            const singleData = await getLeaveRequestByIdAction(initialSelectedRequestId);
+            if (singleData) {
+              matched = singleData.request as any;
+              if (singleData.balances && singleData.balances.length > 0) {
+                setLeaveTypes(singleData.balances);
+              }
+            }
+          }
           if (matched) {
             setSelectedRequest(matched as any);
             setActiveTab("request-details");
@@ -189,9 +206,10 @@ export function LeaveWorkspace({
       {activeTab === "apply" && (
         <ApplyLeaveForm
           leaveTypes={leaveTypes}
-          onSubmitLeave={() => {
+          onSubmitLeave={(newReq) => {
+            setSelectedRequest(newReq as any);
             loadData();
-            setActiveTab("requests");
+            setActiveTab("request-details");
           }}
           onCancel={() => setActiveTab("overview")}
           initialDate={prefilledApplyDate}
@@ -216,6 +234,11 @@ export function LeaveWorkspace({
           leaveTypes={leaveTypes}
           onCancelRequest={handleCancelRequest}
           onBack={() => setActiveTab("requests")}
+          isManagerView={Boolean(
+            selectedRequest.employee?.id &&
+            currentUserId &&
+            selectedRequest.employee.id !== currentUserId
+          )}
         />
       )}
 

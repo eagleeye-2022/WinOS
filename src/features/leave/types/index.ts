@@ -52,10 +52,11 @@ export interface ApprovalStep {
   actorName: string;
   actorRole?: string;
   dateStr?: string;
-  status: "COMPLETED" | "PENDING" | "REJECTED";
+  status: "COMPLETED" | "PENDING" | "REJECTED" | "APPROVED";
 }
 
 export interface EmployeeInfo {
+  id?: string;
   name: string;
   empId: string;
   role: string;
@@ -84,6 +85,8 @@ export interface LeaveRequest {
   attachments?: LeaveAttachment[];
   approverComments?: string;
   approvalFlow?: ApprovalStep[];
+  leaveTypeIcon?: string;
+  leaveTypeColor?: string;
 }
 
 export interface ActionRequiredItem {

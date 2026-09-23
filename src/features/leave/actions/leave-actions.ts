@@ -94,12 +94,6 @@ export async function applyLeaveAction(formData: {
             approverRole: "Reporting Manager",
             status: "PENDING",
           },
-          {
-            stepOrder: 3,
-            stepName: "Final Approval",
-            approverRole: "HR Admin",
-            status: "PENDING",
-          },
         ],
       },
       attachments: formData.attachmentFileName
@@ -473,6 +467,8 @@ export async function createLeaveTypeAction(data: {
   code: string;
   description?: string;
   icon?: string;
+  iconBgColor?: string;
+  iconTextColor?: string;
   isActive?: boolean;
   effectiveDate: string;
   expiryDate?: string;
@@ -523,6 +519,8 @@ export async function createLeaveTypeAction(data: {
       code: data.code.toUpperCase(),
       description: data.description,
       icon: data.icon || "Thermometer",
+      iconBgColor: data.iconBgColor || "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40",
+      iconTextColor: data.iconTextColor || "text-emerald-600",
       isActive: data.isActive ?? true,
       effectiveDate: new Date(data.effectiveDate),
       expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,

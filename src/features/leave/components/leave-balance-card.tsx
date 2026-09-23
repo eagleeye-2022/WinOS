@@ -15,9 +15,17 @@ import {
   Users,
   Heart,
   Calendar,
+  CalendarDays,
   CalendarCheck,
   History,
   HelpCircle,
+  Thermometer,
+  Plane,
+  Baby,
+  FileText,
+  Coffee,
+  Sun,
+  Briefcase,
 } from "lucide-react";
 import { LeaveTypeConfig } from "../types";
 import { cn } from "@/lib/utils";
@@ -31,38 +39,54 @@ interface LeaveBalanceCardProps {
 export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCardProps) {
   const getIcon = (name: string) => {
     switch (name) {
+      case "Thermometer":
+        return Thermometer;
+      case "Heart":
+        return Heart;
       case "Pill":
         return Pill;
-      case "Banknote":
-        return Banknote;
-      case "Laptop2":
-        return Laptop2;
-      case "AlertTriangle":
-        return AlertTriangle;
+      case "Plane":
+        return Plane;
+      case "Calendar":
+        return Calendar;
+      case "CalendarDays":
+        return CalendarDays;
+      case "Baby":
+        return Baby;
+      case "Users":
+        return Users;
       case "Clock":
         return Clock;
       case "Gift":
         return Gift;
+      case "AlertTriangle":
+        return AlertTriangle;
+      case "Sparkles":
+        return Sparkles;
+      case "FileText":
+        return FileText;
+      case "Laptop2":
+        return Laptop2;
+      case "Coffee":
+        return Coffee;
+      case "Sun":
+        return Sun;
+      case "Briefcase":
+        return Briefcase;
+      case "TimerReset":
+        return TimerReset;
+      case "Banknote":
+        return Banknote;
       case "CalendarX":
         return CalendarX;
       case "UserX":
         return UserX;
-      case "TimerReset":
-        return TimerReset;
-      case "Sparkles":
-        return Sparkles;
-      case "Users":
-        return Users;
-      case "Heart":
-        return Heart;
-      case "Calendar":
-        return Calendar;
       case "CalendarCheck":
         return CalendarCheck;
       case "History":
         return History;
       default:
-        return HelpCircle;
+        return Calendar;
     }
   };
 
@@ -72,7 +96,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
     <div
       onClick={onClick}
       className={cn(
-        "min-w-[150px] max-w-[170px] flex-1 bg-card border rounded-xl p-3.5 flex flex-col justify-between transition-all duration-200 select-none",
+        "min-w-[152px] max-w-[172px] flex-1 bg-card border rounded-xl p-3.5 flex flex-col justify-between transition-all duration-200 select-none",
         onClick && "cursor-pointer hover:border-primary/50 hover:shadow-xs",
         isSelected && "ring-2 ring-primary border-primary bg-primary/5 shadow-xs"
       )}
@@ -90,7 +114,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
       {/* Metric values */}
       <div className="grid grid-cols-2 gap-1 pt-1 border-t border-border/40 text-center">
         <div>
-          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase">
+          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
             Remaining
           </div>
           <div className="text-base font-bold text-primary">
@@ -102,7 +126,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
         </div>
 
         <div className="border-l border-border/50">
-          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase">
+          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
             Booked
           </div>
           <div className="text-base font-bold text-foreground/80">

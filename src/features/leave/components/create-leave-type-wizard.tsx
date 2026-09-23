@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -22,6 +22,19 @@ import {
   FileText,
   UserCheck,
   CheckCircle2,
+  Sparkles,
+  Heart,
+  Plane,
+  Baby,
+  Users,
+  Gift,
+  AlertTriangle,
+  Pill,
+  Laptop2,
+  Coffee,
+  Sun,
+  Briefcase,
+  TimerReset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +47,64 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { createLeaveTypeAction } from "../actions/leave-actions";
+
+const AVAILABLE_ICONS = [
+  { name: "Thermometer", label: "Medical / Sick", component: Thermometer },
+  { name: "Heart", label: "Health / Care", component: Heart },
+  { name: "Pill", label: "Sick / Medicine", component: Pill },
+  { name: "Plane", label: "Casual / Travel", component: Plane },
+  { name: "Calendar", label: "Paid Leave", component: Calendar },
+  { name: "CalendarDays", label: "Annual / General", component: CalendarDays },
+  { name: "Baby", label: "Maternity", component: Baby },
+  { name: "Users", label: "Paternity / Family", component: Users },
+  { name: "Clock", label: "Comp Off", component: Clock },
+  { name: "Gift", label: "Floating Holiday", component: Gift },
+  { name: "AlertTriangle", label: "Loss of Pay", component: AlertTriangle },
+  { name: "Sparkles", label: "Special Event", component: Sparkles },
+  { name: "FileText", label: "Sabbatical / Study", component: FileText },
+  { name: "Laptop2", label: "Remote / WFH", component: Laptop2 },
+  { name: "Coffee", label: "Break / Rest", component: Coffee },
+  { name: "Sun", label: "Vacation", component: Sun },
+  { name: "Briefcase", label: "Official Duty", component: Briefcase },
+  { name: "TimerReset", label: "Shift / Hours", component: TimerReset },
+];
+
+const COLOR_THEMES = [
+  { id: "emerald", label: "Emerald", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
+  { id: "blue", label: "Blue", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800" },
+  { id: "purple", label: "Purple", bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-600 dark:text-purple-400", border: "border-purple-200 dark:border-purple-800" },
+  { id: "orange", label: "Amber / Orange", bg: "bg-orange-50 dark:bg-orange-950/40", text: "text-orange-600 dark:text-orange-400", border: "border-orange-200 dark:border-orange-800" },
+  { id: "rose", label: "Rose / Red", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800" },
+  { id: "cyan", label: "Cyan", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-200 dark:border-cyan-800" },
+  { id: "indigo", label: "Indigo", bg: "bg-indigo-50 dark:bg-indigo-950/40", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-200 dark:border-indigo-800" },
+  { id: "slate", label: "Slate", bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700" },
+];
+
+const PRESET_LEAVE_TYPES = [
+  { name: "Sick Leave", code: "SL", category: "Paid", entitlement: 12, desc: "Leave granted to employees when they are not feeling well and unable to attend work." },
+  { name: "Casual Leave", code: "CL", category: "Paid", entitlement: 6, desc: "For short personal affairs, family events, or unforeseen matters." },
+  { name: "Paid Leave", code: "PL", category: "Paid", entitlement: 12, desc: "General earned / annual time off for employees." },
+  { name: "Privilege Leave", code: "PL", category: "Paid", entitlement: 15, desc: "Earned leave accrued through service tenure." },
+  { name: "Maternity Leave", code: "ML", category: "Paid", entitlement: 180, desc: "Statutory paid leave for female employees for prenatal and postnatal care." },
+  { name: "Paternity Leave", code: "PTL", category: "Paid", entitlement: 15, desc: "Leave granted to male employees around the birth/adoption of a child." },
+  { name: "Comp Off", code: "COMP", category: "Paid", entitlement: 0, desc: "Compensatory time off earned by working extra hours, holidays or weekends." },
+  { name: "Loss of Pay (LOP)", code: "LOP", category: "Unpaid", entitlement: 0, desc: "Unpaid leave for absences beyond allotted paid leave quota." },
+  { name: "Floating Holiday", code: "FH", category: "Paid", entitlement: 3, desc: "Optional cultural, festive or religious holiday from designated list." },
+  { name: "Early Leave", code: "EL", category: "Paid", entitlement: 2, desc: "Short permission to leave workplace 1-2 hours early." },
+  { name: "Bereavement Leave", code: "BL", category: "Paid", entitlement: 5, desc: "Compassionate leave following the death of an immediate family member." },
+  { name: "Marriage Leave", code: "MRL", category: "Paid", entitlement: 5, desc: "Special leave granted for an employee's own wedding." },
+  { name: "Sabbatical Leave", code: "SBL", category: "Unpaid", entitlement: 30, desc: "Extended unpaid career break for study, research or personal development." },
+  { name: "Work From Home", code: "WFH", category: "Paid", entitlement: 24, desc: "Remote work authorization request." },
+];
 
 interface CreateLeaveTypeWizardProps {
   onCancel?: () => void;
@@ -58,6 +127,121 @@ export function CreateLeaveTypeWizard({
   );
   const [effectiveDate, setEffectiveDate] = useState("2025-06-01");
   const [expiryDate, setExpiryDate] = useState("");
+
+  // Autocomplete dropdown state
+  const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Icon & Color State
+  const [selectedIcon, setSelectedIcon] = useState("Thermometer");
+  const [selectedColorTheme, setSelectedColorTheme] = useState("emerald");
+  const [isIconModalOpen, setIsIconModalOpen] = useState(false);
+
+  const currentColor = useMemo(() => {
+    return (
+      COLOR_THEMES.find((c) => c.id === selectedColorTheme) || COLOR_THEMES[0]
+    );
+  }, [selectedColorTheme]);
+
+  const renderIconComponent = (iconName: string, className = "w-5 h-5") => {
+    switch (iconName) {
+      case "Thermometer":
+        return <Thermometer className={className} />;
+      case "Heart":
+        return <Heart className={className} />;
+      case "Pill":
+        return <Pill className={className} />;
+      case "Plane":
+        return <Plane className={className} />;
+      case "Calendar":
+        return <Calendar className={className} />;
+      case "CalendarDays":
+        return <CalendarDays className={className} />;
+      case "Baby":
+        return <Baby className={className} />;
+      case "Users":
+        return <Users className={className} />;
+      case "Clock":
+        return <Clock className={className} />;
+      case "Gift":
+        return <Gift className={className} />;
+      case "AlertTriangle":
+        return <AlertTriangle className={className} />;
+      case "Sparkles":
+        return <Sparkles className={className} />;
+      case "FileText":
+        return <FileText className={className} />;
+      case "Laptop2":
+        return <Laptop2 className={className} />;
+      case "Coffee":
+        return <Coffee className={className} />;
+      case "Sun":
+        return <Sun className={className} />;
+      case "Briefcase":
+        return <Briefcase className={className} />;
+      case "TimerReset":
+        return <TimerReset className={className} />;
+      default:
+        return <Thermometer className={className} />;
+    }
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsNameDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsNameDropdownOpen(false);
+        setIsIconModalOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const filteredPresets = useMemo(() => {
+    if (!leaveTypeName.trim()) return PRESET_LEAVE_TYPES;
+    return PRESET_LEAVE_TYPES.filter(
+      (p) =>
+        p.name.toLowerCase().includes(leaveTypeName.toLowerCase()) ||
+        p.code.toLowerCase().includes(leaveTypeName.toLowerCase())
+    );
+  }, [leaveTypeName]);
+
+  const handleSelectSuggestion = (preset: (typeof PRESET_LEAVE_TYPES)[0]) => {
+    setLeaveTypeName(preset.name);
+    setLeaveCode(preset.code);
+    setDescription(preset.desc);
+    setLeaveCategory(preset.category);
+    setAnnualEntitlement(preset.entitlement);
+    if (preset.name.includes("Sick") || preset.name.includes("Medical")) {
+      setSelectedIcon("Thermometer");
+      setSelectedColorTheme("blue");
+    } else if (preset.name.includes("Casual") || preset.name.includes("Holiday")) {
+      setSelectedIcon("Plane");
+      setSelectedColorTheme("orange");
+    } else if (preset.name.includes("Maternity") || preset.name.includes("Paternity")) {
+      setSelectedIcon("Baby");
+      setSelectedColorTheme("purple");
+    } else if (preset.name.includes("Comp")) {
+      setSelectedIcon("Clock");
+      setSelectedColorTheme("orange");
+    } else if (preset.name.includes("Loss of Pay")) {
+      setSelectedIcon("AlertTriangle");
+      setSelectedColorTheme("rose");
+    } else {
+      setSelectedIcon("Calendar");
+      setSelectedColorTheme("emerald");
+    }
+    setIsNameDropdownOpen(false);
+  };
 
   // STEP 2: Leave & Balance Setup
   const [leaveCategory, setLeaveCategory] = useState("Paid");
@@ -178,6 +362,9 @@ export function CreateLeaveTypeWizard({
           name: leaveTypeName,
           code: leaveCode,
           description,
+          icon: selectedIcon,
+          iconBgColor: currentColor.bg,
+          iconTextColor: currentColor.text,
           isActive: status === "Active",
           effectiveDate,
           expiryDate: expiryDate || undefined,
@@ -233,7 +420,7 @@ export function CreateLeaveTypeWizard({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16 select-none">
+    <div className="space-y-6 w-full pb-16 select-none">
       {/* Top Header & Breadcrumbs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -343,20 +530,66 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-5 text-xs">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* Leave Type Name */}
-              <div className="space-y-1.5">
+              {/* Leave Type Name with Autocomplete */}
+              <div ref={dropdownRef} className="space-y-1.5 relative">
                 <label className="font-semibold text-foreground">
                   Leave Type Name <span className="text-red-500">*</span>
                 </label>
-                <Input
-                  value={leaveTypeName}
-                  onChange={(e) => setLeaveTypeName(e.target.value)}
-                  placeholder="e.g. Sick Leave"
-                  className="h-10 rounded-xl text-xs bg-background font-medium"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    value={leaveTypeName}
+                    onChange={(e) => {
+                      setLeaveTypeName(e.target.value);
+                      setIsNameDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsNameDropdownOpen(true)}
+                    placeholder="Type leave name (e.g. Casual Leave, Sick Leave)"
+                    className="h-10 rounded-xl text-xs bg-background font-medium"
+                    required
+                  />
+                  {filteredPresets.length > 0 && isNameDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-popover border border-border/80 rounded-xl shadow-lg max-h-64 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
+                      <div className="px-3 py-1.5 bg-muted/40 text-[10px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-primary" />
+                        <span>Suggested Leave Types (Click to auto-fill)</span>
+                      </div>
+                      {filteredPresets.map((preset) => (
+                        <div
+                          key={preset.name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectSuggestion(preset);
+                          }}
+                          className="px-3 py-2 hover:bg-primary/5 cursor-pointer transition-colors flex flex-col gap-0.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-foreground">{preset.name}</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-muted text-muted-foreground">
+                                {preset.code}
+                              </span>
+                            </div>
+                            <span className={cn(
+                              "text-[9px] font-medium px-1.5 py-0.5 rounded-full",
+                              preset.category === "Paid"
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200"
+                                : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200"
+                            )}>
+                              {preset.category} • {preset.entitlement}d/yr
+                            </span>
+                          </div>
+                          {preset.desc && (
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">
+                              {preset.desc}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Enter a clear and unique name for the leave type.
+                  Type any name or click a suggestion to auto-fill code and rules.
                 </p>
               </div>
 
@@ -380,23 +613,34 @@ export function CreateLeaveTypeWizard({
               {/* Icon */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-foreground">
-                  Icon <span className="text-red-500">*</span>
+                  Icon & Badge Color <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
-                    <Thermometer className="w-5 h-5" />
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsIconModalOpen(true)}
+                    title="Click to change icon and color theme"
+                    className={cn(
+                      "w-11 h-11 rounded-xl flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs shrink-0 group relative",
+                      currentColor.bg,
+                      currentColor.text,
+                      currentColor.border
+                    )}
+                  >
+                    {renderIconComponent(selectedIcon, "w-5 h-5 group-hover:scale-110 transition-transform")}
+                  </button>
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 flex-1 rounded-xl text-xs font-semibold gap-1.5 text-primary border-primary/30"
+                    onClick={() => setIsIconModalOpen(true)}
+                    className="h-11 flex-1 rounded-xl text-xs font-semibold gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 cursor-pointer shadow-2xs"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
-                    <span>Change Icon</span>
+                    <span>Change Icon & Color</span>
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Choose an icon that represents this leave.
+                  Selected: <span className="font-medium text-foreground">{selectedIcon}</span> with <span className="font-medium text-foreground">{currentColor.label}</span> badge.
                 </p>
               </div>
             </div>
@@ -1870,6 +2114,134 @@ export function CreateLeaveTypeWizard({
           <ArrowRight className="w-3.5 h-3.5" />
         </Button>
       </div>
+      {/* Icon & Color Theme Picker Dialog Modal */}
+      {isIconModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onClick={() => setIsIconModalOpen(false)}
+        >
+          <div
+            className="bg-card border rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b">
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Choose Icon & Color Theme
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Select visual style for leave cards and badges
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsIconModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-1 text-xs">
+              {/* Live Preview Box */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl border bg-muted/30">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center border shadow-2xs transition-all", currentColor.bg, currentColor.text, currentColor.border)}>
+                    {renderIconComponent(selectedIcon, "w-6 h-6")}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">
+                      {leaveTypeName || "Leave Type"} {leaveCode ? `(${leaveCode})` : ""}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Preview: <span className="font-semibold text-foreground">{selectedIcon}</span> with <span className="font-semibold text-foreground">{currentColor.label}</span> badge
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Select Icon Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Select Icon
+                  </label>
+                  <span className="text-[10px] font-medium text-primary">
+                    {selectedIcon}
+                  </span>
+                </div>
+                <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1.5 scrollbar-thin border rounded-xl bg-background/50">
+                  {AVAILABLE_ICONS.map((item) => {
+                    const IconComp = item.component;
+                    const isSelected = selectedIcon === item.name;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => setSelectedIcon(item.name)}
+                        className={cn(
+                          "h-12 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer",
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/40 shadow-xs"
+                            : "border-border/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                        )}
+                        title={item.label}
+                      >
+                        <IconComp className="w-5 h-5" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Select Color Theme */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Select Color Theme
+                  </label>
+                  <span className="text-[10px] font-medium text-primary">
+                    {currentColor.label}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {COLOR_THEMES.map((theme) => {
+                    const isSelected = selectedColorTheme === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        onClick={() => setSelectedColorTheme(theme.id)}
+                        className={cn(
+                          "flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium transition-all cursor-pointer",
+                          theme.bg,
+                          theme.text,
+                          isSelected
+                            ? "ring-2 ring-primary border-primary font-bold shadow-xs scale-102"
+                            : "border-border/60 opacity-80 hover:opacity-100"
+                        )}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full border shrink-0" style={{ backgroundColor: "currentColor" }} />
+                        <span className="text-[10px] truncate">{theme.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3">
+                <Button
+                  type="button"
+                  onClick={() => setIsIconModalOpen(false)}
+                  className="w-full h-10 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+                >
+                  Apply & Done
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
