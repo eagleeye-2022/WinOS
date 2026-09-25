@@ -1,9 +1,10 @@
-import { User, MessageSquare, Folder, LayoutGrid, type LucideIcon } from "lucide-react";
+import { User, Users, MessageSquare, Folder, LayoutGrid, type LucideIcon } from "lucide-react";
 
 export const MODULE_STYLE: Record<string, { icon: LucideIcon; bg: string }> = {
   USER_MANAGEMENT: { icon: User, bg: "bg-blue-500" },
   STANDUP: { icon: MessageSquare, bg: "bg-emerald-500" },
   PROJECTS: { icon: Folder, bg: "bg-purple-500" },
+  PEOPLE: { icon: Users, bg: "bg-orange-500" },
 };
 
 export function moduleStyle(key: string) {

@@ -9,6 +9,7 @@ const MODULE_LABEL: Record<string, string> = {
   STANDUP: "Standup",
   PROJECTS: "Projects",
   USER_MANAGEMENT: "User Management",
+  PEOPLE: "Pulse",
 };
 
 function RestrictedContent() {

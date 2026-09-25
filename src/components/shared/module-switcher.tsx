@@ -15,7 +15,7 @@ const MODULES = [
   },
   {
     id: "people",
-    label: "People",
+    label: "Pulse",
     href: "/pulse/leave",
     icon: Users,
     moduleKey: "PEOPLE",
@@ -26,6 +26,13 @@ const MODULES = [
     href: "/projects",
     icon: Briefcase,
     moduleKey: "PROJECTS",
+  },
+  {
+    id: "users",
+    label: "User Management",
+    href: "/settings/users",
+    icon: Users,
+    moduleKey: "USER_MANAGEMENT",
   },
   // {
   //   id: "sales",
@@ -63,16 +70,16 @@ export function ModuleSwitcher({ access, isManager }: ModuleSwitcherProps) {
     pathname.startsWith("/people") ||
     pathname.startsWith("/pulse") ||
     pathname.startsWith("/leave") ||
-    pathname.startsWith("/settings") ||
     activeModule === "people" ||
-    activeModule === "pulse" ||
-    activeModule === "users"
+    activeModule === "pulse"
   ) {
     activeModuleId = "people";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleId = "projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleId = "sales";
+  } else if (pathname.startsWith("/settings") || activeModule === "users") {
+    activeModuleId = "users";
   }
 
   const handleSelect = (href: string) => {

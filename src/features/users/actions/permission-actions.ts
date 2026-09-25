@@ -62,6 +62,7 @@ const USER_SEED_MODULES: SeedModule[] = [
   genericModule("USER", "STANDUP", "Standup"),
   genericModule("USER", "PROJECTS", "Projects"),
   genericModule("USER", "USER_MANAGEMENT", "User Management"),
+  genericModule("USER", "PEOPLE", "Pulse"),
 ];
 
 const CLIENT_SEED_MODULES: SeedModule[] = [
@@ -94,8 +95,17 @@ async function ensureSeeded(profileType: ProfileType) {
   const seedModules = SEED_MODULES_BY_PROFILE[profileType];
   const existingModules = await db.permissionModule.findMany({
     where: { profileType },
-    select: { key: true },
+    select: { id: true, key: true, name: true },
   });
+
+  // Keep display names in sync with the seed list (e.g. PEOPLE renamed to "Pulse").
+  for (const existing of existingModules) {
+    const seed = seedModules.find((mod) => mod.key === existing.key);
+    if (seed && seed.name !== existing.name) {
+      await db.permissionModule.update({ where: { id: existing.id }, data: { name: seed.name } });
+    }
+  }
+
   const existingKeys = new Set(existingModules.map((m) => m.key));
   const missingModules = seedModules.filter((mod) => !existingKeys.has(mod.key));
   if (missingModules.length === 0) return;

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { getModuleAccessMapAction } from "@/features/users/actions/permission-actions";
 
-export type GuardedModuleKey = "STANDUP" | "PROJECTS" | "USER_MANAGEMENT";
+export type GuardedModuleKey = "STANDUP" | "PROJECTS" | "USER_MANAGEMENT" | "PEOPLE";
 
 // Synchronous, server-side module gate — call from a layout/page before any
 // content renders, so a restricted user never sees a flash of the page
