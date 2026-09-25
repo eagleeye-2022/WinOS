@@ -192,14 +192,12 @@ function TaskItemRow({
         </form>
       </td>
       <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{index + 1}</td>
-      {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
-      */}
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className={cn("select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
@@ -219,7 +217,6 @@ function TaskItemRow({
       <td className="py-2 pr-3 align-top">
         <DueDateCell dueDate={projectLink?.dueDate} />
       </td>
-      {/* Timer cell temporarily disabled — Projects module not part of this deploy
       <td className="py-2 pr-3 align-top">
         {projectLink?.projectTask && memberId && dateStr ? (
           <MemberTaskTimerBadge
@@ -232,7 +229,6 @@ function TaskItemRow({
           <TimeTrackedBadge totalMinutes={projectLink?.timeSummary.totalMinutes ?? 0} />
         )}
       </td>
-      */}
     </tr>
   );
 }
@@ -331,7 +327,6 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
 
-      {/* Project/Task/Subtask selectors temporarily disabled — Projects module not part of this deploy
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">Project:</span>
 
@@ -381,16 +376,13 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
           </div>
         )}
       </div>
-      */}
 
       <div className="flex items-center gap-2">
-        {/* Project/task code chip temporarily disabled — Projects module not part of this deploy
         {selectedMeta?.code && (
           <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
             {selectedMeta.code}
           </span>
         )}
-        */}
         <input
           ref={inputRef}
           name="text"
@@ -476,7 +468,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     const texts = plannedTasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
-      if (res) setProjectLinks(res);
+      if (res) setProjectLinks(res.links);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
@@ -531,7 +523,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <TaskTableHead withCheckbox withProject={false} withTimeTracked={false} />
+          <TaskTableHead withCheckbox />
           <tbody>
             {sortedTasks.map((task, i) => (
               <TaskItemRow

@@ -87,8 +87,23 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "RTD Documents") {
     return pathname === "/people";
   }
-  if (label === "ICA Agreements") {
-    return pathname.startsWith("/people/ica");
+  if (label === "My Leaves" || label === "Leave Tracker") {
+    return (
+      (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) &&
+      !pathname.startsWith("/pulse/leave/team")
+    );
+  }
+  if (label === "Team Leave") {
+    return pathname.startsWith("/pulse/leave/team");
+  }
+  if (label === "Users" && pathname.startsWith("/settings")) {
+    return pathname.startsWith(ROUTES.settingsUsers);
+  }
+  if (label === "Attendance") {
+    return pathname.startsWith("/pulse/attendance");
+  }
+  if (label === "Regularization") {
+    return pathname.startsWith("/pulse/regularization");
   }
   if (label === "All Projects" && pathname.startsWith("/projects")) {
     return pathname === "/projects" || pathname === "/projects/all";
@@ -150,26 +165,40 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
   // Determine active module title based on path
   let activeModuleTitle = "Standup";
-  if (pathname.startsWith("/people") || activeModule === "people") {
-    activeModuleTitle = "People";
+  if (
+    pathname.startsWith("/people") ||
+    pathname.startsWith("/pulse") ||
+    pathname.startsWith("/leave") ||
+    activeModule === "people" ||
+    activeModule === "pulse"
+  ) {
+    activeModuleTitle = "Pulse";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleTitle = "Projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleTitle = "Sales";
-  } else if (pathname.startsWith("/settings") || activeModule === "settings") {
-    activeModuleTitle = "Settings";
+  } else if (pathname.startsWith("/settings") || activeModule === "settings" || activeModule === "users") {
+    activeModuleTitle = "User Management";
   }
 
   // Dynamic items based on active module & user role
   let navItems: Array<{ label: string; href: string; icon: React.ElementType; section?: string }> = [];
 
-  if (activeModuleTitle === "People") {
-    navItems = [
-      { label: "RTD Documents", href: "/people", icon: FileText },
-      { label: "ICA Agreements", href: "/people/ica", icon: UserCheck },
-      { label: "iNotes", href: `${iNotesHref}?module=people`, icon: ClipboardList },
-      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
-    ];
+  if (activeModuleTitle === "Pulse") {
+    navItems = isManager
+      ? [
+          { label: "Home", href: "/people", icon: Home },
+          { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
+          { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
+          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+        ]
+      : [
+          { label: "Home", href: "/people", icon: Home },
+          { label: "Leave Tracker", href: "/pulse/leave", icon: Calendar },
+          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+        ];
   } else if (activeModuleTitle === "Projects") {
     navItems = isManager
       ? [
@@ -194,13 +223,11 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
       { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
-  } else if (activeModuleTitle === "Settings") {
-    navItems = isManager
-      ? [
-          { label: "User", href: ROUTES.settingsUsers, icon: User },
-          // { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
-        ]
-      : [];
+  } else if (activeModuleTitle === "User Management") {
+    navItems = [
+      { label: "Users", href: ROUTES.settingsUsers, icon: User },
+      { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
+    ];
   } else {
     // Standup Module
     navItems = isManager
@@ -320,7 +347,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
               href={ROUTES.settingsUsers}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs select-none transition-colors",
-                activeModuleTitle === "Settings"
+                pathname.startsWith("/settings")
                   ? "text-primary font-semibold"
                   : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
               )}

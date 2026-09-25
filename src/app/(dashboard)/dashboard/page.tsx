@@ -13,6 +13,7 @@ import { getAllDsrStats } from "@/features/dsr/manager/queries";
 import type { AllDsmStats } from "@/features/dsm/manager/queries";
 import type { AllDsrStats } from "@/features/dsr/manager/queries";
 import { DashboardGreeting } from "@/components/shared/dashboard-greeting";
+import { requireModuleAccess } from "@/features/users/actions/module-guard";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -387,6 +388,7 @@ function MemberDashboard({
 // ── Page (role-aware data fetch) ──────────────────────────────────────────────
 
 export default async function DashboardPage() {
+  await requireModuleAccess("STANDUP");
   const session = await auth();
   const isManager = session?.user?.role === "MANAGER";
   const name = session?.user?.name ?? session?.user?.email ?? "";

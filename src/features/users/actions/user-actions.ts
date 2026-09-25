@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { ROUTES } from "@/constants/routes";
 import { calculateAge } from "@/lib/fmt";
 import { DEPARTMENTS } from "@/features/users/constants";
+import { getModuleAccessMapAction } from "@/features/users/actions/permission-actions";
 import type { UserRole } from "@/types";
 
 export interface TeamMemberRow {
@@ -21,6 +22,13 @@ export interface TeamMemberRow {
   dateOfJoining: string | null;
   age: number | null;
   isActive: boolean;
+  moduleAccess: Record<string, boolean>;
+}
+
+export interface ModuleAccessColumn {
+  id: string;
+  key: string;
+  name: string;
 }
 
 export interface ManagerOption {
@@ -69,9 +77,10 @@ function formatDate(d: Date | null) {
 }
 
 export async function getTeamMembersAction(): Promise<TeamMemberRow[]> {
-  const users = await db.user.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+  const [users, { modules, accessByUser }] = await Promise.all([
+    db.user.findMany({ orderBy: { createdAt: "asc" } }),
+    getModuleAccessMapAction(),
+  ]);
 
   return users.map((u) => {
     const name = u.name || u.email;
@@ -87,8 +96,16 @@ export async function getTeamMembersAction(): Promise<TeamMemberRow[]> {
       dateOfJoining: formatDate(u.dateOfJoining),
       age: calculateAge(u.dateOfBirth),
       isActive: u.isActive,
+      moduleAccess: Object.fromEntries(
+        modules.map((m) => [m.key, accessByUser[u.id]?.[m.key] ?? true])
+      ),
     };
   });
+}
+
+export async function getModuleAccessColumnsAction(): Promise<ModuleAccessColumn[]> {
+  const { modules } = await getModuleAccessMapAction();
+  return modules;
 }
 
 export async function getManagerOptionsAction(): Promise<ManagerOption[]> {

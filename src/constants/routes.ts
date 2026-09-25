@@ -22,6 +22,9 @@ export const ROUTES = {
   settingsUsersNew: "/settings/users/member/new",
   settingsUsersEdit: (userId: string) => `/settings/users/member/${userId}/edit` as const,
   settingsProfileAccess: "/settings/profile-access",
+  pulseLeave: "/pulse/leave",
+  pulseLeaveApply: "/pulse/leave/apply",
+  restricted: "/restricted",
 } as const;
 
 export const PUBLIC_ROUTES: string[] = [ROUTES.login, ROUTES.clientLogin];

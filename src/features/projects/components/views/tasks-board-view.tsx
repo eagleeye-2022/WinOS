@@ -797,14 +797,20 @@ export function TasksBoardView({
 
   // Group tasks by phase
   const phaseMap: Record<string, { code: string; name: string; tasks: TaskItem[] }> = {};
-  DEFAULT_KANBAN_PHASES.forEach((p) => {
-    phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
-  });
-
-  dbPhases.forEach((p) => {
-    if (!phaseMap[p.code]) {
+  // Projects with their own phase scheme (e.g. EED Core's milestone phases "ECO", "GEN")
+  // get only their own columns; the SOP template columns would otherwise push them off-screen.
+  const usesOwnPhaseScheme =
+    dbPhases.length > 0 && !dbPhases.some((p) => DEFAULT_KANBAN_PHASES.some((d) => d.code === p.code));
+  if (!usesOwnPhaseScheme) {
+    DEFAULT_KANBAN_PHASES.forEach((p) => {
       phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
-    }
+    });
+  }
+
+  // The project's own phase name wins over the template's for the same code
+  // (7Dots' "7.2" is "Monthly Product Upload", the template's is "MSO On-Page").
+  dbPhases.forEach((p) => {
+    phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
   });
 
   customPhases.forEach((p) => {

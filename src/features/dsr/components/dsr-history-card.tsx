@@ -26,13 +26,17 @@ export function DsrHistoryCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
+  const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
 
   useEffect(() => {
     const texts = entry.plannedTasks.map((t) => t.text).filter(Boolean);
     if (texts.length === 0) return;
     const dateStr = new Date(entry.date).toISOString().slice(0, 10);
     fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
-      if (res) setProjectLinks(res);
+      if (res) {
+        setProjectLinks(res.links);
+        setHasProjectsAccess(res.hasProjectsAccess);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
@@ -176,21 +180,23 @@ export function DsrHistoryCard({
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
-                  <TaskTableHead withProject={false} withTimeTracked={false} />
+                  <TaskTableHead withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
                   <tbody>
                     {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
                       const link = projectLinks[task.text];
                       return (
                         <tr key={task.id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
                           <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
-                          {/* Project / Task ID cells temporarily disabled — Projects module not part of this deploy
-                          <td className="py-2 pr-3 align-top">
-                            {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-                          </td>
-                          <td className="py-2 pr-3 align-top">
-                            {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-                          </td>
-                          */}
+                          {hasProjectsAccess && (
+                            <td className="py-2 pr-3 align-top">
+                              {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                            </td>
+                          )}
+                          {hasProjectsAccess && (
+                            <td className="py-2 pr-3 align-top">
+                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                            </td>
+                          )}
                           <td className="py-2 pr-3 align-top">
                             <div className="flex flex-wrap items-center gap-1.5 text-sm">
                               <ExpandableTaskText text={task.text} />
@@ -207,20 +213,20 @@ export function DsrHistoryCard({
                           <td className="py-2 pr-3 align-top">
                             <DueDateCell dueDate={link?.dueDate} />
                           </td>
-                          {/* Timer cell temporarily disabled — Projects module not part of this deploy
-                          <td className="py-2 pr-3 align-top">
-                            {link?.projectTask ? (
-                              <MemberTaskTimerBadge
-                                taskId={link.projectTaskId || link.projectTask.id}
-                                taskCode={link.projectTask.code}
-                                memberId={memberId || entry.userId}
-                                dateStr={new Date(entry.date).toISOString().slice(0, 10)}
-                              />
-                            ) : (
-                              <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
-                            )}
-                          </td>
-                          */}
+                          {hasProjectsAccess && (
+                            <td className="py-2 pr-3 align-top">
+                              {link?.projectTask ? (
+                                <MemberTaskTimerBadge
+                                  taskId={link.projectTaskId || link.projectTask.id}
+                                  taskCode={link.projectTask.code}
+                                  memberId={memberId || entry.userId}
+                                  dateStr={new Date(entry.date).toISOString().slice(0, 10)}
+                                />
+                              ) : (
+                                <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

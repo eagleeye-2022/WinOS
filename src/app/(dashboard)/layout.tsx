@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 import { SessionGuard } from "@/components/shared/session-guard";
+import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -72,9 +73,12 @@ export default async function DashboardLayout({
     .slice(0, 2)
     .toUpperCase();
 
-  const [unreadCount, recentNotifications] = await Promise.all([
+  const isManager = userRole === "MANAGER";
+
+  const [unreadCount, recentNotifications, myModuleAccess] = await Promise.all([
     getUnreadCount(),
     getNotifications(20),
+    getMyModuleAccessAction(),
   ]);
 
   return (
@@ -91,7 +95,7 @@ export default async function DashboardLayout({
           {/* Clock & Switcher */}
           <div className="flex items-center gap-3 px-4 shrink-0">
             <ClockChip />
-            <ModuleSwitcher />
+            <ModuleSwitcher access={myModuleAccess.access} isManager={isManager} />
           </div>
 
           {/* Spacer — keeps right icons pinned while leaving room for future content */}

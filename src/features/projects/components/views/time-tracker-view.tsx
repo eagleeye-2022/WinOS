@@ -887,10 +887,10 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
           </div>
 
-          <span className="text-muted-foreground font-bold">&gt;</span>
+          {/* <span className="text-muted-foreground font-bold">&gt;</span> */}
 
           {/* Time Sheet View Select */}
-          <div className="relative inline-flex items-center gap-1 text-primary font-semibold cursor-pointer hover:underline">
+          {/* <div className="relative inline-flex items-center gap-1 text-primary font-semibold cursor-pointer hover:underline">
             <select
               value={timeSheetView}
               onChange={(e) => setTimeSheetView(e.target.value as typeof timeSheetView)}
@@ -901,7 +901,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               <option value="Team Time Logs" className="bg-card text-foreground">Team Time Logs</option>
             </select>
             <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
-          </div>
+          </div> */}
         </div>
 
         {/* Center Date Navigator — day view, defaults to today */}
