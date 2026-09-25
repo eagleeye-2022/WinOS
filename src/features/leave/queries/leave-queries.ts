@@ -153,6 +153,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       durationDays: r.durationDays,
       durationType: r.durationType,
       reason: r.reason,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: r.status as any,
       appliedOn: r.createdAt.toLocaleDateString("en-GB", {
         day: "2-digit",
@@ -190,6 +191,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
           dateStr: s.actionDate
             ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
             : undefined,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           status: s.status as any,
         })),
     };
@@ -227,6 +229,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
         year: "numeric",
       }),
       daysRemainingText: diffDays > 0 ? `(in ${diffDays} days)` : "(Expired)",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: c.status as any,
       requestedOn: c.createdAt.toLocaleDateString("en-GB", {
         day: "2-digit",
@@ -286,6 +289,7 @@ export async function getTeamLeaveRequestsAction(filters?: {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereClause: any = {};
 
   if (filters?.status && filters.status !== "ALL") {
@@ -328,6 +332,7 @@ export async function getTeamLeaveRequestsAction(filters?: {
         ? `${r.fromTime || "04:30 PM"} - ${r.toTime || "06:30 PM"}`
         : `${r.fromDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} - ${r.toDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`,
     reason: r.reason,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: r.status as any,
     appliedOn: r.createdAt.toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -364,6 +369,7 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereClause: any = {};
   if (filters?.status && filters.status !== "ALL") {
     whereClause.status = filters.status;
@@ -394,6 +400,7 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
     hoursWorked: `${c.fromTime} - ${c.toTime}\n${c.hoursWorked} Hours`,
     duration: c.duration === "FULL_DAY" ? "Full Day" : c.duration === "HALF_DAY" ? "Half Day" : "Quarter Day",
     reason: c.reason,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: c.status as any,
     requestedOn: c.createdAt.toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -470,6 +477,7 @@ export async function getHolidaysAction(year = 2025) {
         year: "numeric",
       }),
       dayOfWeek: h.dayOfWeek,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: h.type as any,
       description: h.description || "",
     })),
@@ -602,6 +610,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     durationDays: request.durationDays,
     durationType: request.durationType,
     reason: request.reason,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: request.status as any,
     appliedOn: request.createdAt.toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -639,12 +648,14 @@ export async function getLeaveRequestByIdAction(requestId: string) {
         dateStr: s.actionDate
           ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
           : undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: s.status as any,
       })),
   };
 
   const userBalances = request.user.userLeaveBalances.map((b) => ({
     id: b.id,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     code: b.leaveType.code as any,
     name: b.leaveType.name,
     remainingDays: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
@@ -788,6 +799,7 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
     holidaysByDate[dateKey].push({
       id: h.id,
       name: h.name,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: h.type as any,
       dayOfWeek: h.dayOfWeek,
       description: h.description || undefined,

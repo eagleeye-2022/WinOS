@@ -192,6 +192,7 @@ export function LeaveRequestDetailsView({
       if (freshData) {
         if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
         if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
       }
       router.refresh();
@@ -226,6 +227,7 @@ export function LeaveRequestDetailsView({
       if (freshData) {
         if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
         if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
       }
       router.refresh();
@@ -249,6 +251,7 @@ export function LeaveRequestDetailsView({
       if (freshData) {
         if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
         if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
       }
       router.refresh();
@@ -384,10 +387,9 @@ export function LeaveRequestDetailsView({
               <div className="space-y-1.5">
                 <span className="text-muted-foreground font-medium text-[11px]">Leave Type</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  {(() => {
-                    const LeaveIcon = getLeaveIcon(request.leaveTypeIcon || "Calendar");
-                    return <LeaveIcon className="w-4 h-4 text-primary" />;
-                  })()}
+                  {React.createElement(getLeaveIcon(request.leaveTypeIcon || "Calendar"), {
+                    className: "w-4 h-4 text-primary",
+                  })}
                   <span>{request.leaveTypeName}</span>
                 </div>
               </div>

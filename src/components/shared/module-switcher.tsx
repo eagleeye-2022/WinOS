@@ -27,13 +27,6 @@ const MODULES = [
     icon: Briefcase,
     moduleKey: "PROJECTS",
   },
-  {
-    id: "users",
-    label: "User Management",
-    href: "/settings/users",
-    icon: Users,
-    moduleKey: "USER_MANAGEMENT",
-  },
   // {
   //   id: "sales",
   //   label: "Sales",
@@ -70,16 +63,16 @@ export function ModuleSwitcher({ access, isManager }: ModuleSwitcherProps) {
     pathname.startsWith("/people") ||
     pathname.startsWith("/pulse") ||
     pathname.startsWith("/leave") ||
+    pathname.startsWith("/settings") ||
     activeModule === "people" ||
-    activeModule === "pulse"
+    activeModule === "pulse" ||
+    activeModule === "users"
   ) {
     activeModuleId = "people";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleId = "projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleId = "sales";
-  } else if (pathname.startsWith("/settings/users") || activeModule === "users") {
-    activeModuleId = "users";
   }
 
   const handleSelect = (href: string) => {

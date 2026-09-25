@@ -96,6 +96,9 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Team Leave") {
     return pathname.startsWith("/pulse/leave/team");
   }
+  if (label === "User Management") {
+    return pathname.startsWith(ROUTES.settingsUsers);
+  }
   if (label === "Attendance") {
     return pathname.startsWith("/pulse/attendance");
   }
@@ -166,16 +169,16 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     pathname.startsWith("/people") ||
     pathname.startsWith("/pulse") ||
     pathname.startsWith("/leave") ||
+    pathname.startsWith("/settings") ||
     activeModule === "people" ||
-    activeModule === "pulse"
+    activeModule === "pulse" ||
+    activeModule === "settings"
   ) {
     activeModuleTitle = "People";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
     activeModuleTitle = "Projects";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleTitle = "Sales";
-  } else if (pathname.startsWith("/settings") || activeModule === "settings") {
-    activeModuleTitle = "Settings";
   }
 
   // Dynamic items based on active module & user role
@@ -189,6 +192,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
           { label: "Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          { label: "User Management", href: ROUTES.settingsUsers, icon: User },
+          { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
         ]
       : [
           { label: "Home", href: "/people", icon: Home },
@@ -220,13 +225,6 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       { label: "Sales Hub", href: "/sales", icon: BarChart2 },
       { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
     ];
-  } else if (activeModuleTitle === "Settings") {
-    navItems = isManager
-      ? [
-          { label: "User", href: ROUTES.settingsUsers, icon: User },
-          { label: "Profile Access", href: ROUTES.settingsProfileAccess, icon: ShieldCheck },
-        ]
-      : [];
   } else {
     // Standup Module
     navItems = isManager
@@ -346,7 +344,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
               href={ROUTES.settingsUsers}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs select-none transition-colors",
-                activeModuleTitle === "Settings"
+                pathname.startsWith("/settings")
                   ? "text-primary font-semibold"
                   : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
               )}

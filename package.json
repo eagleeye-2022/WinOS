@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "smoke": "node scripts/smoke.mjs",
     "import:zoho": "npx tsx scripts/import-zoho.ts",
+    "import:zoho-json": "npx tsx scripts/import-zoho-json.ts",
     "fix:tasklists": "npx tsx scripts/fix-zoho-tasklists.ts",
     "import:project-csv": "npx tsx scripts/import-project-csv.ts"
   },

@@ -90,7 +90,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
     }
   };
 
-  const Icon = getIcon(type.iconName || "Calendar");
+  const icon = React.createElement(getIcon(type.iconName || "Calendar"), { className: "w-4 h-4" });
 
   return (
     <div
@@ -104,7 +104,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
       {/* Top row with icon and title */}
       <div className="flex items-center gap-2 mb-3">
         <div className={cn("p-1.5 rounded-lg shrink-0 flex items-center justify-center", type.iconBgColor)}>
-          <Icon className="w-4 h-4" />
+          {icon}
         </div>
         <span className="text-xs font-semibold text-foreground line-clamp-1 leading-tight" title={type.name}>
           {type.name}

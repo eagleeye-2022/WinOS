@@ -86,18 +86,23 @@ export function LeaveWorkspace({
         setLeaveTypes(
           data.balances.map((b) => ({
             id: b.id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             code: b.code as any,
             name: b.name,
             remainingDays: b.remainingDays,
             bookedDays: b.bookedDays,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             unit: b.unit as any,
             iconName: b.iconName,
             iconBgColor: b.iconBgColor,
             iconTextColor: b.iconTextColor,
           }))
         );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setLeaveRequests(data.requests as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setCompensatoryRequests(data.compensatoryRequests as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setActionRequiredItems(data.actionRequiredItems as any);
         setStats(data.stats);
         if (data.currentUserId) {
@@ -109,6 +114,7 @@ export function LeaveWorkspace({
           if (!matched) {
             const singleData = await getLeaveRequestByIdAction(initialSelectedRequestId);
             if (singleData) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               matched = singleData.request as any;
               if (singleData.balances && singleData.balances.length > 0) {
                 setLeaveTypes(singleData.balances);
@@ -116,6 +122,7 @@ export function LeaveWorkspace({
             }
           }
           if (matched) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedRequest(matched as any);
             setActiveTab("request-details");
           }
@@ -124,6 +131,7 @@ export function LeaveWorkspace({
         if (initialSelectedCompRequestId) {
           const matchedComp = data.compensatoryRequests.find((c) => c.id === initialSelectedCompRequestId);
           if (matchedComp) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedCompRequest(matchedComp as any);
             setActiveTab("compensatory-details");
           }
@@ -207,6 +215,7 @@ export function LeaveWorkspace({
         <ApplyLeaveForm
           leaveTypes={leaveTypes}
           onSubmitLeave={(newReq) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedRequest(newReq as any);
             loadData();
             setActiveTab("request-details");

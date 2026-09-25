@@ -547,7 +547,7 @@ export function TeamCalendarView() {
 
                       {leave.reason && (
                         <p className="text-[10px] text-muted-foreground/70 italic pt-0.5 truncate" title={leave.reason}>
-                          "{leave.reason}"
+                          &ldquo;{leave.reason}&rdquo;
                         </p>
                       )}
                     </div>

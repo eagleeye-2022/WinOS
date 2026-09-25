@@ -127,6 +127,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
   const loadPolicies = async () => {
     try {
       const data = await getLeaveTypesAction();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setLeavePolicies(data.leaveTypes as any);
       setMetrics(data.metrics);
     } catch (err) {

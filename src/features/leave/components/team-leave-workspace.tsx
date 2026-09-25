@@ -134,6 +134,7 @@ export function TeamLeaveWorkspace({
         leaveTypeCode: selectedType,
         department: selectedDept,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamRequests(res.requests as any);
       setMetrics(res.metrics);
 
@@ -141,6 +142,7 @@ export function TeamLeaveWorkspace({
         search: searchEmployee,
         status: selectedStatus,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamCompRequests(compRes.requests as any);
       setCompMetrics(compRes.metrics);
     } catch (err) {

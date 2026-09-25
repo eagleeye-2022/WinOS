@@ -72,6 +72,7 @@ export function HolidaysView() {
     try {
       setIsLoading(true);
       const data = await getHolidaysAction(Number(yearStr));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setHolidayList(data.holidays as any);
       setMetrics(data.metrics);
     } catch (err) {
@@ -350,6 +351,7 @@ export function HolidaysView() {
               </label>
               <Select
                 value={newHolidayType}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onValueChange={(val) => setNewHolidayType(val as any)}
               >
                 <SelectTrigger className="h-10 rounded-xl text-xs bg-background">

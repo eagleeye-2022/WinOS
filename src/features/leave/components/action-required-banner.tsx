@@ -31,7 +31,7 @@ export function ActionRequiredBanner({
               Action Required
             </h4>
             <p className="text-xs text-amber-800/90 dark:text-amber-400/90 mt-0.5">
-              We couldn't find a record for the following date(s). Please choose how you'd like to update it.
+              We couldn&apos;t find a record for the following date(s). Please choose how you&apos;d like to update it.
             </p>
           </div>
         </div>

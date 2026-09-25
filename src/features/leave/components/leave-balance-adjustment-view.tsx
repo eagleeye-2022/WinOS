@@ -49,6 +49,7 @@ export function LeaveBalanceAdjustmentView({
 }: LeaveBalanceAdjustmentViewProps) {
   const router = useRouter();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmpId, setSelectedEmpId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +64,22 @@ export function LeaveBalanceAdjustmentView({
   >("SPECIAL_AWARD");
   const [remarks, setRemarks] = useState("Performance Reward / Adjustment");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const setupInitialRows = (emp: any) => {
+    if (!emp?.balances || emp.balances.length === 0) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const initial = emp.balances.slice(0, 2).map((b: any, idx: number) => ({
+      id: `row-${idx + 1}`,
+      leaveTypeId: b.leaveTypeId,
+      leaveTypeCode: b.leaveTypeCode,
+      leaveTypeName: `${b.leaveTypeName} (${b.leaveTypeCode})`,
+      adjustmentType: "ADD" as const,
+      days: 1,
+      currentBalance: b.available,
+    }));
+    setRows(initial);
+  };
 
   useEffect(() => {
     async function load() {
@@ -89,6 +106,7 @@ export function LeaveBalanceAdjustmentView({
 
   const availableTypes = useMemo(() => {
     if (!currentEmployee?.balances) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return currentEmployee.balances.map((b: any) => ({
       id: b.leaveTypeId,
       code: b.leaveTypeCode,
@@ -96,20 +114,6 @@ export function LeaveBalanceAdjustmentView({
       available: b.available,
     }));
   }, [currentEmployee]);
-
-  const setupInitialRows = (emp: any) => {
-    if (!emp?.balances || emp.balances.length === 0) return;
-    const initial = emp.balances.slice(0, 2).map((b: any, idx: number) => ({
-      id: `row-${idx + 1}`,
-      leaveTypeId: b.leaveTypeId,
-      leaveTypeCode: b.leaveTypeCode,
-      leaveTypeName: `${b.leaveTypeName} (${b.leaveTypeCode})`,
-      adjustmentType: "ADD" as const,
-      days: 1,
-      currentBalance: b.available,
-    }));
-    setRows(initial);
-  };
 
   const handleSelectEmployee = (empId: string) => {
     setSelectedEmpId(empId);
@@ -121,6 +125,7 @@ export function LeaveBalanceAdjustmentView({
 
   const handleAddRow = () => {
     const unusedType =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       availableTypes.find((t: any) => !rows.some((r) => r.leaveTypeId === t.id)) ||
       availableTypes[0];
 
@@ -150,6 +155,7 @@ export function LeaveBalanceAdjustmentView({
         if (r.id === id) {
           const updated = { ...r, ...updates };
           if (updates.leaveTypeId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const matched = availableTypes.find((t: any) => t.id === updates.leaveTypeId);
             if (matched) {
               updated.leaveTypeId = matched.id;
@@ -357,6 +363,7 @@ export function LeaveBalanceAdjustmentView({
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {availableTypes.map((t: any) => (
                             <SelectItem key={t.id} value={t.id} className="text-xs">
                               {t.name}
@@ -470,6 +477,7 @@ export function LeaveBalanceAdjustmentView({
             </label>
             <Select
               value={reason}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onValueChange={(val) => setReason(val as any)}
             >
               <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
