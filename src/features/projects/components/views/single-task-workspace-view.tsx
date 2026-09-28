@@ -55,7 +55,7 @@ import {
   Copy,
   CopyCheck,
 } from "lucide-react";
-import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry } from "../../types";
+import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusBadgeClasses, getTaskStatusSelectClasses } from "../../types";
 import { parseDurationMinutes, formatTimePeriodRange } from "../../utils/time-helpers";
 import { cn } from "@/lib/utils";
 import { TimerWidget } from "../timer-widget";
@@ -494,9 +494,9 @@ export function SingleTaskWorkspaceView({
   const handleToggleSubtask = (id: string) => {
     const target = subtasks.find((st) => st.id === id);
     if (!target) return;
-    const isCurrentlyDone = target.completed || target.status === "Closed" || target.status === "Approved";
+    const isCurrentlyDone = isTaskDone(target.status, target.completed);
     const newCompleted = !isCurrentlyDone;
-    const newStatus: TaskStatus = newCompleted ? "Closed" : "Open";
+    const newStatus: TaskStatus = newCompleted ? "Done" : "Open";
 
     const updatedSubtasks = subtasks.map((st) =>
       st.id === id ? { ...st, completed: newCompleted, status: newStatus } : st
@@ -510,7 +510,7 @@ export function SingleTaskWorkspaceView({
   };
 
   const handleSubtaskStatusChange = (id: string, newStatus: TaskStatus) => {
-    const isDone = newStatus === "Closed" || newStatus === "Approved";
+    const isDone = isTaskDone(newStatus);
     const updatedSubtasks = subtasks.map((st) =>
       st.id === id
         ? {
@@ -941,7 +941,7 @@ export function SingleTaskWorkspaceView({
     return formatInputToDisplayDate(iso);
   };
 
-  // Compute duration in days from start date and due date
+  // Compute duration dynamically from start date and due date
   const computeDuration = (startDateStr?: string, dueDateStr?: string, fallbackDuration?: string): string => {
     const startIso = parseDateForInput(startDateStr);
     const dueIso = parseDateForInput(dueDateStr);
@@ -956,7 +956,12 @@ export function SingleTaskWorkspaceView({
         if (days <= 0) return "0 days";
       }
     }
-    if (fallbackDuration && !fallbackDuration.includes("asdf") && /\d/.test(fallbackDuration)) {
+    if (
+      fallbackDuration &&
+      fallbackDuration !== "2 days/hrs" &&
+      !fallbackDuration.includes("asdf") &&
+      /\d/.test(fallbackDuration)
+    ) {
       return fallbackDuration;
     }
     return "--";
@@ -1043,7 +1048,7 @@ export function SingleTaskWorkspaceView({
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground dark:bg-[#121316]">
+      <div className="flex h-full w-full items-center justify-center bg-background text-foreground dark:bg-[#121316]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin text-primary" />
           <p className="text-xs text-muted-foreground">Loading task workspace...</p>
@@ -1054,9 +1059,9 @@ export function SingleTaskWorkspaceView({
 
   if (taskNotFound) {
     return (
-      <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316]">
+      <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] min-h-0">
         {/* Left Sidebar Task List */}
-        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d] p-4">
+        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d] p-4 h-full min-h-0">
           <div className="flex items-center justify-between border-b border-border pb-3 mb-3 dark:border-neutral-800">
             <h3 className="text-xs font-bold text-foreground">Project Tasks ({leftTaskItems.length})</h3>
             <Link href={`/projects/${projectId}`} className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
@@ -1111,10 +1116,10 @@ export function SingleTaskWorkspaceView({
 
   return (
     <ActiveTimerProvider>
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] dark:text-neutral-100">
+    <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] dark:text-neutral-100 min-h-0">
       {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
       {!isExpandedView && (
-        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d]">
+        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d] h-full min-h-0">
           {/* Phase Header Selector */}
           <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-neutral-800">
             <div className="relative flex-1 mr-2">
@@ -1165,15 +1170,7 @@ export function SingleTaskWorkspaceView({
                         {item.code}
                       </span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          item.status === "Closed" || item.status === "Approved"
-                            ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
-                            : item.status === "In Progress"
-                              ? "bg-amber-500/15 text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300"
-                              : item.status === "Under Review"
-                                ? "bg-purple-500/15 text-purple-600 border border-purple-500/30 dark:bg-purple-500/20 dark:text-purple-300"
-                                : "bg-info/15 text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-300"
-                        }`}
+                        className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider", getTaskStatusBadgeClasses(item.status))}
                       >
                         {item.status}
                       </span>
@@ -1182,7 +1179,7 @@ export function SingleTaskWorkspaceView({
                     {/* Title */}
                     <h4
                       className={`text-xs font-semibold leading-snug line-clamp-2 ${
-                        item.status === "Closed" || item.status === "Approved"
+                        isTaskDone(item.status)
                           ? "line-through text-muted-foreground dark:text-neutral-400"
                           : "text-foreground dark:text-neutral-100"
                       }`}
@@ -1211,9 +1208,9 @@ export function SingleTaskWorkspaceView({
       )}
 
       {/* ── Main Right Task Workspace Area ───────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col bg-background text-foreground overflow-hidden dark:bg-[#121316] dark:text-neutral-100">
+      <main className="flex-1 flex flex-col bg-background text-foreground overflow-hidden min-h-0 min-w-0 dark:bg-[#121316] dark:text-neutral-100">
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-card dark:border-neutral-800 dark:bg-[#16181d]">
+        <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-card shrink-0 dark:border-neutral-800 dark:bg-[#16181d]">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 rounded bg-info/15 px-2 py-0.5 text-[11px] font-bold text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30">
@@ -1406,7 +1403,7 @@ export function SingleTaskWorkspaceView({
         </div>
 
         {/* Workspace Body Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 pb-20">
           {taskNotFound && (
             <div className="flex items-center gap-2.5 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-xs font-medium text-destructive">
               <AlertCircle size={16} className="shrink-0" />
@@ -1431,20 +1428,15 @@ export function SingleTaskWorkspaceView({
                 title={canEditTask ? undefined : "Only the task owner can change the status"}
                 className={cn(
                   "appearance-none rounded-lg border bg-card px-3 py-1.5 pr-8 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary dark:bg-[#1c1e24] disabled:cursor-not-allowed disabled:opacity-60",
-                  taskStatus === "Closed" || taskStatus === "Approved"
-                    ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                    : taskStatus === "In Progress"
-                    ? "border-amber-500/40 text-amber-600 dark:text-amber-400"
-                    : taskStatus === "Under Review"
-                    ? "border-purple-500/40 text-purple-600 dark:text-purple-400"
-                    : "border-border text-info dark:border-neutral-700 dark:text-sky-400"
+                  getTaskStatusSelectClasses(taskStatus)
                 )}
               >
-                <option value="Open">● Open</option>
-                <option value="In Progress">● In Progress</option>
-                <option value="Under Review">● Under Review</option>
-                <option value="Approved">● Approved</option>
-                <option value="Closed">● Closed</option>
+                {PROJECT_TASK_STATUSES.map((s) => (
+                  <option key={s} value={s}>● {s}</option>
+                ))}
+                {!PROJECT_TASK_STATUSES.includes(taskStatus as any) && (
+                  <option value={taskStatus}>● {taskStatus}</option>
+                )}
               </select>
               <ChevronDown
                 size={14}
@@ -1670,28 +1662,42 @@ export function SingleTaskWorkspaceView({
           {/* Tabs Bar & Content */}
           <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-neutral-800 dark:bg-[#16181d]">
             {/* Tabs Header Scrollbar */}
-            <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-3 py-2 text-xs font-semibold scrollbar-none dark:border-neutral-800">
-              {[
-                { key: "COMMENTS", label: "Comments" },
-                { key: "SUBTASKS", label: "Subtasks" },
-                { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
-                { key: "DOCUMENTS", label: "Documents" },
-                { key: "STATUS_TIMELINE", label: "Status Timeline" },
-                { key: "STANDUP_ACTIVITY", label: "Standup Activity" },
-              ].map((tab) => (
+            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-neutral-800">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                {[
+                  { key: "COMMENTS", label: "Comments" },
+                  { key: "SUBTASKS", label: "Subtasks" },
+                  { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
+                  { key: "DOCUMENTS", label: "Documents" },
+                  { key: "STATUS_TIMELINE", label: "Status Timeline" },
+                  { key: "STANDUP_ACTIVITY", label: "Standup Activity" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                    className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                      activeTab === tab.key
+                        ? "bg-info/15 text-info font-bold border border-info/30 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-800/50"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Add Time Log button placed in tabs header bar */}
+              {activeTab === "LOG_HOURS" && (
                 <button
-                  key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                    activeTab === tab.key
-                      ? "bg-info/15 text-info font-bold border border-info/30 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-800/50"
-                  }`}
+                  onClick={() => setIsTimeLogModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer shrink-0 ml-auto"
                 >
-                  {tab.label}
+                  <Plus size={14} />
+                  <span>Add Time Log</span>
                 </button>
-              ))}
+              )}
             </div>
 
             {/* Tab Body Content */}
@@ -1821,12 +1827,12 @@ export function SingleTaskWorkspaceView({
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
-                                    checked={st.completed || st.status === "Closed" || st.status === "Approved"}
+                                    checked={isTaskDone(st.status, st.completed)}
                                     onChange={() => handleToggleSubtask(st.id)}
                                     onClick={(e) => e.stopPropagation()}
                                     className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
                                   />
-                                  <span className={st.completed || st.status === "Closed" || st.status === "Approved" ? "line-through text-muted-foreground" : "hover:underline"}>
+                                  <span className={isTaskDone(st.status, st.completed) ? "line-through text-muted-foreground" : "hover:underline"}>
                                     {st.title}
                                   </span>
                                 </div>
@@ -1838,20 +1844,15 @@ export function SingleTaskWorkspaceView({
                                   onClick={(e) => e.stopPropagation()}
                                   className={cn(
                                     "rounded px-2 py-0.5 text-xs font-semibold outline-none cursor-pointer border transition-colors",
-                                    st.status === "Closed" || st.status === "Approved"
-                                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                      : st.status === "In Progress"
-                                      ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                      : st.status === "Under Review"
-                                      ? "border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                                      : "border-blue-500/30 bg-blue-500/10 text-info dark:text-sky-400"
+                                    getTaskStatusBadgeClasses(st.status)
                                   )}
                                 >
-                                  <option value="Open" className="bg-card text-foreground">Open</option>
-                                  <option value="In Progress" className="bg-card text-foreground">In Progress</option>
-                                  <option value="Under Review" className="bg-card text-foreground">Under Review</option>
-                                  <option value="Approved" className="bg-card text-foreground">Approved</option>
-                                  <option value="Closed" className="bg-card text-foreground">Closed</option>
+                                  {PROJECT_TASK_STATUSES.map((s) => (
+                                    <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+                                  ))}
+                                  {!PROJECT_TASK_STATUSES.includes(st.status as any) && (
+                                    <option value={st.status} className="bg-card text-foreground">{st.status}</option>
+                                  )}
                                 </select>
                               </td>
                               {/* <td className="py-2 px-3 border-r border-border truncate text-muted-foreground dark:border-neutral-800 dark:text-neutral-300 font-medium">
@@ -1995,35 +1996,6 @@ export function SingleTaskWorkspaceView({
                     </div>
                   )}
 
-                  {/* Top Header Bar matching reference image */}
-                  <div className="flex items-center justify-between pb-2 border-b border-border dark:border-neutral-800">
-                    {/* <h3 className="text-sm font-bold text-foreground dark:text-neutral-100">Time Log Entries</h3> */}
-
-                    <div className="flex items-center justify-end w-full gap-2">
-                      {/* {activeTimerStatus === "IDLE" && (
-                        <button
-                          type="button"
-                          onClick={handleStartTimer}
-                          disabled={!canStartTimer}
-                          title={canStartTimer ? undefined : "Only the task owner can start this timer"}
-                          className="flex items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-emerald-600"
-                        >
-                          <Play size={13} fill="currentColor" />
-                          <span>Start Task Timer</span>
-                        </button>
-                      )} */}
-
-                      <button
-                        type="button"
-                        onClick={() => setIsTimeLogModalOpen(true)}
-                        className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer"
-                      >
-                        <Plus size={14} />
-                        <span>Add Time Log</span>
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Date-Grouped Time Logs Table matching reference image */}
                   <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-2xs dark:border-neutral-800 dark:bg-[#16181d]">
                     <table className="w-full text-left text-xs border-collapse font-sans">
@@ -2065,19 +2037,19 @@ export function SingleTaskWorkspaceView({
                           <th className="py-2.5 px-4 border-r border-border min-w-[180px] dark:border-neutral-800">
                             Notes
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          {/* <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
                             <div className="flex items-center gap-1.5">
                               <User size={13} className="text-muted-foreground" />
                               <span>Created By</span>
                             </div>
-                          </th>
+                          </th> */}
                           <th className="py-2.5 px-4 whitespace-nowrap text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/60 dark:divide-neutral-800/60">
                         {dateGroupsData.length === 0 ? (
                           <tr>
-                            <td colSpan={10} className="py-8 text-center text-muted-foreground italic dark:text-neutral-400">
+                            <td colSpan={9} className="py-8 text-center text-muted-foreground italic dark:text-neutral-400">
                               No time logs recorded for this task yet. Click &quot;Add Time Log&quot; to log work hours.
                             </td>
                           </tr>
@@ -2110,7 +2082,7 @@ export function SingleTaskWorkspaceView({
                                       <span className="text-warning dark:text-amber-400">{group.nonBillableHours}</span>
                                     </div>
                                   </td>
-                                  <td colSpan={7} className="py-2 px-4" />
+                                  <td colSpan={6} className="py-2 px-4" />
                                 </tr>
 
                                 {!isCollapsed &&
@@ -2261,12 +2233,12 @@ export function SingleTaskWorkspaceView({
                                       </td>
 
                                       {/* Created By User */}
-                                      <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-neutral-800 dark:text-neutral-200">
+                                      {/* <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-neutral-800 dark:text-neutral-200">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-muted-foreground text-[11px]">↑</span>
                                           <span>{log.userName && log.userName !== "User" ? log.userName : (currentUser?.name && currentUser.name !== "User" ? currentUser.name : "System User")}</span>
                                         </div>
-                                      </td>
+                                      </td> */}
 
                                       {/* Actions & Auto-Save Indicator */}
                                       <td className="py-2 px-4 text-right whitespace-nowrap">

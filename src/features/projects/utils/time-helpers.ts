@@ -16,6 +16,15 @@ export function formatTime12h(date: Date): string {
 }
 
 /**
+ * A time log's calendar day as YYYY-MM-DD in IST. Log dates are stored as
+ * instants (imported logs at midnight IST), so taking the UTC date shows them
+ * one day early.
+ */
+export function toISTDateString(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(date));
+}
+
+/**
  * Parses a 12-hour or 24-hour time string into minutes since midnight (0..1439).
  * E.g. "6:00 PM" -> 1080, "6:00 AM" -> 360, "10:52 am" -> 652, "18:00" -> 1080.
  */
@@ -57,6 +66,24 @@ export function calculateMinutesFromTimeRange(startTimeStr: string, endTimeStr: 
     diff += 24 * 60; // Midnight crossover
   }
   return diff;
+}
+
+/**
+ * Sort comparator for time logs, latest first: by day (YYYY-MM-DD or DD/MM/YYYY),
+ * then by the start of the time period ("9:28 AM – 10:10 AM"). Logs without a
+ * time period sort after timed logs of the same day.
+ */
+export function compareTimeLogsLatestFirst(
+  a: { date: string; timePeriod?: string },
+  b: { date: string; timePeriod?: string }
+): number {
+  const dayKey = (d: string) => {
+    const dmy = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return dmy ? `${dmy[3]}-${dmy[2]}-${dmy[1]}` : d;
+  };
+  const startMinutes = (tp?: string) => parseTimeToMinutes((tp ?? "").split(/[-–]/)[0]) ?? -1;
+  const byDay = dayKey(b.date).localeCompare(dayKey(a.date));
+  return byDay !== 0 ? byDay : startMinutes(b.timePeriod) - startMinutes(a.timePeriod);
 }
 
 /**

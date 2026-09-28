@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2, ListChecks, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { TaskItem, TaskStatus, WorkspaceRole } from "../../types";
+import { TaskItem, TaskStatus, WorkspaceRole, PROJECT_TASK_STATUSES, getTaskStatusBadgeClasses } from "../../types";
 import { TimerWidget } from "../timer-widget";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
@@ -363,13 +363,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
           <div
             className={cn(
               "relative inline-flex items-center rounded-md text-xs font-bold transition-colors",
-              task.status === "Closed" || task.status === "Approved"
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
-                : task.status === "In Progress"
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
-                : task.status === "Under Review"
-                ? "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400"
-                : "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400"
+              getTaskStatusBadgeClasses(task.status)
             )}
           >
             <select
@@ -383,11 +377,12 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
               }
               className="appearance-none rounded-md bg-transparent py-1.5 pl-3 pr-6 outline-none cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Under Review">Under Review</option>
-              <option value="Approved">Approved</option>
-              <option value="Closed">Closed</option>
+              {PROJECT_TASK_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+              ))}
+              {!PROJECT_TASK_STATUSES.includes(task.status as any) && (
+                <option value={task.status} className="bg-card text-foreground">{task.status}</option>
+              )}
             </select>
             <ChevronDown
               size={11}

@@ -149,6 +149,20 @@ export async function saveDsr(
     }
   }
 
+  // Mirror the DSR ticks onto that day's DSM tasks (matched by text — the two aren't linked by id),
+  // so the next morning's "What Did You Do Yesterday?" summary shows what was actually completed.
+  const completedByText = new Map(plannedTasks.map((t) => [t.text.trim().toLowerCase(), t.completed]));
+  const dsmTasks: { id: string; text: string; isCompleted: boolean }[] = await d.standupTask.findMany({
+    where: { kind: "TODAY", entry: { userId: session.user.id, date } },
+    select: { id: true, text: true, isCompleted: true },
+  });
+  for (const t of dsmTasks) {
+    const completed = completedByText.get(t.text.trim().toLowerCase());
+    if (completed !== undefined && completed !== t.isCompleted) {
+      await d.standupTask.update({ where: { id: t.id }, data: { isCompleted: completed } });
+    }
+  }
+
   await d.dsrAdditionalWork.deleteMany({ where: { dsrEntryId: entry.id } });
   const validAdditional = additionalWorks.filter((w) => w.text?.trim());
   if (validAdditional.length > 0) {

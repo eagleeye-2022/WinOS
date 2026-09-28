@@ -37,18 +37,21 @@ import {
   Square,
   Edit2,
   AlertTriangle,
+  Share2,
 } from "lucide-react";
 import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { EditTimeLogModal } from "../modals/edit-time-log-modal";
+import { ShareTimesheetModal } from "../modals/share-timesheet-modal";
 import {
   parseDurationMinutes,
   formatDurationDisplay,
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
   formatTime12h,
+  compareTimeLogsLatestFirst,
 } from "../../utils/time-helpers";
 import {
   updateTimeLogAction,
@@ -157,6 +160,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   const [showAddLogModal, setShowAddLogModal] = useState(false);
   const [modalTargetDate, setModalTargetDate] = useState("");
   const [modalTargetProject, setModalTargetProject] = useState("");
+
+  // Share Timesheet Modal State
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Date navigator — defaults to today; Prev/Next step one day at a time,
   // and a date picker lets the user jump straight to any day.
@@ -568,7 +574,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       if (!matchTitle && !matchCode && !matchRemarks) return false;
     }
     return true;
-  });
+  }).sort(compareTimeLogsLatestFirst);
 
   const billableMinutes = filteredAllLogs
     .filter((l) => l.billingType === "BILLABLE")
@@ -597,7 +603,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       byDate.get(normalizedDate)!.logs.push({ ...log, date: normalizedDate });
     }
     return Array.from(byDate.values())
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .sort(compareTimeLogsLatestFirst)
       .map((g) => {
         const billable = g.logs
           .filter((l) => l.billingType === "BILLABLE")
@@ -996,6 +1002,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               </button>
             </div>
           )}
+
+          {/* Share the selected day's own time logs via a public link */}
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            className="flex items-center gap-1.5 rounded border border-border bg-card hover:bg-accent px-3 py-1 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
+            title="Share your time logs for this day via a link"
+          >
+            <Share2 size={13} className="text-primary" />
+            <span>Share</span>
+          </button>
 
           {/* Add Time Log Split Button */}
           <div className="inline-flex rounded bg-primary text-primary-foreground shadow-xs font-semibold overflow-hidden">
@@ -1869,6 +1886,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           Total Count: <strong className="text-foreground font-semibold">{filteredAllLogs.length}</strong>
         </div>
       </div>
+
+      {/* Share Timesheet Modal */}
+      <ShareTimesheetModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        date={formatYYYYMMDD(selectedDate)}
+        dateLabel={formatDDMMYYYY(selectedDate)}
+      />
 
       {/* Add Time Log Modal Dialog */}
       <NewTimeLogModal

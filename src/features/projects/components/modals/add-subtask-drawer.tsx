@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Calendar, Loader2, Info } from "lucide-react";
-import { TaskSubtask, TaskStatus } from "../../types";
+import { TaskSubtask, TaskStatus, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
 
 interface AddSubtaskDrawerProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export function AddSubtaskDrawer({
       ownerName: undefined, // Owner is dynamically inherited from parent task
       startDate: formatDateDisplay(startDate),
       dueDate: formatDateDisplay(dueDate),
-      completed: status === "Closed" || status === "Approved",
+      completed: isTaskDone(status),
     };
 
     onAddSubtask(newSubtask);
@@ -127,11 +127,9 @@ export function AddSubtaskDrawer({
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
               >
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Under Review">Under Review</option>
-                <option value="Approved">Approved</option>
-                <option value="Closed">Closed</option>
+                {PROJECT_TASK_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
               </select>
             </div>
 

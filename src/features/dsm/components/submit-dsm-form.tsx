@@ -4,6 +4,7 @@ import { useActionState, useState, useEffect, useRef, useTransition } from "reac
 import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
+import { toIsoDateStr, toUtcDate } from "../utils";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
 import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -155,10 +156,11 @@ function TaskRows({
   const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
     const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
     const n = [...tasks];
-    const hasSubtasks = Boolean(chosenTask && chosenTask.subtasks && chosenTask.subtasks.length > 0);
+    // Link the parent task immediately (a subtask can refine it). The dropdowns are derived from
+    // projectTaskId, so clearing it here would drop the selection and hide the subtask picker.
     n[i] = {
       ...n[i],
-      projectTaskId: hasSubtasks ? "" : (chosenTask?.id || ""),
+      projectTaskId: chosenTask?.id || "",
       text: (!n[i].text.trim() && chosenTask) ? chosenTask.title : n[i].text,
     };
     onChange(n);
@@ -359,6 +361,27 @@ function TaskRows({
                       className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
                     />
                   </div>
+
+                  {(() => {
+                    const todayIso = toIsoDateStr(toUtcDate());
+                    const isToday = task.dueDate === todayIso;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => updateField(i, "dueDate", todayIso)}
+                        disabled={isToday}
+                        title="Set deadline to today"
+                        className={cn(
+                          "rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors",
+                          isToday
+                            ? "border-primary/40 bg-primary/10 text-primary cursor-default"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+                        )}
+                      >
+                        Today
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {showProjectFeatures && (
@@ -866,8 +889,8 @@ function ParkingLotRows({
 
   const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
     const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
-    const hasSubtasks = Boolean(chosenTask && chosenTask.subtasks && chosenTask.subtasks.length > 0);
-    const resolvedProjectTaskId = hasSubtasks ? "" : (chosenTask?.id || "");
+    // Link the parent task immediately (a subtask can refine it) — see TaskRows.handleTaskChange.
+    const resolvedProjectTaskId = chosenTask?.id || "";
     const n = [...items];
     n[i] = {
       ...n[i],
@@ -1183,6 +1206,8 @@ export function SubmitDsmForm({
         id: crypto.randomUUID(),
         text: t.text,
         priority: t.priority ?? "",
+        // Keep the project link — without it, re-saving a submitted entry wipes every task's Project / Task ID.
+        projectTaskId: t.projectTaskId ?? "",
         carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
         dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
         createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,

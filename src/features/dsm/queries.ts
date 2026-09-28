@@ -1120,16 +1120,26 @@ export async function getUserProjectsWithTasksAndSubtasks(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
   const projects = await d.project.findMany({
-    where: { status: "ACTIVE" },
+    // Only projects the user belongs to — not every active project in the org.
+    where: {
+      status: "ACTIVE",
+      OR: [
+        { ownerId: userId },
+        { createdByUserId: userId },
+        { members: { some: { userId } } },
+        { roleAssignments: { some: { userId } } },
+        { tasks: { some: { OR: [{ ownerId: userId }, { owners: { some: { userId } } }] } } },
+      ],
+    },
     select: {
       id: true,
       code: true,
       name: true,
+      // Every open task in the project, regardless of who it's assigned to.
       tasks: {
         where: {
           status: { notIn: ["Closed", "Closed/Done", "Completed"] },
           parentTaskId: null,
-          OR: [{ ownerId: userId }, { owners: { some: { userId } } }],
         },
         select: {
           id: true,
@@ -1139,7 +1149,6 @@ export async function getUserProjectsWithTasksAndSubtasks(
           childTasks: {
             where: {
               status: { notIn: ["Closed", "Closed/Done", "Completed"] },
-              OR: [{ ownerId: userId }, { owners: { some: { userId } } }],
             },
             select: {
               id: true,
@@ -1160,16 +1169,25 @@ export async function getUserProjectsWithTasksAndSubtasks(
   type QueryTask = { id: string; code: string | null; title: string; status: string; childTasks?: QuerySubtask[] };
   type QueryProject = { id: string; code: string | null; name: string; tasks?: QueryTask[] };
 
+  // Order by task code with numeric awareness ("T2" before "T10", unlike a DB string sort);
+  // tasks without a code go last, alphabetically by title.
+  const byCode = (a: { code: string | null; title: string }, b: { code: string | null; title: string }) => {
+    if (a.code && b.code) return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" });
+    if (a.code) return -1;
+    if (b.code) return 1;
+    return a.title.localeCompare(b.title);
+  };
+
   return (projects as QueryProject[]).map((p) => ({
     id: p.id,
     code: p.code,
     name: p.name,
-    tasks: (p.tasks || []).map((t) => ({
+    tasks: [...(p.tasks || [])].sort(byCode).map((t) => ({
       id: t.id,
       code: t.code,
       title: t.title,
       status: t.status,
-      subtasks: (t.childTasks || []).map((st) => ({
+      subtasks: [...(t.childTasks || [])].sort(byCode).map((st) => ({
         id: st.id,
         code: st.code,
         title: st.title,

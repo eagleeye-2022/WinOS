@@ -32,7 +32,7 @@ import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/shared/confirm-dialog";
-import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole } from "../../types";
+import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { getAvatarColor } from "../assignee-picker-popover";
@@ -1010,12 +1010,22 @@ export function TasksBoardView({
           <div
             className={cn(
               "relative inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-tight text-white transition-all shadow-2xs",
-              task.status === "Closed" || task.status === "Approved"
+              task.status === "Done" || task.status === "Closed" || task.status === "Approved"
                 ? "bg-emerald-500 hover:bg-emerald-600"
                 : task.status === "In Progress"
                 ? "bg-amber-500 hover:bg-amber-600"
-                : task.status === "Under Review"
+                : task.status === "In Review" || task.status === "Under Review"
                 ? "bg-purple-500 hover:bg-purple-600"
+                : task.status === "Follow Up 1"
+                ? "bg-cyan-500 hover:bg-cyan-600"
+                : task.status === "Follow Up 2"
+                ? "bg-blue-600 hover:bg-blue-700"
+                : task.status === "Pending from Client"
+                ? "bg-orange-500 hover:bg-orange-600"
+                : task.status === "On Hold"
+                ? "bg-slate-500 hover:bg-slate-600"
+                : task.status === "Delayed"
+                ? "bg-rose-500 hover:bg-rose-600"
                 : "bg-[#0088ff] hover:bg-[#0077ee]"
             )}
           >
@@ -1026,11 +1036,12 @@ export function TasksBoardView({
               title={isOwner ? "Change status" : `Only the task owner (${task.owner || "Unassigned"}) can change the status`}
               className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-[10px]"
             >
-              <option value="Open" className="bg-card text-foreground">Open</option>
-              <option value="In Progress" className="bg-card text-foreground">In Progress</option>
-              <option value="Under Review" className="bg-card text-foreground">Under Review</option>
-              <option value="Approved" className="bg-card text-foreground">Approved</option>
-              <option value="Closed" className="bg-card text-foreground">Closed</option>
+              {PROJECT_TASK_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+              ))}
+              {!PROJECT_TASK_STATUSES.includes(task.status as any) && (
+                <option value={task.status} className="bg-card text-foreground">{task.status}</option>
+              )}
             </select>
             <ChevronDown
               size={11}
@@ -1541,7 +1552,7 @@ export function TasksBoardView({
                   align="start"
                   className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 >
-                  {(["Open", "In Progress", "Under Review", "Approved", "Closed"] as TaskStatus[]).map((s) => (
+                  {PROJECT_TASK_STATUSES.map((s) => (
                     <button
                       key={s}
                       type="button"

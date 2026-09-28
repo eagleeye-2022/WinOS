@@ -174,7 +174,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   ) {
     activeModuleTitle = "Pulse";
   } else if (pathname.startsWith("/projects") || activeModule === "projects") {
-    activeModuleTitle = "Projects";
+    activeModuleTitle = "Srijan";
   } else if (pathname.startsWith("/sales") || activeModule === "sales") {
     activeModuleTitle = "Sales";
   } else if (pathname.startsWith("/settings") || activeModule === "settings" || activeModule === "users") {
@@ -199,7 +199,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
         ];
-  } else if (activeModuleTitle === "Projects") {
+  } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {
     navItems = isManager
       ? [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
@@ -303,8 +303,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           })()}
         </nav>
 
-        {/* Recent Projects shortcuts (Projects module only) */}
-        {activeModuleTitle === "Projects" && recentProjects.length > 0 && (
+        {/* Recent Projects shortcuts (Srijan module only) */}
+        {(activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") && recentProjects.length > 0 && (
           <div className="px-3 py-2">
             <p className="px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
               Recent Projects

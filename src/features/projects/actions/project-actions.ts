@@ -15,10 +15,11 @@ import {
   ProjectUser,
   NewProjectFormData,
   ProjectPriority,
-  UserDepartment,
   BillingType,
+  UserDepartment,
   TaskStatus,
   ProjectStatus,
+  isTaskDone,
   WorkspaceRole,
   MemberRoleTier,
   ProfileRoleValue,
@@ -341,7 +342,7 @@ function toProject(
 ): Project {
   const completedPhases = p.phases.filter((ph) => ph.isCompleted).length;
   const completedTasks = p.tasks.filter(
-    (t) => t.status === "Closed" || t.status === "CLOSED"
+    (t) => isTaskDone(t.status)
   ).length;
   const totalTasks = p.tasks.length;
 
@@ -1569,7 +1570,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
                    "Unassigned",
         startDate: ct.startDate || "--",
         dueDate: ct.dueDate || "--",
-        completed: ct.status === "Closed" || ct.completionPercentage >= 100,
+        completed: isTaskDone(ct.status, undefined, ct.completionPercentage),
         hasLink: false,
       });
     }
@@ -1584,7 +1585,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
           ownerName: st.ownerName || "Unassigned",
           startDate: st.startDate || "--",
           dueDate: st.dueDate || "--",
-          completed: st.completed || st.status === "Closed",
+          completed: isTaskDone(st.status, st.completed),
           hasLink: st.hasLink || false,
         });
       }
@@ -1601,7 +1602,7 @@ export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
             ownerName: other.owner || "Unassigned",
             startDate: other.startDate || "--",
             dueDate: other.dueDate || "--",
-            completed: other.status === "Closed" || other.completionPercentage >= 100,
+            completed: isTaskDone(other.status, undefined, other.completionPercentage),
             hasLink: false,
           });
         }
@@ -1748,7 +1749,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
                  "Unassigned",
       startDate: ct.startDate || "--",
       dueDate: ct.dueDate || "--",
-      completed: ct.status === "Closed" || ct.completionPercentage >= 100,
+      completed: isTaskDone(ct.status, undefined, ct.completionPercentage),
       hasLink: false,
     })),
     remarks: t.remarks.map((r) => ({
@@ -1880,7 +1881,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
                  "Unassigned",
       startDate: ct.startDate || "--",
       dueDate: ct.dueDate || "--",
-      completed: ct.status === "Closed" || ct.completionPercentage >= 100,
+      completed: isTaskDone(ct.status, undefined, ct.completionPercentage),
       hasLink: false,
     })),
     remarks: t.remarks.map((r) => ({
@@ -2555,7 +2556,7 @@ export async function createSubtaskAction(
     ownerName: finalOwnerName,
     startDate: created.startDate || "--",
     dueDate: created.dueDate || "--",
-    completed: created.status === "Closed" || created.completionPercentage >= 100,
+    completed: isTaskDone(created.status, undefined, created.completionPercentage),
     hasLink: false,
   };
 }
@@ -3193,7 +3194,7 @@ export async function getUserProjectDetailsDrawerAction(
 
     return {
       id: log.id,
-      date: log.date.toISOString().split("T")[0],
+      date: toISTDateString(log.date),
       hours: hoursStr,
       logType: log.billingType,
       notes: log.description,
@@ -3484,6 +3485,7 @@ import {
   resolveLogTimePeriod,
   formatTimePeriodRange,
   parseDateAndTimeToDate,
+  toISTDateString,
 } from "../utils/time-helpers";
 
 function formatMinutes(totalMinutes: number): string {
@@ -3597,7 +3599,7 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
       project: { select: { id: true, name: true } },
       task: { select: { id: true, code: true, title: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
 
   const userMap = new Map<string, UserTimeGroup>();
@@ -3625,7 +3627,7 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
     const { timePeriod, remarks } = decodeDescriptionWithTimePeriod(log.description);
     const durationMinutes = typeof log.duration === "number" ? log.duration : parseDurationMinutes(log.duration);
     const durationStr = formatDurationDisplay(durationMinutes);
-    const dateStr = log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date || "");
+    const dateStr = log.date instanceof Date ? toISTDateString(log.date) : String(log.date || "");
     const finalTimePeriod = resolveLogTimePeriod(timePeriod, durationMinutes, log.createdAt || log.date);
 
     const taskCode = log.task?.code || undefined;
@@ -3799,7 +3801,7 @@ export async function createTimeLogAction(
     taskCode: displayCode,
     duration: formatDurationDisplay(newLog.duration),
     timePeriod: finalTimePeriod,
-    date: newLog.date instanceof Date ? newLog.date.toISOString().split("T")[0] : String(newLog.date),
+    date: newLog.date instanceof Date ? toISTDateString(newLog.date) : String(newLog.date),
     billingType: newLog.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
     remarks: decodedRemarks || "",
     approvalStatus: newLog.approvalStatus,
@@ -4112,7 +4114,7 @@ export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeL
       user: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
 
   return logs.map((log: any) => {
@@ -4130,7 +4132,7 @@ export async function getTaskTimeLogsAction(taskCodeOrId: string): Promise<TimeL
       taskCode: displayCode,
       duration: formatDurationDisplay(durationMins),
       timePeriod: finalTimePeriod,
-      date: log.date instanceof Date ? log.date.toISOString().split("T")[0] : String(log.date),
+      date: log.date instanceof Date ? toISTDateString(log.date) : String(log.date),
       billingType: log.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
       remarks: remarks || "",
       approvalStatus: log.approvalStatus as any,

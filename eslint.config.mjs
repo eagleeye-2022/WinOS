@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "scripts/**",
+    "exports/**",
   ]),
   // Allow _-prefixed unused params (standard convention for server action signatures).
   {
@@ -20,6 +22,7 @@ const eslintConfig = defineConfig([
         "warn",
         { argsIgnorePattern: "^_+$", varsIgnorePattern: "^_+$" },
       ],
+      "@typescript-eslint/no-explicit-any": "warn",
       "react-hooks/set-state-in-effect": "off",
     },
   },

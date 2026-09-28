@@ -1,4 +1,4 @@
-import { Project, TaskItem } from "../types";
+import { Project, TaskItem, isTaskDone } from "../types";
 
 export interface StaleTaskAnalysis {
   staleCount: number;
@@ -25,7 +25,7 @@ export function analyzeTaskStaleness(tasks: TaskItem[]): StaleTaskAnalysis {
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
   const staleTasks = tasks.filter((task) => {
-    if (task.status === "Closed") return false;
+    if (isTaskDone(task.status)) return false;
     
     // Check explicit flag
     if (task.staleAlert) return true;
@@ -71,7 +71,7 @@ export function generateAIClientStatusReport(
   projectTasks: TaskItem[]
 ): ClientStatusReport {
   const totalTasks = projectTasks.length || project.totalTasksCount || 1;
-  const completedTasks = projectTasks.filter((t) => t.status === "Closed").length;
+  const completedTasks = projectTasks.filter((t) => isTaskDone(t.status)).length;
   const overallProgress = Math.round((completedTasks / totalTasks) * 100) || project.progressPercent;
 
   // Group tasks by phase
@@ -80,7 +80,7 @@ export function generateAIClientStatusReport(
     const pName = task.phaseName || "General Tasks";
     const current = phaseMap.get(pName) || { total: 0, closed: 0 };
     current.total += 1;
-    if (task.status === "Closed") current.closed += 1;
+    if (isTaskDone(task.status)) current.closed += 1;
     phaseMap.set(pName, current);
   });
 
