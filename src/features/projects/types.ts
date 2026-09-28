@@ -215,7 +215,89 @@ export interface ProjectUser {
   avatarUrl?: string;
 }
 
-export type TaskStatus = "Open" | "In Progress" | "Under Review" | "Approved" | "Closed";
+export const PROJECT_TASK_STATUSES = [
+  "Open",
+  "In Progress",
+  "In Review",
+  "Done",
+  "Follow Up 1",
+  "Follow Up 2",
+  "Pending from Client",
+  "On Hold",
+  "Delayed",
+] as const;
+
+export type TaskStatus =
+  | (typeof PROJECT_TASK_STATUSES)[number]
+  | "Under Review"
+  | "Approved"
+  | "Closed";
+
+export function isTaskDone(
+  status?: string | null,
+  completed?: boolean,
+  completionPercentage?: number
+): boolean {
+  if (completed) return true;
+  if (completionPercentage !== undefined && completionPercentage >= 100) return true;
+  if (!status) return false;
+  const s = status.trim().toUpperCase();
+  return s === "DONE" || s === "CLOSED" || s === "APPROVED";
+}
+
+export function getTaskStatusBadgeClasses(status?: string | null): string {
+  switch (status) {
+    case "Done":
+    case "Closed":
+    case "Approved":
+      return "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400";
+    case "In Progress":
+      return "bg-amber-500/15 text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300";
+    case "In Review":
+    case "Under Review":
+      return "bg-purple-500/15 text-purple-600 border border-purple-500/30 dark:bg-purple-500/20 dark:text-purple-300";
+    case "Follow Up 1":
+      return "bg-cyan-500/15 text-cyan-600 border border-cyan-500/30 dark:bg-cyan-500/20 dark:text-cyan-300";
+    case "Follow Up 2":
+      return "bg-blue-500/15 text-blue-600 border border-blue-500/30 dark:bg-blue-500/20 dark:text-blue-300";
+    case "Pending from Client":
+      return "bg-orange-500/15 text-orange-600 border border-orange-500/30 dark:bg-orange-500/20 dark:text-orange-300";
+    case "On Hold":
+      return "bg-slate-500/15 text-slate-600 border border-slate-500/30 dark:bg-slate-500/20 dark:text-slate-300";
+    case "Delayed":
+      return "bg-rose-500/15 text-rose-600 border border-rose-500/30 dark:bg-rose-500/20 dark:text-rose-300";
+    case "Open":
+    default:
+      return "bg-sky-500/15 text-sky-600 border border-sky-500/30 dark:bg-sky-500/20 dark:text-sky-300";
+  }
+}
+
+export function getTaskStatusSelectClasses(status?: string | null): string {
+  switch (status) {
+    case "Done":
+    case "Closed":
+    case "Approved":
+      return "border-emerald-500/40 text-emerald-600 dark:text-emerald-400";
+    case "In Progress":
+      return "border-amber-500/40 text-amber-600 dark:text-amber-400";
+    case "In Review":
+    case "Under Review":
+      return "border-purple-500/40 text-purple-600 dark:text-purple-400";
+    case "Follow Up 1":
+      return "border-cyan-500/40 text-cyan-600 dark:text-cyan-400";
+    case "Follow Up 2":
+      return "border-blue-500/40 text-blue-600 dark:text-blue-400";
+    case "Pending from Client":
+      return "border-orange-500/40 text-orange-600 dark:text-orange-400";
+    case "On Hold":
+      return "border-slate-500/40 text-slate-600 dark:text-slate-400";
+    case "Delayed":
+      return "border-rose-500/40 text-rose-600 dark:text-rose-400";
+    case "Open":
+    default:
+      return "border-sky-500/40 text-sky-600 dark:text-sky-400";
+  }
+}
 
 export interface TaskRemark {
   id: string;

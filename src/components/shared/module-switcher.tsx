@@ -22,7 +22,7 @@ const MODULES = [
   },
   {
     id: "projects",
-    label: "Projects",
+    label: "Srijan",
     href: "/projects",
     icon: Briefcase,
     moduleKey: "PROJECTS",

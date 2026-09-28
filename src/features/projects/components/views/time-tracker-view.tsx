@@ -51,6 +51,7 @@ import {
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
   formatTime12h,
+  compareTimeLogsLatestFirst,
 } from "../../utils/time-helpers";
 import {
   updateTimeLogAction,
@@ -573,7 +574,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       if (!matchTitle && !matchCode && !matchRemarks) return false;
     }
     return true;
-  });
+  }).sort(compareTimeLogsLatestFirst);
 
   const billableMinutes = filteredAllLogs
     .filter((l) => l.billingType === "BILLABLE")
@@ -602,7 +603,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       byDate.get(normalizedDate)!.logs.push({ ...log, date: normalizedDate });
     }
     return Array.from(byDate.values())
-      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .sort(compareTimeLogsLatestFirst)
       .map((g) => {
         const billable = g.logs
           .filter((l) => l.billingType === "BILLABLE")

@@ -40,6 +40,9 @@ const FILE_PREFIX    = PROJECT_CODE === "EEDP-4" ? "eedcore" : PROJECT_CODE.toLo
 const DATA_FILE      = path.join(__dirname, "data", `${FILE_PREFIX}${PROJECT_CODE === "EEDP-4" ? "" : "-"}projectdata.json`);
 const HIERARCHY_FILE = path.join(__dirname, "data", `${FILE_PREFIX}-task-hierarchy.json`);
 const DRY_RUN        = process.argv.includes("--dry-run");
+// Creates deactivated WinOS users for export emails with no account (ex-staff,
+// shared mailboxes) so their time logs are kept instead of skipped.
+const CREATE_INACTIVE_USERS = process.argv.includes("--create-inactive-users");
 
 const warnings: string[] = [];
 
@@ -139,6 +142,22 @@ async function runImport(tx: any, data: ZExport, hierarchyKeys: Map<string, stri
     select: { id: true, email: true, name: true },
   });
   const userIdByEmail = new Map(users.map((u) => [u.email.toLowerCase(), u.id]));
+  let usersCreated = 0;
+  if (CREATE_INACTIVE_USERS) {
+    const nameByEmail = new Map<string, string>();
+    for (const tl of data.time_logs) if (norm(tl.user)) nameByEmail.set(key(tl.user_email), norm(tl.user));
+    for (const u of data.users ?? []) if (norm(u.name)) nameByEmail.set(key(u.email), norm(u.name));
+    for (const e of emails) {
+      if (userIdByEmail.has(e) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) continue;
+      const created = await tx.user.create({
+        data: { email: e, name: nameByEmail.get(e) ?? e.split("@")[0], isActive: false },
+        select: { id: true },
+      });
+      userIdByEmail.set(e, created.id);
+      usersCreated++;
+      console.log(`   + inactive user ${e}`);
+    }
+  }
   for (const e of emails) {
     if (!userIdByEmail.has(e)) warnings.push(`No WinOS user with email ${e}`);
   }
@@ -440,6 +459,7 @@ async function runImport(tx: any, data: ZExport, hierarchyKeys: Map<string, stri
 
   return {
     projectId:           project.id,
+    inactiveUsersCreated: usersCreated,
     phases:              phaseIdByCode.size,
     phasesRemoved,
     taskLists:           taskListByName.size,

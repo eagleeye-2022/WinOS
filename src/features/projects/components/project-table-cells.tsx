@@ -244,7 +244,7 @@ export function CalendarCell({
         type="button"
         disabled={!editable}
         onClick={() => setDropdownOpen((v) => !v)}
-        className={`flex items-center justify-between gap-1.5 rounded border border-input/60 bg-background/80 px-2 py-1 text-[11px] font-medium transition-all max-w-full ${
+        className={`flex items-center justify-between gap-1.5 rounded border border-input/60 bg-background/80 px-2 py-1 text-[11px] font-medium transition-all w-full ${
           editable ? "hover:bg-accent/80 hover:border-primary/40 cursor-pointer" : "cursor-default"
         } ${saving ? "opacity-50" : ""}`}
       >

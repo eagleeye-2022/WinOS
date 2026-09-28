@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
-import { TaskItem, TaskStatus } from "../../types";
+import { TaskItem, TaskStatus, PROJECT_TASK_STATUSES } from "../../types";
 import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 
@@ -42,7 +42,7 @@ export function AddTaskDrawer({
   const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
   const [associatedTeam, setAssociatedTeam] = useState("Engineering");
   const [priority, setPriority] = useState("None");
-  const [duration, setDuration] = useState("2 days/hrs");
+  const [duration, setDuration] = useState("--");
   const [description, setDescription] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -232,11 +232,9 @@ export function AddTaskDrawer({
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
               >
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Under Review">Under Review</option>
-                <option value="Approved">Approved</option>
-                <option value="Closed">Closed</option>
+                {PROJECT_TASK_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
               </select>
             </div>
 

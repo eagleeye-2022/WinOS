@@ -52,3 +52,5 @@ calendar-api-settings.json
 
 # Zoho import data exports (project/task dumps with owner emails)
 /scripts/data/
+/scripts
+/exports

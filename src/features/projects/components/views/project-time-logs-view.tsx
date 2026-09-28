@@ -38,6 +38,7 @@ import {
   formatDurationDisplay,
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
+  compareTimeLogsLatestFirst,
 } from "../../utils/time-helpers";
 
 interface ProjectTimeLogsViewProps {
@@ -128,7 +129,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         }
       }
       return true;
-    });
+    }).sort(compareTimeLogsLatestFirst);
   }, [allLogs, filterUser, filterTask, filterBilling, searchQuery]);
 
   const [collapsedUserIds, setCollapsedUserIds] = useState<Record<string, boolean>>({});

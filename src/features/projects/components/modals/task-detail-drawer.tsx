@@ -32,7 +32,7 @@ import {
   Check,
   ClipboardList,
 } from "lucide-react";
-import { TaskItem, TaskRemark, TaskStatus, TaskSubtask } from "../../types";
+import { TaskItem, TaskRemark, TaskStatus, TaskSubtask, PROJECT_TASK_STATUSES } from "../../types";
 import { PickTemplateModal } from "./pick-template-modal";
 import { NewTimeLogModal } from "./new-time-log-modal";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
@@ -159,7 +159,7 @@ export function TaskDetailDrawer({
   const [workHours, setWorkHours] = useState("00:00");
   const [startDate, setStartDate] = useState(task?.startDate || "--");
   const [dueDate, setDueDate] = useState(task?.dueDate || "--");
-  const [duration, setDuration] = useState(task?.duration || "2 days/hrs");
+  const [duration, setDuration] = useState(task?.duration || "--");
   const [completionPercentage, setCompletionPercentage] = useState(
     task?.completionPercentage || 0
   );
@@ -494,13 +494,13 @@ export function TaskDetailDrawer({
                   }}
                   disabled={!isOwner}
                   title={isOwner ? "Change status" : `Only the task owner (${task?.owner || "Unassigned"}) can change the status`}
-                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="Open">Open</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Under Review">Under Review</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Closed">Closed</option>
+                  {PROJECT_TASK_STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                  {!PROJECT_TASK_STATUSES.includes(status as any) && (
+                    <option value={status}>{status}</option>
+                  )}
                 </select>
               </div>
               <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">

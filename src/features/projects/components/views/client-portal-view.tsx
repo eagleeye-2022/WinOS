@@ -19,7 +19,7 @@ import {
   getTasksAction,
   getTimeLogsAction,
 } from "../../actions/project-actions";
-import { Project, TaskItem, UserTimeGroup } from "../../types";
+import { Project, TaskItem, UserTimeGroup, isTaskDone } from "../../types";
 import { PhasesTableView } from "./phases-table-view";
 import { ProjectTimeLogsView } from "./project-time-logs-view";
 import { parseDurationMinutes } from "../../utils/time-helpers";
@@ -88,7 +88,7 @@ export function ClientPortalView() {
   // Compute Task & Phase completion status
   const totalTasksCount = tasks.length;
   const completedTasksCount = tasks.filter(
-    (t) => t.status === "Closed" || (t.completionPercentage !== undefined && t.completionPercentage >= 100)
+    (t) => isTaskDone(t.status, undefined, t.completionPercentage)
   ).length;
   const progressPercent =
     totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;

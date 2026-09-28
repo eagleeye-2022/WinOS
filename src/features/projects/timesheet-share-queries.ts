@@ -2,9 +2,11 @@
 import { db } from "@/lib/db";
 import { verifyTimesheetShareToken } from "@/lib/timesheet-share-token";
 import {
+  compareTimeLogsLatestFirst,
   decodeDescriptionWithTimePeriod,
   formatDurationDisplay,
   resolveLogTimePeriod,
+  toISTDateString,
 } from "./utils/time-helpers";
 
 export interface SharedTimeLog {
@@ -54,8 +56,8 @@ export async function getSharedTimesheet(token: string): Promise<SharedTimesheet
   // Deactivating a user also kills every link they've shared.
   if (!user?.isActive) return { status: "inactive" };
 
-  // The tracker buckets logs by their UTC date string, so fetch a padded window
-  // and filter the same way to show exactly what the owner saw when sharing.
+  // The tracker buckets logs by their IST date, so fetch a padded window and
+  // filter the same way to show exactly what the owner saw when sharing.
   const dayStart = new Date(`${share.date}T00:00:00.000Z`);
   const dbLogs = await d.projectTimeLog.findMany({
     where: {
@@ -70,7 +72,7 @@ export async function getSharedTimesheet(token: string): Promise<SharedTimesheet
   });
 
   const logs: SharedTimeLog[] = dbLogs
-    .filter((log: any) => new Date(log.date).toISOString().split("T")[0] === share.date)
+    .filter((log: any) => toISTDateString(log.date) === share.date)
     .map((log: any) => {
       const { timePeriod, remarks } = decodeDescriptionWithTimePeriod(log.description);
       const durationMinutes = Number(log.duration) || 0;
@@ -86,7 +88,8 @@ export async function getSharedTimesheet(token: string): Promise<SharedTimesheet
         approvalStatus: log.approvalStatus,
         remarks,
       };
-    });
+    })
+    .sort((a: SharedTimeLog, b: SharedTimeLog) => compareTimeLogsLatestFirst({ date: share.date, ...a }, { date: share.date, ...b }));
 
   const billableMinutes = logs
     .filter((l) => l.billingType === "BILLABLE")

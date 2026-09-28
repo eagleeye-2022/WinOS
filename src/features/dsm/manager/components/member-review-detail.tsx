@@ -17,6 +17,7 @@ import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-
 import { editTask, type EditTaskState } from "../actions/edit-task";
 import { deleteTask, type DeleteTaskState } from "../actions/delete-task";
 import { addTask, type AddTaskState } from "../actions/add-task";
+import { toggleSummaryTask, saveSummaryTask, deleteSummaryTask, getDsrCompletionForDay, type SummaryTaskState, type DsrDayCompletion } from "../actions/yesterday-summary";
 import { updateLearningText, type UpdateLearningState } from "../actions/update-learning";
 import { editBlocker, type EditBlockerState } from "@/features/blockers/actions/edit-blocker";
 import { deleteBlocker, type DeleteBlockerState } from "@/features/blockers/actions/delete-blocker";
@@ -37,7 +38,7 @@ import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-sup
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
-import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
+import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
@@ -158,13 +159,18 @@ function priorityColor(p: string): string {
   return PRIORITY_COLOR_CYCLE[(n - 1) % PRIORITY_COLOR_CYCLE.length];
 }
 
-/** Sort tasks by managerPriority: P1 < P2 < P3 < unset */
-function sortByPriority<T extends { managerPriority?: string | null }>(tasks: T[]): T[] {
-  return [...tasks].sort((a, b) => {
-    const an = a.managerPriority ? parseInt(a.managerPriority.slice(1)) : Infinity;
-    const bn = b.managerPriority ? parseInt(b.managerPriority.slice(1)) : Infinity;
-    return an - bn;
-  });
+/** Manager-assigned priority wins; otherwise fall back to the priority the member picked in their DSM */
+function effectivePriority(t: { managerPriority?: string | null; priority?: string | null }): string | null {
+  return t.managerPriority || t.priority || null;
+}
+
+/** Sort tasks by effective priority: P1 < P2 < P3 < unset */
+function sortByPriority<T extends { managerPriority?: string | null; priority?: string | null }>(tasks: T[]): T[] {
+  const rank = (t: T) => {
+    const n = parseInt(effectivePriority(t)?.slice(1) ?? "", 10);
+    return Number.isFinite(n) ? n : Infinity;
+  };
+  return [...tasks].sort((a, b) => rank(a) - rank(b));
 }
 
 // ── Priority dropdown ─────────────────────────────────────────────────────────
@@ -1406,6 +1412,7 @@ function TaskRow({
   const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
 
   const isCarriedOver = carryChain.length > 1;
+  const displayPriority = effectivePriority(task);
   const availableLevels = priorityLevels(totalTasks).filter(
     (p) => !takenPriorities.includes(p) || p === priority
   );
@@ -1570,10 +1577,10 @@ function TaskRow({
         <span
           className={cn(
             "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-            task.managerPriority ? priorityColor(task.managerPriority) + " border" : "bg-muted text-muted-foreground"
+            displayPriority ? priorityColor(displayPriority) + " border" : "bg-muted text-muted-foreground"
           )}
         >
-          {task.managerPriority ?? rank}
+          {displayPriority ?? rank}
         </span>
       </td>
       <td className="py-2 pr-3 align-top">
@@ -1602,16 +1609,16 @@ function TaskRow({
         {!isLocked ? (
           <PriorityDropdown
             taskId={task.id}
-            current={task.managerPriority ?? null}
+            current={displayPriority}
             takenPriorities={takenPriorities}
             totalTasks={totalTasks}
           />
-        ) : task.managerPriority ? (
+        ) : displayPriority ? (
           <span className={cn(
             "shrink-0 rounded-lg border px-2 py-0.5 text-xs font-bold inline-block",
-            priorityColor(task.managerPriority)
+            priorityColor(displayPriority)
           )}>
-            {task.managerPriority}
+            {displayPriority}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
@@ -1658,62 +1665,437 @@ function TaskRow({
   );
 }
 
-// ── Yesterday tasks section (priority & edit aware) ───────────────────────────
+// ── Yesterday summary (previous day's outcome, manager-editable) ──────────────
+//
+// Shows the member's previous DSM entry — its planned tasks, whether each got done, and the time
+// logged against it that day — so the manager can review yesterday's work in the morning DSM
+// without a DSR. The manager can tick/untick, edit, add and delete (see yesterday-summary.ts).
+
+/** Most recent non-missed entry before `entry` (e.g. Friday's when `entry` is Monday). */
+function getPreviousEntry(entry: MemberReviewEntry, allEntries: MemberReviewEntry[] = []): MemberReviewEntry | undefined {
+  const entryTime = new Date(entry.date).getTime();
+  return allEntries
+    .filter((e) => new Date(e.date).getTime() < entryTime && e.status !== "MISSED")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+}
+
+function formatMinutes(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m.toString().padStart(2, "0")}m` : `${m}m`;
+}
+
+/** Add/edit form for one summary row: done toggle + project/task/subtask link + text. */
+function SummaryTaskEditor({
+  task,
+  isDone,
+  entryId,
+  kind,
+  cascadingProjects,
+  onDone,
+}: {
+  task?: TaskItem;
+  /** Effective done state for an existing task (DSR tick first, then the DSM flag). */
+  isDone?: boolean;
+  entryId: string;
+  kind: "TODAY" | "YESTERDAY";
+  cascadingProjects: CascadingProjectOption[];
+  onDone: () => void;
+}) {
+  const [state, action, pending] = useActionState<SummaryTaskState, FormData>(saveSummaryTask, {});
+  const initialTree = resolveTaskTree(task?.projectTaskId, cascadingProjects);
+  const [projectId, setProjectId] = useState(initialTree.projectId);
+  const [parentTaskId, setParentTaskId] = useState(initialTree.taskId);
+  const [subtaskId, setSubtaskId] = useState(initialTree.subtaskId);
+  const [text, setText] = useState(task?.text ?? "");
+  const [isCompleted, setIsCompleted] = useState(task ? Boolean(isDone) : true);
+
+  const currentProject = cascadingProjects.find((p) => p.id === projectId);
+  const currentTask = currentProject?.tasks.find((t) => t.id === parentTaskId);
+  // Link the subtask when one is picked, otherwise the parent task (same rule as the DSM form).
+  const projectTaskId = subtaskId || parentTaskId || "";
+  const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
+  const selectCls =
+    "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate";
+
+  return (
+    <form
+      action={async (fd) => {
+        await action(fd);
+        onDone();
+      }}
+      className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
+    >
+      {task && <input type="hidden" name="taskId" value={task.id} />}
+      <input type="hidden" name="entryId" value={entryId} />
+      <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="projectTaskId" value={projectTaskId} />
+      <input type="hidden" name="isCompleted" value={String(isCompleted)} />
+
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="font-semibold text-muted-foreground uppercase text-[11px]">{task ? "Edit Task:" : "New Task:"}</span>
+        <div className="relative flex items-center">
+          <select
+            value={projectId}
+            onChange={(e) => { setProjectId(e.target.value); setParentTaskId(""); setSubtaskId(""); }}
+            className={selectCls}
+          >
+            <option value="">Select Project</option>
+            {cascadingProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+        </div>
+        {currentProject && (
+          <div className="relative flex items-center">
+            <select
+              value={parentTaskId}
+              onChange={(e) => {
+                setParentTaskId(e.target.value);
+                setSubtaskId("");
+                const chosen = currentProject.tasks.find((t) => t.id === e.target.value);
+                if (chosen && !text.trim()) setText(chosen.title);
+              }}
+              className={selectCls}
+            >
+              <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
+              {currentProject.tasks.map((t) => <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>)}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+          </div>
+        )}
+        {currentTask && currentTask.subtasks.length > 0 && (
+          <div className="relative flex items-center">
+            <select value={subtaskId} onChange={(e) => setSubtaskId(e.target.value)} className={selectCls}>
+              <option value="">Select Subtask</option>
+              {currentTask.subtasks.map((st) => <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>)}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {selectedMeta?.code && (
+          <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+            {selectedMeta.code}
+          </span>
+        )}
+        <input
+          name="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          placeholder="What was worked on..."
+          className="flex-1 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-2 border-border/50">
+        <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={isCompleted}
+            onChange={(e) => setIsCompleted(e.target.checked)}
+            className="h-3.5 w-3.5 cursor-pointer accent-emerald-600"
+          />
+          Completed
+        </label>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="submit"
+            disabled={pending || !text.trim()}
+            className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+          >
+            {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
+            {task ? "Save" : "Add Task"}
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <X size={14} strokeWidth={2} />
+            Cancel
+          </button>
+        </div>
+      </div>
+      {state.message && state.message !== "saved" && <p className="text-xs text-destructive">{state.message}</p>}
+    </form>
+  );
+}
+
+function SummaryTaskRow({
+  task,
+  isDone,
+  entryId,
+  kind,
+  loggedMinutes,
+  cascadingProjects,
+}: {
+  task: TaskItem;
+  /** Effective done state: the member's DSR tick when that task is in the DSR, else the DSM flag. */
+  isDone: boolean;
+  entryId: string;
+  kind: "TODAY" | "YESTERDAY";
+  loggedMinutes: number | undefined;
+  cascadingProjects: CascadingProjectOption[];
+}) {
+  const [editing, setEditing] = useState(false);
+  // Optimistic tick so the checkbox responds instantly; server revalidation reconciles.
+  const [done, setDone] = useState(isDone);
+  const [toggling, startToggle] = useTransition();
+  const [, deleteAction, deleting] = useActionState<SummaryTaskState, FormData>(deleteSummaryTask, {});
+
+  useEffect(() => setDone(isDone), [isDone]);
+
+  if (editing) {
+    return (
+      <tr className="border-b bg-muted/20">
+        <td colSpan={6} className="p-2">
+          <SummaryTaskEditor task={task} isDone={done} entryId={entryId} kind={kind} cascadingProjects={cascadingProjects} onDone={() => setEditing(false)} />
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="group/task border-b last:border-b-0 transition-colors hover:bg-muted/40">
+      <td className="py-2 pr-2 align-top">
+        <button
+          type="button"
+          disabled={toggling}
+          title={done ? "Mark as not done" : "Mark as done"}
+          onClick={() => {
+            const next = !done;
+            setDone(next);
+            startToggle(async () => {
+              const res = await toggleSummaryTask(task.id, next);
+              if (res.message !== "updated") setDone(!next);
+            });
+          }}
+          className="flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-muted"
+        >
+          {done ? (
+            <CheckCircle2 size={18} className="text-success" />
+          ) : (
+            <span className="h-4 w-4 rounded-full border-2 border-warning/60" />
+          )}
+        </button>
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
+          <ExpandableTaskText text={task.text} />
+          {/* {!done && (
+            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
+              Not done
+            </span>
+          )} */}
+        </div>
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
+        {loggedMinutes ? (
+          <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold">
+            {formatMinutes(loggedMinutes)}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-2 align-top text-center">
+        <div className="flex items-center justify-center gap-1">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            title="Edit task"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <Pencil size={13} />
+          </button>
+          <form
+            action={deleteAction}
+            onSubmit={(e) => {
+              if (!confirm(`Remove "${task.text}" from yesterday's summary?`)) e.preventDefault();
+            }}
+          >
+            <input type="hidden" name="taskId" value={task.id} />
+            <button
+              type="submit"
+              disabled={deleting}
+              title="Remove task"
+              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function YesterdayTasksSection({
-  tasks,
-  isLocked,
-  entryId,
+  entry,
+  allEntries = [],
+  memberId,
+  cascadingProjects = [],
 }: {
-  tasks: { id?: string; text: string; isCompleted: boolean }[];
-  isLocked: boolean;
-  entryId: string;
+  entry: MemberReviewEntry;
+  allEntries?: MemberReviewEntry[];
+  memberId?: string;
+  cascadingProjects?: CascadingProjectOption[];
 }) {
+  const [adding, setAdding] = useState(false);
+  const prevEntry = getPreviousEntry(entry, allEntries);
+
+  // Previous entry's planned tasks, plus any legacy explicit YESTERDAY rows on this entry.
+  const prevTasks = prevEntry ? prevEntry.tasks.filter((t) => t.kind === "TODAY") : [];
+  const seen = new Set(prevTasks.map((t) => t.text.trim().toLowerCase()));
+  const legacyTasks = entry.tasks.filter((t) => t.kind === "YESTERDAY" && !seen.has(t.text.trim().toLowerCase()));
+  const rows = [
+    ...prevTasks.map((t) => ({ task: t, entryId: prevEntry!.id, kind: "TODAY" as const })),
+    ...legacyTasks.map((t) => ({ task: t, entryId: entry.id, kind: "YESTERDAY" as const })),
+  ];
+
+  // Time logged per linked project task on the previous entry's day.
+  // Entry dates are stored as UTC midnight, so the UTC ISO date is the entry's calendar day.
+  const prevDateStr = prevEntry ? toIsoDateStr(new Date(prevEntry.date)) : "";
+  const linkedIds = Array.from(new Set(prevTasks.map((t) => t.projectTaskId).filter(Boolean) as string[]));
+  const linkedKey = linkedIds.join(",");
+  const [logged, setLogged] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!prevDateStr || !linkedKey) {
+      setLogged({});
+      return;
+    }
+    let cancelled = false;
+    fetchDailyTimeSummaryAction(linkedKey.split(","), prevDateStr, memberId).then((res) => {
+      if (cancelled || !res) return;
+      setLogged(Object.fromEntries(Object.entries(res).map(([id, s]) => [id, s.totalMinutes])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedKey, prevDateStr, memberId]);
+
+  // "Done" comes from the member's DSR for that day when the task appears there; otherwise from
+  // the DSM task's own flag. Refetched whenever the rows change (e.g. after a manager edit).
+  const [dsr, setDsr] = useState<DsrDayCompletion | null>(null);
+  const rowsKey = rows.map((r) => `${r.task.id}:${r.task.text}:${r.task.isCompleted}`).join("|");
+  useEffect(() => {
+    if (!prevDateStr || !memberId) {
+      setDsr(null);
+      return;
+    }
+    let cancelled = false;
+    getDsrCompletionForDay(memberId, prevDateStr).then((res) => {
+      if (!cancelled) setDsr(res);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [prevDateStr, memberId, rowsKey]);
+
+  const isDoneFor = (task: TaskItem) => dsr?.completed[task.text.trim().toLowerCase()] ?? Boolean(task.isCompleted);
+
+  const doneCount = rows.filter((r) => isDoneFor(r.task)).length;
+  const totalMinutes = linkedIds.reduce((sum, id) => sum + (logged[id] ?? 0), 0);
+
+  // New rows go on the previous entry; with no previous entry they become legacy YESTERDAY rows.
+  const addTarget = prevEntry ? { entryId: prevEntry.id, kind: "TODAY" as const } : { entryId: entry.id, kind: "YESTERDAY" as const };
+
   return (
     <div className="rounded-xl border bg-card p-4">
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-        <CheckCircle2 size={15} className="text-primary" />
-        What Did You Do Yesterday?
-        <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-          {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-        </span>
-      </h3>
-      {tasks.length > 0 ? (
-        <div className="space-y-1.5">
-          {tasks.map((task, i) => (
-            <div key={task.id || i} className="group/task flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40 transition-colors">
-              <div className="flex flex-1 items-center gap-2 min-w-0">
-                {task.isCompleted ? (
-                  <CheckCircle2 size={16} className="shrink-0 text-success" />
-                ) : (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-warning/50 bg-warning/10 text-[10px] font-bold text-warning">
-                    •
-                  </span>
+      <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <CheckCircle2 size={15} className="text-primary" />
+          What Did You Do Yesterday?
+          <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {rows.length} task{rows.length !== 1 ? "s" : ""}
+          </span>
+        </h3>
+        {rows.length > 0 && (
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            {prevEntry && (
+              <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground">
+                {new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(prevEntry.date))},{" "}
+                {formatShortDate(prevEntry.date)}
+              </span>
+            )}
+            {prevEntry && dsr && (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5",
+                  dsr.hasDsr ? "bg-primary/10 text-primary" : "bg-warning/10 text-warning"
                 )}
-                <span className={cn("text-sm leading-snug flex-1", task.isCompleted ? "text-foreground" : "text-foreground/90")}>
-                  <ExpandableTaskText text={task.text} />
-                </span>
-                {/* {!task.isCompleted && (
-                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
-                    CO
-                  </span>
-                )} */}
-              </div>
-              {/* {!isLocked && task.id && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <EditTaskRow taskId={task.id} text={task.text} />
-                  <DeleteTaskButton taskId={task.id} />
-                </div>
-              )} */}
-            </div>
-          ))}
+                title={dsr.hasDsr ? "Done status is taken from the member's DSR for this day" : "The member did not fill a DSR for this day"}
+              >
+                {dsr.hasDsr ? "From DSR" : "No DSR"}
+              </span>
+            )}
+            <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{rows.length} done</span>
+            {totalMinutes > 0 && (
+              <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{formatMinutes(totalMinutes)} logged</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {rows.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <th className="w-10 py-2 pr-2">Done</th>
+                <th className="py-2 pr-3">Project</th>
+                <th className="py-2 pr-3">Task ID</th>
+                <th className="py-2 pr-3">Task / Subtask</th>
+                <th className="py-2 pr-3">Time Tracked</th>
+                <th className="py-2 pr-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <SummaryTaskRow
+                  key={r.task.id}
+                  task={r.task}
+                  isDone={isDoneFor(r.task)}
+                  entryId={r.entryId}
+                  kind={r.kind}
+                  loggedMinutes={r.task.projectTaskId ? logged[r.task.projectTaskId] : undefined}
+                  cascadingProjects={cascadingProjects}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground italic">No tasks logged for yesterday.</p>
+        <p className="text-xs text-muted-foreground italic">No tasks logged for the previous day.</p>
       )}
 
-      {/* Manager can add yesterday tasks */}
-      {/* <AddTaskRow entryId={entryId} kind="YESTERDAY" /> */}
+      {adding ? (
+        <div className="mt-3">
+          <SummaryTaskEditor
+            entryId={addTarget.entryId}
+            kind={addTarget.kind}
+            cascadingProjects={cascadingProjects}
+            onDone={() => setAdding(false)}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        >
+          <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task
+        </button>
+      )}
     </div>
   );
 }
@@ -1761,8 +2143,8 @@ function TodayTasksSection({
 
   function takenFor(taskId: string) {
     return tasks
-      .filter((t) => t.id !== taskId && t.managerPriority)
-      .map((t) => t.managerPriority as string);
+      .map((t) => (t.id !== taskId ? effectivePriority(t) : null))
+      .filter((p): p is string => !!p);
   }
 
   return (
@@ -2106,8 +2488,9 @@ export function ParkingLotSection({
 
   const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
     const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
-    const hasSubtasks = Boolean(chosenTask && chosenTask.subtasks && chosenTask.subtasks.length > 0);
-    const resolvedProjectTaskId = hasSubtasks ? "" : (chosenTask?.id || "");
+    // Link the parent task immediately (a subtask can refine it); the dropdowns are derived from
+    // projectTaskId, so clearing it would drop the selection and hide the subtask picker.
+    const resolvedProjectTaskId = chosenTask?.id || "";
     const n = [...items];
     n[i] = {
       ...n[i],
@@ -2386,7 +2769,6 @@ function EntryExpanded({
   cascadingProjects?: CascadingProjectOption[];
 }) {
   const router = useRouter();
-  const yesterdayTasks = getYesterdayTasksForEntry(entry, allEntries);
   const todayTasks = entry.tasks.filter((t) => t.kind === "TODAY");
   const isReviewable = entry.status !== "REVIEWED";
   const isLocked = entry.status === "REVIEWED";
@@ -2407,11 +2789,12 @@ function EntryExpanded({
 
   return (
     <div className="space-y-4">
-      {/* Yesterday completed */}
+      {/* Previous day's summary — manager can tick/untick, edit, add, delete */}
       <YesterdayTasksSection
-        tasks={yesterdayTasks}
-        isLocked={isLocked}
-        entryId={entry.id}
+        entry={entry}
+        allEntries={allEntries}
+        memberId={memberUser?.id}
+        cascadingProjects={cascadingProjects}
       />
 
       {/* Today tasks + priority */}
