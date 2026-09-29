@@ -10,6 +10,8 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   /** Defaults to true (destructive/red confirm button) — pass false for a neutral action. */
   danger?: boolean;
+  /** Notice-only mode: hides the Cancel button so the dialog just has a single acknowledge button. */
+  hideCancel?: boolean;
 }
 
 type ConfirmState = ConfirmOptions & { resolve: (value: boolean) => void };
@@ -64,16 +66,19 @@ export function useConfirm() {
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t bg-muted/20 px-5 py-3">
+          {!state.hideCancel && (
+            <button
+              type="button"
+              onClick={() => close(false)}
+              className="rounded-md border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
+              autoFocus
+            >
+              {state.cancelLabel || "Cancel"}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => close(false)}
-            className="rounded-md border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-            autoFocus
-          >
-            {state.cancelLabel || "Cancel"}
-          </button>
-          <button
-            type="button"
+            autoFocus={state.hideCancel}
             onClick={() => close(true)}
             className={`rounded-md px-3 py-1.5 text-xs font-semibold text-white transition-colors ${
               state.danger === false ? "bg-primary hover:bg-primary/90" : "bg-destructive hover:bg-destructive/90"

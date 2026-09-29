@@ -43,7 +43,6 @@ import { UserTimeGroup, TimeLogEntry } from "../../types";
 import { TimerWidget } from "../timer-widget";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
-import { EditTimeLogModal } from "../modals/edit-time-log-modal";
 import { ShareTimesheetModal } from "../modals/share-timesheet-modal";
 import {
   parseDurationMinutes,
@@ -59,8 +58,10 @@ import {
   approveTimeLogsAction,
   rejectTimeLogsAction,
   createTimeLogAction,
+  getTimeLogsAction,
   getCurrentUserRoleAction,
 } from "../../actions/project-actions";
+import { toast } from "@/components/shared/toast";
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
@@ -106,6 +107,9 @@ function InlineTextCell({
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setVal(value);
           e.currentTarget.blur();
         }
       }}
@@ -239,7 +243,6 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Edit Time Log State
   const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Single Running Timer State
   const [runningTimer, setRunningTimer] = useState<{
@@ -412,6 +415,38 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     }
   };
 
+  const isValidTimeFormat = (val: string): boolean => {
+    if (!val || !val.trim()) return false;
+    const trimmed = val.trim();
+    const regex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s*(am|pm|AM|PM)$|^(0?[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+    return regex.test(trimmed);
+  };
+
+  const parseTimeToMinutes = (val: string): number | null => {
+    const trimmed = val.trim();
+    const match12 = trimmed.match(/^(0?[1-9]|1[0-2]):([0-5][0-9])\s*(am|pm)$/i);
+    if (match12) {
+      let h = parseInt(match12[1], 10);
+      const m = parseInt(match12[2], 10);
+      const period = match12[3].toLowerCase();
+      if (period === "pm" && h !== 12) h += 12;
+      if (period === "am" && h === 12) h = 0;
+      return h * 60 + m;
+    }
+    const match24 = trimmed.match(/^([01]?[0-9]|2[0-3]):([0-5][0-9])$/);
+    if (match24) {
+      return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
+    }
+    return null;
+  };
+
+  const isValidDurationFormat = (val: string): boolean => {
+    if (!val || !val.trim()) return false;
+    const trimmed = val.trim();
+    const regex = /^(\d+):([0-5][0-9])$|^(\d+(\.\d+)?)$/;
+    return regex.test(trimmed);
+  };
+
   const handleInlineFieldChange = async (
     logId: string,
     field: keyof TimeLogEntry,
@@ -421,23 +456,95 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     const updatePayload: Partial<TimeLogEntry> = { [field]: value };
 
     if (field === "duration") {
-      const mins = parseDurationMinutes(value);
+      const trimmed = value.trim();
+      if (!isValidDurationFormat(trimmed)) {
+        toast.error("Invalid duration format (e.g. 00:30 or 1.5)");
+        setUserGroups([...userGroups]);
+        return;
+      }
+      const mins = parseDurationMinutes(trimmed);
+      if (mins <= 0) {
+        toast.error("Duration must be greater than 0.");
+        setUserGroups([...userGroups]);
+        return;
+      }
+      if (mins > 720) {
+        toast.error("Time duration cannot exceed 12 hours (720 minutes).");
+        setUserGroups([...userGroups]);
+        return;
+      }
       const formattedDur = formatDurationDisplay(mins);
       updatePayload.duration = formattedDur;
-      if (mins > 720) {
-        updatePayload.timePeriod = "";
-      }
     } else if (field === "timePeriod") {
-      if (value.includes("-") || value.includes("–")) {
-        const parts = value.split(/[-–]/);
-        if (parts.length === 2) {
-          const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
-          const mins = calculateMinutesFromTimeRange(parts[0], parts[1]);
-          if (rangeStr) updatePayload.timePeriod = rangeStr;
-          if (mins && mins > 0) {
-            updatePayload.duration = formatDurationDisplay(mins);
+      const trimmed = value.trim();
+      if (!trimmed) {
+        updatePayload.timePeriod = "";
+      } else if (trimmed.includes("-") || trimmed.includes("–")) {
+        const parts = trimmed.split(/[-–]/).map((p) => p.trim());
+        if (parts.length === 2 && parts[0] && parts[1]) {
+          const startValid = isValidTimeFormat(parts[0]);
+          const endValid = isValidTimeFormat(parts[1]);
+
+          if (!startValid || !endValid) {
+            toast.error("Invalid start/end time format (e.g. 10:10 AM - 10:30 AM or 10:10 - 10:30)");
+            setUserGroups([...userGroups]);
+            return;
           }
+
+          const startMin = parseTimeToMinutes(parts[0]);
+          const endMin = parseTimeToMinutes(parts[1]);
+
+          if (startMin === null || endMin === null) {
+            toast.error("Invalid time format (e.g. 10:10 AM - 10:30 AM)");
+            setUserGroups([...userGroups]);
+            return;
+          }
+
+          // Check future time if log belongs to today's date
+          const targetLog = rawAllLogs.find((l) => l.id === logId);
+          const logDateStr = targetLog?.date || "";
+          const parsedLogDate = parseDDMMYYYYToDate(normalizeDateStr(logDateStr));
+          const today = new Date();
+          const isTodayLog =
+            parsedLogDate &&
+            parsedLogDate.getFullYear() === today.getFullYear() &&
+            parsedLogDate.getMonth() === today.getMonth() &&
+            parsedLogDate.getDate() === today.getDate();
+
+          if (isTodayLog) {
+            const currentMin = today.getHours() * 60 + today.getMinutes();
+            if (startMin > currentMin || endMin > currentMin) {
+              toast.error("Time logging is not allowed for future dates and times.");
+              setUserGroups([...userGroups]);
+              return;
+            }
+          }
+
+          if (endMin <= startMin) {
+            toast.error("End time must be after Start time.");
+            setUserGroups([...userGroups]);
+            return;
+          }
+
+          const diffMinutes = endMin - startMin;
+          if (diffMinutes > 720) {
+            toast.error("Time duration cannot exceed 12 hours (720 minutes).");
+            setUserGroups([...userGroups]);
+            return;
+          }
+
+          const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
+          if (rangeStr) updatePayload.timePeriod = rangeStr;
+          updatePayload.duration = formatDurationDisplay(diffMinutes);
+        } else {
+          toast.error("Please enter a valid time range (e.g. 10:10 AM - 10:30 AM)");
+          setUserGroups([...userGroups]);
+          return;
         }
+      } else {
+        toast.error("Please separate start and end time with a hyphen (e.g. 10:10 AM - 10:30 AM)");
+        setUserGroups([...userGroups]);
+        return;
       }
     }
 
@@ -451,6 +558,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       await updateTimeLogAction(logId, updatePayload);
     } catch (err) {
       console.error(`Failed to update ${field}:`, err);
+      toast.error(`Failed to update ${field}.`);
       setUserGroups(previousGroups);
     }
   };
@@ -517,6 +625,95 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   const handleOpenAddModalForDate = (dateStr: string) => {
     setModalTargetDate(dateStr);
     setShowAddLogModal(true);
+  };
+
+  const handleLogAdded = async (newLog: TimeLogEntry) => {
+    setShowAddLogModal(false);
+    setModalTargetDate("");
+
+    // 1. Optimistic update: instantly insert the new log into the state
+    setUserGroups((prevGroups) => {
+      const nextGroups = prevGroups.map((g) => ({
+        ...g,
+        timeLogs: [...g.timeLogs],
+      }));
+      const userTargetName = newLog.userName || "User";
+      const userGroupIndex = nextGroups.findIndex(
+        (g) =>
+          (newLog.userId && g.userId === newLog.userId) ||
+          (g.userName && g.userName.toLowerCase() === userTargetName.toLowerCase())
+      );
+
+      if (userGroupIndex >= 0) {
+        nextGroups[userGroupIndex].timeLogs = [
+          newLog,
+          ...nextGroups[userGroupIndex].timeLogs.filter((l) => l.id !== newLog.id),
+        ];
+      } else if (nextGroups.length > 0) {
+        nextGroups[0].timeLogs = [
+          newLog,
+          ...nextGroups[0].timeLogs.filter((l) => l.id !== newLog.id),
+        ];
+      } else {
+        nextGroups.push({
+          userId: newLog.userId || `u-${Date.now()}`,
+          userName: userTargetName,
+          userInitials:
+            newLog.userInitials ||
+            userTargetName
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .substring(0, 2)
+              .toUpperCase(),
+          avatarColor: "bg-primary text-primary-foreground",
+          dailyLogHours: "00:00 | 00:00 | 00:00",
+          timeLogs: [newLog],
+        });
+      }
+      return nextGroups;
+    });
+
+    // 2. If the user created a log for a different date, switch the calendar day so it is immediately visible
+    if (newLog.date) {
+      const parsedDate = parseDDMMYYYYToDate(normalizeDateStr(newLog.date));
+      if (parsedDate) {
+        setSelectedDate(parsedDate);
+      }
+    }
+
+    // 3. Re-fetch the full canonical time logs from the server in background to ensure 100% sync
+    try {
+      const freshGroups = await getTimeLogsAction(projectId);
+      if (freshGroups && Array.isArray(freshGroups)) {
+        setUserGroups(freshGroups);
+      }
+    } catch (err) {
+      console.error("Failed to re-fetch time logs after adding:", err);
+    }
+  };
+
+  const handleLogUpdated = async (updatedLog: TimeLogEntry) => {
+    setShowAddLogModal(false);
+    setEditingLog(null);
+
+    // 1. Instant optimistic state update
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.map((l) => (l.id === updatedLog.id ? { ...l, ...updatedLog } : l)),
+      }))
+    );
+
+    // 2. Refresh canonical from server in background
+    try {
+      const freshGroups = await getTimeLogsAction(projectId);
+      if (freshGroups && Array.isArray(freshGroups)) {
+        setUserGroups(freshGroups);
+      }
+    } catch (err) {
+      console.error("Failed to re-fetch time logs after update:", err);
+    }
   };
 
   // Duration helpers
@@ -1385,10 +1582,10 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   type="button"
                                   onClick={() => {
                                     setEditingLog(log);
-                                    setIsEditModalOpen(true);
+                                    setShowAddLogModal(true);
                                   }}
-                                  className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                                  title="Edit Details Modal"
+                                  className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                                  title="Edit Time Log"
                                 >
                                   <Edit2 size={13} />
                                 </button>
@@ -1895,17 +2092,22 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         dateLabel={formatDDMMYYYY(selectedDate)}
       />
 
-      {/* Add Time Log Modal Dialog */}
+      {/* Add / Edit Time Log Modal Dialog */}
       <NewTimeLogModal
         isOpen={showAddLogModal}
-        onClose={() => setShowAddLogModal(false)}
+        onClose={() => {
+          setShowAddLogModal(false);
+          setModalTargetDate("");
+          setEditingLog(null);
+        }}
+        editingLog={editingLog}
+        initialDate={modalTargetDate || formatDDMMYYYY(selectedDate)}
         initialProject={modalTargetProject}
         projectId={projectId}
         projectName={projectName}
         assignedUsers={assignedUsers}
-        onLogAdded={(newLog) => {
-          console.log("New Log Added:", newLog);
-        }}
+        onLogAdded={handleLogAdded}
+        onLogUpdated={handleLogUpdated}
       />
 
       {/* Generate Time Report Modal */}
@@ -2028,28 +2230,6 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         </div>
       )}
 
-      {/* Edit Time Log Modal */}
-      <EditTimeLogModal
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingLog(null);
-        }}
-        log={editingLog}
-        isAdmin={roleMode === "ADMIN"}
-        onLogUpdated={() => {
-          if (editingLog) {
-            setUserGroups((prevGroups) =>
-              prevGroups.map((g) => ({
-                ...g,
-                timeLogs: g.timeLogs.map((l) =>
-                  l.id === editingLog.id ? { ...l, ...editingLog } : l
-                ),
-              }))
-            );
-          }
-        }}
-      />
     </div>
   );
 }

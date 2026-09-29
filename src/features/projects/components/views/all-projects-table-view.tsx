@@ -172,6 +172,8 @@ interface AllProjectsTableViewProps {
   userRole?: WorkspaceRole;
   assignedToMeCount?: number;
   onOpenTemplatesModal?: () => void;
+  /** Called with the table's local project list after inline edits, so the parent can cache it. */
+  onProjectsChange?: (projects: Project[]) => void;
 }
 
 export function AllProjectsTableView({
@@ -181,6 +183,7 @@ export function AllProjectsTableView({
   userRole: propUserRole,
   assignedToMeCount = 0,
   onOpenTemplatesModal,
+  onProjectsChange,
 }: AllProjectsTableViewProps) {
   const [effectiveUserRole, setEffectiveUserRole] = useState<WorkspaceRole>(
     propUserRole || "TEAM_MEMBER"
@@ -210,6 +213,10 @@ export function AllProjectsTableView({
     setPrevProjectsProp(projects);
     setLocalProjects(projects);
   }
+
+  useEffect(() => {
+    onProjectsChange?.(localProjects);
+  }, [localProjects, onProjectsChange]);
 
   const patchProject = (projectId: string, patch: Partial<Project>) => {
     setLocalProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...patch } : p)));

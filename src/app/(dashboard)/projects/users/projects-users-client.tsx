@@ -71,14 +71,14 @@ export function ProjectsUsersClient() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-full min-h-0 w-full items-center justify-center bg-background">
         <Loader2 size={28} className="animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       <UsersTableView
         users={users}
         invitations={invitations}

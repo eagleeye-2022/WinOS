@@ -71,7 +71,7 @@ export function MyProjectsDashboardWorkspace() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center space-y-3 bg-background">
+      <div className="flex h-full min-h-0 w-full flex-col items-center justify-center space-y-3 bg-background">
         <Loader2 size={28} className="animate-spin text-primary" />
         <p className="text-xs text-muted-foreground font-medium">
           Fetching your projects...
@@ -82,7 +82,7 @@ export function MyProjectsDashboardWorkspace() {
 
   if (error) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center space-y-2 bg-background text-destructive">
+      <div className="flex h-full min-h-0 w-full flex-col items-center justify-center space-y-2 bg-background text-destructive">
         <AlertCircle size={28} />
         <p className="text-sm font-semibold">{error}</p>
       </div>
@@ -90,7 +90,7 @@ export function MyProjectsDashboardWorkspace() {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col gap-4 overflow-y-auto bg-background p-4">
+    <div className="flex h-full min-h-0 w-full flex-col gap-4 overflow-y-auto bg-background p-4 pb-20">
       <div className="rounded-lg border border-border overflow-hidden" style={{ minHeight: 420 }}>
         <AllProjectsTableView
           projects={projects}

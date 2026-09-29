@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useRef, useTransition, useEffect } from "react";
+import { useActionState, useState, useRef, useTransition, useEffect, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,7 +8,15 @@ import {
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
@@ -45,16 +53,16 @@ import type { CascadingProjectOption } from "@/features/dsm/queries";
 function findSelectedTaskMeta(
   projects: CascadingProjectOption[],
   projectTaskId: string
-): { code: string | null; projectName: string } | null {
+): { code: string | null; title?: string; projectName: string } | null {
   if (!projectTaskId) return null;
   for (const project of projects) {
     for (const task of project.tasks) {
       if (task.id === projectTaskId) {
-        return { code: task.code, projectName: project.name };
+        return { code: task.code, title: task.title, projectName: project.name };
       }
       for (const subtask of task.subtasks) {
         if (subtask.id === projectTaskId) {
-          return { code: subtask.code, projectName: project.name };
+          return { code: subtask.code, title: subtask.title, projectName: project.name };
         }
       }
     }
@@ -159,13 +167,13 @@ function priorityColor(p: string): string {
   return PRIORITY_COLOR_CYCLE[(n - 1) % PRIORITY_COLOR_CYCLE.length];
 }
 
-/** Manager-assigned priority wins; otherwise fall back to the priority the member picked in their DSM */
-function effectivePriority(t: { managerPriority?: string | null; priority?: string | null }): string | null {
-  return t.managerPriority || t.priority || null;
+/** Manager-assigned priority */
+function effectivePriority(t: { managerPriority?: string | null }): string | null {
+  return t.managerPriority || null;
 }
 
-/** Sort tasks by effective priority: P1 < P2 < P3 < unset */
-function sortByPriority<T extends { managerPriority?: string | null; priority?: string | null }>(tasks: T[]): T[] {
+/** Sort tasks by manager priority: P1 < P2 < P3 < unset */
+function sortByPriority<T extends { managerPriority?: string | null }>(tasks: T[]): T[] {
   const rank = (t: T) => {
     const n = parseInt(effectivePriority(t)?.slice(1) ?? "", 10);
     return Number.isFinite(n) ? n : Infinity;
@@ -173,45 +181,54 @@ function sortByPriority<T extends { managerPriority?: string | null; priority?: 
   return [...tasks].sort((a, b) => rank(a) - rank(b));
 }
 
-// ── Priority dropdown ─────────────────────────────────────────────────────────
+// ── Priority dropdown (Optimistic UI) ─────────────────────────────────────────
 
 function PriorityDropdown({
   taskId,
   current,
   takenPriorities,
   totalTasks,
+  onOptimisticChange,
 }: {
   taskId: string;
   current: string | null;
   takenPriorities: string[]; // priorities held by OTHER tasks
   totalTasks: number; // number of priority levels to offer (one per task)
+  onOptimisticChange?: (newPriority: string | null) => void;
 }) {
-  const [state, action, pending] = useActionState<SetTaskPriorityState, FormData>(setTaskPriority, {});
+  const [selectedVal, setSelectedVal] = useState<string>(current ?? "");
+  const [state, action] = useActionState<SetTaskPriorityState, FormData>(setTaskPriority, {});
   const [, startTransition] = useTransition();
 
+  useEffect(() => {
+    setSelectedVal(current ?? "");
+  }, [current]);
+
+  const handleChange = (newVal: string) => {
+    setSelectedVal(newVal);
+    onOptimisticChange?.(newVal === "" || newVal === "PARKING" ? null : newVal);
+
+    const fd = new FormData();
+    fd.set("taskId", taskId);
+    fd.set("priority", newVal);
+    startTransition(async () => {
+      await action(fd);
+    });
+  };
+
   // Available = priorityLevels(totalTasks) minus priorities taken by OTHER tasks
-  // The current task's own priority is always available (it can keep or change it)
-  const available = priorityLevels(totalTasks).filter((p) => !takenPriorities.includes(p) || p === current);
+  const available = priorityLevels(totalTasks).filter((p) => !takenPriorities.includes(p) || p === (selectedVal || current));
 
   return (
     <div className="flex flex-col items-start gap-0.5">
-      <form action={action} className="relative inline-flex items-center">
-        <input type="hidden" name="taskId" value={taskId} />
+      <div className="relative inline-flex items-center">
         <select
           name="priority"
-          value={current ?? ""}
-          onChange={(e) => {
-            const form = e.currentTarget.form;
-            if (form) {
-              const fd = new FormData(form);
-              fd.set("priority", e.currentTarget.value);
-              startTransition(() => action(fd));
-            }
-          }}
-          disabled={pending}
+          value={selectedVal}
+          onChange={(e) => handleChange(e.target.value)}
           className={cn(
             "appearance-none rounded-lg border py-1 pl-2 pr-5 text-xs font-semibold outline-none transition-colors cursor-pointer w-auto min-w-[52px]",
-            current ? priorityColor(current) : "border-border bg-background text-muted-foreground"
+            selectedVal ? priorityColor(selectedVal) : "border-border bg-background text-muted-foreground"
           )}
         >
           <option value="">—</option>
@@ -221,7 +238,7 @@ function PriorityDropdown({
           <option value="PARKING">Parking</option>
         </select>
         <ChevronDown size={11} className="pointer-events-none absolute right-1.5 text-current opacity-60" />
-      </form>
+      </div>
       {/* Conflict / error feedback */}
       {state.message && state.message !== "updated" && (
         <p className="text-xs text-destructive leading-tight max-w-[120px]">
@@ -399,7 +416,10 @@ function AddTaskRow({
       {/* Middle: Code chip + Text Input */}
       <div className="flex items-center gap-2">
         {selectedMeta?.code && (
-          <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+          <span
+            title={selectedMeta.title || selectedMeta.code}
+            className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0 cursor-default"
+          >
             {selectedMeta.code}
           </span>
         )}
@@ -1337,6 +1357,7 @@ function TaskRow({
   memberUser,
   entryDate,
   cascadingProjects = [],
+  onPriorityChange,
 }: {
   task: TaskItem;
   rank: number;
@@ -1347,9 +1368,11 @@ function TaskRow({
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
   entryDate?: Date;
   cascadingProjects?: CascadingProjectOption[];
+  onPriorityChange?: (taskId: string, newPriority: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
+  const [, deleteAction, deleting] = useActionState<DeleteTaskState, FormData>(deleteTask, {});
 
   // Edit form state
   const initialTree = resolveTaskTree(task.projectTaskId, cascadingProjects);
@@ -1358,7 +1381,7 @@ function TaskRow({
   const [selectedSubtaskId, setSelectedSubtaskId] = useState(initialTree.subtaskId);
   const [selectedProjectTaskId, setSelectedProjectTaskId] = useState(task.projectTaskId || "");
   const [text, setText] = useState(task.text);
-  const [priority, setPriority] = useState(task.managerPriority || task.priority || "");
+  const [priority, setPriority] = useState(task.managerPriority || "");
   const [dueDate, setDueDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
 
   const handleStartEdit = () => {
@@ -1368,7 +1391,7 @@ function TaskRow({
     setSelectedSubtaskId(tree.subtaskId);
     setSelectedProjectTaskId(task.projectTaskId || "");
     setText(task.text);
-    setPriority(task.managerPriority || task.priority || "");
+    setPriority(task.managerPriority || "");
     setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
     setEditing(true);
   };
@@ -1485,7 +1508,10 @@ function TaskRow({
             {/* Middle: Code chip + Text Input */}
             <div className="flex items-center gap-2">
               {selectedMeta?.code && (
-                <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+                <span
+                  title={selectedMeta.title || selectedMeta.code}
+                  className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0 cursor-default"
+                >
                   {selectedMeta.code}
                 </span>
               )}
@@ -1587,11 +1613,22 @@ function TaskRow({
         {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
           <ExpandableTaskText text={task.text} />
+          {task.priority && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold shrink-0 shadow-2xs",
+                priorityColor(task.priority)
+              )}
+              title={`Member submitted priority: ${task.priority}`}
+            >
+              {task.priority}
+            </span>
+          )}
           {isCarriedOver && (
             <span className="inline-flex items-center rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning shrink-0">
               CO
@@ -1612,6 +1649,7 @@ function TaskRow({
             current={displayPriority}
             takenPriorities={takenPriorities}
             totalTasks={totalTasks}
+            onOptimisticChange={(p) => onPriorityChange?.(task.id, p)}
           />
         ) : displayPriority ? (
           <span className={cn(
@@ -1641,25 +1679,51 @@ function TaskRow({
         )}
       </td>
       <td className="py-2 pr-2 align-top text-center">
-        <div className="flex items-center justify-center gap-1">
-          {/* Edit button */}
-          {!isLocked && (
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              title="Edit task (Project, Task ID, Text, Priority, Due Date)"
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <Pencil size={13} />
-            </button>
-          )}
-
-          {/* Delete button */}
-          {!isLocked && <DeleteTaskButton taskId={task.id} />}
-
-          {/* Info button */}
-          <TaskHistoryIcon task={task} chain={carryChain} memberUser={memberUser} />
-        </div>
+        {!isLocked ? (
+          <div className="flex items-center justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus:outline-none cursor-pointer"
+                  title="Task Actions"
+                >
+                  <MoreHorizontal size={15} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40 p-1">
+                <DropdownMenuItem
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-2 cursor-pointer text-xs font-medium"
+                >
+                  <Pencil size={13} className="text-muted-foreground" />
+                  <span>Edit Task</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (confirm(`Remove "${task.text}"?`)) {
+                      const fd = new FormData();
+                      fd.set("taskId", task.id);
+                      startTransition(() => deleteAction(fd));
+                    }
+                  }}
+                  disabled={deleting}
+                  className="flex items-center gap-2 cursor-pointer text-xs font-medium text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  {deleting ? (
+                    <Loader2 size={13} className="animate-spin text-destructive" />
+                  ) : (
+                    <Trash2 size={13} className="text-destructive" />
+                  )}
+                  <span>Delete Task</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground/60">—</span>
+        )}
       </td>
     </tr>
   );
@@ -1776,7 +1840,10 @@ function SummaryTaskEditor({
 
       <div className="flex items-center gap-2">
         {selectedMeta?.code && (
-          <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+          <span
+            title={selectedMeta.title || selectedMeta.code}
+            className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0 cursor-default"
+          >
             {selectedMeta.code}
           </span>
         )}
@@ -1886,7 +1953,7 @@ function SummaryTaskRow({
         {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
@@ -1908,31 +1975,46 @@ function SummaryTaskRow({
         )}
       </td>
       <td className="py-2 pr-2 align-top text-center">
-        <div className="flex items-center justify-center gap-1">
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            title="Edit task"
-            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <Pencil size={13} />
-          </button>
-          <form
-            action={deleteAction}
-            onSubmit={(e) => {
-              if (!confirm(`Remove "${task.text}" from yesterday's summary?`)) e.preventDefault();
-            }}
-          >
-            <input type="hidden" name="taskId" value={task.id} />
-            <button
-              type="submit"
-              disabled={deleting}
-              title="Remove task"
-              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-            >
-              {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-            </button>
-          </form>
+        <div className="flex items-center justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus:outline-none cursor-pointer"
+                title="Task Actions"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40 p-1">
+              <DropdownMenuItem
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 cursor-pointer text-xs font-medium"
+              >
+                <Pencil size={13} className="text-muted-foreground" />
+                <span>Edit Task</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (confirm(`Remove "${task.text}" from yesterday's summary?`)) {
+                    const fd = new FormData();
+                    fd.set("taskId", task.id);
+                    startTransition(() => deleteAction(fd));
+                  }
+                }}
+                disabled={deleting}
+                className="flex items-center gap-2 cursor-pointer text-xs font-medium text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                {deleting ? (
+                  <Loader2 size={13} className="animate-spin text-destructive" />
+                ) : (
+                  <Trash2 size={13} className="text-destructive" />
+                )}
+                <span>Delete Task</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </td>
     </tr>
@@ -2078,7 +2160,7 @@ function YesterdayTasksSection({
         <p className="text-xs text-muted-foreground italic">No tasks logged for the previous day.</p>
       )}
 
-      {adding ? (
+      {/* {adding ? (
         <div className="mt-3">
           <SummaryTaskEditor
             entryId={addTarget.entryId}
@@ -2095,7 +2177,7 @@ function YesterdayTasksSection({
         >
           <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task
         </button>
-      )}
+      )} */}
     </div>
   );
 }
@@ -2117,12 +2199,22 @@ function TodayTasksSection({
 }) {
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
   const [sortMode, setSortMode] = useState("priority");
+  const [overridePriorities, setOverridePriorities] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     fetchUserProjectsWithTasksAction(memberUser?.id).then((res) => {
       if (res) setCascadingProjects(res);
     });
   }, [memberUser?.id]);
+
+  const handlePriorityChange = (taskId: string, newPriority: string | null) => {
+    setOverridePriorities((prev) => ({ ...prev, [taskId]: newPriority }));
+  };
+
+  const tasksWithOptimistic = tasks.map((t) => ({
+    ...t,
+    managerPriority: overridePriorities[t.id] !== undefined ? overridePriorities[t.id] : t.managerPriority,
+  }));
 
   const cmpDue = (a: TaskItem, b: TaskItem, dir: 1 | -1) => {
     const ad = a.dueDate ? new Date(a.dueDate).getTime() : null;
@@ -2134,15 +2226,15 @@ function TodayTasksSection({
   };
 
   const sorted = (() => {
-    if (sortMode === "text-asc") return [...tasks].sort((a, b) => a.text.localeCompare(b.text));
-    if (sortMode === "text-desc") return [...tasks].sort((a, b) => b.text.localeCompare(a.text));
-    if (sortMode === "deadline") return [...tasks].sort((a, b) => cmpDue(a, b, 1));
-    if (sortMode === "recent") return [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return sortByPriority(tasks); // default: P1 first, unassigned last
+    if (sortMode === "text-asc") return [...tasksWithOptimistic].sort((a, b) => a.text.localeCompare(b.text));
+    if (sortMode === "text-desc") return [...tasksWithOptimistic].sort((a, b) => b.text.localeCompare(a.text));
+    if (sortMode === "deadline") return [...tasksWithOptimistic].sort((a, b) => cmpDue(a, b, 1));
+    if (sortMode === "recent") return [...tasksWithOptimistic].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortByPriority(tasksWithOptimistic); // default: P1 first, unassigned last
   })();
 
   function takenFor(taskId: string) {
-    return tasks
+    return tasksWithOptimistic
       .map((t) => (t.id !== taskId ? effectivePriority(t) : null))
       .filter((p): p is string => !!p);
   }
@@ -2188,6 +2280,7 @@ function TodayTasksSection({
                   memberUser={memberUser}
                   entryDate={entry?.date}
                   cascadingProjects={cascadingProjects}
+                  onPriorityChange={handlePriorityChange}
                 />
               ))}
             </tbody>
@@ -2587,149 +2680,148 @@ export function ParkingLotSection({
         </span>
       </h3>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {items.map((item, i) => {
           const tree = resolveTaskTree(item.projectTaskId, cascadingProjects, item.projectId);
           const selectedMeta = findSelectedTaskMeta(cascadingProjects, item.projectTaskId);
           const daysOut = daysFromToday(item.dueDate);
           return (
-            <div key={item.id} className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/30 transition-colors">
-              {/* <div className="relative flex items-center shrink-0">
-                <select
-                  value={item.priority}
-                  disabled={isLocked}
-                  onChange={(e) => {
-                    updateLocal(i, "priority", e.target.value);
-                    persistField(i, { priority: e.target.value });
-                  }}
-                  className={cn(
-                    "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-5 text-xs font-bold outline-none transition-colors",
-                    item.priority === "P1" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                    item.priority === "P2" && "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400",
-                    item.priority === "P3" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                    !item.priority && "border-border text-muted-foreground font-normal"
+            <div key={item.id} className="flex items-center gap-3">
+              {/* Main Card */}
+              <div className="flex-1 rounded-xl border border-border bg-card p-3 shadow-2xs hover:border-primary/40 focus-within:border-primary/50 transition-all flex flex-col gap-2">
+                {/* Line 1: Task ID (Code Chip) + Text Input */}
+                <div className="flex items-center gap-2 w-full">
+                  {selectedMeta?.code && (
+                    <span
+                      title={selectedMeta.title || selectedMeta.code}
+                      className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 cursor-default"
+                    >
+                      {selectedMeta.code}
+                    </span>
                   )}
-                >
-                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">–</option>
-                  {levels.map((p) => (
-                    <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{p}</option>
-                  ))}
-                </select>
-                <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
-              </div> */}
-
-              {selectedMeta?.code && (
-                <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                  {selectedMeta.code}
-                </span>
-              )}
-
-              <input
-                type="text"
-                value={item.text}
-                disabled={isLocked && item.persisted}
-                onChange={(e) => updateLocal(i, "text", e.target.value)}
-                onBlur={() => persistNew(i)}
-                placeholder="Add task details..."
-                className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:opacity-75"
-              />
-
-              <div className="relative flex items-center shrink-0">
-                <select
-                  value={tree.projectId}
-                  disabled={isLocked && item.persisted}
-                  onChange={(e) => handleProjectChange(i, e.target.value)}
-                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate disabled:opacity-75"
-                >
-                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                    {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                  </option>
-                  {cascadingProjects.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
-              </div>
-
-              {tree.currentProject && (
-                <div className="relative flex items-center shrink-0">
-                  <select
-                    value={tree.taskId}
-                    disabled={isLocked && item.persisted}
-                    onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
-                    className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[130px] truncate disabled:opacity-75"
-                  >
-                    <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                      {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                    </option>
-                    {tree.currentProject.tasks.map((t) => (
-                      <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                        {t.code ? `[${t.code}] ` : ""}{t.title}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={item.text}
+                      disabled={isLocked && item.persisted}
+                      onChange={(e) => updateLocal(i, "text", e.target.value)}
+                      onBlur={() => persistNew(i)}
+                      placeholder="Add task details..."
+                      className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm placeholder:text-muted-foreground/60 w-full outline-none disabled:opacity-75"
+                    />
+                  </div>
                 </div>
-              )}
 
-              {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
-                <div className="relative flex items-center shrink-0">
-                  <select
-                    value={tree.subtaskId}
-                    disabled={isLocked && item.persisted}
-                    onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
-                    className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[120px] truncate disabled:opacity-75"
-                  >
-                    <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
-                    {tree.currentTask.subtasks.map((st) => (
-                      <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                        {st.code ? `[${st.code}] ` : ""}{st.title}
+                {/* Line 2: Project Selector + Task Selector + Subtask Selector */}
+                <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
+                  <div className="relative flex items-center">
+                    <select
+                      value={tree.projectId}
+                      disabled={isLocked && item.persisted}
+                      onChange={(e) => handleProjectChange(i, e.target.value)}
+                      className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate disabled:opacity-75"
+                    >
+                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
                       </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                      {cascadingProjects.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                  </div>
+
+                  {tree.currentProject && (
+                    <>
+                      <div className="h-3.5 w-px bg-border shrink-0" />
+                      <div className="relative flex items-center">
+                        <select
+                          value={tree.taskId}
+                          disabled={isLocked && item.persisted}
+                          onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
+                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[200px] truncate disabled:opacity-75"
+                        >
+                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                          </option>
+                          {tree.currentProject.tasks.map((t) => (
+                            <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                              {t.code ? `[${t.code}] ` : ""}{t.title}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                      </div>
+                    </>
+                  )}
+
+                  {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+                    <>
+                      <div className="h-3.5 w-px bg-border shrink-0" />
+                      <div className="relative flex items-center">
+                        <select
+                          value={tree.subtaskId}
+                          disabled={isLocked && item.persisted}
+                          onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
+                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate disabled:opacity-75"
+                        >
+                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
+                          {tree.currentTask.subtasks.map((st) => (
+                            <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                              {st.code ? `[${st.code}] ` : ""}{st.title}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                      </div>
+                    </>
+                  )}
                 </div>
-              )}
 
-              <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
-                <Calendar size={11} />
-                <input
-                  type="date"
-                  value={item.dueDate}
-                  disabled={isLocked && item.persisted}
-                  onChange={(e) => {
-                    updateLocal(i, "dueDate", e.target.value);
-                    persistField(i, { dueDate: e.target.value });
-                  }}
-                  className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark] disabled:opacity-75"
-                />
-                {daysOut !== null && daysOut >= 0 && (
-                  <span className="whitespace-nowrap">(In {daysOut}d)</span>
-                )}
+                {/* Line 3: Due Date on left, To Today Action on right */}
+                <div className="mt-1 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
+                  <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                    <Calendar size={12} className="text-muted-foreground" />
+                    <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                    <input
+                      type="date"
+                      value={item.dueDate}
+                      disabled={isLocked && item.persisted}
+                      onChange={(e) => {
+                        updateLocal(i, "dueDate", e.target.value);
+                        persistField(i, { dueDate: e.target.value });
+                      }}
+                      className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark] disabled:opacity-75"
+                    />
+                    {daysOut !== null && daysOut >= 0 && (
+                      <span className="whitespace-nowrap font-medium text-muted-foreground">(In {daysOut}d)</span>
+                    )}
+                  </div>
+
+                  {!isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => moveToToday(i)}
+                      disabled={!item.text.trim() || movingId === item.id}
+                      className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6] dark:border-[#3B82F6]/30 dark:bg-[#3B82F6]/10"
+                    >
+                      {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
+                      To Today
+                    </button>
+                  )}
+                </div>
               </div>
-
-              {!isLocked && (
-                <button
-                  type="button"
-                  onClick={() => moveToToday(i)}
-                  disabled={!item.text.trim() || movingId === item.id}
-                  className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6]"
-                >
-                  {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
-                  To Today
-                </button>
-              )}
 
               {(!isLocked || !item.persisted) && (
                 <button
                   type="button"
                   onClick={() => remove(i)}
                   title="Remove from parking lot"
-                  className="shrink-0 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                  className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
                 >
-                  <X size={15} />
+                  <X size={18} />
                 </button>
               )}
             </div>

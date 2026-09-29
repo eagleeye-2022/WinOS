@@ -7,7 +7,7 @@ export default async function SettingsPage() {
 
   if (role !== "ADMIN") {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-2 bg-background p-8 text-center text-muted-foreground">
+      <div className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 bg-background p-8 text-center text-muted-foreground">
         <Shield size={32} className="text-primary" />
         <h3 className="text-lg font-bold text-foreground">Managers Only</h3>
         <p className="max-w-sm text-xs">
@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       <AdminSettingsView />
     </div>
   );

@@ -8,7 +8,7 @@ export default function PhasesPage({ params }: { params: Promise<{ projectId: st
   const projectId = resolvedParams.projectId;
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       <PhasesTableView projectId={projectId} />
     </div>
   );

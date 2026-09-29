@@ -156,7 +156,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
         className={`relative flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed transition-all ${
           dragOver
             ? "border-primary bg-primary/10"
-            : "border-border/80 bg-muted/20 hover:border-primary/50 hover:bg-accent/20 dark:border-neutral-800 dark:bg-[#16181d]"
+            : "border-border/80 bg-muted/20 hover:border-primary/50 hover:bg-accent/20 dark:border-zinc-800 dark:bg-[#121215]"
         }`}
       >
         <input
@@ -196,8 +196,8 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
       )}
 
       {/* Task Attachments Table */}
-      <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden dark:border-neutral-800 dark:bg-[#16181d]">
-        <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between font-bold text-foreground dark:border-neutral-800 dark:bg-[#1c1e24]">
+      <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden dark:border-zinc-800 dark:bg-[#121215]">
+        <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between font-bold text-foreground dark:border-zinc-800 dark:bg-[#18181b]">
           <span className="flex items-center gap-2">
             <Paperclip size={14} className="text-primary" />
             Task Attachments ({documents.length})
@@ -218,7 +218,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
         ) : (
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-border bg-muted/20 text-muted-foreground font-semibold dark:border-neutral-800 dark:bg-[#1c1e24]">
+              <tr className="border-b border-border bg-muted/20 text-muted-foreground font-semibold dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-400">
                 <th className="py-2.5 px-4">File Name</th>
                 <th className="py-2.5 px-4">Size</th>
                 <th className="py-2.5 px-4">Uploaded By</th>
@@ -226,7 +226,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
                 <th className="py-2.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 font-medium dark:divide-neutral-800/60">
+            <tbody className="divide-y divide-border/60 font-medium dark:divide-zinc-800/60">
               {documents.map((doc) => (
                 <tr key={doc.id} className="hover:bg-accent/30 transition-colors">
                   <td className="py-2.5 px-4 text-foreground font-semibold">
