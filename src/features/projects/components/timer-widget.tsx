@@ -13,6 +13,7 @@ import { createTimeLogAction } from "../actions/project-actions";
 import { formatTimePeriodRange } from "../utils/time-helpers";
 import { useActiveTimerContext, type ActiveTimerData } from "../context/active-timer-context";
 import type { TimeLogEntry } from "../types";
+import { useConfirm } from "@/components/shared/confirm-dialog";
 
 interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
@@ -28,9 +29,12 @@ interface TimerWidgetProps {
   taskCode?: string;
   taskId?: string;
   projectId?: string;
-  /** When false, the Start control is disabled — e.g. only a task's owner may start its timer. */
+  /** When false, clicking Start shows a popup explaining why instead of starting — e.g. only a
+   *  task's owner may start its timer. The server re-checks ownership either way. */
   canStart?: boolean;
   disabledReason?: string;
+  /** Heading of that popup. */
+  disabledTitle?: string;
   /** Shows the full "00:00:00 ▶" chip immediately instead of the collapsed clock icon — use on
    *  the single-task workspace header, where there's room and the timer is the focal control. */
   defaultExpanded?: boolean;
@@ -46,8 +50,13 @@ export function TimerWidget({
   projectId,
   canStart = true,
   disabledReason = "Only the task owner can start this timer",
+  disabledTitle = "You're not the owner of this task",
   defaultExpanded = false,
 }: TimerWidgetProps) {
+  const { confirm, ConfirmDialog } = useConfirm();
+  const showCannotStart = (title: string, description: string) => {
+    void confirm({ title, description, confirmLabel: "OK", danger: false, hideCancel: true });
+  };
   const [seconds, setSeconds] = useState<number>(0);
   const [timerState, setTimerState] = useState<"IDLE" | "RUNNING" | "PAUSED">("IDLE");
   const [startTimeRef, setStartTimeRef] = useState<Date | undefined>(undefined);
@@ -159,15 +168,15 @@ export function TimerWidget({
 
   const handleExpandTimer = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (canStart) {
-      handleStart();
-    } else {
-      setIsExpanded(true);
-    }
+    handleStart();
   };
 
   const handleStart = async () => {
-    if (!canStart) return;
+    // Check ownership first — instantly, from what the page already knows about the task.
+    if (!canStart) {
+      showCannotStart(disabledTitle, disabledReason);
+      return;
+    }
     setIsExpanded(true);
 
     const startTask = taskCode || taskId;
@@ -185,6 +194,16 @@ export function TimerWidget({
         activeTimerCtx?.setLocalActiveTimer(res.data as ActiveTimerData);
         return;
       }
+
+      // The server is the final word on ownership (DSM screens don't know a task's owner up
+      // front). Never fall back to a local-only timer here — it would run on screen without
+      // ever being saved.
+      setIsExpanded(defaultExpanded);
+      showCannotStart(
+        "code" in res && res.code === "NOT_TASK_OWNER" ? "You're not the owner of this task" : "Couldn't start the timer",
+        res.error || "Something went wrong starting the timer. Please try again."
+      );
+      return;
     }
 
     // Fallback local start
@@ -328,7 +347,7 @@ export function TimerWidget({
         <button
           type="button"
           onClick={handleExpandTimer}
-          className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-muted-foreground hover:text-info hover:bg-muted hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10"
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer dark:bg-zinc-900 dark:border-zinc-800"
           title={canStart ? "Start timer" : disabledReason}
         >
           <Clock size={13} />
@@ -347,6 +366,7 @@ export function TimerWidget({
           onSaveLog={handleModalSaveLog}
           onDiscardLog={handleModalDiscardLog}
         />
+        {ConfirmDialog}
       </div>
     );
   }
@@ -367,8 +387,8 @@ export function TimerWidget({
         className={cn(
           "flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all",
           timerState === "RUNNING"
-            ? "border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40"
-            : "border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+            ? "border border-primary/40 bg-primary/10 dark:bg-zinc-800 dark:border-zinc-700"
+            : "border border-border/60 bg-muted/60 dark:bg-zinc-900 dark:border-zinc-800"
         )}
       >
         <Timer
@@ -376,16 +396,16 @@ export function TimerWidget({
           className={cn(
             "shrink-0",
             timerState === "RUNNING"
-              ? "text-sky-500 dark:text-sky-400 animate-pulse"
-              : "text-info"
+              ? "text-primary animate-pulse"
+              : "text-muted-foreground dark:text-zinc-400"
           )}
         />
         <span
           className={cn(
             "font-mono text-xs font-bold tracking-tight select-none cursor-default",
             timerState === "RUNNING"
-              ? "text-sky-600 dark:text-sky-300"
-              : "text-foreground dark:text-neutral-100"
+              ? "text-primary dark:text-zinc-100"
+              : "text-foreground dark:text-zinc-100"
           )}
         >
           {formatTime(seconds)}
@@ -451,7 +471,8 @@ export function TimerWidget({
         ) : (
           <button
             type="button"
-            disabled
+            onClick={handleStart}
+            aria-disabled="true"
             className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground cursor-not-allowed shadow-2xs"
             title={disabledReason}
           >
@@ -474,6 +495,7 @@ export function TimerWidget({
         onSaveLog={handleModalSaveLog}
         onDiscardLog={handleModalDiscardLog}
       />
+      {ConfirmDialog}
     </div>
   );
 }

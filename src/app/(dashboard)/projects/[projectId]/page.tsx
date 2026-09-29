@@ -4,12 +4,10 @@ import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check, Users, ListTodo, Paperclip, History } from "lucide-react";
 import {
-  getProjectByIdAction,
-  getTasksAction,
   updateTaskAction,
   createTaskAction,
-  getMyTaskCountAction,
 } from "@/features/projects/actions/project-actions";
+import { useProjectWorkspace } from "@/features/projects/context/project-workspace-context";
 import { Project, TaskItem } from "@/features/projects/types";
 import { TasksBoardView } from "@/features/projects/components/views/tasks-board-view";
 import { ProjectUsersView } from "@/features/projects/components/views/project-users-view";
@@ -39,42 +37,21 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const resolvedParams = use(params);
   const projectId = resolvedParams.projectId;
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [assignedToMeCount, setAssignedToMeCount] = useState(0);
+  // Loaded once per project by the [projectId] layout and shared with the task pages, so
+  // returning here from a task doesn't re-fetch the whole project.
+  const {
+    project,
+    tasks,
+    setTasks,
+    myTaskCount: assignedToMeCount,
+    isLoading,
+    error,
+  } = useProjectWorkspace();
   const [activeTab, setActiveTab] = useState<"TASKS" | "USERS" | "DOCUMENTS" | "TIME_LOGS" | "TIMELINE">("TASKS");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
-    async function loadProjectData() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [foundProject, projectTasks, myTaskCount] = await Promise.all([
-          getProjectByIdAction(projectId),
-          getTasksAction(projectId),
-          getMyTaskCountAction(projectId),
-        ]);
-
-        if (foundProject) {
-          setProject(foundProject);
-          setTasks(projectTasks);
-          setAssignedToMeCount(myTaskCount);
-          rememberRecentProject(foundProject);
-        } else {
-          setError(`Project "${projectId}" not found.`);
-        }
-      } catch (err) {
-        console.error("Failed to load project details:", err);
-        setError("Failed to load project details.");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadProjectData();
-  }, [projectId]);
+    if (project) rememberRecentProject(project);
+  }, [project]);
 
   const completedTasksCount = tasks.filter((t) => t.status === "Closed").length;
   const totalTasksCount = tasks.length;

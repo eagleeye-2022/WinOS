@@ -26,7 +26,13 @@ import {
   AlignLeft,
 } from "lucide-react";
 import { TimeLogEntry, Project } from "../../types";
-import { createTimeLogAction, getProjectsAction, getTasksAction, getCurrentUserContextAction } from "../../actions/project-actions";
+import {
+  createTimeLogAction,
+  updateTimeLogAction,
+  getProjectsAction,
+  getTasksAction,
+  getCurrentUserContextAction,
+} from "../../actions/project-actions";
 import {
   parseDurationMinutes,
   formatDurationDisplay,
@@ -40,10 +46,13 @@ interface NewTimeLogModalProps {
   onClose: () => void;
   initialProject?: string;
   initialTaskCode?: string;
+  initialDate?: string;
+  editingLog?: TimeLogEntry | null;
   projectId?: string;
   projectName?: string;
   assignedUsers?: string[];
   onLogAdded?: (newLog: TimeLogEntry) => void;
+  onLogUpdated?: (updatedLog: TimeLogEntry) => void;
 }
 
 const FALLBACK_TASK_OPTIONS = [
@@ -60,9 +69,12 @@ export function NewTimeLogModal({
   onClose,
   initialProject = "",
   initialTaskCode = "",
+  initialDate = "",
+  editingLog,
   projectId,
   projectName,
   onLogAdded,
+  onLogUpdated,
 }: NewTimeLogModalProps) {
   // When opened from inside a project, the log always belongs to that project — no picker.
   const isProjectLocked = Boolean(projectId && projectName);
@@ -170,19 +182,6 @@ export function NewTimeLogModal({
   const [hoursDuration, setHoursDuration] = useState("00:30");
   const [billingType, setBillingType] = useState<"Billable" | "Non Billable">("Billable");
 
-  React.useEffect(() => {
-    if (isOpen) {
-      const now = new Date();
-      const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
-      const startStr = formatTime12h(thirtyMinsAgo);
-      const endStr = formatTime12h(now);
-      setTimeout(() => {
-        setStartTime(startStr);
-        setEndTime(endStr);
-      }, 0);
-    }
-  }, [isOpen]);
-
   // Rich Text Editor states
   const [notesText, setNotesText] = useState("");
   const [fontFamily, setFontFamily] = useState("Puvi");
@@ -191,6 +190,74 @@ export function NewTimeLogModal({
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
   const [isStrikethrough, setIsStrikethrough] = useState(false);
+
+  // Future date check and submission states
+  const [dateError, setDateError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (editingLog) {
+        setSelectedProject(editingLog.project || projectName || initialProject || "");
+        const taskOpt = editingLog.taskCode
+          ? `${editingLog.taskCode} - ${editingLog.title}`
+          : (editingLog.title || "");
+        setTaskSearchQuery(taskOpt);
+        setSelectedTaskOption(editingLog.taskCode ? taskOpt : "");
+        setLogTitle(editingLog.title || "");
+        setIsGeneralLog(!editingLog.taskCode);
+        setLogDate(editingLog.date || initialDate || "");
+        if (editingLog.userName) {
+          setCurrentUserName(editingLog.userName);
+        }
+        setBillingType(editingLog.billingType === "BILLABLE" ? "Billable" : "Non Billable");
+        setNotesText(editingLog.remarks || "");
+
+        if (editingLog.timePeriod && (editingLog.timePeriod.includes("-") || editingLog.timePeriod.includes("–"))) {
+          const parts = editingLog.timePeriod.split(/[-–]/).map((p) => p.trim());
+          if (parts.length === 2 && parts[0] && parts[1]) {
+            setStartTime(parts[0]);
+            setEndTime(parts[1]);
+            setUseHoursMode(false);
+          } else {
+            setHoursDuration(editingLog.duration || "00:30");
+            setUseHoursMode(true);
+          }
+        } else {
+          setHoursDuration(editingLog.duration || "00:30");
+          setUseHoursMode(true);
+        }
+      } else {
+        setSelectedProject(projectName || initialProject || "");
+        setTaskSearchQuery(initialTaskCode || "");
+        setSelectedTaskOption("");
+        setLogTitle("");
+        setIsGeneralLog(false);
+        if (initialDate) {
+          setLogDate(initialDate);
+        } else {
+          const today = new Date();
+          const dd = String(today.getDate()).padStart(2, "0");
+          const mm = String(today.getMonth() + 1).padStart(2, "0");
+          const yyyy = today.getFullYear();
+          setLogDate(`${dd}/${mm}/${yyyy}`);
+        }
+        const now = new Date();
+        const thirtyMinsAgo = new Date(now.getTime() - 30 * 60000);
+        const startStr = formatTime12h(thirtyMinsAgo);
+        const endStr = formatTime12h(now);
+        setStartTime(startStr);
+        setEndTime(endStr);
+        setHoursDuration("00:30");
+        setUseHoursMode(false);
+        setNotesText("");
+        setBillingType("Billable");
+      }
+      setDateError("");
+      setSubmitError("");
+    }
+  }, [isOpen, editingLog, initialDate, initialProject, initialTaskCode, projectName]);
 
   // Time & Duration Validation Helpers
   const isValidTimeFormat = (val: string): boolean => {
@@ -228,10 +295,24 @@ export function NewTimeLogModal({
     return regex.test(trimmed);
   };
 
-  // Future date check
-  const [dateError, setDateError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+
+  const isSelectedDateToday = React.useMemo(() => {
+    if (!logDate) return false;
+    const parts = logDate.split(/[/.-]/);
+    if (parts.length !== 3) return false;
+    let d: number, m: number, y: number;
+    if (parts[0].length === 4) {
+      y = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10) - 1;
+      d = parseInt(parts[2], 10);
+    } else {
+      d = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10) - 1;
+      y = parseInt(parts[2], 10);
+    }
+    const today = new Date();
+    return y === today.getFullYear() && m === today.getMonth() && d === today.getDate();
+  }, [logDate]);
 
   const timeError = React.useMemo(() => {
     if (!useHoursMode) {
@@ -241,13 +322,42 @@ export function NewTimeLogModal({
       if (endTime && !isValidTimeFormat(endTime)) {
         return "Invalid end time format (e.g. 10:27 am or 14:30)";
       }
+      if (startTime && endTime && isValidTimeFormat(startTime) && isValidTimeFormat(endTime)) {
+        const startMin = parseTimeToMinutes(startTime);
+        const endMin = parseTimeToMinutes(endTime);
+        if (startMin !== null && endMin !== null) {
+          if (isSelectedDateToday) {
+            const now = new Date();
+            const currentMin = now.getHours() * 60 + now.getMinutes();
+            if (startMin > currentMin || endMin > currentMin) {
+              return "Time logging is not allowed for future dates and times.";
+            }
+          }
+          if (endMin <= startMin) {
+            return "End time must be after Start time.";
+          }
+          const diff = endMin - startMin;
+          if (diff > 720) {
+            return "Time duration cannot exceed 12 hours (720 minutes).";
+          }
+        }
+      }
     } else {
       if (hoursDuration && !isValidDurationFormat(hoursDuration)) {
         return "Invalid duration format (e.g. 00:30 or 1.5)";
       }
+      if (hoursDuration && isValidDurationFormat(hoursDuration)) {
+        const mins = parseDurationMinutes(hoursDuration);
+        if (mins <= 0) {
+          return "Duration must be greater than 0.";
+        }
+        if (mins > 720) {
+          return "Time duration cannot exceed 12 hours (720 minutes).";
+        }
+      }
     }
     return "";
-  }, [useHoursMode, startTime, endTime, hoursDuration]);
+  }, [useHoursMode, startTime, endTime, hoursDuration, isSelectedDateToday]);
 
   // Daily Log Hours, derived live from Start/End Time whenever the time period changes
   const computedRangeDuration = React.useMemo(() => {
@@ -320,31 +430,58 @@ export function NewTimeLogModal({
       ? taskSearchQuery.split(" - ")[0].trim()
       : undefined;
 
-    const newLogData: TimeLogEntry = {
-      id: `tl-${Date.now()}`,
-      code: `TL-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: title,
-      project: selectedProject,
-      taskCode,
-      duration: durationStr,
-      timePeriod: timePeriodStr,
-      date: logDate,
-      billingType: billingType === "Billable" ? "BILLABLE" : "NON BILLABLE",
-      remarks: notesText || "No additional notes",
-      approvalStatus: "Pending",
-    };
+    if (editingLog) {
+      const updatedLogData: TimeLogEntry = {
+        ...editingLog,
+        title: title,
+        project: selectedProject,
+        taskCode,
+        duration: durationStr,
+        timePeriod: timePeriodStr,
+        date: logDate,
+        billingType: billingType === "Billable" ? "BILLABLE" : "NON BILLABLE",
+        remarks: notesText || "",
+      };
 
-    try {
-      const savedLog = await createTimeLogAction(newLogData, projectId);
-      if (onLogAdded) {
-        onLogAdded(savedLog);
+      try {
+        await updateTimeLogAction(editingLog.id, updatedLogData);
+        if (onLogUpdated) {
+          onLogUpdated(updatedLogData);
+        }
+        setIsSubmitting(false);
+        onClose();
+      } catch (err) {
+        console.error("Failed to update time log:", err);
+        setSubmitError("Failed to update time log. Please try again.");
+        setIsSubmitting(false);
       }
-      setIsSubmitting(false);
-      onClose();
-    } catch (err) {
-      console.error("Failed to save time log:", err);
-      setSubmitError("Failed to add time log. Please try again.");
-      setIsSubmitting(false);
+    } else {
+      const newLogData: TimeLogEntry = {
+        id: `tl-${Date.now()}`,
+        code: `TL-${Math.floor(1000 + Math.random() * 9000)}`,
+        title: title,
+        project: selectedProject,
+        taskCode,
+        duration: durationStr,
+        timePeriod: timePeriodStr,
+        date: logDate,
+        billingType: billingType === "Billable" ? "BILLABLE" : "NON BILLABLE",
+        remarks: notesText || "No additional notes",
+        approvalStatus: "Pending",
+      };
+
+      try {
+        const savedLog = await createTimeLogAction(newLogData, projectId);
+        if (onLogAdded) {
+          onLogAdded(savedLog);
+        }
+        setIsSubmitting(false);
+        onClose();
+      } catch (err) {
+        console.error("Failed to save time log:", err);
+        setSubmitError("Failed to add time log. Please try again.");
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -354,7 +491,7 @@ export function NewTimeLogModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
           <h2 className="text-base font-bold text-foreground tracking-wide">
-            New Time Log
+            {editingLog ? "Edit Time Log" : "New Time Log"}
           </h2>
           <div className="flex items-center gap-3">
             {selectedProject && (
@@ -797,7 +934,7 @@ export function NewTimeLogModal({
               className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-semibold px-6 py-2 rounded-md text-xs transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
               {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-              Add
+              {editingLog ? "Update" : "Add"}
             </button>
             <button
               type="button"

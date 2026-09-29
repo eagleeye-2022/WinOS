@@ -52,19 +52,70 @@ import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 import { toast } from "@/components/shared/toast";
 
+/**
+ * Last data this workspace showed, kept for the life of the browser tab. Navigating into a
+ * project and back unmounts this page; without this, coming back meant a blank spinner and a
+ * full reload. Now the cached list renders instantly and is refreshed quietly in the background.
+ * Only ever written from effects/handlers (browser-side), so it is never shared across users
+ * during server rendering. `null` fields mean "never loaded", not "empty".
+ */
+type WorkspaceCache = {
+  projects: Project[];
+  userRole: WorkspaceRole;
+  myTaskCount: number;
+  users: ProjectUser[] | null;
+  tasks: TaskItem[] | null;
+  timeGroups: UserTimeGroup[] | null;
+};
+let workspaceCache: WorkspaceCache | null = null;
+
 export function ProjectsWorkspace() {
   const pathname = usePathname();
+  const needsTasks = pathname === "/projects/my-tasks" || pathname === "/projects/tasks";
+  const needsTimeLogs = pathname === "/projects/time-tracker";
 
-  const [userRole, setUserRole] = useState<WorkspaceRole>("TEAM_MEMBER"); // Defaults to Team Member View per user request
+  // Snapshot of the cache at mount — seeds state so a return visit paints immediately.
+  const [initialCache] = useState(() => workspaceCache);
+  const hasCachedView = Boolean(
+    initialCache &&
+      (!needsTasks || initialCache.tasks) &&
+      (!needsTimeLogs || initialCache.timeGroups)
+  );
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [users, setUsers] = useState<ProjectUser[]>([]);
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);
-  const [myTaskCount, setMyTaskCount] = useState(0);
+  const [userRole, setUserRole] = useState<WorkspaceRole>(initialCache?.userRole ?? "TEAM_MEMBER"); // Defaults to Team Member View per user request
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(initialCache?.projects ?? []);
+  const [users, setUsers] = useState<ProjectUser[]>(initialCache?.users ?? []);
+  const [tasks, setTasks] = useState<TaskItem[]>(initialCache?.tasks ?? []);
+  const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>(initialCache?.timeGroups ?? []);
+  const [myTaskCount, setMyTaskCount] = useState(initialCache?.myTaskCount ?? 0);
+
+  const [isLoading, setIsLoading] = useState(!hasCachedView);
   const [error, setError] = useState<string | null>(null);
+
+  // Which optional collections actually hold loaded data (vs. their [] placeholder).
+  const tasksLoadedRef = React.useRef(Boolean(initialCache?.tasks));
+  const timeLogsLoadedRef = React.useRef(Boolean(initialCache?.timeGroups));
+  const usersLoadedRef = React.useRef(Boolean(initialCache?.users));
+
+  // Keep the cache in step with whatever is on screen, including optimistic edits.
+  useEffect(() => {
+    if (isLoading) return;
+    workspaceCache = {
+      projects,
+      userRole,
+      myTaskCount,
+      users: usersLoadedRef.current ? users : workspaceCache?.users ?? null,
+      tasks: tasksLoadedRef.current ? tasks : workspaceCache?.tasks ?? null,
+      timeGroups: timeLogsLoadedRef.current ? timeGroups : workspaceCache?.timeGroups ?? null,
+    };
+  }, [isLoading, projects, userRole, myTaskCount, users, tasks, timeGroups]);
+
+  // Inline edits in the projects table live in its own local copy — mirror them into the cache
+  // so returning to this page doesn't briefly show pre-edit values.
+  const handleTableProjectsChange = React.useCallback((next: Project[]) => {
+    if (workspaceCache) workspaceCache = { ...workspaceCache, projects: next };
+  }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -100,38 +151,68 @@ export function ProjectsWorkspace() {
     activeNav = "ALL_PROJECTS";
   }
 
-  // Load dynamic data from PostgreSQL Database via Server Actions
+  // Load only what the active view renders. This used to fetch every task in the DB (with
+  // remarks/subtasks/owners), every time log and every user on each visit to /projects, even
+  // though the default "All Projects" table shows none of them.
+  // With cached data on screen this runs as a silent background refresh (no spinner).
+  const showSpinnerRef = React.useRef(!hasCachedView);
   useEffect(() => {
+    let cancelled = false;
     async function loadData() {
-      setIsLoading(true);
+      if (showSpinnerRef.current) setIsLoading(true);
       setError(null);
       try {
-        const [fetchedProjects, fetchedTasks, fetchedLogs, fetchedUsers, fetchedRole, fetchedMyTaskCount] =
+        const [fetchedProjects, fetchedRole, fetchedMyTaskCount, fetchedTasks, fetchedLogs] =
           await Promise.all([
             getProjectsAction(),
-            getTasksAction(),
-            getTimeLogsAction(),
-            getUsersAction(),
             getCurrentUserRoleAction(),
             getMyTaskCountAction(),
+            needsTasks ? getTasksAction() : Promise.resolve(null),
+            needsTimeLogs ? getTimeLogsAction() : Promise.resolve(null),
           ]);
+        if (cancelled) return;
 
         setProjects(fetchedProjects);
-        setTasks(fetchedTasks);
-        setTimeGroups(fetchedLogs);
-        setUsers(fetchedUsers);
         setUserRole(fetchedRole);
         setMyTaskCount(fetchedMyTaskCount);
+        if (fetchedTasks) {
+          tasksLoadedRef.current = true;
+          setTasks(fetchedTasks);
+        }
+        if (fetchedLogs) {
+          timeLogsLoadedRef.current = true;
+          setTimeGroups(fetchedLogs);
+        }
       } catch (err) {
+        if (cancelled) return;
         console.error("Failed to load project data from database:", err);
-        setError("Failed to connect to database. Please refresh.");
+        // A failed *background* refresh keeps the cached data on screen rather than an error.
+        if (showSpinnerRef.current) setError("Failed to connect to database. Please refresh.");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
+        showSpinnerRef.current = false;
       }
     }
 
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [needsTasks, needsTimeLogs]);
+
+  // The user list only feeds the Users view and the invite modal's counts — load it after
+  // the main view has rendered rather than blocking first paint on it.
+  const usersRequestedRef = React.useRef(false);
+  useEffect(() => {
+    if (isLoading || usersRequestedRef.current) return;
+    usersRequestedRef.current = true;
+    getUsersAction()
+      .then((fetchedUsers) => {
+        usersLoadedRef.current = true;
+        setUsers(fetchedUsers);
+      })
+      .catch((err) => console.error("Failed to load users:", err));
+  }, [isLoading]);
 
   const handleAddProject = async (data: NewProjectFormData) => {
     setIsLoading(true);
@@ -242,6 +323,7 @@ export function ProjectsWorkspace() {
                 userRole={userRole}
                 assignedToMeCount={myTaskCount}
                 onOpenTemplatesModal={() => setIsTemplatesModalOpen(true)}
+                onProjectsChange={handleTableProjectsChange}
               />
             )}
 

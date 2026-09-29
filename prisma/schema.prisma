@@ -925,6 +925,9 @@ model Project {
   activeTimers             ActiveTimer[]
   clientInvitationProjects ClientInvitationProject[]
   activities               ProjectActivity[]
+
+  @@index([ownerId])
+  @@index([createdAt])
 }
 
 model ProjectActivity {
@@ -962,6 +965,7 @@ model ProjectMember {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
+  @@index([userId])
 }
 
 /** Multi-assignee slots on the "All Projects" table (Project Lead, Tech/Creative Assignee,
@@ -976,6 +980,7 @@ model ProjectRoleAssignment {
   user      User     @relation("ProjectRoleAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId, role])
+  @@index([userId])
 }
 
 model ProjectTemplate {
@@ -1003,6 +1008,8 @@ model ProjectPhase {
   tasks       ProjectTask[]
   timeLogs    ProjectTimeLog[]
   activeTimers ActiveTimer[]
+
+  @@index([projectId, order])
 }
 
 model ProjectTaskList {
@@ -1085,6 +1092,13 @@ model ProjectTask {
   activeTimers         ActiveTimer[]
   standupTasks         StandupTask[]
   standupBlockers      StandupBlocker[]
+
+  // Postgres doesn't index FK columns automatically — without these, every
+  // "tasks of project X" / "children of task Y" lookup is a full table scan.
+  @@index([projectId, order])
+  @@index([parentTaskId])
+  @@index([ownerId])
+  @@index([code])
 }
 
 model ProjectTaskOwner {
@@ -1115,6 +1129,8 @@ model ProjectSubtask {
   taskId    String
   task      ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt DateTime    @default(now())
+
+  @@index([taskId])
 }
 
 model ProjectTaskRemark {
@@ -1126,6 +1142,8 @@ model ProjectTaskRemark {
   taskId            String
   task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt         DateTime    @default(now())
+
+  @@index([taskId])
 }
 
 model ProjectTaskActivity {
@@ -1137,6 +1155,8 @@ model ProjectTaskActivity {
   taskId       String
   task         ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt    DateTime    @default(now())
+
+  @@index([taskId])
 }
 
 enum BillingType {

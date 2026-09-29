@@ -179,7 +179,10 @@ export function AddTaskAfterReviewRow({
       {/* Task input */}
       <div className="flex items-center gap-2">
         {selectedMeta?.code && (
-          <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
+          <span
+            title={selectedMeta.title || selectedMeta.code}
+            className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0 cursor-default"
+          >
             {selectedMeta.code}
           </span>
         )}

@@ -54,6 +54,9 @@ export type TaskAuditHistoryPopoverProps = {
     role?: "TEAM_MEMBER" | "MANAGER";
   } | null;
   className?: string;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 function initialsOf(name?: string | null): string {
@@ -107,8 +110,17 @@ export function TaskAuditHistoryPopover({
   chain = [],
   memberUser,
   className,
+  trigger,
+  open: propOpen,
+  onOpenChange: propOnOpenChange,
 }: TaskAuditHistoryPopoverProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = propOpen !== undefined;
+  const open = isControlled ? propOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setInternalOpen(v);
+    propOnOpenChange?.(v);
+  };
 
   const originTask = chain[0]?.task ?? task;
   const originDate = chain[0]?.date ?? task.createdAt ?? new Date();
@@ -159,17 +171,21 @@ export function TaskAuditHistoryPopover({
         )}
 
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen((v) => !v);
-            }}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none cursor-pointer shrink-0"
-            aria-label="View task audit history"
-          >
-            <Info size={13} />
-          </button>
+          {trigger ? (
+            trigger
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(!open);
+              }}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none cursor-pointer shrink-0"
+              aria-label="View task audit history"
+            >
+              <Info size={13} />
+            </button>
+          )}
         </PopoverTrigger>
 
         <PopoverContent

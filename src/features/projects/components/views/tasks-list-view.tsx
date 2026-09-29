@@ -427,7 +427,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
 
   return (
     <ActiveTimerProvider>
-      <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
+      <div className="flex flex-col h-full min-h-0 bg-background text-foreground overflow-hidden">
         {/* Group-by control
         <div className="flex items-center gap-2 border-b border-border px-6 py-2 bg-card text-xs shrink-0">
           <ListChecks size={14} className="text-muted-foreground" />
@@ -450,7 +450,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
         */}
 
         {/* Table */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto pb-24">
           {displayTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-2 p-10">
               <ListChecks size={32} className="opacity-40" />

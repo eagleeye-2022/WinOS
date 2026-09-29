@@ -1,9 +1,17 @@
 import React from "react";
+import { ProjectWorkspaceProvider } from "@/features/projects/context/project-workspace-context";
 
-export default function ProjectDetailLayout({
+export default async function ProjectDetailLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ projectId: string }>;
 }) {
-  return <div className="h-full w-full">{children}</div>;
+  const { projectId } = await params;
+  return (
+    <div className="h-full w-full">
+      <ProjectWorkspaceProvider projectId={projectId}>{children}</ProjectWorkspaceProvider>
+    </div>
+  );
 }

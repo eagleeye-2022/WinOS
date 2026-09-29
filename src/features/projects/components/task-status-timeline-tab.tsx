@@ -83,12 +83,12 @@ export function TaskStatusTimelineTab({ taskId }: TaskStatusTimelineTabProps) {
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      <div className="flex items-center justify-between pb-2 border-b border-border dark:border-neutral-800">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-2 dark:text-neutral-100">
+      <div className="flex items-center justify-between pb-2 border-b border-border dark:border-zinc-800">
+        <h3 className="text-sm font-bold text-foreground flex items-center gap-2 dark:text-zinc-100">
           <History size={16} className="text-primary" />
           Task Activity & Status Timeline
         </h3>
-        <span className="text-[11px] font-mono text-muted-foreground">
+        <span className="text-[11px] font-mono text-muted-foreground dark:text-zinc-400">
           Latest activity first &bull; Saved in Database
         </span>
       </div>
@@ -98,34 +98,34 @@ export function TaskStatusTimelineTab({ taskId }: TaskStatusTimelineTabProps) {
           <Loader2 size={24} className="animate-spin text-primary" />
         </div>
       ) : events.length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground space-y-1">
+        <div className="p-8 text-center text-muted-foreground space-y-1 dark:text-zinc-400">
           <Clock size={32} className="mx-auto opacity-40" />
-          <p className="font-semibold text-foreground">No timeline activity logged for this task.</p>
+          <p className="font-semibold text-foreground dark:text-zinc-100">No timeline activity logged for this task.</p>
         </div>
       ) : (
-        <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border/70 dark:before:bg-neutral-800">
+        <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border/70 dark:before:bg-zinc-800">
           {events.map((ev) => (
             <div key={ev.id} className="relative group">
               {/* Dot Icon */}
-              <div className="absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-card border border-border shadow-2xs group-hover:scale-110 transition-transform dark:border-neutral-800 dark:bg-[#16181d]">
+              <div className="absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-card border border-border shadow-2xs group-hover:scale-110 transition-transform dark:border-zinc-800 dark:bg-[#121215]">
                 {getBadgeIcon(ev.type)}
               </div>
 
               {/* Event Content */}
-              <div className="rounded-xl border border-border bg-card p-3.5 shadow-2xs space-y-1 hover:border-primary/40 transition-colors dark:border-neutral-800 dark:bg-[#16181d]">
+              <div className="rounded-xl border border-border bg-card p-3.5 shadow-2xs space-y-1 hover:border-primary/40 transition-colors dark:border-zinc-800 dark:bg-[#121215]">
                 {/* Header Time */}
-                <div className="text-[11px] font-mono font-bold text-muted-foreground dark:text-neutral-400">
+                <div className="text-[11px] font-mono font-bold text-muted-foreground dark:text-zinc-400">
                   {formatTimelineHeaderTime(ev.timestamp)}
                 </div>
 
                 {/* Main Activity Text */}
-                <div className="font-bold text-foreground text-xs dark:text-neutral-100">
+                <div className="font-bold text-foreground text-xs dark:text-zinc-100">
                   {ev.title}
                 </div>
 
                 {/* Additional Description if distinct */}
                 {ev.description && !ev.title.includes(ev.description) && (
-                  <p className="text-[11px] text-muted-foreground dark:text-neutral-400">
+                  <p className="text-[11px] text-muted-foreground dark:text-zinc-400">
                     {ev.description}
                   </p>
                 )}

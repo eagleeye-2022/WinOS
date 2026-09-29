@@ -80,7 +80,7 @@ export function SortFilterButton({
 /** Expandable text component with "See more" / "See less" toggle. */
 export function ExpandableTaskText({
   text,
-  maxLength = 60,
+  maxLength = 30,
   className,
 }: {
   text: string;
@@ -112,9 +112,12 @@ export function ExpandableTaskText({
 }
 
 /** `[WIN-T101]`-style mono code chip for a linked project task. */
-export function TaskIdChip({ code }: { code: string }) {
+export function TaskIdChip({ code, title }: { code: string; title?: string }) {
   return (
-    <span className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0 whitespace-nowrap">
+    <span
+      title={title || code}
+      className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0 whitespace-nowrap cursor-default"
+    >
       {code}
     </span>
   );
@@ -146,7 +149,7 @@ export function DueDateCell({ dueDate }: { dueDate: Date | string | null | undef
     return <span className="text-xs text-muted-foreground/60">—</span>;
   }
   const isOverdue = parsed.getTime() < new Date(new Date().toDateString()).getTime();
-  const label = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(parsed);
+  const label = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
   return (
     <span className={cn(
       "flex items-center gap-1.5 whitespace-nowrap text-xs",

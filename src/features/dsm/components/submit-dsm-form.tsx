@@ -22,16 +22,16 @@ import { SortFilterButton } from "@/components/shared/task-table-parts";
 function findSelectedTaskMeta(
   projects: CascadingProjectOption[],
   projectTaskId: string
-): { code: string | null; projectName: string } | null {
+): { code: string | null; title?: string; projectName: string } | null {
   if (!projectTaskId) return null;
   for (const project of projects) {
     for (const task of project.tasks) {
       if (task.id === projectTaskId) {
-        return { code: task.code, projectName: project.name };
+        return { code: task.code, title: task.title, projectName: project.name };
       }
       for (const subtask of task.subtasks) {
         if (subtask.id === projectTaskId) {
-          return { code: subtask.code, projectName: project.name };
+          return { code: subtask.code, title: subtask.title, projectName: project.name };
         }
       }
     }
@@ -205,112 +205,108 @@ function TaskRows({
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
 
             {/* Main Card */}
-            <div className="flex-1 rounded-xl border border-border bg-card p-3 shadow-2xs hover:border-primary/40 focus-within:border-primary/50 transition-all">
-              {/* Top Row: Task ID + Input on left, Carried Over + Divider + Project Selector + Task Selector on right */}
-              <div className="flex items-center justify-between gap-2.5 flex-wrap">
-                {/* Left: Code chip + Input */}
-                <div className="flex flex-1 items-center gap-2 min-w-[220px]">
-                  {showProjectFeatures && selectedMeta?.code && (
-                    <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
-                      {selectedMeta.code}
-                    </span>
-                  )}
-                  <div className="flex-1">
-                    <MentionInput
-                      key={`${task.id}-${tree.projectId}`}
-                      name="taskText"
-                      defaultValue={task.text}
-                      onChange={(v) => updateField(i, "text", v)}
-                      onEnterSubmit={i === tasks.length - 1 && task.text.trim() ? add : undefined}
-                      placeholder="Add task details..."
-                      teamMembers={teamMembers}
-                      className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm placeholder:text-muted-foreground/60"
-                    />
-                  </div>
-                </div>
-
-                {/* Right: Badges + Project & Task Selectors */}
-                <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-                  {task.carried && (
-                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 shrink-0">
-                      Carried Over
-                    </span>
-                  )}
-
-                  {(cascadingProjects.length > 0 || projectsLoading) && (
-                    <>
-                      <div className="h-4 w-px bg-border shrink-0" />
-
-                      <div className="relative flex items-center">
-                        <select
-                          value={tree.projectId}
-                          onChange={(e) => handleProjectChange(i, e.target.value)}
-                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[150px] truncate"
-                        >
-                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                            {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                          </option>
-                          {cascadingProjects.map((p) => (
-                            <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                      </div>
-                    </>
-                  )}
-
-                  {tree.currentProject && (
-                    <>
-                      <div className="h-4 w-px bg-border shrink-0" />
-                      <div className="relative flex items-center">
-                        <select
-                          value={tree.taskId}
-                          onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
-                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[170px] truncate"
-                        >
-                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                            {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                          </option>
-                          {tree.currentProject.tasks.map((t) => (
-                            <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                              {t.code ? `[${t.code}] ` : ""}{t.title}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                      </div>
-                    </>
-                  )}
-
-                  {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
-                    <>
-                      <div className="h-4 w-px bg-border shrink-0" />
-                      <div className="relative flex items-center">
-                        <select
-                          value={tree.subtaskId}
-                          onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
-                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[150px] truncate"
-                        >
-                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                            Select Subtask
-                          </option>
-                          {tree.currentTask.subtasks.map((st) => (
-                            <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                              {st.code ? `[${st.code}] ` : ""}{st.title}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                      </div>
-                    </>
-                  )}
+            <div className="flex-1 rounded-xl border border-border bg-card p-3 shadow-2xs hover:border-primary/40 focus-within:border-primary/50 transition-all flex flex-col gap-2">
+              {/* Line 1: Task ID (Code Chip) + Text Input */}
+              <div className="flex items-center gap-2 w-full">
+                {showProjectFeatures && selectedMeta?.code && (
+                  <span
+                    title={selectedMeta.title || selectedMeta.code}
+                    className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 cursor-default"
+                  >
+                    {selectedMeta.code}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <MentionInput
+                    key={`${task.id}-${tree.projectId}`}
+                    name="taskText"
+                    defaultValue={task.text}
+                    onChange={(v) => updateField(i, "text", v)}
+                    onEnterSubmit={i === tasks.length - 1 && task.text.trim() ? add : undefined}
+                    placeholder="Add task details..."
+                    teamMembers={teamMembers}
+                    className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm placeholder:text-muted-foreground/60 w-full"
+                  />
                 </div>
               </div>
 
-              {/* Bottom Row: Priority + Due Date on left, Time Tracked / Live Timer on right */}
-              <div className="mt-2.5 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
+              {/* Line 2: Carryover Badge + Project Selector + Task Selector + Subtask Selector */}
+              <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
+                {task.carried && (
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400 shrink-0" title="Carried Over">
+                    CO
+                  </span>
+                )}
+
+                {(cascadingProjects.length > 0 || projectsLoading) && (
+                  <div className="relative flex items-center">
+                    <select
+                      value={tree.projectId}
+                      onChange={(e) => handleProjectChange(i, e.target.value)}
+                      className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate"
+                    >
+                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                      </option>
+                      {cascadingProjects.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                  </div>
+                )}
+
+                {tree.currentProject && (
+                  <>
+                    <div className="h-3.5 w-px bg-border shrink-0" />
+                    <div className="relative flex items-center">
+                      <select
+                        value={tree.taskId}
+                        onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
+                        className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[200px] truncate"
+                      >
+                        <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                        </option>
+                        {tree.currentProject.tasks.map((t) => (
+                          <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {t.code ? `[${t.code}] ` : ""}{t.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                    </div>
+                  </>
+                )}
+
+                {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+                  <>
+                    <div className="h-3.5 w-px bg-border shrink-0" />
+                    <div className="relative flex items-center">
+                      <select
+                        value={tree.subtaskId}
+                        onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
+                        className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate"
+                      >
+                        <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          Select Subtask
+                        </option>
+                        {tree.currentTask.subtasks.map((st) => (
+                          <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {st.code ? `[${st.code}] ` : ""}{st.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Line 3: Priority + Due Date on left, Time Tracked / Live Timer on right */}
+              <div className="mt-1 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
                 {/* Left: Priority & Due Date */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5">
@@ -393,6 +389,7 @@ function TaskRows({
                       projectId={tree.currentProject?.id}
                       canStart={Boolean(tree.activeTargetTask)}
                       disabledReason="Select a task to start timer"
+                      disabledTitle="No task selected"
                       defaultExpanded={true}
                     />
                     {loggedMins !== undefined && loggedMins > 0 && (
@@ -472,8 +469,8 @@ function LearningRows({
             teamMembers={teamMembers}
           />
           {item.carried && (
-            <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
-              Carried over
+            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning" title="Carried Over">
+              CO
             </span>
           )}
           {(items.length > 1 || item.carried) && (
@@ -553,8 +550,8 @@ function BlockerRows({
                   />
                 </div>
                 {b.carried && (
-                  <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
-                    Carried over
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning" title="Carried Over">
+                    CO
                   </span>
                 )}
               </div>
@@ -769,8 +766,8 @@ function SupportRows({
                   />
                 </div>
                 {s.carried && (
-                  <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
-                    Carried over
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning" title="Carried Over">
+                    CO
                   </span>
                 )}
               </div>
@@ -971,142 +968,145 @@ function ParkingLotRows({
   const levels = ["P1", "P2", "P3"];
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {items.map((item, i) => {
         const tree = resolveTaskTree(item, cascadingProjects);
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, item.projectTaskId);
         const daysOut = daysFromToday(item.dueDate);
         return (
-          <div key={item.id} className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2 hover:border-primary/30 transition-colors">
-            {/* <div className="relative flex items-center shrink-0">
-              <select
-                value={item.priority}
-                onChange={(e) => {
-                  updateLocal(i, "priority", e.target.value);
-                  persistField(i, { priority: e.target.value });
-                }}
-                className={cn(
-                  "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-5 text-xs font-bold outline-none transition-colors",
-                  item.priority === "P1" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                  item.priority === "P2" && "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400",
-                  item.priority === "P3" && "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                  !item.priority && "border-border text-muted-foreground font-normal"
+          <div key={item.id} className="flex items-center gap-3">
+            {/* Main Card */}
+            <div className="flex-1 rounded-xl border border-border bg-card p-3 shadow-2xs hover:border-primary/40 focus-within:border-primary/50 transition-all flex flex-col gap-2">
+              {/* Line 1: Task ID (Code Chip) + Text Input */}
+              <div className="flex items-center gap-2 w-full">
+                {selectedMeta?.code && (
+                  <span
+                    title={selectedMeta.title || selectedMeta.code}
+                    className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 cursor-default"
+                  >
+                    {selectedMeta.code}
+                  </span>
                 )}
-              >
-                <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">–</option>
-                {levels.map((p) => (
-                  <option key={p} value={p} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">{p}</option>
-                ))}
-              </select>
-              <ChevronDown size={11} className="pointer-events-none absolute right-1 text-muted-foreground" />
-            </div> */}
-
-            {selectedMeta?.code && (
-              <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                {selectedMeta.code}
-              </span>
-            )}
-
-            <input
-              type="text"
-              value={item.text}
-              onChange={(e) => updateLocal(i, "text", e.target.value)}
-              onBlur={() => persistNew(i)}
-              placeholder="Add task details..."
-              className="min-w-0 flex-1 basis-[160px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-            />
-
-            {(cascadingProjects.length > 0 || projectsLoading) && (
-              <div className="relative flex items-center shrink-0">
-                <select
-                  value={tree.projectId}
-                  onChange={(e) => handleProjectChange(i, e.target.value)}
-                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[110px] truncate"
-                >
-                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                    {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                  </option>
-                  {cascadingProjects.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={item.text}
+                    onChange={(e) => updateLocal(i, "text", e.target.value)}
+                    onBlur={() => persistNew(i)}
+                    placeholder="Add task details..."
+                    className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm placeholder:text-muted-foreground/60 w-full outline-none"
+                  />
+                </div>
               </div>
-            )}
 
-            {tree.currentProject && (
-              <div className="relative flex items-center shrink-0">
-                <select
-                  value={tree.taskId}
-                  onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
-                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[130px] truncate"
-                >
-                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                    {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                  </option>
-                  {tree.currentProject.tasks.map((t) => (
-                    <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                      {t.code ? `[${t.code}] ` : ""}{t.title}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+              {/* Line 2: Project Selector + Task Selector + Subtask Selector */}
+              <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
+                {(cascadingProjects.length > 0 || projectsLoading) && (
+                  <div className="relative flex items-center">
+                    <select
+                      value={tree.projectId}
+                      onChange={(e) => handleProjectChange(i, e.target.value)}
+                      className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate"
+                    >
+                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                        {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                      </option>
+                      {cascadingProjects.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                  </div>
+                )}
+
+                {tree.currentProject && (
+                  <>
+                    <div className="h-3.5 w-px bg-border shrink-0" />
+                    <div className="relative flex items-center">
+                      <select
+                        value={tree.taskId}
+                        onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
+                        className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[200px] truncate"
+                      >
+                        <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                        </option>
+                        {tree.currentProject.tasks.map((t) => (
+                          <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {t.code ? `[${t.code}] ` : ""}{t.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                    </div>
+                  </>
+                )}
+
+                {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+                  <>
+                    <div className="h-3.5 w-px bg-border shrink-0" />
+                    <div className="relative flex items-center">
+                      <select
+                        value={tree.subtaskId}
+                        onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
+                        className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate"
+                      >
+                        <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                          Select Subtask
+                        </option>
+                        {tree.currentTask.subtasks.map((st) => (
+                          <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
+                            {st.code ? `[${st.code}] ` : ""}{st.title}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                    </div>
+                  </>
+                )}
               </div>
-            )}
 
-            {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
-              <div className="relative flex items-center shrink-0">
-                <select
-                  value={tree.subtaskId}
-                  onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
-                  className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[120px] truncate"
+              {/* Line 3: Due Date on left, To Today Action on right */}
+              <div className="mt-1 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
+                <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                  <CalendarIcon size={12} className="text-muted-foreground" />
+                  <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                  <input
+                    type="date"
+                    value={item.dueDate}
+                    onChange={(e) => {
+                      updateLocal(i, "dueDate", e.target.value);
+                      persistField(i, { dueDate: e.target.value });
+                    }}
+                    className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                  {daysOut !== null && daysOut >= 0 && (
+                    <span className="whitespace-nowrap font-medium text-muted-foreground">(In {daysOut}d)</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => moveToToday(i)}
+                  disabled={!item.text.trim() || movingId === item.id}
+                  className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6] dark:border-[#3B82F6]/30 dark:bg-[#3B82F6]/10"
                 >
-                  <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
-                  {tree.currentTask.subtasks.map((st) => (
-                    <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                      {st.code ? `[${st.code}] ` : ""}{st.title}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-0 text-muted-foreground" />
+                  {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
+                  To Today
+                </button>
               </div>
-            )}
-
-            <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shrink-0">
-              <CalendarIcon size={11} />
-              <input
-                type="date"
-                value={item.dueDate}
-                onChange={(e) => {
-                  updateLocal(i, "dueDate", e.target.value);
-                  persistField(i, { dueDate: e.target.value });
-                }}
-                className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
-              />
-              {daysOut !== null && daysOut >= 0 && (
-                <span className="whitespace-nowrap">(In {daysOut}d)</span>
-              )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => moveToToday(i)}
-              disabled={!item.text.trim() || movingId === item.id}
-              className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6]"
-            >
-              {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
-              To Today
-            </button>
-
+            {/* Delete button on far right */}
             <button
               type="button"
               onClick={() => remove(i)}
               title="Remove from parking lot"
-              className="shrink-0 p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+              className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
             >
-              <X size={15} />
+              <X size={18} />
             </button>
           </div>
         );
@@ -1115,7 +1115,7 @@ function ParkingLotRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
       >
         <Plus size={13} className="dark:text-[#93C5FD]" /> Park Task
       </button>

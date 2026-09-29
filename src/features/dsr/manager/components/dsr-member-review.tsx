@@ -196,7 +196,7 @@ function TaskItemRow({
         {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">

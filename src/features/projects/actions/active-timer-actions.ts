@@ -139,7 +139,14 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
     );
   if (!isAuthorized) {
-    return { success: false, error: "You are not authorized to start a timer for this task" };
+    const ownerLabel = ownerNamesOnTask.length > 0 ? ownerNamesOnTask.join(", ") : null;
+    return {
+      success: false,
+      code: "NOT_TASK_OWNER" as const,
+      error: ownerLabel
+        ? `You are not the owner of task ${task.code || ""}. Only its owner (${ownerLabel}) can start a timer on it.`
+        : `Task ${task.code || ""} has no owner yet. Assign it to yourself before starting a timer.`,
+    };
   }
 
   const rawProjectId = params.projectId || params.project || task.projectId;

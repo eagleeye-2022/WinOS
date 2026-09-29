@@ -197,6 +197,7 @@ export function ProjectTaskCascadingPicker({
         projectId={currentProject?.id}
         canStart={!!activeTargetTask}
         disabledReason="Select a project and task to start timer"
+        disabledTitle="No task selected"
         defaultExpanded={true}
       />
     </div>

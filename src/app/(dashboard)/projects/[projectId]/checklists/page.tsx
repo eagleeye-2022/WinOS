@@ -5,7 +5,7 @@ import { ChecklistWorkspaceView } from "@/features/projects/components/views/che
 
 export default function ChecklistsPage() {
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       <ChecklistWorkspaceView />
     </div>
   );

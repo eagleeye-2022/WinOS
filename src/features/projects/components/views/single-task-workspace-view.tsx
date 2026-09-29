@@ -55,7 +55,7 @@ import {
   Copy,
   CopyCheck,
 } from "lucide-react";
-import { TaskItem, TaskStatus, Project, TaskSubtask, TimeLogEntry, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusBadgeClasses, getTaskStatusSelectClasses } from "../../types";
+import { TaskItem, TaskStatus, TaskActivityLog, TaskSubtask, TimeLogEntry, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusBadgeClasses, getTaskStatusSelectClasses } from "../../types";
 import { parseDurationMinutes, formatTimePeriodRange } from "../../utils/time-helpers";
 import { cn } from "@/lib/utils";
 import { TimerWidget } from "../timer-widget";
@@ -63,13 +63,12 @@ import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { AddSubtaskDrawer } from "../modals/add-subtask-drawer";
 import { TimerStoppedModal } from "../modals/timer-stopped-modal";
+import { useProjectWorkspace } from "../../context/project-workspace-context";
 import {
-  getTasksAction,
   updateTaskAction,
   createTaskAction,
   deleteTaskAction,
-  getProjectByIdAction,
-  getOwnersAndTeamsAction,
+  getTaskActivitiesAction,
   getTaskTimeLogsAction,
   createTimeLogAction,
   updateTimeLogAction,
@@ -79,7 +78,6 @@ import {
   deleteSubtaskAction,
   createTaskRemarkAction,
   getTaskRemarksAction,
-  getCurrentUserContextAction,
 } from "../../actions/project-actions";
 import {
   createActiveTimerAction,
@@ -143,21 +141,25 @@ export function SingleTaskWorkspaceView({
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [ownersOptions, setOwnersOptions] = useState<
-    { id: string; name: string; email: string }[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Project, task list, owners and viewer are loaded once per project by the [projectId]
+  // layout — clicking between tasks/subtasks reuses them instead of re-fetching everything.
+  const {
+    project,
+    tasks,
+    setTasks,
+    owners: ownersOptions,
+    currentUser: workspaceUser,
+    isLoading,
+  } = useProjectWorkspace();
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{
+  const currentUser = workspaceUser as {
     id: string;
     name: string;
     email: string;
     role: "ADMIN" | "TEAM_MEMBER";
-  } | null>(null);
+  } | null;
 
   // Selected phase filter for left sidebar task list
   const [selectedPhase, setSelectedPhase] = useState("ALL");
@@ -228,31 +230,6 @@ export function SingleTaskWorkspaceView({
     setIsExpandedView((prev) => !prev);
   };
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const [fetchedProj, fetchedTasks, fetchedOwnersRes, fetchedUser] = await Promise.all([
-          getProjectByIdAction(projectId),
-          getTasksAction(projectId),
-          getOwnersAndTeamsAction(projectId),
-          getCurrentUserContextAction(),
-        ]);
-        if (fetchedProj) setProject(fetchedProj);
-        setTasks(fetchedTasks);
-        if (fetchedOwnersRes && fetchedOwnersRes.owners) {
-          setOwnersOptions(fetchedOwnersRes.owners);
-        }
-        setCurrentUser(fetchedUser);
-      } catch (err) {
-        console.error("Failed to load tasks for single task view:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadData();
-  }, [projectId]);
-
   const leftTaskItems = React.useMemo(() => {
     return tasks || [];
   }, [tasks]);
@@ -308,6 +285,9 @@ export function SingleTaskWorkspaceView({
   // personally own — mirrors the same rule enforced server-side in updateTaskAction.
   const isProjectOwner = Boolean(currentUser && project && project.owner.id === currentUser.id);
   const canStartTimer = isTaskOwner || isProjectOwner;
+  const notOwnerMessage = `Only the task owner (${
+    taskOwnerNames.length > 0 ? taskOwnerNames.join(", ") : "Unassigned"
+  }) can start a timer on ${activeTask.code}.`;
   const canEditTask = Boolean(
     currentUser &&
       (isTaskOwner ||
@@ -401,12 +381,36 @@ export function SingleTaskWorkspaceView({
       alert("Only the task owner can edit this task.");
       return false;
     }
-    const updatedTask = { ...activeTask, ...updates };
-    setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
+    const taskId = activeTask.id;
+    const changedKeys = Object.keys(updates) as (keyof TaskItem)[];
+    const previousValues: Partial<TaskItem> = {};
+    for (const key of changedKeys) {
+      (previousValues as Record<string, unknown>)[key] = activeTask[key];
+    }
+
+    // Apply to the UI immediately; the DB write happens in the background.
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+
+    // Roll back only fields that still hold the value this call wrote — if the user already
+    // picked something newer (e.g. changed priority twice quickly), the newer choice wins.
+    const rollback = () =>
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.id !== taskId) return t;
+          const reverted = { ...t };
+          for (const key of changedKeys) {
+            if (t[key] === updates[key]) {
+              (reverted as Record<string, unknown>)[key] = previousValues[key];
+            }
+          }
+          return reverted;
+        })
+      );
+
     try {
-      const result = await updateTaskAction(activeTask.id, updates);
+      const result = await updateTaskAction(taskId, updates);
       if (!result.success) {
-        setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
+        rollback();
         toast.error(result.error || "You do not have permission to edit this task.");
         return false;
       }
@@ -414,8 +418,8 @@ export function SingleTaskWorkspaceView({
       return true;
     } catch (err) {
       console.error("Failed to update task in DB:", err);
-      setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
-      alert("Failed to save changes — please try again.");
+      rollback();
+      toast.error("Failed to save changes — please try again.");
       return false;
     }
   };
@@ -622,6 +626,24 @@ export function SingleTaskWorkspaceView({
       cancelled = true;
     };
   }, [activeTask.id, activeTask.remarks, activeTask.owner, project?.owner.name]);
+
+  // Activity log is no longer part of the project-wide task payload — fetch it for this task only.
+  // Keyed on status too, so a status change made here shows up in the Activity tab.
+  const [taskActivities, setTaskActivities] = useState<TaskActivityLog[]>([]);
+  const foundTaskId = foundTask?.id;
+  const foundTaskStatus = foundTask?.status;
+  useEffect(() => {
+    if (!foundTaskId) return;
+    let cancelled = false;
+    getTaskActivitiesAction(foundTaskId)
+      .then((acts) => {
+        if (!cancelled) setTaskActivities(acts);
+      })
+      .catch((err) => console.error("Failed to load task activity:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [foundTaskId, foundTaskStatus]);
 
   // Dynamic Time Logs State & Calculations for this specific task — loaded from the DB
   const [taskTimeLogs, setTaskTimeLogs] = useState<TimeLogEntry[]>([]);
@@ -834,23 +856,45 @@ export function SingleTaskWorkspaceView({
     };
   }, [activeTimerStatus]);
 
+  const showTimerNotice = (title: string, description: string) => {
+    void confirm({ title, description, confirmLabel: "OK", danger: false, hideCancel: true });
+  };
+
   const handleStartTimer = async () => {
-    if (!canStartTimer) return;
+    // Ownership check first, before anything starts.
+    if (!canStartTimer) {
+      showTimerNotice("You're not the owner of this task", notOwnerMessage);
+      return;
+    }
+    const previousStatus = activeTimerStatus;
+    const previousStartTime = activeTimerStartTime;
     const now = new Date();
     if (activeTimerStatus === "IDLE") {
       setActiveTimerStartTime(now);
     }
     setActiveTimerStatus("RUNNING");
     try {
-      await createActiveTimerAction({
+      const res = await createActiveTimerAction({
         taskId: activeTask.id,
         taskCode: activeTask.code,
         projectId: activeTask.projectId || projectId,
         description: `Working on task ${activeTask.code}: ${activeTask.title}`,
         billingType: "BILLABLE",
       });
+      if (!res.success) {
+        // Server refused (it re-checks ownership) — undo the optimistic start.
+        setActiveTimerStatus(previousStatus);
+        setActiveTimerStartTime(previousStartTime);
+        showTimerNotice(
+          "code" in res && res.code === "NOT_TASK_OWNER" ? "You're not the owner of this task" : "Couldn't start the timer",
+          res.error || "Something went wrong starting the timer. Please try again."
+        );
+      }
     } catch (err) {
       console.error("Failed to create active timer in DB:", err);
+      setActiveTimerStatus(previousStatus);
+      setActiveTimerStartTime(previousStartTime);
+      showTimerNotice("Couldn't start the timer", "Something went wrong starting the timer. Please try again.");
     }
   };
 
@@ -1048,7 +1092,7 @@ export function SingleTaskWorkspaceView({
 
   if (isLoading) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-background text-foreground dark:bg-[#121316]">
+      <div className="flex h-full w-full items-center justify-center bg-background text-foreground dark:bg-[#09090b]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin text-primary" />
           <p className="text-xs text-muted-foreground">Loading task workspace...</p>
@@ -1059,10 +1103,10 @@ export function SingleTaskWorkspaceView({
 
   if (taskNotFound) {
     return (
-      <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] min-h-0">
+      <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#09090b] min-h-0">
         {/* Left Sidebar Task List */}
-        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d] p-4 h-full min-h-0">
-          <div className="flex items-center justify-between border-b border-border pb-3 mb-3 dark:border-neutral-800">
+        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-zinc-800 dark:bg-[#0c0d10] p-4 h-full min-h-0">
+          <div className="flex items-center justify-between border-b border-border pb-3 mb-3 dark:border-zinc-800">
             <h3 className="text-xs font-bold text-foreground">Project Tasks ({leftTaskItems.length})</h3>
             <Link href={`/projects/${projectId}`} className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
               <ArrowLeft size={12} /> Project
@@ -1089,8 +1133,8 @@ export function SingleTaskWorkspaceView({
         </aside>
 
         {/* Task Not Found Content */}
-        <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-background dark:bg-[#121316]">
-          <div className="max-w-md space-y-4 rounded-2xl border border-border bg-card p-8 shadow-sm">
+        <main className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-background dark:bg-[#09090b]">
+          <div className="max-w-md space-y-4 rounded-2xl border border-border bg-card p-8 shadow-sm dark:border-zinc-800 dark:bg-[#121215]">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
               <AlertCircle size={28} />
             </div>
@@ -1103,7 +1147,7 @@ export function SingleTaskWorkspaceView({
             <div className="flex items-center justify-center gap-3 pt-2">
               <Link
                 href={`/projects/${projectId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors shadow-2xs dark:border-zinc-800 dark:bg-zinc-900"
               >
                 <ArrowLeft size={14} /> Back to Project
               </Link>
@@ -1116,17 +1160,17 @@ export function SingleTaskWorkspaceView({
 
   return (
     <ActiveTimerProvider>
-    <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#121316] dark:text-neutral-100 min-h-0">
+    <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#09090b] dark:text-zinc-100 min-h-0">
       {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
       {!isExpandedView && (
-        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-neutral-800 dark:bg-[#16181d] h-full min-h-0">
+        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-zinc-800 dark:bg-[#0c0d10] h-full min-h-0">
           {/* Phase Header Selector */}
-          <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-neutral-800">
+          <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-zinc-800">
             <div className="relative flex-1 mr-2">
               <select
                 value={selectedPhase}
                 onChange={(e) => setSelectedPhase(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-bold text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:border-neutral-700 dark:bg-[#1c1e24] dark:text-neutral-200"
+                className="w-full appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-bold text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:border-zinc-700 dark:bg-[#141519] dark:text-zinc-200"
               >
                 {availablePhases.map((phaseLabel) => (
                   <option key={phaseLabel} value={phaseLabel}>
@@ -1137,7 +1181,7 @@ export function SingleTaskWorkspaceView({
               </select>
               <ChevronDown
                 size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-neutral-400"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-zinc-400"
               />
             </div>
           </div>
@@ -1145,7 +1189,7 @@ export function SingleTaskWorkspaceView({
           {/* Task Cards Stack */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {filteredLeftTasks.length === 0 ? (
-              <div className="py-8 text-center text-xs text-muted-foreground dark:text-neutral-400">
+              <div className="py-8 text-center text-xs text-muted-foreground dark:text-zinc-400">
                 No tasks found in this phase.
               </div>
             ) : (
@@ -1160,13 +1204,13 @@ export function SingleTaskWorkspaceView({
                     onClick={() => handleSelectTaskCard(item.code)}
                     className={`rounded-xl border p-3 cursor-pointer transition-all duration-150 relative ${
                       isSelected
-                        ? "border-info bg-info/10 ring-1 ring-info/40 shadow-2xs dark:border-sky-500 dark:bg-[#1e222a] dark:ring-sky-500/40"
-                        : "border-border bg-card hover:border-border/80 hover:bg-accent/40 dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:border-neutral-700 dark:hover:bg-[#20232b]"
+                        ? "border-primary bg-primary/10 ring-1 ring-primary/30 shadow-2xs dark:border-zinc-600 dark:bg-zinc-800/90 dark:ring-zinc-600/30"
+                        : "border-border bg-card hover:border-border/80 hover:bg-accent/40 dark:border-zinc-800/80 dark:bg-[#131418] dark:hover:border-zinc-700 dark:hover:bg-[#191a20]"
                     }`}
                   >
                     {/* Top Badge Row */}
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[11px] font-mono text-muted-foreground dark:text-neutral-400">
+                      <span className="text-[11px] font-mono text-muted-foreground dark:text-zinc-400">
                         {item.code}
                       </span>
                       <span
@@ -1180,23 +1224,23 @@ export function SingleTaskWorkspaceView({
                     <h4
                       className={`text-xs font-semibold leading-snug line-clamp-2 ${
                         isTaskDone(item.status)
-                          ? "line-through text-muted-foreground dark:text-neutral-400"
-                          : "text-foreground dark:text-neutral-100"
+                          ? "line-through text-muted-foreground dark:text-zinc-400"
+                          : "text-foreground dark:text-zinc-100"
                       }`}
                     >
                       {item.title}
                     </h4>
 
                     {/* Footer Owner & Badges */}
-                    <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground dark:border-neutral-800/80 dark:text-neutral-400">
+                    <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground dark:border-zinc-800/80 dark:text-zinc-400">
                       <span className="truncate max-w-[170px]">
                         {item.owner || "Unassigned"}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {isSelected && (
-                          <Timer size={12} className="text-info animate-pulse dark:text-sky-400" />
+                          <Timer size={12} className="text-primary animate-pulse dark:text-zinc-300" />
                         )}
-                        <AlertCircle size={12} className="text-muted-foreground/60 dark:text-neutral-500" />
+                        <AlertCircle size={12} className="text-muted-foreground/60 dark:text-zinc-500" />
                       </div>
                     </div>
                   </div>
@@ -1208,15 +1252,15 @@ export function SingleTaskWorkspaceView({
       )}
 
       {/* ── Main Right Task Workspace Area ───────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col bg-background text-foreground overflow-hidden min-h-0 min-w-0 dark:bg-[#121316] dark:text-neutral-100">
+      <main className="flex-1 flex flex-col bg-background text-foreground overflow-hidden min-h-0 min-w-0 dark:bg-[#09090b] dark:text-zinc-100">
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-card shrink-0 dark:border-neutral-800 dark:bg-[#16181d]">
+        <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-card shrink-0 dark:border-zinc-800 dark:bg-[#0c0d10]">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 rounded bg-info/15 px-2 py-0.5 text-[11px] font-bold text-info border border-info/30 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30">
+              <span className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground border border-border dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700">
                 <CheckSquare size={12} /> Task
               </span>
-              <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground font-semibold dark:bg-neutral-800 dark:text-neutral-300">
+              <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground font-semibold dark:bg-zinc-800 dark:text-zinc-300">
                 {activeTask.code}
               </span>
               {/* <span className="flex items-center gap-1.5 rounded bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 border border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-300">
@@ -1257,9 +1301,9 @@ export function SingleTaskWorkspaceView({
                 type="button"
                 onClick={() => router.push(`/projects/${projectId}`)}
                 title="Go to project"
-                className="flex items-center gap-1 text-foreground font-medium dark:text-neutral-300 hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-foreground font-medium dark:text-zinc-300 hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer"
               >
-                <Folder size={12} className="text-info dark:text-sky-400" /> {project?.name || projectId}
+                <Folder size={12} className="text-muted-foreground dark:text-zinc-400" /> {project?.name || projectId}
               </button>
               {/* <span>💬 📎</span> */}
               <span>|</span>
@@ -1272,6 +1316,7 @@ export function SingleTaskWorkspaceView({
                 projectId={activeTask.projectId || projectId}
                 onSaveLog={handleTimerWidgetLogSaved}
                 canStart={canStartTimer}
+                disabledReason={notOwnerMessage}
                 defaultExpanded
               />
             </div>
@@ -1296,7 +1341,7 @@ export function SingleTaskWorkspaceView({
                   setIsMoreMenuOpen(!isMoreMenuOpen);
                   setIsAssignModalOpen(false);
                 }}
-                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-zinc-800 dark:bg-[#141519] dark:hover:bg-zinc-800 dark:text-zinc-300 ${
                   isMoreMenuOpen ? "ring-2 ring-primary bg-accent" : ""
                 }`}
                 title="More Actions"
@@ -1305,11 +1350,11 @@ export function SingleTaskWorkspaceView({
               </button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-zinc-800 dark:bg-[#121215]">
                   <button
                     type="button"
                     onClick={handleCopyTaskLink}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-neutral-200"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-zinc-200"
                   >
                     <Copy size={14} className="text-primary" />
                     <span>Copy Task Link</span>
@@ -1317,12 +1362,12 @@ export function SingleTaskWorkspaceView({
                   <button
                     type="button"
                     onClick={handleDuplicateTask}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-neutral-200"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-zinc-200"
                   >
                     <CopyCheck size={14} className="text-info" />
                     <span>Duplicate Task</span>
                   </button>
-                  <div className="my-1 border-t border-border dark:border-neutral-800" />
+                  <div className="my-1 border-t border-border dark:border-zinc-800" />
                   <button
                     type="button"
                     onClick={handleDeleteTask}
@@ -1343,7 +1388,7 @@ export function SingleTaskWorkspaceView({
                   setIsAssignModalOpen(!isAssignModalOpen);
                   setIsMoreMenuOpen(false);
                 }}
-                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+                className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-zinc-800 dark:bg-[#141519] dark:hover:bg-zinc-800 dark:text-zinc-300 ${
                   isAssignModalOpen ? "ring-2 ring-primary bg-accent" : ""
                 }`}
                 title="Assign User"
@@ -1352,7 +1397,7 @@ export function SingleTaskWorkspaceView({
               </button>
 
               {isAssignModalOpen && (
-                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+                <div className="absolute right-0 mt-2 w-72 rounded-xl border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-zinc-800 dark:bg-[#121215]">
                   <TaskMultiOwnerSelect
                     label="Assign Task Members"
                     selectedOwners={
@@ -1383,7 +1428,7 @@ export function SingleTaskWorkspaceView({
             <button
               type="button"
               onClick={handleToggleFullscreen}
-              className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 ${
+              className={`p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-zinc-800 dark:bg-[#141519] dark:hover:bg-zinc-800 dark:text-zinc-300 ${
                 isExpandedView ? "bg-primary/20 text-primary border-primary" : ""
               }`}
               title={isExpandedView ? "Restore Sidebar View" : "Full Width Maximize View"}
@@ -1394,7 +1439,7 @@ export function SingleTaskWorkspaceView({
             {/* Button 4: Close (X) */}
             <Link
               href={`/projects/${projectId}`}
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground hover:text-destructive transition-colors ml-1 cursor-pointer dark:border-neutral-800 dark:bg-[#1c1e24] dark:hover:bg-neutral-800 dark:text-neutral-300 dark:hover:text-rose-400"
+              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground hover:text-destructive transition-colors ml-1 cursor-pointer dark:border-zinc-800 dark:bg-[#141519] dark:hover:bg-zinc-800 dark:text-zinc-300 dark:hover:text-rose-400"
               title="Close Task Detail"
             >
               <X size={16} />
@@ -1417,7 +1462,7 @@ export function SingleTaskWorkspaceView({
 
           {/* Status Field */}
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-neutral-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">
               STATUS
             </span>
             <div className="relative inline-block">
@@ -1427,30 +1472,30 @@ export function SingleTaskWorkspaceView({
                 disabled={!canEditTask}
                 title={canEditTask ? undefined : "Only the task owner can change the status"}
                 className={cn(
-                  "appearance-none rounded-lg border bg-card px-3 py-1.5 pr-8 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary dark:bg-[#1c1e24] disabled:cursor-not-allowed disabled:opacity-60",
+                  "appearance-none rounded-lg border bg-card px-3 py-1.5 pr-8 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary dark:bg-[#141519] dark:border-zinc-700 dark:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-60",
                   getTaskStatusSelectClasses(taskStatus)
                 )}
               >
                 {PROJECT_TASK_STATUSES.map((s) => (
-                  <option key={s} value={s}>● {s}</option>
+                  <option key={s} value={s} className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">● {s}</option>
                 ))}
                 {!PROJECT_TASK_STATUSES.includes(taskStatus as any) && (
-                  <option value={taskStatus}>● {taskStatus}</option>
+                  <option value={taskStatus} className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">● {taskStatus}</option>
                 )}
               </select>
               <ChevronDown
                 size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-neutral-400"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-zinc-400"
               />
             </div>
           </div>
 
           {/* Description Collapsible Section */}
-          <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-neutral-800 dark:bg-[#16181d]">
+          <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-zinc-800 dark:bg-[#121215]">
             <button
               type="button"
               onClick={() => setDescriptionOpen(!descriptionOpen)}
-              className="flex w-full items-center justify-between p-3.5 hover:bg-accent/40 text-xs font-bold text-foreground transition-colors dark:hover:bg-neutral-800/40 dark:text-neutral-200"
+              className="flex w-full items-center justify-between p-3.5 hover:bg-accent/40 text-xs font-bold text-foreground transition-colors dark:hover:bg-zinc-800/40 dark:text-zinc-200"
             >
               <span className="flex items-center gap-2">
                 {descriptionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1458,7 +1503,7 @@ export function SingleTaskWorkspaceView({
               </span>
             </button>
             {descriptionOpen && (
-              <div className="px-4 pb-4 pt-1 text-xs text-muted-foreground border-t border-border/60 dark:text-neutral-400 dark:border-neutral-800/60">
+              <div className="px-4 pb-4 pt-1 text-xs text-muted-foreground border-t border-border/60 dark:text-zinc-400 dark:border-zinc-800/60">
                 {isEditingDescription ? (
                   <div className="space-y-2 pt-2">
                     <LinkifyEditableTextarea
@@ -1467,7 +1512,7 @@ export function SingleTaskWorkspaceView({
                       value={descriptionDraft}
                       onChange={setDescriptionDraft}
                       placeholder="Add a description..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:bg-[#09090b] dark:border-zinc-800 dark:text-zinc-100"
                     />
                     <div className="flex items-center gap-2">
                       <button
@@ -1483,7 +1528,7 @@ export function SingleTaskWorkspaceView({
                           setDescriptionDraft(activeTask.description || "");
                           setIsEditingDescription(false);
                         }}
-                        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent"
+                        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       >
                         Cancel
                       </button>
@@ -1495,14 +1540,14 @@ export function SingleTaskWorkspaceView({
                       href={activeTask.description}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-info underline break-all hover:text-info/80 dark:text-sky-400 dark:hover:text-sky-300 font-mono"
+                      className="text-primary underline break-all hover:text-primary/80 font-mono"
                     >
                       {activeTask.description}
                     </a>
                   ) : (
                     <p
                       onClick={() => startEditingDescription()}
-                      className="whitespace-pre-wrap break-words cursor-text hover:text-foreground transition-colors"
+                      className="whitespace-pre-wrap break-words cursor-text hover:text-foreground transition-colors dark:hover:text-zinc-100"
                     >
                       {linkifyText(activeTask.description)}
                     </p>
@@ -1510,7 +1555,7 @@ export function SingleTaskWorkspaceView({
                 ) : (
                   <span
                     onClick={() => setIsEditingDescription(true)}
-                    className="cursor-text hover:text-foreground transition-colors font-mono"
+                    className="cursor-text hover:text-foreground transition-colors font-mono dark:hover:text-zinc-100"
                   >
                     NO DESCRIPTION AVAILABLE
                   </span>
@@ -1520,11 +1565,11 @@ export function SingleTaskWorkspaceView({
           </div>
 
           {/* Task Information Collapsible Section */}
-          <div className="border border-border rounded-xl bg-card dark:border-neutral-800 dark:bg-[#16181d]">
+          <div className="border border-border rounded-xl bg-card dark:border-zinc-800 dark:bg-[#121215]">
             <button
               type="button"
               onClick={() => setTaskInfoOpen(!taskInfoOpen)}
-              className="flex w-full items-center justify-between p-3.5 hover:bg-accent/40 text-xs font-bold text-foreground transition-colors dark:hover:bg-neutral-800/40 dark:text-neutral-200"
+              className="flex w-full items-center justify-between p-3.5 hover:bg-accent/40 text-xs font-bold text-foreground transition-colors dark:hover:bg-zinc-800/40 dark:text-zinc-200"
             >
               <span className="flex items-center gap-2">
                 {taskInfoOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -1532,8 +1577,8 @@ export function SingleTaskWorkspaceView({
               </span>
             </button>
             {taskInfoOpen && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 text-xs border-t border-border/60 bg-muted/30 dark:border-neutral-800/60 dark:bg-[#1c1e24]">
-                <div className="col-span-2 md:col-span-4 border-b border-border/40 pb-3 mb-1">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 text-xs border-t border-border/60 bg-muted/30 dark:border-zinc-800/60 dark:bg-[#141519]">
+                <div className="col-span-2 md:col-span-4 border-b border-border/40 pb-3 mb-1 dark:border-zinc-800/60">
                   <TaskMultiOwnerSelect
                     label="Owner"
                     selectedOwners={
@@ -1584,7 +1629,7 @@ export function SingleTaskWorkspaceView({
                   />
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Start Date</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Start Date</span>
                   {canEditTask ? (
                     <input
                       type="date"
@@ -1597,16 +1642,16 @@ export function SingleTaskWorkspaceView({
                           duration: computeDuration(newDisplay, activeTask.dueDate, activeTask.duration),
                         });
                       }}
-                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-neutral-100 dark:[color-scheme:dark]"
+                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-zinc-100 dark:[color-scheme:dark]"
                     />
                   ) : (
-                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                    <span className="font-semibold text-foreground text-sm dark:text-zinc-100">
                       {formatSafeDisplayDate(activeTask.startDate)}
                     </span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Due Date</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Due Date</span>
                   {canEditTask ? (
                     <input
                       type="date"
@@ -1619,50 +1664,50 @@ export function SingleTaskWorkspaceView({
                           duration: computeDuration(activeTask.startDate, newDisplay, activeTask.duration),
                         });
                       }}
-                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-neutral-100 dark:[color-scheme:dark]"
+                      className="w-auto max-w-[140px] bg-transparent font-semibold text-foreground outline-none text-sm cursor-pointer dark:text-zinc-100 dark:[color-scheme:dark]"
                     />
                   ) : (
-                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                    <span className="font-semibold text-foreground text-sm dark:text-zinc-100">
                       {formatSafeDisplayDate(activeTask.dueDate)}
                     </span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Priority</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Priority</span>
                   {canEditTask ? (
                     <select
                       value={activeTask.priority || "None"}
                       onChange={(e) => handleUpdateTaskField({ priority: e.target.value as TaskItem["priority"] })}
-                      className="w-auto max-w-fit pr-1 bg-transparent font-semibold text-foreground outline-none cursor-pointer dark:text-neutral-100 text-sm"
+                      className="w-auto max-w-fit pr-1 bg-transparent font-semibold text-foreground outline-none cursor-pointer dark:text-zinc-100 text-sm"
                     >
-                      <option value="None" className="bg-card text-foreground">None</option>
-                      <option value="Low" className="bg-card text-foreground">Low</option>
-                      <option value="Medium" className="bg-card text-foreground">Medium</option>
-                      <option value="High" className="bg-card text-foreground">High</option>
-                      <option value="Urgent" className="bg-card text-foreground">Urgent</option>
+                      <option value="None" className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">None</option>
+                      <option value="Low" className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">Low</option>
+                      <option value="Medium" className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">Medium</option>
+                      <option value="High" className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">High</option>
+                      <option value="Urgent" className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">Urgent</option>
                     </select>
                   ) : (
-                    <span className="font-semibold text-foreground text-sm dark:text-neutral-100">{activeTask.priority || "None"}</span>
+                    <span className="font-semibold text-foreground text-sm dark:text-zinc-100">{activeTask.priority || "None"}</span>
                   )}
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Duration</span>
-                  <span className="font-semibold text-foreground text-sm dark:text-neutral-100">
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Duration</span>
+                  <span className="font-semibold text-foreground text-sm dark:text-zinc-100">
                     {computeDuration(activeTask.startDate, activeTask.dueDate, activeTask.duration)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-neutral-400">Total Logged Hours</span>
-                  <span className="font-bold text-info font-mono text-sm dark:text-sky-400">{formattedTotalTaskHours} h</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Logged Hours</span>
+                  <span className="font-bold text-foreground font-mono text-sm dark:text-zinc-100">{formattedTotalTaskHours} h</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Tabs Bar & Content */}
-          <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-neutral-800 dark:bg-[#16181d]">
+          <div className="border border-border rounded-xl bg-card overflow-hidden dark:border-zinc-800 dark:bg-[#121215]">
             {/* Tabs Header Scrollbar */}
-            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-neutral-800">
+            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-zinc-800">
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
                   { key: "COMMENTS", label: "Comments" },
@@ -1678,8 +1723,8 @@ export function SingleTaskWorkspaceView({
                     onClick={() => setActiveTab(tab.key as typeof activeTab)}
                     className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
                       activeTab === tab.key
-                        ? "bg-info/15 text-info font-bold border border-info/30 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-800/50"
+                        ? "bg-primary/10 text-primary font-bold border border-primary/20 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/50"
                     }`}
                   >
                     {tab.label}
@@ -1705,19 +1750,16 @@ export function SingleTaskWorkspaceView({
               {activeTab === "COMMENTS" && (
                 <div className="space-y-4">
                   {/* Clean Comment Input Box with explicit Save button */}
-                  <div className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs dark:border-neutral-800 dark:bg-[#16181d]">
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs dark:border-zinc-800 dark:bg-[#141519]">
                     <textarea
                       rows={3}
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder="Write a comment or update on this task..."
-                      className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-neutral-100 dark:placeholder-neutral-500"
+                      className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-zinc-100 dark:placeholder-zinc-500"
                     />
 
-                    <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-neutral-800/60">
-                      {/* <span className="text-[11px] text-muted-foreground">
-                        Comments are saved to the database and shared with task members.
-                      </span> */}
+                    <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-zinc-800/60">
                       <button
                         type="button"
                         onClick={handleAddComment}
@@ -1733,20 +1775,20 @@ export function SingleTaskWorkspaceView({
                   {/* Comments Feed */}
                   <div className="space-y-3 pt-1">
                     {commentsList.length === 0 ? (
-                      <div className="py-8 text-center text-xs text-muted-foreground italic dark:text-neutral-400">
+                      <div className="py-8 text-center text-xs text-muted-foreground italic dark:text-zinc-400">
                         No comments yet. Post a comment above to start the discussion!
                       </div>
                     ) : (
                       commentsList.map((c) => (
                         <div
                           key={c.id}
-                          className="rounded-xl border border-border/80 bg-card p-3.5 space-y-1 text-xs shadow-2xs dark:border-neutral-800/80 dark:bg-[#16181d]"
+                          className="rounded-xl border border-border/80 bg-card p-3.5 space-y-1 text-xs shadow-2xs dark:border-zinc-800/80 dark:bg-[#141519]"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-foreground dark:text-neutral-200">{c.author}</span>
-                            <span className="text-[10px] text-muted-foreground dark:text-neutral-400">{c.time}</span>
+                            <span className="font-bold text-foreground dark:text-zinc-200">{c.author}</span>
+                            <span className="text-[10px] text-muted-foreground dark:text-zinc-400">{c.time}</span>
                           </div>
-                          <p className="text-foreground/90 leading-relaxed dark:text-neutral-300">{c.text}</p>
+                          <p className="text-foreground/90 leading-relaxed dark:text-zinc-300">{c.text}</p>
                         </div>
                       ))
                     )}
@@ -1756,13 +1798,8 @@ export function SingleTaskWorkspaceView({
 
               {activeTab === "SUBTASKS" && (
                 <div className="space-y-4 text-xs font-sans">
-                  {/* Top Bar matching screenshot */}
-                  <div className="flex items-center justify-between pb-2 border-b border-border dark:border-neutral-800">
-                    {/* <div className="flex items-center gap-2 font-bold text-foreground text-xs dark:text-neutral-200">
-                      <Layers size={14} className="text-info dark:text-sky-400" />
-                      <span>Only Subtasks</span>
-                    </div> */}
-
+                  {/* Top Bar */}
+                  <div className="flex items-center justify-between pb-2 border-b border-border dark:border-zinc-800">
                     <button
                       type="button"
                       onClick={() => setIsAddSubtaskDrawerOpen(true)}
@@ -1773,29 +1810,24 @@ export function SingleTaskWorkspaceView({
                     </button>
                   </div>
 
-                  {/* Table View matching screenshot */}
-                  <div className="overflow-x-auto rounded-lg border border-border bg-card dark:border-neutral-800 dark:bg-[#16181d]">
+                  {/* Table View */}
+                  <div className="overflow-x-auto rounded-lg border border-border bg-card dark:border-zinc-800 dark:bg-[#121215]">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold dark:border-neutral-800 dark:bg-[#1c1e24] dark:text-neutral-400">
-                          <th className="py-2.5 px-3 border-r border-border w-24 dark:border-neutral-800">ID</th>
-                          <th className="py-2.5 px-4 border-r border-border min-w-[240px] dark:border-neutral-800">Task Name</th>
-                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-neutral-800">
+                        <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-400">
+                          <th className="py-2.5 px-3 border-r border-border w-24 dark:border-zinc-800">ID</th>
+                          <th className="py-2.5 px-4 border-r border-border min-w-[240px] dark:border-zinc-800">Task Name</th>
+                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-zinc-800">
                             <span className="inline-flex items-center gap-1">
                               <CheckSquare size={12} /> Status
                             </span>
                           </th>
-                          {/* <th className="py-2.5 px-3 border-r border-border w-40 dark:border-neutral-800">
-                            <span className="inline-flex items-center gap-1">
-                              <User size={12} /> Owner
-                            </span>
-                          </th> */}
-                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-neutral-800">
+                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-zinc-800">
                             <span className="inline-flex items-center gap-1">
                               <Calendar size={12} /> Start Date
                             </span>
                           </th>
-                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-neutral-800">
+                          <th className="py-2.5 px-3 border-r border-border w-32 dark:border-zinc-800">
                             <span className="inline-flex items-center gap-1">
                               <Calendar size={12} /> Due Date
                             </span>
@@ -1805,10 +1837,10 @@ export function SingleTaskWorkspaceView({
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/60 dark:divide-neutral-800/60">
+                      <tbody className="divide-y divide-border/60 dark:divide-zinc-800/60">
                         {subtasks.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-6 text-center text-muted-foreground italic">
+                            <td colSpan={6} className="py-6 text-center text-muted-foreground italic dark:text-zinc-400">
                               No subtasks added yet. Click &quot;Add Subtask&quot; below to create one.
                             </td>
                           </tr>
@@ -1817,13 +1849,13 @@ export function SingleTaskWorkspaceView({
                             <tr
                               key={st.id}
                               onClick={() => router.push(`/projects/${projectId}/tasks/${st.code}`)}
-                              className="hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-neutral-800/30"
+                              className="hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30"
                               title="Open this subtask"
                             >
-                              <td className="py-2 px-3 border-r border-border font-mono text-[11px] text-muted-foreground font-semibold dark:border-neutral-800 dark:text-neutral-400">
+                              <td className="py-2 px-3 border-r border-border font-mono text-[11px] text-muted-foreground font-semibold dark:border-zinc-800 dark:text-zinc-400">
                                 {st.code}
                               </td>
-                              <td className="py-2 px-4 border-r border-border font-medium text-foreground dark:border-neutral-800 dark:text-neutral-200">
+                              <td className="py-2 px-4 border-r border-border font-medium text-foreground dark:border-zinc-800 dark:text-zinc-200">
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
@@ -1832,12 +1864,12 @@ export function SingleTaskWorkspaceView({
                                     onClick={(e) => e.stopPropagation()}
                                     className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
                                   />
-                                  <span className={isTaskDone(st.status, st.completed) ? "line-through text-muted-foreground" : "hover:underline"}>
+                                  <span className={isTaskDone(st.status, st.completed) ? "line-through text-muted-foreground dark:text-zinc-500" : "hover:underline"}>
                                     {st.title}
                                   </span>
                                 </div>
                               </td>
-                              <td className="py-2 px-3 border-r border-border dark:border-neutral-800">
+                              <td className="py-2 px-3 border-r border-border dark:border-zinc-800">
                                 <select
                                   value={st.status}
                                   onChange={(e) => handleSubtaskStatusChange(st.id, e.target.value as TaskStatus)}
@@ -1848,20 +1880,17 @@ export function SingleTaskWorkspaceView({
                                   )}
                                 >
                                   {PROJECT_TASK_STATUSES.map((s) => (
-                                    <option key={s} value={s} className="bg-card text-foreground">{s}</option>
+                                    <option key={s} value={s} className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">{s}</option>
                                   ))}
                                   {!PROJECT_TASK_STATUSES.includes(st.status as any) && (
-                                    <option value={st.status} className="bg-card text-foreground">{st.status}</option>
+                                    <option value={st.status} className="bg-card text-foreground dark:bg-zinc-900 dark:text-zinc-100">{st.status}</option>
                                   )}
                                 </select>
                               </td>
-                              {/* <td className="py-2 px-3 border-r border-border truncate text-muted-foreground dark:border-neutral-800 dark:text-neutral-300 font-medium">
-                                {activeTask.owner || "Unassigned"}
-                              </td> */}
-                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-neutral-800 dark:text-neutral-400">
+                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-zinc-800 dark:text-zinc-400">
                                 {st.startDate || "--"}
                               </td>
-                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-neutral-800 dark:text-neutral-400">
+                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-zinc-800 dark:text-zinc-400">
                                 {st.dueDate || "--"}
                               </td>
                               <td className="py-2 px-2 text-center">
@@ -1881,9 +1910,9 @@ export function SingleTaskWorkspaceView({
                           ))
                         )}
 
-                        {/* Inline Add Row matching user screenshot */}
-                        <tr className="bg-muted/20 dark:bg-[#1c1e24]/60">
-                          <td className="py-2.5 px-3 border-r border-border text-muted-foreground font-mono text-[11px] dark:border-neutral-800">
+                        {/* Inline Add Row */}
+                        <tr className="bg-muted/20 dark:bg-[#141519]/60">
+                          <td className="py-2.5 px-3 border-r border-border text-muted-foreground font-mono text-[11px] dark:border-zinc-800 dark:text-zinc-400">
                             {activeTask.code}.{subtasks.length + 1}
                           </td>
                           <td colSpan={5} className="py-2 px-4">
@@ -1899,27 +1928,8 @@ export function SingleTaskWorkspaceView({
                                 value={newSubtaskTitle}
                                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
                                 placeholder="Add Subtask"
-                                className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 outline-none font-medium"
+                                className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 outline-none font-medium dark:text-zinc-100 dark:placeholder-zinc-500"
                               />
-
-                              {/* <button
-                                type="button"
-                                onClick={() => {
-                                  const suggestions = [
-                                    "Review Figma design guidelines",
-                                    "Perform QA cross-browser test",
-                                    "Update technical documentation",
-                                    "Validate API response schemas",
-                                    "Check mobile viewport responsiveness",
-                                  ];
-                                  const randomSugg = suggestions[Math.floor(Math.random() * suggestions.length)];
-                                  handleAddSubtaskSubmit(randomSugg);
-                                }}
-                                className="flex items-center gap-1 text-[11px] font-semibold text-info hover:underline cursor-pointer shrink-0 dark:text-sky-400"
-                              >
-                                <Sparkles size={13} />
-                                <span>Suggestions</span>
-                              </button> */}
 
                               {newSubtaskTitle.trim() && (
                                 <button
@@ -1942,7 +1952,7 @@ export function SingleTaskWorkspaceView({
                 <div className="space-y-4 text-xs font-sans">
                   {/* Live Active Running Timer Banner */}
                   {activeTimerStatus !== "IDLE" && (
-                    <div className="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-sky-500/40 bg-sky-500/10 text-foreground dark:border-sky-500/40 dark:bg-sky-500/10 animate-in fade-in-0 duration-200 gap-3">
+                    <div className="flex flex-wrap items-center justify-between p-3.5 rounded-xl border border-primary/30 bg-primary/5 text-foreground dark:border-zinc-700 dark:bg-zinc-900/90 animate-in fade-in-0 duration-200 gap-3">
                       <div className="flex items-center gap-3">
                         <div className="relative flex h-3 w-3 items-center justify-center">
                           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
@@ -1950,14 +1960,14 @@ export function SingleTaskWorkspaceView({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-foreground dark:text-neutral-100">
+                            <span className="font-bold text-xs text-foreground dark:text-zinc-100">
                               {activeTimerStatus === "RUNNING" ? "Active Timer Running..." : "Timer Paused"}
                             </span>
-                            <span className="text-[11px] font-mono font-semibold text-muted-foreground dark:text-neutral-400">
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground dark:text-zinc-400">
                               ({activeTask.code} - {activeTask.title})
                             </span>
                           </div>
-                          <div className="font-mono text-lg font-extrabold text-info dark:text-sky-400 mt-0.5">
+                          <div className="font-mono text-lg font-extrabold text-foreground dark:text-zinc-100 mt-0.5">
                             {formatHMS(activeTimerSeconds)}
                           </div>
                         </div>
@@ -1996,60 +2006,54 @@ export function SingleTaskWorkspaceView({
                     </div>
                   )}
 
-                  {/* Date-Grouped Time Logs Table matching reference image */}
-                  <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-2xs dark:border-neutral-800 dark:bg-[#16181d]">
+                  {/* Date-Grouped Time Logs Table */}
+                  <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-2xs dark:border-zinc-800 dark:bg-[#121215]">
                     <table className="w-full text-left text-xs border-collapse font-sans">
                       <thead>
-                        <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold dark:border-neutral-800 dark:bg-[#1c1e24] dark:text-neutral-400">
-                          <th className="py-2.5 px-3 border-r border-border w-10 text-center dark:border-neutral-800">
+                        <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-400">
+                          <th className="py-2.5 px-3 border-r border-border w-10 text-center dark:border-zinc-800">
                             <ChevronDown size={13} className="text-muted-foreground mx-auto" />
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             <div className="flex items-center gap-1.5">
                               <User size={13} className="text-muted-foreground" />
                               <span>User</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             <div className="flex items-center gap-1.5">
                               <Clock size={13} className="text-muted-foreground" />
                               <span>Daily Log Hours</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             <div className="flex items-center gap-1.5">
                               <Clock size={13} className="text-muted-foreground" />
                               <span>Time Period</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             <div className="flex items-center gap-1.5">
                               <Calendar size={13} className="text-muted-foreground" />
                               <span>Date</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             Billing Type
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             Approval Status
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border min-w-[180px] dark:border-neutral-800">
+                          <th className="py-2.5 px-4 border-r border-border min-w-[180px] dark:border-zinc-800">
                             Notes
                           </th>
-                          {/* <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-neutral-800">
-                            <div className="flex items-center gap-1.5">
-                              <User size={13} className="text-muted-foreground" />
-                              <span>Created By</span>
-                            </div>
-                          </th> */}
                           <th className="py-2.5 px-4 whitespace-nowrap text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/60 dark:divide-neutral-800/60">
+                      <tbody className="divide-y divide-border/60 dark:divide-zinc-800/60">
                         {dateGroupsData.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="py-8 text-center text-muted-foreground italic dark:text-neutral-400">
+                            <td colSpan={9} className="py-8 text-center text-muted-foreground italic dark:text-zinc-400">
                               No time logs recorded for this task yet. Click &quot;Add Time Log&quot; to log work hours.
                             </td>
                           </tr>
@@ -2059,8 +2063,8 @@ export function SingleTaskWorkspaceView({
                             return (
                               <React.Fragment key={group.date}>
                                 {/* Date Group Header Row */}
-                                <tr className="bg-muted/80 font-bold border-b border-border text-foreground hover:bg-muted transition-colors dark:bg-[#1c1e24] dark:border-neutral-800">
-                                  <td className="py-2 px-3 border-r border-border text-center dark:border-neutral-800">
+                                <tr className="bg-muted/80 font-bold border-b border-border text-foreground hover:bg-muted transition-colors dark:bg-[#141519] dark:border-zinc-800">
+                                  <td className="py-2 px-3 border-r border-border text-center dark:border-zinc-800">
                                     <button
                                       type="button"
                                       onClick={() => toggleDateCollapse(group.date)}
@@ -2069,16 +2073,16 @@ export function SingleTaskWorkspaceView({
                                       {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                     </button>
                                   </td>
-                                  <td colSpan={1} className="py-2 px-4 border-r border-border font-bold text-foreground whitespace-nowrap dark:border-neutral-800">
+                                  <td colSpan={1} className="py-2 px-4 border-r border-border font-bold text-foreground whitespace-nowrap dark:border-zinc-800">
                                     <div className="flex items-center gap-2">
                                       <Calendar size={14} className="text-muted-foreground" />
-                                      <span className="font-bold text-foreground dark:text-neutral-100">{group.date}</span>
+                                      <span className="font-bold text-foreground dark:text-zinc-100">{group.date}</span>
                                     </div>
                                   </td>
-                                  <td className="py-2 px-4 border-r border-border font-mono font-bold whitespace-nowrap dark:border-neutral-800">
+                                  <td className="py-2 px-4 border-r border-border font-mono font-bold whitespace-nowrap dark:border-zinc-800">
                                     <div className="flex items-center gap-2 text-xs font-mono font-bold">
-                                      <span className="text-foreground dark:text-neutral-100">{group.totalHours}</span>
-                                      <span className="text-info dark:text-sky-400">{group.billableHours}</span>
+                                      <span className="text-foreground dark:text-zinc-100">{group.totalHours}</span>
+                                      <span className="text-primary dark:text-zinc-200">{group.billableHours}</span>
                                       <span className="text-warning dark:text-amber-400">{group.nonBillableHours}</span>
                                     </div>
                                   </td>
@@ -2089,9 +2093,9 @@ export function SingleTaskWorkspaceView({
                                   group.logs.map((log) => (
                                     <tr
                                       key={log.id}
-                                      className="border-b border-border/60 hover:bg-accent/30 transition-colors dark:border-neutral-800/60 dark:hover:bg-neutral-800/30 group"
+                                      className="border-b border-border/60 hover:bg-accent/30 transition-colors dark:border-zinc-800/60 dark:hover:bg-zinc-800/30 group"
                                     >
-                                      <td className="py-2 px-3 border-r border-border text-center dark:border-neutral-800">
+                                      <td className="py-2 px-3 border-r border-border text-center dark:border-zinc-800">
                                         <div className="flex items-center justify-center gap-1">
                                           <input
                                             type="checkbox"
@@ -2103,7 +2107,7 @@ export function SingleTaskWorkspaceView({
                                       </td>
 
                                       {/* User Name (Read-Only User Attribution) */}
-                                      <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-neutral-800 dark:text-neutral-200">
+                                      <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-zinc-800 dark:text-zinc-200">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-muted-foreground text-[11px]">↑</span>
                                           <span>{log.userName && log.userName !== "User" ? log.userName : (currentUser?.name && currentUser.name !== "User" ? currentUser.name : "System User")}</span>
@@ -2111,7 +2115,7 @@ export function SingleTaskWorkspaceView({
                                       </td>
 
                                       {/* Duration Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
                                         <input
                                           type="text"
                                           defaultValue={log.duration}
@@ -2126,14 +2130,14 @@ export function SingleTaskWorkspaceView({
                                               (e.target as HTMLInputElement).blur();
                                             }
                                           }}
-                                          className="w-20 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-foreground font-mono font-bold focus:bg-background focus:outline-hidden transition-colors"
+                                          className="w-20 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-foreground font-mono font-bold focus:bg-background focus:outline-hidden transition-colors dark:text-zinc-100"
                                           onClick={(e) => e.stopPropagation()}
                                           title="Click to edit duration. Auto-saves on Enter or blur."
                                         />
                                       </td>
 
                                       {/* Time Period Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
                                         <input
                                           type="text"
                                           defaultValue={log.timePeriod}
@@ -2148,14 +2152,14 @@ export function SingleTaskWorkspaceView({
                                               (e.target as HTMLInputElement).blur();
                                             }
                                           }}
-                                          className="w-48 min-w-[175px] px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-muted-foreground font-mono focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-neutral-400"
+                                          className="w-48 min-w-[175px] px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-muted-foreground font-mono focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-zinc-400"
                                           onClick={(e) => e.stopPropagation()}
                                           title="Click to edit time period. Auto-saves on Enter or blur."
                                         />
                                       </td>
 
                                       {/* Date Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
                                         <input
                                           type="text"
                                           defaultValue={log.date}
@@ -2170,46 +2174,46 @@ export function SingleTaskWorkspaceView({
                                               (e.target as HTMLInputElement).blur();
                                             }
                                           }}
-                                          className="w-28 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-foreground font-mono font-medium focus:bg-background focus:outline-hidden transition-colors"
+                                          className="w-28 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-foreground font-mono font-medium focus:bg-background focus:outline-hidden transition-colors dark:text-zinc-200"
                                           onClick={(e) => e.stopPropagation()}
                                           title="Click to edit date. Auto-saves on Enter or blur."
                                         />
                                       </td>
 
                                       {/* Billing Type Auto-Save Select */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
                                         <select
                                           value={log.billingType}
                                           onChange={(e) => handleAutoSaveField(log.id, { billingType: e.target.value as "BILLABLE" | "NON BILLABLE" })}
-                                          className={`px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors ${
-                                            log.billingType === "BILLABLE" ? "text-info dark:text-sky-400" : "text-warning dark:text-amber-400"
+                                          className={`px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors ${
+                                            log.billingType === "BILLABLE" ? "text-primary dark:text-zinc-200" : "text-warning dark:text-amber-400"
                                           }`}
                                           onClick={(e) => e.stopPropagation()}
                                           title="Click to change billing type. Auto-saves automatically."
                                         >
-                                          <option value="BILLABLE" className="text-info dark:bg-[#16181d]">Billable</option>
-                                          <option value="NON BILLABLE" className="text-warning dark:bg-[#16181d]">Non Billable</option>
+                                          <option value="BILLABLE" className="text-primary dark:bg-zinc-900 dark:text-zinc-100">Billable</option>
+                                          <option value="NON BILLABLE" className="text-warning dark:bg-zinc-900 dark:text-zinc-100">Non Billable</option>
                                         </select>
                                       </td>
 
                                       {/* Approval Status Auto-Save Select */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
                                         <select
                                           value={log.approvalStatus || "Pending"}
                                           onChange={(e) => handleAutoSaveField(log.id, { approvalStatus: e.target.value as "Pending" | "Approved" | "Rejected" })}
-                                          className="px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors dark:bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors dark:bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
                                           onClick={(e) => e.stopPropagation()}
                                           disabled={!isProjectOwner}
                                           title={isProjectOwner ? "Click to change approval status. Auto-saves automatically." : "Only the project owner can change the approval status"}
                                         >
-                                          <option value="Pending" className="dark:bg-[#16181d]">Pending</option>
-                                          <option value="Approved" className="dark:bg-[#16181d]">Approved</option>
-                                          <option value="Rejected" className="dark:bg-[#16181d]">Rejected</option>
+                                          <option value="Pending" className="dark:bg-zinc-900 dark:text-zinc-100">Pending</option>
+                                          <option value="Approved" className="dark:bg-zinc-900 dark:text-zinc-100">Approved</option>
+                                          <option value="Rejected" className="dark:bg-zinc-900 dark:text-zinc-100">Rejected</option>
                                         </select>
                                       </td>
 
                                       {/* Notes Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border dark:border-neutral-800">
+                                      <td className="py-1.5 px-3 border-r border-border dark:border-zinc-800">
                                         <input
                                           type="text"
                                           defaultValue={log.remarks || log.title || ""}
@@ -2225,20 +2229,12 @@ export function SingleTaskWorkspaceView({
                                               (e.target as HTMLInputElement).blur();
                                             }
                                           }}
-                                          className="w-full px-2 py-1 text-xs border border-transparent hover:border-border focus:border-info rounded bg-transparent text-muted-foreground focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-neutral-300"
+                                          className="w-full px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-muted-foreground focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-zinc-300"
                                           onClick={(e) => e.stopPropagation()}
                                           placeholder="Notes / Remarks"
                                           title="Click to edit notes. Auto-saves on Enter or blur."
                                         />
                                       </td>
-
-                                      {/* Created By User */}
-                                      {/* <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-neutral-800 dark:text-neutral-200">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-muted-foreground text-[11px]">↑</span>
-                                          <span>{log.userName && log.userName !== "User" ? log.userName : (currentUser?.name && currentUser.name !== "User" ? currentUser.name : "System User")}</span>
-                                        </div>
-                                      </td> */}
 
                                       {/* Actions & Auto-Save Indicator */}
                                       <td className="py-2 px-4 text-right whitespace-nowrap">
@@ -2277,12 +2273,12 @@ export function SingleTaskWorkspaceView({
                       </tbody>
                     </table>
 
-                    {/* Table Footer Bar matching reference image */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-card border-t border-border font-sans text-xs dark:border-neutral-800 dark:bg-[#16181d]">
+                    {/* Table Footer Bar */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-card border-t border-border font-sans text-xs dark:border-zinc-800 dark:bg-[#141519]">
                       <div className="flex items-center gap-5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-muted-foreground font-semibold">Billable</span>
-                          <span className="text-info font-mono font-extrabold dark:text-sky-400">{formattedTaskBillableHours} h</span>
+                          <span className="text-primary font-mono font-extrabold dark:text-zinc-200">{formattedTaskBillableHours} h</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-muted-foreground font-semibold">Non Billable</span>
@@ -2290,11 +2286,11 @@ export function SingleTaskWorkspaceView({
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-muted-foreground font-semibold">Total</span>
-                          <span className="text-foreground font-mono font-extrabold dark:text-neutral-100">{formattedTotalTaskHours} h</span>
+                          <span className="text-foreground font-mono font-extrabold dark:text-zinc-100">{formattedTotalTaskHours} h</span>
                         </div>
                       </div>
 
-                      <div className="text-muted-foreground font-semibold dark:text-neutral-400 font-mono">
+                      <div className="text-muted-foreground font-semibold dark:text-zinc-400 font-mono">
                         Total Count: {taskTimeLogs.length}
                       </div>
                     </div>
@@ -2304,12 +2300,12 @@ export function SingleTaskWorkspaceView({
 
               {activeTab === "ACTIVITY" && (
                 <div className="space-y-3 text-xs">
-                  {!activeTask.activities || activeTask.activities.length === 0 ? (
-                    <div className="text-muted-foreground py-4 text-center dark:text-neutral-400">
+                  {taskActivities.length === 0 ? (
+                    <div className="text-muted-foreground py-4 text-center dark:text-zinc-400">
                       No activity recorded yet for this task.
                     </div>
                   ) : (
-                    activeTask.activities
+                    taskActivities
                       .slice()
                       .reverse()
                       .map((act) => (
@@ -2318,11 +2314,11 @@ export function SingleTaskWorkspaceView({
                             {act.userInitials || act.userName.slice(0, 2).toUpperCase()}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-foreground dark:text-neutral-200">
+                            <p className="text-foreground dark:text-zinc-200">
                               <span className="font-semibold">{act.userName}</span>{" "}
                               {act.actionText}
                             </p>
-                            <span className="text-[10px] text-muted-foreground dark:text-neutral-500">
+                            <span className="text-[10px] text-muted-foreground dark:text-zinc-500">
                               {act.date} at {act.time}
                             </span>
                           </div>
@@ -2347,7 +2343,7 @@ export function SingleTaskWorkspaceView({
               )}
 
               {activeTab === "CHECKLIST" && (
-                <div className="text-xs text-muted-foreground py-4 text-center dark:text-neutral-400">
+                <div className="text-xs text-muted-foreground py-4 text-center dark:text-zinc-400">
                   Checklist items for {activeTask.code}
                 </div>
               )}

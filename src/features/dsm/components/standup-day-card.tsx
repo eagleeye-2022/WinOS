@@ -160,7 +160,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                               {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
-                              {task.projectTask ? <TaskIdChip code={task.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -264,7 +264,10 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                         <p className={cn("text-xs leading-relaxed flex flex-wrap items-center gap-1", PRIORITY_COLORS[b.priority])}>
                           <span>{i + 1})</span>
                           {b.projectTask && (
-                            <span className="rounded bg-destructive/10 border border-destructive/20 text-destructive px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0">
+                            <span
+                              title={b.projectTask.title || b.text}
+                              className="rounded bg-destructive/10 border border-destructive/20 text-destructive px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0 cursor-default"
+                            >
                               [{b.projectTask.code}]
                             </span>
                           )}

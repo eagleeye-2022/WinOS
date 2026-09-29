@@ -31,7 +31,6 @@ import {
   ProjectTimeSummary,
 } from "../../actions/project-actions";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
-import { EditTimeLogModal } from "../modals/edit-time-log-modal";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import {
   parseDurationMinutes,
@@ -801,26 +800,21 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         </div>
       )}
 
-      {/* New Time Log Modal */}
-      {isAddModalOpen && (
+      {/* New / Edit Time Log Modal */}
+      {(isAddModalOpen || Boolean(editingLog)) && (
         <NewTimeLogModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
+          isOpen={isAddModalOpen || Boolean(editingLog)}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingLog(null);
+          }}
+          editingLog={editingLog}
           projectId={projectId}
           projectName={projectName}
           onLogAdded={() => {
             loadData();
             setIsAddModalOpen(false);
           }}
-        />
-      )}
-
-      {/* Edit Time Log Modal */}
-      {editingLog && (
-        <EditTimeLogModal
-          isOpen={Boolean(editingLog)}
-          onClose={() => setEditingLog(null)}
-          log={editingLog}
           onLogUpdated={() => {
             loadData();
             setEditingLog(null);

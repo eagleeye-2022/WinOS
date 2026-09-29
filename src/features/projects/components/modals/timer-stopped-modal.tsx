@@ -114,14 +114,26 @@ export function TimerStoppedModal({
   const handleApplyTimeEdit = () => {
     const newStart = new Date(startInput);
     const newEnd = new Date(endInput);
+    const now = new Date();
 
     if (isNaN(newStart.getTime()) || isNaN(newEnd.getTime())) {
       setErrorMsg("Please enter valid start and end dates.");
       return;
     }
 
+    if (newStart > now || newEnd > now) {
+      setErrorMsg("Time logging is not allowed for future dates and times.");
+      return;
+    }
+
     if (newEnd <= newStart) {
       setErrorMsg("End time must be after Start time.");
+      return;
+    }
+
+    const diffMinutes = Math.floor((newEnd.getTime() - newStart.getTime()) / 60000);
+    if (diffMinutes > 720) {
+      setErrorMsg("Time duration cannot exceed 12 hours (720 minutes).");
       return;
     }
 
@@ -136,8 +148,20 @@ export function TimerStoppedModal({
 
     if (isSubmitting) return;
 
-    if (!durationObj.valid) {
+    const now = new Date();
+    if (startTime > now || endTime > now) {
+      setErrorMsg("Time logging is not allowed for future dates and times.");
+      return;
+    }
+
+    if (!durationObj.valid || endTime <= startTime) {
       setErrorMsg("End time must be after Start time.");
+      return;
+    }
+
+    const totalMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+    if (totalMinutes > 720) {
+      setErrorMsg("Time duration cannot exceed 12 hours (720 minutes).");
       return;
     }
 
@@ -165,15 +189,15 @@ export function TimerStoppedModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-0 duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl overflow-hidden font-sans dark:border-neutral-800 dark:bg-[#16181d]">
+      <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl overflow-hidden font-sans dark:border-zinc-800 dark:bg-[#121215]">
         
         {/* Header with Info Icon matching user screenshot */}
-        <div className="flex items-center justify-between p-5 pb-3 border-b border-border/40 dark:border-neutral-800/40">
+        <div className="flex items-center justify-between p-5 pb-3 border-b border-border/40 dark:border-zinc-800/40">
           <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-full bg-sky-500/15 flex items-center justify-center text-sky-500">
+            <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center text-primary">
               <Info size={18} />
             </div>
-            <h3 className="text-base font-bold text-foreground dark:text-neutral-100">
+            <h3 className="text-base font-bold text-foreground dark:text-zinc-100">
               Timer has stopped.
             </h3>
           </div>
@@ -190,34 +214,34 @@ export function TimerStoppedModal({
         <form onSubmit={handleSubmit} className="p-5 pt-3 space-y-4">
           
           {/* Duration Card matching user screenshot */}
-          <div className="rounded-xl border border-border/80 bg-muted/30 p-4 dark:border-neutral-800/80 dark:bg-[#1c1e24]">
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-4 dark:border-zinc-800/80 dark:bg-[#18181b]">
             <div className="flex items-center justify-between">
               
               {/* Duration Display */}
               <div className="flex flex-col items-center justify-center pr-6">
-                <span className="text-3xl font-extrabold text-[#0088ff] font-mono tracking-tight">
+                <span className="text-3xl font-extrabold text-foreground dark:text-zinc-100 font-mono tracking-tight">
                   {durationObj.formatted}
                 </span>
-                <span className="text-xs text-muted-foreground font-medium dark:text-neutral-400">
+                <span className="text-xs text-muted-foreground font-medium dark:text-zinc-400">
                   Hours
                 </span>
               </div>
 
               {/* Vertical Separator */}
-              <div className="h-12 w-px bg-border/80 dark:bg-neutral-800" />
+              <div className="h-12 w-px bg-border/80 dark:bg-zinc-800" />
 
               {/* Start / End Times */}
               <div className="flex-1 pl-6 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground font-medium dark:text-neutral-400">
+                  <span className="text-muted-foreground font-medium dark:text-zinc-400">
                     Starts
                   </span>
-                  <div className="flex items-center gap-1.5 font-medium text-foreground dark:text-neutral-200">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground dark:text-zinc-200">
                     <span>{formatDisplayDateTime(startTime)}</span>
                     <button
                       type="button"
                       onClick={() => setIsEditingTimes(!isEditingTimes)}
-                      className="text-sky-500 hover:text-sky-600 p-0.5 rounded cursor-pointer"
+                      className="text-primary hover:text-primary/80 p-0.5 rounded cursor-pointer"
                       title="Edit Start / End Time"
                     >
                       <Edit2 size={13} />
@@ -226,10 +250,10 @@ export function TimerStoppedModal({
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground font-medium dark:text-neutral-400">
+                  <span className="text-muted-foreground font-medium dark:text-zinc-400">
                     Ends
                   </span>
-                  <span className="font-medium text-foreground dark:text-neutral-200">
+                  <span className="font-medium text-foreground dark:text-zinc-200">
                     {formatDisplayDateTime(endTime)}
                   </span>
                 </div>
@@ -238,10 +262,10 @@ export function TimerStoppedModal({
 
             {/* Time Validator / Editor Inline Form */}
             {isEditingTimes && (
-              <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5 dark:border-neutral-800">
+              <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5 dark:border-zinc-800">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1">
+                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
                       Start Time
                     </label>
                     <input
@@ -251,11 +275,11 @@ export function TimerStoppedModal({
                         setStartInput(e.target.value);
                         setErrorMsg("");
                       }}
-                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1">
+                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
                       End Time
                     </label>
                     <input
@@ -265,7 +289,7 @@ export function TimerStoppedModal({
                         setEndInput(e.target.value);
                         setErrorMsg("");
                       }}
-                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
                     />
                   </div>
                 </div>
@@ -274,14 +298,14 @@ export function TimerStoppedModal({
                   <button
                     type="button"
                     onClick={() => setIsEditingTimes(false)}
-                    className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer dark:text-zinc-400 dark:hover:text-zinc-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleApplyTimeEdit}
-                    className="px-3 py-1 rounded bg-sky-500 text-white text-[11px] font-bold hover:bg-sky-600 transition-colors cursor-pointer"
+                    className="px-3 py-1 rounded bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     Apply Time
                   </button>
@@ -298,34 +322,34 @@ export function TimerStoppedModal({
             </div>
           )}
 
-          {/* Radio Buttons matching user screenshot */}
+          {/* Radio Buttons */}
           <div className="flex items-center gap-6 text-xs pt-1">
-            <label className="flex items-center gap-2 cursor-pointer font-medium text-foreground dark:text-neutral-200">
+            <label className="flex items-center gap-2 cursor-pointer font-medium text-foreground dark:text-zinc-200">
               <input
                 type="radio"
                 name="billable"
                 checked={isBillable}
                 onChange={() => setIsBillable(true)}
-                className="h-4 w-4 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                className="h-4 w-4 text-primary focus:ring-primary cursor-pointer"
               />
               <span>Billable</span>
             </label>
 
-            <label className="flex items-center gap-2 cursor-pointer font-medium text-foreground dark:text-neutral-200">
+            <label className="flex items-center gap-2 cursor-pointer font-medium text-foreground dark:text-zinc-200">
               <input
                 type="radio"
                 name="billable"
                 checked={!isBillable}
                 onChange={() => setIsBillable(false)}
-                className="h-4 w-4 text-sky-500 focus:ring-sky-500 cursor-pointer"
+                className="h-4 w-4 text-primary focus:ring-primary cursor-pointer"
               />
               <span>Non Billable</span>
             </label>
           </div>
 
-          {/* Notes Field matching user screenshot */}
+          {/* Notes Field */}
           <div className="space-y-1.5 pt-1">
-            <label className="block text-xs font-semibold text-foreground dark:text-neutral-300">
+            <label className="block text-xs font-semibold text-foreground dark:text-zinc-300">
               Notes
             </label>
             <textarea
@@ -333,16 +357,16 @@ export function TimerStoppedModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="What were you working on?"
-              className="w-full rounded-xl border border-input bg-muted/20 p-3 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-1 focus:ring-sky-500 resize-none font-sans dark:border-neutral-800 dark:bg-[#121316] dark:text-neutral-100"
+              className="w-full rounded-xl border border-input bg-muted/20 p-3 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-1 focus:ring-primary resize-none font-sans dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-100 dark:placeholder-zinc-500"
             />
           </div>
 
-          {/* Modal Footer matching user screenshot */}
-          <div className="flex items-center justify-between pt-3 border-t border-border dark:border-neutral-800">
+          {/* Modal Footer */}
+          <div className="flex items-center justify-between pt-3 border-t border-border dark:border-zinc-800">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-lg bg-[#0088ff] px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-[#0077ee] transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-primary px-6 py-2 text-xs font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
               Update
             </button>
@@ -357,7 +381,6 @@ export function TimerStoppedModal({
               <Trash2 size={18} />
             </button>
           </div>
-
         </form>
       </div>
     </div>

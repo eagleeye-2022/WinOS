@@ -227,7 +227,7 @@ export function TaskMultiOwnerSelect({
             }
           }}
           title={disabled ? disabledReason : undefined}
-          className={`min-h-[42px] w-full rounded-lg border border-border/80 dark:border-[#2b2f38] bg-card dark:bg-[#131419] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
+          className={`min-h-[42px] w-full rounded-lg border border-border/80 dark:border-zinc-800 bg-card dark:bg-[#121215] flex items-stretch transition-all focus-within:ring-1 focus-within:ring-primary shadow-2xs ${
             disabled ? "cursor-not-allowed opacity-60" : "hover:border-border/90 cursor-pointer"
           }`}
         >
@@ -242,7 +242,7 @@ export function TaskMultiOwnerSelect({
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 dark:border-[#27384d] bg-sky-50 dark:bg-[#182333] pl-0.5 pr-2 py-0.5 text-xs font-medium text-sky-900 dark:text-neutral-200 transition-colors group select-none shadow-2xs"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-zinc-700 bg-muted/60 dark:bg-zinc-800 pl-0.5 pr-2 py-0.5 text-xs font-medium text-foreground dark:text-zinc-200 transition-colors group select-none shadow-2xs"
                 >
                   <span
                     className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
@@ -274,7 +274,7 @@ export function TaskMultiOwnerSelect({
             <button
               type="button"
               tabIndex={-1}
-              className="flex items-center justify-center px-2.5 shrink-0 text-muted-foreground/70 hover:text-foreground border-l border-border/60 dark:border-[#2b2f38] transition-colors"
+              className="flex items-center justify-center px-2.5 shrink-0 text-muted-foreground/70 hover:text-foreground border-l border-border/60 dark:border-zinc-800 transition-colors"
               title="Add members"
             >
               <ChevronDown
@@ -291,10 +291,10 @@ export function TaskMultiOwnerSelect({
             onClick={(e) => e.stopPropagation()}
             className={`absolute left-0 right-0 ${
               dropUp ? "bottom-full mb-1" : "top-full mt-1"
-            } z-[100] rounded-lg border border-border dark:border-[#2f333e] bg-popover dark:bg-[#1e2026] text-popover-foreground shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150`}
+            } z-[100] rounded-lg border border-border dark:border-zinc-800 bg-popover dark:bg-[#121215] text-popover-foreground shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150`}
           >
             {/* Search field */}
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 dark:border-[#2a2d37]">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 dark:border-zinc-800">
               <Search size={13} className="text-muted-foreground/70 shrink-0" />
               <input
                 type="text"
@@ -302,7 +302,7 @@ export function TaskMultiOwnerSelect({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search members..."
                 autoFocus
-                className="bg-transparent text-xs text-foreground dark:text-neutral-200 outline-none flex-1 min-w-0"
+                className="bg-transparent text-xs text-foreground dark:text-zinc-200 outline-none flex-1 min-w-0"
               />
             </div>
 
@@ -316,14 +316,14 @@ export function TaskMultiOwnerSelect({
               {(!searchQuery || "unassigned".includes(searchQuery.toLowerCase())) && (
                 <div
                   onClick={() => handleToggleOwner({ id: "unassigned", name: "Unassigned", email: "" })}
-                  className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer select-none transition-colors border-b border-border/40 dark:border-[#2a2d37] ${
+                  className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer select-none transition-colors border-b border-border/40 dark:border-zinc-800 ${
                     internalSelected.length === 0
-                      ? "bg-slate-100 font-semibold text-slate-800 dark:bg-[#1a1d24] dark:text-neutral-300"
-                      : "hover:bg-accent text-muted-foreground dark:hover:bg-white/5 dark:text-neutral-400"
+                      ? "bg-muted font-semibold text-foreground dark:bg-zinc-800 dark:text-zinc-200"
+                      : "hover:bg-accent text-muted-foreground dark:hover:bg-white/5 dark:text-zinc-400"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+                    <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-neutral-200 text-neutral-600 dark:bg-zinc-800 dark:text-zinc-400">
                       Ø
                     </span>
                     <span className="truncate italic">Unassigned</span>
@@ -346,8 +346,8 @@ export function TaskMultiOwnerSelect({
                       onClick={() => handleToggleOwner(u)}
                       className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer select-none transition-colors ${
                         selected
-                          ? "bg-sky-100/90 text-sky-800 font-semibold dark:bg-[#18283a] dark:text-[#38bdf8]"
-                          : "hover:bg-accent text-foreground dark:hover:bg-white/5 dark:text-neutral-200"
+                          ? "bg-muted text-foreground font-semibold dark:bg-zinc-800 dark:text-zinc-100"
+                          : "hover:bg-accent text-foreground dark:hover:bg-white/5 dark:text-zinc-200"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">
@@ -361,7 +361,7 @@ export function TaskMultiOwnerSelect({
                         <span className="truncate">{u.name}</span>
                       </div>
 
-                      {selected && <Check size={14} className="text-sky-600 dark:text-sky-400 shrink-0" />}
+                      {selected && <Check size={14} className="text-primary shrink-0" />}
                     </div>
                   );
                 })

@@ -194,7 +194,7 @@ export function DsrHistoryCard({
                           )}
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
-                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                           )}
                           <td className="py-2 pr-3 align-top">

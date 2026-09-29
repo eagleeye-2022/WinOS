@@ -56,14 +56,14 @@ export default function MyTasksPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center space-y-2">
+      <div className="flex h-full w-full items-center justify-center space-y-2">
         <Loader2 size={28} className="animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       {/* Header Bar
       <div className="flex items-center justify-between border-b px-6 py-4 bg-card">
         <div className="flex items-center gap-3">

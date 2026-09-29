@@ -36,7 +36,16 @@ function createClient() {
   const url = process.env.DATABASE_URL ?? "";
   dbLog("connecting to:", maskUrl(url));
 
-  const adapter = new PrismaPg({ connectionString: url });
+  // The DB is remote (Neon), where opening a connection costs ~1–1.5s of TCP+TLS handshake.
+  // pg's default 10s idleTimeout closed pooled connections between clicks, so almost every
+  // page paid that handshake again for each query Prisma ran in parallel (measured ~4s vs
+  // ~1.3s warm). Keep idle connections around for 5 minutes and TCP keep-alive them.
+  const adapter = new PrismaPg({
+    connectionString: url,
+    max: 10,
+    idleTimeoutMillis: 5 * 60_000,
+    keepAlive: true,
+  });
   const client = new PrismaClient({ adapter, log: ["error"] });
 
   // Startup connectivity check — runs once per process in dev.
@@ -47,6 +56,9 @@ function createClient() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const n = await (client as any).user.count();
         dbLog("startup OK — user.count =", n);
+        // Pre-open a few pooled connections so the first page load doesn't pay a remote
+        // TLS handshake per parallel query (idleTimeoutMillis above keeps them open).
+        await Promise.all(Array.from({ length: 6 }, () => client.$queryRaw`SELECT 1`));
         // Probe OtpToken specifically — missing if schema was never pushed.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (client as any).otpToken.count();
