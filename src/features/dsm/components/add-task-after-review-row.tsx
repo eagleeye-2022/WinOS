@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Calendar as CalendarIcon, Loader2, Plus, X } from "lucide-react";
+import { Check, Calendar as CalendarIcon, Loader2, Plus, X } from "lucide-react";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { DueDateInput } from "@/components/shared/task-table-parts";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
@@ -129,50 +131,41 @@ export function AddTaskAfterReviewRow({
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
 
-        <div className="relative flex items-center">
-          <select
-            value={selectedProjectId}
-            onChange={(e) => handleProjectChange(e.target.value)}
-            className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[170px] truncate"
-          >
-            <option value="">Select Project</option>
-            {cascadingProjects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-        </div>
+        <SearchableSelect
+          value={selectedProjectId}
+          onChange={handleProjectChange}
+          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          placeholder="Select Project"
+          searchPlaceholder="Search projects..."
+          className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"
+        />
 
         {currentProject && (
-          <div className="relative flex items-center">
-            <select
-              value={selectedTaskId}
-              onChange={(e) => handleTaskChange(e.target.value)}
-              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate"
-            >
-              <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
-              {currentProject.tasks.map((t) => (
-                <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={selectedTaskId}
+            onChange={handleTaskChange}
+            options={currentProject.tasks.map((t) => ({
+              value: t.id,
+              label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
+            }))}
+            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+            searchPlaceholder="Search tasks..."
+            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
+          />
         )}
 
         {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
-          <div className="relative flex items-center">
-            <select
-              value={selectedSubtaskId}
-              onChange={(e) => handleSubtaskChange(e.target.value)}
-              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[180px] truncate"
-            >
-              <option value="">Select Subtask</option>
-              {currentTask.subtasks.map((st) => (
-                <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={selectedSubtaskId}
+            onChange={handleSubtaskChange}
+            options={currentTask.subtasks.map((st) => ({
+              value: st.id,
+              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+            }))}
+            placeholder="Select Subtask"
+            searchPlaceholder="Search subtasks..."
+            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[180px]"
+          />
         )}
       </div>
 
@@ -204,13 +197,7 @@ export function AddTaskAfterReviewRow({
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <CalendarIcon size={12} className="text-muted-foreground" />
             <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
-            <input
-              type="date"
-              name="dueDate"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
-            />
+            <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
         </div>
 

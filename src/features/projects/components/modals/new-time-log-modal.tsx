@@ -330,7 +330,7 @@ export function NewTimeLogModal({
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
             if (startMin > currentMin || endMin > currentMin) {
-              return "Time logging is not allowed for future dates and times.";
+              return "Effort logging is not allowed for future dates and times.";
             }
           }
           if (endMin <= startMin) {
@@ -390,7 +390,7 @@ export function NewTimeLogModal({
       const today = new Date();
       today.setHours(23, 59, 59, 999);
       if (selected > today) {
-        setDateError("Time logging is not allowed for future dates and times.");
+        setDateError("Effort logging is not allowed for future dates and times.");
       } else {
         setDateError("");
       }
@@ -452,7 +452,7 @@ export function NewTimeLogModal({
         onClose();
       } catch (err) {
         console.error("Failed to update time log:", err);
-        setSubmitError("Failed to update time log. Please try again.");
+        setSubmitError("Failed to update effort log. Please try again.");
         setIsSubmitting(false);
       }
     } else {
@@ -479,7 +479,7 @@ export function NewTimeLogModal({
         onClose();
       } catch (err) {
         console.error("Failed to save time log:", err);
-        setSubmitError("Failed to add time log. Please try again.");
+        setSubmitError("Failed to add effort log. Please try again.");
         setIsSubmitting(false);
       }
     }
@@ -491,7 +491,7 @@ export function NewTimeLogModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
           <h2 className="text-base font-bold text-foreground tracking-wide">
-            {editingLog ? "Edit Time Log" : "New Time Log"}
+            {editingLog ? "Edit Effort Log" : "New Effort Log"}
           </h2>
           <div className="flex items-center gap-3">
             {selectedProject && (
@@ -516,7 +516,7 @@ export function NewTimeLogModal({
           <div className="flex items-center gap-2.5 rounded-md border border-info/30 bg-info/10 px-4 py-3 text-foreground">
             <Info size={16} className="text-info shrink-0" />
             <span className="text-[12px] font-medium">
-              Time logging is not allowed for future dates and times
+              Effort logging is not allowed for future dates and times
             </span>
           </div>
 
@@ -582,7 +582,7 @@ export function NewTimeLogModal({
                       className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
                     >
                       <option value="">
-                        General / Direct Project Time Log (No Task)
+                        General / Direct Project Effort Log (No Task)
                       </option>
                       {allTaskOptions.map((t) => (
                         <option key={t.code} value={`${t.code} - ${t.title}`} className="bg-background text-foreground">
@@ -644,7 +644,7 @@ export function NewTimeLogModal({
                 ) : (
                   <ChevronUp size={16} className="text-muted-foreground" />
                 )}
-                <span>Time Log Information</span>
+                <span>Effort Log Information</span>
               </button>
 
               {isTimeLogInfoExpanded && (

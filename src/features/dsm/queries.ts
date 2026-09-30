@@ -2,6 +2,11 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "./utils";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
+import {
+  CORE_DAILY_TASKS_CLOSED_STATUSES,
+  CORE_DAILY_TASKS_LIST_NAME,
+  CORE_DAILY_TASKS_PROJECT_CODE,
+} from "./core-daily-tasks";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -520,6 +525,58 @@ export async function getParkedTasks(targetUserId?: string): Promise<ParkedTask[
   });
 
   return tasks as ParkedTask[];
+}
+
+export type CoreDailyTask = {
+  id: string;
+  code: string;
+  title: string;
+  projectId: string;
+};
+
+/**
+ * EED Core's shared daily-activity tasks (see `core-daily-tasks.ts`) for the /dsm side panel.
+ * Visible to managers, the project's owner and members, plus anyone directly assigned to one of the tasks.
+ * A manager may pass `targetUserId` to get the list as that member sees it (member review page).
+ */
+export async function getCoreDailyTasks(targetUserId?: string): Promise<CoreDailyTask[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const isManager = session.user.role === "MANAGER";
+  const viewingOther = isManager && !!targetUserId && targetUserId !== session.user.id;
+  const userId = viewingOther ? targetUserId! : session.user.id;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const project = await d.project.findUnique({
+    where: { code: CORE_DAILY_TASKS_PROJECT_CODE },
+    select: { id: true, ownerId: true },
+  });
+  if (!project) return [];
+
+  // Managers can already time any task (see createActiveTimerAction), so they always see their own panel.
+  const isProjectMember =
+    (isManager && !viewingOther) ||
+    project.ownerId === userId ||
+    !!(await d.projectMember.findFirst({
+      where: { projectId: project.id, userId },
+      select: { id: true },
+    }));
+
+  const tasks = await d.projectTask.findMany({
+    where: {
+      projectId: project.id,
+      taskListName: CORE_DAILY_TASKS_LIST_NAME,
+      status: { notIn: CORE_DAILY_TASKS_CLOSED_STATUSES },
+      ...(isProjectMember ? {} : { owners: { some: { userId } } }),
+    },
+    select: { id: true, code: true, title: true, projectId: true },
+    orderBy: { code: "asc" },
+  });
+
+  return tasks as CoreDailyTask[];
 }
 
 /** All users for @mention support. */

@@ -142,7 +142,7 @@ export function ClientPortalView() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Project Status & Time Tracking Overview
+              Project Status & Effort Logs Overview
             </p>
           </div>
         </div>
@@ -246,7 +246,7 @@ export function ClientPortalView() {
             <Clock size={15} className="text-sky-500" />
           </div>
           <div className="text-lg font-bold text-foreground">{totalHoursText}</div>
-          <p className="text-[10px] text-muted-foreground">Total Time Logged</p>
+          <p className="text-[10px] text-muted-foreground">Total Effort Logged</p>
         </div>
 
         {/* Billable Hours */}
@@ -297,7 +297,7 @@ export function ClientPortalView() {
           }`}
         >
           <Clock size={14} />
-          <span>Time Logs & Hours</span>
+          <span>Effort Logs & Hours</span>
         </button>
       </div>
 

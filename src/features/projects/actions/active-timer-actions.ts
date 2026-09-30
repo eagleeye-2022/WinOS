@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
+import { isCoreDailyTask } from "@/features/dsm/core-daily-tasks";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -111,8 +112,9 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       projectId: true,
       ownerId: true,
       owner: true,
+      taskListName: true,
       owners: { select: { userId: true, user: { select: { name: true, email: true } } } },
-      project: { select: { ownerId: true } },
+      project: { select: { ownerId: true, code: true } },
     },
   });
 
@@ -137,7 +139,13 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
         projectOwnerId: task.project?.ownerId,
       },
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
-    );
+    ) ||
+    // EED Core's shared daily tasks (DSM, meetings, …) can be timed by any project member.
+    (isCoreDailyTask(task) &&
+      !!(await d.projectMember.findFirst({
+        where: { projectId: task.projectId, userId: sessionUser.id },
+        select: { id: true },
+      })));
   if (!isAuthorized) {
     const ownerLabel = ownerNamesOnTask.length > 0 ? ownerNamesOnTask.join(", ") : null;
     return {

@@ -67,7 +67,7 @@ export function EditTimeLogModal({
       onClose();
     } catch (err) {
       console.error("Failed to update time log:", err);
-      setError("Failed to update time log entry.");
+      setError("Failed to update effort log entry.");
     } finally {
       setIsSubmitting(false);
     }
@@ -83,7 +83,7 @@ export function EditTimeLogModal({
               <Clock size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">Edit Time Log</h2>
+              <h2 className="text-base font-bold text-foreground">Edit Effort Log</h2>
               <p className="text-xs text-muted-foreground">Log ID: {log.code || log.id}</p>
             </div>
           </div>

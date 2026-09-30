@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getMemberReview } from "@/features/dsm/manager/queries";
-import { getSharedWorkspaceNotes, getTeamMembers, getParkedTasks } from "@/features/dsm/queries";
+import { getSharedWorkspaceNotes, getTeamMembers, getParkedTasks, getCoreDailyTasks } from "@/features/dsm/queries";
+import { CoreDailyTasksPanel } from "@/features/dsm/components/core-daily-tasks-panel";
 import { MemberReviewDetail } from "@/features/dsm/manager/components/member-review-detail";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
@@ -23,11 +24,12 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const dateParam = sp.date;
 
-  const [review, sharedNotesData, teamMembers, parkedTasks] = await Promise.all([
+  const [review, sharedNotesData, teamMembers, parkedTasks, coreDailyTasks] = await Promise.all([
     getMemberReview(userId, weekOffset),
     getSharedWorkspaceNotes(userId),
     getTeamMembers(),
     getParkedTasks(userId),
+    getCoreDailyTasks(userId),
   ]);
 
   if (!review) redirect("/dsm/all");
@@ -52,9 +54,20 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
         <div className="max-h-[350px] shrink-0 overflow-y-auto border-b">
           <WorkspaceNotesPanel sharedNotes={sharedNotesData.notes} userRole={session.user.role} />
         </div>
-        {activeEntry && (
-          <div className="p-4">
-            <StandupTimeline entry={activeEntry} events={activeEntry.timelineEvents} />
+        {(coreDailyTasks.length > 0 || activeEntry) && (
+          <div className="flex flex-col gap-4 p-4">
+            {coreDailyTasks.length > 0 && (
+              <CoreDailyTasksPanel
+                tasks={coreDailyTasks}
+                memberView={{
+                  memberId: userId,
+                  dateStr: activeEntry ? toIsoDateStr(toUtcDate(activeEntry.date)) : toIsoDateStr(toUtcDate()),
+                }}
+              />
+            )}
+            {activeEntry && (
+              <StandupTimeline entry={activeEntry} events={activeEntry.timelineEvents} />
+            )}
           </div>
         )}
       </aside>

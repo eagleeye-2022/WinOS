@@ -187,7 +187,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
               }`}
           >
             <Clock size={14} />
-            <span>Time Logs</span>
+            <span>Effort Logs</span>
           </button>
 
           <button

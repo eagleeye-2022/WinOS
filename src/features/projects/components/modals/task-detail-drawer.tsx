@@ -421,7 +421,7 @@ export function TaskDetailDrawer({
                   className="flex items-center gap-1 rounded bg-[#0088ff] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors mr-1"
                 >
                   <Plus size={13} />
-                  <span>Time Log</span>
+                  <span>Effort Log</span>
                 </button>
                 <button
                   type="button"

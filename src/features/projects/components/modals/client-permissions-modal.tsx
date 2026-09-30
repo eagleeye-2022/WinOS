@@ -19,7 +19,7 @@ const DEFAULT_CLIENT_PERMISSIONS = [
   { key: "DISCUSSIONS", label: "Discussions", enabled: true },
   { key: "PROJECT_CHAT", label: "Project Chat", enabled: true },
   { key: "MILESTONES", label: "Milestones & Phases", enabled: true },
-  { key: "TIME_LOGS", label: "Time Logs", enabled: false },
+  { key: "TIME_LOGS", label: "Effort Logs", enabled: false },
   { key: "REPORTS", label: "Reports", enabled: false },
   { key: "PROJECT_SETTINGS", label: "Project Settings", enabled: false },
   { key: "USER_MANAGEMENT", label: "User Management", enabled: false },

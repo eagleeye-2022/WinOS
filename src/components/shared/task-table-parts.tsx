@@ -149,14 +149,61 @@ export function DueDateCell({ dueDate }: { dueDate: Date | string | null | undef
     return <span className="text-xs text-muted-foreground/60">—</span>;
   }
   const isOverdue = parsed.getTime() < new Date(new Date().toDateString()).getTime();
-  const label = new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
   return (
     <span className={cn(
       "flex items-center gap-1.5 whitespace-nowrap text-xs",
       isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
     )}>
       <Calendar size={12} />
-      {label}
+      {formatDueDate(parsed)}
+    </span>
+  );
+}
+
+/** Day-first short due date, e.g. "30 Sep". */
+export function formatDueDate(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(date));
+}
+
+/**
+ * Due-date picker that displays "30 Sep" instead of the browser's locale format (dd-mm-yyyy).
+ * The native date input sits invisibly on top of the label, so clicking still opens the
+ * browser's own calendar and `name` still submits the "YYYY-MM-DD" value with the form.
+ */
+export function DueDateInput({
+  value,
+  onChange,
+  name,
+  disabled,
+  placeholder = "Set date",
+}: {
+  value: string; // "YYYY-MM-DD" or ""
+  onChange: (value: string) => void;
+  name?: string;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const hasValue = !!value && !Number.isNaN(new Date(value).getTime());
+  return (
+    <span className="relative inline-flex items-center">
+      <span className={cn("whitespace-nowrap text-xs", hasValue ? "text-foreground" : "text-muted-foreground")}>
+        {hasValue ? formatDueDate(value) : placeholder}
+      </span>
+      <input
+        type="date"
+        name={name}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        onClick={(e) => {
+          try {
+            e.currentTarget.showPicker?.();
+          } catch {
+            // showPicker throws if not triggered by a user gesture — the native click still works.
+          }
+        }}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed [color-scheme:light] dark:[color-scheme:dark]"
+      />
     </span>
   );
 }
@@ -260,7 +307,7 @@ export function TaskTableHead({
         <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Task / Subtask</th>
         <th className="w-20 pb-2.5 pr-3 font-semibold whitespace-nowrap">Priority</th>
         <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Due Date</th>
-        {withTimeTracked && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Time Tracked</th>}
+        {withTimeTracked && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Effort Logs</th>}
         {withAction && <th className="pb-2.5 pr-2 text-center font-semibold whitespace-nowrap w-24">Action</th>}
       </tr>
     </thead>

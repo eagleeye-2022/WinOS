@@ -13,10 +13,12 @@ import {
   getTeamMembers,
   getSharedWorkspaceNotes,
   getParkedTasks,
+  getCoreDailyTasks,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
+import { CoreDailyTasksPanel } from "@/features/dsm/components/core-daily-tasks-panel";
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
 import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
@@ -37,7 +39,7 @@ export default async function DSMPage({ searchParams }: Props) {
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
   if (session.user.role === "MANAGER") redirect("/dsm/all");
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents, parkedTasks] =
+  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents, parkedTasks, coreDailyTasks] =
     await Promise.all([
       getTodayEntry(),
       getYesterdayTasks(),
@@ -51,6 +53,7 @@ export default async function DSMPage({ searchParams }: Props) {
       getSharedWorkspaceNotes(),
       getTodayCalendarEvents(),
       getParkedTasks(),
+      getCoreDailyTasks(),
     ]);
 
   const today = toUtcDate();
@@ -107,9 +110,12 @@ export default async function DSMPage({ searchParams }: Props) {
             userRole={session?.user?.role}
           />
         </div>
-        {todayEntry && (
-          <div className="p-4">
-            <StandupTimeline entry={todayEntry} events={todayEntry.timelineEvents} />
+        {(coreDailyTasks.length > 0 || todayEntry) && (
+          <div className="flex flex-col gap-4 p-4">
+            {coreDailyTasks.length > 0 && <CoreDailyTasksPanel tasks={coreDailyTasks} />}
+            {todayEntry && (
+              <StandupTimeline entry={todayEntry} events={todayEntry.timelineEvents} />
+            )}
           </div>
         )}
       </aside>
