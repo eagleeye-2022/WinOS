@@ -20,6 +20,7 @@ import {
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { reviewStandup, type ReviewStandupState } from "../actions/review-standup";
 import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-priority";
 import { editTask, type EditTaskState } from "../actions/edit-task";
@@ -45,7 +46,7 @@ import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
-import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { TaskIdChip, ProjectPill, DueDateCell, DueDateInput, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
@@ -366,50 +367,41 @@ function AddTaskRow({
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
 
-        <div className="relative flex items-center">
-          <select
-            value={selectedProjectId}
-            onChange={(e) => handleProjectChange(e.target.value)}
-            className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[170px] truncate"
-          >
-            <option value="">Select Project</option>
-            {cascadingProjects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-        </div>
+        <SearchableSelect
+          value={selectedProjectId}
+          onChange={(v) => handleProjectChange(v)}
+          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          placeholder="Select Project"
+          searchPlaceholder="Search projects..."
+          className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"
+        />
 
         {currentProject && (
-          <div className="relative flex items-center">
-            <select
-              value={selectedTaskId}
-              onChange={(e) => handleTaskChange(e.target.value)}
-              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate"
-            >
-              <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
-              {currentProject.tasks.map((t) => (
-                <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={selectedTaskId}
+            onChange={(v) => handleTaskChange(v)}
+            options={currentProject.tasks.map((t) => ({
+              value: t.id,
+              label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
+            }))}
+            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+            searchPlaceholder="Search tasks..."
+            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
+          />
         )}
 
         {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
-          <div className="relative flex items-center">
-            <select
-              value={selectedSubtaskId}
-              onChange={(e) => handleSubtaskChange(e.target.value)}
-              className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[180px] truncate"
-            >
-              <option value="">Select Subtask</option>
-              {currentTask.subtasks.map((st) => (
-                <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={selectedSubtaskId}
+            onChange={(v) => handleSubtaskChange(v)}
+            options={currentTask.subtasks.map((st) => ({
+              value: st.id,
+              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+            }))}
+            placeholder="Select Subtask"
+            searchPlaceholder="Search subtasks..."
+            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[180px]"
+          />
         )}
       </div>
 
@@ -440,13 +432,7 @@ function AddTaskRow({
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <Calendar size={12} className="text-muted-foreground" />
             <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
-            <input
-              type="date"
-              name="dueDate"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
-            />
+            <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
         </div>
 
@@ -1458,50 +1444,41 @@ function TaskRow({
             <div className="flex items-center gap-2 flex-wrap text-xs">
               <span className="font-semibold text-muted-foreground uppercase text-[11px]">Edit Task:</span>
 
-              <div className="relative flex items-center">
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => handleProjectChange(e.target.value)}
-                  className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[170px] truncate"
-                >
-                  <option value="">Select Project</option>
-                  {cascadingProjects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-              </div>
+              <SearchableSelect
+                value={selectedProjectId}
+                onChange={(v) => handleProjectChange(v)}
+                options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+                placeholder="Select Project"
+                searchPlaceholder="Search projects..."
+                className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"
+              />
 
               {currentProject && (
-                <div className="relative flex items-center">
-                  <select
-                    value={selectedTaskId}
-                    onChange={(e) => handleTaskChange(e.target.value)}
-                    className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate"
-                  >
-                    <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
-                    {currentProject.tasks.map((t) => (
-                      <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-                </div>
+                <SearchableSelect
+                  value={selectedTaskId}
+                  onChange={(v) => handleTaskChange(v)}
+                  options={currentProject.tasks.map((t) => ({
+                    value: t.id,
+                    label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
+                  }))}
+                  placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                  searchPlaceholder="Search tasks..."
+                  className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
+                />
               )}
 
               {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
-                <div className="relative flex items-center">
-                  <select
-                    value={selectedSubtaskId}
-                    onChange={(e) => handleSubtaskChange(e.target.value)}
-                    className="cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[180px] truncate"
-                  >
-                    <option value="">Select Subtask</option>
-                    {currentTask.subtasks.map((st) => (
-                      <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-                </div>
+                <SearchableSelect
+                  value={selectedSubtaskId}
+                  onChange={(v) => handleSubtaskChange(v)}
+                  options={currentTask.subtasks.map((st) => ({
+                    value: st.id,
+                    label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+                  }))}
+                  placeholder="Select Subtask"
+                  searchPlaceholder="Search subtasks..."
+                  className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[180px]"
+                />
               )}
             </div>
 
@@ -1555,13 +1532,7 @@ function TaskRow({
                 <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                   <Calendar size={12} className="text-muted-foreground" />
                   <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark]"
-                  />
+                  <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
                 </div>
               </div>
 
@@ -1780,7 +1751,7 @@ function SummaryTaskEditor({
   const projectTaskId = subtaskId || parentTaskId || "";
   const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
   const selectCls =
-    "cursor-pointer appearance-none rounded-md border bg-background py-1 pl-2 pr-6 text-xs font-medium text-foreground outline-none hover:border-primary focus:border-primary max-w-[200px] truncate";
+    "rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]";
 
   return (
     <form
@@ -1798,43 +1769,44 @@ function SummaryTaskEditor({
 
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">{task ? "Edit Task:" : "New Task:"}</span>
-        <div className="relative flex items-center">
-          <select
-            value={projectId}
-            onChange={(e) => { setProjectId(e.target.value); setParentTaskId(""); setSubtaskId(""); }}
-            className={selectCls}
-          >
-            <option value="">Select Project</option>
-            {cascadingProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-        </div>
+        <SearchableSelect
+          value={projectId}
+          onChange={(v) => { setProjectId(v); setParentTaskId(""); setSubtaskId(""); }}
+          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          placeholder="Select Project"
+          searchPlaceholder="Search projects..."
+          className={selectCls}
+        />
         {currentProject && (
-          <div className="relative flex items-center">
-            <select
-              value={parentTaskId}
-              onChange={(e) => {
-                setParentTaskId(e.target.value);
-                setSubtaskId("");
-                const chosen = currentProject.tasks.find((t) => t.id === e.target.value);
-                if (chosen && !text.trim()) setText(chosen.title);
-              }}
-              className={selectCls}
-            >
-              <option value="">{currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}</option>
-              {currentProject.tasks.map((t) => <option key={t.id} value={t.id}>{t.code ? `[${t.code}] ` : ""}{t.title}</option>)}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={parentTaskId}
+            onChange={(v) => {
+              setParentTaskId(v);
+              setSubtaskId("");
+              const chosen = currentProject.tasks.find((t) => t.id === v);
+              if (chosen && !text.trim()) setText(chosen.title);
+            }}
+            options={currentProject.tasks.map((t) => ({
+              value: t.id,
+              label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
+            }))}
+            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+            searchPlaceholder="Search tasks..."
+            className={selectCls}
+          />
         )}
         {currentTask && currentTask.subtasks.length > 0 && (
-          <div className="relative flex items-center">
-            <select value={subtaskId} onChange={(e) => setSubtaskId(e.target.value)} className={selectCls}>
-              <option value="">Select Subtask</option>
-              {currentTask.subtasks.map((st) => <option key={st.id} value={st.id}>{st.code ? `[${st.code}] ` : ""}{st.title}</option>)}
-            </select>
-            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 text-muted-foreground" />
-          </div>
+          <SearchableSelect
+            value={subtaskId}
+            onChange={setSubtaskId}
+            options={currentTask.subtasks.map((st) => ({
+              value: st.id,
+              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+            }))}
+            placeholder="Select Subtask"
+            searchPlaceholder="Search subtasks..."
+            className={selectCls}
+          />
         )}
       </div>
 
@@ -2137,7 +2109,7 @@ function YesterdayTasksSection({
                 <th className="py-2 pr-3">Project</th>
                 <th className="py-2 pr-3">Task ID</th>
                 <th className="py-2 pr-3">Task / Subtask</th>
-                <th className="py-2 pr-3">Time Tracked</th>
+                <th className="py-2 pr-3">Effort Logs</th>
                 <th className="py-2 pr-2 text-center">Action</th>
               </tr>
             </thead>
@@ -2714,68 +2686,49 @@ export function ParkingLotSection({
 
                 {/* Line 2: Project Selector + Task Selector + Subtask Selector */}
                 <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
-                  <div className="relative flex items-center">
-                    <select
-                      value={tree.projectId}
-                      disabled={isLocked && item.persisted}
-                      onChange={(e) => handleProjectChange(i, e.target.value)}
-                      className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate disabled:opacity-75"
-                    >
-                      <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                        {cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                      </option>
-                      {cascadingProjects.map((p) => (
-                        <option key={p.id} value={p.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                  </div>
+                  <SearchableSelect
+                    value={tree.projectId}
+                    disabled={isLocked && item.persisted}
+                    onChange={(v) => handleProjectChange(i, v)}
+                    options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+                    placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
+                    searchPlaceholder="Search projects..."
+                    className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px] disabled:opacity-75"
+                  />
 
                   {tree.currentProject && (
                     <>
                       <div className="h-3.5 w-px bg-border shrink-0" />
-                      <div className="relative flex items-center">
-                        <select
-                          value={tree.taskId}
-                          disabled={isLocked && item.persisted}
-                          onChange={(e) => handleTaskChange(i, e.target.value, tree.currentProject)}
-                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[200px] truncate disabled:opacity-75"
-                        >
-                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                            {tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                          </option>
-                          {tree.currentProject.tasks.map((t) => (
-                            <option key={t.id} value={t.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                              {t.code ? `[${t.code}] ` : ""}{t.title}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                      </div>
+                      <SearchableSelect
+                        value={tree.taskId}
+                        disabled={isLocked && item.persisted}
+                        onChange={(v) => handleTaskChange(i, v, tree.currentProject)}
+                        options={tree.currentProject.tasks.map((t) => ({
+                          value: t.id,
+                          label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
+                        }))}
+                        placeholder={tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                        searchPlaceholder="Search tasks..."
+                        className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[200px] disabled:opacity-75"
+                      />
                     </>
                   )}
 
                   {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
                     <>
                       <div className="h-3.5 w-px bg-border shrink-0" />
-                      <div className="relative flex items-center">
-                        <select
-                          value={tree.subtaskId}
-                          disabled={isLocked && item.persisted}
-                          onChange={(e) => handleSubtaskChange(i, e.target.value, tree.currentTask)}
-                          className="cursor-pointer appearance-none bg-transparent pr-5 text-xs font-medium text-foreground outline-none hover:text-primary transition-colors max-w-[180px] truncate disabled:opacity-75"
-                        >
-                          <option value="" className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">Select Subtask</option>
-                          {tree.currentTask.subtasks.map((st) => (
-                            <option key={st.id} value={st.id} className="bg-card text-foreground dark:bg-[#1a1f26] dark:text-[#f8fafc]">
-                              {st.code ? `[${st.code}] ` : ""}{st.title}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-0 text-muted-foreground" />
-                      </div>
+                      <SearchableSelect
+                        value={tree.subtaskId}
+                        disabled={isLocked && item.persisted}
+                        onChange={(v) => handleSubtaskChange(i, v, tree.currentTask)}
+                        options={tree.currentTask.subtasks.map((st) => ({
+                          value: st.id,
+                          label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+                        }))}
+                        placeholder="Select Subtask"
+                        searchPlaceholder="Search subtasks..."
+                        className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px] disabled:opacity-75"
+                      />
                     </>
                   )}
                 </div>
@@ -2785,15 +2738,13 @@ export function ParkingLotSection({
                   <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                     <Calendar size={12} className="text-muted-foreground" />
                     <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
-                    <input
-                      type="date"
+                    <DueDateInput
                       value={item.dueDate}
                       disabled={isLocked && item.persisted}
-                      onChange={(e) => {
-                        updateLocal(i, "dueDate", e.target.value);
-                        persistField(i, { dueDate: e.target.value });
+                      onChange={(v) => {
+                        updateLocal(i, "dueDate", v);
+                        persistField(i, { dueDate: v });
                       }}
-                      className="cursor-pointer bg-transparent text-xs text-foreground outline-none [color-scheme:light] dark:[color-scheme:dark] disabled:opacity-75"
                     />
                     {daysOut !== null && daysOut >= 0 && (
                       <span className="whitespace-nowrap font-medium text-muted-foreground">(In {daysOut}d)</span>

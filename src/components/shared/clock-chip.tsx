@@ -37,10 +37,10 @@ export function ClockChip() {
           type="button"
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-1.5 rounded-full bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
-          title="Log Time"
+          title="Log Effort"
         >
           <Plus size={13} />
-          <span>Time Log</span>
+          <span>Effort Log</span>
         </button> */}
       </div>
 

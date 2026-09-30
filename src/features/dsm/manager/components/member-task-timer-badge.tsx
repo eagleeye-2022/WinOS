@@ -251,7 +251,7 @@ export function MemberTaskTimerBadge({
   return (
     <div
       className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
-      title={`No time logged for this task on ${dateStr}`}
+      title={`No effort logged for this task on ${dateStr}`}
     >
       <Timer size={13} className="shrink-0 text-muted-foreground/60" />
       <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-muted-foreground/60">

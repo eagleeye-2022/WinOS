@@ -270,7 +270,7 @@ export function UserDetailDrawer({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <span>Time Logs</span>
+                <span>Effort Logs</span>
                 <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-mono text-primary">
                   {details.timeStats?.totalLogged || "00:00 h"}
                 </span>
@@ -396,7 +396,7 @@ export function UserDetailDrawer({
                   {details.timeLogs.length === 0 ? (
                     <div className="p-8 text-center border border-dashed rounded-xl space-y-2 text-muted-foreground">
                       <Clock size={24} className="mx-auto" />
-                      <p className="text-xs">No time log entries recorded for this user in this project.</p>
+                      <p className="text-xs">No effort log entries recorded for this user in this project.</p>
                     </div>
                   ) : (
                     details.timeLogs.map((log: UserDrawerTimeLogItem) => (

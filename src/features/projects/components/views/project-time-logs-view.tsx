@@ -226,7 +226,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       await loadData(false);
     } catch (err) {
       console.error("Failed to update time log:", err);
-      alert(err instanceof Error ? err.message : "Failed to update time log.");
+      alert(err instanceof Error ? err.message : "Failed to update effort log.");
     }
   };
 
@@ -242,13 +242,13 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
   };
 
   const handleDeleteLog = async (logId: string) => {
-    if (!confirm("Are you sure you want to delete this time log?")) return;
+    if (!confirm("Are you sure you want to delete this effort log?")) return;
     try {
       await deleteTimeLogAction(logId);
       await loadData(false);
     } catch (err) {
       console.error("Failed to delete log:", err);
-      alert("Failed to delete time log. You may only delete your own logs.");
+      alert("Failed to delete effort log. You may only delete your own logs.");
     }
   };
 
@@ -267,11 +267,11 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         <div>
           {/* <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Clock size={20} className="text-primary" />
-            Project Time Logs
+            Project Effort Logs
           </h2> */}
           {/* <p className="text-xs text-muted-foreground mt-0.5">
             {isManagerOrAdmin
-              ? "Viewing all time logs for this project (Manager / Admin view)"
+              ? "Viewing all effort logs for this project (Manager / Admin view)"
               : "Viewing your logged time for this project (Team Member view)"}
           </p> */}
         </div>
@@ -283,7 +283,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors cursor-pointer self-start md:self-auto"
           >
             <Plus size={15} />
-            Add Time Log
+            Add Effort Log
           </button>
         ) : ( */}
         {isClient && (
@@ -308,7 +308,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             {summary?.totalHoursStr || "00:00 h"}
           </p>
           <p className="text-[11px] text-muted-foreground mt-1">
-            {allLogs.length} time log{allLogs.length !== 1 ? "s" : ""} recorded
+            {allLogs.length} effort log{allLogs.length !== 1 ? "s" : ""} recorded
           </p>
         </div>
 
@@ -409,7 +409,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search time logs..."
+              placeholder="Search effort logs..."
               className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-1.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -467,7 +467,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         <div className="space-y-3">
           {userGroupMap.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground italic">
-              No time logs found matching your criteria.
+              No effort logs found matching your criteria.
             </div>
           ) : (
             userGroupMap.map((userGroup) => {
@@ -680,7 +680,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                 {filteredLogs.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground italic">
-                      No time logs found matching your criteria.
+                      No effort logs found matching your criteria.
                     </td>
                   </tr>
                 ) : (

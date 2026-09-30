@@ -75,7 +75,7 @@ export function ShareTimesheetModal({ isOpen, onClose, date, dateLabel }: ShareT
         <div className="flex items-center justify-between border-b px-6 py-4 bg-muted/30">
           <div className="flex items-center gap-2">
             <Link2 size={16} className="text-primary" />
-            <h2 className="text-sm font-bold">Share time logs · {dateLabel}</h2>
+            <h2 className="text-sm font-bold">Share effort logs · {dateLabel}</h2>
           </div>
           <button
             type="button"
@@ -88,7 +88,7 @@ export function ShareTimesheetModal({ isOpen, onClose, date, dateLabel }: ShareT
 
         <div className="px-6 py-5 space-y-4 text-xs">
           <p className="text-muted-foreground leading-relaxed">
-            Anyone with this link can view <strong className="text-foreground">your own</strong> time logs for this
+            Anyone with this link can view <strong className="text-foreground">your own</strong> effort logs for this
             day, read-only, without signing in. Edits you make later show up on the shared page.
           </p>
 

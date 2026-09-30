@@ -711,7 +711,7 @@ export function AllProjectsTableView({
             className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
           >
             <Plus size={14} />
-            <span>Time Log</span>
+            <span>Effort Log</span>
           </button> */}
           {userRole === "TEAM_MEMBER" ? (
             /* Team Member Mode Header Actions (matching Image 1) — project creation is
@@ -800,7 +800,7 @@ export function AllProjectsTableView({
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" defaultChecked className="rounded" />
-                  <span>Enable time log alerts</span>
+                  <span>Enable effort log alerts</span>
                 </label>
               </div>
             </div>

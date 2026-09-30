@@ -132,7 +132,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   // Role Perspective Switcher — derived from the signed-in user's real workspace role.
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
   const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
-  const [timeSheetView, setTimeSheetView] = useState<"My Time Logs" | "All Time Logs" | "Team Time Logs">("All Time Logs");
+  const [timeSheetView, setTimeSheetView] = useState<"My Effort Logs" | "All Effort Logs" | "Team Effort Logs">("All Effort Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -382,7 +382,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   const handleDeleteSelected = async () => {
     if (selectedLogIds.length === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedLogIds.length} selected time logs?`)) return;
+    if (!confirm(`Are you sure you want to delete ${selectedLogIds.length} selected effort logs?`)) return;
     try {
       for (const logId of selectedLogIds) {
         await deleteTimeLogAction(logId);
@@ -514,7 +514,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           if (isTodayLog) {
             const currentMin = today.getHours() * 60 + today.getMinutes();
             if (startMin > currentMin || endMin > currentMin) {
-              toast.error("Time logging is not allowed for future dates and times.");
+              toast.error("Effort logging is not allowed for future dates and times.");
               setUserGroups([...userGroups]);
               return;
             }
@@ -608,7 +608,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   };
 
   const handleDeleteSingleLog = async (logId: string) => {
-    if (!confirm("Are you sure you want to delete this time log?")) return;
+    if (!confirm("Are you sure you want to delete this effort log?")) return;
     try {
       await deleteTimeLogAction(logId);
       setUserGroups((prevGroups) =>
@@ -913,7 +913,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-bold tracking-wide text-foreground">
-            Time Logs
+            Effort Logs
           </h1>
           <span className="text-muted-foreground">•</span>
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 text-xs font-semibold">
@@ -921,7 +921,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               type="button"
               onClick={() => {
                 setRoleMode("ADMIN");
-                setTimeSheetView("All Time Logs");
+                setTimeSheetView("All Effort Logs");
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
                 roleMode === "ADMIN"
@@ -936,7 +936,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               type="button"
               onClick={() => {
                 setRoleMode("USER");
-                setTimeSheetView("My Time Logs");
+                setTimeSheetView("My Effort Logs");
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
                 roleMode === "USER"
@@ -1099,9 +1099,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               onChange={(e) => setTimeSheetView(e.target.value as typeof timeSheetView)}
               className="bg-transparent text-primary font-semibold outline-none cursor-pointer appearance-none pr-4"
             >
-              <option value="My Time Logs" className="bg-card text-foreground">My Time Logs</option>
-              <option value="All Time Logs" className="bg-card text-foreground">All Time Logs</option>
-              <option value="Team Time Logs" className="bg-card text-foreground">Team Time Logs</option>
+              <option value="My Effort Logs" className="bg-card text-foreground">My Effort Logs</option>
+              <option value="All Effort Logs" className="bg-card text-foreground">All Effort Logs</option>
+              <option value="Team Effort Logs" className="bg-card text-foreground">Team Effort Logs</option>
             </select>
             <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
           </div> */}
@@ -1205,7 +1205,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             type="button"
             onClick={() => setShowShareModal(true)}
             className="flex items-center gap-1.5 rounded border border-border bg-card hover:bg-accent px-3 py-1 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
-            title="Share your time logs for this day via a link"
+            title="Share your effort logs for this day via a link"
           >
             <Share2 size={13} className="text-primary" />
             <span>Share</span>
@@ -1218,7 +1218,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               onClick={() => setShowAddLogModal(true)}
               className="px-3.5 py-1 text-xs hover:bg-primary/90 transition-colors border-r border-primary-foreground/20 cursor-pointer"
             >
-              Add Time Log
+              Add Effort Log
             </button>
             <button
               type="button"
@@ -1438,7 +1438,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           >
                             <div className="flex items-center gap-1.5 text-primary font-semibold">
                               <Plus size={14} />
-                              <span>Add Time Log</span>
+                              <span>Add Effort Log</span>
                             </div>
                             {/* <span className="text-[10px] text-muted-foreground font-normal">Click to add new inline editable row</span> */}
                           </td>
@@ -1585,7 +1585,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                     setShowAddLogModal(true);
                                   }}
                                   className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
-                                  title="Edit Time Log"
+                                  title="Edit Effort Log"
                                 >
                                   <Edit2 size={13} />
                                 </button>
@@ -1593,7 +1593,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   type="button"
                                   onClick={() => handleDeleteSingleLog(log.id)}
                                   className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                  title="Delete Time Log"
+                                  title="Delete Effort Log"
                                 >
                                   <Trash2 size={13} />
                                 </button>
@@ -2117,7 +2117,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <div className="flex items-center justify-between border-b pb-3 border-border">
               <div className="flex items-center gap-2">
                 <BarChart3 size={20} className="text-primary" />
-                <h3 className="text-base font-bold text-foreground">Time Tracking Productivity & Billing Report</h3>
+                <h3 className="text-base font-bold text-foreground">Effort Log Productivity & Billing Report</h3>
               </div>
               <button
                 type="button"

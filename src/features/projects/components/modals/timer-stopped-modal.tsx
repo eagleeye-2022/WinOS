@@ -122,7 +122,7 @@ export function TimerStoppedModal({
     }
 
     if (newStart > now || newEnd > now) {
-      setErrorMsg("Time logging is not allowed for future dates and times.");
+      setErrorMsg("Effort logging is not allowed for future dates and times.");
       return;
     }
 
@@ -150,7 +150,7 @@ export function TimerStoppedModal({
 
     const now = new Date();
     if (startTime > now || endTime > now) {
-      setErrorMsg("Time logging is not allowed for future dates and times.");
+      setErrorMsg("Effort logging is not allowed for future dates and times.");
       return;
     }
 

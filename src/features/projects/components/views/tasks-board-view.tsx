@@ -1403,7 +1403,7 @@ export function TasksBoardView({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Time Logs
+            Effort Logs
           </button>
           <button
             type="button"

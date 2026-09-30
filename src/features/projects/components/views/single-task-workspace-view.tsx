@@ -679,7 +679,7 @@ export function SingleTaskWorkspaceView({
   }, [refreshTaskTimeLogs]);
 
   const handleTimerWidgetLogSaved = () => {
-    showToast("Time log saved & timer stopped in DB");
+    showToast("Effort log saved & timer stopped in DB");
     setActiveTimerStatus("IDLE");
     setActiveTimerSeconds(0);
     setActiveTimerStartTime(undefined);
@@ -711,7 +711,7 @@ export function SingleTaskWorkspaceView({
       };
       await createTimeLogAction(payload, targetProjectId);
 
-      showToast("Time log saved & timer stopped in DB");
+      showToast("Effort log saved & timer stopped in DB");
       setActiveTimerStatus("IDLE");
       setActiveTimerSeconds(0);
       setActiveTimerStartTime(undefined);
@@ -1330,7 +1330,7 @@ export function SingleTaskWorkspaceView({
               className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer"
             >
               <Plus size={14} />
-              <span>Time Log</span>
+              <span>Effort Log</span>
             </button>
 
             {/* Button 1: More Actions (...) */}
@@ -1740,7 +1740,7 @@ export function SingleTaskWorkspaceView({
                   className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer shrink-0 ml-auto"
                 >
                   <Plus size={14} />
-                  <span>Add Time Log</span>
+                  <span>Add Effort Log</span>
                 </button>
               )}
             </div>
@@ -2000,7 +2000,7 @@ export function SingleTaskWorkspaceView({
                           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
                         >
                           <Square size={13} fill="currentColor" />
-                          <span>Stop & Log Time</span>
+                          <span>Stop & Log Effort</span>
                         </button>
                       </div>
                     </div>
@@ -2054,7 +2054,7 @@ export function SingleTaskWorkspaceView({
                         {dateGroupsData.length === 0 ? (
                           <tr>
                             <td colSpan={9} className="py-8 text-center text-muted-foreground italic dark:text-zinc-400">
-                              No time logs recorded for this task yet. Click &quot;Add Time Log&quot; to log work hours.
+                              No effort logs recorded for this task yet. Click &quot;Add Effort Log&quot; to log work hours.
                             </td>
                           </tr>
                         ) : (
@@ -2249,8 +2249,8 @@ export function SingleTaskWorkspaceView({
                                             onClick={async (e) => {
                                               e.stopPropagation();
                                               const ok = await confirm({
-                                                title: "Delete time log?",
-                                                description: "Are you sure you want to delete this time log?",
+                                                title: "Delete effort log?",
+                                                description: "Are you sure you want to delete this effort log?",
                                               });
                                               if (ok) {
                                                 await deleteTimeLogAction(log.id);
@@ -2258,7 +2258,7 @@ export function SingleTaskWorkspaceView({
                                               }
                                             }}
                                             className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                                            title="Delete Time Log"
+                                            title="Delete Effort Log"
                                           >
                                             <Trash2 size={13} />
                                           </button>
