@@ -2253,8 +2253,13 @@ export function SingleTaskWorkspaceView({
                                                 description: "Are you sure you want to delete this effort log?",
                                               });
                                               if (ok) {
-                                                await deleteTimeLogAction(log.id);
-                                                refreshTaskTimeLogs();
+                                                const res = await deleteTimeLogAction(log.id);
+                                                if (res.success) {
+                                                  toast.success("Effort log deleted.");
+                                                  refreshTaskTimeLogs();
+                                                } else {
+                                                  toast.error(res.error || "Couldn't delete the effort log.");
+                                                }
                                               }
                                             }}
                                             className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"

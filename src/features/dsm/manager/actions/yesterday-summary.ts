@@ -47,24 +47,29 @@ export type DsrDayCompletion = {
   hasDsr: boolean;
   /** Normalized planned-task text → ticked in that day's DSR. */
   completed: Record<string, boolean>;
+  /** "Additional Work Done Today" items from that day's DSR — work done outside the planned tasks. */
+  additionalWorks: { id: string; text: string; completed: boolean }[];
 };
 
 /** The member's DSR ticks for one day, used as the source of truth for "done" in the summary. */
 export async function getDsrCompletionForDay(memberId: string, dateStr: string): Promise<DsrDayCompletion> {
   const manager = await requireManagerUser();
-  if (!manager || !memberId || !dateStr) return { hasDsr: false, completed: {} };
+  if (!manager || !memberId || !dateStr) return { hasDsr: false, completed: {}, additionalWorks: [] };
 
   const dsr = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: memberId, date: new Date(dateStr.slice(0, 10) + "T00:00:00.000Z") } },
-    select: { plannedTasks: { select: { text: true, completed: true } } },
+    select: {
+      plannedTasks: { select: { text: true, completed: true } },
+      additionalWorks: { select: { id: true, text: true, completed: true }, orderBy: { order: "asc" } },
+    },
   });
-  if (!dsr) return { hasDsr: false, completed: {} };
+  if (!dsr) return { hasDsr: false, completed: {}, additionalWorks: [] };
 
   const completed: Record<string, boolean> = {};
   for (const t of dsr.plannedTasks as { text: string; completed: boolean }[]) {
     completed[normText(t.text)] = t.completed;
   }
-  return { hasDsr: true, completed };
+  return { hasDsr: true, completed, additionalWorks: dsr.additionalWorks };
 }
 
 /** Mirror a manager's done/not-done onto the matching DSR planned task (and its counters), so

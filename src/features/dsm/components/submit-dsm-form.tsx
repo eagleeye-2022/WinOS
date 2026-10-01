@@ -9,6 +9,7 @@ import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday 
 import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { YesterdayAdditionalWork, type AdditionalWorkItem } from "./yesterday-additional-work";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { formatTime } from "@/features/calendar/utils";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
@@ -1109,6 +1110,8 @@ function Section({ icon, title, required, headerAction, children }: {
 type SubmitDsmFormProps = {
   entry: EntryWithDetails | null;
   yesterdayTasks: string[];
+  /** Extra work recorded in yesterday's DSR, outside the planned tasks. */
+  yesterdayAdditionalWork?: AdditionalWorkItem[];
   yesterdayIncompleteTasks: string[];
   yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
   yesterdaySupportNeeds: { text: string; mentionedUserId?: string | null }[];
@@ -1126,6 +1129,7 @@ const initialState: SaveDsmState = {};
 export function SubmitDsmForm({
   entry,
   yesterdayTasks,
+  yesterdayAdditionalWork = [],
   yesterdayIncompleteTasks,
   yesterdayBlockers,
   yesterdaySupportNeeds,
@@ -1431,6 +1435,7 @@ export function SubmitDsmForm({
           ) : (
             <p className="text-sm text-muted-foreground/60">No Entries for Yesterday.</p>
           )}
+          <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
         </Section>
 
         {/* Today's Scheduled Zoho Calendar Meetings Widget */}

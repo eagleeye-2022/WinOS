@@ -39,6 +39,8 @@ import {
   calculateMinutesFromTimeRange,
   compareTimeLogsLatestFirst,
 } from "../../utils/time-helpers";
+import { toast } from "@/components/shared/toast";
+import { useConfirm } from "@/components/shared/confirm-dialog";
 
 interface ProjectTimeLogsViewProps {
   projectId: string;
@@ -46,6 +48,7 @@ interface ProjectTimeLogsViewProps {
 }
 
 export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsViewProps) {
+  const { confirm: confirmDialog, ConfirmDialog } = useConfirm();
   const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);
   const [summary, setSummary] = useState<ProjectTimeSummary | null>(null);
   const [userRole, setUserRole] = useState<string>("TEAM_MEMBER");
@@ -242,13 +245,23 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
   };
 
   const handleDeleteLog = async (logId: string) => {
-    if (!confirm("Are you sure you want to delete this effort log?")) return;
+    const ok = await confirmDialog({
+      title: "Delete effort log?",
+      description: "This can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
-      await deleteTimeLogAction(logId);
+      const res = await deleteTimeLogAction(logId);
+      if (!res.success) {
+        toast.error(res.error || "Couldn't delete the effort log.");
+        return;
+      }
+      toast.success("Effort log deleted.");
       await loadData(false);
     } catch (err) {
       console.error("Failed to delete log:", err);
-      alert("Failed to delete effort log. You may only delete your own logs.");
+      toast.error("Couldn't delete the effort log. Please try again.");
     }
   };
 
@@ -821,6 +834,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           }}
         />
       )}
+      {ConfirmDialog}
     </div>
   );
 }

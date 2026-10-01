@@ -6,6 +6,7 @@ import {
   CORE_DAILY_TASKS_CLOSED_STATUSES,
   CORE_DAILY_TASKS_LIST_NAME,
   CORE_DAILY_TASKS_PROJECT_CODE,
+  sortCoreDailyTasks,
 } from "./core-daily-tasks";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -296,6 +297,35 @@ export async function getYesterdayTasks(): Promise<string[]> {
 }
 
 /**
+ * "Additional Work Done Today" items from the DSR of the same day `getYesterdayTasks` reads
+ * (the latest submitted DSM before today) — extra work done outside the planned tasks.
+ */
+export async function getYesterdayAdditionalWork(): Promise<{ id: string; text: string; completed: boolean }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId: session.user.id,
+      date: { lt: toUtcDate() },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    select: { date: true },
+    orderBy: { date: "desc" },
+  });
+  if (!entry) return [];
+
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId: session.user.id, date: entry.date } },
+    select: { additionalWorks: { select: { id: true, text: true, completed: true }, orderBy: { order: "asc" } } },
+  });
+  return dsr?.additionalWorks ?? [];
+}
+
+/**
  * Yesterday's TODAY tasks that were NOT marked complete.
  * Completion state for a DSM task doesn't live on StandupTask itself — it's recorded
  * on that same day's evening DsrEntry.plannedTasks (matched by text, no FK between them).
@@ -532,6 +562,16 @@ export type CoreDailyTask = {
   code: string;
   title: string;
   projectId: string;
+  status: string;
+  description: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  workHours: string | null;
+  taskListName: string | null;
+  authorName: string | null;
+  createdAt: Date;
+  project: { name: string; code: string | null } | null;
+  owners: { user: { id: string; name: string | null; email: string; image: string | null } }[];
 };
 
 /**
@@ -572,11 +612,25 @@ export async function getCoreDailyTasks(targetUserId?: string): Promise<CoreDail
       status: { notIn: CORE_DAILY_TASKS_CLOSED_STATUSES },
       ...(isProjectMember ? {} : { owners: { some: { userId } } }),
     },
-    select: { id: true, code: true, title: true, projectId: true },
-    orderBy: { code: "asc" },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      projectId: true,
+      status: true,
+      description: true,
+      startDate: true,
+      dueDate: true,
+      workHours: true,
+      taskListName: true,
+      authorName: true,
+      createdAt: true,
+      project: { select: { name: true, code: true } },
+      owners: { select: { user: { select: { id: true, name: true, email: true, image: true } } } },
+    },
   });
 
-  return tasks as CoreDailyTask[];
+  return sortCoreDailyTasks(tasks as CoreDailyTask[]);
 }
 
 /** All users for @mention support. */
