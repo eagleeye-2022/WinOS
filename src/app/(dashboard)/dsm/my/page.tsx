@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import {
   getTodayEntry,
-  getYesterdayTasks,
+  getYesterdaySummary,
+  getMyTodayEffort,
   getYesterdayIncompleteTasks,
   getYesterdayBlockers,
   getYesterdaySupportNeeds,
@@ -21,6 +22,7 @@ import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
 import { CoreDailyTasksPanel } from "@/features/dsm/components/core-daily-tasks-panel";
+import { TodayEffortCard } from "@/features/dsm/components/today-effort-card";
 import { DsmHeader } from "@/features/dsm/components/dsm-header";
 import { DsmSelfPanel } from "@/features/dsm/components/dsm-self-panel";
 
@@ -40,10 +42,10 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterdayTasks, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks, coreDailyTasks, yesterdayAdditionalWork] =
+  const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort] =
     await Promise.all([
       getTodayEntry(),
-      getYesterdayTasks(),
+      getYesterdaySummary(),
       getYesterdayIncompleteTasks(),
       getYesterdayBlockers(),
       getYesterdaySupportNeeds(),
@@ -57,6 +59,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       getParkedTasks(),
       getCoreDailyTasks(),
       getYesterdayAdditionalWork(),
+      getMyTodayEffort(),
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
@@ -80,7 +83,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
 
         <DsmSelfPanel
           entry={todayEntry}
-          yesterdayTasks={yesterdayTasks}
+          yesterday={yesterday}
           yesterdayAdditionalWork={yesterdayAdditionalWork}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
           yesterdayBlockers={yesterdayBlockers}
@@ -105,14 +108,13 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
             userRole={session.user.role}
           />
         </div>
-        {(coreDailyTasks.length > 0 || todayEntry) && (
-          <div className="flex flex-col gap-4 p-4">
-            {coreDailyTasks.length > 0 && <CoreDailyTasksPanel tasks={coreDailyTasks} />}
-            {todayEntry && (
-              <StandupTimeline entry={todayEntry} events={todayEntry.timelineEvents} />
-            )}
-          </div>
-        )}
+        <div className="flex flex-col gap-4 p-4">
+          {coreDailyTasks.length > 0 && <CoreDailyTasksPanel tasks={coreDailyTasks} />}
+          <TodayEffortCard rows={todayEffort} />
+          {todayEntry && (
+            <StandupTimeline entry={todayEntry} events={todayEntry.timelineEvents} />
+          )}
+        </div>
       </aside>
     </div>
   );

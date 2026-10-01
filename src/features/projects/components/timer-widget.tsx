@@ -14,6 +14,7 @@ import { formatTimePeriodRange } from "../utils/time-helpers";
 import { useActiveTimerContext, type ActiveTimerData } from "../context/active-timer-context";
 import type { TimeLogEntry } from "../types";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { toast } from "@/components/shared/toast";
 
 interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
@@ -92,24 +93,86 @@ export function TimerWidget({
   // fire one getActiveTimerAction() call per visible task card every 30s).
   const activeTimerCtx = useActiveTimerContext();
 
+  const timerStateRef = useRef(timerState);
+  useEffect(() => {
+    timerStateRef.current = timerState;
+  }, [timerState]);
+
   const applyDbTimer = useCallback(
     (dbTimer: Pick<ActiveTimerData, "startedAt" | "elapsedSeconds" | "taskId" | "task"> | null) => {
-      if (isStoppingRef.current || !dbTimer) return;
+      if (isStoppingRef.current) return;
       const isCurrentTask =
-        !taskCode && !taskId
+        !!dbTimer &&
+        (!taskCode && !taskId
           ? true
           : dbTimer.task?.code === taskCode ||
             dbTimer.taskId === taskId ||
-            dbTimer.taskId === taskCode;
+            dbTimer.taskId === taskCode);
 
-      if (isCurrentTask) {
+      if (dbTimer && isCurrentTask) {
         setStartTimeRef(new Date(dbTimer.startedAt));
         setSeconds(dbTimer.elapsedSeconds || 0);
         setTimerState("RUNNING");
+      } else if (timerStateRef.current === "RUNNING" && (taskCode || taskId)) {
+        // The server's timer is now on another task (or was stopped elsewhere) — stop showing it here.
+        setTimerState("IDLE");
+        setSeconds(0);
+        setIsExpanded(defaultExpanded);
       }
     },
-    [taskCode, taskId]
+    [taskCode, taskId, defaultExpanded]
   );
+
+  /**
+   * Only one timer can run per user. If one is running on another task, ask before replacing it,
+   * and save its effort log so the time isn't silently lost. Returns false if the user cancels.
+   */
+  const stopOtherRunningTimer = async (): Promise<boolean> => {
+    const current = await getActiveTimerAction();
+    const running = current.success ? (current.data as ActiveTimerData | null) : null;
+    if (!running) return true;
+    const isThisTask =
+      running.taskId === taskId || running.taskId === taskCode || running.task?.code === taskCode;
+    if (isThisTask) return true;
+
+    const runningTitle = running.task?.title || running.task?.code || "another task";
+    const ok = await confirm({
+      title: "Another timer is running",
+      description: `"${runningTitle}" has been running for ${formatTime(running.elapsedSeconds || 0)}. Stop it, save its effort log, and start this one?`,
+      confirmLabel: "Stop & Start",
+      danger: false,
+    });
+    if (!ok) return false;
+
+    const ended = await endActiveTimerAction();
+    if (ended.success && ended.data) {
+      const started = new Date(ended.data.startedAt);
+      const endedAt = new Date(ended.data.endedAt);
+      const minutes = Math.max(1, Math.round(ended.data.elapsedSeconds / 60));
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      const clock = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      try {
+        await createTimeLogAction(
+          {
+            taskCode: ended.data.taskCode || ended.data.taskId,
+            projectId: ended.data.projectId,
+            duration: `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`,
+            billingType: ended.data.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
+            remarks: "",
+            timePeriod: formatTimePeriodRange(clock(started), clock(endedAt)),
+            date: started.toISOString().split("T")[0],
+          },
+          ended.data.projectId
+        );
+        toast.success(`Saved ${minutes} min on "${runningTitle}".`);
+      } catch (err) {
+        console.error("[TimerWidget] saving the replaced timer's log failed:", err);
+        toast.error(`Couldn't save the effort log for "${runningTitle}".`);
+      }
+    }
+    activeTimerCtx?.setLocalActiveTimer(null);
+    return true;
+  };
 
   useEffect(() => {
     if (!activeTimerCtx) return;
@@ -181,6 +244,10 @@ export function TimerWidget({
 
     const startTask = taskCode || taskId;
     if (startTask) {
+      if (!(await stopOtherRunningTimer())) {
+        setIsExpanded(defaultExpanded);
+        return;
+      }
       const res = await createActiveTimerAction({
         taskId: startTask,
         projectId,

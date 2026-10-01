@@ -7,13 +7,13 @@ import { SubmitDsmForm } from "./submit-dsm-form";
 import { WeekHistory } from "./week-history";
 import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
-import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask } from "../queries";
+import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask, YesterdaySummary } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import type { AdditionalWorkItem } from "./yesterday-additional-work";
 
 type DsmSelfPanelProps = {
   entry: EntryWithDetails | null;
-  yesterdayTasks: string[];
+  yesterday: YesterdaySummary;
   yesterdayAdditionalWork?: AdditionalWorkItem[];
   yesterdayIncompleteTasks: string[];
   yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
@@ -32,7 +32,7 @@ type DsmSelfPanelProps = {
 
 export function DsmSelfPanel({
   entry,
-  yesterdayTasks,
+  yesterday,
   yesterdayAdditionalWork = [],
   yesterdayIncompleteTasks,
   yesterdayBlockers,
@@ -58,7 +58,7 @@ export function DsmSelfPanel({
         {/* <TodaysFocusCard entry={entry} /> */}
         <SubmitDsmForm
           entry={entry}
-          yesterdayTasks={yesterdayTasks}
+          yesterday={yesterday}
           yesterdayAdditionalWork={yesterdayAdditionalWork}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
           yesterdayBlockers={yesterdayBlockers}

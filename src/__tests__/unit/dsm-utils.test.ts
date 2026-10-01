@@ -11,7 +11,22 @@ import {
   formatFullDate,
   sortTeamMembers,
   sortTeamGroups,
+  formatEffortMinutes,
 } from "@/features/dsm/utils";
+
+// ── formatEffortMinutes ───────────────────────────────────────────────────────
+
+describe("formatEffortMinutes", () => {
+  it("shows minutes only under an hour", () => {
+    expect(formatEffortMinutes(0)).toBe("0m");
+    expect(formatEffortMinutes(45)).toBe("45m");
+  });
+
+  it("shows hours and minutes from an hour up", () => {
+    expect(formatEffortMinutes(60)).toBe("1h 0m");
+    expect(formatEffortMinutes(135)).toBe("2h 15m");
+  });
+});
 
 // ── toUtcDate ─────────────────────────────────────────────────────────────────
 
