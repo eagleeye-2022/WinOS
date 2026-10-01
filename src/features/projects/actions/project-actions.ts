@@ -4044,11 +4044,15 @@ export async function updateTimeLogAction(
   return true;
 }
 
-export async function deleteTimeLogAction(logId: string): Promise<boolean> {
+/**
+ * Returns `{ success, error }` instead of throwing — Next.js hides thrown server-action messages
+ * in production, so callers couldn't otherwise tell the user why a delete was refused.
+ */
+export async function deleteTimeLogAction(logId: string): Promise<{ success: boolean; error?: string }> {
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   if (isClient) {
-    throw new Error("Client users have read-only access and cannot delete time logs.");
+    return { success: false, error: "Client users have read-only access and cannot delete effort logs." };
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -4057,23 +4061,39 @@ export async function deleteTimeLogAction(logId: string): Promise<boolean> {
     where: { id: logId },
   });
 
-  if (!existingLog) return false;
+  // Already gone (e.g. deleted in another tab) — treat as done so the row disappears.
+  if (!existingLog) return { success: true };
 
+  // Same ownership rule as updateTimeLogAction: managers can delete any log, members only their
+  // own — and only while it hasn't been approved yet.
   const isManager = await isPrivilegedViewer(session.user.id);
   if (!isManager) {
-    throw new Error("Only managers can delete time logs.");
+    if (existingLog.userId !== session.user.id) {
+      return { success: false, error: "You can only delete your own effort logs." };
+    }
+    if (existingLog.approvalStatus === "APPROVED") {
+      return { success: false, error: "Approved effort logs can't be deleted. Ask a manager." };
+    }
   }
 
-  await d.projectTimeLog.delete({
-    where: { id: logId },
-  });
+  try {
+    await d.projectTimeLog.delete({
+      where: { id: logId },
+    });
 
-  if (existingLog.projectId) {
-    await recalculateProjectTimeTotals(existingLog.projectId);
+    if (existingLog.projectId) {
+      await recalculateProjectTimeTotals(existingLog.projectId);
+    }
+    if (existingLog.taskId) {
+      await recalculateTaskWorkHours(existingLog.taskId);
+    }
+  } catch (err) {
+    console.error("[deleteTimeLogAction] error:", err);
+    return { success: false, error: "Couldn't delete the effort log. Please try again." };
   }
 
   revalidatePath("/projects/time-tracker");
-  return true;
+  return { success: true };
 }
 
 export async function approveTimeLogsAction(logIds: string[]): Promise<boolean> {

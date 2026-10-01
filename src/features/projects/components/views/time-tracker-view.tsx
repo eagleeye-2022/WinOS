@@ -62,6 +62,7 @@ import {
   getCurrentUserRoleAction,
 } from "../../actions/project-actions";
 import { toast } from "@/components/shared/toast";
+import { useConfirm } from "@/components/shared/confirm-dialog";
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
@@ -121,6 +122,7 @@ function InlineTextCell({
 }
 
 export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers }: TimeTrackerViewProps) {
+  const { confirm: confirmDialog, ConfirmDialog } = useConfirm();
   const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
   const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
 
@@ -380,22 +382,45 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     setSelectedLogIds([]);
   };
 
+  const removeLogsLocally = (ids: string[]) =>
+    setUserGroups((prevGroups) =>
+      prevGroups.map((g) => ({
+        ...g,
+        timeLogs: g.timeLogs.filter((l) => !ids.includes(l.id)),
+      }))
+    );
+
   const handleDeleteSelected = async () => {
     if (selectedLogIds.length === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedLogIds.length} selected effort logs?`)) return;
-    try {
-      for (const logId of selectedLogIds) {
-        await deleteTimeLogAction(logId);
+    const count = selectedLogIds.length;
+    const ok = await confirmDialog({
+      title: `Delete ${count} effort log${count === 1 ? "" : "s"}?`,
+      description: "This can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+
+    const deleted: string[] = [];
+    const errors = new Set<string>();
+    for (const logId of selectedLogIds) {
+      try {
+        const res = await deleteTimeLogAction(logId);
+        if (res.success) deleted.push(logId);
+        else errors.add(res.error || "Couldn't delete the effort log.");
+      } catch (err) {
+        console.error("Failed to delete time logs:", err);
+        errors.add("Couldn't delete the effort log. Please try again.");
       }
-      setUserGroups((prevGroups) =>
-        prevGroups.map((g) => ({
-          ...g,
-          timeLogs: g.timeLogs.filter((l) => !selectedLogIds.includes(l.id)),
-        }))
-      );
-      setSelectedLogIds([]);
-    } catch (err) {
-      console.error("Failed to delete time logs:", err);
+    }
+
+    removeLogsLocally(deleted);
+    setSelectedLogIds((prev) => prev.filter((id) => !deleted.includes(id)));
+    if (deleted.length > 0) {
+      toast.success(`Deleted ${deleted.length} effort log${deleted.length === 1 ? "" : "s"}.`);
+    }
+    if (errors.size > 0) {
+      const failed = count - deleted.length;
+      toast.error(`${failed} effort log${failed === 1 ? "" : "s"} not deleted: ${[...errors].join(" ")}`);
     }
   };
 
@@ -608,17 +633,24 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   };
 
   const handleDeleteSingleLog = async (logId: string) => {
-    if (!confirm("Are you sure you want to delete this effort log?")) return;
+    const ok = await confirmDialog({
+      title: "Delete effort log?",
+      description: "This can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
     try {
-      await deleteTimeLogAction(logId);
-      setUserGroups((prevGroups) =>
-        prevGroups.map((g) => ({
-          ...g,
-          timeLogs: g.timeLogs.filter((l) => l.id !== logId),
-        }))
-      );
+      const res = await deleteTimeLogAction(logId);
+      if (!res.success) {
+        toast.error(res.error || "Couldn't delete the effort log.");
+        return;
+      }
+      removeLogsLocally([logId]);
+      setSelectedLogIds((prev) => prev.filter((id) => id !== logId));
+      toast.success("Effort log deleted.");
     } catch (err) {
       console.error("Failed to delete time log:", err);
+      toast.error("Couldn't delete the effort log. Please try again.");
     }
   };
 
@@ -2230,6 +2262,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         </div>
       )}
 
+      {ConfirmDialog}
     </div>
   );
 }

@@ -21,6 +21,9 @@ import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { YesterdayAdditionalWork } from "@/features/dsm/components/yesterday-additional-work";
+import { toggleDsrAdditionalWork } from "@/features/dsr/manager/actions/toggle-dsr-additional-work";
+import { toast } from "@/components/shared/toast";
 import { reviewStandup, type ReviewStandupState } from "../actions/review-standup";
 import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-priority";
 import { editTask, type EditTaskState } from "../actions/edit-task";
@@ -2057,6 +2060,25 @@ function YesterdayTasksSection({
 
   const isDoneFor = (task: TaskItem) => dsr?.completed[task.text.trim().toLowerCase()] ?? Boolean(task.isCompleted);
 
+  // Manager check/uncheck of the DSR's additional work — same action as the DSR review page.
+  const toggleAdditionalWork = async (item: { id: string }) => {
+    const fd = new FormData();
+    fd.set("itemId", item.id);
+    const res = await toggleDsrAdditionalWork({}, fd);
+    if (res.message !== "toggled") {
+      toast.error(res.message || "Couldn't update the task.");
+      return;
+    }
+    setDsr((prev) =>
+      prev
+        ? {
+            ...prev,
+            additionalWorks: prev.additionalWorks.map((w) => (w.id === item.id ? { ...w, completed: !w.completed } : w)),
+          }
+        : prev
+    );
+  };
+
   const doneCount = rows.filter((r) => isDoneFor(r.task)).length;
   const totalMinutes = linkedIds.reduce((sum, id) => sum + (logged[id] ?? 0), 0);
 
@@ -2131,6 +2153,8 @@ function YesterdayTasksSection({
       ) : (
         <p className="text-xs text-muted-foreground italic">No tasks logged for the previous day.</p>
       )}
+
+      <YesterdayAdditionalWork items={dsr?.additionalWorks ?? []} onToggle={toggleAdditionalWork} />
 
       {/* {adding ? (
         <div className="mt-3">

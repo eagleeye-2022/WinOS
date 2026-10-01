@@ -51,6 +51,8 @@ export async function toggleDsrAdditionalWork(
   revalidatePath("/dsr/manage");
   revalidatePath("/dsr");
   revalidatePath("/dsr/my");
+  // Also shown under "What Did You Do Yesterday?" on the DSM member review.
+  revalidatePath(`/dsm/member/${item.dsrEntry.userId}`);
 
   return { message: "toggled" };
 }

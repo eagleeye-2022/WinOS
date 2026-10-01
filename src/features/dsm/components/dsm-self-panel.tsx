@@ -9,10 +9,12 @@ import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
+import type { AdditionalWorkItem } from "./yesterday-additional-work";
 
 type DsmSelfPanelProps = {
   entry: EntryWithDetails | null;
   yesterdayTasks: string[];
+  yesterdayAdditionalWork?: AdditionalWorkItem[];
   yesterdayIncompleteTasks: string[];
   yesterdayBlockers: { text: string; priority: "LOW" | "MEDIUM" | "HIGH"; mentionedUserId?: string | null }[];
   yesterdaySupportNeeds: { text: string; mentionedUserId?: string | null }[];
@@ -31,6 +33,7 @@ type DsmSelfPanelProps = {
 export function DsmSelfPanel({
   entry,
   yesterdayTasks,
+  yesterdayAdditionalWork = [],
   yesterdayIncompleteTasks,
   yesterdayBlockers,
   yesterdaySupportNeeds,
@@ -56,6 +59,7 @@ export function DsmSelfPanel({
         <SubmitDsmForm
           entry={entry}
           yesterdayTasks={yesterdayTasks}
+          yesterdayAdditionalWork={yesterdayAdditionalWork}
           yesterdayIncompleteTasks={yesterdayIncompleteTasks}
           yesterdayBlockers={yesterdayBlockers}
           yesterdaySupportNeeds={yesterdaySupportNeeds}
