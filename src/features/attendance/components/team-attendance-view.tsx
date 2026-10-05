@@ -85,7 +85,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
             Team Attendance
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Track your team's daily attendance and availability.
+            Track your team&apos;s daily attendance and availability.
           </p>
         </div>
 

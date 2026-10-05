@@ -142,8 +142,8 @@ export async function getMyAttendanceData(monthIndex: number, year: number) {
 
     let status: AttendanceStatus = "ABSENT";
     let isLive = false;
-    let checkInTime = existingAtt?.checkInTime || undefined;
-    let checkOutTime = existingAtt?.checkOutTime || undefined;
+    const checkInTime = existingAtt?.checkInTime || undefined;
+    const checkOutTime = existingAtt?.checkOutTime || undefined;
     const workMode = (existingAtt?.workMode as WorkMode) || "OFFICE";
     const checkInSource = (existingAtt?.checkInSource as AttendanceSource) || "Web";
     const checkOutSource = (existingAtt?.checkOutSource as AttendanceSource) || "Web";
