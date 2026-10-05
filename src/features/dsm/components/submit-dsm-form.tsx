@@ -364,6 +364,7 @@ function TaskRows({
                 {showProjectFeatures && (
                   <div className="flex items-center gap-2">
                     <TimerWidget
+                      instanceId={`dsm-task-row-${task.id}`}
                       taskId={tree.activeTargetTask?.id}
                       taskCode={tree.activeTargetTask?.code ?? undefined}
                       taskTitle={task.text || tree.activeTargetTask?.title}

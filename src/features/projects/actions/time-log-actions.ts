@@ -198,7 +198,26 @@ export async function createTimeLogAction(params: CreateTimeLogParams | any, ove
   const description = params.description || params.remarks || params.title || null;
 
   try {
-    const newLog = await d.projectTimeLog.create({
+    // Deduplication guard: Prevent creating duplicate time logs from simultaneous triggers
+    const fifteenSecondsAgo = new Date(Date.now() - 15000);
+    const existingDuplicate = await d.projectTimeLog.findFirst({
+      where: {
+        projectId: project.id,
+        taskId: task.id,
+        userId: sessionUser.id,
+        date: logDate,
+        duration: durationMinutes,
+        createdAt: { gte: fifteenSecondsAgo },
+      },
+      include: {
+        project: { select: { id: true, name: true, code: true } },
+        phase: { select: { id: true, name: true, code: true } },
+        task: { select: { id: true, title: true, code: true } },
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+    });
+
+    const newLog = existingDuplicate || (await d.projectTimeLog.create({
       data: {
         projectId: project.id,
         phaseId: phase.id,
@@ -216,7 +235,7 @@ export async function createTimeLogAction(params: CreateTimeLogParams | any, ove
         task: { select: { id: true, title: true, code: true } },
         user: { select: { id: true, name: true, email: true, image: true } },
       },
-    });
+    }));
 
     revalidatePath(`/projects/${project.id}/time-tracker`);
     revalidatePath(`/projects/${project.id}/tasks/${task.code}`);

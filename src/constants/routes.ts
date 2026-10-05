@@ -24,6 +24,11 @@ export const ROUTES = {
   settingsProfileAccess: "/settings/profile-access",
   pulseLeave: "/pulse/leave",
   pulseLeaveApply: "/pulse/leave/apply",
+  pulseAttendance: "/pulse/attendance",
+  pulseTeamAttendance: "/pulse/team-attendance",
+  pulseRegularization: "/pulse/regularization",
+  pulseReports: "/pulse/reports",
+  pulseProfile: "/pulse/profile",
   restricted: "/restricted",
 } as const;
 

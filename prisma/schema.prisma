@@ -105,6 +105,7 @@ model User {
   uploadedLeaveAttachments LeaveAttachment[]
   attendanceRegularizations AttendanceRegularization[] @relation("UserRegularizations")
   reviewedRegularizations AttendanceRegularization[]  @relation("RegularizationReviewer")
+  dailyAttendances        DailyAttendance[]
   createdHolidays         Holiday[]
 }
 
@@ -1646,28 +1647,80 @@ model LeaveAttachment {
 // ── 8. ATTENDANCE REGULARIZATION (Action Required) ───────────────────────────
 
 model AttendanceRegularization {
-  id              String                @id @default(cuid())
-  userId          String
+  id               String                @id @default(cuid())
+  userId           String
   
-  missingDate     DateTime
-  issueDescription String               @default("No attendance or leave record found")
+  missingDate      DateTime
+  issueDescription String                @default("No attendance or leave record found")
   
-  checkInTime     String
-  checkOutTime    String
-  reason          String
+  checkInTime      String
+  checkOutTime     String
+  reason           String
+  remarks          String?
+  rejectionReason  String?
+  existingCheckIn  String?
+  existingCheckOut String?
   
-  status          RegularizationStatus  @default(PENDING)
-  reviewedById    String?
-  reviewedAt      DateTime?
+  status           RegularizationStatus  @default(PENDING)
+  reviewedById     String?
+  reviewedAt       DateTime?
 
-  user            User                  @relation("UserRegularizations", fields: [userId], references: [id], onDelete: Cascade)
-  reviewedBy      User?                 @relation("RegularizationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  user             User                  @relation("UserRegularizations", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy       User?                 @relation("RegularizationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@index([userId, status])
   @@index([missingDate])
+}
+
+// ── 8B. DAILY ATTENDANCE RECORDS ─────────────────────────────────────────────
+
+enum AttendanceRecordStatus {
+  WORKING_NOW
+  PRESENT
+  ON_LEAVE
+  HALF_DAY_LEAVE
+  EARLY_LEAVE
+  ACTION_REQUIRED
+  WEEKEND
+  HOLIDAY
+  ABSENT
+}
+
+model DailyAttendance {
+  id                   String                 @id @default(cuid())
+  userId               String
+  date                 DateTime               // Normalized to YYYY-MM-DDT00:00:00.000Z
+  status               AttendanceRecordStatus @default(PRESENT)
+
+  checkInTime          String?                // e.g. "09:30 AM"
+  checkOutTime         String?                // e.g. "06:45 PM"
+  checkInSource        String?                @default("Web") // "Fingerprint" | "Web" | "Mobile App"
+  checkOutSource       String?                @default("Web")
+  checkInLocationName  String?
+  checkInAddress       String?
+  checkOutLocationName String?
+  checkOutAddress      String?
+  checkInPhoto         String?
+  checkOutPhoto        String?
+  workMode             String?                @default("OFFICE") // "OFFICE" | "REMOTE"
+  workedMinutes        Int                    @default(0)
+  isLive               Boolean                @default(false)
+  liveSince            DateTime?
+
+  actionRequiredType   String?                // "MISSING_BOTH" | "MISSING_CHECKIN" | "MISSING_CHECKOUT"
+  actionRequiredReason String?
+
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([date, status])
 }
 
 // ── 9. COMPANY HOLIDAYS ──────────────────────────────────────────────────────

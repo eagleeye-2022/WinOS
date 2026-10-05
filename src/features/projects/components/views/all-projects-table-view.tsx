@@ -322,10 +322,24 @@ export function AllProjectsTableView({
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Project ID column sort — cycles ascending -> descending -> unsorted on each header click.
-  const [projectIdSort, setProjectIdSort] = useState<"asc" | "desc" | null>(null);
-  const toggleProjectIdSort = () => {
-    setProjectIdSort((prev) => (prev === null ? "asc" : prev === "asc" ? "desc" : null));
+  // Column sorting state — cycles ascending -> descending -> unsorted on header click.
+  const [sortField, setSortField] = useState<CollapsibleColId | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
+
+  const toggleSort = (id: CollapsibleColId) => {
+    if (sortField === id) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortField(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(id);
+      setSortDirection("asc");
+    }
   };
 
   // Popover / Menu States
@@ -437,7 +451,8 @@ export function AllProjectsTableView({
     ownerFilter !== "ALL" ||
     departmentFilter !== "ALL" ||
     statusFilter !== "ALL" ||
-    searchQuery.trim() !== "";
+    searchQuery.trim() !== "" ||
+    sortField !== null;
 
   const handleResetFilters = () => {
     setCategoryFilter("ALL");
@@ -445,6 +460,8 @@ export function AllProjectsTableView({
     setDepartmentFilter("ALL");
     setStatusFilter("ALL");
     setSearchQuery("");
+    setSortField(null);
+    setSortDirection(null);
   };
 
   // Filter projects
@@ -489,12 +506,99 @@ export function AllProjectsTableView({
     );
   });
 
-  const sortedProjects = projectIdSort
-    ? [...filteredProjects].sort((a, b) => {
-        const cmp = a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: "base" });
-        return projectIdSort === "asc" ? cmp : -cmp;
-      })
-    : filteredProjects;
+  const parseDateToTimestamp = (dateStr?: string): number => {
+    if (!dateStr || typeof dateStr !== "string") return 0;
+    const trimmed = dateStr.trim();
+    if (!trimmed) return 0;
+    const parsed = Date.parse(trimmed);
+    if (!isNaN(parsed)) return parsed;
+    const parts = trimmed.split(/[-/.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        const ts = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+        if (!isNaN(ts)) return ts;
+      } else if (parts[2].length === 4) {
+        const ts = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1])).getTime();
+        if (!isNaN(ts)) return ts;
+      }
+    }
+    return 0;
+  };
+
+  const getProjectSortValue = (project: Project, field: CollapsibleColId): string | number => {
+    switch (field) {
+      case "projectId":
+        return project.id || "";
+      case "projectName":
+        return (project.name || "").trim().toLowerCase();
+      case "projectStatus":
+        return (project.status || "").trim().toLowerCase();
+      case "projectLead":
+        return (project.projectLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "projectNotes":
+        return (project.description || "").trim().toLowerCase();
+      case "techLead":
+        return (project.techLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "techAssignee":
+        return (project.techAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeUiuxLead":
+        return (project.creativeUiuxLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeUiuxAssignee":
+        return (project.creativeUiuxAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeGraphicLead":
+        return (project.creativeGraphicLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeGraphicAssignee":
+        return (project.creativeGraphicAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingLead":
+        return (project.marketingLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingSeo":
+        return (project.marketingSeo?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingContent":
+        return (project.marketingContent?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "projectCalendar": {
+        const startTs = parseDateToTimestamp(project.startDate);
+        const endTs = parseDateToTimestamp(project.deadline);
+        return startTs || endTs || 0;
+      }
+      case "assetLink": {
+        const links = [project.driveLink, project.webLink, project.designLink].filter(Boolean).join(" ");
+        return links.trim().toLowerCase();
+      }
+      case "projectTimeline":
+        return project.progressPercent || 0;
+      default:
+        return "";
+    }
+  };
+
+  const sortedProjects = React.useMemo(() => {
+    if (!sortField || !sortDirection) {
+      return filteredProjects;
+    }
+
+    return [...filteredProjects].sort((a, b) => {
+      const valA = getProjectSortValue(a, sortField);
+      const valB = getProjectSortValue(b, sortField);
+
+      const isEmptyA = valA === "" || valA === 0;
+      const isEmptyB = valB === "" || valB === 0;
+      if (isEmptyA && !isEmptyB) return 1;
+      if (!isEmptyA && isEmptyB) return -1;
+      if (isEmptyA && isEmptyB) return 0;
+
+      let cmp = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [filteredProjects, sortField, sortDirection]);
 
   const handleCopyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/projects/${id}`);
@@ -583,73 +687,53 @@ export function AllProjectsTableView({
     );
   };
 
-  /** Leaf column header (Lead / Assignee / SEO Assignee / Project ID / etc.) — click collapses
-   *  just this column to a thin chevron strip, independent of its parent group (if any). */
+  /** Leaf column header (Project ID / Project Name / Status / Lead / Assignee / etc.) —
+   *  features sort toggle (ascending -> descending -> unsorted) and collapse chevron. */
   const renderLeafHeader = (id: CollapsibleColId, label: string, rowSpan?: number) => {
     const collapsed = isColCollapsed(id);
     if (collapsed) {
       return renderCollapsedHeaderBox(id, label, rowSpan);
     }
+    const isSorted = sortField === id;
     return (
       <th
         key={id}
         rowSpan={rowSpan}
-        className="py-2 px-3 border-r whitespace-nowrap overflow-hidden text-center align-middle"
-      >
-        <button
-          type="button"
-          onClick={() => toggleCol(id)}
-          className="inline-flex w-full max-w-full items-center justify-center gap-1 hover:text-foreground transition-colors text-center"
-          title={`Collapse ${label}`}
-        >
-          <span className="truncate">{label}</span>
-          <ChevronLeft size={10} className="text-muted-foreground shrink-0" />
-        </button>
-      </th>
-    );
-  };
-
-  /** "Project ID" header — collapsible like every other column, plus a sort toggle
-   *  (ascending -> descending -> unsorted) that reorders the whole table by id. */
-  const renderProjectIdHeader = () => {
-    const collapsed = isColCollapsed("projectId");
-    if (collapsed) {
-      return renderCollapsedHeaderBox("projectId", "Project ID", 3);
-    }
-    return (
-      <th
-        rowSpan={3}
-        className="py-2 px-3 border-r whitespace-nowrap overflow-hidden text-center align-middle"
+        className="py-2 px-2.5 border-r whitespace-nowrap overflow-hidden text-center align-middle"
       >
         <div className="inline-flex w-full max-w-full items-center justify-center gap-1">
           <button
             type="button"
-            onClick={toggleProjectIdSort}
-            className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+            onClick={() => toggleSort(id)}
+            className={`inline-flex items-center gap-1 hover:text-foreground transition-colors min-w-0 max-w-full group cursor-pointer ${
+              isSorted ? "text-primary font-bold" : "text-muted-foreground"
+            }`}
             title={
-              projectIdSort === "asc"
-                ? "Sorted ascending — click for descending"
-                : projectIdSort === "desc"
-                ? "Sorted descending — click to clear"
-                : "Sort by Project ID"
+              isSorted
+                ? sortDirection === "asc"
+                  ? `${label}: Sorted ascending — click for descending`
+                  : `${label}: Sorted descending — click to clear sort`
+                : `Sort by ${label}`
             }
           >
-            <span>Project ID</span>
-            {projectIdSort === "asc" ? (
-              <ArrowUp size={11} className="text-primary" />
-            ) : projectIdSort === "desc" ? (
-              <ArrowDown size={11} className="text-primary" />
+            <span className="truncate">{label}</span>
+            {isSorted ? (
+              sortDirection === "asc" ? (
+                <ArrowUp size={11} className="text-primary shrink-0" />
+              ) : (
+                <ArrowDown size={11} className="text-primary shrink-0" />
+              )
             ) : (
-              <ArrowUpDown size={11} className="text-muted-foreground" />
+              <ArrowUpDown size={11} className="text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 transition-colors" />
             )}
           </button>
           <button
             type="button"
-            onClick={() => toggleCol("projectId")}
-            className="hover:text-foreground transition-colors"
-            title="Collapse Project ID"
+            onClick={() => toggleCol(id)}
+            className="hover:text-foreground transition-colors shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground"
+            title={`Collapse ${label}`}
           >
-            <ChevronLeft size={10} className="text-muted-foreground shrink-0" />
+            <ChevronLeft size={10} />
           </button>
         </div>
       </th>
@@ -871,7 +955,7 @@ export function AllProjectsTableView({
           </div>
 
           {/* Collapse All Columns Button */}
-          <button
+          {/* <button
             type="button"
             onClick={toggleCollapseAllCols}
             className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors shrink-0 shadow-2xs"
@@ -888,7 +972,7 @@ export function AllProjectsTableView({
                 <span>Collapse All Columns</span>
               </>
             )}
-          </button>
+          </button> */}
 
           {/* Reset Filters button if search/filters active */}
           {hasActiveFilters && (
@@ -1145,7 +1229,7 @@ export function AllProjectsTableView({
                     />
                   </th>
                 )}
-                {renderProjectIdHeader()}
+                {renderLeafHeader("projectId", "Project ID", 3)}
                 {renderLeafHeader("projectName", "Project Name", 3)}
                 {renderLeafHeader("projectStatus", "Status", 3)}
                 {renderLeafHeader("projectLead", "Project Lead / SPOC", 3)}

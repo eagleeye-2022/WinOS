@@ -99,11 +99,17 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Users" && pathname.startsWith("/settings")) {
     return pathname.startsWith(ROUTES.settingsUsers);
   }
-  if (label === "Attendance") {
+  if (label === "Attendance" || label === "My Attendance") {
     return pathname.startsWith("/pulse/attendance");
+  }
+  if (label === "Team Attendance") {
+    return pathname.startsWith("/pulse/team-attendance");
   }
   if (label === "Regularization") {
     return pathname.startsWith("/pulse/regularization");
+  }
+  if (label === "Reports" && (pathname.startsWith("/pulse") || pathname.startsWith("/people"))) {
+    return pathname.startsWith("/pulse/reports");
   }
   if (label === "All Projects" && pathname.startsWith("/projects")) {
     return pathname === "/projects" || pathname === "/projects/all";
@@ -190,14 +196,18 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Home", href: "/people", icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
-          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ]
       : [
           { label: "Home", href: "/people", icon: Home },
-          { label: "Leave Tracker", href: "/pulse/leave", icon: Calendar },
-          { label: "Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
+          { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
+          { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {
     navItems = isManager

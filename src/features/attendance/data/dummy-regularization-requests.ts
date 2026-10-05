@@ -1,0 +1,193 @@
+import { RegularizationRequest } from "../types";
+import { DUMMY_EMPLOYEE_RAHUL, DUMMY_EMPLOYEE_ROHIT } from "./dummy-team-attendance";
+
+export const DUMMY_REGULARIZATION_REQUESTS: RegularizationRequest[] = [
+  {
+    id: "reg-1",
+    employee: DUMMY_EMPLOYEE_RAHUL,
+    attendanceDate: "15 Aug 2026",
+    attendanceDay: "Friday",
+    existingAttendance: {
+      checkIn: "09:10 AM",
+      checkOut: undefined,
+      workedDuration: undefined,
+    },
+    requestedAttendance: {
+      checkIn: "09:10 AM",
+      checkOut: "06:15 PM",
+      workedDuration: "9h 05m",
+    },
+    reason: "Forgot to check out",
+    remarks: "I forgot to mark my check-out after leaving the office.",
+    status: "Pending",
+    requestedOn: "16 Aug 2026, 10:21 AM",
+    appliedOn: "12 Aug 2026",
+    appliedDay: "Tuesday",
+    timeline: [
+      {
+        title: "Requested",
+        subtitle: "Regularization request submitted by Rahul Sharma.",
+        timestamp: "16 Aug 2026, 10:21 AM",
+        status: "completed",
+      },
+      {
+        title: "Pending Approval",
+        subtitle: "Waiting for manager approval.",
+        status: "current",
+      },
+      {
+        title: "Final Decision",
+        subtitle: "This request will be approved or rejected by the manager.",
+        status: "upcoming",
+      },
+    ],
+  },
+  {
+    id: "reg-2",
+    employee: DUMMY_EMPLOYEE_RAHUL,
+    attendanceDate: "12 Aug 2026",
+    attendanceDay: "Tuesday",
+    existingAttendance: {
+      checkIn: undefined,
+      checkOut: "06:30 PM",
+      workedDuration: undefined,
+    },
+    requestedAttendance: {
+      checkIn: "09:15 AM",
+      checkOut: "06:30 PM",
+      workedDuration: "9h 15m",
+    },
+    reason: "Forgot to check in",
+    remarks: "Biometric machine was restarting in the morning.",
+    status: "Approved",
+    requestedOn: "12 Aug 2026, 06:40 PM",
+    appliedOn: "12 Aug 2026",
+    appliedDay: "Tuesday",
+    timeline: [
+      {
+        title: "Requested",
+        subtitle: "Regularization request submitted by Rahul Sharma.",
+        timestamp: "12 Aug 2026, 06:40 PM",
+        status: "completed",
+      },
+      {
+        title: "Approved",
+        subtitle: "Approved by Rohit Sharma (HR Manager).",
+        timestamp: "13 Aug 2026, 09:30 AM",
+        status: "completed",
+      },
+      {
+        title: "Final Decision",
+        subtitle: "Attendance record successfully updated.",
+        status: "completed",
+      },
+    ],
+  },
+  {
+    id: "reg-3",
+    employee: DUMMY_EMPLOYEE_RAHUL,
+    attendanceDate: "12 Aug 2026",
+    attendanceDay: "Tuesday",
+    existingAttendance: {
+      checkIn: "09:00 AM",
+      checkOut: "04:00 PM",
+      workedDuration: "7h 00m",
+    },
+    requestedAttendance: {
+      checkIn: "09:00 AM",
+      checkOut: "06:00 PM",
+      workedDuration: "9h 00m",
+    },
+    reason: "Official work",
+    remarks: "Was on client visit in afternoon.",
+    status: "Rejected",
+    requestedOn: "12 Aug 2026, 07:10 PM",
+    appliedOn: "12 Aug 2026",
+    appliedDay: "Tuesday",
+    timeline: [
+      {
+        title: "Requested",
+        subtitle: "Regularization request submitted by Rahul Sharma.",
+        timestamp: "12 Aug 2026, 07:10 PM",
+        status: "completed",
+      },
+      {
+        title: "Rejected",
+        subtitle: "Client meeting not logged in calendar.",
+        timestamp: "13 Aug 2026, 11:15 AM",
+        status: "completed",
+      },
+    ],
+  },
+  {
+    id: "reg-4",
+    employee: DUMMY_EMPLOYEE_RAHUL,
+    attendanceDate: "12 Aug 2026",
+    attendanceDay: "Tuesday",
+    existingAttendance: {
+      checkIn: undefined,
+      checkOut: undefined,
+      workedDuration: undefined,
+    },
+    requestedAttendance: {
+      checkIn: "09:20 AM",
+      checkOut: "06:10 PM",
+      workedDuration: "8h 50m",
+    },
+    reason: "Device was not working",
+    remarks: "Office RFID gate scanner was offline.",
+    status: "Pending",
+    requestedOn: "12 Aug 2026, 08:30 PM",
+    appliedOn: "12 Aug 2026",
+    appliedDay: "Tuesday",
+    timeline: [
+      {
+        title: "Requested",
+        subtitle: "Regularization request submitted by Rahul Sharma.",
+        timestamp: "12 Aug 2026, 08:30 PM",
+        status: "completed",
+      },
+      {
+        title: "Pending Approval",
+        subtitle: "Waiting for manager review.",
+        status: "current",
+      },
+    ],
+  },
+  {
+    id: "reg-5",
+    employee: DUMMY_EMPLOYEE_RAHUL,
+    attendanceDate: "12 Aug 2026",
+    attendanceDay: "Tuesday",
+    existingAttendance: {
+      checkIn: "09:05 AM",
+      checkOut: "05:00 PM",
+      workedDuration: "7h 55m",
+    },
+    requestedAttendance: {
+      checkIn: "09:05 AM",
+      checkOut: "06:00 PM",
+      workedDuration: "8h 55m",
+    },
+    reason: "Internet issue",
+    remarks: "Remote VPN disconnected early.",
+    status: "Approved",
+    requestedOn: "12 Aug 2026, 06:15 PM",
+    appliedOn: "12 Aug 2026",
+    appliedDay: "Tuesday",
+    timeline: [
+      {
+        title: "Requested",
+        subtitle: "Regularization request submitted by Rahul Sharma.",
+        timestamp: "12 Aug 2026, 06:15 PM",
+        status: "completed",
+      },
+      {
+        title: "Approved",
+        subtitle: "Approved by manager.",
+        timestamp: "13 Aug 2026, 10:00 AM",
+        status: "completed",
+      },
+    ],
+  },
+];

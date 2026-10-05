@@ -26,23 +26,33 @@ export interface ActiveTimerData {
   startedAt: string;
   elapsedSeconds: number;
   task?: { id: string; code: string; title: string } | null;
+  instanceId?: string | null;
   [key: string]: unknown;
 }
 
 interface ActiveTimerContextValue {
   activeTimer: ActiveTimerData | null;
+  activeInstanceId: string | null;
   /** Re-fetches the active timer from the DB immediately. */
   refresh: () => Promise<void>;
   /** Applies a known-good result locally (from a start/stop action's own
    * response) without waiting for the next poll, and fences off any
    * already-in-flight poll response so it can't overwrite this with stale data. */
-  setLocalActiveTimer: (data: ActiveTimerData | null) => void;
+  setLocalActiveTimer: (data: ActiveTimerData | null, instanceId?: string | null) => void;
+  /** Claims the active timer UI for a specific widget instance when none is claimed. */
+  claimActiveInstance: (instanceId: string) => void;
 }
 
 export const ActiveTimerContext = createContext<ActiveTimerContextValue | null>(null);
 
 export function ActiveTimerProvider({ children }: { children: React.ReactNode }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimerData | null>(null);
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("winos:activeTimerInstanceId") || null;
+    }
+    return null;
+  });
   const mutationIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -51,16 +61,46 @@ export function ActiveTimerProvider({ children }: { children: React.ReactNode })
       const res = await getActiveTimerAction();
       if (mutationIdRef.current !== requestId) return; // superseded by a local mutation
       if (res.success) {
-        setActiveTimer((res.data as ActiveTimerData) || null);
+        const timerData = (res.data as ActiveTimerData) || null;
+        setActiveTimer(timerData);
+        if (!timerData) {
+          setActiveInstanceId(null);
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("winos:activeTimerInstanceId");
+          }
+        }
       }
     } catch (err) {
       console.error("[ActiveTimerProvider] Failed to fetch active timer:", err);
     }
   }, []);
 
-  const setLocalActiveTimer = useCallback((data: ActiveTimerData | null) => {
+  const setLocalActiveTimer = useCallback((data: ActiveTimerData | null, instanceId?: string | null) => {
     mutationIdRef.current += 1;
     setActiveTimer(data);
+    if (data) {
+      if (instanceId) {
+        setActiveInstanceId(instanceId);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("winos:activeTimerInstanceId", instanceId);
+        }
+      }
+    } else {
+      setActiveInstanceId(null);
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("winos:activeTimerInstanceId");
+      }
+    }
+  }, []);
+
+  const claimActiveInstance = useCallback((instanceId: string) => {
+    setActiveInstanceId((current) => {
+      if (current) return current;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("winos:activeTimerInstanceId", instanceId);
+      }
+      return instanceId;
+    });
   }, []);
 
   useEffect(() => {
@@ -71,8 +111,8 @@ export function ActiveTimerProvider({ children }: { children: React.ReactNode })
   }, [refresh]);
 
   const value = React.useMemo(
-    () => ({ activeTimer, refresh, setLocalActiveTimer }),
-    [activeTimer, refresh, setLocalActiveTimer]
+    () => ({ activeTimer, activeInstanceId, refresh, setLocalActiveTimer, claimActiveInstance }),
+    [activeTimer, activeInstanceId, refresh, setLocalActiveTimer, claimActiveInstance]
   );
 
   return <ActiveTimerContext.Provider value={value}>{children}</ActiveTimerContext.Provider>;

@@ -39,6 +39,8 @@ interface TimerWidgetProps {
   /** Shows the full "00:00:00 ▶" chip immediately instead of the collapsed clock icon — use on
    *  the single-task workspace header, where there's room and the timer is the focal control. */
   defaultExpanded?: boolean;
+  /** Unique identifier for this widget instance on pages that may render multiple rows for the same task (e.g. DSM). */
+  instanceId?: string;
 }
 
 export function TimerWidget({
@@ -53,7 +55,11 @@ export function TimerWidget({
   disabledReason = "Only the task owner can start this timer",
   disabledTitle = "You're not the owner of this task",
   defaultExpanded = false,
+  instanceId,
 }: TimerWidgetProps) {
+  const internalId = React.useId();
+  const widgetInstanceId = instanceId || internalId;
+
   const { confirm, ConfirmDialog } = useConfirm();
   const showCannotStart = (title: string, description: string) => {
     void confirm({ title, description, confirmLabel: "OK", danger: false, hideCancel: true });
@@ -99,7 +105,10 @@ export function TimerWidget({
   }, [timerState]);
 
   const applyDbTimer = useCallback(
-    (dbTimer: Pick<ActiveTimerData, "startedAt" | "elapsedSeconds" | "taskId" | "task"> | null) => {
+    (
+      dbTimer: Pick<ActiveTimerData, "startedAt" | "elapsedSeconds" | "taskId" | "task"> | null,
+      currentActiveInstanceId?: string | null
+    ) => {
       if (isStoppingRef.current) return;
       const isCurrentTask =
         !!dbTimer &&
@@ -110,9 +119,32 @@ export function TimerWidget({
             dbTimer.taskId === taskCode);
 
       if (dbTimer && isCurrentTask) {
-        setStartTimeRef(new Date(dbTimer.startedAt));
-        setSeconds(dbTimer.elapsedSeconds || 0);
-        setTimerState("RUNNING");
+        const savedInstanceId =
+          currentActiveInstanceId ||
+          (typeof window !== "undefined"
+            ? sessionStorage.getItem("winos:activeTimerInstanceId")
+            : null);
+
+        const matchesInstance =
+          !savedInstanceId || savedInstanceId === widgetInstanceId;
+
+        if (matchesInstance) {
+          if (!savedInstanceId) {
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("winos:activeTimerInstanceId", widgetInstanceId);
+            }
+            if (activeTimerCtx?.claimActiveInstance) {
+              activeTimerCtx.claimActiveInstance(widgetInstanceId);
+            }
+          }
+          setStartTimeRef(new Date(dbTimer.startedAt));
+          setSeconds(dbTimer.elapsedSeconds || 0);
+          setTimerState("RUNNING");
+        } else {
+          setTimerState("IDLE");
+          setSeconds(0);
+          setIsExpanded(defaultExpanded);
+        }
       } else if (timerStateRef.current === "RUNNING" && (taskCode || taskId)) {
         // The server's timer is now on another task (or was stopped elsewhere) — stop showing it here.
         setTimerState("IDLE");
@@ -120,7 +152,7 @@ export function TimerWidget({
         setIsExpanded(defaultExpanded);
       }
     },
-    [taskCode, taskId, defaultExpanded]
+    [taskCode, taskId, defaultExpanded, widgetInstanceId, activeTimerCtx]
   );
 
   /**
@@ -170,14 +202,14 @@ export function TimerWidget({
         toast.error(`Couldn't save the effort log for "${runningTitle}".`);
       }
     }
-    activeTimerCtx?.setLocalActiveTimer(null);
+    activeTimerCtx?.setLocalActiveTimer(null, null);
     return true;
   };
 
   useEffect(() => {
     if (!activeTimerCtx) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    applyDbTimer(activeTimerCtx.activeTimer);
+    applyDbTimer(activeTimerCtx.activeTimer, activeTimerCtx.activeInstanceId);
   }, [activeTimerCtx, applyDbTimer]);
 
   // Fallback: only polls on its own when no ActiveTimerProvider is mounted
@@ -255,10 +287,13 @@ export function TimerWidget({
 
       if (res.success && res.data) {
         const baselineSeconds = res.data.elapsedSeconds || 0;
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("winos:activeTimerInstanceId", widgetInstanceId);
+        }
         setStartTimeRef(new Date(res.data.startedAt));
         setSeconds(baselineSeconds);
         setTimerState("RUNNING");
-        activeTimerCtx?.setLocalActiveTimer(res.data as ActiveTimerData);
+        activeTimerCtx?.setLocalActiveTimer(res.data as ActiveTimerData, widgetInstanceId);
         return;
       }
 
@@ -287,6 +322,9 @@ export function TimerWidget({
   const handleStop = async () => {
     const elapsed = seconds;
     const formatted = formatTime(elapsed);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("winos:activeTimerInstanceId");
+    }
     isStoppingRef.current = true;
     setTimerState("IDLE");
     setSeconds(0);
@@ -305,7 +343,7 @@ export function TimerWidget({
     } catch (err) {
       console.error("[TimerWidget] endActiveTimerAction failed:", err);
     } finally {
-      activeTimerCtx?.setLocalActiveTimer(null);
+      activeTimerCtx?.setLocalActiveTimer(null, null);
     }
 
     const finalElapsed = stoppedContextRef.current?.elapsedSeconds ?? elapsed;
