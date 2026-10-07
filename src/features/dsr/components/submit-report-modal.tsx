@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Check, CheckCircle2, ExternalLink, Link2, Loader2, MonitorUp, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ReportRecorder } from "./report-recorder";
 import { validateRecordingUrl, isReportLate, formatMinutes, type ReportConfig } from "../reporting";
 
 export type { ReportConfig };
@@ -25,9 +24,10 @@ type Props = {
   totalLoggedMinutes: number;
   recordingUrl: string;
   onRecordingUrl: (v: string) => void;
-  /** Server storage key of a recording made with the in-app recorder ("" when none). */
+  /** Server storage key of a recording made with the on-page recorder ("" when none). */
   recordingFile: string;
-  onRecordingFile: (v: string) => void;
+  /** Closes this popup and scrolls to the on-page recorder (recording happens outside the popup). */
+  onRecordNow: () => void;
   dayFeedback: string;
   onDayFeedback: (v: string) => void;
   suggestions: string;
@@ -45,7 +45,6 @@ export function SubmitReportModal({
   open,
   onOpenChange,
   dateStr,
-  memberName,
   config,
   isEdit,
   completedCount,
@@ -54,7 +53,7 @@ export function SubmitReportModal({
   recordingUrl,
   onRecordingUrl,
   recordingFile,
-  onRecordingFile,
+  onRecordNow,
   // dayFeedback / onDayFeedback are still accepted but unused while "How was the day?" is hidden.
   suggestions,
   onSuggestions,
@@ -143,15 +142,28 @@ export function SubmitReportModal({
             ))}
           </div>
 
-          {/* Keep the recorder mounted when switching tabs/steps so an in-progress recording isn't lost. */}
-          <div className={cn(mode !== "record" && "hidden")}>
-            <ReportRecorder
-              dateStr={dateStr}
-              memberName={memberName}
-              savedKey={recordingFile || null}
-              onUploaded={(key) => onRecordingFile(key ?? "")}
-            />
-          </div>
+          {/* The recorder itself is on the report page ("Screen Recording" card), not in this popup, so
+              it never covers the screen being recorded and closing the popup can't stop a recording. */}
+          {mode === "record" && recordingFile && (
+            <div className="flex flex-col gap-2 rounded-lg border border-success/30 bg-success/5 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+                <CheckCircle2 size={14} /> Your recording is saved in WinOS. No link needed.
+              </p>
+              <video
+                src={`/api/report-recordings/${recordingFile}`}
+                controls
+                preload="metadata"
+                className="max-h-48 w-full rounded-lg border bg-black"
+              />
+              <button
+                type="button"
+                onClick={onRecordNow}
+                className="w-fit text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Record again
+              </button>
+            </div>
+          )}
 
           {mode === "link" && (
             <div className="flex flex-col gap-2">
@@ -186,9 +198,19 @@ export function SubmitReportModal({
           )}
 
           {mode === "record" && !recordingFile && (
-            <p className="text-xs text-muted-foreground">
-              Record and stop. The video saves to WinOS automatically, and then you can continue. No link needed.
-            </p>
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-5 text-center">
+              <p className="text-sm text-muted-foreground">
+                No recording yet. Record on the report page so this popup doesn&apos;t cover your screen.
+                Then click Submit Report again. No link needed.
+              </p>
+              <button
+                type="button"
+                onClick={onRecordNow}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              >
+                <MonitorUp size={15} /> Go to recorder
+              </button>
+            </div>
           )}
         </div>
 
