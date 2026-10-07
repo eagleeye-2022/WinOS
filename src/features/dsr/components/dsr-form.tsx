@@ -6,9 +6,8 @@ import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
-import { SubmitReportModal, type ReportConfig, type RecordingMode } from "./submit-report-modal";
-import { ReportRecorder } from "./report-recorder";
-import { formatMinutes, splitRecording } from "../reporting";
+import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
+import { formatMinutes, usableRecordingUrl } from "../reporting";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
@@ -563,15 +562,9 @@ type Props = {
   memberName?: string | null;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, memberName }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
   const [submitOpen, setSubmitOpen] = useState(false);
-  // The recorder lives on the page (not in the submit popup) so the member can record any screen,
-  // including WinOS itself, without a popup in the way — and closing the popup never stops a recording.
-  const [recorderBusy, setRecorderBusy] = useState(false);
-  const [busyNotice, setBusyNotice] = useState(false);
-  const recorderBusyRef = useRef(false);
-  const recorderCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     onPendingChange?.(pending);
@@ -664,10 +657,8 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
   const [sentiment, setSentiment] = useState<string>(savedDraft?.sentiment ?? entry?.sentiment ?? "");
   const [resultOfDay, setResultOfDay] = useState<string>(savedDraft?.resultOfDay ?? entry?.resultOfDay ?? "");
   const [reflection, setReflection] = useState<string>(savedDraft?.reflection ?? entry?.reflection ?? "");
-  // The saved entry keeps both kinds in recordingUrl; split back into link vs in-app recording key.
-  const savedRecording = splitRecording(entry?.recordingUrl);
-  const [recordingUrl, setRecordingUrl] = useState<string>(savedDraft?.recordingUrl ?? savedRecording.recordingUrl ?? "");
-  const [recordingFile, setRecordingFile] = useState<string>(savedDraft?.recordingFile ?? savedRecording.recordingFile ?? "");
+  // Old in-app recorder paths ("/api/report-recordings/…") are ignored so the popup starts empty.
+  const [recordingUrl, setRecordingUrl] = useState<string>(usableRecordingUrl(savedDraft?.recordingUrl) || usableRecordingUrl(entry?.recordingUrl));
   const [dayFeedback, setDayFeedback] = useState<string>(savedDraft?.dayFeedback ?? entry?.dayFeedback ?? "");
   const [suggestions, setSuggestions] = useState<string>(savedDraft?.suggestions ?? entry?.suggestions ?? "");
 
@@ -688,7 +679,6 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
       resultOfDay,
       reflection,
       recordingUrl,
-      recordingFile,
       dayFeedback,
       suggestions,
     };
@@ -697,7 +687,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     } catch {
       // Ignore storage error
     }
-  }, [draftKey, readOnly, isEditMode, tasks, additionalWorks, blockers, followUps, learningItems, sentiment, resultOfDay, reflection, recordingUrl, recordingFile, dayFeedback, suggestions]);
+  }, [draftKey, readOnly, isEditMode, tasks, additionalWorks, blockers, followUps, learningItems, sentiment, resultOfDay, reflection, recordingUrl, dayFeedback, suggestions]);
 
   // Clear draft upon successful save or submission
   useEffect(() => {
@@ -710,8 +700,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     }
   }, [state.message, draftKey]);
 
-  /** `mode` (from the submit modal) sends only the chosen recording kind; drafts keep both. */
-  function buildAndSubmit(actionValue: "draft" | "submit", mode?: RecordingMode) {
+  function buildAndSubmit(actionValue: "draft" | "submit") {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     fd.set("action", actionValue);
@@ -731,8 +720,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     fd.set("sentiment", sentiment);
     fd.set("reflection", reflection);
     fd.set("resultOfDay", resultOfDay);
-    fd.set("recordingUrl", mode === "record" ? "" : recordingUrl);
-    fd.set("recordingFile", mode === "link" ? "" : recordingFile);
+    fd.set("recordingUrl", recordingUrl);
     fd.set("dayFeedback", dayFeedback);
     fd.set("suggestions", suggestions);
     startTransition(() => {
@@ -746,29 +734,10 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     buildAndSubmitRef.current = buildAndSubmit;
   });
 
-  function scrollToRecorder() {
-    recorderCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  // While a recording is running or uploading, don't open the popup (its overlay would block the
-  // floating Stop bar) — point the member at the recorder instead.
-  function openSubmit() {
-    if (recorderBusyRef.current) {
-      setBusyNotice(true);
-      scrollToRecorder();
-      return;
-    }
-    setSubmitOpen(true);
-  }
-  const openSubmitRef = useRef(openSubmit);
-  useEffect(() => {
-    openSubmitRef.current = openSubmit;
-  });
-
-  // "Submit Report" (panel or mobile button) opens the recording/feedback modal; the modal's final
+  // "Submit Report" (panel or mobile button) opens the link/feedback modal; the modal's final
   // step is what actually submits.
   useEffect(() => {
-    onRegisterSubmit?.(() => openSubmitRef.current());
+    onRegisterSubmit?.(() => setSubmitOpen(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -845,33 +814,6 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
         readOnly={readOnly}
       />
 
-      {!readOnly && (
-        <div ref={recorderCardRef} className="scroll-mt-4 rounded-xl border bg-card p-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Screen Recording</h3>
-            <span className="text-xs text-muted-foreground">
-              {recordingFile ? "Saved in WinOS" : "Record your walkthrough here, or paste a link when you submit"}
-            </span>
-          </div>
-          {busyNotice && recorderBusy && (
-            <p className="mb-3 rounded-md bg-warning/10 px-3 py-2 text-xs">
-              Stop the recording and wait for it to save before submitting the report.
-            </p>
-          )}
-          <ReportRecorder
-            dateStr={todayDateStr}
-            memberName={memberName}
-            savedKey={recordingFile || null}
-            onUploaded={(key) => setRecordingFile(key ?? "")}
-            onBusyChange={(busy) => {
-              recorderBusyRef.current = busy;
-              setRecorderBusy(busy);
-              if (!busy) setBusyNotice(false);
-            }}
-          />
-        </div>
-      )}
-
       <DayReflection
         sentiment={sentiment}
         onSentiment={setSentiment}
@@ -910,7 +852,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
           <button
             type="button"
             disabled={pending}
-            onClick={openSubmit}
+            onClick={() => setSubmitOpen(true)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
           >
             {pending && <Loader2 size={14} className="animate-spin" />}
@@ -924,7 +866,6 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
           open={submitOpen}
           onOpenChange={setSubmitOpen}
           dateStr={todayDateStr}
-          memberName={memberName}
           config={reportConfig}
           isEdit={isEditMode}
           completedCount={completedCount}
@@ -932,17 +873,12 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
           totalLoggedMinutes={timeSummary?.totalLoggedMinutes ?? 0}
           recordingUrl={recordingUrl}
           onRecordingUrl={setRecordingUrl}
-          recordingFile={recordingFile}
-          onRecordNow={() => {
-            setSubmitOpen(false);
-            scrollToRecorder();
-          }}
           dayFeedback={dayFeedback}
           onDayFeedback={setDayFeedback}
           suggestions={suggestions}
           onSuggestions={setSuggestions}
           resultOfDay={resultOfDay}
-          onSubmit={(mode) => buildAndSubmit("submit", mode)}
+          onSubmit={() => buildAndSubmit("submit")}
           pending={pending}
           serverError={state.message && state.message !== "saved" ? state.message : undefined}
         />

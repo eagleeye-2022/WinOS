@@ -63,6 +63,11 @@ import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { AddSubtaskDrawer } from "../modals/add-subtask-drawer";
 import { TimerStoppedModal } from "../modals/timer-stopped-modal";
+import {
+  clearPendingTimerLog,
+  requestPendingTimerLogRecovery,
+  savePendingTimerLog,
+} from "../../utils/pending-timer-log";
 import { useProjectWorkspace } from "../../context/project-workspace-context";
 import {
   updateTaskAction,
@@ -695,6 +700,7 @@ export function SingleTaskWorkspaceView({
   }) => {
     const ctx = stoppedTimerContextRef.current;
     const targetProjectId = ctx?.projectId || activeTask.projectId || projectId;
+    isSavingTimerLogRef.current = true;
     try {
       // The ActiveTimer row is already gone (deleted in handleStopTimer) —
       // create the actual ProjectTimeLog now with the details the user confirmed.
@@ -710,6 +716,7 @@ export function SingleTaskWorkspaceView({
           .split("T")[0],
       };
       await createTimeLogAction(payload, targetProjectId);
+      clearPendingTimerLog();
 
       showToast("Effort log saved & timer stopped in DB");
       setActiveTimerStatus("IDLE");
@@ -719,14 +726,18 @@ export function SingleTaskWorkspaceView({
     } catch (err) {
       console.error("Failed to save timer time log to DB:", err);
       showToast("Failed to save timer log");
+      // The stopped timer is still parked — reopen the log modal so the time isn't lost.
+      requestPendingTimerLogRecovery();
     } finally {
       stoppedTimerContextRef.current = null;
+      isSavingTimerLogRef.current = false;
     }
   };
 
   const handleTimerLogDiscarded = () => {
     // Nothing left to delete server-side — the ActiveTimer was already removed
     // when Stop was clicked. Discarding here just means "don't log this time".
+    clearPendingTimerLog();
     stoppedTimerContextRef.current = null;
     setActiveTimerStatus("IDLE");
     setActiveTimerSeconds(0);
@@ -819,6 +830,9 @@ export function SingleTaskWorkspaceView({
     startedAt?: string;
     elapsedSeconds?: number;
   } | null>(null);
+  // True while the stopped-timer log is being saved — the modal calls onClose right after
+  // onSaveLog, and that close must not discard the parked log (see pending-timer-log.ts).
+  const isSavingTimerLogRef = React.useRef(false);
 
   // Sync active timer from DB on load
   useEffect(() => {
@@ -914,6 +928,7 @@ export function SingleTaskWorkspaceView({
       const res = await endActiveTimerAction();
       if (res.success && res.data) {
         stoppedTimerContextRef.current = res.data;
+        savePendingTimerLog({ ...res.data, taskTitle: activeTask.title });
       }
     } catch (err) {
       console.error("Failed to end active timer in DB:", err);
@@ -2397,7 +2412,10 @@ export function SingleTaskWorkspaceView({
       {/* Timer Stopped Modal */}
       <TimerStoppedModal
         isOpen={isStoppedModalOpen}
-        onClose={() => setIsStoppedModalOpen(false)}
+        onClose={() => {
+          if (!isSavingTimerLogRef.current) clearPendingTimerLog();
+          setIsStoppedModalOpen(false);
+        }}
         elapsedSeconds={stoppedSeconds}
         taskTitle={activeTask.title}
         taskCode={activeTask.code}

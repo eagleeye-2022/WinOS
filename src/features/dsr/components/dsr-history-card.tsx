@@ -13,39 +13,20 @@ import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-t
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
-import { formatMinutes, splitRecording } from "../reporting";
+import { formatMinutes, usableRecordingUrl } from "../reporting";
 
-/** Recording (in-app video or link), time logged, "how was the day" and suggestions from the submit modal. */
+/** Zoho Cliq recording link, time logged, "how was the day" and suggestions from the submit modal. */
 export function ReportRecordingBlock({ entry, showCliqStatus = false }: { entry: DsrEntryData; showCliqStatus?: boolean }) {
-  const hasAny = entry.recordingUrl || entry.dayFeedback || entry.suggestions || (entry.totalLoggedMinutes ?? 0) > 0;
+  const recordingUrl = usableRecordingUrl(entry.recordingUrl);
+  const hasAny = recordingUrl || entry.dayFeedback || entry.suggestions || (entry.totalLoggedMinutes ?? 0) > 0;
   if (!hasAny && entry.status === "DRAFT") return null;
-  // In-app recordings are stored as /api/report-recordings/<key> and stream from our server; the
-  // route only serves them to the owner and managers. Anything else is an external link.
-  const { recordingUrl: externalUrl, recordingFile } = splitRecording(entry.recordingUrl);
-  const videoSrc = recordingFile ? entry.recordingUrl : null;
   return (
     <div className="mb-4 flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-      {videoSrc && (
-        <video
-          src={videoSrc}
-          controls
-          preload="metadata"
-          className="max-h-[420px] w-full rounded-lg border bg-black"
-        />
-      )}
       <div className="flex flex-wrap items-center gap-2">
-        {videoSrc ? (
+        {recordingUrl ? (
+          // The Zoho Cliq link is the only thing in the report that opens in a new tab.
           <a
-            href={videoSrc}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-          >
-            <Video size={13} /> Recorded in WinOS, open full screen <ExternalLink size={11} />
-          </a>
-        ) : externalUrl ? (
-          <a
-            href={externalUrl}
+            href={recordingUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
@@ -155,7 +136,7 @@ export function DsrHistoryCard({
               Late
             </span>
           )}
-          {entry.status !== "MISSED" && entry.status !== "DRAFT" && !entry.recordingUrl && (
+          {entry.status !== "MISSED" && entry.status !== "DRAFT" && !usableRecordingUrl(entry.recordingUrl) && (
             <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
               No recording
             </span>

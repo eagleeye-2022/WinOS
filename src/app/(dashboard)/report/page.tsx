@@ -6,7 +6,6 @@ import {
   getDsrStandupPrefill,
   getWeeklyDsrHistory,
   getDsrInsights,
-  getTodayDsmStatus,
   getReportTimeSummary,
 } from "@/features/dsr/queries";
 import { getReportConfig } from "@/features/dsr/reporting";
@@ -28,12 +27,11 @@ export default async function ReportPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [entry, prefill, weeklyEntries, sharedItems, dsmStatus, parkedTasks] = await Promise.all([
+  const [entry, prefill, weeklyEntries, sharedItems, parkedTasks] = await Promise.all([
     getCurrentDsrEntry(),
     getDsrStandupPrefill(),
     getWeeklyDsrHistory(weekOffset),
     getSharedWorkspaceNotes(),
-    getTodayDsmStatus(),
     getParkedTasks(),
   ]);
 
@@ -54,7 +52,6 @@ export default async function ReportPage({ searchParams }: Props) {
       justSubmitted={justSubmitted}
       sharedNotes={sharedItems?.notes || []}
       userRole={session.user.role}
-      dsmReviewed={dsmStatus === "REVIEWED"}
       memberUserId={session.user.id}
       parkedTasks={parkedTasks}
       reportConfig={getReportConfig()}

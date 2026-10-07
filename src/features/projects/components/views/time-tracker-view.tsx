@@ -133,17 +133,13 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Role Perspective Switcher — derived from the signed-in user's real workspace role.
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
-  const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By Date");
+  const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By User");
   const [timeSheetView, setTimeSheetView] = useState<"My Effort Logs" | "All Effort Logs" | "Team Effort Logs">("All Effort Logs");
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
   useEffect(() => {
     getCurrentUserRoleAction().then((role) => {
-      const isManager = role === "ADMIN";
-      setRoleMode(isManager ? "ADMIN" : "USER");
-      if (isManager) {
-        setGroupBy("Group By User");
-      }
+      setRoleMode(role === "ADMIN" ? "ADMIN" : "USER");
     });
   }, []);
 

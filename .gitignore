@@ -55,5 +55,5 @@ calendar-api-settings.json
 /scripts
 /exports
 
-# Report screen recordings stored by the in-app recorder (REPORT_RECORDINGS_DIR default)
+# Old test videos from the removed in-app report recorder (safe to delete)
 /storage/

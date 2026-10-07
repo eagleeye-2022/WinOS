@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// saveDsr (the end-of-day report action) with auth/db/next mocked — verifies the recording (in-app or link)
+// saveDsr (the end-of-day report action) with auth/db/next mocked — verifies the recording link
 // requirement, late flag, time snapshot and the best-effort Cliq post.
 
 const mocks = vi.hoisted(() => {
@@ -22,8 +22,6 @@ const mocks = vi.hoisted(() => {
     redirect: vi.fn(),
     getDayEffort: vi.fn(),
     postToCliq: vi.fn(),
-    recordingExists: vi.fn(),
-    deleteRecording: vi.fn(),
   };
 });
 
@@ -36,13 +34,6 @@ vi.mock("@/lib/zoho-cliq", () => ({
   postToCliq: mocks.postToCliq,
   getAppBaseUrl: () => "https://winos.test",
 }));
-vi.mock("@/lib/report-recordings", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/report-recordings")>()),
-  recordingExists: mocks.recordingExists,
-  deleteRecording: mocks.deleteRecording,
-}));
-
-const OWN_KEY = "u1u1u1u1u1_2026-10-06_0123456789abcdef.webm";
 
 import { saveDsr } from "@/features/dsr/actions/save-dsr";
 
@@ -83,13 +74,12 @@ beforeEach(() => {
     { taskId: "t2", minutes: 45, task: null },
   ]);
   mocks.postToCliq.mockResolvedValue({ ok: true });
-  mocks.recordingExists.mockResolvedValue(true);
   mocks.auth.mockResolvedValue({ user: { id: "u1u1u1u1u1", role: "TEAM_MEMBER", name: "Asha" } });
   mocks.db.user.findUnique.mockResolvedValue({ id: "u1u1u1u1u1", name: "Asha", email: "asha@eagleeyedigital.io" });
 });
 
 describe("saveDsr: end-of-day report", () => {
-  it("rejects a submit with neither an in-app recording nor a link, and writes nothing", async () => {
+  it("rejects a submit without a recording link and writes nothing", async () => {
     const res = await saveDsr({}, form({ recordingUrl: "" }));
 
     expect(res.errors?.recordingUrl?.[0]).toMatch(/recording/i);
@@ -137,56 +127,6 @@ describe("saveDsr: end-of-day report", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/report?submitted=1");
   });
 
-  it("accepts an in-app recording with no link", async () => {
-    await saveDsr({}, form({ recordingUrl: "", recordingFile: OWN_KEY }));
-
-    const { create } = mocks.db.dsrEntry.upsert.mock.calls[0][0];
-    // Stored in the existing recordingUrl column as the internal path — no recordingFile column.
-    expect(create).toMatchObject({ recordingUrl: `/api/report-recordings/${OWN_KEY}`, status: "SUBMITTED" });
-    expect(create).not.toHaveProperty("recordingFile");
-    const { text } = mocks.postToCliq.mock.calls[0][0];
-    expect(text).toContain(`Recording (in WinOS): https://winos.test/api/report-recordings/${OWN_KEY}`);
-  });
-
-  it("rejects an in-app recording that belongs to someone else", async () => {
-    const res = await saveDsr({}, form({ recordingUrl: "", recordingFile: "otheruser99_2026-10-06_0123456789abcdef.webm" }));
-
-    expect(res.errors?.recordingUrl).toBeDefined();
-    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
-  });
-
-  it("rejects an in-app recording for a different date", async () => {
-    const res = await saveDsr({}, form({ recordingUrl: "", recordingFile: "u1u1u1u1u1_2026-10-05_0123456789abcdef.webm" }));
-
-    expect(res.errors?.recordingUrl).toBeDefined();
-  });
-
-  it("rejects an in-app recording that isn't on disk", async () => {
-    mocks.recordingExists.mockResolvedValue(false);
-
-    const res = await saveDsr({}, form({ recordingUrl: "", recordingFile: OWN_KEY }));
-
-    expect(res.errors?.recordingUrl?.[0]).toMatch(/couldn't be found/);
-    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
-  });
-
-  it("deletes the previous in-app recording when it is replaced", async () => {
-    const oldKey = "u1u1u1u1u1_2026-10-06_aaaaaaaaaaaaaaaa.webm";
-    mocks.db.dsrEntry.findUnique.mockResolvedValue({ status: "SUBMITTED", submittedAt: new Date(), recordingUrl: `/api/report-recordings/${oldKey}` });
-
-    await saveDsr({}, form({ recordingUrl: "", recordingFile: OWN_KEY }));
-
-    expect(mocks.deleteRecording).toHaveBeenCalledWith(oldKey);
-  });
-
-  it("keeps the in-app recording when it isn't replaced", async () => {
-    mocks.db.dsrEntry.findUnique.mockResolvedValue({ status: "SUBMITTED", submittedAt: new Date(), recordingUrl: `/api/report-recordings/${OWN_KEY}` });
-
-    await saveDsr({}, form({ recordingUrl: "", recordingFile: OWN_KEY }));
-
-    expect(mocks.deleteRecording).not.toHaveBeenCalled();
-  });
-
   it("marks a report submitted after the cut-off as late", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-06T13:00:00.000Z")); // 18:30 IST
@@ -222,13 +162,21 @@ describe("saveDsr: end-of-day report", () => {
     expect(mocks.redirect).toHaveBeenCalled();
   });
 
-  it("still requires the DSM to be reviewed first", async () => {
-    mocks.db.standupEntry.findUnique.mockResolvedValue({ status: "SUBMITTED" });
+  it("lets the report be submitted before the DSM is reviewed", async () => {
+    mocks.db.standupEntry.findUnique.mockResolvedValue({ status: "SUBMITTED", blockers: [], supportNeeds: [] });
 
-    const res = await saveDsr({}, form());
+    await saveDsr({}, form());
 
-    expect(res.message).toMatch(/DSM/);
-    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
+    expect(mocks.db.dsrEntry.upsert.mock.calls[0][0].create.status).toBe("SUBMITTED");
+    expect(mocks.redirect).toHaveBeenCalledWith("/report?submitted=1");
+  });
+
+  it("lets the report be submitted when there is no DSM for the day", async () => {
+    mocks.db.standupEntry.findUnique.mockResolvedValue(null);
+
+    await saveDsr({}, form());
+
+    expect(mocks.db.dsrEntry.upsert).toHaveBeenCalled();
   });
 
   it("bails with a friendly message when the session user no longer exists", async () => {

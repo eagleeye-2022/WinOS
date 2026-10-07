@@ -8,6 +8,7 @@ import {
   getCutoffInstant,
   getReportCutoff,
   isReportLate,
+  usableRecordingUrl,
   validateRecordingUrl,
 } from "@/features/dsr/reporting";
 
@@ -161,28 +162,14 @@ describe("buildCliqReportMessage", () => {
   });
 });
 
-// ── In-app recordings stored in recordingUrl ──────────────────────────────────
-
-import { inAppRecordingKey, inAppRecordingUrl, splitRecording } from "@/features/dsr/reporting";
-
-describe("in-app recording path in recordingUrl", () => {
-  const key = "u1u1u1u1u1_2026-10-07_0123456789abcdef.webm";
-
-  it("round-trips a key through the stored path", () => {
-    expect(inAppRecordingUrl(key)).toBe(`/api/report-recordings/${key}`);
-    expect(inAppRecordingKey(inAppRecordingUrl(key))).toBe(key);
+describe("usableRecordingUrl", () => {
+  it("keeps real links", () => {
+    expect(usableRecordingUrl("https://cliq.zoho.in/x")).toBe("https://cliq.zoho.in/x");
   });
 
-  it("treats external links and empty values as not in-app", () => {
-    expect(inAppRecordingKey("https://cliq.zoho.in/x")).toBeNull();
-    expect(inAppRecordingKey(null)).toBeNull();
-    expect(inAppRecordingKey("/api/report-recordings/")).toBeNull();
-    expect(inAppRecordingKey("/api/report-recordings/a/b")).toBeNull();
-  });
-
-  it("splits a stored value into link vs in-app key", () => {
-    expect(splitRecording(inAppRecordingUrl(key))).toEqual({ recordingUrl: null, recordingFile: key });
-    expect(splitRecording("https://cliq.zoho.in/x")).toEqual({ recordingUrl: "https://cliq.zoho.in/x", recordingFile: null });
-    expect(splitRecording(null)).toEqual({ recordingUrl: null, recordingFile: null });
+  it("drops old in-app recorder paths and empty values", () => {
+    expect(usableRecordingUrl("/api/report-recordings/cmszx8v22000e4od4mofyrbk3_2026-10-07_c78b90237f4ef778.webm")).toBe("");
+    expect(usableRecordingUrl(null)).toBe("");
+    expect(usableRecordingUrl("  ")).toBe("");
   });
 });

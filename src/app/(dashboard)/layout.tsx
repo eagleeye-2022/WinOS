@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 import { SessionGuard } from "@/components/shared/session-guard";
 import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
-import { ReportRecordingProvider } from "@/features/dsr/components/report-recording-provider";
+import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -83,11 +83,10 @@ export default async function DashboardLayout({
   ]);
 
   return (
-    // The report screen recorder lives here (not on the report page) so a recording keeps running while
-    // the member moves between WinOS pages; its floating Stop bar shows on every page.
-    <ReportRecordingProvider reportPath={isManager ? ROUTES.dsrMy : ROUTES.dsr}>
     <div className="flex h-screen w-screen flex-col overflow-hidden">
       <SessionGuard />
+      {/* Re-opens the "Timer stopped" log modal if a stopped timer's log was never saved. */}
+      <PendingTimerLogRecovery userId={session.user.id} />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">
         <header className="relative flex h-14 shrink-0 items-center border-b bg-card z-50 mb-2">
@@ -158,6 +157,5 @@ export default async function DashboardLayout({
       </div>
 
     </div>
-    </ReportRecordingProvider>
   );
 }

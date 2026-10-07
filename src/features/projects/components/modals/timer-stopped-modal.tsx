@@ -95,7 +95,9 @@ export function TimerStoppedModal({
     const diffMs = end.getTime() - start.getTime();
     if (diffMs <= 0) return { formatted: "00:00", hours: 0, minutes: 0, valid: false };
 
-    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    // At least 1 minute: "00:00" is read by createTimeLogAction as "no duration" and becomes a
+    // 60-minute log, so a timer stopped within its first minute used to log a full hour.
+    const totalMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     const pad = (n: number) => n.toString().padStart(2, "0");

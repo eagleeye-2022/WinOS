@@ -26,7 +26,6 @@ type Props = {
   basePath?: string;
   sharedNotes?: SharedNoteData[];
   userRole?: string;
-  dsmReviewed?: boolean;
   memberUserId?: string;
   parkedTasks?: ParkedTask[];
   reportConfig: ReportConfig;
@@ -45,7 +44,6 @@ export function DsrPageClient({
   basePath = "/report",
   sharedNotes = [],
   userRole,
-  dsmReviewed = true,
   memberUserId,
   parkedTasks = [],
   reportConfig,
@@ -70,7 +68,8 @@ export function DsrPageClient({
   const canSubmit = !entry || entry.status === "DRAFT";
   const isSubmittedNotReviewed = (entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW") && !isReviewed;
   const canEditExisting = isSubmittedNotReviewed;
-  const editable = (canSubmit || isSubmittedNotReviewed || isEditing) && dsmReviewed && !isReviewed;
+  // The report no longer waits for the DSM review — members can fill and submit it any time.
+  const editable = (canSubmit || isSubmittedNotReviewed || isEditing) && !isReviewed;
   const showForm = editable || justSubmitted || isReviewed;
   const now = toUtcDate();
   const cp = insights.completionPercent;
@@ -131,23 +130,6 @@ export function DsrPageClient({
           )}
         </div>
 
-        {/* DSM-not-reviewed lock banner */}
-        {!dsmReviewed && (
-          <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning">
-              <svg viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" className="h-4 w-4">
-                <circle cx="5" cy="5" r="4" />
-                <path d="M5 3v2.5M5 6.7v.01" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Report Locked</p>
-              <p className="text-sm text-muted-foreground">
-                Your DSM for today must be reviewed by your manager before you can fill out or submit your report.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Reviewed lock banner */}
         {isReviewed && (
@@ -210,7 +192,7 @@ export function DsrPageClient({
           />
         ) : (
           <>
-            {canEditExisting && dsmReviewed && (
+            {canEditExisting && (
               <div className="flex items-center justify-end">
                 <button
                   type="button"

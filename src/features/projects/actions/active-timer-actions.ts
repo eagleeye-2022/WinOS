@@ -217,6 +217,50 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
   }
 
   try {
+    const existing = await d.activeTimer.findUnique({
+      where: { userId: sessionUser.id },
+      include: {
+        project: { select: { id: true, code: true, name: true } },
+        phase: { select: { id: true, code: true, name: true } },
+        task: { select: { id: true, code: true, title: true } },
+      },
+    });
+
+    // Already running on this same task (e.g. a second DSM row linked to the same project task):
+    // keep it running instead of restarting it from 00:00 and losing the elapsed time.
+    if (existing && existing.taskId === task.id) {
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(existing.startedAt).getTime()) / 1000));
+      return {
+        success: true,
+        data: { ...existing, elapsedSeconds, formattedTime: formatTimeSeconds(elapsedSeconds) },
+        alreadyRunning: true as const,
+      };
+    }
+
+    // Running on another task: the client normally stops & logs it first (after asking), but if
+    // it's still here (stale screen, another tab) log its time now rather than silently dropping it.
+    let replaced: { taskCode?: string; taskTitle?: string; minutes: number } | null = null;
+    if (existing) {
+      const startedAt = new Date(existing.startedAt);
+      const now = new Date();
+      const minutes = Math.max(1, Math.round((now.getTime() - startedAt.getTime()) / 60000));
+      const timePeriod = minutes <= 720 ? `${formatTime12h(startedAt)} – ${formatTime12h(now)}` : "";
+      await d.projectTimeLog.create({
+        data: {
+          projectId: existing.projectId,
+          phaseId: existing.phaseId,
+          taskId: existing.taskId,
+          userId: sessionUser.id,
+          date: startedAt,
+          duration: minutes,
+          billingType: existing.billingType,
+          approvalStatus: "PENDING",
+          description: encodeDescriptionWithTimePeriod(existing.description || "", timePeriod),
+        },
+      });
+      replaced = { taskCode: existing.task?.code, taskTitle: existing.task?.title, minutes };
+    }
+
     // Delete any existing active timer for this user
     await d.activeTimer.deleteMany({
       where: { userId: sessionUser.id },
@@ -252,6 +296,7 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
         elapsedSeconds,
         formattedTime: "00:00:00",
       },
+      replaced,
     };
   } catch (err: any) {
     console.error("[createActiveTimerAction] error:", err);

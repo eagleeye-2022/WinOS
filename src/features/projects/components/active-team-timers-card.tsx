@@ -8,6 +8,11 @@ import { formatTimePeriodRange } from "../utils/time-helpers";
 import { TimerStoppedModal } from "./modals/timer-stopped-modal";
 import { toast } from "@/components/shared/toast";
 import type { TimeLogEntry } from "../types";
+import {
+  clearPendingTimerLog,
+  requestPendingTimerLogRecovery,
+  savePendingTimerLog,
+} from "../utils/pending-timer-log";
 
 export interface ActiveTeamTimerItem {
   id: string;
@@ -136,6 +141,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
         sessionStorage.removeItem("winos:activeTimerInstanceId");
       }
       setTimers((prev) => prev.filter((t) => t.id !== item.id));
+      savePendingTimerLog({ ...res.data, taskTitle: item.task?.title });
       setStopped({
         projectId: res.data.projectId,
         taskId: res.data.taskId,
@@ -173,10 +179,12 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
         date: new Date(stopped.startedAt).toISOString().split("T")[0],
       };
       await createTimeLogAction(payload, stopped.projectId);
+      clearPendingTimerLog();
       toast.success(`Time logged on "${stopped.taskTitle || stopped.taskCode || "task"}".`);
     } catch (err) {
       console.error("[ActiveTeamTimersCard] createTimeLogAction failed:", err);
-      toast.error("Couldn't save the time log.");
+      toast.error("Couldn't save the time log. Please try again.");
+      requestPendingTimerLogRecovery();
     } finally {
       isSavingLogRef.current = false;
     }
@@ -377,13 +385,19 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
 
       <TimerStoppedModal
         isOpen={!!stopped}
-        onClose={() => setStopped(null)}
+        onClose={() => {
+          if (!isSavingLogRef.current) clearPendingTimerLog();
+          setStopped(null);
+        }}
         initialStartTime={stopped ? new Date(stopped.startedAt) : undefined}
         elapsedSeconds={stopped?.elapsedSeconds ?? 0}
         taskTitle={stopped?.taskTitle}
         taskCode={stopped?.taskCode}
         onSaveLog={handleSaveLog}
-        onDiscardLog={() => setStopped(null)}
+        onDiscardLog={() => {
+          clearPendingTimerLog();
+          setStopped(null);
+        }}
       />
     </div>
   );

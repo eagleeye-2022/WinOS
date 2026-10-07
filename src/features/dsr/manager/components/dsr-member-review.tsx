@@ -908,14 +908,12 @@ function ReviewerActionsCard({
   userId,
   memberName,
   isReviewed,
-  dsmReviewed,
   managerComment,
 }: {
   entryId: string;
   userId: string;
   memberName: string;
   isReviewed: boolean;
-  dsmReviewed: boolean;
   managerComment?: string | null;
 }) {
   const [state, action, pending] = useActionState<ReviewDsrState, FormData>(reviewDsr, {});
@@ -1026,7 +1024,7 @@ type Props = {
 
 export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateStr, parkedTasks = [], timeSummary }: Props) {
   const router = useRouter();
-  const { user, todayEntry, focusedEntry, weekEntries, todayDsmReviewed, focusedDsmReviewed } = review;
+  const { user, todayEntry, focusedEntry, weekEntries } = review;
 
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
 
@@ -1051,7 +1049,6 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
   const canGoForward = weekOffset < 0;
 
   const activeEntry = focusedEntry ?? todayEntry;
-  const activeDsmReviewed = focusedEntry ? focusedDsmReviewed : todayDsmReviewed;
 
   const memberFirstName = user.name?.split(" ")[0] ?? "Member";
   const isReviewed = activeEntry?.status === "REVIEWED";
@@ -1069,7 +1066,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft size={14} />
-            Back to All Reports
+            Back to All Reporting
           </Link>
         </div>
 
@@ -1115,24 +1112,24 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             {/* Review detail — all cards stacked in flex-col for full table width */}
             <ResultCard entry={activeEntry} />
             <ReportRecordingBlock entry={activeEntry} showCliqStatus />
-            <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} memberId={user.id} />
+            {/* Reports no longer wait for the DSM review, so nothing here is locked on DSM status. */}
+            <TaskProgressCard entry={activeEntry} memberId={user.id} />
             <ParkingLotSection
               memberUserId={user.id}
               parkedTasks={parkedTasks}
               cascadingProjects={cascadingProjects}
-              isLocked={!activeDsmReviewed}
+              isLocked={false}
               markCompletedInDsr={true}
             />
             {timeSummary && <ReportTimeSection summary={timeSummary} />}
-            <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
+            <AdditionalWorkCard entry={activeEntry} />
             <BlockersSupportCard entry={activeEntry} />
-            <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
+            <LearningCard entry={activeEntry} />
             <ReviewerActionsCard
               entryId={activeEntry.id}
               userId={user.id}
               memberName={memberFirstName}
               isReviewed={isReviewed}
-              dsmReviewed={activeDsmReviewed}
               managerComment={activeEntry.managerComment}
             />
             <TimelineCard events={activeEntry.timelineEvents} />

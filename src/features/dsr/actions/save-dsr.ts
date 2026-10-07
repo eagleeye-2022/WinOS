@@ -10,12 +10,9 @@ import {
   buildCliqReportMessage,
   getAllowedRecordingHosts,
   getReportCutoff,
-  inAppRecordingKey,
-  inAppRecordingUrl,
   isReportLate,
   validateRecordingUrl,
 } from "../reporting";
-import { deleteRecording, parseRecordingKey, recordingExists } from "@/lib/report-recordings";
 
 export type SaveDsrState = {
   errors?: {
@@ -55,7 +52,6 @@ export async function saveDsr(
   const dayFeedback = (formData.get("dayFeedback") as string)?.trim() || null;
   const suggestions = (formData.get("suggestions") as string)?.trim() || null;
   const rawRecordingUrl = (formData.get("recordingUrl") as string)?.trim() || "";
-  const rawRecordingFile = (formData.get("recordingFile") as string)?.trim() || "";
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -67,32 +63,18 @@ export async function saveDsr(
   });
   if (!user) return { message: "Your account could not be found. Please sign in again." };
 
-  // A report's recording is EITHER a video recorded in WinOS (the form's `recordingFile` key; stored
-  // in the recordingUrl column as /api/report-recordings/<key>) OR a pasted link (`recordingUrl`). A submitted report needs one of them; drafts need neither.
+  // The Zoho Cliq / WorkDrive recording link is required to submit; drafts keep it only if valid.
   const urlCheck = rawRecordingUrl ? validateRecordingUrl(rawRecordingUrl, getAllowedRecordingHosts()) : null;
   const recordingUrl: string | null = urlCheck?.ok ? urlCheck.url : null;
-
-  let recordingFile: string | null = null;
-  if (rawRecordingFile) {
-    const parsedKey = parseRecordingKey(rawRecordingFile);
-    // The file must belong to this user and this report date, and actually be on disk.
-    if (parsedKey && parsedKey.userId === user.id && parsedKey.dateStr === dateStr && (await recordingExists(rawRecordingFile))) {
-      recordingFile = rawRecordingFile;
-    }
-  }
 
   if (action === "submit") {
     const errors: SaveDsrState["errors"] = {};
     if (!resultOfDay) {
       errors.resultOfDay = ["Please add the outcome of the day before submitting."];
     }
-    if (!recordingFile && !recordingUrl) {
+    if (!recordingUrl) {
       errors.recordingUrl = [
-        rawRecordingFile
-          ? "Your recording couldn't be found on the server. Record again, or paste a link instead."
-          : urlCheck && !urlCheck.ok
-            ? urlCheck.error
-            : "Record your screen in WinOS, or paste a link to your recording, before submitting.",
+        urlCheck && !urlCheck.ok ? urlCheck.error : "Paste the Zoho Cliq link to your recording before submitting.",
       ];
     }
     if (Object.keys(errors).length > 0) {
@@ -111,19 +93,11 @@ export async function saveDsr(
   const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const status = action === "submit" ? "SUBMITTED" : "DRAFT";
 
-  // Guard: the DSR cannot be touched until that day's DSM has been reviewed
-  const standup = await d.standupEntry.findUnique({
-    where: { userId_date: { userId: session.user.id, date } },
-    select: { status: true },
-  });
-  if (standup?.status !== "REVIEWED") {
-    return { message: "Your DSM for this day must be reviewed before you can fill out your DSR." };
-  }
 
   // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },
-    select: { status: true, submittedAt: true, recordingUrl: true },
+    select: { status: true, submittedAt: true },
   });
   if (existing?.status === "REVIEWED") {
     return { message: "This entry has already been reviewed and cannot be changed." };
@@ -136,9 +110,6 @@ export async function saveDsr(
   const submittedAt = finalStatus === "DRAFT" ? null : existing?.submittedAt ?? new Date();
   // Lateness is fixed by the first submission; later edits don't change it.
   const isLate = submittedAt ? isReportLate(dateStr, new Date(submittedAt), getReportCutoff()) : false;
-  // Stored in the single recordingUrl column: the in-app path wins over an external link.
-  const storedRecordingUrl = recordingFile ? inAppRecordingUrl(recordingFile) : recordingUrl;
-  const previousRecordingFile = inAppRecordingKey(existing?.recordingUrl);
 
   const effort = await getDayEffort(session.user.id, dateStr);
   const totalLoggedMinutes = effort.reduce((sum, row) => sum + row.minutes, 0);
@@ -153,7 +124,7 @@ export async function saveDsr(
     resultOfDay,
     dayFeedback,
     suggestions,
-    recordingUrl: storedRecordingUrl,
+    recordingUrl,
     isLate,
     totalLoggedMinutes,
     submittedAt,
@@ -164,11 +135,6 @@ export async function saveDsr(
     create: { userId: session.user.id, date, ...reportFields },
     update: reportFields,
   });
-
-  // A re-recorded (or removed) in-app video replaces the old file — don't leave it on disk.
-  if (previousRecordingFile && previousRecordingFile !== recordingFile) {
-    await deleteRecording(previousRecordingFile);
-  }
 
   // Replace child records
   await d.dsrPlannedTask.deleteMany({ where: { dsrEntryId: entry.id } });
@@ -338,10 +304,7 @@ export async function saveDsr(
       resultOfDay,
       dayFeedback,
       suggestions,
-      recordingUrl: recordingFile
-        ? (baseUrl ? `${baseUrl}${inAppRecordingUrl(recordingFile)}` : null)
-        : recordingUrl,
-      recordingSavedInApp: !!recordingFile,
+      recordingUrl,
       isLate,
       isUpdate: wasSubmitted,
       reportUrl: baseUrl ? `${baseUrl}/report/member/${user.id}?date=${dateStr}` : null,
