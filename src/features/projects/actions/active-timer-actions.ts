@@ -541,6 +541,8 @@ export async function getAllActiveTimersAction(projectId?: string) {
     return {
       success: true,
       data,
+      // Lets the client mark which row is the viewer's own (stoppable) timer.
+      currentUserId: sessionUser.id as string,
     };
   } catch (err: any) {
     console.error("[getAllActiveTimersAction] error:", err);

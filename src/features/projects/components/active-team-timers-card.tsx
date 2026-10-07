@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { AlarmClock, RefreshCw, Play, User as UserIcon } from "lucide-react";
-import { getAllActiveTimersAction } from "../actions/active-timer-actions";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { AlarmClock, RefreshCw, Play, Square, Timer, User as UserIcon } from "lucide-react";
+import { endActiveTimerAction, getAllActiveTimersAction } from "../actions/active-timer-actions";
+import { createTimeLogAction } from "../actions/project-actions";
+import { formatTimePeriodRange } from "../utils/time-helpers";
+import { TimerStoppedModal } from "./modals/timer-stopped-modal";
+import { toast } from "@/components/shared/toast";
+import type { TimeLogEntry } from "../types";
 
 export interface ActiveTeamTimerItem {
   id: string;
@@ -57,6 +62,19 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
   const [timers, setTimers] = useState<ActiveTeamTimerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
+  // Context of the viewer's own timer captured when Stop is clicked (the DB row is deleted
+  // right then) — used to create the real time log once the stopped-timer modal is confirmed.
+  const [stopped, setStopped] = useState<{
+    projectId: string;
+    taskId: string;
+    taskCode?: string;
+    taskTitle?: string;
+    startedAt: string;
+    elapsedSeconds: number;
+  } | null>(null);
+  const isSavingLogRef = useRef(false);
 
   const fetchActiveTimers = useCallback(
     async (isManual = false) => {
@@ -65,6 +83,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
         const res = await getAllActiveTimersAction(projectId);
         if (res.success && Array.isArray(res.data)) {
           setTimers(res.data as ActiveTeamTimerItem[]);
+          if ("currentUserId" in res && res.currentUserId) setCurrentUserId(res.currentUserId);
         }
       } catch (err) {
         console.error("Failed to fetch active team timers:", err);
@@ -101,6 +120,67 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
 
     return () => clearInterval(tickInterval);
   }, [timers.length]);
+
+  // Only the viewer's own timer can be stopped — endActiveTimerAction always acts on the
+  // session user's ActiveTimer.
+  const handleStop = async (item: ActiveTeamTimerItem) => {
+    if (stoppingId) return;
+    setStoppingId(item.id);
+    try {
+      const res = await endActiveTimerAction();
+      if (!res.success || !res.data) {
+        toast.error(res.error || "Couldn't stop the timer. Please try again.");
+        return;
+      }
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("winos:activeTimerInstanceId");
+      }
+      setTimers((prev) => prev.filter((t) => t.id !== item.id));
+      setStopped({
+        projectId: res.data.projectId,
+        taskId: res.data.taskId,
+        taskCode: res.data.taskCode || item.task?.code,
+        taskTitle: item.task?.title,
+        startedAt: res.data.startedAt,
+        elapsedSeconds: res.data.elapsedSeconds || item.elapsedSeconds,
+      });
+    } catch (err) {
+      console.error("[ActiveTeamTimersCard] endActiveTimerAction failed:", err);
+      toast.error("Couldn't stop the timer. Please try again.");
+    } finally {
+      setStoppingId(null);
+      fetchActiveTimers();
+    }
+  };
+
+  const handleSaveLog = async (data: {
+    duration: string;
+    startTime: string;
+    endTime: string;
+    isBillable: boolean;
+    notes: string;
+  }) => {
+    if (!stopped || isSavingLogRef.current) return;
+    isSavingLogRef.current = true;
+    try {
+      const payload: Partial<TimeLogEntry> = {
+        taskCode: stopped.taskCode || stopped.taskId,
+        projectId: stopped.projectId,
+        duration: data.duration,
+        billingType: data.isBillable ? "BILLABLE" : "NON BILLABLE",
+        remarks: data.notes,
+        timePeriod: formatTimePeriodRange(data.startTime, data.endTime),
+        date: new Date(stopped.startedAt).toISOString().split("T")[0],
+      };
+      await createTimeLogAction(payload, stopped.projectId);
+      toast.success(`Time logged on "${stopped.taskTitle || stopped.taskCode || "task"}".`);
+    } catch (err) {
+      console.error("[ActiveTeamTimersCard] createTimeLogAction failed:", err);
+      toast.error("Couldn't save the time log.");
+    } finally {
+      isSavingLogRef.current = false;
+    }
+  };
 
   return (
     <div
@@ -177,6 +257,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                     .toUpperCase();
 
                   // const isBillable = item.billingType === "BILLABLE";
+                  const isOwnTimer = !!currentUserId && item.userId === currentUserId;
 
                   return (
                     <tr
@@ -199,7 +280,14 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                             )}
                           </div>
                           <div>
-                            <p className="font-semibold text-foreground text-xs">{userName}</p>
+                            <p className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                              {userName}
+                              {isOwnTimer && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                  You
+                                </span>
+                              )}
+                            </p>
                             <p className="text-[11px] text-muted-foreground">
                               {item.user?.title || item.user?.email || "Team Member"}
                             </p>
@@ -251,10 +339,32 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
 
                       {/* Live Timer Clock Column */}
                       <td className="py-3 px-4 text-right">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono font-bold text-xs">
-                          <Play className="w-3 h-3 fill-emerald-500 animate-pulse text-emerald-500" />
-                          <span>{formatHMS(item.elapsedSeconds)}</span>
-                        </div>
+                        {isOwnTimer ? (
+                          /* Same look as TimerWidget's running chip + Stop button */
+                          <div className="inline-flex items-center gap-1.5" title="Timer is running">
+                            <div className="flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none border border-primary/40 bg-primary/10 dark:bg-zinc-800 dark:border-zinc-700">
+                              <Timer size={13} className="shrink-0 text-primary animate-pulse" />
+                              <span className="font-mono text-xs font-bold tracking-tight text-primary dark:text-zinc-100">
+                                {formatHMS(item.elapsedSeconds)}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleStop(item)}
+                              disabled={stoppingId === item.id}
+                              className="flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground dark:bg-[#ef4444] dark:text-white transition-all hover:scale-110 hover:bg-destructive/90 active:scale-95 shadow-2xs cursor-pointer ring-1 ring-destructive/40 disabled:opacity-60 disabled:cursor-wait"
+                              title="Stop Timer"
+                              aria-label="Stop Timer"
+                            >
+                              <Square size={8} fill="currentColor" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono font-bold text-xs">
+                            <Play className="w-3 h-3 fill-emerald-500 animate-pulse text-emerald-500" />
+                            <span>{formatHMS(item.elapsedSeconds)}</span>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -264,6 +374,17 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
           </div>
         )}
       </div>
+
+      <TimerStoppedModal
+        isOpen={!!stopped}
+        onClose={() => setStopped(null)}
+        initialStartTime={stopped ? new Date(stopped.startedAt) : undefined}
+        elapsedSeconds={stopped?.elapsedSeconds ?? 0}
+        taskTitle={stopped?.taskTitle}
+        taskCode={stopped?.taskCode}
+        onSaveLog={handleSaveLog}
+        onDiscardLog={() => setStopped(null)}
+      />
     </div>
   );
 }
