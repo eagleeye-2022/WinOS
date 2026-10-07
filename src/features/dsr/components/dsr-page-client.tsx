@@ -9,7 +9,7 @@ import { DsrHistory } from "./dsr-history";
 import { DsrHistoryCard } from "./dsr-history-card";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import type { SharedNoteData, CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
-import { formatDayHeader, formatFullDate, formatShortDate, toUtcDate } from "@/features/dsm/utils";
+import { formatDayHeader, formatFullDate, formatShortDate, isoToUtcDate } from "@/features/dsm/utils";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
 import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
 import type { DsrEntryData, DsrStandupPrefill, DsrInsights, ReportTimeSummary } from "../queries";
@@ -71,7 +71,8 @@ export function DsrPageClient({
   // The report no longer waits for the DSM review — members can fill and submit it any time.
   const editable = (canSubmit || isSubmittedNotReviewed || isEditing) && !isReviewed;
   const showForm = editable || justSubmitted || isReviewed;
-  const now = toUtcDate();
+  // The report being filled (stays on yesterday until the next-morning cut-off).
+  const now = isoToUtcDate(todayDateStr);
   const cp = insights.completionPercent;
   const ct = insights.completedTaskCount;
   const pt = insights.plannedTaskCount;

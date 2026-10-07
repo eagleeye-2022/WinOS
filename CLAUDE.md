@@ -132,10 +132,10 @@ member records their walkthrough outside WinOS (e.g. in Zoho Cliq) and must past
 (`validateRecordingUrl`, Zoho hosts only) into `DsrEntry.recordingUrl`. There is no in-app screen
 recorder (it was built and removed by request). DSM/report cards and "View More" open in the same tab;
 only the Zoho recording link opens in a new tab. `saveDsr` then sets
-`isLate` (cut-off `REPORT_CUTOFF_HHMM`, default `18:00` IST), snapshots `totalLoggedMinutes` from
+`isLate` (cut-off 6:00 AM IST the day *after* the report date — `REPORT_CUTOFF_HHMM` / `REPORT_CUTOFF_DAY_OFFSET`; until then the report page still opens the previous day, see `getOpenReportDateStr`), snapshots `totalLoggedMinutes` from
 `ProjectTimeLog`, and best-effort posts a summary to Cliq (`src/lib/zoho-cliq.ts`, failures stored in
 `cliqError`, never block the save). Env: `ZOHO_CLIQ_WEBHOOK_URL` (unset → message printed to the
-server console), `REPORT_CUTOFF_HHMM`, `REPORT_RECORDING_ALLOWED_HOSTS` (default: Zoho domains),
+server console), `REPORT_CUTOFF_HHMM`, `REPORT_CUTOFF_DAY_OFFSET`, `REPORT_RECORDING_ALLOWED_HOSTS` (default: Zoho domains),
 `APP_BASE_URL` (for the "Full report" link). Pure helpers are in `src/features/dsr/reporting.ts`.
 
 **Dual mention storage**: blockers and support-needs store @mentions both as a legacy

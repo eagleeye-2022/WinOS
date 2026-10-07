@@ -127,9 +127,9 @@ describe("saveDsr: end-of-day report", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/report?submitted=1");
   });
 
-  it("marks a report submitted after the cut-off as late", async () => {
+  it("marks a report submitted after 6 AM the next day as late", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-10-06T13:00:00.000Z")); // 18:30 IST
+    vi.setSystemTime(new Date("2026-10-07T01:00:00.000Z")); // 6:30 AM IST the next day
     try {
       await saveDsr({}, form());
     } finally {
@@ -138,9 +138,9 @@ describe("saveDsr: end-of-day report", () => {
     expect(mocks.db.dsrEntry.upsert.mock.calls[0][0].create.isLate).toBe(true);
   });
 
-  it("is not late before the cut-off", async () => {
+  it("is not late when submitted after midnight but before 6 AM", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-10-06T12:00:00.000Z")); // 17:30 IST
+    vi.setSystemTime(new Date("2026-10-06T20:00:00.000Z")); // 1:30 AM IST the next day — still on time
     try {
       await saveDsr({}, form());
     } finally {

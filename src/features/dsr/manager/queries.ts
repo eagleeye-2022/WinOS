@@ -2,8 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
 import { sortTeamMembers, sortTeamGroups } from "@/features/dsm/manager/queries";
-import type { DsrEntryData } from "../queries";
-import { usableRecordingUrl } from "../reporting";
+import { withCurrentLate, type DsrEntryData } from "../queries";
+import { computeIsLate, getReportCutoff, getReportCutoffDayOffset, usableRecordingUrl } from "../reporting";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -299,7 +299,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           select: {
             id: true, userId: true, status: true, submittedAt: true,
             resultOfDay: true, completedTaskCount: true, plannedTaskCount: true,
-            recordingUrl: true, isLate: true, totalLoggedMinutes: true,
+            recordingUrl: true, totalLoggedMinutes: true,
           },
         })
       : [];
@@ -311,7 +311,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
         const entry = entryByUserId.get(m.user.id) as {
           id: string; status: string; submittedAt: Date | null;
           resultOfDay: string | null; completedTaskCount: number; plannedTaskCount: number;
-          recordingUrl: string | null; isLate: boolean; totalLoggedMinutes: number;
+          recordingUrl: string | null; totalLoggedMinutes: number;
         } | undefined;
 
         return {
@@ -327,7 +327,8 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           completedTaskCount: entry?.completedTaskCount ?? 0,
           plannedTaskCount: entry?.plannedTaskCount ?? 0,
           recordingUrl: usableRecordingUrl(entry?.recordingUrl) || null,
-          isLate: entry?.isLate ?? false,
+          // Computed with the current cut-off rule — the stored flag is frozen at submit time.
+          isLate: computeIsLate(targetDate, entry?.submittedAt, getReportCutoff(), getReportCutoffDayOffset()),
           totalLoggedMinutes: entry?.totalLoggedMinutes ?? 0,
         };
       }
@@ -420,9 +421,9 @@ export async function getMemberDsrReview(
 
   return {
     user,
-    todayEntry: todayEntry as DsrEntryData | null,
-    focusedEntry: focusedEntry as DsrEntryData | null,
-    weekEntries: weekEntries as DsrEntryData[],
+    todayEntry: withCurrentLate(todayEntry as DsrEntryData | null),
+    focusedEntry: withCurrentLate(focusedEntry as DsrEntryData | null),
+    weekEntries: (weekEntries as DsrEntryData[]).map((e) => withCurrentLate(e)),
     todayDsmReviewed: todayStandup?.status === "REVIEWED",
     focusedDsmReviewed: focusedDsmStandup?.status === "REVIEWED",
   };
