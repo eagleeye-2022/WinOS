@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 import { SessionGuard } from "@/components/shared/session-guard";
 import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
+import { ReportRecordingProvider } from "@/features/dsr/components/report-recording-provider";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -82,6 +83,9 @@ export default async function DashboardLayout({
   ]);
 
   return (
+    // The report screen recorder lives here (not on the report page) so a recording keeps running while
+    // the member moves between WinOS pages; its floating Stop bar shows on every page.
+    <ReportRecordingProvider reportPath={isManager ? ROUTES.dsrMy : ROUTES.dsr}>
     <div className="flex h-screen w-screen flex-col overflow-hidden">
       <SessionGuard />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
@@ -154,5 +158,6 @@ export default async function DashboardLayout({
       </div>
 
     </div>
+    </ReportRecordingProvider>
   );
 }
