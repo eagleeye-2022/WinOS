@@ -7,13 +7,10 @@ import {
   UserPlus,
   Pencil,
   Repeat,
-  Calendar,
-  Clock,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 
 export type TaskAuditActor = {
   id?: string;
@@ -158,18 +155,53 @@ export function TaskAuditHistoryPopover({
   const latestCarryLink = chain[chain.length - 1];
   const carryToDateStr = formatAuditDate(latestCarryLink?.date ?? task.createdAt);
 
+  // Compact rows: icon · label · who · when. A small popover next to the icon — no overlay, no blur.
+  const rows: { key: string; icon: React.ReactNode; tone: string; label: string; who?: string; avatar?: string | null; when: string }[] = [
+    {
+      key: "created",
+      icon: <CalendarCheck size={12} />,
+      tone: "text-success bg-success/15",
+      label: "Created by",
+      who: creatorName,
+      avatar: creatorAvatar,
+      when: [createdDateStr, createdTimeStr].filter(Boolean).join(" · "),
+    },
+  ];
+  if (showAddedByCard) {
+    rows.push({
+      key: "added",
+      icon: <UserPlus size={12} />,
+      tone: "text-primary bg-primary/15",
+      label: "Added by (Manager)",
+      who: addedByName,
+      avatar: addedByAvatar,
+      when: [addedDateStr, addedTimeStr].filter(Boolean).join(" · "),
+    });
+  }
+  if (showEditedByCard) {
+    rows.push({
+      key: "edited",
+      icon: <Pencil size={12} />,
+      tone: "text-warning bg-warning/15",
+      label: "Last edited by",
+      who: editedByName,
+      avatar: editedByAvatar,
+      when: [editedDateStr, editedTimeStr].filter(Boolean).join(" · "),
+    });
+  }
+  if (showCarriedOverCard) {
+    rows.push({
+      key: "carried",
+      icon: <Repeat size={12} />,
+      tone: "text-indigo-600 bg-indigo-500/15 dark:text-indigo-400",
+      label: "Carried over",
+      when: `From ${[origCreatedDateStr, origCreatedTimeStr].filter(Boolean).join(" · ")} → ${carryToDateStr}`,
+    });
+  }
+
   return (
     <span className={cn("inline-flex shrink-0 items-center", className)}>
       <Popover open={open} onOpenChange={setOpen}>
-        {open && (
-          <PopoverPrimitive.Portal>
-            <div
-              className="fixed inset-0 z-[90] bg-black/25 dark:bg-black/55 backdrop-blur-sm transition-all duration-200 pointer-events-none animate-in fade-in-0"
-              aria-hidden="true"
-            />
-          </PopoverPrimitive.Portal>
-        )}
-
         <PopoverTrigger asChild>
           {trigger ? (
             trigger
@@ -189,170 +221,41 @@ export function TaskAuditHistoryPopover({
         </PopoverTrigger>
 
         <PopoverContent
-          side="top"
-          align="start"
-          sideOffset={8}
-          collisionPadding={16}
-          className="z-[100] border border-border bg-popover text-popover-foreground p-4 text-left shadow-2xl backdrop-blur-md w-fit max-w-[calc(100vw-2rem)] overflow-x-auto rounded-2xl outline-none"
+          side="left"
+          align="center"
+          sideOffset={6}
+          collisionPadding={12}
+          onClick={(e) => e.stopPropagation()}
+          className="z-[100] w-64 rounded-lg border bg-popover p-2.5 text-left text-popover-foreground shadow-md outline-none"
         >
-          {/* Header */}
-          <div className="mb-3.5 flex items-center gap-2.5 border-b border-border/60 pb-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-              <History size={16} />
-            </div>
-            <span className="text-sm font-bold text-popover-foreground tracking-tight">Audit & History</span>
+          <div className="mb-1.5 flex items-center gap-1.5 px-0.5 text-xs font-semibold text-muted-foreground">
+            <History size={13} /> Audit &amp; History
           </div>
-
-          {/* Cards Flex Row */}
-          <div className="flex flex-row items-stretch gap-3">
-            {/* Card 1: Created By (Success Theme) */}
-            <div className="flex flex-col justify-between w-[175px] shrink-0 rounded-2xl border border-success/30 bg-success/10 p-3.5 dark:bg-success/15 dark:border-success/40">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-success">
-                  <div className="flex h-5 w-5 items-center justify-center rounded bg-success/20">
-                    <CalendarCheck size={12} />
-                  </div>
-                  <span>Created By</span>
-                </div>
-                <div className="my-3 flex items-center gap-2.5">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-success/20 text-xs font-bold text-success ring-1 ring-success/30">
-                    {creatorAvatar ? (
-                      <img src={creatorAvatar} alt={creatorName} className="h-full w-full object-cover" />
-                    ) : (
-                      initialsOf(creatorName)
-                    )}
-                  </div>
-                  <span className="truncate text-xs font-bold text-foreground" title={creatorName}>
-                    {creatorName}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-1 pt-2 text-[11px] text-muted-foreground border-t border-success/20">
-                <div className="flex items-center gap-1.5">
-                  <Calendar size={12} className="shrink-0 text-success/80" />
-                  <span>{createdDateStr}</span>
-                </div>
-                {createdTimeStr && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={12} className="shrink-0 text-success/80" />
-                    <span>{createdTimeStr}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Card 2: Added By (Manager) (Primary Theme) */}
-            {showAddedByCard && (
-              <div className="flex flex-col justify-between w-[175px] shrink-0 rounded-2xl border border-primary/30 bg-primary/10 p-3.5 dark:bg-primary/15 dark:border-primary/40">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/20">
-                      <UserPlus size={12} />
-                    </div>
-                    <span>Added By (Manager)</span>
-                  </div>
-                  <div className="my-3 flex items-center gap-2.5">
-                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/20 text-xs font-bold text-primary ring-1 ring-primary/30">
-                      {addedByAvatar ? (
-                        <img src={addedByAvatar} alt={addedByName} className="h-full w-full object-cover" />
+          <ul className="flex flex-col divide-y divide-border/60">
+            {rows.map((row) => (
+              <li key={row.key} className="flex items-start gap-2 py-1.5">
+                <span className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded", row.tone)}>
+                  {row.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium text-muted-foreground">{row.label}</p>
+                  {row.who && (
+                    <p className="flex items-center gap-1.5 truncate text-xs font-semibold text-foreground" title={row.who}>
+                      {row.avatar ? (
+                        <img src={row.avatar} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
                       ) : (
-                        initialsOf(addedByName)
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[8px] font-bold">
+                          {initialsOf(row.who)}
+                        </span>
                       )}
-                    </div>
-                    <span className="truncate text-xs font-bold text-foreground" title={addedByName}>
-                      {addedByName}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1 pt-2 text-[11px] text-muted-foreground border-t border-primary/20">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={12} className="shrink-0 text-primary/80" />
-                    <span>{addedDateStr}</span>
-                  </div>
-                  {addedTimeStr && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={12} className="shrink-0 text-primary/80" />
-                      <span>{addedTimeStr}</span>
-                    </div>
+                      <span className="truncate">{row.who}</span>
+                    </p>
                   )}
+                  {row.when && <p className="text-[11px] text-muted-foreground">{row.when}</p>}
                 </div>
-              </div>
-            )}
-
-            {/* Card 3: Last Edited By (Warning Theme) */}
-            {showEditedByCard && (
-              <div className="flex flex-col justify-between w-[175px] shrink-0 rounded-2xl border border-warning/30 bg-warning/10 p-3.5 dark:bg-warning/15 dark:border-warning/40">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-warning">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-warning/20">
-                      <Pencil size={12} />
-                    </div>
-                    <span>Last Edited By</span>
-                  </div>
-                  <div className="my-3 flex items-center gap-2.5">
-                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-warning/20 text-xs font-bold text-warning ring-1 ring-warning/30">
-                      {editedByAvatar ? (
-                        <img src={editedByAvatar} alt={editedByName} className="h-full w-full object-cover" />
-                      ) : (
-                        initialsOf(editedByName)
-                      )}
-                    </div>
-                    <span className="truncate text-xs font-bold text-foreground" title={editedByName}>
-                      {editedByName}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1 pt-2 text-[11px] text-muted-foreground border-t border-warning/20">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={12} className="shrink-0 text-warning/80" />
-                    <span>{editedDateStr}</span>
-                  </div>
-                  {editedTimeStr && (
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={12} className="shrink-0 text-warning/80" />
-                      <span>{editedTimeStr}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Card 4: Carried Over (Indigo/Purple Theme) */}
-            {showCarriedOverCard && (
-              <div className="flex flex-col justify-between w-[185px] shrink-0 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 dark:bg-indigo-500/15 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                  <div className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/20">
-                    <Repeat size={12} />
-                  </div>
-                  <span>Carried Over</span>
-                </div>
-
-                <div className="my-2 space-y-1">
-                  <span className="block text-[11px] font-medium text-muted-foreground">Originally created on</span>
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                    <Calendar size={12} className="shrink-0 text-indigo-600/80 dark:text-indigo-400/80" />
-                    <span>{origCreatedDateStr}</span>
-                  </div>
-                  {origCreatedTimeStr && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <Clock size={12} className="shrink-0 text-indigo-600/80 dark:text-indigo-400/80" />
-                      <span>{origCreatedTimeStr}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="my-1 border-t border-dashed border-indigo-500/30" />
-
-                <div className="space-y-1">
-                  <span className="block text-[11px] font-medium text-muted-foreground">Carried over to</span>
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-                    <Calendar size={12} className="shrink-0 text-indigo-600/80 dark:text-indigo-400/80" />
-                    <span>{carryToDateStr}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              </li>
+            ))}
+          </ul>
         </PopoverContent>
       </Popover>
     </span>

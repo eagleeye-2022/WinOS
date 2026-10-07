@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
 import { sortTeamMembers, sortTeamGroups } from "@/features/dsm/manager/queries";
 import type { DsrEntryData } from "../queries";
-import { splitRecording } from "../reporting";
+import { usableRecordingUrl } from "../reporting";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,6 @@ export type DsrMemberCard = {
   completedTaskCount: number;
   plannedTaskCount: number;
   recordingUrl: string | null;
-  recordingFile: string | null;
   isLate: boolean;
   totalLoggedMinutes: number;
 };
@@ -91,7 +90,7 @@ const dsrInclude = {
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
-/** Top stat cards for the All Reports overview. */
+/** Top stat cards for the All Reporting overview. */
 export async function getAllDsrStats(date?: Date): Promise<AllDsrStats | null> {
   const managerId = await requireManager();
   if (!managerId) return null;
@@ -327,8 +326,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           resultOfDay: entry?.resultOfDay ?? null,
           completedTaskCount: entry?.completedTaskCount ?? 0,
           plannedTaskCount: entry?.plannedTaskCount ?? 0,
-          // In-app recordings share the recordingUrl column; split them for the card badges.
-          ...splitRecording(entry?.recordingUrl),
+          recordingUrl: usableRecordingUrl(entry?.recordingUrl) || null,
           isLate: entry?.isLate ?? false,
           totalLoggedMinutes: entry?.totalLoggedMinutes ?? 0,
         };

@@ -9,6 +9,7 @@ import {
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
   MoreHorizontal,
+  SquareArrowOutUpRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -1666,6 +1667,7 @@ function TaskRow({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40 p-1">
+                <ViewTaskMenuItem task={task} />
                 <DropdownMenuItem
                   onClick={handleStartEdit}
                   className="flex items-center gap-2 cursor-pointer text-xs font-medium"
@@ -1695,6 +1697,15 @@ function TaskRow({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        ) : projectTaskHref(task) ? (
+          // Locked rows can't be edited, but the linked project task can still be opened.
+          <Link
+            href={projectTaskHref(task)!}
+            title="View Task"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <SquareArrowOutUpRight size={14} />
+          </Link>
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
         )}
@@ -1866,6 +1877,32 @@ function SummaryTaskEditor({
   );
 }
 
+/**
+ * Projects-module page for a DSM task's linked project task, or null when the DSM task isn't linked to
+ * both a project and a project task. Opens in the same tab.
+ */
+function projectTaskHref(task: TaskItem): string | null {
+  const projectId = task.projectTask?.project?.id;
+  const code = task.projectTask?.code;
+  return projectId && code ? `/projects/${projectId}/tasks/${code}` : null;
+}
+
+function ViewTaskMenuItem({ task }: { task: TaskItem }) {
+  const href = projectTaskHref(task);
+  if (!href) return null;
+  return (
+    <>
+      <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+        <Link href={href}>
+          <SquareArrowOutUpRight size={13} className="text-muted-foreground" />
+          <span>View Task</span>
+        </Link>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+    </>
+  );
+}
+
 function SummaryTaskRow({
   task,
   isDone,
@@ -1976,6 +2013,7 @@ function SummaryTaskRow({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40 p-1">
+              <ViewTaskMenuItem task={task} />
               <DropdownMenuItem
                 onClick={() => setEditing(true)}
                 className="flex items-center gap-2 cursor-pointer text-xs font-medium"

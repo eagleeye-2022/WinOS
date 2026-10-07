@@ -204,7 +204,7 @@ function ManagerDashboard({
             [
               { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
-              { label: "All Reports",    desc: "End-of-Day Report Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
+              { label: "All Reporting",  desc: "End-of-Day Report Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
               { label: "Blockers", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
               { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const

@@ -63,10 +63,10 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Daily DSM" || label === "DSM") {
     return pathname === ROUTES.dsm || pathname === "/dashboard";
   }
-  if (label === "All Reports") {
+  if (label === "All Reporting") {
     return pathname.startsWith(ROUTES.dsrManage) || pathname.startsWith("/report/member");
   }
-  if (label === "My Report" || label === "Report") {
+  if (label === "My Reporting" || label === "Reporting") {
     return pathname === ROUTES.dsr || pathname === ROUTES.dsrMy;
   }
   if (label === "iNotes" || label === "i-Notes" || label === "My Notes") {
@@ -244,9 +244,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       ? [
         { label: "Home", href: ROUTES.dashboard, icon: Home },
         { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
-        { label: "All Reports", href: ROUTES.dsrManage, icon: BarChart2 },
+        { label: "All Reporting", href: ROUTES.dsrManage, icon: BarChart2 },
         { label: "My DSM", href: ROUTES.dsmMy, icon: User },
-        { label: "My Report", href: ROUTES.dsrMy, icon: ClipboardList },
+        { label: "My Reporting", href: ROUTES.dsrMy, icon: ClipboardList },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "Blockers ", href: ROUTES.blockers, icon: AlertCircle },
@@ -254,7 +254,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       ]
       : [
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
-        { label: "Report", href: ROUTES.dsr, icon: BarChart2 },
+        { label: "Reporting", href: ROUTES.dsr, icon: BarChart2 },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "Blockers", href: ROUTES.blockers, icon: AlertCircle },

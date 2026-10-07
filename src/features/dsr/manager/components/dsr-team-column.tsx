@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, ExternalLink, Video, VideoOff, Timer } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, Video, VideoOff, Timer } from "lucide-react";
 
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -49,7 +49,7 @@ function formatTime(date: Date): string {
 }
 
 // ── Submitted report member card ──────────────────────────────────────────────
-// Opens the full report in a NEW tab ("View More") so the manager keeps their place on All Reports.
+// Clicking the card opens the full report in the same tab.
 
 function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
@@ -61,8 +61,6 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
   return (
     <Link
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       className={cn(
         "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
@@ -109,7 +107,7 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span>{card.completedTaskCount}/{card.plannedTaskCount} tasks</span>
         <span className="flex items-center gap-1"><Timer size={11} /> {formatMinutes(card.totalLoggedMinutes)}</span>
-        {card.recordingUrl || card.recordingFile ? (
+        {card.recordingUrl ? (
           <span className="flex items-center gap-1 font-medium text-success"><Video size={11} /> Recording</span>
         ) : (
           <span className="flex items-center gap-1 font-medium text-destructive"><VideoOff size={11} /> No recording</span>
@@ -127,9 +125,11 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
         </div>
       )}
 
+      {/* "View More" label hidden — the whole card is already the link.
       <span className="mt-2 flex items-center justify-end gap-1 text-xs font-medium text-muted-foreground group-hover:text-primary">
-        View More <ExternalLink size={11} />
+        View More <ChevronRight size={13} />
       </span>
+      */}
     </Link>
   );
 }
@@ -144,8 +144,6 @@ function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemb
   return (
     <Link
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
@@ -169,9 +167,11 @@ function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemb
       </div>
       <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between">
         <SendReminderButton userId={card.userId} teamId={teamId} kind="report" />
+        {/* "View More" label hidden — the whole card is already the link.
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
-          View More <ExternalLink size={11} />
+          View More <ChevronRight size={13} />
         </span>
+        */}
       </div>
     </Link>
   );

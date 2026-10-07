@@ -151,9 +151,9 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
 
     const isSubmitted = (s: string | null) => s === "SUBMITTED" || s === "PENDING_REVIEW" || s === "REVIEWED";
     const memberMatches = (m: DsrTeamGroup["members"][number]) => {
-      if (memberFilter === "to-review") return (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!(m.recordingUrl || m.recordingFile);
+      if (memberFilter === "to-review") return (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!m.recordingUrl;
       if (memberFilter === "late") return isSubmitted(m.status) && m.isLate;
-      if (memberFilter === "no-recording") return isSubmitted(m.status) && !(m.recordingUrl || m.recordingFile);
+      if (memberFilter === "no-recording") return isSubmitted(m.status) && !m.recordingUrl;
       return true;
     };
     const withMembers = memberFilter === "all"
@@ -169,9 +169,9 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
     const all = groups.flatMap((g) => g.members);
     const submitted = all.filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED");
     return {
-      "to-review": all.filter((m) => (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!(m.recordingUrl || m.recordingFile)).length,
+      "to-review": all.filter((m) => (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!m.recordingUrl).length,
       late: submitted.filter((m) => m.isLate).length,
-      "no-recording": submitted.filter((m) => !(m.recordingUrl || m.recordingFile)).length,
+      "no-recording": submitted.filter((m) => !m.recordingUrl).length,
     };
   }, [groups]);
 
@@ -181,7 +181,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
       {/* Page Heading + Date Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Reports</h1>
+          <h1 className="text-3xl font-bold tracking-tight">All Reporting</h1>
           <p className="text-sm text-muted-foreground">
             Review end-of-day reports and recordings for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
           </p>
@@ -191,7 +191,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
             href="/report/my"
             className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity"
           >
-            <Plus size={14} /> Submit My Report
+            <Plus size={14} /> Submit My Reporting
           </Link>
 
           {/* Today Button */}

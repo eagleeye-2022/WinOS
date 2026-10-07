@@ -33,13 +33,6 @@ export async function toggleDsrAdditionalWork(
 
   if (!item) return { message: "Item not found" };
 
-  const standup = await d.standupEntry.findUnique({
-    where: { userId_date: { userId: item.dsrEntry.userId, date: item.dsrEntry.date } },
-    select: { status: true },
-  });
-  if (standup?.status !== "REVIEWED") {
-    return { message: "This member's DSM must be reviewed before the DSR can be edited." };
-  }
 
   const newCompleted = !item.completed;
   await d.dsrAdditionalWork.update({

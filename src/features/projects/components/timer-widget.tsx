@@ -15,6 +15,29 @@ import { useActiveTimerContext, type ActiveTimerData } from "../context/active-t
 import type { TimeLogEntry } from "../types";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { toast } from "@/components/shared/toast";
+import {
+  clearPendingTimerLog,
+  requestPendingTimerLogRecovery,
+  savePendingTimerLog,
+} from "../utils/pending-timer-log";
+
+/**
+ * Widgets currently mounted on the page, by instance id → the task identifiers they render.
+ * The "which widget shows the running timer" claim lives in sessionStorage and outlives the page
+ * that made it; without this, a claim left by a widget on another page made every widget here
+ * show ▶ Start even though the timer was running.
+ */
+const mountedTimerWidgets = new Map<string, string[]>();
+
+function isClaimHeldByMountedWidget(
+  instanceId: string,
+  dbTimer: { taskId?: string; task?: { code?: string } | null }
+): boolean {
+  const keys = mountedTimerWidgets.get(instanceId);
+  if (!keys) return false;
+  if (keys.length === 0) return true; // task-less widget shows any running timer
+  return keys.includes(dbTimer.taskId ?? "") || keys.includes(dbTimer.task?.code ?? "");
+}
 
 interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
@@ -59,6 +82,15 @@ export function TimerWidget({
 }: TimerWidgetProps) {
   const internalId = React.useId();
   const widgetInstanceId = instanceId || internalId;
+
+  // Layout effect: every widget on the page registers before any of them runs applyDbTimer
+  // (a passive effect), so the stale-claim check below sees the whole page.
+  React.useLayoutEffect(() => {
+    mountedTimerWidgets.set(widgetInstanceId, [taskId, taskCode].filter(Boolean) as string[]);
+    return () => {
+      mountedTimerWidgets.delete(widgetInstanceId);
+    };
+  }, [widgetInstanceId, taskId, taskCode]);
 
   const { confirm, ConfirmDialog } = useConfirm();
   const showCannotStart = (title: string, description: string) => {
@@ -119,11 +151,16 @@ export function TimerWidget({
             dbTimer.taskId === taskCode);
 
       if (dbTimer && isCurrentTask) {
-        const savedInstanceId =
-          currentActiveInstanceId ||
+        // sessionStorage is written synchronously on every claim, so it's fresher than the
+        // context copy. A claim held by a widget that isn't mounted here is stale — ignore it.
+        const claimedInstanceId =
           (typeof window !== "undefined"
             ? sessionStorage.getItem("winos:activeTimerInstanceId")
-            : null);
+            : null) || currentActiveInstanceId;
+        const savedInstanceId =
+          claimedInstanceId && isClaimHeldByMountedWidget(claimedInstanceId, dbTimer)
+            ? claimedInstanceId
+            : null;
 
         const matchesInstance =
           !savedInstanceId || savedInstanceId === widgetInstanceId;
@@ -183,6 +220,7 @@ export function TimerWidget({
       const minutes = Math.max(1, Math.round(ended.data.elapsedSeconds / 60));
       const pad = (n: number) => n.toString().padStart(2, "0");
       const clock = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      savePendingTimerLog({ ...ended.data, taskTitle: running.task?.title });
       try {
         await createTimeLogAction(
           {
@@ -196,10 +234,12 @@ export function TimerWidget({
           },
           ended.data.projectId
         );
+        clearPendingTimerLog();
         toast.success(`Saved ${minutes} min on "${runningTitle}".`);
       } catch (err) {
         console.error("[TimerWidget] saving the replaced timer's log failed:", err);
         toast.error(`Couldn't save the effort log for "${runningTitle}".`);
+        requestPendingTimerLogRecovery();
       }
     }
     activeTimerCtx?.setLocalActiveTimer(null, null);
@@ -286,6 +326,12 @@ export function TimerWidget({
       });
 
       if (res.success && res.data) {
+        if ("replaced" in res && res.replaced) {
+          const label = res.replaced.taskTitle || res.replaced.taskCode || "the previous task";
+          toast.success(`Saved ${res.replaced.minutes} min on "${label}" before starting this timer.`);
+        }
+        // alreadyRunning: this task's timer was already running (e.g. from another DSM row linked
+        // to the same task) — the server kept it, so this just shows it with its real elapsed time.
         const baselineSeconds = res.data.elapsedSeconds || 0;
         if (typeof window !== "undefined") {
           sessionStorage.setItem("winos:activeTimerInstanceId", widgetInstanceId);
@@ -339,6 +385,7 @@ export function TimerWidget({
       const res = await endActiveTimerAction();
       if (res.success && res.data) {
         stoppedContextRef.current = res.data;
+        savePendingTimerLog({ ...res.data, taskTitle: taskTitle || activeTimerCtx?.activeTimer?.task?.title });
       }
     } catch (err) {
       console.error("[TimerWidget] endActiveTimerAction failed:", err);
@@ -371,6 +418,7 @@ export function TimerWidget({
     const targetTaskCode = ctx?.taskCode || ctx?.taskId || taskCode || taskId;
     const targetProjectId = ctx?.projectId || projectId;
 
+    let saved = true;
     if (targetTaskCode) {
       try {
         // The ActiveTimer row is already gone (deleted in handleStop) — create
@@ -387,9 +435,16 @@ export function TimerWidget({
             .split("T")[0],
         };
         await createTimeLogAction(payload, targetProjectId);
+        clearPendingTimerLog();
       } catch (err) {
         console.error("[TimerWidget] createTimeLogAction failed:", err);
+        saved = false;
+        // The stopped timer is still parked — reopen the log modal so the time isn't lost.
+        toast.error("Couldn't save the time log. Please try again.");
+        requestPendingTimerLogRecovery();
       }
+    } else {
+      clearPendingTimerLog();
     }
 
     isStoppingRef.current = false;
@@ -399,7 +454,7 @@ export function TimerWidget({
     setSeconds(0);
     setIsExpanded(defaultExpanded);
 
-    if (onSaveLog) {
+    if (onSaveLog && saved) {
       onSaveLog(data);
     }
   };
@@ -407,6 +462,7 @@ export function TimerWidget({
   const handleModalDiscardLog = async () => {
     // Nothing left to delete server-side — the ActiveTimer was already removed
     // when Stop was clicked. Discarding here just means "don't log this time".
+    clearPendingTimerLog();
     isStoppingRef.current = false;
     stoppedContextRef.current = null;
     setTimerState("IDLE");
@@ -461,6 +517,7 @@ export function TimerWidget({
         <TimerStoppedModal
           isOpen={isStoppedModalOpen}
           onClose={() => {
+            if (!isSavingLogRef.current) clearPendingTimerLog();
             isStoppingRef.current = false;
             setIsStoppedModalOpen(false);
           }}
@@ -589,6 +646,7 @@ export function TimerWidget({
       <TimerStoppedModal
         isOpen={isStoppedModalOpen}
         onClose={() => {
+          if (!isSavingLogRef.current) clearPendingTimerLog();
           isStoppingRef.current = false;
           setIsStoppedModalOpen(false);
           setIsExpanded(defaultExpanded);
