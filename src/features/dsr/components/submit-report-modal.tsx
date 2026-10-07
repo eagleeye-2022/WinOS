@@ -56,7 +56,7 @@ export function SubmitReportModal({
   const [touchedLink, setTouchedLink] = useState(false);
 
   const linkCheck = validateRecordingUrl(recordingUrl, config.allowedHosts);
-  const lateNow = !isEdit && isReportLate(dateStr, new Date(), config.cutoff);
+  const lateNow = !isEdit && isReportLate(dateStr, new Date(), config.cutoff, config.cutoffDayOffset);
   const outcomeMissing = !resultOfDay.trim();
 
   const canNext = step === 0 ? linkCheck.ok : step === 1 ? true : linkCheck.ok && !outcomeMissing;

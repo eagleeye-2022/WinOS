@@ -3,8 +3,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { toUtcDate } from "@/features/dsm/utils";
-import { formatCutoffLabel, getReportCutoff } from "@/features/dsr/reporting";
+import { toUtcDate, isoToUtcDate } from "@/features/dsm/utils";
+import { formatCutoffLabel, getOpenReportDateStr, getReportCutoff, getReportCutoffDayOffset } from "@/features/dsr/reporting";
 
 const REMINDER_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4-hour cooldown per user per day
 
@@ -26,7 +26,7 @@ const REMINDER_CONTENT: Record<ReminderKind, { type: string; title: string; mess
   report: {
     type: "REPORT_REMINDER",
     title: "End-of-Day Report Reminder",
-    message: `Hey! You haven't submitted your end-of-day report yet. Record your screen walkthrough, post it in Zoho Cliq and submit before the ${formatCutoffLabel(getReportCutoff())} cut-off.`,
+    message: `Hey! You haven't submitted your end-of-day report yet. Record today's work in Zoho Cliq, paste the link in Reporting and submit before the ${formatCutoffLabel(getReportCutoff(), getReportCutoffDayOffset())} cut-off.`,
   },
 };
 
@@ -64,8 +64,12 @@ async function hasSubmittedToday(
   kind: ReminderKind = "dsm"
 ): Promise<boolean> {
   const model = kind === "report" ? d.dsrEntry : d.standupEntry;
+  // With a next-day cut-off, the report still open before ~6 AM is the previous day's.
+  const date = kind === "report"
+    ? isoToUtcDate(getOpenReportDateStr(new Date(), getReportCutoff(), getReportCutoffDayOffset()))
+    : today;
   const entry = await model.findUnique({
-    where: { userId_date: { userId, date: today } },
+    where: { userId_date: { userId, date } },
     select: { status: true },
   });
   if (!entry) return false;

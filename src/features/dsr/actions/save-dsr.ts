@@ -10,6 +10,7 @@ import {
   buildCliqReportMessage,
   getAllowedRecordingHosts,
   getReportCutoff,
+  getReportCutoffDayOffset,
   isReportLate,
   validateRecordingUrl,
 } from "../reporting";
@@ -109,7 +110,7 @@ export async function saveDsr(
   const finalStatus = wasSubmitted ? "PENDING_REVIEW" : status;
   const submittedAt = finalStatus === "DRAFT" ? null : existing?.submittedAt ?? new Date();
   // Lateness is fixed by the first submission; later edits don't change it.
-  const isLate = submittedAt ? isReportLate(dateStr, new Date(submittedAt), getReportCutoff()) : false;
+  const isLate = submittedAt ? isReportLate(dateStr, new Date(submittedAt), getReportCutoff(), getReportCutoffDayOffset()) : false;
 
   const effort = await getDayEffort(session.user.id, dateStr);
   const totalLoggedMinutes = effort.reduce((sum, row) => sum + row.minutes, 0);

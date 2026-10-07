@@ -1847,8 +1847,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </select>
                           </td>
 
-                          <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
-                            {log.remarks || "—"}
+                          {/* Remarks Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 whitespace-nowrap max-w-[260px]">
+                            <InlineTextCell
+                              value={log.remarks || ""}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
+                              placeholder="Add remarks"
+                              className="text-muted-foreground min-w-[160px] truncate"
+                              title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -2069,8 +2076,15 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </select>
                           </td>
 
-                          <td className="py-2.5 px-4 text-muted-foreground whitespace-nowrap max-w-[220px] truncate" title={log.remarks}>
-                            {log.remarks || "—"}
+                          {/* Remarks Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 whitespace-nowrap max-w-[260px]">
+                            <InlineTextCell
+                              value={log.remarks || ""}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
+                              placeholder="Add remarks"
+                              className="text-muted-foreground min-w-[160px] truncate"
+                              title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
+                            />
                           </td>
                         </tr>
                       ))}

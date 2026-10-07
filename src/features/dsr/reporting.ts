@@ -4,8 +4,13 @@
 
 const IST_OFFSET_MINUTES = 5 * 60 + 30;
 
-/** Default end-of-day report cut-off (IST, 24h). Override with REPORT_CUTOFF_HHMM. */
-export const DEFAULT_REPORT_CUTOFF = "18:00";
+/**
+ * Report cut-off: 6:00 AM IST on the day AFTER the report date (members can submit until early the
+ * next morning). Override the time with REPORT_CUTOFF_HHMM and the day with REPORT_CUTOFF_DAY_OFFSET
+ * (0 = same day as the report, 1 = next day).
+ */
+export const DEFAULT_REPORT_CUTOFF = "06:00";
+export const DEFAULT_CUTOFF_DAY_OFFSET = 1;
 
 /**
  * Hosts a pasted recording link may point at (subdomains included). Defaults to Zoho (Cliq /
@@ -26,6 +31,12 @@ export function getReportCutoff(): string {
   return raw && /^\d{1,2}:\d{2}$/.test(raw) ? raw : DEFAULT_REPORT_CUTOFF;
 }
 
+/** 0 = cut-off on the report date itself, 1 = next day (default). */
+export function getReportCutoffDayOffset(): number {
+  const raw = process.env.REPORT_CUTOFF_DAY_OFFSET?.trim();
+  return raw === "0" ? 0 : raw === "1" ? 1 : DEFAULT_CUTOFF_DAY_OFFSET;
+}
+
 export function getAllowedRecordingHosts(): string[] {
   const raw = process.env.REPORT_RECORDING_ALLOWED_HOSTS;
   if (!raw?.trim()) return DEFAULT_RECORDING_HOSTS;
@@ -34,9 +45,11 @@ export function getAllowedRecordingHosts(): string[] {
 
 /** Server-resolved settings handed to the client-side report form/modal. */
 export type ReportConfig = {
-  /** "18:00" */
+  /** "06:00" */
   cutoff: string;
-  /** "6:00 PM" */
+  /** Days after the report date the cut-off falls on (1 = next day). */
+  cutoffDayOffset: number;
+  /** "6:00 AM next day" */
   cutoffLabel: string;
   allowedHosts: string[];
 };
@@ -44,27 +57,74 @@ export type ReportConfig = {
 /** Call on the server: env vars aren't available to client components. */
 export function getReportConfig(): ReportConfig {
   const cutoff = getReportCutoff();
-  return { cutoff, cutoffLabel: formatCutoffLabel(cutoff), allowedHosts: getAllowedRecordingHosts() };
+  const cutoffDayOffset = getReportCutoffDayOffset();
+  return {
+    cutoff,
+    cutoffDayOffset,
+    cutoffLabel: formatCutoffLabel(cutoff, cutoffDayOffset),
+    allowedHosts: getAllowedRecordingHosts(),
+  };
 }
 
 /** The cut-off instant (UTC) for a report dated `dateStr` (YYYY-MM-DD), interpreted in IST. */
-export function getCutoffInstant(dateStr: string, cutoff = DEFAULT_REPORT_CUTOFF): Date {
+export function getCutoffInstant(
+  dateStr: string,
+  cutoff = DEFAULT_REPORT_CUTOFF,
+  dayOffset = DEFAULT_CUTOFF_DAY_OFFSET
+): Date {
   const [y, m, d] = dateStr.slice(0, 10).split("-").map(Number);
   const [hh, mm] = cutoff.split(":").map(Number);
-  return new Date(Date.UTC(y, m - 1, d, hh, mm) - IST_OFFSET_MINUTES * 60_000);
+  return new Date(Date.UTC(y, m - 1, d + dayOffset, hh, mm) - IST_OFFSET_MINUTES * 60_000);
 }
 
 /** True when `submittedAt` falls after the report date's cut-off. */
-export function isReportLate(dateStr: string, submittedAt: Date, cutoff = DEFAULT_REPORT_CUTOFF): boolean {
-  return submittedAt.getTime() > getCutoffInstant(dateStr, cutoff).getTime();
+export function isReportLate(
+  dateStr: string,
+  submittedAt: Date,
+  cutoff = DEFAULT_REPORT_CUTOFF,
+  dayOffset = DEFAULT_CUTOFF_DAY_OFFSET
+): boolean {
+  return submittedAt.getTime() > getCutoffInstant(dateStr, cutoff, dayOffset).getTime();
 }
 
-/** "18:00" → "6:00 PM" */
-export function formatCutoffLabel(cutoff = DEFAULT_REPORT_CUTOFF): string {
+/**
+ * Late status computed from the report's date + first submit time with the CURRENT cut-off rule.
+ * Display code uses this instead of the stored `isLate` flag, which was frozen at submit time (reports
+ * filed under an older rule, e.g. the 6 PM same-day cut-off, would otherwise stay wrongly "Late").
+ */
+export function computeIsLate(
+  date: Date | string,
+  submittedAt: Date | string | null | undefined,
+  cutoff = DEFAULT_REPORT_CUTOFF,
+  dayOffset = DEFAULT_CUTOFF_DAY_OFFSET
+): boolean {
+  if (!submittedAt) return false;
+  const dateStr = typeof date === "string" ? date.slice(0, 10) : date.toISOString().slice(0, 10);
+  return isReportLate(dateStr, new Date(submittedAt), cutoff, dayOffset);
+}
+
+/**
+ * The report date (YYYY-MM-DD, IST) a member is filling at `now`. With a next-day cut-off, the
+ * previous day's report stays open until the cut-off — e.g. at 1:30 AM on Oct 8 it's still Oct 7's.
+ */
+export function getOpenReportDateStr(
+  now: Date = new Date(),
+  cutoff = DEFAULT_REPORT_CUTOFF,
+  dayOffset = DEFAULT_CUTOFF_DAY_OFFSET
+): string {
+  const [hh, mm] = cutoff.split(":").map(Number);
+  // Shift so "IST minus (cut-off time + offset days)" lands on the report date.
+  const shiftMinutes = IST_OFFSET_MINUTES - (dayOffset > 0 ? hh * 60 + mm : 0);
+  return new Date(now.getTime() + shiftMinutes * 60_000).toISOString().slice(0, 10);
+}
+
+/** ("06:00", 1) → "6:00 AM next day"; ("18:00", 0) → "6:00 PM" */
+export function formatCutoffLabel(cutoff = DEFAULT_REPORT_CUTOFF, dayOffset = DEFAULT_CUTOFF_DAY_OFFSET): string {
   const [hh, mm] = cutoff.split(":").map(Number);
   const suffix = hh >= 12 ? "PM" : "AM";
   const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  return `${h12}:${String(mm).padStart(2, "0")} ${suffix}`;
+  const time = `${h12}:${String(mm).padStart(2, "0")} ${suffix}`;
+  return dayOffset > 0 ? `${time} next day` : time;
 }
 
 /**

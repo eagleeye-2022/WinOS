@@ -2,6 +2,18 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, isoToUtcDate, getWeekRange } from "./utils";
 import { getDailyTimeSummaryForTasks, getDayEffort, type DailyTimeSummary, type DayEffortRow } from "@/features/dsm/queries";
+import { computeIsLate, getReportCutoff, getReportCutoffDayOffset } from "./reporting";
+
+/**
+ * Replaces the stored `isLate` (frozen at submit time) with one computed from the CURRENT cut-off
+ * rule, so reports filed under an older rule (e.g. the previous 6 PM cut-off) display correctly.
+ */
+export function withCurrentLate<T extends { date: Date; submittedAt: Date | null; isLate?: boolean }>(entry: T): T;
+export function withCurrentLate<T extends { date: Date; submittedAt: Date | null; isLate?: boolean }>(entry: T | null): T | null;
+export function withCurrentLate<T extends { date: Date; submittedAt: Date | null; isLate?: boolean }>(entry: T | null): T | null {
+  if (!entry) return entry;
+  return { ...entry, isLate: computeIsLate(entry.date, entry.submittedAt, getReportCutoff(), getReportCutoffDayOffset()) };
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,12 +105,12 @@ const INSIGHT_QUOTES = [
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
-/** Today's DSR entry for the current user (DRAFT or submitted). */
-export async function getCurrentDsrEntry(): Promise<DsrEntryData | null> {
+/** The current user's report for `dateStr` (default: today) — DRAFT or submitted. */
+export async function getCurrentDsrEntry(dateStr?: string): Promise<DsrEntryData | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const today = toUtcDate();
+  const today = dateStr ? isoToUtcDate(dateStr) : toUtcDate();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const entry = await (db as any).dsrEntry.findUnique({
@@ -106,7 +118,7 @@ export async function getCurrentDsrEntry(): Promise<DsrEntryData | null> {
     include: dsrInclude,
   });
 
-  return entry as DsrEntryData | null;
+  return withCurrentLate(entry as DsrEntryData | null);
 }
 
 /** Today's DSM (StandupEntry) status for the given user (defaults to current session user). */
@@ -131,12 +143,12 @@ export async function getTodayDsmStatus(
   return standup?.status ?? "NONE";
 }
 
-/** Prefill data from today's StandupEntry for first-time DSR creation. */
-export async function getDsrStandupPrefill(): Promise<DsrStandupPrefill> {
+/** Prefill data from the StandupEntry for `dateStr` (default: today) for first-time report creation. */
+export async function getDsrStandupPrefill(dateStr?: string): Promise<DsrStandupPrefill> {
   const session = await auth();
   if (!session?.user?.id) return { plannedTasks: [], blockers: [], followUps: [], learningItems: [] };
 
-  const today = toUtcDate();
+  const today = dateStr ? isoToUtcDate(dateStr) : toUtcDate();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const standup = await (db as any).standupEntry.findUnique({
@@ -201,7 +213,7 @@ export async function getWeeklyDsrHistory(weekOffset = 0): Promise<DsrEntryData[
     orderBy: { date: "desc" },
   });
 
-  return entries as DsrEntryData[];
+  return (entries as DsrEntryData[]).map((e) => withCurrentLate(e));
 }
 
 export type ProjectLinkSummary = {
