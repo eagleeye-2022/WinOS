@@ -84,10 +84,10 @@ export async function shareThread(
 
   revalidatePath("/notes");
   revalidatePath("/dsm");
-  revalidatePath("/dsr");
+  revalidatePath("/report");
   revalidatePath("/dsm/my");
-  revalidatePath("/dsr/my");
+  revalidatePath("/report/my");
   revalidatePath("/dsm/all");
-  revalidatePath("/dsr/manage");
+  revalidatePath("/report/all");
   return { message: "shared" };
 }

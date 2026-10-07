@@ -183,6 +183,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTaskId && isToday ? (
                                 <TimerWidget
+                                  instanceId={`standup-day-task-${task.id}`}
                                   taskId={task.projectTaskId}
                                   taskCode={task.projectTask?.code ?? undefined}
                                   taskTitle={task.text}

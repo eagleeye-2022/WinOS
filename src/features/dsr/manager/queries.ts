@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange } from "@/features/dsm/utils";
 import { sortTeamMembers, sortTeamGroups } from "@/features/dsm/manager/queries";
 import type { DsrEntryData } from "../queries";
+import { splitRecording } from "../reporting";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,10 @@ export type DsrMemberCard = {
   resultOfDay: string | null;
   completedTaskCount: number;
   plannedTaskCount: number;
+  recordingUrl: string | null;
+  recordingFile: string | null;
+  isLate: boolean;
+  totalLoggedMinutes: number;
 };
 
 export type DsrTeamGroup = {
@@ -86,7 +91,7 @@ const dsrInclude = {
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
-/** Top stat cards for the All Team DSR overview. */
+/** Top stat cards for the All Reports overview. */
 export async function getAllDsrStats(date?: Date): Promise<AllDsrStats | null> {
   const managerId = await requireManager();
   if (!managerId) return null;
@@ -264,7 +269,7 @@ export async function getBlockerAndSupportNeedMembers(
   return { blockerMembers, supportNeededMembers };
 }
 
-/** Team-grouped DSR submissions for a given date. */
+/** Team-grouped report submissions for a given date. */
 export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeamGroup[]> {
   const managerId = await requireManager();
   if (!managerId) return [];
@@ -295,6 +300,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           select: {
             id: true, userId: true, status: true, submittedAt: true,
             resultOfDay: true, completedTaskCount: true, plannedTaskCount: true,
+            recordingUrl: true, isLate: true, totalLoggedMinutes: true,
           },
         })
       : [];
@@ -306,6 +312,7 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
         const entry = entryByUserId.get(m.user.id) as {
           id: string; status: string; submittedAt: Date | null;
           resultOfDay: string | null; completedTaskCount: number; plannedTaskCount: number;
+          recordingUrl: string | null; isLate: boolean; totalLoggedMinutes: number;
         } | undefined;
 
         return {
@@ -320,6 +327,10 @@ export async function getTeamGroupedDsrSubmissions(date?: Date): Promise<DsrTeam
           resultOfDay: entry?.resultOfDay ?? null,
           completedTaskCount: entry?.completedTaskCount ?? 0,
           plannedTaskCount: entry?.plannedTaskCount ?? 0,
+          // In-app recordings share the recordingUrl column; split them for the card badges.
+          ...splitRecording(entry?.recordingUrl),
+          isLate: entry?.isLate ?? false,
+          totalLoggedMinutes: entry?.totalLoggedMinutes ?? 0,
         };
       }
     );

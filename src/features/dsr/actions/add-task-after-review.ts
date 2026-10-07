@@ -73,8 +73,8 @@ export async function addTaskAfterReview(
     },
   });
 
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
-  revalidatePath(`/dsr/member/${entry.userId}`);
+  revalidatePath("/report");
+  revalidatePath("/report/my");
+  revalidatePath(`/report/member/${entry.userId}`);
   return { message: "created" };
 }

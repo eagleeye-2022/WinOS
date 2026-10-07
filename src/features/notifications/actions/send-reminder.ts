@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { toUtcDate } from "@/features/dsm/utils";
+import { formatCutoffLabel, getReportCutoff } from "@/features/dsr/reporting";
 
 const REMINDER_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4-hour cooldown per user per day
 
@@ -13,12 +14,33 @@ export type SendReminderState = {
   skipped?: number;
 };
 
+/** "dsm" = morning standup (default), "report" = end-of-day report. Sent as the `kind` form field. */
+type ReminderKind = "dsm" | "report";
+
+const REMINDER_CONTENT: Record<ReminderKind, { type: string; title: string; message: string }> = {
+  dsm: {
+    type: "DSM_REMINDER",
+    title: "DSM Reminder",
+    message: "Hey! You haven't submitted your Daily Status Meeting update yet. Please submit before EOD.",
+  },
+  report: {
+    type: "REPORT_REMINDER",
+    title: "End-of-Day Report Reminder",
+    message: `Hey! You haven't submitted your end-of-day report yet. Record your screen walkthrough, post it in Zoho Cliq and submit before the ${formatCutoffLabel(getReportCutoff())} cut-off.`,
+  },
+};
+
+function reminderKindOf(formData: FormData): ReminderKind {
+  return formData.get("kind") === "report" ? "report" : "dsm";
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** True if the user already has a DSM_REMINDER today within the cooldown window. */
+/** True if the user already has a reminder of this kind today within the cooldown window. */
 async function alreadyRemindedToday(
   d: ReturnType<typeof Object.create>,
-  userId: string
+  userId: string,
+  kind: ReminderKind = "dsm"
 ): Promise<boolean> {
   const todayStart = toUtcDate();
   const cooldownStart = new Date(Date.now() - REMINDER_COOLDOWN_MS);
@@ -27,7 +49,7 @@ async function alreadyRemindedToday(
   const existing = await d.notification.findFirst({
     where: {
       userId,
-      type: "DSM_REMINDER",
+      type: REMINDER_CONTENT[kind].type,
       createdAt: { gte: cutoff },
     },
   });
@@ -38,9 +60,11 @@ async function alreadyRemindedToday(
 async function hasSubmittedToday(
   d: ReturnType<typeof Object.create>,
   userId: string,
-  today: Date
+  today: Date,
+  kind: ReminderKind = "dsm"
 ): Promise<boolean> {
-  const entry = await d.standupEntry.findUnique({
+  const model = kind === "report" ? d.dsrEntry : d.standupEntry;
+  const entry = await model.findUnique({
     where: { userId_date: { userId, date: today } },
     select: { status: true },
   });
@@ -66,6 +90,7 @@ export async function sendReminderToUser(
 
   const userId = formData.get("userId") as string;
   const teamId = (formData.get("teamId") as string | null) || null;
+  const kind = reminderKindOf(formData);
 
   if (!userId) return { message: "Missing userId" };
 
@@ -73,26 +98,23 @@ export async function sendReminderToUser(
   const d = db as any;
   const today = toUtcDate();
 
-  if (await hasSubmittedToday(d, userId, today)) {
+  if (await hasSubmittedToday(d, userId, today, kind)) {
     return { message: "already_submitted", sent: 0, skipped: 1 };
   }
-  if (await alreadyRemindedToday(d, userId)) {
+  if (await alreadyRemindedToday(d, userId, kind)) {
     return { message: "already_reminded", sent: 0, skipped: 1 };
   }
 
   await d.notification.create({
     data: {
-      type: "DSM_REMINDER",
-      title: "DSM Reminder",
-      message:
-        "Hey! You haven't submitted your Daily Status Meeting update yet. Please submit before EOD.",
+      ...REMINDER_CONTENT[kind],
       userId,
       createdById: session.user.id,
       teamId,
     },
   });
 
-  revalidatePath("/dsm/all");
+  revalidatePath(kind === "report" ? "/report/all" : "/dsm/all");
   return { message: "sent", sent: 1, skipped: 0 };
 }
 
@@ -107,6 +129,7 @@ export async function sendRemindersToTeam(
   }
 
   const teamId = formData.get("teamId") as string;
+  const kind = reminderKindOf(formData);
   if (!teamId) return { message: "Missing teamId" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,15 +146,12 @@ export async function sendRemindersToTeam(
   let skipped = 0;
 
   for (const { userId } of team.members) {
-    if (await hasSubmittedToday(d, userId, today)) { skipped++; continue; }
-    if (await alreadyRemindedToday(d, userId)) { skipped++; continue; }
+    if (await hasSubmittedToday(d, userId, today, kind)) { skipped++; continue; }
+    if (await alreadyRemindedToday(d, userId, kind)) { skipped++; continue; }
 
     await d.notification.create({
       data: {
-        type: "DSM_REMINDER",
-        title: "DSM Reminder",
-        message:
-          "Hey! You haven't submitted your Daily Status Meeting update yet. Please submit before EOD.",
+        ...REMINDER_CONTENT[kind],
         userId,
         createdById: session.user.id,
         teamId,
@@ -140,6 +160,6 @@ export async function sendRemindersToTeam(
     sent++;
   }
 
-  revalidatePath("/dsm/all");
+  revalidatePath(kind === "report" ? "/report/all" : "/dsm/all");
   return { message: sent > 0 ? "sent" : "all_reminded", sent, skipped };
 }

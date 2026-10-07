@@ -113,7 +113,7 @@ export interface ProjectTaskInfo {
   billingType?: BillingType;
 }
 
-export type ProjectType = "CLIENT_DELIVERY" | "INTERNAL_BUILD";
+export type ProjectType = "CLIENT_DELIVERY" | "INTERNAL_BUILD" | "SMM";
 
 export interface Project {
   id: string; // e.g. EEDP-81
@@ -142,6 +142,7 @@ export interface Project {
   tags?: string[];
   aiSummary?: string;
   group?: string;
+  associatedTeam?: string;
   businessHours?: string;
   taskLayout?: string;
   priority?: ProjectPriority;

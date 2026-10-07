@@ -3918,7 +3918,26 @@ export async function createTimeLogAction(
   const startTimePart = timePeriodStr ? timePeriodStr.split(/[-–]/)[0]?.trim() : undefined;
   const logDate = parseDateAndTimeToDate(logData.date, startTimePart);
 
-  const newLog = await d.projectTimeLog.create({
+  // Deduplication guard: Prevent creating duplicate time logs from simultaneous triggers
+  const fifteenSecondsAgo = new Date(Date.now() - 15000);
+  const existingDuplicate = await d.projectTimeLog.findFirst({
+    where: {
+      projectId: project.id,
+      taskId: task.id,
+      userId: session.user.id,
+      date: logDate,
+      duration: durationMinutes,
+      createdAt: { gte: fifteenSecondsAgo },
+    },
+    include: {
+      project: true,
+      phase: true,
+      task: true,
+      user: true,
+    },
+  });
+
+  const newLog = existingDuplicate || (await d.projectTimeLog.create({
     data: {
       projectId: project.id,
       phaseId: phase.id,
@@ -3936,7 +3955,7 @@ export async function createTimeLogAction(
       task: true,
       user: true,
     },
-  });
+  }));
 
   if (project.id) {
     await recalculateProjectTimeTotals(project.id);

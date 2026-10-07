@@ -334,6 +334,43 @@ export function AddProjectDrawer({
             </div>
           </div>
 
+          {/* Project Category Selection: Digital Project vs SMM Project */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">
+              Project Category
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectCategory("CLIENT_DELIVERY");
+                  setDepartmentAlias("digitalproducts@");
+                }}
+                className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
+                  projectCategory !== "SMM"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                    : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                Digital Project
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectCategory("SMM");
+                  setDepartmentAlias("smm@");
+                }}
+                className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
+                  projectCategory === "SMM"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                    : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                SMM Project
+              </button>
+            </div>
+          </div>
+
           {/* Collapsible: Phases Section */}
           {/* <div className="rounded-md border border-border bg-card">
             <button

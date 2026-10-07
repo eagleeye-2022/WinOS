@@ -31,6 +31,7 @@ import {
   ArrowRightToLine,
   Pencil,
   History,
+  Calendar,
 } from "lucide-react";
 import { Project, WorkspaceRole, TeamMemberOption, NewProjectFormData } from "../../types";
 import { TimerWidget } from "../timer-widget";
@@ -41,6 +42,7 @@ import {
   bulkUpdateProjectRoleAssigneesAction,
   bulkShiftProjectDatesAction,
   updateProjectDetailsAction,
+  updateProjectCalendarAction,
   ProjectAssigneeField,
 } from "../../actions/project-actions";
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
@@ -75,6 +77,7 @@ const ASSIGNEE_ROLE_TO_PROJECT_KEY: Record<ProjectAssigneeField, keyof Project> 
 type CollapsibleColId =
   | "projectId"
   | "projectName"
+  | "projectStartDate"
   | "projectStatus"
   | "projectLead"
   | "projectNotes"
@@ -102,6 +105,7 @@ const MARKETING_COLS: CollapsibleColId[] = ["marketingLead", "marketingSeo", "ma
 const LEAF_COL_ORDER: CollapsibleColId[] = [
   "projectId",
   "projectName",
+  "projectStartDate",
   "projectStatus",
   "projectLead",
   "projectNotes",
@@ -122,6 +126,7 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
 const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   projectId: 110,
   projectName: 200,
+  projectStartDate: 135,
   projectStatus: 110,
   projectLead: 160,
   projectNotes: 220,
@@ -135,7 +140,7 @@ const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   marketingSeo: 130,
   marketingContent: 140,
   projectCalendar: 210,
-  assetLink: 190,
+  assetLink: 205,
   projectTimeline: 75,
 };
 
@@ -144,6 +149,7 @@ const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
 const LEAF_LABELS: Record<CollapsibleColId, string> = {
   projectId: "Project ID",
   projectName: "Project Name",
+  projectStartDate: "Project Start Date",
   projectStatus: "Status",
   projectLead: "Project Lead / SPOC",
   projectNotes: "Project iNotes",
@@ -161,9 +167,135 @@ const LEAF_LABELS: Record<CollapsibleColId, string> = {
   projectTimeline: "Timeline",
 };
 
+function formatDisplayDate(dateStr?: string): string {
+  if (!dateStr || !dateStr.trim()) return "--";
+  const trimmed = dateStr.trim();
+  if (trimmed.includes("/")) {
+    const parts = trimmed.split("/");
+    if (parts.length === 3) {
+      const p0 = parseInt(parts[0], 10);
+      const p1 = parseInt(parts[1], 10);
+      const p2 = parseInt(parts[2], 10);
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (p1 >= 1 && p1 <= 12 && parts[2].length === 4) {
+        return `${String(p0).padStart(2, "0")} ${months[p1 - 1]} ${p2}`;
+      }
+    }
+    return trimmed;
+  }
+  if (trimmed.includes("-")) {
+    const parts = trimmed.split("T")[0].split("-");
+    if (parts.length === 3 && parts[0].length === 4) {
+      const y = parts[0];
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parts[2];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (m >= 0 && m < 12) {
+        return `${d} ${months[m]} ${y}`;
+      }
+    }
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  return trimmed;
+}
+
+function toInputDateValue(dateStr?: string): string {
+  if (!dateStr || !dateStr.trim()) return "";
+  const trimmed = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (trimmed.includes("T")) return trimmed.split("T")[0];
+  if (trimmed.includes("/")) {
+    const parts = trimmed.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+    }
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split("T")[0];
+  }
+  return "";
+}
+
+function StartDateCell({
+  project,
+  editable,
+  onUpdated,
+}: {
+  project: Project;
+  editable: boolean;
+  onUpdated: (patch: Partial<Project>) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [val, setVal] = useState(toInputDateValue(project.startDate));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setVal(toInputDateValue(project.startDate));
+  }, [project.startDate]);
+
+  const handleSave = async (newDate: string) => {
+    setIsEditing(false);
+    if (!newDate || newDate === toInputDateValue(project.startDate)) return;
+    setSaving(true);
+    const prev = project.startDate;
+    onUpdated({ startDate: newDate });
+    const result = await updateProjectCalendarAction(project.id, newDate, project.deadline || "");
+    setSaving(false);
+    if (!result.success) {
+      onUpdated({ startDate: prev });
+      toast.error(result.error || "Failed to update start date");
+    } else {
+      toast.success("Project start date updated");
+    }
+  };
+
+  if (editable && isEditing) {
+    return (
+      <div className="flex items-center gap-1 w-full min-w-0">
+        <input
+          type="date"
+          autoFocus
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          onBlur={() => handleSave(val)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave(val);
+            if (e.key === "Escape") {
+              setVal(toInputDateValue(project.startDate));
+              setIsEditing(false);
+            }
+          }}
+          className="rounded border border-primary/50 bg-background px-1.5 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={!editable}
+      onClick={() => editable && setIsEditing(true)}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors group/date w-full text-left truncate ${
+        editable ? "hover:bg-accent/60 cursor-pointer" : "cursor-default"
+      } ${saving ? "opacity-50" : ""}`}
+      title={editable ? "Click to edit start date" : undefined}
+    >
+      <Calendar size={13} className="text-muted-foreground shrink-0 group-hover/date:text-primary transition-colors" />
+      <span className={project.startDate ? "font-medium text-foreground truncate" : "text-muted-foreground/70 italic truncate"}>
+        {formatDisplayDate(project.startDate)}
+      </span>
+    </button>
+  );
+}
+
 const COLLAPSED_COL_WIDTH = 34;
 const CHECKBOX_COL_WIDTH = 40;
-const ACTIONS_COL_WIDTH = 100;
+const ACTIONS_COL_WIDTH = 56;
 
 interface AllProjectsTableViewProps {
   projects: Project[];
@@ -318,14 +450,29 @@ export function AllProjectsTableView({
   };
 
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "INACTIVE" | "COMPLETED" | "TEMPLATES">("ACTIVE");
+  const [categoryTab, setCategoryTab] = useState<"DIGITAL" | "SMM">("DIGITAL");
   const [viewLayout, setViewLayout] = useState<"LIST" | "GRID">("LIST");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Project ID column sort — cycles ascending -> descending -> unsorted on each header click.
-  const [projectIdSort, setProjectIdSort] = useState<"asc" | "desc" | null>(null);
-  const toggleProjectIdSort = () => {
-    setProjectIdSort((prev) => (prev === null ? "asc" : prev === "asc" ? "desc" : null));
+  // Column sorting state — cycles ascending -> descending -> unsorted on header click.
+  const [sortField, setSortField] = useState<CollapsibleColId | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
+
+  const toggleSort = (id: CollapsibleColId) => {
+    if (sortField === id) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortField(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection("asc");
+      }
+    } else {
+      setSortField(id);
+      setSortDirection("asc");
+    }
   };
 
   // Popover / Menu States
@@ -437,7 +584,8 @@ export function AllProjectsTableView({
     ownerFilter !== "ALL" ||
     departmentFilter !== "ALL" ||
     statusFilter !== "ALL" ||
-    searchQuery.trim() !== "";
+    searchQuery.trim() !== "" ||
+    sortField !== null;
 
   const handleResetFilters = () => {
     setCategoryFilter("ALL");
@@ -445,10 +593,55 @@ export function AllProjectsTableView({
     setDepartmentFilter("ALL");
     setStatusFilter("ALL");
     setSearchQuery("");
+    setSortField(null);
+    setSortDirection(null);
   };
+
+  // SMM vs Digital categorization
+  const isSMM = (project: Project): boolean => {
+    const cat = (project.projectCategory || "").toUpperCase();
+    const dept = (project.departmentAlias || "").toLowerCase();
+    const grp = (project.group || "").toLowerCase();
+    const team = (project.associatedTeam || "").toLowerCase();
+    const name = (project.name || "").toLowerCase();
+    const template = (project.templateUsed || "").toLowerCase();
+    const tags = (project.tags || []).map((t) => t.toLowerCase());
+
+    return (
+      cat === "SMM" ||
+      cat === "SMM_PROJECT" ||
+      cat === "SMM_PROJECTS" ||
+      cat === "SMM DELIVERY" ||
+      dept.includes("smm") ||
+      dept.includes("social") ||
+      grp.includes("smm") ||
+      grp.includes("social") ||
+      team.includes("smm") ||
+      team.includes("social") ||
+      template.includes("smm") ||
+      template.includes("social") ||
+      tags.some((t) => t.includes("smm") || t.includes("social")) ||
+      name.includes("smm") ||
+      name.includes("social media")
+    );
+  };
+
+  const digitalProjects = localProjects.filter((p) => !isSMM(p));
+  const smmProjects = localProjects.filter((p) => isSMM(p));
+  const digitalProjectsCount = digitalProjects.length;
+  const smmProjectsCount = smmProjects.length;
+
+  const currentCategoryProjects = categoryTab === "DIGITAL" ? digitalProjects : smmProjects;
+  const activeCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "ACTIVE").length;
+  const inactiveCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "INACTIVE").length;
+  const completedCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "COMPLETED").length;
 
   // Filter projects
   const filteredProjects = localProjects.filter((project) => {
+    const isProjectSmm = isSMM(project);
+    const matchesCategoryTab = categoryTab === "DIGITAL" ? !isProjectSmm : isProjectSmm;
+    if (!matchesCategoryTab) return false;
+
     const statusUpper = (project.status || "").toUpperCase();
     const matchesTab =
       activeTab === "ACTIVE"
@@ -489,12 +682,101 @@ export function AllProjectsTableView({
     );
   });
 
-  const sortedProjects = projectIdSort
-    ? [...filteredProjects].sort((a, b) => {
-        const cmp = a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: "base" });
-        return projectIdSort === "asc" ? cmp : -cmp;
-      })
-    : filteredProjects;
+  const parseDateToTimestamp = (dateStr?: string): number => {
+    if (!dateStr || typeof dateStr !== "string") return 0;
+    const trimmed = dateStr.trim();
+    if (!trimmed) return 0;
+    const parsed = Date.parse(trimmed);
+    if (!isNaN(parsed)) return parsed;
+    const parts = trimmed.split(/[-/.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        const ts = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+        if (!isNaN(ts)) return ts;
+      } else if (parts[2].length === 4) {
+        const ts = new Date(Number(parts[2]), Number(parts[0]) - 1, Number(parts[1])).getTime();
+        if (!isNaN(ts)) return ts;
+      }
+    }
+    return 0;
+  };
+
+  const getProjectSortValue = (project: Project, field: CollapsibleColId): string | number => {
+    switch (field) {
+      case "projectId":
+        return project.id || "";
+      case "projectName":
+        return (project.name || "").trim().toLowerCase();
+      case "projectStartDate":
+        return parseDateToTimestamp(project.startDate);
+      case "projectStatus":
+        return (project.status || "").trim().toLowerCase();
+      case "projectLead":
+        return (project.projectLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "projectNotes":
+        return (project.description || "").trim().toLowerCase();
+      case "techLead":
+        return (project.techLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "techAssignee":
+        return (project.techAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeUiuxLead":
+        return (project.creativeUiuxLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeUiuxAssignee":
+        return (project.creativeUiuxAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeGraphicLead":
+        return (project.creativeGraphicLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "creativeGraphicAssignee":
+        return (project.creativeGraphicAssignee?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingLead":
+        return (project.marketingLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingSeo":
+        return (project.marketingSeo?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "marketingContent":
+        return (project.marketingContent?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
+      case "projectCalendar": {
+        const startTs = parseDateToTimestamp(project.startDate);
+        const endTs = parseDateToTimestamp(project.deadline);
+        return startTs || endTs || 0;
+      }
+      case "assetLink": {
+        const links = [project.driveLink, project.webLink, project.designLink].filter(Boolean).join(" ");
+        return links.trim().toLowerCase();
+      }
+      case "projectTimeline":
+        return project.progressPercent || 0;
+      default:
+        return "";
+    }
+  };
+
+  const sortedProjects = React.useMemo(() => {
+    if (!sortField || !sortDirection) {
+      return filteredProjects;
+    }
+
+    return [...filteredProjects].sort((a, b) => {
+      const valA = getProjectSortValue(a, sortField);
+      const valB = getProjectSortValue(b, sortField);
+
+      const isEmptyA = valA === "" || valA === 0;
+      const isEmptyB = valB === "" || valB === 0;
+      if (isEmptyA && !isEmptyB) return 1;
+      if (!isEmptyA && isEmptyB) return -1;
+      if (isEmptyA && isEmptyB) return 0;
+
+      let cmp = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = String(valA).localeCompare(String(valB), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      }
+
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [filteredProjects, sortField, sortDirection]);
 
   const handleCopyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/projects/${id}`);
@@ -564,92 +846,54 @@ export function AllProjectsTableView({
     );
   };
 
-  /** Group header cell (Tech / Creative / UI/UX / Graphic / Marketing) — click toggles every
-   *  leaf column under it at once. */
+  /** Group header cell (Tech / Creative / UI/UX / Graphic / Marketing) */
   const renderGroupHeader = (label: string, ids: CollapsibleColId[], colSpan: number) => {
-    const collapsed = isGroupCollapsed(ids);
     return (
-      <th colSpan={colSpan} className="py-2 px-2 border-r whitespace-nowrap overflow-hidden text-center border-b">
-        <button
-          type="button"
-          onClick={() => toggleGroup(ids)}
-          className="inline-flex items-center justify-center gap-1 hover:text-foreground transition-colors max-w-full"
-          title={collapsed ? `Expand ${label}` : `Collapse ${label}`}
-        >
-          {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
-          {label}
-        </button>
+      <th colSpan={colSpan} className="py-2 px-2 border-r whitespace-nowrap overflow-hidden text-center border-b font-semibold text-muted-foreground text-xs">
+        {label}
       </th>
     );
   };
 
-  /** Leaf column header (Lead / Assignee / SEO Assignee / Project ID / etc.) — click collapses
-   *  just this column to a thin chevron strip, independent of its parent group (if any). */
+  /** Leaf column header (Project ID / Project Name / Status / Lead / Assignee / etc.) —
+   *  features sort toggle (ascending -> descending -> unsorted). */
   const renderLeafHeader = (id: CollapsibleColId, label: string, rowSpan?: number) => {
     const collapsed = isColCollapsed(id);
     if (collapsed) {
       return renderCollapsedHeaderBox(id, label, rowSpan);
     }
+    const isSorted = sortField === id;
     return (
       <th
         key={id}
         rowSpan={rowSpan}
-        className="py-2 px-3 border-r whitespace-nowrap overflow-hidden text-center align-middle"
-      >
-        <button
-          type="button"
-          onClick={() => toggleCol(id)}
-          className="inline-flex w-full max-w-full items-center justify-center gap-1 hover:text-foreground transition-colors text-center"
-          title={`Collapse ${label}`}
-        >
-          <span className="truncate">{label}</span>
-          <ChevronLeft size={10} className="text-muted-foreground shrink-0" />
-        </button>
-      </th>
-    );
-  };
-
-  /** "Project ID" header — collapsible like every other column, plus a sort toggle
-   *  (ascending -> descending -> unsorted) that reorders the whole table by id. */
-  const renderProjectIdHeader = () => {
-    const collapsed = isColCollapsed("projectId");
-    if (collapsed) {
-      return renderCollapsedHeaderBox("projectId", "Project ID", 3);
-    }
-    return (
-      <th
-        rowSpan={3}
-        className="py-2 px-3 border-r whitespace-nowrap overflow-hidden text-center align-middle"
+        className="py-2 px-2.5 border-r whitespace-nowrap overflow-hidden text-center align-middle"
       >
         <div className="inline-flex w-full max-w-full items-center justify-center gap-1">
           <button
             type="button"
-            onClick={toggleProjectIdSort}
-            className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+            onClick={() => toggleSort(id)}
+            className={`inline-flex items-center gap-1 hover:text-foreground transition-colors min-w-0 max-w-full group cursor-pointer ${
+              isSorted ? "text-primary font-bold" : "text-muted-foreground"
+            }`}
             title={
-              projectIdSort === "asc"
-                ? "Sorted ascending — click for descending"
-                : projectIdSort === "desc"
-                ? "Sorted descending — click to clear"
-                : "Sort by Project ID"
+              isSorted
+                ? sortDirection === "asc"
+                  ? `${label}: Sorted ascending — click for descending`
+                  : `${label}: Sorted descending — click to clear sort`
+                : `Sort by ${label}`
             }
           >
-            <span>Project ID</span>
-            {projectIdSort === "asc" ? (
-              <ArrowUp size={11} className="text-primary" />
-            ) : projectIdSort === "desc" ? (
-              <ArrowDown size={11} className="text-primary" />
+            <span className="truncate">{label}</span>
+            {isSorted ? (
+              sortDirection === "asc" ? (
+                <ArrowUp size={11} className="text-primary shrink-0" />
+              ) : (
+                <ArrowDown size={11} className="text-primary shrink-0" />
+              )
             ) : (
-              <ArrowUpDown size={11} className="text-muted-foreground" />
+              <ArrowUpDown size={11} className="text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 transition-colors" />
             )}
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleCol("projectId")}
-            className="hover:text-foreground transition-colors"
-            title="Collapse Project ID"
-          >
-            <ChevronLeft size={10} className="text-muted-foreground shrink-0" />
           </button>
         </div>
       </th>
@@ -688,20 +932,21 @@ export function AllProjectsTableView({
 
   return (
     <div className="flex flex-col h-full min-w-0 bg-background text-foreground overflow-hidden relative">
-      {/* Top Main Bar: Title & Action Button */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {userRole === "TEAM_MEMBER" ? "My Assigned Projects" : "All Projects"}
-          </h1>
-          {userRole === "TEAM_MEMBER" && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              Assigned to you
-            </span>
-          )}
-        </div>
+      {/* Top Main Bar: Title, Category Tabs & Action Button */}
+      <div className="flex flex-col gap-3.5 border-b px-6 py-4 bg-background">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">
+              {userRole === "TEAM_MEMBER" ? "My Assigned Projects" : "All Projects"}
+            </h1>
+            {userRole === "TEAM_MEMBER" && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                Assigned to you
+              </span>
+            )}
+          </div>
 
-        <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-2 relative">
           {/* <TimerWidget
             onStopTimer={() => setIsTimeLogModalOpen(true)}
           />
@@ -808,6 +1053,51 @@ export function AllProjectsTableView({
         </div>
       </div>
 
+      {/* Primary Project Category Tabs: Digital Projects | SMM Projects */}
+      <div className="flex items-center gap-2.5 pt-1">
+        <button
+          type="button"
+          onClick={() => setCategoryTab("DIGITAL")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
+            categoryTab === "DIGITAL"
+              ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
+          }`}
+        >
+          <span>Digital Projects</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              categoryTab === "DIGITAL"
+                ? "bg-white/20 text-white"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {digitalProjectsCount}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCategoryTab("SMM")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
+            categoryTab === "SMM"
+              ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
+          }`}
+        >
+          <span>SMM Projects</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              categoryTab === "SMM"
+                ? "bg-white/20 text-white"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {smmProjectsCount}
+          </span>
+        </button>
+      </div>
+    </div>
+
       {/* Integrated Single Toolbar Row: Active Projects | Inactive | Completed Projects | Search Box | Collapse All Columns */}
       <div className="flex flex-wrap items-center justify-between border-b px-6 py-2.5 bg-background gap-3 relative">
         {/* Left Side: Tabs */}
@@ -815,35 +1105,38 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setActiveTab("ACTIVE")}
-            className={`pb-1 transition-colors relative border-b-2 ${
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
               activeTab === "ACTIVE"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
-            Active Projects
+            <span>Active Projects</span>
+            <span className="text-[10px] opacity-75 font-mono">({activeCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("INACTIVE")}
-            className={`pb-1 transition-colors relative border-b-2 ${
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
               activeTab === "INACTIVE"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
-            Inactive
+            <span>Inactive</span>
+            <span className="text-[10px] opacity-75 font-mono">({inactiveCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("COMPLETED")}
-            className={`pb-1 transition-colors relative border-b-2 ${
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
               activeTab === "COMPLETED"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
             }`}
           >
-            Completed Projects
+            <span>Completed Projects</span>
+            <span className="text-[10px] opacity-75 font-mono">({completedCount})</span>
           </button>
         </div>
 
@@ -874,7 +1167,7 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={toggleCollapseAllCols}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors shrink-0 shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors shrink-0 shadow-2xs cursor-pointer"
             title={allColsCollapsed ? "Expand all columns" : "Collapse all columns"}
           >
             {allColsCollapsed ? (
@@ -1145,8 +1438,9 @@ export function AllProjectsTableView({
                     />
                   </th>
                 )}
-                {renderProjectIdHeader()}
+                {renderLeafHeader("projectId", "Project ID", 3)}
                 {renderLeafHeader("projectName", "Project Name", 3)}
+                {renderLeafHeader("projectStartDate", "Project Start Date", 3)}
                 {renderLeafHeader("projectStatus", "Status", 3)}
                 {renderLeafHeader("projectLead", "Project Lead / SPOC", 3)}
                 {renderLeafHeader("projectNotes", "Project iNotes", 3)}
@@ -1156,7 +1450,7 @@ export function AllProjectsTableView({
                 {renderLeafHeader("projectCalendar", "Project Calendar", 3)}
                 {renderLeafHeader("assetLink", "Asset Link", 3)}
                 {/* {renderLeafHeader("projectTimeline", "Timeline", 3)} */}
-                <th rowSpan={3} className="py-3 px-3 text-center align-middle">Actions</th>
+                <th rowSpan={3} className="py-2.5 px-2 text-center align-middle">Actions</th>
               </tr>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 {renderLeafHeader("techLead", "Lead", 2)}
@@ -1177,8 +1471,8 @@ export function AllProjectsTableView({
             <tbody className="divide-y divide-border">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={canEditAssignments ? 18 : 17} className="py-12 text-center text-muted-foreground">
-                    No projects found matching current department or status filter.
+                  <td colSpan={canEditAssignments ? 19 : 18} className="py-12 text-center text-muted-foreground">
+                    No {categoryTab === "SMM" ? "SMM" : "Digital"} projects found matching current filter.
                   </td>
                 </tr>
               ) : (
@@ -1247,6 +1541,15 @@ export function AllProjectsTableView({
                             : "7-Phase SOP"}
                         </span> */}
                       </div>
+                    )}
+
+                    {cell(
+                      "projectStartDate",
+                      <StartDateCell
+                        project={project}
+                        editable={canEditAssignments}
+                        onUpdated={(patch) => patchProject(project.id, patch)}
+                      />
                     )}
 
                     {statusCell()}
@@ -1407,9 +1710,10 @@ export function AllProjectsTableView({
                       />
                     )} */}
 
-                    <td className="py-3 px-3 text-left whitespace-nowrap">
-                      <div className="relative inline-flex items-center justify-start gap-1">
-                        {canEditAssignments && (
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                      <div className="relative inline-flex items-center justify-center">
+                        {/* Edit Project Details icon button commented out per UI request */}
+                        {/* {canEditAssignments && (
                           <button
                             type="button"
                             onClick={() => setEditingProject(project)}
@@ -1418,16 +1722,17 @@ export function AllProjectsTableView({
                           >
                             <Pencil size={13} />
                           </button>
-                        )}
+                        )} */}
 
-                        <button
+                        {/* View Timeline icon button commented out per UI request */}
+                        {/* <button
                           type="button"
                           onClick={() => setTimelineDrawerProject(project)}
                           className="p-1 text-muted-foreground hover:text-primary transition-colors rounded hover:bg-accent"
                           title="View Timeline"
                         >
                           <History size={13} />
-                        </button>
+                        </button> */}
 
                         <div data-row-menu-container className="relative inline-flex items-center">
                           <button
@@ -1442,7 +1747,7 @@ export function AllProjectsTableView({
                           </button>
 
                           {openRowMenuId === project.id && (
-                            <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150">
+                            <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150 text-left">
                               <button
                                 type="button"
                                 onClick={() => {

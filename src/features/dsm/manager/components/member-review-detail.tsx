@@ -1945,6 +1945,20 @@ function SummaryTaskRow({
           <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold">
             {formatMinutes(loggedMinutes)}
           </span>
+        ) : done && task.projectTaskId ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning"
+            title="Marked done, but no effort was logged on this task that day"
+          >
+            <AlertCircle size={11} /> No effort logged
+          </span>
+        ) : done && !task.projectTaskId ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+            title="Not linked to a project task, so effort can't be tracked"
+          >
+            Not linked
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
         )}
@@ -2109,9 +2123,9 @@ function YesterdayTasksSection({
                   "rounded-full px-2 py-0.5",
                   dsr.hasDsr ? "bg-primary/10 text-primary" : "bg-warning/10 text-warning"
                 )}
-                title={dsr.hasDsr ? "Done status is taken from the member's DSR for this day" : "The member did not fill a DSR for this day"}
+                title={dsr.hasDsr ? "Done status is taken from the member's report for this day" : "The member did not fill a report for this day"}
               >
-                {dsr.hasDsr ? "From DSR" : "No DSR"}
+                {dsr.hasDsr ? "From Report" : "No Report"}
               </span>
             )}
             <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{rows.length} done</span>

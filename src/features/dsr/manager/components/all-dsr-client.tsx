@@ -28,6 +28,8 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
+  // Member-level quick filter. "to-review" = submitted with a recording, not yet reviewed.
+  const [memberFilter, setMemberFilter] = useState<"all" | "to-review" | "late" | "no-recording">("all");
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -37,7 +39,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
   const yesterdayStr = toIsoDateStr(toUtcDate(yesterday));
 
   const handleDateChange = (dateStr: string) => {
-    router.push(`/dsr/manage?date=${dateStr}`);
+    router.push(`/report/all?date=${dateStr}`);
   };
 
   // Convert selectedDateStr (YYYY-MM-DD) to a Date object to format it beautifully
@@ -147,8 +149,31 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
       return true;
     });
 
-    return sortTeamGroups(filtered);
-  }, [groups, selectedDept, searchQuery]);
+    const isSubmitted = (s: string | null) => s === "SUBMITTED" || s === "PENDING_REVIEW" || s === "REVIEWED";
+    const memberMatches = (m: DsrTeamGroup["members"][number]) => {
+      if (memberFilter === "to-review") return (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!(m.recordingUrl || m.recordingFile);
+      if (memberFilter === "late") return isSubmitted(m.status) && m.isLate;
+      if (memberFilter === "no-recording") return isSubmitted(m.status) && !(m.recordingUrl || m.recordingFile);
+      return true;
+    };
+    const withMembers = memberFilter === "all"
+      ? filtered
+      : filtered
+          .map((g) => ({ ...g, members: g.members.filter(memberMatches) }))
+          .filter((g) => g.members.length > 0);
+
+    return sortTeamGroups(withMembers);
+  }, [groups, selectedDept, searchQuery, memberFilter]);
+
+  const memberFilterCounts = useMemo(() => {
+    const all = groups.flatMap((g) => g.members);
+    const submitted = all.filter((m) => m.status === "SUBMITTED" || m.status === "PENDING_REVIEW" || m.status === "REVIEWED");
+    return {
+      "to-review": all.filter((m) => (m.status === "SUBMITTED" || m.status === "PENDING_REVIEW") && !!(m.recordingUrl || m.recordingFile)).length,
+      late: submitted.filter((m) => m.isLate).length,
+      "no-recording": submitted.filter((m) => !(m.recordingUrl || m.recordingFile)).length,
+    };
+  }, [groups]);
 
   return (
     <div className="relative flex h-full max-h-[calc(100vh-4rem)] flex-col overflow-hidden">
@@ -156,17 +181,17 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
       {/* Page Heading + Date Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Team DSR Submission</h1>
+          <h1 className="text-3xl font-bold tracking-tight">All Reports</h1>
           <p className="text-sm text-muted-foreground">
-            Review and Track Daily Status Reports for All Departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
+            Review end-of-day reports and recordings for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href="/dsr/my"
+            href="/report/my"
             className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity"
           >
-            <Plus size={14} /> Submit My DSR
+            <Plus size={14} /> Submit My Report
           </Link>
 
           {/* Today Button */}
@@ -297,6 +322,29 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
           )}
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {([
+          ["all", "All"],
+          ["to-review", `Recordings to review (${memberFilterCounts["to-review"]})`],
+          ["late", `Late (${memberFilterCounts.late})`],
+          ["no-recording", `No recording (${memberFilterCounts["no-recording"]})`],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setMemberFilter(value)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+              memberFilter === value
+                ? "border-primary bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {stats && (
         <AllDsrStatsRow

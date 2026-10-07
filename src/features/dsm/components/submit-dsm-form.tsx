@@ -10,6 +10,8 @@ import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { YesterdayAdditionalWork, type AdditionalWorkItem } from "./yesterday-additional-work";
+import { YesterdayTaskList } from "./yesterday-task-list";
+import type { YesterdaySummary } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { formatTime } from "@/features/calendar/utils";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
@@ -362,6 +364,7 @@ function TaskRows({
                 {showProjectFeatures && (
                   <div className="flex items-center gap-2">
                     <TimerWidget
+                      instanceId={`dsm-task-row-${task.id}`}
                       taskId={tree.activeTargetTask?.id}
                       taskCode={tree.activeTargetTask?.code ?? undefined}
                       taskTitle={task.text || tree.activeTargetTask?.title}
@@ -1109,7 +1112,8 @@ function Section({ icon, title, required, headerAction, children }: {
 
 type SubmitDsmFormProps = {
   entry: EntryWithDetails | null;
-  yesterdayTasks: string[];
+  /** Previous DSM day's planned tasks with done state, project link and logged effort. */
+  yesterday: YesterdaySummary;
   /** Extra work recorded in yesterday's DSR, outside the planned tasks. */
   yesterdayAdditionalWork?: AdditionalWorkItem[];
   yesterdayIncompleteTasks: string[];
@@ -1128,7 +1132,7 @@ const initialState: SaveDsmState = {};
 
 export function SubmitDsmForm({
   entry,
-  yesterdayTasks,
+  yesterday,
   yesterdayAdditionalWork = [],
   yesterdayIncompleteTasks,
   yesterdayBlockers,
@@ -1158,7 +1162,15 @@ export function SubmitDsmForm({
   })() : null;
 
   const [tasks, setTasks] = useState<Task[]>(() => {
-    if (savedDraft?.tasks?.length) return savedDraft.tasks;
+    if (savedDraft?.tasks?.length) {
+      // Drafts saved before carry-over kept project links have none — fill them in from yesterday.
+      const linkByText = new Map(
+        yesterday.tasks.filter((t) => t.projectTaskId).map((t) => [t.text.trim().toLowerCase(), t.projectTaskId as string])
+      );
+      return (savedDraft.tasks as Task[]).map((t) =>
+        t.projectTaskId || !t.carried ? t : { ...t, projectTaskId: linkByText.get(t.text.trim().toLowerCase()) ?? "" }
+      );
+    }
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
       return existingToday.map((t) => ({
@@ -1172,8 +1184,17 @@ export function SubmitDsmForm({
         createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
       }));
     }
-    if (yesterdayIncompleteTasks.length > 0) {
-      return yesterdayIncompleteTasks.map((text) => ({ id: crypto.randomUUID(), text, priority: "", carried: true, dueDate: "" }));
+    // Carry yesterday's unfinished tasks into today, keeping their project link.
+    const unfinished = yesterday.tasks.filter((t) => !t.isCompleted);
+    if (unfinished.length > 0) {
+      return unfinished.map((t) => ({
+        id: crypto.randomUUID(),
+        text: t.text,
+        priority: "",
+        carried: true,
+        projectTaskId: t.projectTaskId ?? "",
+        dueDate: "",
+      }));
     }
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }, { id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
   });
@@ -1423,18 +1444,7 @@ export function SubmitDsmForm({
 
         {/* Yesterday — read-only completed tasks */}
         <Section icon={<CheckCircle2 size={16} className="text-primary dark:text-[#3B82F6]" />} title="What Did You Complete Yesterday?">
-          {yesterdayTasks.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {yesterdayTasks.map((task, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-sm">
-                  <CheckCircle2 size={18} className="shrink-0 text-primary dark:text-[#3B82F6]" />
-                  <span>{task}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground/60">No Entries for Yesterday.</p>
-          )}
+          <YesterdayTaskList tasks={yesterday.tasks} />
           <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
         </Section>
 

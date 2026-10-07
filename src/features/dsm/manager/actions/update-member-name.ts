@@ -24,9 +24,9 @@ export async function updateMemberName(userId: string, name: string): Promise<Up
   revalidatePath("/dsm/all");
   revalidatePath("/dsm/my");
   revalidatePath("/dsm");
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr/my");
-  revalidatePath("/dsr");
+  revalidatePath("/report/all");
+  revalidatePath("/report/my");
+  revalidatePath("/report");
   revalidatePath("/blockers");
   revalidatePath("/support");
 

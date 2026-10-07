@@ -15,6 +15,13 @@ export function toIsoDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Effort minutes as "1h 20m" / "45m". */
+export function formatEffortMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 export function formatEventTime(date: Date): string {
   return new Intl.DateTimeFormat("en-IN", {
     month: "short",

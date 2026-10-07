@@ -80,6 +80,6 @@ export async function markBlockerResolved(
   revalidatePath(`/dsm/member/${blocker.entry.userId}`);
   revalidatePath("/dsm/all");
   revalidatePath("/dsm/my");
-  revalidatePath("/dsr");
+  revalidatePath("/report");
   return { message: newResolved ? "resolved" : "unresolved" };
 }

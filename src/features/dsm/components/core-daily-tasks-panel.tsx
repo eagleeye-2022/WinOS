@@ -49,6 +49,7 @@ export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelPr
                   />
                 ) : (
                   <TimerWidget
+                    instanceId={`core-daily-task-${task.id}`}
                     taskId={task.id}
                     taskCode={task.code}
                     taskTitle={task.title}
@@ -75,5 +76,5 @@ export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelPr
     </div>
   );
 
-  return memberView ? card : <ActiveTimerProvider>{card}</ActiveTimerProvider>;
+  return card;
 }

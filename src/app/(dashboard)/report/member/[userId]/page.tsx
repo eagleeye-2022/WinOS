@@ -8,15 +8,15 @@ import { DsrMemberReview } from "@/features/dsr/manager/components/dsr-member-re
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
 import { InsightsPanel } from "@/features/dsr/components/insights-panel";
-import { getDsrInsights } from "@/features/dsr/queries";
-import { relativeDayLabel } from "@/features/dsm/utils";
+import { getDsrInsights, getReportTimeSummary } from "@/features/dsr/queries";
+import { relativeDayLabel, toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
 
 type Props = {
   params: Promise<{ userId: string }>;
   searchParams: Promise<{ w?: string; reviewed?: string; date?: string }>;
 };
 
-export default async function DsrMemberPage({ params, searchParams }: Props) {
+export default async function ReportMemberPage({ params, searchParams }: Props) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "MANAGER") {
     redirect(ROUTES.dsr);
@@ -34,12 +34,14 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
     targetDate = new Date(Date.UTC(year, month - 1, day));
   }
 
-  const [review, workspaceNote, sharedItems, dsmReview, parkedTasks] = await Promise.all([
+  const reportDateStr = toIsoDateStr(toUtcDate(targetDate ?? new Date()));
+  const [review, workspaceNote, sharedItems, dsmReview, parkedTasks, timeSummary] = await Promise.all([
     getMemberDsrReview(userId, weekOffset, targetDate),
     getMemberWorkspaceNote(userId),
     getSharedWorkspaceNotes(userId),
     getMemberReview(userId, 0),
     getParkedTasks(userId),
+    getReportTimeSummary(userId, reportDateStr),
   ]);
 
   if (!review) redirect(ROUTES.dsrManage);
@@ -57,6 +59,7 @@ export default async function DsrMemberPage({ params, searchParams }: Props) {
           showHistory={justReviewed}
           selectedDateStr={dateParam}
           parkedTasks={parkedTasks}
+          timeSummary={timeSummary}
         />
       </div>
       <aside className="flex h-full min-h-0 w-80  flex-col overflow-y-auto border-l bg-card xl:w-96">

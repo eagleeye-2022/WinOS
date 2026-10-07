@@ -106,10 +106,10 @@ export async function addDsrTask(
     },
   });
 
-  revalidatePath(`/dsr/member/${entry.userId}`);
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
+  revalidatePath(`/report/member/${entry.userId}`);
+  revalidatePath("/report/all");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
   if (standupEntry) {
     revalidatePath("/dsm");
     revalidatePath(`/dsm/member/${entry.userId}`);

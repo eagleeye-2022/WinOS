@@ -11,7 +11,7 @@ type Props = {
   basePath?: string;
 };
 
-export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
+export function DsrHistory({ entries, weekOffset, basePath = "/report" }: Props) {
   const { start, end } = getWeekRange(weekOffset);
   const weekLabel = formatWeekRange(start, end);
   const canGoForward = weekOffset < 0;
@@ -46,7 +46,7 @@ export function DsrHistory({ entries, weekOffset, basePath = "/dsr" }: Props) {
 
       {entries.length === 0 ? (
         <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-          No DSR Entries Recorded for This Week.
+          No Reports Recorded for This Week.
         </div>
       ) : (
         <div className="flex flex-col gap-2">

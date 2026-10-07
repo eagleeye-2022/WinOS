@@ -4,11 +4,24 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getDayEffort } from "@/features/dsm/queries";
+import { postToCliq, getAppBaseUrl } from "@/lib/zoho-cliq";
+import {
+  buildCliqReportMessage,
+  getAllowedRecordingHosts,
+  getReportCutoff,
+  inAppRecordingKey,
+  inAppRecordingUrl,
+  isReportLate,
+  validateRecordingUrl,
+} from "../reporting";
+import { deleteRecording, parseRecordingKey, recordingExists } from "@/lib/report-recordings";
 
 export type SaveDsrState = {
   errors?: {
     reflection?: string[];
     resultOfDay?: string[];
+    recordingUrl?: string[];
   };
   message?: string;
 };
@@ -25,7 +38,7 @@ export async function saveDsr(
 
   // Managers have their own self-DSR page; redirect/revalidate must match
   // whichever route they're submitting from, same as team members on /dsr.
-  const selfPath = session.user.role === "MANAGER" ? "/dsr/my" : "/dsr";
+  const selfPath = session.user.role === "MANAGER" ? "/report/my" : "/report";
 
   const action = formData.get("action") as "draft" | "submit";
   const dateStr = formData.get("date") as string;
@@ -39,14 +52,51 @@ export async function saveDsr(
   const sentiment = (formData.get("sentiment") as string) || null;
   const reflection = (formData.get("reflection") as string)?.trim() || null;
   const resultOfDay = (formData.get("resultOfDay") as string)?.trim() || null;
+  const dayFeedback = (formData.get("dayFeedback") as string)?.trim() || null;
+  const suggestions = (formData.get("suggestions") as string)?.trim() || null;
+  const rawRecordingUrl = (formData.get("recordingUrl") as string)?.trim() || "";
+  const rawRecordingFile = (formData.get("recordingFile") as string)?.trim() || "";
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  // Guard against a stale JWT pointing at a deleted user (common after a local DB reset).
+  const user = await d.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, email: true },
+  });
+  if (!user) return { message: "Your account could not be found. Please sign in again." };
+
+  // A report's recording is EITHER a video recorded in WinOS (the form's `recordingFile` key; stored
+  // in the recordingUrl column as /api/report-recordings/<key>) OR a pasted link (`recordingUrl`). A submitted report needs one of them; drafts need neither.
+  const urlCheck = rawRecordingUrl ? validateRecordingUrl(rawRecordingUrl, getAllowedRecordingHosts()) : null;
+  const recordingUrl: string | null = urlCheck?.ok ? urlCheck.url : null;
+
+  let recordingFile: string | null = null;
+  if (rawRecordingFile) {
+    const parsedKey = parseRecordingKey(rawRecordingFile);
+    // The file must belong to this user and this report date, and actually be on disk.
+    if (parsedKey && parsedKey.userId === user.id && parsedKey.dateStr === dateStr && (await recordingExists(rawRecordingFile))) {
+      recordingFile = rawRecordingFile;
+    }
+  }
 
   if (action === "submit") {
-    const errors: { reflection?: string[]; resultOfDay?: string[] } = {};
+    const errors: SaveDsrState["errors"] = {};
     if (!resultOfDay) {
       errors.resultOfDay = ["Please add the outcome of the day before submitting."];
     }
+    if (!recordingFile && !recordingUrl) {
+      errors.recordingUrl = [
+        rawRecordingFile
+          ? "Your recording couldn't be found on the server. Record again, or paste a link instead."
+          : urlCheck && !urlCheck.ok
+            ? urlCheck.error
+            : "Record your screen in WinOS, or paste a link to your recording, before submitting.",
+      ];
+    }
     if (Object.keys(errors).length > 0) {
-      return { errors };
+      return { errors, message: errors.recordingUrl?.[0] ?? errors.resultOfDay?.[0] };
     }
   }
 
@@ -61,9 +111,6 @@ export async function saveDsr(
   const completionPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const status = action === "submit" ? "SUBMITTED" : "DRAFT";
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const d = db as any;
-
   // Guard: the DSR cannot be touched until that day's DSM has been reviewed
   const standup = await d.standupEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },
@@ -76,7 +123,7 @@ export async function saveDsr(
   // Guard: a REVIEWED entry cannot be changed by the member
   const existing = await d.dsrEntry.findUnique({
     where: { userId_date: { userId: session.user.id, date } },
-    select: { status: true, submittedAt: true },
+    select: { status: true, submittedAt: true, recordingUrl: true },
   });
   if (existing?.status === "REVIEWED") {
     return { message: "This entry has already been reviewed and cannot be changed." };
@@ -87,32 +134,41 @@ export async function saveDsr(
   const wasSubmitted = existing?.status === "SUBMITTED" || existing?.status === "PENDING_REVIEW";
   const finalStatus = wasSubmitted ? "PENDING_REVIEW" : status;
   const submittedAt = finalStatus === "DRAFT" ? null : existing?.submittedAt ?? new Date();
+  // Lateness is fixed by the first submission; later edits don't change it.
+  const isLate = submittedAt ? isReportLate(dateStr, new Date(submittedAt), getReportCutoff()) : false;
+  // Stored in the single recordingUrl column: the in-app path wins over an external link.
+  const storedRecordingUrl = recordingFile ? inAppRecordingUrl(recordingFile) : recordingUrl;
+  const previousRecordingFile = inAppRecordingKey(existing?.recordingUrl);
+
+  const effort = await getDayEffort(session.user.id, dateStr);
+  const totalLoggedMinutes = effort.reduce((sum, row) => sum + row.minutes, 0);
+
+  const reportFields = {
+    status: finalStatus,
+    completionPercent,
+    plannedTaskCount: totalCount,
+    completedTaskCount: completedCount,
+    sentiment: sentiment || null,
+    reflection,
+    resultOfDay,
+    dayFeedback,
+    suggestions,
+    recordingUrl: storedRecordingUrl,
+    isLate,
+    totalLoggedMinutes,
+    submittedAt,
+  };
 
   const entry = await d.dsrEntry.upsert({
     where: { userId_date: { userId: session.user.id, date } },
-    create: {
-      userId: session.user.id,
-      date,
-      status: finalStatus,
-      completionPercent,
-      plannedTaskCount: totalCount,
-      completedTaskCount: completedCount,
-      sentiment: sentiment || null,
-      reflection,
-      resultOfDay,
-      submittedAt,
-    },
-    update: {
-      status: finalStatus,
-      completionPercent,
-      plannedTaskCount: totalCount,
-      completedTaskCount: completedCount,
-      sentiment: sentiment || null,
-      reflection,
-      resultOfDay,
-      submittedAt,
-    },
+    create: { userId: session.user.id, date, ...reportFields },
+    update: reportFields,
   });
+
+  // A re-recorded (or removed) in-app video replaces the old file — don't leave it on disk.
+  if (previousRecordingFile && previousRecordingFile !== recordingFile) {
+    await deleteRecording(previousRecordingFile);
+  }
 
   // Replace child records
   await d.dsrPlannedTask.deleteMany({ where: { dsrEntryId: entry.id } });
@@ -257,19 +313,56 @@ export async function saveDsr(
       where: { dsrEntryId: entry.id, type: "SUBMITTED" },
     });
     if (!existingEvent) {
-      const userName = session.user.name ?? "User";
+      const userName = user.name ?? session.user.name ?? "User";
       await d.dsrTimelineEvent.create({
         data: {
           dsrEntryId: entry.id,
           type: "SUBMITTED",
-          label: `${userName} Submitted DSR`,
+          label: `${userName} Submitted Report${isLate ? " (Late)" : ""}`,
           occurredAt: new Date(),
         },
       });
     }
   }
 
+  // Post the report to Zoho Cliq. Best-effort: a Cliq failure never blocks the save — the error
+  // is stored on the entry so a manager can see it.
+  if (action === "submit") {
+    const baseUrl = getAppBaseUrl();
+    const message = buildCliqReportMessage({
+      memberName: user.name ?? user.email,
+      dateStr,
+      completedTaskCount: completedCount,
+      plannedTaskCount: totalCount,
+      totalLoggedMinutes,
+      resultOfDay,
+      dayFeedback,
+      suggestions,
+      recordingUrl: recordingFile
+        ? (baseUrl ? `${baseUrl}${inAppRecordingUrl(recordingFile)}` : null)
+        : recordingUrl,
+      recordingSavedInApp: !!recordingFile,
+      isLate,
+      isUpdate: wasSubmitted,
+      reportUrl: baseUrl ? `${baseUrl}/report/member/${user.id}?date=${dateStr}` : null,
+    });
+    const result = await postToCliq(message);
+    try {
+      await d.dsrEntry.update({
+        where: { id: entry.id },
+        data: result.ok
+          ? { cliqPostedAt: new Date(), cliqError: null }
+          : { cliqError: result.error },
+      });
+    } catch (cliqErr) {
+      console.error("[saveDsr] Failed to record Cliq post status:", cliqErr);
+    }
+    if (!result.ok) console.error("[saveDsr] Zoho Cliq post failed:", result.error);
+  }
+
   revalidatePath(selfPath);
+  revalidatePath("/report/all");
+  revalidatePath(`/report/member/${user.id}`);
 
   if (action === "submit") {
     redirect(`${selfPath}?submitted=1`);

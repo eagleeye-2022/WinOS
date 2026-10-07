@@ -70,11 +70,11 @@ export async function reviewDsr(
     });
   }
 
-  revalidatePath(`/dsr/member/${userId}`);
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
-  redirect(`/dsr/member/${userId}?reviewed=1`);
+  revalidatePath(`/report/member/${userId}`);
+  revalidatePath("/report/all");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
+  redirect(`/report/member/${userId}?reviewed=1`);
 }
 
 /** Create an OPENED event when manager first views a DSR entry. */

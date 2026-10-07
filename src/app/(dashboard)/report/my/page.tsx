@@ -7,7 +7,9 @@ import {
   getWeeklyDsrHistory,
   getDsrInsights,
   getTodayDsmStatus,
+  getReportTimeSummary,
 } from "@/features/dsr/queries";
+import { getReportConfig } from "@/features/dsr/reporting";
 import { getSharedWorkspaceNotes, getParkedTasks } from "@/features/dsm/queries";
 import { toUtcDate } from "@/features/dsr/utils";
 import { toIsoDateStr } from "@/features/dsm/utils";
@@ -17,10 +19,10 @@ type Props = {
   searchParams: Promise<{ submitted?: string; w?: string }>;
 };
 
-export default async function MyDsrPage({ searchParams }: Props) {
+export default async function MyReportPage({ searchParams }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect(ROUTES.login);
-  // Self-submission is for managers here; team members already have it at /dsr.
+  // Self-submission is for managers here; team members already have it at /report.
   if (session.user.role !== "MANAGER") redirect(ROUTES.dsr);
 
   const sp = await searchParams;
@@ -36,8 +38,11 @@ export default async function MyDsrPage({ searchParams }: Props) {
     getParkedTasks(),
   ]);
 
-  const insights = await getDsrInsights(entry);
   const todayDateStr = toIsoDateStr(toUtcDate());
+  const [insights, timeSummary] = await Promise.all([
+    getDsrInsights(entry),
+    getReportTimeSummary(session.user.id, todayDateStr),
+  ]);
 
   return (
     <DsrPageClient
@@ -54,6 +59,9 @@ export default async function MyDsrPage({ searchParams }: Props) {
       dsmReviewed={dsmStatus === "REVIEWED"}
       memberUserId={session.user.id}
       parkedTasks={parkedTasks}
+      reportConfig={getReportConfig()}
+      timeSummary={timeSummary}
+      memberName={session.user.name}
     />
   );
 }

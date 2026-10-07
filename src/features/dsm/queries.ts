@@ -357,20 +357,97 @@ export async function getYesterdayIncompleteTasks(): Promise<string[]> {
     where: { userId_date: { userId: session.user.id, date: entry.date } },
     include: { plannedTasks: { select: { text: true, completed: true } } },
   });
-
-  if (!dsr) {
-    return entry.tasks.map((t: EntryTask) => t.text);
-  }
-
-  const completedTexts = new Set(
-    dsr.plannedTasks
-      .filter((p: { completed: boolean }) => p.completed)
-      .map((p: { text: string }) => p.text)
-  );
+  const dsrDone = dsrCompletionMap(dsr?.plannedTasks);
 
   return entry.tasks
-    .filter((t: EntryTask) => !completedTexts.has(t.text))
+    .filter((t: EntryTask) => !isYesterdayTaskDone(t, dsrDone))
     .map((t: EntryTask) => t.text);
+}
+
+const normTaskText = (text: string) => text.trim().toLowerCase();
+
+function dsrCompletionMap(planned?: { text: string; completed: boolean }[] | null): Map<string, boolean> {
+  return new Map((planned ?? []).map((p) => [normTaskText(p.text), p.completed]));
+}
+
+/**
+ * A previous-day task is done if that day's DSR ticked it; when the DSR doesn't list it (or no DSR
+ * was filed) the DSM task's own `isCompleted` flag decides — the same rule as the manager's
+ * "What Did You Do Yesterday?" summary.
+ */
+function isYesterdayTaskDone(task: { text: string; isCompleted?: boolean }, dsrDone: Map<string, boolean>): boolean {
+  return dsrDone.get(normTaskText(task.text)) ?? Boolean(task.isCompleted);
+}
+
+export type YesterdayTaskItem = {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+  projectTaskId: string | null;
+  code: string | null;
+  /** Effort the member logged on the linked project task that day; null when not linked. */
+  loggedMinutes: number | null;
+};
+
+export type YesterdaySummary = {
+  /** "YYYY-MM-DD" of the previous DSM day, or null when there's none. */
+  date: string | null;
+  tasks: YesterdayTaskItem[];
+};
+
+/**
+ * The previous DSM day's planned tasks with done state, project link and logged effort — for
+ * "What Did You Complete Yesterday?" and carrying unfinished tasks into today.
+ */
+export async function getYesterdaySummary(): Promise<YesterdaySummary> {
+  const session = await auth();
+  const empty: YesterdaySummary = { date: null, tasks: [] };
+  if (!session?.user?.id) return empty;
+  const userId = session.user.id;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+
+  const entry = await d.standupEntry.findFirst({
+    where: {
+      userId,
+      date: { lt: toUtcDate() },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    include: {
+      tasks: {
+        where: { kind: "TODAY" },
+        orderBy: { order: "asc" },
+        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectTask: { select: { code: true } } },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+  if (!entry) return empty;
+
+  const dateStr = new Date(entry.date).toISOString().slice(0, 10);
+  const dsr = await d.dsrEntry.findUnique({
+    where: { userId_date: { userId, date: entry.date } },
+    select: { plannedTasks: { select: { text: true, completed: true } } },
+  });
+  const dsrDone = dsrCompletionMap(dsr?.plannedTasks);
+
+  const linkedIds = [...new Set(entry.tasks.map((t: { projectTaskId: string | null }) => t.projectTaskId).filter(Boolean))] as string[];
+  const effort = await getDailyTimeSummaryForTasks(userId, linkedIds, dateStr);
+
+  return {
+    date: dateStr,
+    tasks: entry.tasks.map(
+      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectTask: { code: string } | null }) => ({
+        id: t.id,
+        text: t.text,
+        isCompleted: isYesterdayTaskDone(t, dsrDone),
+        projectTaskId: t.projectTaskId,
+        code: t.projectTask?.code ?? null,
+        loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
+      })
+    ),
+  };
 }
 
 /** All entries in the given week offset for the current user (desc date order). */
@@ -1133,6 +1210,71 @@ export type DailyTimeSummary = {
 };
 
 /**
+ * Whether an effort log belongs to calendar day `dStr` ("YYYY-MM-DD"). Logs saved as a bare date
+ * are stored at UTC midnight; timed logs are matched against the IST/local/UTC day, since logs
+ * are created from browsers in IST.
+ */
+function logMatchesDay(logDate: Date, dStr: string): boolean {
+  const logUtc = logDate.toISOString().slice(0, 10);
+  const isMidnightUtc = logDate.getUTCHours() === 0 && logDate.getUTCMinutes() === 0 && logDate.getUTCSeconds() === 0;
+  if (isMidnightUtc) return logUtc === dStr;
+  const logIst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(logDate);
+  const logLocal = logDate.toLocaleDateString("en-CA");
+  return logIst === dStr || logLocal === dStr || logUtc === dStr;
+}
+
+export type DayEffortRow = {
+  taskId: string;
+  minutes: number;
+  task: { code: string; title: string; project: { name: string } | null } | null;
+};
+
+/**
+ * The signed-in user's effort logged today (IST day), summed per task, most first — the
+ * end-of-day summary on /dsm, built from effort logs instead of a DSR.
+ */
+export async function getMyTodayEffort(): Promise<DayEffortRow[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const dStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+  return getDayEffort(session.user.id, dStr);
+}
+
+/**
+ * A user's effort logged on `dStr` (YYYY-MM-DD), summed per task, most first. Callers are
+ * responsible for authorization — this does not check the session.
+ */
+export async function getDayEffort(userId: string, dStr: string): Promise<DayEffortRow[]> {
+  if (!userId) return [];
+  const dayStartUtc = new Date(`${dStr}T00:00:00.000Z`);
+  // Same ±14h window as getDailyTimeSummaryForTasks, then exact day matching below.
+  const queryStart = new Date(dayStartUtc.getTime() - 14 * 3600 * 1000);
+  const queryEnd = new Date(dayStartUtc.getTime() + (24 + 14) * 3600 * 1000);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logs = await (db as any).projectTimeLog.findMany({
+    where: { userId, date: { gte: queryStart, lte: queryEnd } },
+    select: {
+      taskId: true,
+      duration: true,
+      date: true,
+      task: { select: { code: true, title: true, project: { select: { name: true } } } },
+    },
+  });
+
+  const byTask = new Map<string, DayEffortRow>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const log of logs as any[]) {
+    if (!logMatchesDay(new Date(log.date), dStr)) continue;
+    const row = byTask.get(log.taskId) ?? { taskId: log.taskId, minutes: 0, task: log.task ?? null };
+    row.minutes += log.duration;
+    byTask.set(log.taskId, row);
+  }
+  return [...byTask.values()].sort((a, b) => b.minutes - a.minutes);
+}
+
+/**
  * Per-task total logged minutes plus first-start/last-stop times for a given user + calendar
  * day, decoded from `ProjectTimeLog.description`'s "[start - stop] remarks" encoding (see
  * `encodeDescriptionWithTimePeriod`). Reused by the Standup Card, Manager review, and DSR display
@@ -1167,15 +1309,7 @@ export async function getDailyTimeSummaryForTasks(
   const result: Record<string, DailyTimeSummary> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const log of logs as any[]) {
-    const logDate = new Date(log.date);
-    const logUtc = logDate.toISOString().slice(0, 10);
-    const logIst = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(logDate);
-    const logLocal = logDate.toLocaleDateString("en-CA");
-
-    const isMidnightUtc = logDate.getUTCHours() === 0 && logDate.getUTCMinutes() === 0 && logDate.getUTCSeconds() === 0;
-    const matches = isMidnightUtc ? logUtc === dStr : (logIst === dStr || logLocal === dStr || logUtc === dStr);
-
-    if (!matches) {
+    if (!logMatchesDay(new Date(log.date), dStr)) {
       continue;
     }
 

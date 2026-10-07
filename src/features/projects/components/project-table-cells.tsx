@@ -13,6 +13,8 @@ import {
   CalendarRange,
   FileText,
   Loader2,
+  Globe,
+  Pencil,
 } from "lucide-react";
 import { Project, ProjectAssignee, TeamMemberOption } from "../types";
 import {
@@ -337,13 +339,65 @@ export function CalendarCell({
   );
 }
 
-const LINK_DEFS: { field: ProjectLinkField; label: string }[] = [
-  { field: "driveLink", label: "Drive" },
-  { field: "webLink", label: "Web" },
-  { field: "designLink", label: "Design" },
+// Google Drive authentic brand icon
+function GoogleDriveIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 87.3 78" fill="none" aria-hidden="true">
+      <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066DA" />
+      <path d="M43.65 25 29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.45z" fill="#00AC47" />
+      <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H60l5.7 9.85z" fill="#EA4335" />
+      <path d="M43.65 25 57.4 1.2C56.05.4 54.5 0 52.95 0H34.35c-1.55 0-3.1.4-4.45 1.2z" fill="#00832D" />
+      <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.45 1.2h50.9c1.55 0 3.1-.4 4.45-1.2z" fill="#2684FC" />
+      <path d="M73.4 26.5 60.7 4.5c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#FFBA00" />
+    </svg>
+  );
+}
+
+// Figma authentic brand icon
+function FigmaIcon({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 57" fill="none" aria-hidden="true">
+      <path d="M19 28.5C19 23.2533 23.2533 19 28.5 19C33.7467 19 38 23.2533 38 28.5C38 33.7467 33.7467 38 28.5 38C23.2533 38 19 33.7467 19 28.5Z" fill="#1ABCFE" />
+      <path d="M0 47.5C0 42.2533 4.25329 38 9.5 38H19V47.5C19 52.7467 14.7467 57 9.5 57C4.25329 57 0 52.7467 0 47.5Z" fill="#0ACF83" />
+      <path d="M19 0V19H28.5C33.7467 19 38 14.7467 38 9.5C38 4.25329 33.7467 0 28.5 0H19Z" fill="#FF7262" />
+      <path d="M0 9.5C0 14.7467 4.25329 19 9.5 19H19V0H9.5C4.25329 0 0 4.25329 0 9.5Z" fill="#F24E1E" />
+      <path d="M0 28.5C0 33.7467 4.25329 38 9.5 38H19V19H9.5C4.25329 19 0 23.2533 0 28.5Z" fill="#A259FF" />
+    </svg>
+  );
+}
+
+// Web / Globe icon
+function WebIcon({ className = "w-3.5 h-3.5 shrink-0 text-sky-500" }: { className?: string }) {
+  return <Globe className={className} size={13} />;
+}
+
+const LINK_DEFS: {
+  field: ProjectLinkField;
+  label: string;
+  icon: (cls?: string) => React.ReactNode;
+  placeholder: string;
+}[] = [
+  {
+    field: "driveLink",
+    label: "Drive",
+    icon: (cls) => <GoogleDriveIcon className={cls} />,
+    placeholder: "https://drive.google.com/...",
+  },
+  {
+    field: "webLink",
+    label: "Web",
+    icon: (cls) => <WebIcon className={cls ? `${cls} text-sky-500` : "w-3.5 h-3.5 shrink-0 text-sky-500"} />,
+    placeholder: "https://example.com/...",
+  },
+  {
+    field: "designLink",
+    label: "Figma",
+    icon: (cls) => <FigmaIcon className={cls} />,
+    placeholder: "https://www.figma.com/...",
+  },
 ];
 
-/** "Asset Link" cell: three chips (Drive/Web/Design), each openable or editable inline. */
+/** "Asset Link" cell: three chips (Drive/Web/Figma), each with its brand icon, openable or editable inline. */
 export function LinksCell({
   project,
   editable,
@@ -376,83 +430,116 @@ export function LinksCell({
   };
 
   if (editingField) {
+    const activeDef = LINK_DEFS.find((d) => d.field === editingField);
     return (
-      <div className="flex items-center justify-start gap-1 w-full">
-        <input
-          autoFocus
-          type="text"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save(editingField);
-            if (e.key === "Escape") setEditingField(null);
-          }}
-          placeholder="https://..."
-          className="w-40 rounded border border-input bg-background px-1.5 py-0.5 text-[11px] outline-none focus:ring-1 focus:ring-primary"
-        />
-        <button type="button" onClick={() => save(editingField)} className="text-success hover:opacity-80">
-          <Check size={13} />
+      <div className="flex items-center justify-start gap-1 w-full min-w-0">
+        <div className="relative flex items-center flex-1 min-w-0">
+          <span
+            className="absolute left-1.5 flex items-center pointer-events-none shrink-0"
+            title={activeDef?.label}
+          >
+            {activeDef?.icon("w-3.5 h-3.5 shrink-0")}
+          </span>
+          <input
+            autoFocus
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save(editingField);
+              if (e.key === "Escape") setEditingField(null);
+            }}
+            placeholder={activeDef?.placeholder || "https://..."}
+            className="w-full min-w-[130px] pl-6 pr-1.5 py-0.5 rounded border border-input bg-background text-[11px] outline-none focus:ring-1 focus:ring-primary shadow-xs"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => save(editingField)}
+          className="p-1 text-success hover:bg-success/10 rounded transition-colors shrink-0 cursor-pointer"
+          title="Save (Enter)"
+        >
+          <Check size={12} />
         </button>
-        <button type="button" onClick={() => setEditingField(null)} className="text-muted-foreground hover:opacity-80">
-          <X size={13} />
+        <button
+          type="button"
+          onClick={() => setEditingField(null)}
+          className="p-1 text-muted-foreground hover:bg-muted rounded transition-colors shrink-0 cursor-pointer"
+          title="Cancel (Esc)"
+        >
+          <X size={12} />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-start gap-1.5 flex-nowrap overflow-x-auto w-full min-w-0">
-      {LINK_DEFS.map(({ field, label }) => {
+    <div className="flex items-center justify-start gap-1.5 flex-nowrap w-full min-w-0 py-0.5">
+      {LINK_DEFS.map(({ field, label, icon }) => {
         const url = project[field];
         return (
-          <span
-            key={field}
-            className="group inline-flex shrink-0 items-center gap-1 rounded border bg-muted/40 px-1.5 py-0.5 text-[11px]"
-          >
+          <div key={field} className="relative group inline-flex items-center shrink-0">
             {url ? (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onDoubleClick={(e) => {
-                  if (!editable) return;
-                  e.preventDefault();
-                  startEdit(field, url);
-                }}
-                title={editable ? "Click to open · double-click to edit" : undefined}
-                className="text-foreground hover:text-primary hover:underline"
-              >
-                {label}
-              </a>
-            ) : (
-              <span
-                onClick={() => editable && startEdit(field, url)}
-                className={editable ? "text-muted-foreground/60 hover:text-foreground cursor-pointer" : "text-muted-foreground/60"}
-                title={editable ? "Click to add link" : undefined}
-              >
-                {label}
-              </span>
-            )}
-            {editable && url && (
-              <span className="hidden group-hover:inline-flex items-center gap-0.5">
-                <button
-                  type="button"
-                  title="Copy link"
-                  onClick={() => {
-                    navigator.clipboard.writeText(url);
-                    setCopiedField(field);
-                    setTimeout(() => setCopiedField(null), 1500);
+              <div className="inline-flex items-center">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onDoubleClick={(e) => {
+                    if (!editable) return;
+                    e.preventDefault();
+                    startEdit(field, url);
                   }}
-                  className="text-muted-foreground hover:text-primary"
+                  title={
+                    editable
+                      ? `${label}: Click to open · double-click to edit`
+                      : `${label}: Click to open`
+                  }
+                  className="flex h-6 w-6 items-center justify-center rounded border border-border/80 bg-muted/40 hover:bg-accent hover:border-primary/50 transition-colors cursor-pointer"
                 >
-                  {copiedField === field ? <Check size={11} className="text-success" /> : <Copy size={11} />}
-                </button>
-                <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                  <ExternalLink size={11} />
+                  {icon("w-3.5 h-3.5 shrink-0")}
                 </a>
-              </span>
+                {editable && (
+                  <span className="hidden group-hover:inline-flex items-center gap-0.5 ml-0.5">
+                    <button
+                      type="button"
+                      title={`Edit ${label} link`}
+                      onClick={() => startEdit(field, url)}
+                      className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent cursor-pointer"
+                    >
+                      <Pencil size={10} />
+                    </button>
+                    <button
+                      type="button"
+                      title={`Copy ${label} link`}
+                      onClick={() => {
+                        navigator.clipboard.writeText(url);
+                        setCopiedField(field);
+                        setTimeout(() => setCopiedField(null), 1500);
+                      }}
+                      className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent cursor-pointer"
+                    >
+                      {copiedField === field ? <Check size={10} className="text-success" /> : <Copy size={10} />}
+                    </button>
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => editable && startEdit(field, url)}
+                disabled={!editable}
+                title={editable ? `Click to add ${label} link` : `No ${label} link`}
+                className={`flex h-6 w-6 items-center justify-center rounded border border-dashed border-border/60 bg-muted/15 transition-all ${
+                  editable
+                    ? "hover:bg-muted/40 hover:border-foreground/40 opacity-40 hover:opacity-100 cursor-pointer"
+                    : "opacity-25 cursor-default"
+                }`}
+              >
+                {icon("w-3.5 h-3.5 shrink-0")}
+              </button>
             )}
-          </span>
+          </div>
         );
       })}
     </div>

@@ -64,7 +64,7 @@ export function ModuleSwitcher({ access, isManager }: ModuleSwitcherProps) {
     }, 0);
   }, [pathname]);
 
-  // Determine active module based on path or query parameter (Standup includes /notes, /dsm, /dsr, /blockers, etc.)
+  // Determine active module based on path or query parameter (Standup includes /notes, /dsm, /report, /blockers, etc.)
   let activeModuleId = "standup"; // default to standup
   if (
     pathname.startsWith("/people") ||

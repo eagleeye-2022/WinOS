@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, ChevronRight } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, ExternalLink, Video, VideoOff, Timer } from "lucide-react";
 
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "@/features/dsm/manager/components/send-reminder-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
+import { formatMinutes } from "../../reporting";
 
 const DOT_COLORS = ["bg-primary", "bg-primary", "bg-success", "bg-warning"];
 
@@ -47,7 +48,8 @@ function formatTime(date: Date): string {
   });
 }
 
-// ── Submitted DSR member card ─────────────────────────────────────────────────
+// ── Submitted report member card ──────────────────────────────────────────────
+// Opens the full report in a NEW tab ("View More") so the manager keeps their place on All Reports.
 
 function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
@@ -59,6 +61,8 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
   return (
     <Link
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       className={cn(
         "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
@@ -90,10 +94,25 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
             )}
           </div>
         </div>
-        {isReviewed && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-900 dark:text-indigo-950">
-            <ClipboardCheck size={11} /> Reviewed
-          </span>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {isReviewed && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-indigo-300 dark:bg-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-900 dark:text-indigo-950">
+              <ClipboardCheck size={11} /> Reviewed
+            </span>
+          )}
+          {card.isLate && (
+            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">Late</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>{card.completedTaskCount}/{card.plannedTaskCount} tasks</span>
+        <span className="flex items-center gap-1"><Timer size={11} /> {formatMinutes(card.totalLoggedMinutes)}</span>
+        {card.recordingUrl || card.recordingFile ? (
+          <span className="flex items-center gap-1 font-medium text-success"><Video size={11} /> Recording</span>
+        ) : (
+          <span className="flex items-center gap-1 font-medium text-destructive"><VideoOff size={11} /> No recording</span>
         )}
       </div>
 
@@ -108,15 +127,14 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
         </div>
       )}
 
-      <ChevronRight
-        size={13}
-        className="absolute bottom-2.5 right-2.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
-      />
+      <span className="mt-2 flex items-center justify-end gap-1 text-xs font-medium text-muted-foreground group-hover:text-primary">
+        View More <ExternalLink size={11} />
+      </span>
     </Link>
   );
 }
 
-// ── Pending DSR member card ───────────────────────────────────────────────────
+// ── Pending report member card ───────────────────────────────────────────────────
 
 function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemberCard; teamId: string; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
@@ -126,6 +144,8 @@ function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemb
   return (
     <Link
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">
@@ -148,9 +168,9 @@ function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemb
         </div>
       </div>
       <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between">
-        <SendReminderButton userId={card.userId} teamId={teamId} />
+        <SendReminderButton userId={card.userId} teamId={teamId} kind="report" />
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
-          Review <ChevronRight size={13} />
+          View More <ExternalLink size={11} />
         </span>
       </div>
     </Link>

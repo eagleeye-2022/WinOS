@@ -48,10 +48,10 @@ export async function toggleDsrLearning(
     data: { completed: newCompleted },
   });
 
-  revalidatePath(`/dsr/member/${item.dsrEntry.userId}`);
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
+  revalidatePath(`/report/member/${item.dsrEntry.userId}`);
+  revalidatePath("/report/all");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
 
   return { message: "toggled" };
 }
