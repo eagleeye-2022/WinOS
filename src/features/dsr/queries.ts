@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, isoToUtcDate, getWeekRange } from "./utils";
-import { getDailyTimeSummaryForTasks, type DailyTimeSummary } from "@/features/dsm/queries";
+import { getDailyTimeSummaryForTasks, getDayEffort, type DailyTimeSummary, type DayEffortRow } from "@/features/dsm/queries";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,13 @@ export type DsrEntryData = {
   resultOfDay: string | null;
   reflection: string | null;
   managerComment: string | null;
+  recordingUrl?: string | null;
+  dayFeedback?: string | null;
+  suggestions?: string | null;
+  isLate?: boolean;
+  totalLoggedMinutes?: number;
+  cliqPostedAt?: Date | null;
+  cliqError?: string | null;
   submittedAt: Date | null;
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
@@ -274,6 +281,52 @@ export async function getDsrProjectTaskLinks(
     };
   }
   return result;
+}
+
+export type ReportTimeSummary = {
+  /** All ProjectTimeLog minutes the user logged on this day. */
+  totalLoggedMinutes: number;
+  /** Tasks with time logged on this day that aren't linked to any of that day's DSM tasks. */
+  extraTasks: DayEffortRow[];
+  /** The user's currently running timer, if any (only meaningful for today). */
+  runningTimer: { taskId: string; code: string; title: string; startedAt: Date } | null;
+};
+
+/**
+ * Time side of the end-of-day report: day total, "extra" tasks (time logged on project tasks that
+ * weren't in the DSM), and the running timer. Callers must authorize access to `userId`.
+ */
+export async function getReportTimeSummary(userId: string, dateStr: string): Promise<ReportTimeSummary> {
+  const empty: ReportTimeSummary = { totalLoggedMinutes: 0, extraTasks: [], runningTimer: null };
+  if (!userId) return empty;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const [effort, standup, timer] = await Promise.all([
+    getDayEffort(userId, dateStr),
+    d.standupEntry.findUnique({
+      where: { userId_date: { userId, date: isoToUtcDate(dateStr) } },
+      select: { tasks: { where: { kind: "TODAY" }, select: { projectTaskId: true } } },
+    }),
+    d.activeTimer.findUnique({
+      where: { userId },
+      select: { taskId: true, startedAt: true, task: { select: { code: true, title: true } } },
+    }),
+  ]);
+
+  const dsmTaskIds = new Set<string>(
+    (standup?.tasks ?? [])
+      .map((t: { projectTaskId: string | null }) => t.projectTaskId)
+      .filter(Boolean)
+  );
+
+  return {
+    totalLoggedMinutes: effort.reduce((sum, row) => sum + row.minutes, 0),
+    extraTasks: effort.filter((row) => !dsmTaskIds.has(row.taskId)),
+    runningTimer: timer
+      ? { taskId: timer.taskId, code: timer.task?.code ?? "", title: timer.task?.title ?? "", startedAt: timer.startedAt }
+      : null,
+  };
 }
 
 /** Computed insights for the right panel. */

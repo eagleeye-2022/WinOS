@@ -1238,6 +1238,15 @@ export async function getMyTodayEffort(): Promise<DayEffortRow[]> {
   if (!session?.user?.id) return [];
 
   const dStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+  return getDayEffort(session.user.id, dStr);
+}
+
+/**
+ * A user's effort logged on `dStr` (YYYY-MM-DD), summed per task, most first. Callers are
+ * responsible for authorization — this does not check the session.
+ */
+export async function getDayEffort(userId: string, dStr: string): Promise<DayEffortRow[]> {
+  if (!userId) return [];
   const dayStartUtc = new Date(`${dStr}T00:00:00.000Z`);
   // Same ±14h window as getDailyTimeSummaryForTasks, then exact day matching below.
   const queryStart = new Date(dayStartUtc.getTime() - 14 * 3600 * 1000);
@@ -1245,7 +1254,7 @@ export async function getMyTodayEffort(): Promise<DayEffortRow[]> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const logs = await (db as any).projectTimeLog.findMany({
-    where: { userId: session.user.id, date: { gte: queryStart, lte: queryEnd } },
+    where: { userId, date: { gte: queryStart, lte: queryEnd } },
     select: {
       taskId: true,
       duration: true,

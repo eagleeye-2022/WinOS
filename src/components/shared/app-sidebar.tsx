@@ -63,10 +63,10 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Daily DSM" || label === "DSM") {
     return pathname === ROUTES.dsm || pathname === "/dashboard";
   }
-  if (label === "DSR Management" || label === "All DSR") {
-    return pathname.startsWith(ROUTES.dsrManage) || pathname.startsWith("/dsr/member");
+  if (label === "All Reports") {
+    return pathname.startsWith(ROUTES.dsrManage) || pathname.startsWith("/report/member");
   }
-  if (label === "My DSR" || label === "DSR") {
+  if (label === "My Report" || label === "Report") {
     return pathname === ROUTES.dsr || pathname === ROUTES.dsrMy;
   }
   if (label === "iNotes" || label === "i-Notes" || label === "My Notes") {
@@ -244,9 +244,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       ? [
         { label: "Home", href: ROUTES.dashboard, icon: Home },
         { label: "All DSM", href: ROUTES.dsmAll, icon: LayoutGrid },
-        { label: "All DSR", href: ROUTES.dsrManage, icon: BarChart2 },
+        { label: "All Reports", href: ROUTES.dsrManage, icon: BarChart2 },
         { label: "My DSM", href: ROUTES.dsmMy, icon: User },
-        { label: "My DSR", href: ROUTES.dsrMy, icon: ClipboardList },
+        { label: "My Report", href: ROUTES.dsrMy, icon: ClipboardList },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "Blockers ", href: ROUTES.blockers, icon: AlertCircle },
@@ -254,7 +254,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       ]
       : [
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
-        { label: "DSR", href: ROUTES.dsr, icon: BarChart2 },
+        { label: "Report", href: ROUTES.dsr, icon: BarChart2 },
         { label: "iNotes", href: iNotesHref, icon: FileText },
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "Blockers", href: ROUTES.blockers, icon: AlertCircle },

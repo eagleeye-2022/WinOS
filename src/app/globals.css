@@ -234,7 +234,7 @@
  * ── /dsm dark-mode palette ───────────────────────────────────────────────────
  * Previously overrode the semantic tokens with a blue-tinted palette whenever
  * both dark mode (`.dark`) and `.dsm-scope` were present. Removed so every
- * route — including /dsm and /dsr — shares the single black/zinc dark theme
+ * route — including /dsm and /report — shares the single black/zinc dark theme
  * defined in the main `.dark` block above, with the CTA/primary button kept
  * the same blue as light mode.
  */

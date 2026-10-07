@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight, ExternalLink } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "./send-reminder-button";
@@ -59,8 +59,11 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
   const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
 
   return (
+    // Opens the member's full DSM in a new tab ("View More") so the manager keeps their place here.
     <Link
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       className={cn(
         "group relative flex min-h-[104px] shrink-0 flex-col rounded-xl border bg-card p-3 shadow-2xs",
         "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
@@ -159,10 +162,9 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
         </div>
       )}
 
-      <ChevronRight
-        size={13}
-        className="absolute bottom-2.5 right-2.5 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100"
-      />
+      <span className="absolute bottom-2 right-2.5 flex items-center gap-1 text-xs font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+        View More <ExternalLink size={11} />
+      </span>
     </Link>
   );
 }
@@ -177,6 +179,8 @@ function PendingMemberCard({ card, teamId, selectedDateStr }: { card: MemberSubm
   return (
     <Link
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
     >
       <div className="flex items-center justify-between gap-2">

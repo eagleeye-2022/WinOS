@@ -8,10 +8,12 @@ export const ROUTES = {
   dsmMy: "/dsm/my",
   dsmAll: "/dsm/all",
   dsmMember: (userId: string) => `/dsm/member/${userId}` as const,
-  dsr: "/dsr",
-  dsrMy: "/dsr/my",
-  dsrManage: "/dsr/manage",
-  dsrMember: (userId: string) => `/dsr/member/${userId}` as const,
+  // The end-of-day DSR is now "Reporting" (UI + URLs). Keys keep the `dsr` prefix because the
+  // DsrEntry model/feature folder are unchanged; old /dsr URLs redirect via next.config.ts.
+  dsr: "/report",
+  dsrMy: "/report/my",
+  dsrManage: "/report/all",
+  dsrMember: (userId: string) => `/report/member/${userId}` as const,
   notes: "/notes",
   calendar: "/calendar",
   zohoCalendar: "/calendar",

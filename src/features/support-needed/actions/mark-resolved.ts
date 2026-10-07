@@ -81,6 +81,6 @@ export async function markSupportResolved(
   revalidatePath(`/dsm/member/${need.entry.userId}`);
   revalidatePath("/dsm/all");
   revalidatePath("/dsm/my");
-  revalidatePath("/dsr");
+  revalidatePath("/report");
   return { message: newResolved ? "resolved" : "unresolved" };
 }

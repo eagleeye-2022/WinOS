@@ -119,7 +119,7 @@ function ManagerDashboard({
         >
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <BarChart2 size={15} strokeWidth={1.75} />
-            Evening Reviews (DSR)
+            End-of-Day Reports
           </div>
           <div className="mt-3 flex-1">
             {dsrStats ? (
@@ -143,7 +143,7 @@ function ManagerDashboard({
             )}
           </div>
           <div className="mt-4 flex items-center gap-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            Review DSR Submissions <ArrowRight size={12} />
+            Review Reports <ArrowRight size={12} />
           </div>
         </Link>
 
@@ -176,7 +176,7 @@ function ManagerDashboard({
         >
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <BarChart2 size={15} strokeWidth={1.75} />
-            Pending DSR Review
+            Pending Report Review
           </div>
           <div className="mt-3 flex-1">
             <p className="text-3xl font-bold tabular-nums">{dsrStats?.pendingReviewCount ?? 0}</p>
@@ -204,7 +204,7 @@ function ManagerDashboard({
             [
               { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
-              { label: "DSR Reviews",    desc: "Evening Review Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
+              { label: "All Reports",    desc: "End-of-Day Report Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
               { label: "Blockers", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
               { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const
@@ -298,7 +298,7 @@ function MemberDashboard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <BarChart2 size={15} strokeWidth={1.75} />
-              Today&apos;s DSR
+              Today&apos;s Report
             </div>
             <StatusBadge status={dsrStatus} />
           </div>

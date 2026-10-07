@@ -54,3 +54,6 @@ calendar-api-settings.json
 /scripts/data/
 /scripts
 /exports
+
+# Report screen recordings stored by the in-app recorder (REPORT_RECORDINGS_DIR default)
+/storage/

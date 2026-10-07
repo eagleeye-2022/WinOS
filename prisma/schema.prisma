@@ -447,6 +447,21 @@ model DsrEntry {
   submittedAt        DateTime?
   reviewedAt         DateTime?
   reviewedById       String?
+  // ── Reporting (replaces the DSR UI; same table) ──
+  // The member's end-of-day screen walkthrough: EITHER an external link (Zoho Cliq / WorkDrive)
+  // OR, for a video recorded in WinOS, the internal path "/api/report-recordings/<key>"
+  // (see src/lib/report-recordings.ts and inAppRecordingKey() in src/features/dsr/reporting.ts).
+  recordingUrl       String?
+  // "How was the day?" and "Any feedback or suggestions?" from the submit modal.
+  dayFeedback        String?
+  suggestions        String?
+  // Submitted after the report cut-off (REPORT_CUTOFF_HHMM, IST).
+  isLate             Boolean              @default(false)
+  // Sum of ProjectTimeLog minutes for the user on this date, snapshotted at submit.
+  totalLoggedMinutes Int                  @default(0)
+  // Best-effort Zoho Cliq post status — the report is saved even when posting fails.
+  cliqPostedAt       DateTime?
+  cliqError          String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   additionalWorks    DsrAdditionalWork[]
@@ -838,6 +853,7 @@ enum TaskPriority {
 
 enum NotificationType {
   DSM_REMINDER
+  REPORT_REMINDER
   CALENDAR_INVITE
   PROJECT_ASSIGNED
   CLIENT_INVITATION_SENT

@@ -12,7 +12,8 @@ import type { SharedNoteData, CascadingProjectOption, ParkedTask } from "@/featu
 import { formatDayHeader, formatFullDate, formatShortDate, toUtcDate } from "@/features/dsm/utils";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
 import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
-import type { DsrEntryData, DsrStandupPrefill, DsrInsights } from "../queries";
+import type { DsrEntryData, DsrStandupPrefill, DsrInsights, ReportTimeSummary } from "../queries";
+import type { ReportConfig } from "./submit-report-modal";
 
 type Props = {
   entry: DsrEntryData | null;
@@ -28,6 +29,9 @@ type Props = {
   dsmReviewed?: boolean;
   memberUserId?: string;
   parkedTasks?: ParkedTask[];
+  reportConfig: ReportConfig;
+  timeSummary?: ReportTimeSummary;
+  memberName?: string | null;
 };
 
 export function DsrPageClient({
@@ -38,12 +42,15 @@ export function DsrPageClient({
   todayDateStr,
   weekOffset,
   justSubmitted,
-  basePath = "/dsr",
+  basePath = "/report",
   sharedNotes = [],
   userRole,
   dsmReviewed = true,
   memberUserId,
   parkedTasks = [],
+  reportConfig,
+  timeSummary,
+  memberName,
 }: Props) {
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
 
@@ -98,9 +105,11 @@ export function DsrPageClient({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs text-muted-foreground">{formatDayHeader(now)}</p>
+            {/* Hidden for now.
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Evening Review
+              End-of-Day Report · Cut-off {reportConfig.cutoffLabel}
             </p>
+            */}
             <h1 className="mt-1 text-4xl font-bold tracking-tight">{formatFullDate(now)}</h1>
           </div>
 
@@ -132,9 +141,9 @@ export function DsrPageClient({
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">DSR Locked</p>
+              <p className="text-sm font-semibold text-foreground">Report Locked</p>
               <p className="text-sm text-muted-foreground">
-                Your DSM for today must be reviewed by your manager before you can fill out or submit your DSR.
+                Your DSM for today must be reviewed by your manager before you can fill out or submit your report.
               </p>
             </div>
           </div>
@@ -147,9 +156,9 @@ export function DsrPageClient({
               ✓
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">DSR Reviewed by Manager</p>
+              <p className="text-sm font-semibold text-foreground">Report Reviewed by Manager</p>
               <p className="text-sm text-muted-foreground">
-                This DSR has been reviewed and locked. All fields are in read-only preview mode.
+                This report has been reviewed and locked. All fields are in read-only preview mode.
               </p>
             </div>
           </div>
@@ -164,9 +173,9 @@ export function DsrPageClient({
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">DSR Submitted Successfully</p>
+              <p className="text-sm font-semibold text-foreground">Report Submitted Successfully</p>
               <p className="text-sm text-muted-foreground">
-                Your Team Focus Has Been Updated for {formatShortDate(now)}.
+                Your report for {formatShortDate(now)} has been posted to Zoho Cliq.
               </p>
             </div>
           </div>
@@ -195,6 +204,9 @@ export function DsrPageClient({
             onPendingChange={setIsSubmitting}
             readOnly={!editable}
             onCancel={isEditing ? () => setIsEditing(false) : undefined}
+            reportConfig={reportConfig}
+            timeSummary={timeSummary}
+            memberName={memberName}
           />
         ) : (
           <>
@@ -206,7 +218,7 @@ export function DsrPageClient({
                   className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <Pencil size={13} />
-                  Edit Today&apos;s DSR
+                  Edit Today&apos;s Report
                 </button>
               </div>
             )}
@@ -265,7 +277,7 @@ export function DsrPageClient({
           )}
         </div>
 
-        {/* Fixed Submit DSR button footer (visible for all tabs) */}
+        {/* Fixed Submit Report button footer (visible for all tabs) */}
         {editable && (
           <div className="shrink-0 border-t bg-card p-4 shadow-lg">
             <button
@@ -279,7 +291,7 @@ export function DsrPageClient({
                 ? "Saving…"
                 : isSubmittedNotReviewed || isEditing
                   ? "Save Changes"
-                  : "Submit DSR"}
+                  : "Submit Report"}
             </button>
           </div>
         )}

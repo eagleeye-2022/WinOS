@@ -2123,9 +2123,9 @@ function YesterdayTasksSection({
                   "rounded-full px-2 py-0.5",
                   dsr.hasDsr ? "bg-primary/10 text-primary" : "bg-warning/10 text-warning"
                 )}
-                title={dsr.hasDsr ? "Done status is taken from the member's DSR for this day" : "The member did not fill a DSR for this day"}
+                title={dsr.hasDsr ? "Done status is taken from the member's report for this day" : "The member did not fill a report for this day"}
               >
-                {dsr.hasDsr ? "From DSR" : "No DSR"}
+                {dsr.hasDsr ? "From Report" : "No Report"}
               </span>
             )}
             <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{rows.length} done</span>

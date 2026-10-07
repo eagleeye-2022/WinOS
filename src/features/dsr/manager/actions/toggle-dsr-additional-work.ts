@@ -47,10 +47,10 @@ export async function toggleDsrAdditionalWork(
     data: { completed: newCompleted },
   });
 
-  revalidatePath(`/dsr/member/${item.dsrEntry.userId}`);
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
+  revalidatePath(`/report/member/${item.dsrEntry.userId}`);
+  revalidatePath("/report/all");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
   // Also shown under "What Did You Do Yesterday?" on the DSM member review.
   revalidatePath(`/dsm/member/${item.dsrEntry.userId}`);
 

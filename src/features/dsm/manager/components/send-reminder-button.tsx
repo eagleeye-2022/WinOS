@@ -7,9 +7,11 @@ import { sendReminderToUser, type SendReminderState } from "@/features/notificat
 type Props = {
   userId: string;
   teamId: string;
+  /** "report" sends an end-of-day report reminder instead of a DSM one. */
+  kind?: "dsm" | "report";
 };
 
-export function SendReminderButton({ userId, teamId }: Props) {
+export function SendReminderButton({ userId, teamId, kind = "dsm" }: Props) {
   const [state, action, pending] = useActionState<SendReminderState, FormData>(
     sendReminderToUser,
     {}
@@ -39,6 +41,7 @@ export function SendReminderButton({ userId, teamId }: Props) {
     <form action={action} onClick={(e) => e.stopPropagation()}>
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="teamId" value={teamId} />
+      <input type="hidden" name="kind" value={kind} />
       <button
         type="submit"
         disabled={pending}

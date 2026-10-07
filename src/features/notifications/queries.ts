@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export type NotificationItem = {
   id: string;
-  type: "DSM_REMINDER" | "CALENDAR_INVITE";
+  type: "DSM_REMINDER" | "REPORT_REMINDER" | "CALENDAR_INVITE";
   title: string;
   message: string;
   readAt: Date | null;

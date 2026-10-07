@@ -17,7 +17,9 @@ import { toggleDsrAdditionalWork, type ToggleDsrAdditionalWorkState } from "../a
 import { addDsrTask, type AddDsrTaskState } from "../actions/add-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
 import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
-import { DsrHistoryCard } from "@/features/dsr/components/dsr-history-card";
+import { DsrHistoryCard, ReportRecordingBlock } from "@/features/dsr/components/dsr-history-card";
+import { ReportTimeSection } from "@/features/dsr/components/dsr-form";
+import type { ReportTimeSummary } from "@/features/dsr/queries";
 import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
@@ -960,7 +962,7 @@ function ReviewerActionsCard({
       <div className="rounded-xl border border-success/30 bg-success/10 p-4 space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-success">
           <CheckCheck size={16} />
-          DSR Reviewed
+          Report Reviewed
         </div>
         {managerComment && (
           <div className="rounded-lg bg-success/15 p-3 text-xs text-success border border-success/30">
@@ -1019,9 +1021,10 @@ type Props = {
   showHistory?: boolean;
   selectedDateStr?: string;
   parkedTasks?: ParkedTask[];
+  timeSummary?: ReportTimeSummary;
 };
 
-export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateStr, parkedTasks = [] }: Props) {
+export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateStr, parkedTasks = [], timeSummary }: Props) {
   const router = useRouter();
   const { user, todayEntry, focusedEntry, weekEntries, todayDsmReviewed, focusedDsmReviewed } = review;
 
@@ -1066,7 +1069,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft size={14} />
-            Back to All DSR
+            Back to All Reports
           </Link>
         </div>
 
@@ -1083,14 +1086,14 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
           </div>
           <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
             <Link
-              href={`/dsr/member/${user.id}?w=${weekOffset - 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}`}
+              href={`/report/member/${user.id}?w=${weekOffset - 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}`}
               className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ChevronLeft size={16} />
             </Link>
             <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
             <Link
-              href={canGoForward ? `/dsr/member/${user.id}?w=${weekOffset + 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}` : `/dsr/member/${user.id}`}
+              href={canGoForward ? `/report/member/${user.id}?w=${weekOffset + 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}` : `/report/member/${user.id}`}
               className={cn(
                 "rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent",
                 !canGoForward && "pointer-events-none opacity-30"
@@ -1111,6 +1114,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
 
             {/* Review detail — all cards stacked in flex-col for full table width */}
             <ResultCard entry={activeEntry} />
+            <ReportRecordingBlock entry={activeEntry} showCliqStatus />
             <TaskProgressCard entry={activeEntry} locked={!activeDsmReviewed} memberId={user.id} />
             <ParkingLotSection
               memberUserId={user.id}
@@ -1119,6 +1123,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
               isLocked={!activeDsmReviewed}
               markCompletedInDsr={true}
             />
+            {timeSummary && <ReportTimeSection summary={timeSummary} />}
             <AdditionalWorkCard entry={activeEntry} locked={!activeDsmReviewed} />
             <BlockersSupportCard entry={activeEntry} />
             <LearningCard entry={activeEntry} locked={!activeDsmReviewed} />
@@ -1136,14 +1141,14 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
           /* Weekly history view */
           <div className="flex flex-col gap-2">
             <div className="mb-2">
-              <h2 className="text-lg font-semibold">This Week&apos;s Standups</h2>
+              <h2 className="text-lg font-semibold">This Week&apos;s Reports</h2>
               <p className="text-sm text-muted-foreground">
                 Review Daily Status Updates for {toTitleCase(user.name ?? user.email.split("@")[0])}.
               </p>
             </div>
             {weekEntries.length === 0 ? (
               <div className="flex h-24 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-                No DSR Entries for This Week.
+                No Reports for This Week.
               </div>
             ) : (
               weekEntries.map((entry) => (

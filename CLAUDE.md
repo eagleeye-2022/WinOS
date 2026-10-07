@@ -124,6 +124,23 @@ under `src/components/tiptap-*`) is the one actually used throughout the app; `@
 is a dependency but has no meaningful component footprint — treat TipTap as the default for any new
 rich-text work.
 
+**Reporting (formerly DSR)**: the end-of-day DSR is now called "Report" in the UI and lives at
+`/report` (member), `/report/my` (manager's own), `/report/all` and `/report/member/[userId]`; old
+`/dsr*` URLs redirect via `next.config.ts`. Code still lives in `src/features/dsr/` on the `DsrEntry`
+model (renamed in UI only). Submitting opens `SubmitReportModal`, where the member EITHER records a
+screen walkthrough in-app (`report-recorder.tsx`, MediaRecorder; camera via Picture-in-Picture and mic
+both optional) OR pastes a link (`validateRecordingUrl`, Zoho hosts) — one is required. In-app videos
+upload to `POST /api/report-recordings` (streamed to a private dir, `REPORT_RECORDINGS_DIR`, default
+`<cwd>/storage/report-recordings`, cap `REPORT_RECORDING_MAX_MB`) and are served with Range support by
+`GET /api/report-recordings/<key>` to the owner or managers only (`src/lib/report-recordings.ts`).
+There is **no separate column**: an in-app video is stored in `DsrEntry.recordingUrl` as
+`/api/report-recordings/<key>` — use `splitRecording()` when reading it. `saveDsr` then sets
+`isLate` (cut-off `REPORT_CUTOFF_HHMM`, default `18:00` IST), snapshots `totalLoggedMinutes` from
+`ProjectTimeLog`, and best-effort posts a summary to Cliq (`src/lib/zoho-cliq.ts`, failures stored in
+`cliqError`, never block the save). Env: `ZOHO_CLIQ_WEBHOOK_URL` (unset → message printed to the
+server console), `REPORT_CUTOFF_HHMM`, `REPORT_RECORDING_ALLOWED_HOSTS` (default: Zoho domains),
+`APP_BASE_URL` (for the "Full report" link). Pure helpers are in `src/features/dsr/reporting.ts`.
+
 **Dual mention storage**: blockers and support-needs store @mentions both as a legacy
 `mentionedUserId`/CSV `mentionedUserIds` string pair *and* as a proper join table
 (`StandupBlockerMention`, `StandupSupportNeedMention`). Code reading mentions must check both.

@@ -273,9 +273,9 @@ export async function moveParkedTaskToToday(
   revalidatePath("/dsm/my");
   revalidatePath(`/dsm/member/${owned.entry.userId}`);
   revalidatePath("/dsm/all");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
-  revalidatePath(`/dsr/member/${owned.entry.userId}`);
-  revalidatePath("/dsr/manage");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
+  revalidatePath(`/report/member/${owned.entry.userId}`);
+  revalidatePath("/report/all");
   return { success: true, task };
 }

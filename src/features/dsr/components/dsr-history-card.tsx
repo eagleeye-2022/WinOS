@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, ExternalLink, Video, VideoOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
@@ -13,6 +13,75 @@ import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-t
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
+import { formatMinutes, splitRecording } from "../reporting";
+
+/** Recording (in-app video or link), time logged, "how was the day" and suggestions from the submit modal. */
+export function ReportRecordingBlock({ entry, showCliqStatus = false }: { entry: DsrEntryData; showCliqStatus?: boolean }) {
+  const hasAny = entry.recordingUrl || entry.dayFeedback || entry.suggestions || (entry.totalLoggedMinutes ?? 0) > 0;
+  if (!hasAny && entry.status === "DRAFT") return null;
+  // In-app recordings are stored as /api/report-recordings/<key> and stream from our server; the
+  // route only serves them to the owner and managers. Anything else is an external link.
+  const { recordingUrl: externalUrl, recordingFile } = splitRecording(entry.recordingUrl);
+  const videoSrc = recordingFile ? entry.recordingUrl : null;
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
+      {videoSrc && (
+        <video
+          src={videoSrc}
+          controls
+          preload="metadata"
+          className="max-h-[420px] w-full rounded-lg border bg-black"
+        />
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {videoSrc ? (
+          <a
+            href={videoSrc}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+          >
+            <Video size={13} /> Recorded in WinOS, open full screen <ExternalLink size={11} />
+          </a>
+        ) : externalUrl ? (
+          <a
+            href={externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+          >
+            <Video size={13} /> Watch recording <ExternalLink size={11} />
+          </a>
+        ) : (
+          <span className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-xs font-semibold text-destructive">
+            <VideoOff size={13} /> No recording
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">
+          Time logged: <span className="font-semibold text-foreground">{formatMinutes(entry.totalLoggedMinutes ?? 0)}</span>
+        </span>
+        {showCliqStatus && entry.cliqPostedAt && (
+          <span className="text-xs text-success">Posted to Cliq</span>
+        )}
+        {showCliqStatus && !entry.cliqPostedAt && entry.cliqError && (
+          <span className="text-xs text-destructive" title={entry.cliqError}>Cliq post failed</span>
+        )}
+      </div>
+      {entry.dayFeedback && (
+        <div>
+          <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">How Was the Day</p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed">{entry.dayFeedback}</p>
+        </div>
+      )}
+      {entry.suggestions && (
+        <div>
+          <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Feedback / Suggestions</p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed">{entry.suggestions}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function DsrHistoryCard({
   entry,
@@ -21,7 +90,7 @@ export function DsrHistoryCard({
 }: {
   entry: DsrEntryData;
   defaultOpen?: boolean;
-  /** Pass when rendering another user's DSR (manager review) — omit for the current user's own. */
+  /** Pass when rendering another user's report (manager review) — omit for the current user's own. */
   memberId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -79,6 +148,16 @@ export function DsrHistoryCard({
           {entry.status !== "MISSED" && entry.status !== "DRAFT" && (
             <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
+            </span>
+          )}
+          {entry.isLate && entry.status !== "DRAFT" && (
+            <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+              Late
+            </span>
+          )}
+          {entry.status !== "MISSED" && entry.status !== "DRAFT" && !entry.recordingUrl && (
+            <span className="rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-xs font-medium text-destructive">
+              No recording
             </span>
           )}
           {entry.status === "MISSED" && (
@@ -165,12 +244,14 @@ export function DsrHistoryCard({
               <p className="text-xs leading-relaxed text-foreground italic">
                 &ldquo;{renderTextWithMentions(
                   entry.resultOfDay.length > 50
-                    ? `${entry.resultOfDay.slice(50)}...`
+                    ? `${entry.resultOfDay.slice(0, 50)}...`
                     : entry.resultOfDay
                 )}&rdquo;
               </p>
             </div>
           )}
+
+          <ReportRecordingBlock entry={entry} showCliqStatus={!!memberId} />
 
           {/* Completed tasks */}
           {entry.plannedTasks.filter((t) => t.completed).length > 0 && (

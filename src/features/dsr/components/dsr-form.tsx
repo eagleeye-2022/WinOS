@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState, useRef, useEffect, startTransition } from "react";
-import { PlusCircle, X, Loader2, Zap, TrendingDown } from "lucide-react";
+import { PlusCircle, X, Loader2, Zap, TrendingDown, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
-import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary } from "../queries";
+import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
+import { SubmitReportModal, type ReportConfig, type RecordingMode } from "./submit-report-modal";
+import { formatMinutes, splitRecording } from "../reporting";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
@@ -308,6 +310,45 @@ function PlannedTasksSection({
   );
 }
 
+// ── Time logged / extra tasks (read-only, from project time logs) ─────────────
+
+export function ReportTimeSection({ summary }: { summary: ReportTimeSummary }) {
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+          <Timer size={14} /> Time Logged Today
+        </h3>
+        <span className="text-sm font-bold">{formatMinutes(summary.totalLoggedMinutes)}</span>
+      </div>
+      {summary.runningTimer && (
+        <p className="mb-3 flex items-center gap-1.5 rounded-md bg-success/10 px-3 py-2 text-xs">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+          Timer running on <span className="font-semibold">{summary.runningTimer.code}</span>{" "}
+          {summary.runningTimer.title}. Stop it so today&apos;s time is complete.
+        </p>
+      )}
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Extra Tasks (time logged, not in today&apos;s DSM)
+      </p>
+      {summary.extraTasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground/60">No extra tasks. All logged time is on DSM tasks.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {summary.extraTasks.map((row) => (
+            <li key={row.taskId} className="flex items-center gap-2 text-sm">
+              {row.task?.code && <TaskIdChip code={row.task.code} title={row.task.title} />}
+              <span className="min-w-0 flex-1 truncate">{row.task?.title ?? "Task"}</span>
+              {row.task?.project?.name && <ProjectPill name={row.task.project.name} />}
+              <span className="shrink-0 text-xs font-semibold">{formatMinutes(row.minutes)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── Additional work section ───────────────────────────────────────────────────
 
 function AdditionalWorkSection({
@@ -516,10 +557,14 @@ type Props = {
   onPendingChange?: (pending: boolean) => void;
   readOnly?: boolean;
   onCancel?: () => void;
+  reportConfig: ReportConfig;
+  timeSummary?: ReportTimeSummary;
+  memberName?: string | null;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, memberName }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   useEffect(() => {
     onPendingChange?.(pending);
@@ -612,6 +657,12 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
   const [sentiment, setSentiment] = useState<string>(savedDraft?.sentiment ?? entry?.sentiment ?? "");
   const [resultOfDay, setResultOfDay] = useState<string>(savedDraft?.resultOfDay ?? entry?.resultOfDay ?? "");
   const [reflection, setReflection] = useState<string>(savedDraft?.reflection ?? entry?.reflection ?? "");
+  // The saved entry keeps both kinds in recordingUrl; split back into link vs in-app recording key.
+  const savedRecording = splitRecording(entry?.recordingUrl);
+  const [recordingUrl, setRecordingUrl] = useState<string>(savedDraft?.recordingUrl ?? savedRecording.recordingUrl ?? "");
+  const [recordingFile, setRecordingFile] = useState<string>(savedDraft?.recordingFile ?? savedRecording.recordingFile ?? "");
+  const [dayFeedback, setDayFeedback] = useState<string>(savedDraft?.dayFeedback ?? entry?.dayFeedback ?? "");
+  const [suggestions, setSuggestions] = useState<string>(savedDraft?.suggestions ?? entry?.suggestions ?? "");
 
   useEffect(() => {
     isLoadedRef.current = true;
@@ -629,13 +680,17 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
       sentiment,
       resultOfDay,
       reflection,
+      recordingUrl,
+      recordingFile,
+      dayFeedback,
+      suggestions,
     };
     try {
       localStorage.setItem(draftKey, JSON.stringify(draftData));
     } catch {
       // Ignore storage error
     }
-  }, [draftKey, readOnly, isEditMode, tasks, additionalWorks, blockers, followUps, learningItems, sentiment, resultOfDay, reflection]);
+  }, [draftKey, readOnly, isEditMode, tasks, additionalWorks, blockers, followUps, learningItems, sentiment, resultOfDay, reflection, recordingUrl, recordingFile, dayFeedback, suggestions]);
 
   // Clear draft upon successful save or submission
   useEffect(() => {
@@ -648,7 +703,8 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     }
   }, [state.message, draftKey]);
 
-  function buildAndSubmit(actionValue: "draft" | "submit") {
+  /** `mode` (from the submit modal) sends only the chosen recording kind; drafts keep both. */
+  function buildAndSubmit(actionValue: "draft" | "submit", mode?: RecordingMode) {
     if (!formRef.current) return;
     const fd = new FormData(formRef.current);
     fd.set("action", actionValue);
@@ -668,6 +724,10 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     fd.set("sentiment", sentiment);
     fd.set("reflection", reflection);
     fd.set("resultOfDay", resultOfDay);
+    fd.set("recordingUrl", mode === "record" ? "" : recordingUrl);
+    fd.set("recordingFile", mode === "link" ? "" : recordingFile);
+    fd.set("dayFeedback", dayFeedback);
+    fd.set("suggestions", suggestions);
     startTransition(() => {
       action(fd);
     });
@@ -679,10 +739,14 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
     buildAndSubmitRef.current = buildAndSubmit;
   });
 
+  // "Submit Report" (panel or mobile button) opens the recording/feedback modal; the modal's final
+  // step is what actually submits.
   useEffect(() => {
-    onRegisterSubmit?.(() => buildAndSubmitRef.current("submit"));
+    onRegisterSubmit?.(() => setSubmitOpen(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const completedCount = tasks.filter((t) => t.completed).length;
 
   return (
     <form ref={formRef} className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
@@ -700,7 +764,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
       {(isEditMode || onCancel) && (
         <div className="flex items-center justify-between rounded-xl border bg-card px-5 py-3">
           <h2 className="text-sm font-semibold">
-            {isEditMode ? "Edit Today's DSR" : "Today's DSR"}
+            {isEditMode ? "Edit Today's Report" : "Today's Report"}
           </h2>
           {onCancel && (
             <button
@@ -715,6 +779,8 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
       )}
 
       <PlannedTasksSection tasks={tasks} onChange={setTasks} readOnly={readOnly} dateStr={todayDateStr} />
+
+      {timeSummary && <ReportTimeSection summary={timeSummary} />}
 
       <AdditionalWorkSection
         items={additionalWorks}
@@ -791,13 +857,39 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
           <button
             type="button"
             disabled={pending}
-            onClick={() => buildAndSubmit("submit")}
+            onClick={() => setSubmitOpen(true)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
           >
             {pending && <Loader2 size={14} className="animate-spin" />}
-            {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSR"}
+            {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit Report"}
           </button>
         </div>
+      )}
+
+      {!readOnly && submitOpen && (
+        <SubmitReportModal
+          open={submitOpen}
+          onOpenChange={setSubmitOpen}
+          dateStr={todayDateStr}
+          memberName={memberName}
+          config={reportConfig}
+          isEdit={isEditMode}
+          completedCount={completedCount}
+          totalCount={tasks.length}
+          totalLoggedMinutes={timeSummary?.totalLoggedMinutes ?? 0}
+          recordingUrl={recordingUrl}
+          onRecordingUrl={setRecordingUrl}
+          recordingFile={recordingFile}
+          onRecordingFile={setRecordingFile}
+          dayFeedback={dayFeedback}
+          onDayFeedback={setDayFeedback}
+          suggestions={suggestions}
+          onSuggestions={setSuggestions}
+          resultOfDay={resultOfDay}
+          onSubmit={(mode) => buildAndSubmit("submit", mode)}
+          pending={pending}
+          serverError={state.message && state.message !== "saved" ? state.message : undefined}
+        />
       )}
     </form>
   );

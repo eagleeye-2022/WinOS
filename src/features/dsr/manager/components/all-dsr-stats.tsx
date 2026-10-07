@@ -150,7 +150,7 @@ export function AllDsrStatsRow({
         </button>
         {openCard === "submitted" && (
           <MemberListDropdown
-            title="Submitted DSR"
+            title="Submitted Reports"
             members={submittedMembers}
             emptyLabel="No Submissions Yet."
             icon={CheckCircle2}
@@ -176,7 +176,7 @@ export function AllDsrStatsRow({
         </button>
         {openCard === "pending" && (
           <MemberListDropdown
-            title="Pending DSR Submissions"
+            title="Pending Reports"
             members={pendingMembers}
             emptyLabel="No Pending Members."
             icon={AlertTriangle}
@@ -284,7 +284,7 @@ export function AllDsrStatsRow({
             <TrendingUp size={18} className={status === "Pending OT" ? "text-success" : "text-warning"} />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">DSR Status</p>
+            <p className="text-xs text-muted-foreground">Report Status</p>
             <p className={cn(
               "text-lg font-bold",
               status === "Pending OT" ? "text-success" : "text-warning"
@@ -322,7 +322,7 @@ export function AllDsrStatsRow({
                 : highPriorityBlockers === 1
                   ? "One open blocker is putting progress at risk."
                   : pendingCount > 0
-                    ? "Some team members haven't submitted their DSR yet."
+                    ? "Some team members haven't submitted their report yet."
                     : "All submissions are in and there are no open blockers."}
             </p>
           </div>

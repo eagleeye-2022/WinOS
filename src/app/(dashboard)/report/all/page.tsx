@@ -11,7 +11,7 @@ type Props = {
   searchParams: Promise<{ date?: string }>;
 };
 
-export default async function AllDsrPage({ searchParams }: Props) {
+export default async function AllReportsPage({ searchParams }: Props) {
   const params = await searchParams;
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "MANAGER") {

@@ -69,10 +69,10 @@ export async function toggleDsrTask(
     },
   });
 
-  revalidatePath(`/dsr/member/${task.dsrEntry.userId}`);
-  revalidatePath("/dsr/manage");
-  revalidatePath("/dsr");
-  revalidatePath("/dsr/my");
+  revalidatePath(`/report/member/${task.dsrEntry.userId}`);
+  revalidatePath("/report/all");
+  revalidatePath("/report");
+  revalidatePath("/report/my");
 
   return { message: "toggled" };
 }
