@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState, useMemo, useEffect } from "react";
+import { useActionState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "@/features/dsm/utils";
 import { daysOpen, filterHelpRequests, type HelpStatusFilter } from "../utils";
+import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
 import { markHelpResolved, type MarkHelpResolvedState } from "../actions/mark-help-resolved";
 import type { HelpRequestItem } from "../queries";
 
@@ -136,10 +137,11 @@ function DetailPanel({ item, onClose }: { item: HelpRequestItem; onClose: () => 
 type Props = { items: HelpRequestItem[] };
 
 export function NeedsHelpClient({ items }: Props) {
-  const [statusFilter, setStatusFilter] = useState<HelpStatusFilter>("all");
-  const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(() => items[0]?.id ?? null);
-  const [page, setPage] = useState(1);
+  // Filters, page and the open request live in the URL (restored on return to the module).
+  const [statusFilter, setStatusFilter] = useUrlState<HelpStatusFilter>("status", "all");
+  const [search, setSearch] = useUrlState("q", "");
+  const [selectedId, setSelectedId] = useUrlSelection("item", items[0]?.id ?? null);
+  const [page, setPage] = useUrlNumberState("page", 1);
 
   const filtered = useMemo(
     () => filterHelpRequests(items, statusFilter, search),

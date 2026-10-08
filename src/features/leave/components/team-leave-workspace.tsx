@@ -38,6 +38,17 @@ import { TeamCalendarView } from "./team-calendar-view";
 import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
+import { useUrlState } from "@/lib/navigation/use-url-state";
+
+const TEAM_LEAVE_LIST_TABS = [
+  "leave-requests",
+  "employee-leave",
+  "compensatory-requests",
+  "team-calendar",
+  "holidays",
+  "leave-policy",
+] as const;
+type TeamLeaveListTab = (typeof TEAM_LEAVE_LIST_TABS)[number];
 
 import {
   getTeamLeaveRequestsAction,
@@ -91,15 +102,23 @@ export function TeamLeaveWorkspace({
     | "create-leave-type";
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<
-    | "leave-requests"
-    | "employee-leave"
-    | "compensatory-requests"
-    | "team-calendar"
-    | "holidays"
-    | "leave-policy"
-    | "create-leave-type"
-  >(initialTab);
+  // Tabs live in the URL (restored on return, Back/Forward-able). The create-leave-type wizard is
+  // a transient form on top of the Leave Policy tab, not a URL-addressable view.
+  const [listTab, setListTab] = useUrlState<TeamLeaveListTab>(
+    "tab",
+    initialTab === "create-leave-type" ? "leave-policy" : initialTab,
+    { allowed: TEAM_LEAVE_LIST_TABS, history: "push" }
+  );
+  const [isCreatingLeaveType, setIsCreatingLeaveType] = useState(initialTab === "create-leave-type");
+  const activeTab: TeamLeaveListTab | "create-leave-type" = isCreatingLeaveType ? "create-leave-type" : listTab;
+  const setActiveTab = (tab: TeamLeaveListTab | "create-leave-type") => {
+    if (tab === "create-leave-type") {
+      setIsCreatingLeaveType(true);
+    } else {
+      setIsCreatingLeaveType(false);
+      setListTab(tab);
+    }
+  };
 
   const [teamRequests, setTeamRequests] = useState<TeamLeaveItem[]>([]);
   const [teamCompRequests, setTeamCompRequests] = useState<TeamCompItem[]>([]);
@@ -119,10 +138,10 @@ export function TeamLeaveWorkspace({
   });
 
   // Filters state
-  const [searchEmployee, setSearchEmployee] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
-  const [selectedType, setSelectedType] = useState<string>("ALL");
-  const [selectedDept, setSelectedDept] = useState<string>("ALL");
+  const [searchEmployee, setSearchEmployee] = useUrlState("q", "");
+  const [selectedStatus, setSelectedStatus] = useUrlState("status", "ALL");
+  const [selectedType, setSelectedType] = useUrlState("type", "ALL");
+  const [selectedDept, setSelectedDept] = useUrlState("dept", "ALL");
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
   // Load live team requests

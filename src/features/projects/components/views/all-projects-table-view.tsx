@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useUrlState } from "@/lib/navigation/use-url-state";
+
+const PROJECT_LIST_TABS = ["ACTIVE", "INACTIVE", "COMPLETED", "TEMPLATES"] as const;
+const PROJECT_CATEGORIES = ["DIGITAL", "SMM"] as const;
+const PROJECT_LAYOUTS = ["LIST", "GRID"] as const;
+const SORT_DIRS = ["", "asc", "desc"] as const;
 import Link from "next/link";
 import {
   Clock,
@@ -48,8 +54,11 @@ import {
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
-import { AssigneeCell, CalendarCell, LinksCell, NotesCell, StatusCell, TimelineCell } from "../project-table-cells";
+import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell } from "../project-table-cells";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
+import { ProjectINotesCell } from "../project-inotes-panel";
+import { CityCell, CountryCell, CountryFilterDropdown, IndustryCell, StateCell } from "../project-client-cells";
+import { getProjectNoteSummariesAction, type ProjectNoteSummary } from "../../actions/project-notes-actions";
 import { AddProjectDrawer } from "../modals/add-project-drawer";
 import { BulkProjectActionsBar } from "../bulk-project-actions-bar";
 import { getInitials, getAvatarColor } from "../assignee-picker-popover";
@@ -81,6 +90,10 @@ type CollapsibleColId =
   | "projectStatus"
   | "projectLead"
   | "projectNotes"
+  | "industry"
+  | "clientCountry"
+  | "clientState"
+  | "clientCity"
   | "techLead"
   | "techAssignee"
   | "creativeUiuxLead"
@@ -94,6 +107,7 @@ type CollapsibleColId =
   | "assetLink"
   | "projectTimeline";
 
+const CLIENT_LOCATION_COLS: CollapsibleColId[] = ["clientCountry", "clientState", "clientCity"];
 const TECH_COLS: CollapsibleColId[] = ["techLead", "techAssignee"];
 const CREATIVE_UIUX_COLS: CollapsibleColId[] = ["creativeUiuxLead", "creativeUiuxAssignee"];
 const CREATIVE_GRAPHIC_COLS: CollapsibleColId[] = ["creativeGraphicLead", "creativeGraphicAssignee"];
@@ -106,9 +120,13 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
   "projectId",
   "projectName",
   "projectStartDate",
-  "projectStatus",
+  // "projectStatus",
   "projectLead",
   "projectNotes",
+  "industry",
+  "clientCountry",
+  "clientState",
+  "clientCity",
   "techLead",
   "techAssignee",
   "creativeUiuxLead",
@@ -123,6 +141,8 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
   // "projectTimeline",
 ];
 
+// Per-column widths. The table uses auto (content-based) widths, except the columns listed in
+// FIXED_WIDTH_COLS, which are pinned to these values (see the comment above the <table>).
 const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   projectId: 110,
   projectName: 200,
@@ -130,6 +150,10 @@ const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   projectStatus: 110,
   projectLead: 160,
   projectNotes: 220,
+  industry: 150,
+  clientCountry: 160,
+  clientState: 140,
+  clientCity: 130,
   techLead: 120,
   techAssignee: 120,
   creativeUiuxLead: 110,
@@ -153,6 +177,10 @@ const LEAF_LABELS: Record<CollapsibleColId, string> = {
   projectStatus: "Status",
   projectLead: "Project Lead / SPOC",
   projectNotes: "Project iNotes",
+  industry: "Industry",
+  clientCountry: "Country",
+  clientState: "State",
+  clientCity: "City",
   techLead: "Lead",
   techAssignee: "Assignee",
   creativeUiuxLead: "Lead",
@@ -280,9 +308,8 @@ function StartDateCell({
       type="button"
       disabled={!editable}
       onClick={() => editable && setIsEditing(true)}
-      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors group/date w-full text-left truncate ${
-        editable ? "hover:bg-accent/60 cursor-pointer" : "cursor-default"
-      } ${saving ? "opacity-50" : ""}`}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors group/date w-full text-left truncate ${editable ? "hover:bg-accent/60 cursor-pointer" : "cursor-default"
+        } ${saving ? "opacity-50" : ""}`}
       title={editable ? "Click to edit start date" : undefined}
     >
       <Calendar size={13} className="text-muted-foreground shrink-0 group-hover/date:text-primary transition-colors" />
@@ -292,6 +319,22 @@ function StartDateCell({
     </button>
   );
 }
+
+/** Columns kept at a fixed width (EXPANDED_COL_WIDTH) while every other column sizes to content. */
+const FIXED_WIDTH_COLS = new Set<CollapsibleColId>(["projectName", "projectNotes"]);
+/** Horizontal padding of a body cell (px-3 on both sides) — subtracted so the column is exactly the fixed width. */
+const CELL_PADDING_X = 24;
+
+/** Columns pinned to the left while the table scrolls horizontally (after the checkbox column). */
+const STICKY_LEFT_COL: CollapsibleColId = "projectId";
+/** Sticky cells need an opaque background so scrolled cells pass underneath; these layer the
+ *  row/header tints (muted/40, accent/30 hover, primary/5 selected) over the page background. */
+const STICKY_HEADER_BG = "bg-background bg-linear-to-r from-muted/40 to-muted/40";
+const STICKY_BODY_BG =
+  "bg-background group-hover:bg-linear-to-r group-hover:from-accent/30 group-hover:to-accent/30";
+const STICKY_BODY_SELECTED_BG = "bg-background bg-linear-to-r from-primary/5 to-primary/5";
+/** Right-edge divider + soft shadow so the pinned column reads as floating over the scroll. */
+const STICKY_EDGE = "shadow-[inset_-1px_0_0_var(--border),6px_0_8px_-6px_rgba(0,0,0,0.35)]";
 
 const COLLAPSED_COL_WIDTH = 34;
 const CHECKBOX_COL_WIDTH = 40;
@@ -354,6 +397,30 @@ export function AllProjectsTableView({
     setLocalProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...patch } : p)));
   };
 
+  // Project iNotes: latest shared card title + count per project (only projects the viewer can read).
+  const [noteSummaries, setNoteSummaries] = useState<Record<string, ProjectNoteSummary>>({});
+  const [noteSummariesLoaded, setNoteSummariesLoaded] = useState(false);
+  const [noteSummariesVersion, setNoteSummariesVersion] = useState(0);
+  const projectIdsKey = projects.map((p) => p.id).join(",");
+  useEffect(() => {
+    const ids = projectIdsKey ? projectIdsKey.split(",") : [];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    getProjectNoteSummariesAction(ids)
+      .then((summaries) => {
+        if (!cancelled) setNoteSummaries(summaries);
+      })
+      .catch(() => {
+        // Leave the column empty on failure; it never blocks the table.
+      })
+      .finally(() => {
+        if (!cancelled) setNoteSummariesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectIdsKey, noteSummariesVersion]);
+
   // Live team member roster for the assignee picker popovers — never hardcoded.
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
   useEffect(() => {
@@ -383,6 +450,9 @@ export function AllProjectsTableView({
   }, []);
 
   const canEditAssignments = userRole !== "TEAM_MEMBER";
+  /** Left offset of the pinned Project ID column. The checkbox column is not pinned (it scrolls
+   *  away), so Project ID pins to the very left edge once it reaches it. */
+  const stickyLeftOffset = 0;
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Bulk-select state for the "select multiple projects, assign a role / shift dates" toolbar.
@@ -404,11 +474,11 @@ export function AllProjectsTableView({
     const nextAssignees =
       selectedMembers.length > 0
         ? selectedMembers.map((m) => ({
-            id: m.id,
-            name: m.name,
-            initials: getInitials(m.name),
-            avatarColor: getAvatarColor(m.name),
-          }))
+          id: m.id,
+          name: m.name,
+          initials: getInitials(m.name),
+          avatarColor: getAvatarColor(m.name),
+        }))
         : undefined;
 
     setLocalProjects((prev) =>
@@ -449,15 +519,25 @@ export function AllProjectsTableView({
     clearSelection();
   };
 
-  const [activeTab, setActiveTab] = useState<"ACTIVE" | "INACTIVE" | "COMPLETED" | "TEMPLATES">("ACTIVE");
-  const [categoryTab, setCategoryTab] = useState<"DIGITAL" | "SMM">("DIGITAL");
-  const [viewLayout, setViewLayout] = useState<"LIST" | "GRID">("LIST");
-  const [searchQuery, setSearchQuery] = useState("");
+  // Tab / layout / search / sort live in the URL so the list is restored when returning to Srijan.
+  const [activeTab, setActiveTab] = useUrlState<"ACTIVE" | "INACTIVE" | "COMPLETED" | "TEMPLATES">("tab", "ACTIVE", {
+    allowed: PROJECT_LIST_TABS,
+    history: "push",
+  });
+  const [categoryTab, setCategoryTab] = useUrlState<"DIGITAL" | "SMM">("category", "DIGITAL", {
+    allowed: PROJECT_CATEGORIES,
+  });
+  const [viewLayout, setViewLayout] = useUrlState<"LIST" | "GRID">("layout", "LIST", { allowed: PROJECT_LAYOUTS });
+  const [searchQuery, setSearchQuery] = useUrlState("q", "");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Column sorting state — cycles ascending -> descending -> unsorted on header click.
-  const [sortField, setSortField] = useState<CollapsibleColId | null>(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(null);
+  const [sortParam, setSortParam] = useUrlState("sort", "");
+  const [sortDirParam, setSortDirParam] = useUrlState<"" | "asc" | "desc">("dir", "", { allowed: SORT_DIRS });
+  const sortField = (sortParam || null) as CollapsibleColId | null;
+  const sortDirection = sortDirParam || null;
+  const setSortField = (field: CollapsibleColId | null) => setSortParam(field ?? "");
+  const setSortDirection = (dir: "asc" | "desc" | null) => setSortDirParam(dir ?? "");
 
   const toggleSort = (id: CollapsibleColId) => {
     if (sortField === id) {
@@ -484,6 +564,8 @@ export function AllProjectsTableView({
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
   const [ownerFilter, setOwnerFilter] = useState<string>("ALL");
+  /** Client country filter: "ALL", "NONE" (no country set) or a country name. */
+  const [countryFilter, setCountryFilter] = useState<string>("ALL");
 
   // AI Client Report Modal State
   const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
@@ -579,8 +661,20 @@ export function AllProjectsTableView({
     new Set(localProjects.map((p) => p.departmentAlias).filter(Boolean))
   ) as string[];
 
+  /** Countries actually used by projects (name → ISO code if known), for the Country filter. */
+  const countryFilterOptions = Array.from(
+    localProjects.reduce((map, p) => {
+      const name = (p.clientCountry || "").trim();
+      if (name && !map.has(name)) map.set(name, p.clientCountryCode || "");
+      return map;
+    }, new Map<string, string>())
+  )
+    .map(([name, code]) => ({ name, code }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const hasActiveFilters =
     categoryFilter !== "ALL" ||
+    countryFilter !== "ALL" ||
     ownerFilter !== "ALL" ||
     departmentFilter !== "ALL" ||
     statusFilter !== "ALL" ||
@@ -589,6 +683,7 @@ export function AllProjectsTableView({
 
   const handleResetFilters = () => {
     setCategoryFilter("ALL");
+    setCountryFilter("ALL");
     setOwnerFilter("ALL");
     setDepartmentFilter("ALL");
     setStatusFilter("ALL");
@@ -647,10 +742,10 @@ export function AllProjectsTableView({
       activeTab === "ACTIVE"
         ? statusUpper === "ACTIVE"
         : activeTab === "INACTIVE"
-        ? statusUpper === "INACTIVE"
-        : activeTab === "COMPLETED"
-        ? statusUpper === "COMPLETED"
-        : true;
+          ? statusUpper === "INACTIVE"
+          : activeTab === "COMPLETED"
+            ? statusUpper === "COMPLETED"
+            : true;
 
     const matchesStatusDropdown =
       statusFilter === "ALL" || project.status === statusFilter;
@@ -665,14 +760,23 @@ export function AllProjectsTableView({
     const matchesOwner =
       ownerFilter === "ALL" || (project.owner?.name || "") === ownerFilter;
 
+    const matchesCountry =
+      countryFilter === "ALL" ||
+      (countryFilter === "NONE"
+        ? !(project.clientCountry || "").trim()
+        : (project.clientCountry || "").trim() === countryFilter);
+
     const matchesSearch =
       searchQuery.trim() === "" ||
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.owner?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (project.departmentAlias || "").toLowerCase().includes(searchQuery.toLowerCase());
+      (project.departmentAlias || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      [project.industry, project.clientCountry, project.clientState, project.clientCity]
+        .some((v) => (v || "").toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
+      matchesCountry &&
       matchesTab &&
       matchesStatusDropdown &&
       matchesDepartment &&
@@ -713,8 +817,19 @@ export function AllProjectsTableView({
         return (project.status || "").trim().toLowerCase();
       case "projectLead":
         return (project.projectLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
-      case "projectNotes":
-        return (project.description || "").trim().toLowerCase();
+      case "industry":
+        return (project.industry || "").trim().toLowerCase();
+      case "clientCountry":
+        return (project.clientCountry || "").trim().toLowerCase();
+      case "clientState":
+        return (project.clientState || "").trim().toLowerCase();
+      case "clientCity":
+        return (project.clientCity || "").trim().toLowerCase();
+      case "projectNotes": {
+        // Sort by what the column shows: the latest shared card title ("" when nothing is shared).
+        const s = noteSummaries[project.id];
+        return s && s.count > 0 ? (s.latestTitle || "Untitled Note").trim().toLowerCase() : "";
+      }
       case "techLead":
         return (project.techLead?.map((a) => a.name).filter(Boolean).join(", ") || "").trim().toLowerCase();
       case "techAssignee":
@@ -776,7 +891,7 @@ export function AllProjectsTableView({
 
       return sortDirection === "asc" ? cmp : -cmp;
     });
-  }, [filteredProjects, sortField, sortDirection]);
+  }, [filteredProjects, sortField, sortDirection, noteSummaries]);
 
   const handleCopyLink = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/projects/${id}`);
@@ -863,19 +978,21 @@ export function AllProjectsTableView({
       return renderCollapsedHeaderBox(id, label, rowSpan);
     }
     const isSorted = sortField === id;
+    const isSticky = id === STICKY_LEFT_COL;
     return (
       <th
         key={id}
         rowSpan={rowSpan}
-        className="py-2 px-2.5 border-r whitespace-nowrap overflow-hidden text-center align-middle"
+        className={`py-2 px-2.5 border-r whitespace-nowrap overflow-hidden text-center align-middle ${isSticky ? `sticky z-20 ${STICKY_HEADER_BG} ${STICKY_EDGE}` : ""
+          }`}
+        style={isSticky ? { left: stickyLeftOffset } : undefined}
       >
         <div className="inline-flex w-full max-w-full items-center justify-center gap-1">
           <button
             type="button"
             onClick={() => toggleSort(id)}
-            className={`inline-flex items-center gap-1 hover:text-foreground transition-colors min-w-0 max-w-full group cursor-pointer ${
-              isSorted ? "text-primary font-bold" : "text-muted-foreground"
-            }`}
+            className={`inline-flex items-center gap-1 hover:text-foreground transition-colors min-w-0 max-w-full group cursor-pointer ${isSorted ? "text-primary font-bold" : "text-muted-foreground"
+              }`}
             title={
               isSorted
                 ? sortDirection === "asc"
@@ -919,13 +1036,40 @@ export function AllProjectsTableView({
 
   /** Body cell for a collapsible leaf column — a collapsed column renders once as a single
    *  full-height dark bar spanning every visible row (via rowSpan on the first row only). */
-  const renderLeafCell = (id: CollapsibleColId, content: React.ReactNode, rowIndex: number, totalRows: number) => {
+  const renderLeafCell = (
+    id: CollapsibleColId,
+    content: React.ReactNode,
+    rowIndex: number,
+    totalRows: number,
+    rowSelected = false
+  ) => {
     if (isColCollapsed(id)) {
       return renderCollapsedBodyBox(id, LEAF_LABELS[id], rowIndex, totalRows);
     }
+    const isSticky = id === STICKY_LEFT_COL;
     return (
-      <td className="py-3 px-3 border-r overflow-hidden text-left">
-        <div className="flex justify-start w-full min-w-0">{content}</div>
+      <td
+        className={`py-3 px-3 border-r overflow-hidden text-left ${isSticky
+          ? `sticky z-10 ${rowSelected ? STICKY_BODY_SELECTED_BG : STICKY_BODY_BG} ${STICKY_EDGE}`
+          : ""
+          }`}
+        style={isSticky ? { left: stickyLeftOffset } : undefined}
+      >
+        {/* Fixed-width columns are pinned to their width; others are auto, capped so one very long
+            value can't stretch the column across the screen. */}
+        {FIXED_WIDTH_COLS.has(id) ? (
+          <div
+            className="flex justify-start min-w-0"
+            style={{
+              width: EXPANDED_COL_WIDTH[id] - CELL_PADDING_X,
+              maxWidth: EXPANDED_COL_WIDTH[id] - CELL_PADDING_X,
+            }}
+          >
+            {content}
+          </div>
+        ) : (
+          <div className="flex justify-start w-full min-w-0 max-w-[360px]">{content}</div>
+        )}
       </td>
     );
   };
@@ -947,7 +1091,7 @@ export function AllProjectsTableView({
           </div>
 
           <div className="flex items-center gap-2 relative">
-          {/* <TimerWidget
+            {/* <TimerWidget
             onStopTimer={() => setIsTimeLogModalOpen(true)}
           />
           <button
@@ -958,31 +1102,31 @@ export function AllProjectsTableView({
             <Plus size={14} />
             <span>Effort Log</span>
           </button> */}
-          {userRole === "TEAM_MEMBER" ? (
-            /* Team Member Mode Header Actions (matching Image 1) — project creation is
-               manager-only, so no "Add New Project" trigger is rendered here. */
-            <>
-              <button
-                type="button"
-                onClick={() => setShowTimelinePopover(!showTimelinePopover)}
-                className="p-1.5 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                title="Project Timeline Logs"
-              >
-                <Clock size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-                className="p-1.5 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                title="Project Settings"
-              >
-                <Settings size={16} />
-              </button>
-            </>
-          ) : (
-            /* Admin Mode Header Actions */
-            <>
-              {/* <button
+            {userRole === "TEAM_MEMBER" ? (
+              /* Team Member Mode Header Actions (matching Image 1) — project creation is
+                 manager-only, so no "Add New Project" trigger is rendered here. */
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowTimelinePopover(!showTimelinePopover)}
+                  className="p-1.5 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  title="Project Timeline Logs"
+                >
+                  <Clock size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsPopover(!showSettingsPopover)}
+                  className="p-1.5 border rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  title="Project Settings"
+                >
+                  <Settings size={16} />
+                </button>
+              </>
+            ) : (
+              /* Admin Mode Header Actions */
+              <>
+                {/* <button
                 type="button"
                 onClick={() => setShowTimelinePopover(!showTimelinePopover)}
                 className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-accent"
@@ -1000,103 +1144,99 @@ export function AllProjectsTableView({
                 <Settings size={18} />
               </button> */}
 
-              <button
-                type="button"
-                onClick={activeTab === "TEMPLATES" ? onOpenTemplatesModal : onOpenAddModal}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
-              >
-                <Plus size={16} /> {activeTab === "TEMPLATES" ? "Add New Template" : "Add New Project"}
-              </button>
-            </>
-          )}
-
-          {/* Timeline Popover */}
-          {showTimelinePopover && (
-            <div className="absolute top-10 right-12 z-40 w-64 rounded-md border bg-popover p-3 shadow-lg text-xs space-y-2 animate-in fade-in duration-150">
-              <div className="flex justify-between items-center font-bold border-b pb-1">
-                <span>Timeline Logs</span>
-                <button type="button" onClick={() => setShowTimelinePopover(false)}>
-                  <X size={12} />
+                <button
+                  type="button"
+                  onClick={activeTab === "TEMPLATES" ? onOpenTemplatesModal : onOpenAddModal}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
+                >
+                  <Plus size={16} /> {activeTab === "TEMPLATES" ? "Add New Template" : "Add New Project"}
                 </button>
-              </div>
-              <p className="text-muted-foreground text-[11px]">
-                Showing recent timeline events across all active projects.
-              </p>
-              <div className="space-y-1 text-[11px]">
-                <div className="text-foreground">● Project WinOS updated by Dhruv Patidar</div>
-                <div className="text-foreground">● New phase added to EED Website</div>
-              </div>
-            </div>
-          )}
+              </>
+            )}
 
-          {/* Settings Popover */}
-          {showSettingsPopover && (
-            <div className="absolute top-10 right-0 z-40 w-56 rounded-md border bg-popover p-3 shadow-lg text-xs space-y-2 animate-in fade-in duration-150">
-              <div className="flex justify-between items-center font-bold border-b pb-1">
-                <span>Project Settings</span>
-                <button type="button" onClick={() => setShowSettingsPopover(false)}>
-                  <X size={12} />
-                </button>
+            {/* Timeline Popover */}
+            {showTimelinePopover && (
+              <div className="absolute top-10 right-12 z-40 w-64 rounded-md border bg-popover p-3 shadow-lg text-xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex justify-between items-center font-bold border-b pb-1">
+                  <span>Timeline Logs</span>
+                  <button type="button" onClick={() => setShowTimelinePopover(false)}>
+                    <X size={12} />
+                  </button>
+                </div>
+                <p className="text-muted-foreground text-[11px]">
+                  Showing recent timeline events across all active projects.
+                </p>
+                <div className="space-y-1 text-[11px]">
+                  <div className="text-foreground">● Project WinOS updated by Dhruv Patidar</div>
+                  <div className="text-foreground">● New phase added to EED Website</div>
+                </div>
               </div>
-              <div className="space-y-1.5 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="rounded" />
-                  <span>Show completed phases</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="rounded" />
-                  <span>Enable effort log alerts</span>
-                </label>
+            )}
+
+            {/* Settings Popover */}
+            {showSettingsPopover && (
+              <div className="absolute top-10 right-0 z-40 w-56 rounded-md border bg-popover p-3 shadow-lg text-xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex justify-between items-center font-bold border-b pb-1">
+                  <span>Project Settings</span>
+                  <button type="button" onClick={() => setShowSettingsPopover(false)}>
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="space-y-1.5 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="rounded" />
+                    <span>Show completed phases</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="rounded" />
+                    <span>Enable effort log alerts</span>
+                  </label>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
+
+        {/* Primary Project Category Tabs: Digital Projects | SMM Projects */}
+        <div className="flex items-center gap-2.5 pt-1">
+          <button
+            type="button"
+            onClick={() => setCategoryTab("DIGITAL")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${categoryTab === "DIGITAL"
+                ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
+              }`}
+          >
+            <span>Digital Projects</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${categoryTab === "DIGITAL"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+                }`}
+            >
+              {digitalProjectsCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategoryTab("SMM")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${categoryTab === "SMM"
+                ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
+              }`}
+          >
+            <span>SMM Projects</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${categoryTab === "SMM"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+                }`}
+            >
+              {smmProjectsCount}
+            </span>
+          </button>
         </div>
       </div>
-
-      {/* Primary Project Category Tabs: Digital Projects | SMM Projects */}
-      <div className="flex items-center gap-2.5 pt-1">
-        <button
-          type="button"
-          onClick={() => setCategoryTab("DIGITAL")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
-            categoryTab === "DIGITAL"
-              ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
-              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
-          }`}
-        >
-          <span>Digital Projects</span>
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              categoryTab === "DIGITAL"
-                ? "bg-white/20 text-white"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {digitalProjectsCount}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryTab("SMM")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
-            categoryTab === "SMM"
-              ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
-              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
-          }`}
-        >
-          <span>SMM Projects</span>
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              categoryTab === "SMM"
-                ? "bg-white/20 text-white"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {smmProjectsCount}
-          </span>
-        </button>
-      </div>
-    </div>
 
       {/* Integrated Single Toolbar Row: Active Projects | Inactive | Completed Projects | Search Box | Collapse All Columns */}
       <div className="flex flex-wrap items-center justify-between border-b px-6 py-2.5 bg-background gap-3 relative">
@@ -1105,11 +1245,10 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setActiveTab("ACTIVE")}
-            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
-              activeTab === "ACTIVE"
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${activeTab === "ACTIVE"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
-            }`}
+              }`}
           >
             <span>Active Projects</span>
             <span className="text-[10px] opacity-75 font-mono">({activeCount})</span>
@@ -1117,11 +1256,10 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setActiveTab("INACTIVE")}
-            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
-              activeTab === "INACTIVE"
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${activeTab === "INACTIVE"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
-            }`}
+              }`}
           >
             <span>Inactive</span>
             <span className="text-[10px] opacity-75 font-mono">({inactiveCount})</span>
@@ -1129,11 +1267,10 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setActiveTab("COMPLETED")}
-            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${
-              activeTab === "COMPLETED"
+            className={`pb-1 transition-colors relative border-b-2 flex items-center gap-1.5 ${activeTab === "COMPLETED"
                 ? "text-primary border-primary font-bold"
                 : "text-muted-foreground hover:text-foreground border-transparent"
-            }`}
+              }`}
           >
             <span>Completed Projects</span>
             <span className="text-[10px] opacity-75 font-mono">({completedCount})</span>
@@ -1162,6 +1299,9 @@ export function AllProjectsTableView({
               </button>
             )}
           </div>
+
+          {/* Client Country filter (shows flags) */}
+          <CountryFilterDropdown value={countryFilter} options={countryFilterOptions} onChange={setCountryFilter} />
 
           {/* Collapse All Columns Button */}
           <button
@@ -1200,9 +1340,8 @@ export function AllProjectsTableView({
             <button
               type="button"
               onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-              className={`p-1.5 border border-input hover:bg-accent rounded-md transition-colors ${
-                showOptionsMenu ? "bg-accent text-foreground ring-1 ring-primary/40" : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`p-1.5 border border-input hover:bg-accent rounded-md transition-colors ${showOptionsMenu ? "bg-accent text-foreground ring-1 ring-primary/40" : "text-muted-foreground hover:text-foreground"
+                }`}
               title="More Options"
             >
               <MoreHorizontal size={15} />
@@ -1266,9 +1405,8 @@ export function AllProjectsTableView({
                       <button
                         type="button"
                         onClick={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
-                        className={`p-1 transition-colors rounded hover:bg-accent ${
-                          openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={`p-1 transition-colors rounded hover:bg-accent ${openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
+                          }`}
                         title="More Actions"
                       >
                         <MoreVertical size={14} />
@@ -1403,29 +1541,37 @@ export function AllProjectsTableView({
       ) : (
         /* Main Responsive Table */
         <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
-          <table
-            className="table-fixed text-left text-xs border-collapse"
-            style={{
-              width:
-                (canEditAssignments ? CHECKBOX_COL_WIDTH : 0) +
-                LEAF_COL_ORDER.reduce(
-                  (sum, id) => sum + (isColCollapsed(id) ? COLLAPSED_COL_WIDTH : EXPANDED_COL_WIDTH[id]),
-                  0
-                ) +
-                ACTIONS_COL_WIDTH,
-            }}
-          >
+          {/* Column widths follow their content (auto layout). Collapsed columns, the checkbox and the
+              actions column keep fixed widths. Previous fixed-width layout, kept for easy revert:
+              className="table-fixed ..." style={{ width: CHECKBOX + Σ EXPANDED_COL_WIDTH[id] + ACTIONS }}
+              with <col style={{ width: EXPANDED_COL_WIDTH[id] }} /> per leaf column. */}
+          <table className="table-auto w-max min-w-full text-left text-xs border-collapse">
             <colgroup>
               {canEditAssignments && <col style={{ width: CHECKBOX_COL_WIDTH }} />}
               {LEAF_COL_ORDER.map((id) => (
-                <col key={id} style={{ width: isColCollapsed(id) ? COLLAPSED_COL_WIDTH : EXPANDED_COL_WIDTH[id] }} />
+                <col
+                  key={id}
+                  style={
+                    isColCollapsed(id)
+                      ? { width: COLLAPSED_COL_WIDTH }
+                      : FIXED_WIDTH_COLS.has(id)
+                        ? { width: EXPANDED_COL_WIDTH[id] }
+                        : undefined
+                  }
+                />
               ))}
               <col style={{ width: ACTIONS_COL_WIDTH }} />
             </colgroup>
-            <thead>
+            {/* Header stays pinned while the rows scroll vertically. Opaque background so rows pass
+                underneath; the bottom shadow replaces the border that sticky cells lose. */}
+            <thead className="sticky top-0 z-30 bg-background shadow-[0_1px_0_var(--border)]">
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 {canEditAssignments && (
-                  <th rowSpan={3} className="py-3 px-3 border-r text-center align-middle w-8">
+                  <th
+                    rowSpan={3}
+                    className="py-3 px-3 border-r text-center align-middle"
+                    style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH, maxWidth: CHECKBOX_COL_WIDTH }}
+                  >
                     <input
                       type="checkbox"
                       checked={filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id))}
@@ -1441,9 +1587,11 @@ export function AllProjectsTableView({
                 {renderLeafHeader("projectId", "Project ID", 3)}
                 {renderLeafHeader("projectName", "Project Name", 3)}
                 {renderLeafHeader("projectStartDate", "Project Start Date", 3)}
-                {renderLeafHeader("projectStatus", "Status", 3)}
+                {/* {renderLeafHeader("projectStatus", "Status", 3)} */}
                 {renderLeafHeader("projectLead", "Project Lead / SPOC", 3)}
                 {renderLeafHeader("projectNotes", "Project iNotes", 3)}
+                {renderLeafHeader("industry", "Industry", 3)}
+                {renderGroupHeader("Client Location", CLIENT_LOCATION_COLS, 3)}
                 {renderGroupHeader("Tech", TECH_COLS, 2)}
                 {renderGroupHeader("Creative", CREATIVE_COLS, 4)}
                 {renderGroupHeader("Marketing", MARKETING_COLS, 3)}
@@ -1453,6 +1601,9 @@ export function AllProjectsTableView({
                 <th rowSpan={3} className="py-2.5 px-2 text-center align-middle">Actions</th>
               </tr>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
+                {renderLeafHeader("clientCountry", "Country", 2)}
+                {renderLeafHeader("clientState", "State", 2)}
+                {renderLeafHeader("clientCity", "City", 2)}
                 {renderLeafHeader("techLead", "Lead", 2)}
                 {renderLeafHeader("techAssignee", "Assignee", 2)}
                 {renderGroupHeader("UI/UX", CREATIVE_UIUX_COLS, 2)}
@@ -1471,66 +1622,70 @@ export function AllProjectsTableView({
             <tbody className="divide-y divide-border">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={canEditAssignments ? 19 : 18} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={LEAF_COL_ORDER.length + (canEditAssignments ? 2 : 1)} className="py-12 text-center text-muted-foreground">
                     No {categoryTab === "SMM" ? "SMM" : "Digital"} projects found matching current filter.
                   </td>
                 </tr>
               ) : (
                 sortedProjects.map((project, rowIndex) => {
+                  const rowSelected = selectedProjectIds.has(project.id);
                   const cell = (id: CollapsibleColId, content: React.ReactNode) =>
-                    renderLeafCell(id, content, rowIndex, sortedProjects.length);
-                  const statusCell = () => renderStatusCell(project, rowIndex, sortedProjects.length);
+                    renderLeafCell(id, content, rowIndex, sortedProjects.length, rowSelected);
+                  // Status column hidden — restore together with "projectStatus" in LEAF_COL_ORDER and its header.
+                  // const statusCell = () => renderStatusCell(project, rowIndex, sortedProjects.length);
                   return (
-                  <tr
-                    key={project.id}
-                    className={`hover:bg-accent/30 transition-colors group ${
-                      selectedProjectIds.has(project.id) ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    {canEditAssignments && (
-                      <td className="py-3 px-3 border-r text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedProjectIds.has(project.id)}
-                          onChange={() => toggleProjectSelected(project.id)}
-                          className="cursor-pointer"
-                        />
-                      </td>
-                    )}
-                    {cell(
-                      "projectId",
-                      <div className="flex items-center justify-start gap-1">
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="hover:text-primary hover:underline transition-colors"
+                    <tr
+                      key={project.id}
+                      className={`hover:bg-accent/30 transition-colors group ${selectedProjectIds.has(project.id) ? "bg-primary/5" : ""
+                        }`}
+                    >
+                      {canEditAssignments && (
+                        <td
+                          className="py-3 px-3 border-r text-center"
+                          style={{ width: CHECKBOX_COL_WIDTH, minWidth: CHECKBOX_COL_WIDTH, maxWidth: CHECKBOX_COL_WIDTH }}
                         >
-                          {project.id}
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyLink(project.id)}
-                          className="p-1 text-muted-foreground hover:text-primary transition-colors rounded opacity-0 group-hover:opacity-100"
-                          title="Copy Project Link"
-                        >
-                          {copiedId === project.id ? (
-                            <Check size={12} className="text-success" />
-                          ) : (
-                            <Copy size={12} />
-                          )}
-                        </button>
-                      </div>
-                    )}
+                          <input
+                            type="checkbox"
+                            checked={selectedProjectIds.has(project.id)}
+                            onChange={() => toggleProjectSelected(project.id)}
+                            className="cursor-pointer"
+                          />
+                        </td>
+                      )}
+                      {cell(
+                        "projectId",
+                        <div className="flex items-center justify-start gap-1">
+                          <Link
+                            href={`/projects/${project.id}`}
+                            className="hover:text-primary hover:underline transition-colors"
+                          >
+                            {project.id}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(project.id)}
+                            className="p-1 text-muted-foreground hover:text-primary transition-colors rounded opacity-0 group-hover:opacity-100"
+                            title="Copy Project Link"
+                          >
+                            {copiedId === project.id ? (
+                              <Check size={12} className="text-success" />
+                            ) : (
+                              <Copy size={12} />
+                            )}
+                          </button>
+                        </div>
+                      )}
 
-                    {cell(
-                      "projectName",
-                      <div className="flex flex-col gap-1 items-start">
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
-                        >
-                          {project.name}
-                        </Link>
-                        {/* <span
+                      {cell(
+                        "projectName",
+                        <div className="flex flex-col gap-1 items-start">
+                          <Link
+                            href={`/projects/${project.id}`}
+                            className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
+                          >
+                            {project.name}
+                          </Link>
+                          {/* <span
                           className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
                             ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                             : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
@@ -1540,169 +1695,206 @@ export function AllProjectsTableView({
                             ? "Internal Build"
                             : "7-Phase SOP"}
                         </span> */}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                    {cell(
-                      "projectStartDate",
-                      <StartDateCell
-                        project={project}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "projectStartDate",
+                        <StartDateCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {statusCell()}
+                      {/* {statusCell()} */}
 
-                    {cell(
-                      "projectLead",
-                      <AssigneeCell
-                        project={project}
-                        field="PROJECT_LEAD"
-                        assignees={project.projectLead}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "projectLead",
+                        <AssigneeCell
+                          project={project}
+                          field="PROJECT_LEAD"
+                          assignees={project.projectLead}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "projectNotes",
-                      <NotesCell
-                        project={project}
-                        field="description"
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "projectNotes",
+                        <ProjectINotesCell
+                          projectId={project.id}
+                          projectName={project.name}
+                          summary={noteSummaries[project.id]}
+                          loaded={noteSummariesLoaded}
+                          onClosed={() => setNoteSummariesVersion((v) => v + 1)}
+                        />
+                      )}
 
-                    {cell(
-                      "techLead",
-                      <AssigneeCell
-                        project={project}
-                        field="TECH_LEAD"
-                        assignees={project.techLead}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "industry",
+                        <IndustryCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "techAssignee",
-                      <AssigneeCell
-                        project={project}
-                        field="TECH_ASSIGNEE"
-                        assignees={project.techAssignee}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "clientCountry",
+                        <CountryCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "creativeUiuxLead",
-                      <AssigneeCell
-                        project={project}
-                        field="CREATIVE_UIUX_LEAD"
-                        assignees={project.creativeUiuxLead}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "clientState",
+                        <StateCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "creativeUiuxAssignee",
-                      <AssigneeCell
-                        project={project}
-                        field="CREATIVE_UIUX_ASSIGNEE"
-                        assignees={project.creativeUiuxAssignee}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "clientCity",
+                        <CityCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "creativeGraphicLead",
-                      <AssigneeCell
-                        project={project}
-                        field="CREATIVE_GRAPHIC_LEAD"
-                        assignees={project.creativeGraphicLead}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "techLead",
+                        <AssigneeCell
+                          project={project}
+                          field="TECH_LEAD"
+                          assignees={project.techLead}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "creativeGraphicAssignee",
-                      <AssigneeCell
-                        project={project}
-                        field="CREATIVE_GRAPHIC_ASSIGNEE"
-                        assignees={project.creativeGraphicAssignee}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "techAssignee",
+                        <AssigneeCell
+                          project={project}
+                          field="TECH_ASSIGNEE"
+                          assignees={project.techAssignee}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "marketingLead",
-                      <AssigneeCell
-                        project={project}
-                        field="MARKETING_LEAD"
-                        assignees={project.marketingLead}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "creativeUiuxLead",
+                        <AssigneeCell
+                          project={project}
+                          field="CREATIVE_UIUX_LEAD"
+                          assignees={project.creativeUiuxLead}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "marketingSeo",
-                      <AssigneeCell
-                        project={project}
-                        field="MARKETING_SEO"
-                        assignees={project.marketingSeo}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "creativeUiuxAssignee",
+                        <AssigneeCell
+                          project={project}
+                          field="CREATIVE_UIUX_ASSIGNEE"
+                          assignees={project.creativeUiuxAssignee}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "marketingContent",
-                      <AssigneeCell
-                        project={project}
-                        field="MARKETING_CONTENT"
-                        assignees={project.marketingContent}
-                        members={teamMembers}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "creativeGraphicLead",
+                        <AssigneeCell
+                          project={project}
+                          field="CREATIVE_GRAPHIC_LEAD"
+                          assignees={project.creativeGraphicLead}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "projectCalendar",
-                      <CalendarCell
-                        project={project}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "creativeGraphicAssignee",
+                        <AssigneeCell
+                          project={project}
+                          field="CREATIVE_GRAPHIC_ASSIGNEE"
+                          assignees={project.creativeGraphicAssignee}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {cell(
-                      "assetLink",
-                      <LinksCell
-                        project={project}
-                        editable={canEditAssignments}
-                        onUpdated={(patch) => patchProject(project.id, patch)}
-                      />
-                    )}
+                      {cell(
+                        "marketingLead",
+                        <AssigneeCell
+                          project={project}
+                          field="MARKETING_LEAD"
+                          assignees={project.marketingLead}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
 
-                    {/* {cell(
+                      {cell(
+                        "marketingSeo",
+                        <AssigneeCell
+                          project={project}
+                          field="MARKETING_SEO"
+                          assignees={project.marketingSeo}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
+
+                      {cell(
+                        "marketingContent",
+                        <AssigneeCell
+                          project={project}
+                          field="MARKETING_CONTENT"
+                          assignees={project.marketingContent}
+                          members={teamMembers}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
+
+                      {cell(
+                        "projectCalendar",
+                        <CalendarCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
+
+                      {cell(
+                        "assetLink",
+                        <LinksCell
+                          project={project}
+                          editable={canEditAssignments}
+                          onUpdated={(patch) => patchProject(project.id, patch)}
+                        />
+                      )}
+
+                      {/* {cell(
                       "projectTimeline",
                       <TimelineCell
                         project={project}
@@ -1710,10 +1902,10 @@ export function AllProjectsTableView({
                       />
                     )} */}
 
-                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
-                      <div className="relative inline-flex items-center justify-center">
-                        {/* Edit Project Details icon button commented out per UI request */}
-                        {/* {canEditAssignments && (
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                        <div className="relative inline-flex items-center justify-center">
+                          {/* Edit Project Details icon button commented out per UI request */}
+                          {/* {canEditAssignments && (
                           <button
                             type="button"
                             onClick={() => setEditingProject(project)}
@@ -1724,8 +1916,8 @@ export function AllProjectsTableView({
                           </button>
                         )} */}
 
-                        {/* View Timeline icon button commented out per UI request */}
-                        {/* <button
+                          {/* View Timeline icon button commented out per UI request */}
+                          {/* <button
                           type="button"
                           onClick={() => setTimelineDrawerProject(project)}
                           className="p-1 text-muted-foreground hover:text-primary transition-colors rounded hover:bg-accent"
@@ -1734,75 +1926,74 @@ export function AllProjectsTableView({
                           <History size={13} />
                         </button> */}
 
-                        <div data-row-menu-container className="relative inline-flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
-                            className={`p-1 transition-colors rounded hover:bg-accent ${
-                              openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
-                            }`}
-                            title="More Actions"
-                          >
-                            <MoreVertical size={14} />
-                          </button>
+                          <div data-row-menu-container className="relative inline-flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
+                              className={`p-1 transition-colors rounded hover:bg-accent ${openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              title="More Actions"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
 
-                          {openRowMenuId === project.id && (
-                            <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150 text-left">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenRowMenuId(null);
-                                  handleCopyLink(project.id);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                              >
-                                <Copy size={12} /> Copy Link
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenRowMenuId(null);
-                                  setTimelineDrawerProject(project);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                              >
-                                <History size={12} /> View Timeline
-                              </button>
-                              {canEditAssignments && (
+                            {openRowMenuId === project.id && (
+                              <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150 text-left">
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setOpenRowMenuId(null);
-                                    setEditingProject(project);
+                                    handleCopyLink(project.id);
                                   }}
                                   className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
                                 >
-                                  <Pencil size={12} /> Edit Details
+                                  <Copy size={12} /> Copy Link
                                 </button>
-                              )}
-                              {canEditAssignments && (
                                 <button
                                   type="button"
-                                  onClick={async () => {
+                                  onClick={() => {
                                     setOpenRowMenuId(null);
-                                    const ok = await confirm({
-                                      title: "Delete project?",
-                                      description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
-                                    });
-                                    if (!ok) return;
-                                    onDeleteProject && onDeleteProject(project.id);
+                                    setTimelineDrawerProject(project);
                                   }}
-                                  className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-destructive font-medium"
+                                  className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
                                 >
-                                  <Trash2 size={12} /> Delete Project
+                                  <History size={12} /> View Timeline
                                 </button>
-                              )}
-                            </div>
-                          )}
+                                {canEditAssignments && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowMenuId(null);
+                                      setEditingProject(project);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
+                                  >
+                                    <Pencil size={12} /> Edit Details
+                                  </button>
+                                )}
+                                {canEditAssignments && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      setOpenRowMenuId(null);
+                                      const ok = await confirm({
+                                        title: "Delete project?",
+                                        description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
+                                      });
+                                      if (!ok) return;
+                                      onDeleteProject && onDeleteProject(project.id);
+                                    }}
+                                    className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-destructive font-medium"
+                                  >
+                                    <Trash2 size={12} /> Delete Project
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -1860,9 +2051,9 @@ export function AllProjectsTableView({
         const avgCompletion =
           activeProjects.length > 0
             ? Math.round(
-                activeProjects.reduce((sum, p) => sum + p.taskProgressPercent, 0) /
-                  activeProjects.length
-              )
+              activeProjects.reduce((sum, p) => sum + p.taskProgressPercent, 0) /
+              activeProjects.length
+            )
             : 0;
         const totalTaskCount = localProjects.reduce((sum, p) => sum + p.totalTasksCount, 0);
 
@@ -1900,7 +2091,7 @@ export function AllProjectsTableView({
         <AddProjectDrawer
           isOpen={Boolean(editingProject)}
           onClose={() => setEditingProject(null)}
-          onAddProject={async () => {}}
+          onAddProject={async () => { }}
           projects={localProjects}
           projectToEdit={editingProject}
           onUpdateProject={handleUpdateProjectDetails}

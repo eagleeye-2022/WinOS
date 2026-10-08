@@ -1,10 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
-import { X, Plus, Loader2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { X, Plus, Loader2, History } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn, toTitleCase } from "@/lib/utils";
 import { updateBoardNote } from "../actions/update-board-note";
+import { NoteTimelineDrawer } from "./note-timeline";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
   ssr: false,
@@ -54,6 +55,8 @@ export interface EditNoteModalProps<T extends EditNoteModalData> {
   canEdit: boolean;
   onClose: () => void;
   onSaved?: () => void | Promise<void>;
+  /** Show the card's activity timeline under the card (iNotes / Project iNotes; off for DSM). */
+  showTimeline?: boolean;
 }
 
 export function EditNoteModal<T extends EditNoteModalData>({
@@ -62,8 +65,10 @@ export function EditNoteModal<T extends EditNoteModalData>({
   canEdit,
   onClose,
   onSaved,
+  showTimeline = false,
 }: EditNoteModalProps<T>) {
   const [isPending, startTransition] = useTransition();
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const isReadOnly = !canEdit;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,6 +111,16 @@ export function EditNoteModal<T extends EditNoteModalData>({
           <span className="text-sm font-bold text-foreground">
             {isReadOnly ? "View Note Card" : "Edit Note Card"}
           </span>
+          {showTimeline && (
+            <button
+              type="button"
+              onClick={() => setTimelineOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-accent transition-colors"
+            >
+              <History size={13} />
+              View Timeline
+            </button>
+          )}
           {/* <button
             type="button"
             onClick={onClose}
@@ -286,6 +301,15 @@ export function EditNoteModal<T extends EditNoteModalData>({
           )}
         </div>
       </form>
+
+      {showTimeline && timelineOpen && (
+        <NoteTimelineDrawer
+          key={note.id}
+          noteId={note.id}
+          cardTitle={note.title}
+          onClose={() => setTimelineOpen(false)}
+        />
+      )}
     </div>
   );
 }

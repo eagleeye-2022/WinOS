@@ -314,6 +314,16 @@ async function syncTaskOwners(taskDbId: string, userIds: string[], assignedById:
  * ----------------------------------------------------
  */
 
+/** `Project.status` is a free-form string in the DB, so legacy/imported values (e.g. "On Hold",
+ *  "Archived", lowercase "active") are folded into the three statuses the UI tabs count —
+ *  otherwise such a project shows in the category total but in none of the status tabs. */
+function normalizeProjectStatus(raw: string | null | undefined): ProjectStatus {
+  const s = (raw || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (["COMPLETED", "COMPLETE", "DONE", "CLOSED", "ARCHIVED"].includes(s)) return "COMPLETED";
+  if (["INACTIVE", "ON_HOLD", "PAUSED", "CANCELLED", "CANCELED"].includes(s)) return "INACTIVE";
+  return "ACTIVE";
+}
+
 function toProject(
   p: {
     id: string;
@@ -350,6 +360,12 @@ function toProject(
     techNotes?: string | null;
     creativeNotes?: string | null;
     marketingNotes?: string | null;
+    industry?: string | null;
+    clientCountry?: string | null;
+    clientCountryCode?: string | null;
+    clientState?: string | null;
+    clientStateCode?: string | null;
+    clientCity?: string | null;
   },
   userMap?: Map<string, string>,
   // Pre-aggregated counts (see getProjectsAction) — when given, `p.tasks` is ignored.
@@ -408,7 +424,7 @@ function toProject(
       initials: initials || "UN",
       avatarColor: p.ownerAvatarColor || "bg-primary text-primary-foreground",
     },
-    status: (p.status as ProjectStatus) || "ACTIVE",
+    status: normalizeProjectStatus(p.status),
     totalHours: p.totalHours || "00:00 h",
     billableHours: p.billableHours || "00:00 h",
     nonBillableHours: p.nonBillableHours || "00:00 h",
@@ -447,6 +463,12 @@ function toProject(
     techNotes: p.techNotes || undefined,
     creativeNotes: p.creativeNotes || undefined,
     marketingNotes: p.marketingNotes || undefined,
+    industry: p.industry || undefined,
+    clientCountry: p.clientCountry || undefined,
+    clientCountryCode: p.clientCountryCode || undefined,
+    clientState: p.clientState || undefined,
+    clientStateCode: p.clientStateCode || undefined,
+    clientCity: p.clientCity || undefined,
   };
 }
 
@@ -1428,6 +1450,138 @@ export async function updateProjectLinkAction(
 
   revalidatePath("/projects");
   return { success: true };
+}
+
+/** Updates the project's Industry (picked from the list or typed in). Same access as links/notes. */
+export async function updateProjectIndustryAction(
+  projectId: string,
+  industry: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await requireAuth();
+  try {
+    await requireProjectEditor(projectId, session.user.id);
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+  const value = (industry || "").trim().slice(0, 100);
+
+  const project = await db.project.findFirst({ where: { OR: [{ id: projectId }, { code: projectId }] } });
+  if (!project) return { success: false, error: "Project not found." };
+
+  const oldVal = project.industry || "None";
+  await db.project.update({ where: { id: project.id }, data: { industry: value || null } });
+
+  if (oldVal !== (value || "None")) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Industry",
+      fieldName: "industry",
+      oldValue: oldVal,
+      newValue: value || "None",
+    });
+  }
+
+  revalidatePath("/projects");
+  return { success: true };
+}
+
+export type ProjectLocationLevel = "country" | "state" | "city";
+
+/** What the table should show after a location change (lower levels are cleared on change). */
+export type ProjectLocationPatch = {
+  clientCountry?: string;
+  clientCountryCode?: string;
+  clientState?: string;
+  clientStateCode?: string;
+  clientCity?: string;
+};
+
+/**
+ * Updates one level of the client location. `code` is the ISO country code / state code when the
+ * value was picked from the list, or empty for typed-in text. Changing the country clears state
+ * and city; changing the state clears city, so a location never mixes two countries.
+ */
+export async function updateProjectLocationAction(
+  projectId: string,
+  level: ProjectLocationLevel,
+  value: { name: string; code?: string | null }
+): Promise<{ success: boolean; error?: string; patch?: ProjectLocationPatch }> {
+  const session = await requireAuth();
+  try {
+    await requireProjectEditor(projectId, session.user.id);
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+  if (!["country", "state", "city"].includes(level)) {
+    return { success: false, error: "Invalid location field." };
+  }
+
+  const name = (value?.name || "").trim().slice(0, 100) || null;
+  const code = name ? (value?.code || "").trim().slice(0, 10) || null : null;
+
+  const project = await db.project.findFirst({ where: { OR: [{ id: projectId }, { code: projectId }] } });
+  if (!project) return { success: false, error: "Project not found." };
+
+  let data: Record<string, string | null>;
+  let oldVal: string | null;
+  let label: string;
+  if (level === "country") {
+    oldVal = project.clientCountry;
+    label = "Client Country";
+    const changed = name !== project.clientCountry || code !== project.clientCountryCode;
+    data = changed
+      ? { clientCountry: name, clientCountryCode: code, clientState: null, clientStateCode: null, clientCity: null }
+      : { clientCountry: name, clientCountryCode: code };
+  } else if (level === "state") {
+    oldVal = project.clientState;
+    label = "Client State";
+    const changed = name !== project.clientState || code !== project.clientStateCode;
+    data = changed
+      ? { clientState: name, clientStateCode: code, clientCity: null }
+      : { clientState: name, clientStateCode: code };
+  } else {
+    oldVal = project.clientCity;
+    label = "Client City";
+    data = { clientCity: name };
+  }
+
+  const updated = await db.project.update({
+    where: { id: project.id },
+    data,
+    select: {
+      clientCountry: true,
+      clientCountryCode: true,
+      clientState: true,
+      clientStateCode: true,
+      clientCity: true,
+    },
+  });
+
+  if ((oldVal || "None") !== (name || "None")) {
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: `changed ${label}`,
+      fieldName: level === "country" ? "clientCountry" : level === "state" ? "clientState" : "clientCity",
+      oldValue: oldVal || "None",
+      newValue: name || "None",
+    });
+  }
+
+  revalidatePath("/projects");
+  return {
+    success: true,
+    patch: {
+      clientCountry: updated.clientCountry || undefined,
+      clientCountryCode: updated.clientCountryCode || undefined,
+      clientState: updated.clientState || undefined,
+      clientStateCode: updated.clientStateCode || undefined,
+      clientCity: updated.clientCity || undefined,
+    },
+  };
 }
 
 const NOTES_FIELDS = ["techNotes", "creativeNotes", "marketingNotes", "description"] as const;

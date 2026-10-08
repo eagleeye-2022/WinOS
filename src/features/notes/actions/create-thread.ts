@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr, validateText } from "@/lib/action-utils";
+import { logNoteActivity } from "../note-activity";
+import { NOTE_ACTIVITY } from "../note-activity-utils";
 
 export type CreateThreadState = { errors?: { title?: string[] }; message?: string };
 
@@ -69,6 +71,8 @@ export async function createThread(
         authorId: session.user.id,
       },
     });
+
+    await logNoteActivity(note.id, session.user.id, NOTE_ACTIVITY.CREATED);
 
     if (noteType === "CHECKLIST" && validItems.length > 0) {
       await d.boardNoteChecklistItem.createMany({

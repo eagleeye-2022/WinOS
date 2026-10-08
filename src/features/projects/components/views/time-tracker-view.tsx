@@ -63,6 +63,10 @@ import {
 } from "../../actions/project-actions";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+
+const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
+const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
@@ -133,8 +137,18 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Role Perspective Switcher — derived from the signed-in user's real workspace role.
   const [roleMode, setRoleMode] = useState<"ADMIN" | "USER">("USER");
-  const [groupBy, setGroupBy] = useState<"Group By Date" | "Group By User" | "Group By Project">("Group By User");
-  const [timeSheetView, setTimeSheetView] = useState<"My Effort Logs" | "All Effort Logs" | "Team Effort Logs">("All Effort Logs");
+  // Grouping, sheet and filters live in the URL (log-prefixed: this view is also embedded in the
+  // task board, which has its own `status` param) so they survive leaving and returning.
+  const [groupBy, setGroupBy] = useUrlState<"Group By Date" | "Group By User" | "Group By Project">(
+    "logGroup",
+    "Group By User",
+    { allowed: GROUP_BY_OPTIONS }
+  );
+  const [timeSheetView, setTimeSheetView] = useUrlState<"My Effort Logs" | "All Effort Logs" | "Team Effort Logs">(
+    "logSheet",
+    "All Effort Logs",
+    { allowed: TIME_SHEET_VIEWS }
+  );
   const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -144,12 +158,12 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   }, []);
 
   // Filters State
-  const [showFilterBar, setShowFilterBar] = useState(false);
-  const [filterUser, setFilterUser] = useState("ALL");
-  const [filterProject, setFilterProject] = useState("ALL");
-  const [filterBilling, setFilterBilling] = useState("ALL");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showFilterBar, setShowFilterBar] = useModuleViewState(`time-tracker:filter-bar:${projectId ?? "all"}`, false);
+  const [filterUser, setFilterUser] = useUrlState("logUser", "ALL");
+  const [filterProject, setFilterProject] = useUrlState("logProject", "ALL");
+  const [filterBilling, setFilterBilling] = useUrlState("logBilling", "ALL");
+  const [filterStatus, setFilterStatus] = useUrlState("logStatus", "ALL");
+  const [searchQuery, setSearchQuery] = useUrlState("logQ", "");
 
   // Report Modal State
   const [showReportModal, setShowReportModal] = useState(false);
@@ -174,7 +188,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return d;
   };
 
-  const [selectedDate, setSelectedDate] = useState<Date>(getToday);
+  // Selected day is kept in the URL as ?logDate=YYYY-MM-DD (absent = today).
+  const [logDateParam, setLogDateParam] = useUrlState("logDate", "");
+  const logDateMatch = logDateParam.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const selectedDate = logDateMatch
+    ? new Date(Number(logDateMatch[1]), Number(logDateMatch[2]) - 1, Number(logDateMatch[3]))
+    : getToday();
+  const setSelectedDate = (next: Date | ((prev: Date) => Date)) => {
+    const resolved = typeof next === "function" ? next(selectedDate) : next;
+    const key = formatYYYYMMDD(resolved);
+    setLogDateParam(key === formatYYYYMMDD(getToday()) ? "" : key);
+  };
 
   const formatDDMMYYYY = (date: Date): string => {
     const dd = String(date.getDate()).padStart(2, "0");

@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ROUTES } from "@/constants/routes";
+import { useUrlState } from "@/lib/navigation/use-url-state";
 
 function getAvatarUrl(image?: string | null, _id?: string, _name?: string) {
   if (image && image.trim()) return image;
@@ -59,8 +60,8 @@ interface TeamTableProps {
 
 export function TeamTable({ members, moduleColumns, onSelectUser }: TeamTableProps) {
   const router = useRouter();
-  const [roleFilter, setRoleFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [roleFilter, setRoleFilter] = useUrlState("role", "ALL");
+  const [statusFilter, setStatusFilter] = useUrlState("status", "ALL");
   const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TeamMemberRow | null>(null);
   const [isPending, startTransition] = useTransition();

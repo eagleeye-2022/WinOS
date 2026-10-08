@@ -169,6 +169,14 @@ export interface Project {
   techNotes?: string;
   creativeNotes?: string;
   marketingNotes?: string;
+
+  // Client info columns. Codes are set only when the value was picked from the list.
+  industry?: string;
+  clientCountry?: string;
+  clientCountryCode?: string;
+  clientState?: string;
+  clientStateCode?: string;
+  clientCity?: string;
 }
 
 export interface NewProjectFormData {

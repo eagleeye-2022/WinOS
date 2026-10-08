@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useEffect, use } from "react";
+import { useUrlState } from "@/lib/navigation/use-url-state";
 import Link from "next/link";
-import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check, Users, ListTodo, Paperclip, History } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, Loader2, AlertCircle, Share2, Copy, Check, Users, ListTodo, Paperclip, History, NotebookPen } from "lucide-react";
+import { ProjectINotesPanel } from "@/features/projects/components/project-inotes-panel";
 import {
   updateTaskAction,
   createTaskAction,
@@ -15,6 +17,9 @@ import { ProjectDocumentsView } from "@/features/projects/components/views/proje
 import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
 import { ProjectTimeLogsView } from "@/features/projects/components/views/project-time-logs-view";
 import { toast } from "@/components/shared/toast";
+
+const PROJECT_TABS = ["TASKS", "USERS", "DOCUMENTS", "TIME_LOGS", "TIMELINE", "INOTES"] as const;
+type ProjectTab = (typeof PROJECT_TABS)[number];
 
 const RECENT_PROJECTS_KEY = "winos:recentProjects";
 const RECENT_PROJECTS_LIMIT = 4;
@@ -47,7 +52,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
     isLoading,
     error,
   } = useProjectWorkspace();
-  const [activeTab, setActiveTab] = useState<"TASKS" | "USERS" | "DOCUMENTS" | "TIME_LOGS" | "TIMELINE">("TASKS");
+  // In the URL (?tab=) so the tab survives module switches, Back/Forward and shared links.
+  const [activeTab, setActiveTab] = useUrlState<ProjectTab>("tab", "TASKS", {
+    allowed: PROJECT_TABS,
+    history: "push",
+  });
 
   useEffect(() => {
     if (project) rememberRecentProject(project);
@@ -201,6 +210,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             <History size={14} />
             <span>Status Timeline</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("INOTES")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold transition-all ${activeTab === "INOTES"
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              }`}
+          >
+            <NotebookPen size={14} />
+            <span>iNotes</span>
+          </button>
         </div>
       </div>
 
@@ -232,6 +253,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
         {activeTab === "TIMELINE" && (
           <ProjectStatusTimelineView projectId={project.id} projectName={project.name} />
+        )}
+
+        {activeTab === "INOTES" && (
+          <ProjectINotesPanel projectId={project.id} className="h-full p-6" />
         )}
       </div>
     </div>
