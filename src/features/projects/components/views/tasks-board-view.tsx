@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useModuleViewState, useUrlState, writeSearchParam } from "@/lib/navigation/use-url-state";
 import { useRouter, useParams } from "next/navigation";
 import {
   Columns,
@@ -69,6 +70,11 @@ interface TasksBoardViewProps {
    * the cross-project "My Tasks" page), so a real user is never shown fabricated tasks as theirs. */
   disableDemoFallback?: boolean;
 }
+
+const BOARD_SUB_TABS = ["TASKS", "DASHBOARD", "PHASES", "TIME_LOGS", "CHECKLIST"] as const;
+type BoardSubTab = (typeof BOARD_SUB_TABS)[number];
+const TASK_SCOPES = ["MY_TASKS", "ALL_TASKS"] as const;
+const NO_COLLAPSED_PHASES: string[] = [];
 
 // Fallback initial tasks for rich rendering matching reference design
 const FALLBACK_PROJECT_TASKS: TaskItem[] = [
@@ -210,9 +216,11 @@ export function TasksBoardView({
   projectName,
   disableDemoFallback = false,
 }: TasksBoardViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<
-    "TASKS" | "DASHBOARD" | "PHASES" | "TIME_LOGS" | "CHECKLIST"
-  >("TASKS");
+  // Sub-view, scope and filters live in the URL so they're restored when returning to the board.
+  const [activeSubTab, setActiveSubTab] = useUrlState<BoardSubTab>("view", "TASKS", {
+    allowed: BOARD_SUB_TABS,
+    history: "push",
+  });
 
   // Local mutable copy of `tasks` so a drag-reorder can render immediately (and persist via
   // reorderProjectTasksAction) without waiting on a full page revalidation.
@@ -230,7 +238,9 @@ export function TasksBoardView({
   const [viewMode] = useState<"KANBAN">("KANBAN");
 
   // Task Scope Filter: Default to ALL_TASKS so all project template phase tasks are displayed
-  const [taskScope, setTaskScope] = useState<"MY_TASKS" | "ALL_TASKS">("ALL_TASKS");
+  const [taskScope, setTaskScope] = useUrlState<"MY_TASKS" | "ALL_TASKS">("scope", "ALL_TASKS", {
+    allowed: TASK_SCOPES,
+  });
 
   // Current authenticated user context
   const [currentUser, setCurrentUser] = useState<{
@@ -320,7 +330,16 @@ export function TasksBoardView({
   };
 
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
-  const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+  // The open task drawer is driven by ?task=<id>, so it reopens when returning to the board,
+  // closes/reopens with Back/Forward, and can be deep-linked. `selectedTask` holds the freshest
+  // copy (updated optimistically) and keeps the drawer populated during its close animation.
+  const [openTaskId] = useUrlState("task", "");
+  const drawerTask = openTaskId
+    ? selectedTask?.id === openTaskId
+      ? selectedTask
+      : (localTasks.find((t) => t.id === openTaskId) ?? null)
+    : null;
+  const isDetailDrawerOpen = drawerTask !== null;
   const [isAddTaskDrawerOpen, setIsAddTaskDrawerOpen] = useState(false);
   const [selectedAddTaskPhase, setSelectedAddTaskPhase] = useState<string | undefined>(undefined);
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
@@ -401,13 +420,20 @@ export function TasksBoardView({
   };
 
   // Filter & Options Popover States
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
-  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState("ALL");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useUrlState("status", "ALL");
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useUrlState("dept", "ALL");
 
   // Owner Assignment State
   const [userOptions, setUserOptions] = useState<{ id: string; name: string; email: string }[]>([]);
   const [expandedSubtaskCardIds, setExpandedSubtaskCardIds] = useState<Set<string>>(new Set());
-  const [collapsedPhaseCodes, setCollapsedPhaseCodes] = useState<Set<string>>(new Set());
+  // Collapsed phase columns: ephemeral UI, kept in the module's navigation slice (not the URL).
+  const [collapsedPhaseList, setCollapsedPhaseList] = useModuleViewState<string[]>(
+    `tasks-board:collapsed:${realProjectId ?? "all"}`,
+    NO_COLLAPSED_PHASES
+  );
+  const collapsedPhaseCodes = useMemo(() => new Set(collapsedPhaseList), [collapsedPhaseList]);
+  const setCollapsedPhaseCodes = (next: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    setCollapsedPhaseList((prev) => [...(typeof next === "function" ? next(new Set(prev)) : next)]);
 
   const handleTogglePhaseCollapse = (phaseCode: string) => {
     setCollapsedPhaseCodes((prev) => {
@@ -541,7 +567,7 @@ export function TasksBoardView({
   const handleOpenTaskDrawer = (task: TaskItem) => {
     const fresh = localTasks.find((t) => t.id === task.id) || task;
     setSelectedTask(fresh);
-    setIsDetailDrawerOpen(true);
+    writeSearchParam("task", fresh.id, "push");
   };
 
   const commitTitleEdit = async (task: TaskItem) => {
@@ -2029,9 +2055,9 @@ export function TasksBoardView({
 
       {/* Task Detail Slide Drawer */}
       <TaskDetailDrawer
-        task={selectedTask}
+        task={drawerTask ?? selectedTask}
         isOpen={isDetailDrawerOpen}
-        onClose={() => setIsDetailDrawerOpen(false)}
+        onClose={() => writeSearchParam("task", null, "push")}
         onUpdateTask={(updated) => {
           setLocalTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
           setSelectedTask(updated);

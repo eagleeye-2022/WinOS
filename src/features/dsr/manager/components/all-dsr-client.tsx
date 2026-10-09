@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Filter, Plus, Search, X } from "lucide-react";
@@ -10,6 +10,9 @@ import { toIsoDateStr, toUtcDate, sortTeamGroups } from "@/features/dsm/utils";
 import { AllDsrStatsRow } from "./all-dsr-stats";
 import { DsrTeamColumn } from "./dsr-team-column";
 import type { AllDsrStats, DsrStatMember, DsrTeamGroup } from "../queries";
+import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+
+const MEMBER_FILTERS = ["all", "to-review", "late", "no-recording"] as const;
 
 type Props = {
   stats: AllDsrStats | null;
@@ -25,11 +28,14 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
   const columnsScrollRef = useRef<HTMLDivElement>(null);
   const dragScroll = useDragScroll(columnsScrollRef);
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDept, setSelectedDept] = useState("all");
+  const [showFilters, setShowFilters] = useModuleViewState("all-report:show-filters", false);
+  // Search / department / quick filter live in the URL alongside ?date=.
+  const [searchQuery, setSearchQuery] = useUrlState("q", "");
+  const [selectedDept, setSelectedDept] = useUrlState("dept", "all");
   // Member-level quick filter. "to-review" = submitted with a recording, not yet reviewed.
-  const [memberFilter, setMemberFilter] = useState<"all" | "to-review" | "late" | "no-recording">("all");
+  const [memberFilter, setMemberFilter] = useUrlState<"all" | "to-review" | "late" | "no-recording">("member", "all", {
+    allowed: MEMBER_FILTERS,
+  });
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -39,7 +45,9 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
   const yesterdayStr = toIsoDateStr(toUtcDate(yesterday));
 
   const handleDateChange = (dateStr: string) => {
-    router.push(`/report/all?date=${dateStr}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set("date", dateStr);
+    router.push(`/report/all?${params.toString()}`);
   };
 
   // Convert selectedDateStr (YYYY-MM-DD) to a Date object to format it beautifully

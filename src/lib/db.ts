@@ -1,4 +1,4 @@
-import { PrismaClient } from "../../generated/prisma/client";
+import { PrismaClient, Prisma } from "../../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
@@ -72,11 +72,26 @@ function createClient() {
   return client;
 }
 
-export const db =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  globalForPrisma.prisma && (globalForPrisma.prisma as any).clientInvitation
-    ? globalForPrisma.prisma
-    : createClient();
+/**
+ * In dev the client is cached on globalThis across hot reloads. After `prisma generate` adds a
+ * model, that cached client is stale (e.g. `db.boardNoteActivity` is undefined), so only reuse it
+ * when it has a delegate for every model in the current generated client.
+ */
+function isCurrentClient(client: PrismaClient | undefined): boolean {
+  if (!client) return false;
+  return Object.values(Prisma.ModelName).every(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (model) => (client as any)[model.charAt(0).toLowerCase() + model.slice(1)] !== undefined
+  );
+}
+
+const cached = globalForPrisma.prisma;
+if (cached && !isCurrentClient(cached)) {
+  dbLog("cached Prisma client is out of date with the schema — creating a new one");
+  void cached.$disconnect().catch(() => {});
+}
+
+export const db: PrismaClient = cached && isCurrentClient(cached) ? cached : createClient();
 
 if (isDev) globalForPrisma.prisma = db;
 

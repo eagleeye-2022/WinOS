@@ -257,28 +257,36 @@ function SharedNoteCard({
         {/* Checklist items section displaying exact persisted order and checkbox states */}
         {hasChecklist ? (
           <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-900/10 dark:border-slate-100/10 pt-2 font-medium">
-            {shownItems.map((item) => (
-              <button
+            {shownItems.map((item) => {
+              const canToggle = !isReadOnly && !item.id.startsWith("extracted-");
+              const checkboxIcon = item.checked ? (
+                <CheckSquare size={15} className="text-primary" />
+              ) : (
+                <Square size={15} className="text-slate-600 dark:text-slate-400" />
+              );
+
+              // Only the checkbox toggles; the rest of the row bubbles up so the whole card opens the note.
+              return (
+              <div
                 key={item.id}
-                type="button"
-                disabled={isPending || isReadOnly || item.id.startsWith("extracted-")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggle(item.id);
-                }}
-                className={`flex items-start gap-2.5 rounded p-1 w-full text-left transition-colors ${
-                  isReadOnly || item.id.startsWith("extracted-")
-                    ? "cursor-default opacity-90"
-                    : "hover:bg-slate-900/5 dark:hover:bg-slate-100/10 cursor-pointer"
-                }`}
+                className="flex items-start gap-2.5 rounded p-1 w-full text-left"
               >
-                <span className="mt-0.5 shrink-0">
-                  {item.checked ? (
-                    <CheckSquare size={15} className="text-primary" />
-                  ) : (
-                    <Square size={15} className="text-slate-600 dark:text-slate-400" />
-                  )}
-                </span>
+                {canToggle ? (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggle(item.id);
+                    }}
+                    aria-label={item.checked ? "Mark as not done" : "Mark as done"}
+                    className="mt-0.5 shrink-0 rounded cursor-pointer hover:bg-slate-900/10 dark:hover:bg-slate-100/10"
+                  >
+                    {checkboxIcon}
+                  </button>
+                ) : (
+                  <span className="mt-0.5 shrink-0 opacity-90">{checkboxIcon}</span>
+                )}
                 <span
                   className={`text-sm leading-snug select-none line-clamp-2 ${
                     item.checked ? "text-slate-500 dark:text-slate-400 line-through font-normal" : "text-slate-900 dark:text-slate-100 font-semibold"
@@ -286,8 +294,9 @@ function SharedNoteCard({
                 >
                   {item.text.length > 80 ? item.text.substring(0, 80) + "…" : item.text}
                 </span>
-              </button>
-            ))}
+              </div>
+              );
+            })}
             {totalMoreItems > 0 && (
               <span className="text-xs text-slate-600 dark:text-slate-400 font-medium pl-1">
                 +{totalMoreItems} more items
@@ -368,7 +377,16 @@ export function WorkspaceNotesPanel({
               return (
                 <div
                   key={note.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setEditingNote(note)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setEditingNote(note);
+                    }
+                  }}
                   className="rounded-xl border p-3.5 flex flex-col gap-3 shadow-xs border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer border-slate-200/80 dark:border-slate-800/80 bg-[var(--card-bg-light)] dark:bg-[var(--card-bg-dark)]"
                   style={{
                     ["--card-bg-light" as string]: palette.light,

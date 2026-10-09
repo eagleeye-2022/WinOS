@@ -20,6 +20,8 @@ import {
   Pencil,
   FileText,
   Loader2,
+  FolderKanban,
+  Search,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -42,6 +44,7 @@ import { deleteBoardNote } from "../actions/delete-board-note";
 import { shareBoardNote } from "../actions/share-board-note";
 import { toggleBoardNoteItem } from "../actions/toggle-board-note-item";
 import { moveBoardNote } from "../actions/move-board-note";
+import { shareNoteToProjects } from "../actions/share-note-to-projects";
 
 
 type UserBasic = {
@@ -71,9 +74,13 @@ type BoardNoteData = {
   author: UserBasic;
   shares: { userId: string }[];
   checklistItems: ChecklistItem[];
+  /** Projects this card is shared to (Project iNotes). */
+  projectShares?: { projectId: string; project?: { name: string } | null }[];
   createdAt: Date;
   updatedAt: Date;
 };
+
+type ShareableProjectOption = { id: string; code: string | null; name: string };
 
 type ThreadData = {
   id: string;
@@ -118,6 +125,8 @@ type NotesWorkspaceProps = {
   userId: string;
   isManager: boolean;
   pageOwnerId?: string;
+  /** Projects the user may share cards to (Project iNotes). Omitted → no "Share to project" button. */
+  shareableProjects?: ShareableProjectOption[];
 };
 
 const PASTEL_COLORS = [
@@ -161,6 +170,7 @@ export function NotesWorkspace({
   userId,
   isManager,
   pageOwnerId,
+  shareableProjects = [],
 }: NotesWorkspaceProps) {
   const router = useRouter();
   const [boards, setBoards] = useState<BoardData[]>(initialBoards);
@@ -322,6 +332,15 @@ export function NotesWorkspace({
 
   const [shareSelection, setShareSelection] = useState<{ userId: string; canEdit: boolean }[]>([]);
 
+  // Project iNotes: "Share to project" dialog for one card.
+  const [projectSharing, setProjectSharing] = useState<{
+    noteId: string;
+    selected: string[];
+    /** Names of projects the card is already shared to (shown even if no longer shareable). */
+    existingNames: Record<string, string>;
+  } | null>(null);
+  const [projectSearch, setProjectSearch] = useState("");
+
   const [isPending, startTransition] = useTransition();
 
   // Sync sharingItem selection during render
@@ -445,6 +464,7 @@ export function NotesWorkspace({
         showNewThread ||
         editingNote !== null ||
         sharingItem !== null ||
+        projectSharing !== null ||
         activeThreadForNote !== null;
 
       if (!isUserActive && !isPending) {
@@ -458,7 +478,34 @@ export function NotesWorkspace({
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [activeBoardId, showAddBoard, showNewThread, editingNote, sharingItem, activeThreadForNote, isPending]);
+  }, [activeBoardId, showAddBoard, showNewThread, editingNote, sharingItem, projectSharing, activeThreadForNote, isPending]);
+
+  // Project iNotes: open the "Share to project" dialog for a card.
+  const openProjectSharing = (note: BoardNoteData) => {
+    const shares = note.projectShares || [];
+    setProjectSearch("");
+    setProjectSharing({
+      noteId: note.id,
+      selected: shares.map((s) => s.projectId),
+      existingNames: Object.fromEntries(shares.map((s) => [s.projectId, s.project?.name || "Project"])),
+    });
+  };
+
+  const handleProjectShareSubmit = () => {
+    if (!projectSharing) return;
+    const formData = new FormData();
+    formData.append("noteId", projectSharing.noteId);
+    formData.append("projectIds", projectSharing.selected.join(","));
+    startTransition(async () => {
+      const res = await shareNoteToProjects({}, formData);
+      if (res.message === "shared") {
+        setProjectSharing(null);
+        await refreshThreads();
+      } else {
+        alert(res.message || "Failed to share to project.");
+      }
+    });
+  };
 
   // Handle Board Creation
   const handleCreateBoard = async (e: React.FormEvent) => {
@@ -1276,7 +1323,7 @@ export function NotesWorkspace({
                 <div className="flex items-center justify-between p-3.5 border-b border-white/10 shrink-0">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-sm font-bold text-white">
-                      {toTitleCase(thread.title)}
+                      {thread.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -1370,6 +1417,19 @@ export function NotesWorkspace({
                             </h4>
                             {note.authorId === userId && (
                               <div className="flex items-center gap-1.5 bg-slate-900/10 dark:bg-slate-100/10 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-slate-900/10 dark:border-slate-100/10 shrink-0">
+                                {(shareableProjects.length > 0 || (note.projectShares?.length ?? 0) > 0) && (
+                                  <button
+                                    type="button"
+                                    title="Share to Project"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openProjectSharing(note);
+                                    }}
+                                    className="rounded p-0.5 hover:bg-slate-900/10 dark:hover:bg-slate-100/20 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                                  >
+                                    <FolderKanban size={13} />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   title="Share Note"
@@ -1451,6 +1511,20 @@ export function NotesWorkspace({
                               </div>
                             )}
                           </div>
+
+                          {/* Project iNotes indicator */}
+                          {(note.projectShares?.length ?? 0) > 0 && (
+                            <div
+                              title={`Shared to: ${note.projectShares!.map((s) => s.project?.name || "Project").join(", ")}`}
+                              className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300 mt-1 font-medium bg-emerald-500/15 px-2 py-0.5 rounded-full w-fit max-w-full shrink-0"
+                            >
+                              <FolderKanban size={11} className="shrink-0" />
+                              <span className="truncate">
+                                {note.projectShares![0].project?.name || "Project"}
+                                {note.projectShares!.length > 1 ? ` +${note.projectShares!.length - 1}` : ""}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Deadline Indicator */}
                           {note.deadline && (
@@ -2162,6 +2236,120 @@ export function NotesWorkspace({
           </form>
         </div>
       )}
+      {/* Project iNotes: Share card to project(s) */}
+      {projectSharing && (() => {
+        const q = projectSearch.trim().toLowerCase();
+        // Shareable projects plus any the card is already on (so they can still be removed).
+        const options: ShareableProjectOption[] = [
+          ...shareableProjects,
+          ...Object.entries(projectSharing.existingNames)
+            .filter(([id]) => !shareableProjects.some((p) => p.id === id))
+            .map(([id, name]) => ({ id, code: null, name })),
+        ];
+        const visible = q
+          ? options.filter((p) => `${p.code || ""} ${p.name}`.toLowerCase().includes(q))
+          : options;
+        const toggle = (id: string) =>
+          setProjectSharing({
+            ...projectSharing,
+            selected: projectSharing.selected.includes(id)
+              ? projectSharing.selected.filter((s) => s !== id)
+              : [...projectSharing.selected, id],
+          });
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4">
+            <div className="fixed inset-0" onClick={() => !isPending && setProjectSharing(null)} aria-hidden="true" />
+            <div className="relative z-10 w-full max-w-md rounded-xl border bg-card p-5 shadow-xl flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-start justify-between border-b pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FolderKanban size={16} className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-sm font-bold text-foreground">Share Card to Project</span>
+                  </div>
+                  {/* <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+                    Members of the selected projects can view this card in Projects → Project iNotes.
+                    Only managers can edit it there.
+                  </p> */}
+                </div>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setProjectSharing(null)}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5">
+                <Search size={13} className="text-muted-foreground shrink-0" />
+                <input
+                  autoFocus
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  placeholder="Search projects..."
+                  className="w-full bg-transparent text-xs outline-none"
+                />
+              </div>
+
+              <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                {visible.length === 0 ? (
+                  <p className="p-3 text-center text-xs italic text-muted-foreground">No projects found.</p>
+                ) : (
+                  visible.map((p) => {
+                    const checked = projectSharing.selected.includes(p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-xs transition-colors hover:bg-accent",
+                          checked && "bg-emerald-500/10"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(p.id)}
+                          className="cursor-pointer"
+                        />
+                        {p.code && <span className="font-mono text-[11px] text-muted-foreground">{p.code}</span>}
+                        <span className="truncate font-medium text-foreground">{p.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-[11px] text-muted-foreground">
+                  {projectSharing.selected.length} selected
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => setProjectSharing(null)}
+                    className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={handleProjectShareSubmit}
+                    className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    {isPending && <Loader2 size={12} className="animate-spin" />}
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 4. Edit Note Dialog Overlay */}
       {editingNote && (
         <EditNoteModal
@@ -2177,6 +2365,7 @@ export function NotesWorkspace({
           }
           onClose={() => setEditingNote(null)}
           onSaved={async () => { await Promise.all([refreshThreads(), refreshHistory()]); }}
+          showTimeline
         />
       )}
 

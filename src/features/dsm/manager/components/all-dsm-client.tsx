@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Calendar, Filter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDragScroll } from "@/hooks/use-drag-scroll";
+import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 import { toIsoDateStr, toUtcDate, sortTeamGroups } from "../../utils";
 import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
@@ -36,9 +37,10 @@ export function AllDsmClient({
   const dragScroll = useDragScroll(columnsScrollRef);
 
   const [showModal, setShowModal] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDept, setSelectedDept] = useState("all");
+  const [showFilters, setShowFilters] = useModuleViewState("all-dsm:show-filters", false);
+  // Search / department live in the URL alongside ?date= so they survive leaving the module.
+  const [searchQuery, setSearchQuery] = useUrlState("q", "");
+  const [selectedDept, setSelectedDept] = useUrlState("dept", "all");
 
   const today = new Date();
   const todayStr = toIsoDateStr(toUtcDate(today));
@@ -48,7 +50,9 @@ export function AllDsmClient({
   const yesterdayStr = toIsoDateStr(toUtcDate(yesterday));
 
   const handleDateChange = (dateStr: string) => {
-    router.push(`/dsm/all?date=${dateStr}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set("date", dateStr);
+    router.push(`/dsm/all?${params.toString()}`);
   };
 
   // Convert selectedDateStr (YYYY-MM-DD) to a Date object to format it beautifully

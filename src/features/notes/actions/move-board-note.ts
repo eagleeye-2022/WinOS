@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { logNoteActivity } from "../note-activity";
+import { NOTE_ACTIVITY } from "../note-activity-utils";
 
 export type MoveBoardNoteState = { message?: string };
 
@@ -37,6 +39,9 @@ export async function moveBoardNote(
     where: { id: noteId },
     data: { threadId: targetThreadId },
   });
+
+  const target = await d.thread.findUnique({ where: { id: targetThreadId }, select: { title: true } });
+  await logNoteActivity(noteId, session.user.id, NOTE_ACTIVITY.MOVED, { detail: target?.title });
 
   return { message: "moved" };
 }

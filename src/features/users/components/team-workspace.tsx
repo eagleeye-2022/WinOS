@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -16,6 +15,10 @@ import { TeamTable } from "./team-table";
 import { EmployeeTree } from "./employee-tree";
 import { DepartmentTree } from "./department-tree";
 import { UserProfileCard } from "./user-profile-card";
+import { useUrlState } from "@/lib/navigation/use-url-state";
+
+const WORKSPACE_TABS = ["my-team", "employee-tree", "department-tree"] as const;
+type WorkspaceTab = (typeof WORKSPACE_TABS)[number];
 
 interface TeamWorkspaceProps {
   members: TeamMemberRow[];
@@ -30,13 +33,16 @@ export function TeamWorkspace({
   departmentTree,
   moduleColumns,
 }: TeamWorkspaceProps) {
-  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  // Tab and the open profile card live in the URL so they're restored when returning here.
+  const [tab, setTab] = useUrlState<WorkspaceTab>("tab", "my-team", { allowed: WORKSPACE_TABS, history: "push" });
+  const [profileParam, setProfileParam] = useUrlState("member", "", { history: "push" });
+  const setProfileUserId = (id: string | null) => setProfileParam(id ?? "");
 
-  const profileUser = members.find((m) => m.id === profileUserId) || null;
+  const profileUser = members.find((m) => m.id === profileParam) || null;
 
   return (
     <div className="h-full w-full overflow-y-auto p-6 pb-8">
-      <Tabs defaultValue="my-team">
+      <Tabs value={tab} onValueChange={(value) => setTab(value as WorkspaceTab)}>
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="my-team">My Team</TabsTrigger>

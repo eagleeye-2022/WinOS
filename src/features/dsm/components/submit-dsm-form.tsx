@@ -240,7 +240,7 @@ function TaskRows({
 
         const tree = resolveTaskTree(task, cascadingProjects);
         const projectTaskId = task.projectTaskId || "";
-        const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
+        // const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
         const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
@@ -388,11 +388,12 @@ function TaskRows({
                       disabledTitle="No task selected"
                       defaultExpanded={true}
                     />
+                    {/* Hidden by request: per-task "Xh Ym logged" badge.
                     {loggedMins !== undefined && loggedMins > 0 && (
                       <span className="flex items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
                         <Clock size={11} /> {Math.floor(loggedMins / 60)}h {loggedMins % 60}m logged
                       </span>
-                    )}
+                    )} */}
                   </div>
                 )}
               </div>

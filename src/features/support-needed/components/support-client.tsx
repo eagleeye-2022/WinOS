@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterSupport, type SupportStatusFilter } from "../utils";
+import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
 import { markSupportResolved, type MarkSupportResolvedState } from "../actions/mark-resolved";
 import { createSupport, type CreateSupportState } from "../actions/create-support";
 import { sendSupportReminder, type SupportReminderState } from "../actions/send-reminder";
@@ -535,6 +536,7 @@ function RequestSupportModal({
 // ── Main client ───────────────────────────────────────────────────────────────
 
 type ViewMode = "all" | "mine" | "for-me";
+const VIEW_MODES = ["all", "mine", "for-me"] as const;
 
 type Props = {
   items: SupportNeedItem[];
@@ -545,10 +547,13 @@ type Props = {
 };
 
 export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, isManager }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>(() => (isManager ? "all" : "mine"));
-  const [statusFilter, setStatusFilter] = useState<SupportStatusFilter>("all");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  // View, filters, page and the open item live in the URL (restored on return to the module).
+  const [viewMode, setViewMode] = useUrlState<ViewMode>("view", isManager ? "all" : "mine", {
+    allowed: VIEW_MODES,
+  });
+  const [statusFilter, setStatusFilter] = useUrlState<SupportStatusFilter>("status", "all");
+  const [search, setSearch] = useUrlState("q", "");
+  const [page, setPage] = useUrlNumberState("page", 1);
   const [showModal, setShowModal] = useState(false);
 
   const activeItems = useMemo(() => {
@@ -557,7 +562,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
     return itemsForMe;
   }, [viewMode, items, itemsForMe, isManager, currentUserId]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(() => activeItems[0]?.id ?? items[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useUrlSelection("item", activeItems[0]?.id ?? items[0]?.id ?? null);
 
   const filtered = useMemo(
     () => filterSupport(activeItems, statusFilter, search),

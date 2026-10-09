@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterBlockers, type BlockerStatusFilter, type BlockerPriorityFilter } from "../utils";
+import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
 import { markBlockerResolved, type MarkBlockerResolvedState } from "../actions/mark-resolved";
 import { createBlocker, type CreateBlockerState } from "../actions/create-blocker";
 import { sendBlockerReminder, type BlockerReminderState } from "../actions/send-reminder";
@@ -547,6 +548,7 @@ function RaiseBlockerModal({
 // ── Main client ───────────────────────────────────────────────────────────────
 
 type ViewMode = "all" | "mine" | "with-me";
+const VIEW_MODES = ["all", "mine", "with-me"] as const;
 
 type Props = {
   items: BlockerItem[];
@@ -557,11 +559,14 @@ type Props = {
 };
 
 export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, isManager }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>(() => (isManager ? "all" : "mine"));
-  const [statusFilter, setStatusFilter] = useState<BlockerStatusFilter>("all");
-  const [priorityFilter, setPriorityFilter] = useState<BlockerPriorityFilter>("all");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  // View, filters, page and the open blocker live in the URL (restored on return to the module).
+  const [viewMode, setViewMode] = useUrlState<ViewMode>("view", isManager ? "all" : "mine", {
+    allowed: VIEW_MODES,
+  });
+  const [statusFilter, setStatusFilter] = useUrlState<BlockerStatusFilter>("status", "all");
+  const [priorityFilter, setPriorityFilter] = useUrlState<BlockerPriorityFilter>("priority", "all");
+  const [search, setSearch] = useUrlState("q", "");
+  const [page, setPage] = useUrlNumberState("page", 1);
   const [showModal, setShowModal] = useState(false);
 
   const activeItems = useMemo(() => {
@@ -570,7 +575,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
     return itemsForMe;
   }, [viewMode, items, itemsForMe, isManager, currentUserId]);
 
-  const [selectedId, setSelectedId] = useState<string | null>(() => activeItems[0]?.id ?? items[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useUrlSelection("blocker", activeItems[0]?.id ?? items[0]?.id ?? null);
 
   const filtered = useMemo(
     () => filterBlockers(activeItems, statusFilter, priorityFilter, search),

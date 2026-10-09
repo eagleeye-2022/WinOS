@@ -165,12 +165,12 @@ function parseDateOnly(dStr?: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-/** Day-of-month buckets shown as radio options in the calendar cell dropdown. */
-const DAY_BUCKETS = [
-  { label: "1 - 10", startDay: 1, endDay: 10 },
-  { label: "11 - 20", startDay: 11, endDay: 20 },
-  { label: "21 - 31", startDay: 21, endDay: 31 },
-];
+/**
+ * Monthly billing-cycle buckets shown as radio options in the calendar cell dropdown.
+ * Each spans one month starting on `startDay`: "1" runs to the end of the current month,
+ * "11" and "21" run to the day before in the following month (e.g. 11 Oct – 10 Nov).
+ */
+const DAY_BUCKETS = [{ startDay: 1 }, { startDay: 11 }, { startDay: 21 }];
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -226,13 +226,14 @@ export function CalendarCell({
 
   const monthYear = now.getFullYear();
   const monthIndex = now.getMonth();
-  const lastDayOfMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
 
   const buckets = DAY_BUCKETS.map((b) => {
-    const endDay = Math.min(b.endDay, lastDayOfMonth);
     const startDate = `${monthYear}-${pad2(monthIndex + 1)}-${pad2(b.startDay)}`;
-    const deadline = `${monthYear}-${pad2(monthIndex + 1)}-${pad2(endDay)}`;
-    return { ...b, endDay, startDate, deadline };
+    // Day before startDay one month later; day 0 of next month = last day of this month.
+    const end = new Date(monthYear, monthIndex + 1, b.startDay - 1);
+    const endDay = end.getDate();
+    const deadline = `${end.getFullYear()}-${pad2(end.getMonth() + 1)}-${pad2(endDay)}`;
+    return { ...b, label: `${b.startDay} - ${endDay}`, endDay, startDate, deadline };
   });
 
   const handleSelectBucket = (bucket: (typeof buckets)[number]) => {
