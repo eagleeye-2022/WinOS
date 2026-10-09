@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -20,7 +20,14 @@ type SearchableSelectProps = {
   disabled?: boolean;
   /** Classes for the trigger button — pass the same text/size classes the old <select> used. */
   className?: string;
+  /** When set, typing a name with no exact match offers a "+ Create …" row that calls this. */
+  onCreate?: (name: string) => void;
+  /** What a created item is called in the create row and hint, e.g. "task list". */
+  createNoun?: string;
 };
+
+/** Sentinel row value for the "+ Create …" row — never a real option value. */
+const CREATE_ROW = "__searchable_select_create__";
 
 /**
  * Drop-in replacement for the native project/task/subtask <select>s: same value/onChange shape,
@@ -35,6 +42,8 @@ export function SearchableSelect({
   searchPlaceholder = "Search...",
   disabled,
   className,
+  onCreate,
+  createNoun = "item",
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -48,10 +57,19 @@ export function SearchableSelect({
     return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
   }, [options, query]);
 
-  // Row 0 is always the placeholder ("clear selection") row; options follow from index 1.
+  const createName = query.trim();
+  const canCreate =
+    !!onCreate && !!createName && !options.some((o) => o.label.trim().toLowerCase() === createName.toLowerCase());
+
+  // Row 0 is always the placeholder ("clear selection") row; options follow from index 1,
+  // then the optional "+ Create …" row last.
   const rows: SearchableSelectOption[] = React.useMemo(
-    () => [{ value: "", label: placeholder }, ...filtered],
-    [placeholder, filtered]
+    () => [
+      { value: "", label: placeholder },
+      ...filtered,
+      ...(canCreate ? [{ value: CREATE_ROW, label: `Create ${createNoun} "${createName}"` }] : []),
+    ],
+    [placeholder, filtered, canCreate, createNoun, createName]
   );
 
   const handleOpenChange = (next: boolean) => {
@@ -64,7 +82,8 @@ export function SearchableSelect({
   };
 
   const choose = (v: string) => {
-    if (v !== value) onChange(v);
+    if (v === CREATE_ROW) onCreate?.(createName);
+    else if (v !== value) onChange(v);
     setOpen(false);
   };
 
@@ -122,7 +141,7 @@ export function SearchableSelect({
               setActiveIndex(e.target.value.trim() ? 1 : 0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder={searchPlaceholder}
+            placeholder={onCreate ? `${searchPlaceholder.replace(/\.{3}$/, "")} or create...` : searchPlaceholder}
             className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -130,6 +149,28 @@ export function SearchableSelect({
           {rows.map((row, i) => {
             const isPlaceholder = i === 0;
             const isSelected = row.value === value;
+            if (row.value === CREATE_ROW) {
+              return (
+                <li
+                  key={CREATE_ROW}
+                  data-index={i}
+                  role="option"
+                  aria-selected={false}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => choose(row.value)}
+                  className={cn(
+                    "mt-1 flex cursor-pointer items-center gap-2 rounded border-t border-border/50 px-2 py-1.5 text-xs font-medium text-primary",
+                    i === activeIndex && "bg-muted"
+                  )}
+                >
+                  <Plus size={12} className="shrink-0" />
+                  <span className="truncate" title={row.label}>
+                    {row.label}
+                  </span>
+                </li>
+              );
+            }
             return (
               <li
                 key={isPlaceholder ? "__placeholder" : row.value}
@@ -152,8 +193,13 @@ export function SearchableSelect({
               </li>
             );
           })}
-          {filtered.length === 0 && (
-            <li className="px-2 py-3 text-center text-xs text-muted-foreground">No matches found</li>
+          {filtered.length === 0 && !canCreate && (
+            <li className="px-2 py-3 text-center text-xs text-muted-foreground">
+              {onCreate && !createName ? `Type a name to create a ${createNoun}` : "No matches found"}
+            </li>
+          )}
+          {onCreate && !createName && filtered.length > 0 && (
+            <li className="px-2 pb-1 pt-2 text-[11px] text-muted-foreground">Type a name to create a new {createNoun}</li>
           )}
         </ul>
       </PopoverContent>

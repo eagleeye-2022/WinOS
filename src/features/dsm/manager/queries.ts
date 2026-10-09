@@ -91,6 +91,9 @@ export type MemberReviewEntry = {
       owners?: { userId: string }[];
       project?: { id: string; name: string; code?: string | null; ownerId?: string | null } | null;
     } | null;
+    /** Project picked for the row — set even when no project task is linked. */
+    projectId?: string | null;
+    project?: { id: string; name: string } | null;
     addedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
     editedBy?: { id: string; name: string | null; email: string; image?: string | null; role: "TEAM_MEMBER" | "MANAGER" } | null;
   }[];
@@ -509,6 +512,7 @@ export async function getMemberReview(
               project: { select: { id: true, name: true, code: true, ownerId: true } },
             },
           },
+          project: { select: { id: true, name: true } },
         },
       },
       blockers: {
@@ -572,6 +576,7 @@ export async function getMemberReview(
               project: { select: { id: true, name: true, code: true, ownerId: true } },
             },
           },
+          project: { select: { id: true, name: true } },
         },
       },
           blockers: {

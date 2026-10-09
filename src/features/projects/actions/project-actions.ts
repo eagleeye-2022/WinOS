@@ -28,6 +28,7 @@ import {
   ProjectTimelineEvent,
   ProjectTemplate,
   ProjectPhase,
+  DELETED_TASK_LIST_STATUS,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -5182,6 +5183,11 @@ export async function createProjectTaskListAction(
     const nextOrder = existingPhases.length;
     const finalCode = cleanCode || `${nextOrder + 1}.1`;
 
+    // Re-creating a list a manager deleted earlier: drop its tombstone so the column shows again.
+    await db.projectTaskList.deleteMany({
+      where: { projectId: project.id, phaseCode: finalCode, status: DELETED_TASK_LIST_STATUS },
+    });
+
     const phase = await db.projectPhase.create({
       data: {
         code: finalCode,
@@ -5214,6 +5220,155 @@ export async function createProjectTaskListAction(
   } catch (err) {
     console.error("[createProjectTaskListAction] Error creating task list:", err);
     return { success: false, error: String(err) };
+  }
+}
+
+export async function renameProjectTaskListAction(
+  projectId: string,
+  data: { code: string; name: string }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) throw new Error("Unauthorized");
+
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+
+    if (!project) return { success: false, error: "Project not found" };
+
+    const code = data.code.trim();
+    const cleanName = data.name.trim().toUpperCase();
+    if (!code || !cleanName) return { success: false, error: "Name is required" };
+
+    const existing = await db.projectPhase.findFirst({
+      where: { projectId: project.id, code },
+    });
+    const oldName = existing?.name;
+
+    // Template-default columns have no ProjectPhase row yet — create one so the new name sticks.
+    if (existing) {
+      await db.projectPhase.updateMany({
+        where: { projectId: project.id, code },
+        data: { name: cleanName },
+      });
+    } else {
+      const order = await db.projectPhase.count({ where: { projectId: project.id } });
+      await db.projectPhase.create({
+        data: { code, name: cleanName, order, projectId: project.id },
+      });
+    }
+
+    await db.projectTaskList.updateMany({
+      where: { projectId: project.id, phaseCode: code },
+      data: { name: cleanName },
+    });
+    await db.projectTask.updateMany({
+      where: { projectId: project.id, phaseCode: code },
+      data: { phaseName: cleanName },
+    });
+
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name || "User",
+      action: `renamed task list "${oldName || code}" to "${cleanName}"`,
+      fieldName: "phase",
+      oldValue: oldName,
+      newValue: cleanName,
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return { success: true, phase: { code, name: cleanName } };
+  } catch (err) {
+    console.error("[renameProjectTaskListAction] Error renaming task list:", err);
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Deletes a task list (board phase column). Managers only, and only when no task is left in
+ * it — tasks must be moved or deleted first, so nothing is lost by accident. Leaves a tombstone
+ * `ProjectTaskList` row so template-default columns (drawn without a DB row) stay hidden.
+ */
+export async function deleteProjectTaskListAction(
+  projectId: string,
+  code: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+    if (!(await isPrivilegedViewer(session.user.id))) {
+      return { success: false, error: "Only a manager can delete a task list." };
+    }
+
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+    if (!project) return { success: false, error: "Project not found" };
+
+    const cleanCode = code.trim();
+    if (!cleanCode) return { success: false, error: "Task list not found" };
+
+    const taskCount = await db.projectTask.count({
+      where: { projectId: project.id, phaseCode: cleanCode },
+    });
+    if (taskCount > 0) {
+      return {
+        success: false,
+        error: `This task list still has ${taskCount} task${taskCount === 1 ? "" : "s"}. Move or delete them first.`,
+      };
+    }
+
+    const phase = await db.projectPhase.findFirst({
+      where: { projectId: project.id, code: cleanCode },
+      select: { name: true },
+    });
+    const name =
+      phase?.name ?? DEFAULT_PROJECT_PHASES.find((p) => p.code === cleanCode)?.name.toUpperCase() ?? cleanCode;
+
+    await db.projectPhase.deleteMany({ where: { projectId: project.id, code: cleanCode } });
+    await db.projectTaskList.deleteMany({ where: { projectId: project.id, phaseCode: cleanCode } });
+    await db.projectTaskList.create({
+      data: { name, phaseCode: cleanCode, status: DELETED_TASK_LIST_STATUS, projectId: project.id },
+    });
+
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name || "User",
+      action: `deleted task list "${name}"`,
+      fieldName: "phase",
+      oldValue: name,
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/dsm");
+    return { success: true };
+  } catch (err) {
+    console.error("[deleteProjectTaskListAction] Error deleting task list:", err);
+    return { success: false, error: "Failed to delete task list" };
+  }
+}
+
+/** Codes of the task lists a manager deleted in this project (see DELETED_TASK_LIST_STATUS). */
+export async function getDeletedTaskListCodesAction(projectId: string): Promise<string[]> {
+  try {
+    const project = await db.project.findFirst({
+      where: { OR: [{ id: projectId }, { code: projectId }] },
+      select: { id: true },
+    });
+    if (!project) return [];
+    const rows = await db.projectTaskList.findMany({
+      where: { projectId: project.id, status: DELETED_TASK_LIST_STATUS },
+      select: { phaseCode: true },
+    });
+    return rows.map((r) => r.phaseCode).filter((c): c is string => Boolean(c));
+  } catch (err) {
+    console.error("[getDeletedTaskListCodesAction] Error fetching deleted task lists:", err);
+    return [];
   }
 }
 

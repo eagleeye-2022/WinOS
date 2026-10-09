@@ -62,8 +62,9 @@ export async function saveDsm(
   const rawTaskTexts = formData.getAll("taskText") as string[];
   const rawTaskPriorities = formData.getAll("taskPriority") as string[];
   const rawTaskProjectIds = formData.getAll("taskProjectTaskId") as string[];
+  const rawTaskProjectRowIds = formData.getAll("taskProjectId") as string[];
   const rawTaskDueDates = formData.getAll("taskDueDate") as string[];
-  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; dueDate: Date | null }[] = [];
+  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; projectId: string | null; dueDate: Date | null }[] = [];
   for (let i = 0; i < rawTaskTexts.length; i++) {
     const t = rawTaskTexts[i]?.trim();
     if (t) {
@@ -72,6 +73,7 @@ export async function saveDsm(
         text: t,
         priority: rawTaskPriorities[i] || null,
         projectTaskId: rawTaskProjectIds[i]?.trim() || null,
+        projectId: rawTaskProjectRowIds[i]?.trim() || null,
         dueDate: dueDateStr ? new Date(dueDateStr + "T00:00:00.000Z") : null,
       });
     }
@@ -147,6 +149,7 @@ export async function saveDsm(
           order: i,
           priority: item.priority,
           projectTaskId: item.projectTaskId,
+          projectId: item.projectId,
           dueDate: item.dueDate,
           entryId: entry.id,
           addedById: userId,

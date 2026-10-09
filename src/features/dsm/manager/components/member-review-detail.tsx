@@ -50,6 +50,7 @@ import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
+import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { TaskIdChip, ProjectPill, DueDateCell, DueDateInput, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
@@ -1585,10 +1586,10 @@ function TaskRow({
         </span>
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
@@ -1881,6 +1882,31 @@ function SummaryTaskEditor({
  * Projects-module page for a DSM task's linked project task, or null when the DSM task isn't linked to
  * both a project and a project task. Opens in the same tab.
  */
+/** Task-ID chip for a linked Srijan task, with its status editable right underneath. */
+function LinkedTaskCell({
+  projectTask,
+  fallbackTitle,
+  showStatus = true,
+}: {
+  projectTask: { id: string; code: string; title: string | null; status: string };
+  fallbackTitle: string;
+  showStatus?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <TaskIdChip code={projectTask.code} title={projectTask.title || fallbackTitle} />
+      {showStatus && (
+        <ProjectTaskStatusPill
+          taskId={projectTask.id}
+          status={projectTask.status}
+          label={projectTask.code}
+          className="rounded-none border-0 bg-transparent px-0 py-0 dark:bg-transparent"
+        />
+      )}
+    </div>
+  );
+}
+
 function projectTaskHref(task: TaskItem): string | null {
   const projectId = task.projectTask?.project?.id;
   const code = task.projectTask?.code;
@@ -1962,10 +1988,11 @@ function SummaryTaskRow({
         </button>
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {/* Status pill hidden in "What Did You Do Yesterday?" — pass showStatus (or remove the prop) to restore */}
+        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} showStatus={false} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
@@ -2248,6 +2275,9 @@ function TodayTasksSection({
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
   const [sortMode, setSortMode] = useState("priority");
   const [overridePriorities, setOverridePriorities] = useState<Record<string, string | null>>({});
+  // "Not Aligned Task" filter: tasks with no linked project task (project selected or not).
+  const [showNotAligned, setShowNotAligned] = useState(false);
+  const notAlignedCount = tasks.filter((t) => !t.projectTaskId).length;
 
   useEffect(() => {
     fetchUserProjectsWithTasksAction(memberUser?.id).then((res) => {
@@ -2297,26 +2327,51 @@ function TodayTasksSection({
             {tasks.length} task{tasks.length !== 1 ? "s" : ""}
           </span>
         </h3>
-        {tasks.length > 1 && (
-          <SortFilterButton
-            options={[
-              { value: "text-asc", label: "A → Z" },
-              { value: "text-desc", label: "Z → A" },
-              { value: "recent", label: "Recent" },
-              { value: "deadline", label: "Deadline" },
-            ]}
-            activeValue={sortMode}
-            onSelect={setSortMode}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {tasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowNotAligned((v) => !v)}
+              aria-pressed={showNotAligned}
+              title="NAT — Not Aligned Task: show only tasks with no project task selected"
+              className={cn(
+                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+                showNotAligned
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              NAT
+              <span className="rounded bg-muted px-1.5 text-[10px] font-bold tabular-nums">{notAlignedCount}</span>
+            </button>
+          )}
+          {tasks.length > 1 && (
+            <SortFilterButton
+              options={[
+                { value: "text-asc", label: "A → Z" },
+                { value: "text-desc", label: "Z → A" },
+                { value: "recent", label: "Recent" },
+                { value: "deadline", label: "Deadline" },
+              ]}
+              activeValue={sortMode}
+              onSelect={setSortMode}
+            />
+          )}
+        </div>
       </div>
 
+      {showNotAligned && notAlignedCount === 0 && tasks.length > 0 && (
+        <p className="mt-3 rounded-md border border-dashed py-3 text-center text-xs text-muted-foreground">
+          No not-aligned tasks today.
+        </p>
+      )}
+
       {tasks.length > 0 ? (
-        <div className="mt-3 overflow-x-auto">
+        <div className={cn("mt-3 overflow-x-auto", showNotAligned && notAlignedCount === 0 && "hidden")}>
           <table className="w-full border-collapse">
             <TaskTableHead withAction />
             <tbody>
-              {sorted.map((task, i) => (
+              {sorted.map((task, i) => showNotAligned && task.projectTaskId ? null : (
                 <TaskRow
                   key={task.id}
                   task={task}
