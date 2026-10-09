@@ -51,8 +51,12 @@ test-results/
 calendar-api-settings.json
 
 # Zoho import data exports (project/task dumps with owner emails)
-/scripts/data/
-/scripts
+/scripts/*
+/scripts/data/*
+# ...except the static location data the app imports at runtime (see its README)
+!/scripts/data/
+!/scripts/data/locations/
+!/scripts/export-location-data.mjs
 /exports
 
 # Old test videos from the removed in-app report recorder (safe to delete)
