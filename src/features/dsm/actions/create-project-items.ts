@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { hasModuleAccess } from "@/features/users/actions/module-guard";
 import { createProjectTaskListAction } from "@/features/projects/actions/project-actions";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
+import { DELETED_TASK_LIST_STATUS } from "@/features/projects/types";
 import { formatTaskListName, nextTaskListCode, type TaskListOption } from "../utils";
 import type { CascadingTaskOption } from "../queries";
 
@@ -90,7 +91,7 @@ export async function createDsmTaskListAction(
   const existingCodes = phases.length > 0 ? phases.map((p) => p.code) : DEFAULT_PROJECT_PHASES.map((p) => p.code);
   const code = nextTaskListCode(existingCodes);
 
-  const res = await createProjectTaskListAction(ctx.project.id, { name: formatTaskListName(code, name), code });
+  const res = await createProjectTaskListAction(ctx.project.id, { name: formatTaskListName(name), code });
   if (!res.success || !res.phase) {
     return { success: false, error: res.error || "Could not create the task list." };
   }
@@ -124,8 +125,11 @@ export async function createDsmProjectTaskAction(
   const defaultPhase = DEFAULT_PROJECT_PHASES.find((p) => p.code === input.taskListCode);
   const taskList = await d.projectTaskList.findFirst({
     where: { projectId: project.id, phaseCode: input.taskListCode },
-    select: { id: true, name: true },
+    select: { id: true, name: true, status: true },
   });
+  if (taskList?.status === DELETED_TASK_LIST_STATUS) {
+    return { success: false, error: "That task list no longer exists." };
+  }
   const phaseName: string | undefined = phase?.name ?? defaultPhase?.name ?? taskList?.name;
   if (!phaseName) {
     // Not a DB phase or default phase — accept it only if tasks already live in that list.

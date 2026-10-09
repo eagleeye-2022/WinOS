@@ -57,9 +57,8 @@ describe("nextTaskListCode / formatTaskListName", () => {
     expect(nextTaskListCode([])).toBe("1.1");
   });
 
-  it("upper-cases and prefixes the code, without doubling it", () => {
-    expect(formatTaskListName("18.1", "  api integration ")).toBe("18.1 API INTEGRATION");
-    expect(formatTaskListName("18.1", "18.1 api integration")).toBe("18.1 API INTEGRATION");
+  it("upper-cases the title without adding the code", () => {
+    expect(formatTaskListName("  api integration ")).toBe("API INTEGRATION");
   });
 });
 

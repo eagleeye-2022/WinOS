@@ -179,6 +179,9 @@ model StandupTask {
   addedById        String?
   editedById       String?
   projectTaskId    String?
+  /// Project picked for the row. Lets a row be linked to a project without a specific task;
+  /// when a task is also picked, `projectTask.project` is the same project.
+  projectId        String?
   isCompleted      Boolean       @default(false)
   isNewRequest     Boolean       @default(false)
   isParked         Boolean       @default(false)
@@ -189,6 +192,7 @@ model StandupTask {
   addedBy          User?         @relation("TaskAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
   editedBy         User?         @relation("TaskEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
   projectTask      ProjectTask?  @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
+  project          Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
 }
 
 model StandupTimelineEvent {
@@ -986,6 +990,7 @@ model Project {
   clientInvitationProjects ClientInvitationProject[]
   activities               ProjectActivity[]
   noteShares               BoardNoteProjectShare[]
+  standupTasks             StandupTask[]
 
   @@index([ownerId])
   @@index([createdAt])

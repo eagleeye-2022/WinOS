@@ -73,27 +73,18 @@ const inputCls =
 
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-/** `projectId` / `taskListCode` are client-only picker state; only `projectTaskId` is saved. */
+/** `projectTaskId` and `projectId` are saved (a row can link a project with no task);
+ *  `taskListCode` is client-only picker state. */
 type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; taskListCode?: string; dueDate?: string; createdAt?: string };
 
 type ProjectsUpdater = (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
 
 /**
- * "Not Aligned Task" filter: a row with no linked project task, or one linked to a task
- * (or subtask) that sits in a task list named "… NOT ALIGNED TASK".
+ * "Not Aligned Task" filter: a row with no linked project task — whether or not a project
+ * is selected.
  */
-function isNotAlignedTask(task: { projectTaskId?: string }, cascadingProjects: CascadingProjectOption[]): boolean {
-  if (!task.projectTaskId) return true;
-  for (const p of cascadingProjects) {
-    const parent = p.tasks.find(
-      (t) => t.id === task.projectTaskId || t.subtasks.some((st) => st.id === task.projectTaskId)
-    );
-    if (parent) {
-      const list = p.taskLists.find((l) => l.code === parent.phaseCode);
-      return /not aligned/i.test(list?.name ?? "");
-    }
-  }
-  return false;
+function isNotAlignedTask(task: { projectTaskId?: string }): boolean {
+  return !task.projectTaskId;
 }
 
 function resolveTaskTree(task: { projectTaskId?: string; projectId?: string; taskListCode?: string }, cascadingProjects: CascadingProjectOption[]) {
@@ -221,7 +212,7 @@ function TaskRows({
   };
 
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
-  const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t, cascadingProjects));
+  const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t));
 
   return (
     <div className="flex flex-col gap-3">
@@ -245,12 +236,13 @@ function TaskRows({
         const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
         return (
-          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task, cascadingProjects) && "hidden")}>
+          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task) && "hidden")}>
             {/* Left index label: T1, T2, T3 */}
             <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
               T{i + 1}
             </span>
             <input type="hidden" name="taskProjectTaskId" value={projectTaskId} />
+            <input type="hidden" name="taskProjectId" value={tree.projectId} />
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
 
             {/* Main Card */}
@@ -1190,6 +1182,7 @@ export function SubmitDsmForm({
         priority: t.priority ?? "",
         // Keep the project link — without it, re-saving a submitted entry wipes every task's Project / Task ID.
         projectTaskId: t.projectTaskId ?? "",
+        projectId: t.projectId ?? "",
         carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
         dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
         createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
@@ -1204,6 +1197,7 @@ export function SubmitDsmForm({
         priority: "",
         carried: true,
         projectTaskId: t.projectTaskId ?? "",
+        projectId: t.projectId ?? "",
         dueDate: "",
       }));
     }
@@ -1382,7 +1376,7 @@ export function SubmitDsmForm({
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [linkedTimeLogs, setLinkedTimeLogs] = useState<Record<string, number>>({});
-  const notAlignedCount = tasks.filter((t) => isNotAlignedTask(t, cascadingProjects)).length;
+  const notAlignedCount = tasks.filter((t) => isNotAlignedTask(t)).length;
 
   useEffect(() => {
     fetchUserOpenProjectTasksAction().then((res) => {
@@ -1536,7 +1530,7 @@ export function SubmitDsmForm({
                 type="button"
                 onClick={() => setShowNotAligned((v) => !v)}
                 aria-pressed={showNotAligned}
-                title="NAT — Not Aligned Task: show only tasks with no project, or in a NOT ALIGNED TASK list"
+                title="NAT — Not Aligned Task: show only tasks with no project task selected"
                 className={cn(
                   "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                   showNotAligned

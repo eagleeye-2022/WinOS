@@ -331,6 +331,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
         </div>
       )}
 
+      {/* Member filter pills (All / Recordings to review / Late / No recording) — hidden for now
       <div className="flex flex-wrap items-center gap-2">
         {([
           ["all", "All"],
@@ -353,6 +354,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
           </button>
         ))}
       </div>
+      */}
 
       {stats && (
         <AllDsrStatsRow

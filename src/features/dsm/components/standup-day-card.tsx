@@ -157,7 +157,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                               </span>
                             </td>
                             <td className="py-2.5 pr-3 align-top">
-                              {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
+import { DELETED_TASK_LIST_STATUS } from "@/features/projects/types";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
 import {
   CORE_DAILY_TASKS_CLOSED_STATUSES,
@@ -35,6 +36,9 @@ export type EntryTask = {
     owners?: { userId: string }[];
     project?: { id: string; name: string; code?: string | null; ownerId?: string | null } | null;
   } | null;
+  /** Project picked for the row — set even when no project task is linked. */
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
   createdAt?: Date;
   updatedAt?: Date;
   addedBy?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
@@ -158,6 +162,7 @@ const entryInclude = {
           project: { select: { id: true, name: true, code: true, ownerId: true } },
         },
       },
+      project: { select: { id: true, name: true } },
     },
   },
   blockers: {
@@ -385,6 +390,7 @@ export type YesterdayTaskItem = {
   text: string;
   isCompleted: boolean;
   projectTaskId: string | null;
+  projectId: string | null;
   code: string | null;
   /** Effort the member logged on the linked project task that day; null when not linked. */
   loggedMinutes: number | null;
@@ -419,7 +425,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
       tasks: {
         where: { kind: "TODAY" },
         orderBy: { order: "asc" },
-        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectTask: { select: { code: true } } },
+        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true } } },
       },
     },
     orderBy: { date: "desc" },
@@ -439,11 +445,12 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   return {
     date: dateStr,
     tasks: entry.tasks.map(
-      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectTask: { code: string } | null }) => ({
+      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectId: string | null; projectTask: { code: string } | null }) => ({
         id: t.id,
         text: t.text,
         isCompleted: isYesterdayTaskDone(t, dsrDone),
         projectTaskId: t.projectTaskId,
+        projectId: t.projectId,
         code: t.projectTask?.code ?? null,
         loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
       })
@@ -1394,6 +1401,8 @@ export async function getUserProjectsWithTasksAndSubtasks(
       code: true,
       name: true,
       phases: { select: { code: true, name: true }, orderBy: { order: "asc" } },
+      // Tombstones of task lists a manager deleted — hidden from the picker.
+      taskLists: { where: { status: DELETED_TASK_LIST_STATUS }, select: { phaseCode: true } },
       // Every open task in the project, regardless of who it's assigned to.
       tasks: {
         where: {
@@ -1436,7 +1445,14 @@ export async function getUserProjectsWithTasksAndSubtasks(
     phaseName: string | null;
     childTasks?: QuerySubtask[];
   };
-  type QueryProject = { id: string; code: string | null; name: string; phases?: TaskListOption[]; tasks?: QueryTask[] };
+  type QueryProject = {
+    id: string;
+    code: string | null;
+    name: string;
+    phases?: TaskListOption[];
+    taskLists?: { phaseCode: string | null }[];
+    tasks?: QueryTask[];
+  };
 
   // Order by task code with numeric awareness ("T2" before "T10", unlike a DB string sort);
   // tasks without a code go last, alphabetically by title.
@@ -1451,7 +1467,9 @@ export async function getUserProjectsWithTasksAndSubtasks(
     id: p.id,
     code: p.code,
     name: p.name,
-    taskLists: buildTaskListOptions(p.phases || [], p.tasks || [], DEFAULT_PROJECT_PHASES),
+    taskLists: buildTaskListOptions(p.phases || [], p.tasks || [], DEFAULT_PROJECT_PHASES).filter(
+      (l) => !(p.taskLists || []).some((d) => d.phaseCode === l.code)
+    ),
     tasks: [...(p.tasks || [])].sort(byCode).map((t) => ({
       id: t.id,
       code: t.code,

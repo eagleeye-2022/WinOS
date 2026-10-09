@@ -325,8 +325,7 @@ export function nextTaskListCode(existingCodes: string[]): string {
   return `${(majors.length ? Math.max(...majors) : 0) + 1}.1`;
 }
 
-/** Board-style task list name: upper-cased and prefixed with its code ("18.1 API INTEGRATION"). */
-export function formatTaskListName(code: string, rawName: string): string {
-  const upper = rawName.trim().toUpperCase();
-  return upper.startsWith(code) ? upper : `${code} ${upper}`;
+/** Board-style task list name: just the upper-cased title — the code stays an internal key. */
+export function formatTaskListName(rawName: string): string {
+  return rawName.trim().toUpperCase();
 }

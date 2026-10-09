@@ -10,7 +10,7 @@ import {
   CheckSquare,
   AlertCircle,
   Layers,
-  AlertTriangle,
+  // AlertTriangle, // used by the hidden stale-task banner
   Sparkles,
   FileText,
   User as UserIcon,
@@ -44,7 +44,7 @@ import { TimeTrackerView } from "./time-tracker-view";
 import { TimerWidget } from "../timer-widget";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
-import { analyzeTaskStaleness } from "../../manager/ai-project-assistant";
+// import { analyzeTaskStaleness } from "../../manager/ai-project-assistant";
 import {
   getTimeLogsAction,
   getCurrentUserContextAction,
@@ -53,6 +53,9 @@ import {
   getProjectMembersAction,
   reorderProjectTasksAction,
   createProjectTaskListAction,
+  renameProjectTaskListAction,
+  deleteProjectTaskListAction,
+  getDeletedTaskListCodesAction,
   getProjectPhasesAction,
 } from "../../actions/project-actions";
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
@@ -268,6 +271,8 @@ export function TasksBoardView({
   const [newTaskListName, setNewTaskListName] = useState("");
   const [newTaskListCode, setNewTaskListCode] = useState("");
   const [isCreatingTaskList, setIsCreatingTaskList] = useState(false);
+  // Task lists a manager deleted — hidden even when they are template-default columns.
+  const [deletedPhaseCodes, setDeletedPhaseCodes] = useState<string[]>([]);
 
   useEffect(() => {
     if (phases && phases.length > 0) {
@@ -280,6 +285,7 @@ export function TasksBoardView({
           setDbPhases(res);
         }
       });
+      getDeletedTaskListCodesAction(targetId).then(setDeletedPhaseCodes);
     }
   }, [phases, realProjectId, projectCode]);
 
@@ -289,10 +295,9 @@ export function TasksBoardView({
 
     setIsCreatingTaskList(true);
     try {
+      // The code is only the column's internal key — the visible name is just the title.
       const code = newTaskListCode.trim() || `${phaseColumns.length + 1}.1`;
-      const formattedName = rawName.toUpperCase().startsWith(code)
-        ? rawName.toUpperCase()
-        : `${code} ${rawName.toUpperCase()}`;
+      const formattedName = rawName.toUpperCase();
 
       const newPhaseItem: ProjectPhase = {
         id: `ph-${Date.now()}`,
@@ -302,6 +307,7 @@ export function TasksBoardView({
       };
       setCustomPhases((prev) => [...prev, { code, name: formattedName }]);
       setDbPhases((prev) => [...prev, newPhaseItem]);
+      setDeletedPhaseCodes((prev) => prev.filter((c) => c !== code));
 
       const targetProjectId = realProjectId || projectCode;
       if (targetProjectId) {
@@ -327,6 +333,73 @@ export function TasksBoardView({
     } finally {
       setIsCreatingTaskList(false);
     }
+  };
+
+  // Inline task-list (phase column) renaming, click the column name to edit.
+  const [editingPhaseCode, setEditingPhaseCode] = useState<string | null>(null);
+  const [phaseNameDraft, setPhaseNameDraft] = useState("");
+
+  const handleStartEditPhaseName = (code: string, name: string) => {
+    if (!realProjectId) return;
+    setEditingPhaseCode(code);
+    setPhaseNameDraft(name);
+  };
+
+  const commitPhaseNameEdit = async (code: string, oldName: string) => {
+    const trimmed = phaseNameDraft.trim().toUpperCase();
+    setEditingPhaseCode(null);
+    if (!trimmed || trimmed === oldName || !realProjectId) return;
+
+    const prevDbPhases = dbPhases;
+    const prevCustomPhases = customPhases;
+    setDbPhases((prev) =>
+      prev.some((p) => p.code === code)
+        ? prev.map((p) => (p.code === code ? { ...p, name: trimmed } : p))
+        : [...prev, { id: `ph-${Date.now()}`, code, name: trimmed, isCompleted: false }]
+    );
+    setCustomPhases((prev) => prev.map((p) => (p.code === code ? { ...p, name: trimmed } : p)));
+
+    const res = await renameProjectTaskListAction(realProjectId, { code, name: trimmed });
+    if (res.success) {
+      toast.success(`Task list renamed to "${trimmed}"`);
+      router.refresh();
+    } else {
+      setDbPhases(prevDbPhases);
+      setCustomPhases(prevCustomPhases);
+      toast.error("Failed to rename task list");
+    }
+  };
+
+  const handleDeleteTaskList = async (code: string, name: string) => {
+    if (!realProjectId) return;
+    const taskCount = localTasks.filter((t) => !t.parentTaskId && t.phaseCode === code).length;
+    if (taskCount > 0) {
+      await confirm({
+        title: "Can't delete task list",
+        description: `"${name}" still has ${taskCount} task${taskCount === 1 ? "" : "s"}. Move or delete them first, then delete the task list.`,
+        confirmLabel: "OK",
+        hideCancel: true,
+        danger: false,
+      });
+      return;
+    }
+    const ok = await confirm({
+      title: "Delete task list?",
+      description: `Delete task list "${name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+
+    const res = await deleteProjectTaskListAction(realProjectId, code);
+    if (!res.success) {
+      toast.error(res.error);
+      return;
+    }
+    setDeletedPhaseCodes((prev) => (prev.includes(code) ? prev : [...prev, code]));
+    setDbPhases((prev) => prev.filter((p) => p.code !== code));
+    setCustomPhases((prev) => prev.filter((p) => p.code !== code));
+    toast.success(`Task list "${name}" deleted`);
+    router.refresh();
   };
 
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -759,8 +832,8 @@ export function TasksBoardView({
     }
   };
 
-  // Stale Task Analysis
-  const stalenessAnalysis = analyzeTaskStaleness(scopedTasks);
+  // Stale Task Analysis — banner temporarily hidden
+  // const stalenessAnalysis = analyzeTaskStaleness(scopedTasks);
 
   // Dynamic counts for footer
   const realTaskCount = displayTasks.length;
@@ -843,6 +916,10 @@ export function TasksBoardView({
     if (!phaseMap[p.code]) {
       phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
     }
+  });
+
+  deletedPhaseCodes.forEach((code) => {
+    delete phaseMap[code];
   });
 
   filteredTasks.forEach((t) => {
@@ -1646,7 +1723,7 @@ export function TasksBoardView({
             </div>
           )}
 
-          {/* Stale Task Alert Banner */}
+          {/* Stale Task Alert Banner — temporarily hidden
           {stalenessAnalysis.staleCount > 0 && (
             <div className="flex items-center justify-between bg-amber-500/10 border-b border-amber-500/30 px-6 py-2 text-xs text-amber-700 dark:text-amber-300">
               <div className="flex items-center gap-2 font-medium">
@@ -1658,6 +1735,7 @@ export function TasksBoardView({
               </span>
             </div>
           )}
+          */}
 
           {/* ── Action Toolbar (View Switches & Add Task matching reference image) ────────────────── */}
           <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-card relative gap-3">
@@ -1760,9 +1838,11 @@ export function TasksBoardView({
                         >
                           <ArrowRightToLine size={14} />
                         </button>
+                        {/* Task count hidden
                         <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 font-mono mb-3">
                           {col.count}
                         </span>
+                        */}
                         <div className="flex-1 flex items-start justify-center">
                           <span
                             className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
@@ -1783,9 +1863,32 @@ export function TasksBoardView({
                       {/* Column Header matching reference screenshot */}
                       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="font-extrabold text-xs text-foreground tracking-wide truncate max-w-[240px]">
-                            {col.name} ({col.count})
-                          </span>
+                          {editingPhaseCode === col.code ? (
+                            <input
+                              type="text"
+                              autoFocus
+                              value={phaseNameDraft}
+                              onChange={(e) => setPhaseNameDraft(e.target.value)}
+                              onFocus={(e) => e.currentTarget.select()}
+                              onBlur={() => commitPhaseNameEdit(col.code, col.name)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") e.currentTarget.blur();
+                                if (e.key === "Escape") setEditingPhaseCode(null);
+                              }}
+                              className="w-[240px] rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 font-extrabold text-xs uppercase tracking-wide text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary transition-all"
+                            />
+                          ) : (
+                            <span
+                              onClick={() => handleStartEditPhaseName(col.code, col.name)}
+                              title={realProjectId ? "Click to rename task list" : col.name}
+                              className={cn(
+                                "rounded-md px-1 -mx-1 font-extrabold text-xs text-foreground tracking-wide truncate max-w-[240px] transition-colors",
+                                realProjectId && "cursor-text hover:bg-slate-200/60 dark:hover:bg-neutral-800/60"
+                              )}
+                            >
+                              {col.name}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -1812,6 +1915,16 @@ export function TasksBoardView({
                           >
                             <Plus size={14} />
                           </button>
+                          {realProjectId && currentUser?.role === "ADMIN" && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTaskList(col.code, col.name)}
+                              className="p-1 text-slate-500 hover:text-destructive rounded hover:bg-destructive/10 transition-colors cursor-pointer"
+                              title={`Delete ${col.name}`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                           {/* Phase Options */}
                           {/* <Popover>
                             <PopoverTrigger asChild>

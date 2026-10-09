@@ -32,6 +32,13 @@ export interface ProjectPhase {
   ownerId?: string; // defaults to the project owner when the phase is created
 }
 
+/**
+ * `ProjectTaskList.status` of a tombstone row marking a task list (board column) a manager
+ * deleted. Template-default columns are drawn even without a DB row, so a deleted one needs a
+ * marker to stay hidden; creating a list with the same code again removes the marker.
+ */
+export const DELETED_TASK_LIST_STATUS = "Deleted";
+
 export interface TaskList {
   id: string;
   name: string;
