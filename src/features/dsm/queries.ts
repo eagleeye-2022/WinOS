@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange } from "./utils";
+import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
+import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
 import {
   CORE_DAILY_TASKS_CLOSED_STATUSES,
@@ -1342,6 +1343,8 @@ export type CascadingTaskOption = {
   code: string | null;
   title: string;
   status: string;
+  /** Task list (= board phase column) the task sits in. */
+  phaseCode: string | null;
   subtasks: CascadingSubtaskOption[];
 };
 
@@ -1349,6 +1352,7 @@ export type CascadingProjectOption = {
   id: string;
   code: string | null;
   name: string;
+  taskLists: TaskListOption[];
   tasks: CascadingTaskOption[];
 };
 
@@ -1364,22 +1368,32 @@ export async function getUserProjectsWithTasksAndSubtasks(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
+  // Manager-tier users (same rule as the DSM create actions) can pick from — and add to — any
+  // active project; everyone else only sees projects they belong to.
+  const user = await d.user.findUnique({ where: { id: userId }, select: { role: true, profileRole: true } });
+  const isManager =
+    ["MANAGER", "ADMIN", "SUPER_ADMIN", "PROJECT_MANAGER"].includes(String(user?.role).toUpperCase()) ||
+    user?.profileRole === "ADMIN";
   const projects = await d.project.findMany({
-    // Only projects the user belongs to — not every active project in the org.
     where: {
       status: "ACTIVE",
-      OR: [
-        { ownerId: userId },
-        { createdByUserId: userId },
-        { members: { some: { userId } } },
-        { roleAssignments: { some: { userId } } },
-        { tasks: { some: { OR: [{ ownerId: userId }, { owners: { some: { userId } } }] } } },
-      ],
+      ...(isManager
+        ? {}
+        : {
+            OR: [
+              { ownerId: userId },
+              { createdByUserId: userId },
+              { members: { some: { userId } } },
+              { roleAssignments: { some: { userId } } },
+              { tasks: { some: { OR: [{ ownerId: userId }, { owners: { some: { userId } } }] } } },
+            ],
+          }),
     },
     select: {
       id: true,
       code: true,
       name: true,
+      phases: { select: { code: true, name: true }, orderBy: { order: "asc" } },
       // Every open task in the project, regardless of who it's assigned to.
       tasks: {
         where: {
@@ -1391,6 +1405,8 @@ export async function getUserProjectsWithTasksAndSubtasks(
           code: true,
           title: true,
           status: true,
+          phaseCode: true,
+          phaseName: true,
           childTasks: {
             where: {
               status: { notIn: ["Closed", "Closed/Done", "Completed"] },
@@ -1411,8 +1427,16 @@ export async function getUserProjectsWithTasksAndSubtasks(
   });
 
   type QuerySubtask = { id: string; code: string | null; title: string; status: string };
-  type QueryTask = { id: string; code: string | null; title: string; status: string; childTasks?: QuerySubtask[] };
-  type QueryProject = { id: string; code: string | null; name: string; tasks?: QueryTask[] };
+  type QueryTask = {
+    id: string;
+    code: string | null;
+    title: string;
+    status: string;
+    phaseCode: string | null;
+    phaseName: string | null;
+    childTasks?: QuerySubtask[];
+  };
+  type QueryProject = { id: string; code: string | null; name: string; phases?: TaskListOption[]; tasks?: QueryTask[] };
 
   // Order by task code with numeric awareness ("T2" before "T10", unlike a DB string sort);
   // tasks without a code go last, alphabetically by title.
@@ -1427,11 +1451,13 @@ export async function getUserProjectsWithTasksAndSubtasks(
     id: p.id,
     code: p.code,
     name: p.name,
+    taskLists: buildTaskListOptions(p.phases || [], p.tasks || [], DEFAULT_PROJECT_PHASES),
     tasks: [...(p.tasks || [])].sort(byCode).map((t) => ({
       id: t.id,
       code: t.code,
       title: t.title,
       status: t.status,
+      phaseCode: t.phaseCode,
       subtasks: [...(t.childTasks || [])].sort(byCode).map((st) => ({
         id: st.id,
         code: st.code,

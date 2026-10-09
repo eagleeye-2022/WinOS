@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect, useRef, useTransition } from "react";
+import { useActionState, useState, useEffect, useRef, useTransition, type Dispatch, type SetStateAction } from "react";
 import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
@@ -8,7 +8,6 @@ import { toIsoDateStr, toUtcDate } from "../utils";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
 import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
-import { SearchableSelect } from "@/components/shared/searchable-select";
 import { YesterdayAdditionalWork, type AdditionalWorkItem } from "./yesterday-additional-work";
 import { YesterdayTaskList } from "./yesterday-task-list";
 import type { YesterdaySummary } from "../queries";
@@ -21,6 +20,7 @@ import { fetchUserOpenProjectTasksAction, fetchLinkedTimeLogsAction, fetchUserPr
 import type { OpenProjectTaskOption, CascadingProjectOption } from "../queries";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { SortFilterButton, DueDateInput } from "@/components/shared/task-table-parts";
+import { ProjectTaskSelectors } from "./project-task-selectors";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -73,9 +73,30 @@ const inputCls =
 
 // ── Task rows ─────────────────────────────────────────────────────────────────
 
-type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; dueDate?: string; createdAt?: string };
+/** `projectId` / `taskListCode` are client-only picker state; only `projectTaskId` is saved. */
+type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; taskListCode?: string; dueDate?: string; createdAt?: string };
 
-function resolveTaskTree(task: { projectTaskId?: string; projectId?: string }, cascadingProjects: CascadingProjectOption[]) {
+type ProjectsUpdater = (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
+
+/**
+ * "Not Aligned Task" filter: a row with no linked project task, or one linked to a task
+ * (or subtask) that sits in a task list named "… NOT ALIGNED TASK".
+ */
+function isNotAlignedTask(task: { projectTaskId?: string }, cascadingProjects: CascadingProjectOption[]): boolean {
+  if (!task.projectTaskId) return true;
+  for (const p of cascadingProjects) {
+    const parent = p.tasks.find(
+      (t) => t.id === task.projectTaskId || t.subtasks.some((st) => st.id === task.projectTaskId)
+    );
+    if (parent) {
+      const list = p.taskLists.find((l) => l.code === parent.phaseCode);
+      return /not aligned/i.test(list?.name ?? "");
+    }
+  }
+  return false;
+}
+
+function resolveTaskTree(task: { projectTaskId?: string; projectId?: string; taskListCode?: string }, cascadingProjects: CascadingProjectOption[]) {
   const pTaskId = task.projectTaskId || "";
   let resolvedPId = task.projectId || "";
   let resolvedTId = "";
@@ -108,9 +129,12 @@ function resolveTaskTree(task: { projectTaskId?: string; projectId?: string }, c
   const currentTask = currentProject?.tasks?.find((t) => t.id === resolvedTId);
   const currentSubtask = currentTask?.subtasks?.find((st) => st.id === resolvedStId);
   const activeTargetTask = currentSubtask || currentTask;
+  // A picked task decides its list; otherwise keep whatever list the row filtered by.
+  const taskListCode = currentTask ? currentTask.phaseCode || "" : task.taskListCode || "";
 
   return {
     projectId: resolvedPId,
+    taskListCode,
     taskId: resolvedTId,
     subtaskId: resolvedStId,
     currentProject,
@@ -129,6 +153,8 @@ function TaskRows({
   linkedTimeLogs,
   onChange,
   onParkTask,
+  onProjectsChange,
+  onlyNotAligned = false,
 }: {
   tasks: Task[];
   teamMembers: TeamMember[];
@@ -136,9 +162,18 @@ function TaskRows({
   cascadingProjects: CascadingProjectOption[];
   projectsLoading: boolean;
   linkedTimeLogs: Record<string, number>;
-  onChange: (t: Task[]) => void;
+  onChange: Dispatch<SetStateAction<Task[]>>;
   onParkTask?: (task: Task, index: number) => void;
+  onProjectsChange: ProjectsUpdater;
+  /** "Not Aligned Task" filter (see isNotAlignedTask). Other rows are hidden with CSS, not
+   *  unmounted — their hidden inputs must still submit with the form. */
+  onlyNotAligned?: boolean;
 }) {
+  // Functional, id-keyed update — safe to call after an await (creating a task list / task),
+  // when `tasks` from this render may be stale or rows may have moved.
+  const patchRow = (id: string, patch: (t: Task) => Partial<Task>) =>
+    onChange((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch(t) } : t)));
+
   const updateField = <K extends keyof Task>(i: number, field: K, v: Task[K]) => {
     const n = [...tasks];
     n[i] = { ...n[i], [field]: v };
@@ -152,22 +187,26 @@ function TaskRows({
     n[i] = {
       ...n[i],
       projectId: newProjectId,
+      taskListCode: "",
       projectTaskId: "",
     };
     onChange(n);
   };
 
-  const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
-    const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
-    const n = [...tasks];
+  const handleTaskListChange = (rowId: string, newCode: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
+    // Keep the picked task only if it belongs to the newly chosen list.
+    const keepTask = !newCode || currentTask?.phaseCode === newCode;
+    patchRow(rowId, () => ({ taskListCode: newCode, ...(keepTask ? {} : { projectTaskId: "" }) }));
+  };
+
+  const handleTaskChange = (rowId: string, chosenTask?: CascadingProjectOption["tasks"][number]) => {
     // Link the parent task immediately (a subtask can refine it). The dropdowns are derived from
     // projectTaskId, so clearing it here would drop the selection and hide the subtask picker.
-    n[i] = {
-      ...n[i],
+    patchRow(rowId, (t) => ({
       projectTaskId: chosenTask?.id || "",
-      text: (!n[i].text.trim() && chosenTask) ? chosenTask.title : n[i].text,
-    };
-    onChange(n);
+      taskListCode: chosenTask?.phaseCode || t.taskListCode,
+      text: (!t.text.trim() && chosenTask) ? chosenTask.title : t.text,
+    }));
   };
 
   const handleSubtaskChange = (i: number, newSubtaskId: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
@@ -182,9 +221,15 @@ function TaskRows({
   };
 
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
+  const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t, cascadingProjects));
 
   return (
     <div className="flex flex-col gap-3">
+      {allAligned && (
+        <p className="rounded-md border border-dashed py-3 text-center text-xs text-muted-foreground">
+          No not-aligned tasks today.
+        </p>
+      )}
       {tasks.map((task, i) => {
         const takenPriorities = tasks
           .filter((_, idx) => idx !== i && _.priority)
@@ -200,7 +245,7 @@ function TaskRows({
         const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
         return (
-          <div key={task.id} className="flex items-center gap-3">
+          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task, cascadingProjects) && "hidden")}>
             {/* Left index label: T1, T2, T3 */}
             <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
               T{i + 1}
@@ -242,50 +287,19 @@ function TaskRows({
                   </span>
                 )}
 
-                {(cascadingProjects.length > 0 || projectsLoading) && (
-                  <SearchableSelect
-                    value={tree.projectId}
-                    onChange={(v) => handleProjectChange(i, v)}
-                    options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
-                    placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                    searchPlaceholder="Search projects..."
-                    className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px]"
-                  />
-                )}
-
-                {tree.currentProject && (
-                  <>
-                    <div className="h-3.5 w-px bg-border shrink-0" />
-                    <SearchableSelect
-                      value={tree.taskId}
-                      onChange={(v) => handleTaskChange(i, v, tree.currentProject)}
-                      options={tree.currentProject.tasks.map((t) => ({
-                        value: t.id,
-                        label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
-                      }))}
-                      placeholder={tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                      searchPlaceholder="Search tasks..."
-                      className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[200px]"
-                    />
-                  </>
-                )}
-
-                {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
-                  <>
-                    <div className="h-3.5 w-px bg-border shrink-0" />
-                    <SearchableSelect
-                      value={tree.subtaskId}
-                      onChange={(v) => handleSubtaskChange(i, v, tree.currentTask)}
-                      options={tree.currentTask.subtasks.map((st) => ({
-                        value: st.id,
-                        label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
-                      }))}
-                      placeholder="Select Subtask"
-                      searchPlaceholder="Search subtasks..."
-                      className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px]"
-                    />
-                  </>
-                )}
+                <ProjectTaskSelectors
+                  projects={cascadingProjects}
+                  projectsLoading={projectsLoading}
+                  projectId={tree.projectId}
+                  taskListCode={tree.taskListCode}
+                  taskId={tree.taskId}
+                  subtaskId={tree.subtaskId}
+                  onProjectChange={(v) => handleProjectChange(i, v)}
+                  onTaskListChange={(v) => handleTaskListChange(task.id, v, tree.currentTask)}
+                  onTaskChange={(t) => handleTaskChange(task.id, t)}
+                  onSubtaskChange={(v, parent) => handleSubtaskChange(i, v, parent)}
+                  onProjectsChange={onProjectsChange}
+                />
               </div>
 
               {/* Line 3: Priority + Due Date on left, Time Tracked / Live Timer on right */}
@@ -813,6 +827,8 @@ type ParkedTaskItem = {
   projectTaskId: string;
   /** Client-only: tracks the chosen project before/without a specific task being picked yet. Not persisted directly — only projectTaskId is saved. */
   projectId: string;
+  /** Client-only: task list the row is filtered by. */
+  taskListCode?: string;
   dueDate: string;
   persisted: boolean;
 };
@@ -843,12 +859,14 @@ function ParkingLotRows({
   projectsLoading,
   onChange,
   onMoveToToday,
+  onProjectsChange,
 }: {
   items: ParkedTaskItem[];
   cascadingProjects: CascadingProjectOption[];
   projectsLoading: boolean;
-  onChange: (items: ParkedTaskItem[]) => void;
+  onChange: Dispatch<SetStateAction<ParkedTaskItem[]>>;
   onMoveToToday: (item: ParkedTaskItem) => void;
+  onProjectsChange: ProjectsUpdater;
 }) {
   const [, startTransition] = useTransition();
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -861,23 +879,46 @@ function ParkingLotRows({
 
   const handleProjectChange = (i: number, newProjectId: string) => {
     const n = [...items];
-    n[i] = { ...n[i], projectId: newProjectId, projectTaskId: "" };
+    n[i] = { ...n[i], projectId: newProjectId, taskListCode: "", projectTaskId: "" };
     onChange(n);
     persistField(i, { projectTaskId: "" });
   };
 
-  const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
-    const chosenTask = currentProject?.tasks.find((t) => t.id === newTaskId);
+  // The two handlers below can run after an await (creating a task list / task), so they update
+  // by row id with a functional setState rather than from this render's possibly stale `items`.
+  const handleTaskListChange = (item: ParkedTaskItem, newCode: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
+    const keepTask = !newCode || currentTask?.phaseCode === newCode;
+    onChange((prev) =>
+      prev.map((it) => (it.id === item.id ? { ...it, taskListCode: newCode, ...(keepTask ? {} : { projectTaskId: "" }) } : it))
+    );
+    if (!keepTask && item.persisted) {
+      startTransition(async () => {
+        await updateParkedTask(item.id, { projectTaskId: "" });
+      });
+    }
+  };
+
+  const handleTaskChange = (item: ParkedTaskItem, chosenTask?: CascadingProjectOption["tasks"][number]) => {
     // Link the parent task immediately (a subtask can refine it) — see TaskRows.handleTaskChange.
     const resolvedProjectTaskId = chosenTask?.id || "";
-    const n = [...items];
-    n[i] = {
-      ...n[i],
-      projectTaskId: resolvedProjectTaskId,
-      text: (!n[i].text.trim() && chosenTask) ? chosenTask.title : n[i].text,
-    };
-    onChange(n);
-    persistField(i, { projectTaskId: resolvedProjectTaskId, ...(n[i].text !== items[i].text ? { text: n[i].text } : {}) });
+    const newText = !item.text.trim() && chosenTask ? chosenTask.title : undefined;
+    onChange((prev) =>
+      prev.map((it) =>
+        it.id === item.id
+          ? {
+              ...it,
+              projectTaskId: resolvedProjectTaskId,
+              taskListCode: chosenTask?.phaseCode || it.taskListCode,
+              text: !it.text.trim() && chosenTask ? chosenTask.title : it.text,
+            }
+          : it
+      )
+    );
+    if (item.persisted) {
+      startTransition(async () => {
+        await updateParkedTask(item.id, { projectTaskId: resolvedProjectTaskId, ...(newText ? { text: newText } : {}) });
+      });
+    }
   };
 
   const handleSubtaskChange = (i: number, newSubtaskId: string, currentTask?: CascadingProjectOption["tasks"][number]) => {
@@ -983,50 +1024,19 @@ function ParkingLotRows({
 
               {/* Line 2: Project Selector + Task Selector + Subtask Selector */}
               <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
-                {(cascadingProjects.length > 0 || projectsLoading) && (
-                  <SearchableSelect
-                    value={tree.projectId}
-                    onChange={(v) => handleProjectChange(i, v)}
-                    options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
-                    placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
-                    searchPlaceholder="Search projects..."
-                    className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px]"
-                  />
-                )}
-
-                {tree.currentProject && (
-                  <>
-                    <div className="h-3.5 w-px bg-border shrink-0" />
-                    <SearchableSelect
-                      value={tree.taskId}
-                      onChange={(v) => handleTaskChange(i, v, tree.currentProject)}
-                      options={tree.currentProject.tasks.map((t) => ({
-                        value: t.id,
-                        label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
-                      }))}
-                      placeholder={tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                      searchPlaceholder="Search tasks..."
-                      className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[200px]"
-                    />
-                  </>
-                )}
-
-                {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
-                  <>
-                    <div className="h-3.5 w-px bg-border shrink-0" />
-                    <SearchableSelect
-                      value={tree.subtaskId}
-                      onChange={(v) => handleSubtaskChange(i, v, tree.currentTask)}
-                      options={tree.currentTask.subtasks.map((st) => ({
-                        value: st.id,
-                        label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
-                      }))}
-                      placeholder="Select Subtask"
-                      searchPlaceholder="Search subtasks..."
-                      className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px]"
-                    />
-                  </>
-                )}
+                <ProjectTaskSelectors
+                  projects={cascadingProjects}
+                  projectsLoading={projectsLoading}
+                  projectId={tree.projectId}
+                  taskListCode={tree.taskListCode}
+                  taskId={tree.taskId}
+                  subtaskId={tree.subtaskId}
+                  onProjectChange={(v) => handleProjectChange(i, v)}
+                  onTaskListChange={(v) => handleTaskListChange(item, v, tree.currentTask)}
+                  onTaskChange={(t) => handleTaskChange(item, t)}
+                  onSubtaskChange={(v, parent) => handleSubtaskChange(i, v, parent)}
+                  onProjectsChange={onProjectsChange}
+                />
               </div>
 
               {/* Line 3: Due Date on left, To Today Action on right */}
@@ -1200,6 +1210,8 @@ export function SubmitDsmForm({
   });
 
   const [taskSortMode, setTaskSortMode] = useState("");
+  // "Not Aligned Task" filter for today's tasks (see isNotAlignedTask).
+  const [showNotAligned, setShowNotAligned] = useState(false);
 
   const applyTaskSort = (mode: string) => {
     setTaskSortMode(mode);
@@ -1369,6 +1381,7 @@ export function SubmitDsmForm({
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [linkedTimeLogs, setLinkedTimeLogs] = useState<Record<string, number>>({});
+  const notAlignedCount = tasks.filter((t) => isNotAlignedTask(t, cascadingProjects)).length;
 
   useEffect(() => {
     fetchUserOpenProjectTasksAction().then((res) => {
@@ -1517,18 +1530,35 @@ export function SubmitDsmForm({
           title="What Will You Do Today?"
           required
           headerAction={
-            tasks.length > 1 ? (
-              <SortFilterButton
-                options={[
-                  { value: "text-asc", label: "A → Z" },
-                  { value: "text-desc", label: "Z → A" },
-                  { value: "recent", label: "Recent" },
-                  { value: "deadline", label: "Deadline" },
-                ]}
-                activeValue={taskSortMode}
-                onSelect={applyTaskSort}
-              />
-            ) : undefined
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNotAligned((v) => !v)}
+                aria-pressed={showNotAligned}
+                title="NAT — Not Aligned Task: show only tasks with no project, or in a NOT ALIGNED TASK list"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer",
+                  showNotAligned
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+                )}
+              >
+                NAT
+                <span className="rounded bg-muted px-1.5 text-[10px] font-bold tabular-nums">{notAlignedCount}</span>
+              </button>
+              {tasks.length > 1 && (
+                <SortFilterButton
+                  options={[
+                    { value: "text-asc", label: "A → Z" },
+                    { value: "text-desc", label: "Z → A" },
+                    { value: "recent", label: "Recent" },
+                    { value: "deadline", label: "Deadline" },
+                  ]}
+                  activeValue={taskSortMode}
+                  onSelect={applyTaskSort}
+                />
+              )}
+            </div>
           }
         >
           <TaskRows
@@ -1540,6 +1570,8 @@ export function SubmitDsmForm({
             linkedTimeLogs={linkedTimeLogs}
             onChange={setTasks}
             onParkTask={handleParkTask}
+            onProjectsChange={setCascadingProjects}
+            onlyNotAligned={showNotAligned}
           />
           {state.errors?.tasks && (
             <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
@@ -1553,6 +1585,7 @@ export function SubmitDsmForm({
             cascadingProjects={cascadingProjects}
             projectsLoading={projectsLoading}
             onChange={setParkedTasks}
+            onProjectsChange={setCascadingProjects}
             onMoveToToday={(item) => {
               setTasks((prev) => [
                 ...prev,

@@ -288,3 +288,45 @@ export function sortTeamGroups<
     return nameA.localeCompare(nameB);
   });
 }
+
+// ── Project task lists (DSM picker) ───────────────────────────────────────────
+
+/** A project "task list" — the same thing as a Kanban phase column on the project board. */
+export type TaskListOption = { code: string; name: string };
+
+/**
+ * Task lists shown in the DSM picker for one project. Mirrors the project board: the project's
+ * DB phases if it has any, otherwise the built-in default phases. Any phase code a task still
+ * points at but that isn't in that list is appended (named from the task), so no task is hidden.
+ */
+export function buildTaskListOptions(
+  dbPhases: TaskListOption[],
+  tasks: { phaseCode?: string | null; phaseName?: string | null }[],
+  defaultPhases: TaskListOption[]
+): TaskListOption[] {
+  const lists = (dbPhases.length > 0 ? dbPhases : defaultPhases).map((p) => ({ code: p.code, name: p.name }));
+  const known = new Set(lists.map((l) => l.code));
+  const extra: TaskListOption[] = [];
+  for (const t of tasks) {
+    if (!t.phaseCode || known.has(t.phaseCode)) continue;
+    known.add(t.phaseCode);
+    extra.push({ code: t.phaseCode, name: t.phaseName || t.phaseCode });
+  }
+  extra.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  return [...lists, ...extra];
+}
+
+/**
+ * Code for a new task list: one past the highest existing major number ("7.1"…"7.7" → "8.1").
+ * Uses the codes, not a count — template projects number lists 7.1–7.7 etc., so a count would jump to "18.1".
+ */
+export function nextTaskListCode(existingCodes: string[]): string {
+  const majors = existingCodes.map((c) => parseInt(c, 10)).filter((n) => Number.isFinite(n));
+  return `${(majors.length ? Math.max(...majors) : 0) + 1}.1`;
+}
+
+/** Board-style task list name: upper-cased and prefixed with its code ("18.1 API INTEGRATION"). */
+export function formatTaskListName(code: string, rawName: string): string {
+  const upper = rawName.trim().toUpperCase();
+  return upper.startsWith(code) ? upper : `${code} ${upper}`;
+}

@@ -12,7 +12,56 @@ import {
   sortTeamMembers,
   sortTeamGroups,
   formatEffortMinutes,
+  buildTaskListOptions,
+  nextTaskListCode,
+  formatTaskListName,
 } from "@/features/dsm/utils";
+
+// ── Project task lists ────────────────────────────────────────────────────────
+
+describe("buildTaskListOptions", () => {
+  const defaults = [
+    { code: "1.1", name: "1.1 Client On Boarding" },
+    { code: "1.2", name: "1.2 Requirements" },
+  ];
+
+  it("uses the project's DB phases when it has any", () => {
+    const db = [{ code: "1.1", name: "1.1 KICKOFF" }];
+    expect(buildTaskListOptions(db, [], defaults)).toEqual(db);
+  });
+
+  it("falls back to the default phases when the project has none", () => {
+    expect(buildTaskListOptions([], [], defaults)).toEqual(defaults);
+  });
+
+  it("appends phase codes tasks use that aren't in the list, sorted numerically, once each", () => {
+    const tasks = [
+      { phaseCode: "10.1", phaseName: "10.1 LAUNCH" },
+      { phaseCode: "9.1", phaseName: null },
+      { phaseCode: "10.1", phaseName: "10.1 LAUNCH" },
+      { phaseCode: "1.1", phaseName: "ignored" },
+      { phaseCode: null, phaseName: null },
+    ];
+    expect(buildTaskListOptions([], tasks, defaults)).toEqual([
+      ...defaults,
+      { code: "9.1", name: "9.1" },
+      { code: "10.1", name: "10.1 LAUNCH" },
+    ]);
+  });
+});
+
+describe("nextTaskListCode / formatTaskListName", () => {
+  it("numbers the next list one past the highest existing major number", () => {
+    expect(nextTaskListCode(["7.1", "7.2", "7.7"])).toBe("8.1");
+    expect(nextTaskListCode(["1.1", "10.2", "3.1"])).toBe("11.1");
+    expect(nextTaskListCode([])).toBe("1.1");
+  });
+
+  it("upper-cases and prefixes the code, without doubling it", () => {
+    expect(formatTaskListName("18.1", "  api integration ")).toBe("18.1 API INTEGRATION");
+    expect(formatTaskListName("18.1", "18.1 api integration")).toBe("18.1 API INTEGRATION");
+  });
+});
 
 // ── formatEffortMinutes ───────────────────────────────────────────────────────
 

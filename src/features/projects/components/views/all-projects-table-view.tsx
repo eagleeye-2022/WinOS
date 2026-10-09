@@ -1450,7 +1450,7 @@ export function AllProjectsTableView({
                 {renderLeafHeader("projectCalendar", "Project Calendar", 3)}
                 {renderLeafHeader("assetLink", "Asset Link", 3)}
                 {/* {renderLeafHeader("projectTimeline", "Timeline", 3)} */}
-                <th rowSpan={3} className="py-2.5 px-2 text-center align-middle">Actions</th>
+                <th rowSpan={3} className="py-2.5 px-2 text-center align-middle">Controls</th>
               </tr>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 {renderLeafHeader("techLead", "Lead", 2)}

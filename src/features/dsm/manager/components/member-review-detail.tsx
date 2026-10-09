@@ -50,6 +50,7 @@ import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
+import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { TaskIdChip, ProjectPill, DueDateCell, DueDateInput, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
@@ -1588,7 +1589,7 @@ function TaskRow({
         {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
@@ -1881,6 +1882,22 @@ function SummaryTaskEditor({
  * Projects-module page for a DSM task's linked project task, or null when the DSM task isn't linked to
  * both a project and a project task. Opens in the same tab.
  */
+/** Task-ID chip for a linked Srijan task, with its status editable right underneath. */
+function LinkedTaskCell({
+  projectTask,
+  fallbackTitle,
+}: {
+  projectTask: { id: string; code: string; title: string | null; status: string };
+  fallbackTitle: string;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <TaskIdChip code={projectTask.code} title={projectTask.title || fallbackTitle} />
+      <ProjectTaskStatusPill taskId={projectTask.id} status={projectTask.status} label={projectTask.code} />
+    </div>
+  );
+}
+
 function projectTaskHref(task: TaskItem): string | null {
   const projectId = task.projectTask?.project?.id;
   const code = task.projectTask?.code;
@@ -1965,7 +1982,7 @@ function SummaryTaskRow({
         {task.projectTask?.project ? <ProjectPill name={task.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
