@@ -3,7 +3,7 @@ export { NewNoteForm } from "./components/new-note-form";
 export { NotesList } from "./components/notes-list";
 export { NotesWorkspace } from "./components/notes-workspace";
 export { NotesTopNav } from "./components/notes-top-nav";
-export { getNotes, getNotebooks, getBoards, getHistory, getSharedWithMeNotes, getSharedByMeNotes, getWorkspaceUsers } from "./queries";
+export { getNotes, getNotebooks, getBoards, getHistory, getSharedWithMeNotes, getSharedByMeNotes, getWorkspaceUsers, getShareableProjects } from "./queries";
 export { createNote } from "./actions/create-note";
 export { updateNote } from "./actions/update-note";
 export { deleteNote } from "./actions/delete-note";
@@ -21,6 +21,7 @@ export { shareBoardNote } from "./actions/share-board-note";
 export { toggleBoardNoteItem } from "./actions/toggle-board-note-item";
 export { getBoardThreads } from "./actions/get-board-threads";
 export { moveBoardNote } from "./actions/move-board-note";
+export { shareNoteToProjects } from "./actions/share-note-to-projects";
 
 export type { NoteWithDetails, NotebookData, ChecklistItemData } from "./queries";
 export type { CreateNoteState } from "./actions/create-note";

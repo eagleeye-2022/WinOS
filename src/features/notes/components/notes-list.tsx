@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useUrlState } from "@/lib/navigation/use-url-state";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NoteWithDetails, NotebookData } from "../queries";
@@ -28,10 +29,11 @@ type NotesListProps = {
 };
 
 export function NotesList({ notes, notebooks, isManager, userId }: NotesListProps) {
-  const [filter, setFilter] = useState<NotesFilter>("all");
-  const [notebookId, setNotebookId] = useState<string>("");
-  const [tagId, setTagId] = useState<string>("");
-  const [search, setSearch] = useState("");
+  // Filters live in the URL so the list is restored when returning to it.
+  const [filter, setFilter] = useUrlState<NotesFilter>("filter", "all");
+  const [notebookId, setNotebookId] = useUrlState("notebook", "");
+  const [tagId, setTagId] = useUrlState("tag", "");
+  const [search, setSearch] = useUrlState("q", "");
 
   const tabs = buildTabs(isManager);
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Home,
@@ -31,6 +31,8 @@ import {
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
+import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
+import { useNavigationStore } from "@/stores/navigation-store";
 
 // ── Daily quotes ─────────────────────────────────────────────────────────────
 
@@ -147,16 +149,10 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   const isManager = userRole === "MANAGER";
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
 
-  const [activeModule, setActiveModule] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const activeModuleId = resolveNavModule(pathname, searchParams);
+  const resetModule = useNavigationStore((s) => s.resetModule);
   const [recentProjects, setRecentProjects] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const mod = params.get("module");
-    setTimeout(() => {
-      setActiveModule(mod);
-    }, 0);
-  }, [pathname]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -169,23 +165,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
     }, 0);
   }, [pathname]);
 
-  // Determine active module title based on path
-  let activeModuleTitle = "Standup";
-  if (
-    pathname.startsWith("/people") ||
-    pathname.startsWith("/pulse") ||
-    pathname.startsWith("/leave") ||
-    activeModule === "people" ||
-    activeModule === "pulse"
-  ) {
-    activeModuleTitle = "Pulse";
-  } else if (pathname.startsWith("/projects") || activeModule === "projects") {
-    activeModuleTitle = "Srijan";
-  } else if (pathname.startsWith("/sales") || activeModule === "sales") {
-    activeModuleTitle = "Sales";
-  } else if (pathname.startsWith("/settings") || activeModule === "settings" || activeModule === "users") {
-    activeModuleTitle = "User Management";
-  }
+  // Determine active module title based on path (shared registry with the ModuleSwitcher)
+  const activeModuleTitle =
+    activeModuleId === "sales" ? "Sales" : (getNavModule(activeModuleId)?.label ?? "Standup");
 
   // Dynamic items based on active module & user role
   let navItems: Array<{ label: string; href: string; icon: React.ElementType; section?: string }> = [];
@@ -297,6 +279,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
                 )}
                 <Link
                   href={item.href}
+                  // The first item is the module's root/"Home": clicking it is an explicit
+                  // request for the default view, so forget the module's remembered state.
+                  onClick={idx === 0 ? () => resetModule(activeModuleId) : undefined}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all min-w-0",
                     active

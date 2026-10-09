@@ -3,6 +3,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { isManagerOnProjectSharedNote } from "../project-notes-access";
+import { logNoteActivity } from "../note-activity";
+import { NOTE_ACTIVITY } from "../note-activity-utils";
 
 export type UpdateBoardNoteState = { message?: string };
 
@@ -45,7 +48,11 @@ export async function updateBoardNote(
   const isAuthor = note.authorId === session.user.id;
   const hasEditAccess = note.thread?.shares?.[0]?.canEdit === true;
   const isManagerOnDsmBoard = session.user.role === "MANAGER" && note.thread?.board?.type === "DSM";
-  if (!isAuthor && !hasEditAccess && !isManagerOnDsmBoard) {
+  // Project iNotes: any manager may edit a card that has been shared to a project.
+  const isManagerOnProjectNote =
+    !isAuthor && !hasEditAccess && !isManagerOnDsmBoard &&
+    (await isManagerOnProjectSharedNote(session.user.id, id));
+  if (!isAuthor && !hasEditAccess && !isManagerOnDsmBoard && !isManagerOnProjectNote) {
     return { message: "Unauthorized" };
   }
 
@@ -82,6 +89,8 @@ export async function updateBoardNote(
       })),
     });
   }
+
+  await logNoteActivity(id, session.user.id, NOTE_ACTIVITY.UPDATED);
 
   console.log("[updateBoardNote] Note updated successfully:", { id, content });
 

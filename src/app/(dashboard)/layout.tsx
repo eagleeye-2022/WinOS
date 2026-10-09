@@ -17,6 +17,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 import { SessionGuard } from "@/components/shared/session-guard";
+import { NavigationStateTracker } from "@/components/shared/navigation-state-tracker";
 import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
 import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
 
@@ -87,6 +88,8 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden">
       <SessionGuard />
+      {/* Per-module "where you left off": last URL + scroll, restored on module re-entry. */}
+      <NavigationStateTracker />
       {/* Re-opens the "Timer stopped" log modal if a stopped timer's log was never saved. */}
       <PendingTimerLogRecovery userId={userId} />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
@@ -154,7 +157,7 @@ export default async function DashboardLayout({
           </div>
         </RouteDarkScope>
 
-        <main className="flex-1 min-w-0 h-full overflow-hidden">{children}</main>
+        <main data-nav-root className="flex-1 min-w-0 h-full overflow-hidden">{children}</main>
 
       </div>
 

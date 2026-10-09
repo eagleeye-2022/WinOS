@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { logNoteActivity } from "../note-activity";
+import { NOTE_ACTIVITY } from "../note-activity-utils";
 
 export type ToggleBoardNoteItemState = { message?: string };
 
@@ -39,6 +41,13 @@ export async function toggleBoardNoteItem(
     where: { id: itemId },
     data: { checked: !item.checked },
   });
+
+  await logNoteActivity(
+    item.noteId,
+    session.user.id,
+    item.checked ? NOTE_ACTIVITY.CHECKLIST_UNCHECKED : NOTE_ACTIVITY.CHECKLIST_CHECKED,
+    { detail: item.text }
+  );
 
   return { message: "toggled" };
 }

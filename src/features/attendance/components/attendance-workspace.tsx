@@ -35,8 +35,11 @@ import { EmployeeAttendanceView } from "./employee-attendance-view";
 import { getMyAttendanceData } from "../queries/attendance-queries";
 import { checkInAction, checkOutAction } from "../actions/attendance-actions";
 import { cn } from "@/lib/utils";
+import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
+const MAIN_TABS = ["my-attendance", "team-attendance", "regularization"] as const;
+const VIEW_MODES = ["week", "month"] as const;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -44,8 +47,13 @@ const MONTH_NAMES = [
 ];
 
 export function AttendanceWorkspace() {
-  const [activeTab, setActiveTab] = useState<MainTab>("my-attendance");
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  // Tab + week/month in the URL; the open sub-view / selected member / request in the Pulse
+  // navigation slice — so all of it is restored when coming back to the module.
+  const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", "my-attendance", {
+    allowed: MAIN_TABS,
+    history: "push",
+  });
+  const [viewMode, setViewMode] = useUrlState<"week" | "month">("view", "week", { allowed: VIEW_MODES });
   const [currentMonthIndex, setCurrentMonthIndex] = useState(7); // August
   const [currentYear, setCurrentYear] = useState(2026);
   const [selectedDate, setSelectedDate] = useState<string>("2026-08-12");
@@ -53,12 +61,24 @@ export function AttendanceWorkspace() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Sub-pages for Regularization
-  const [regularizationSubView, setRegularizationSubView] = useState<"list" | "details" | "create">("list");
-  const [selectedRequest, setSelectedRequest] = useState<RegularizationRequest | null>(null);
+  const [regularizationSubView, setRegularizationSubView] = useModuleViewState<"list" | "details" | "create">(
+    "attendance:regularization-sub-view",
+    "list"
+  );
+  const [selectedRequest, setSelectedRequest] = useModuleViewState<RegularizationRequest | null>(
+    "attendance:selected-request",
+    null
+  );
 
   // Sub-pages for Team Attendance
-  const [teamSubView, setTeamSubView] = useState<"team-list" | "employee-view">("team-list");
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
+  const [teamSubView, setTeamSubView] = useModuleViewState<"team-list" | "employee-view">(
+    "attendance:team-sub-view",
+    "team-list"
+  );
+  const [selectedEmployee, setSelectedEmployee] = useModuleViewState<EmployeeProfile | null>(
+    "attendance:selected-employee",
+    null
+  );
 
   // Modals
   const [selectedActionItem, setSelectedActionItem] = useState<ActionRequiredItem | null>(null);

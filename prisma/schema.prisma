@@ -681,6 +681,40 @@ model BoardNote {
   thread         Thread                   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   checklistItems BoardNoteChecklistItem[]
   shares         BoardNoteShare[]
+  projectShares  BoardNoteProjectShare[]
+  activities     BoardNoteActivity[]
+}
+
+/// Card timeline: who did what to an iNotes card and when (not the content of the change).
+/// action: "CREATED" | "UPDATED" | "CHECKLIST_CHECKED" | "CHECKLIST_UNCHECKED" | "MOVED" |
+///         "SHARED_TO_PROJECT" | "REMOVED_FROM_PROJECT". userName/userRole are snapshots.
+model BoardNoteActivity {
+  id        String    @id @default(cuid())
+  noteId    String
+  userId    String?
+  userName  String
+  userRole  String?
+  action    String
+  detail    String?
+  projectId String?
+  createdAt DateTime  @default(now())
+  note      BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
+}
+
+/// Project iNotes: a card shared to a project. Every member of that project can read it in
+/// Projects → Project iNotes; only managers (and the card's author) can edit it.
+model BoardNoteProjectShare {
+  noteId     String
+  projectId  String
+  sharedById String
+  createdAt  DateTime  @default(now())
+  note       BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, projectId])
+  @@index([projectId])
 }
 
 model BoardNoteShare {
@@ -928,6 +962,15 @@ model Project {
   creativeNotes    String?
   marketingNotes   String?
 
+  /// Client info columns on the All Projects table. Each location level stores the display name
+  /// plus its ISO/state code when picked from the list (code is null for typed-in values).
+  industry          String?
+  clientCountry     String?
+  clientCountryCode String?
+  clientState       String?
+  clientStateCode   String?
+  clientCity        String?
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -942,6 +985,7 @@ model Project {
   activeTimers             ActiveTimer[]
   clientInvitationProjects ClientInvitationProject[]
   activities               ProjectActivity[]
+  noteShares               BoardNoteProjectShare[]
 
   @@index([ownerId])
   @@index([createdAt])

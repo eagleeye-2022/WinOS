@@ -28,6 +28,7 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useUrlState } from "@/lib/navigation/use-url-state";
 import {
   getMyLeaveTrackerDataAction,
   getLeaveRequestByIdAction,
@@ -47,6 +48,9 @@ type ActiveTab =
   | "request-details"
   | "compensatory-details";
 
+const LIST_TABS = ["overview", "requests", "compensatory", "holidays"] as const;
+type ListTab = (typeof LIST_TABS)[number];
+
 interface LeaveWorkspaceProps {
   initialTab?: ActiveTab;
   initialSelectedRequestId?: string;
@@ -59,7 +63,24 @@ export function LeaveWorkspace({
   initialSelectedCompRequestId,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  // List tabs live in the URL (restored on return, Back/Forward-able). Form / detail views depend
+  // on in-memory selections, so they stay as a transient overlay on top of the list tab.
+  const initialIsListTab = (LIST_TABS as readonly ActiveTab[]).includes(initialTab);
+  const [listTab, setListTab] = useUrlState<ListTab>(
+    "tab",
+    initialIsListTab ? (initialTab as ListTab) : "overview",
+    { allowed: LIST_TABS, history: "push" }
+  );
+  const [transientTab, setTransientTab] = useState<ActiveTab | null>(initialIsListTab ? null : initialTab);
+  const activeTab: ActiveTab = transientTab ?? listTab;
+  const setActiveTab = (tab: ActiveTab) => {
+    if ((LIST_TABS as readonly ActiveTab[]).includes(tab)) {
+      setTransientTab(null);
+      setListTab(tab as ListTab);
+    } else {
+      setTransientTab(tab);
+    }
+  };
   const [isPending, startTransition] = useTransition();
 
   // Data state from Database

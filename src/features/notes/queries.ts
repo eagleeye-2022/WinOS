@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getShareableProjectsFor, type ShareableProject } from "./project-notes-access";
 
 export type ChecklistItemData = {
   id: string;
@@ -138,12 +139,23 @@ export async function getThreads(boardId: string) {
           author: { select: { id: true, name: true, email: true, image: true } },
           shares: { select: { userId: true } },
           checklistItems: { orderBy: { position: "asc" } },
+          projectShares: {
+            select: { projectId: true, project: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: { createdAt: "asc" },
       }
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/** Projects the signed-in user may share iNotes cards to (Project iNotes). */
+export async function getShareableProjects(): Promise<ShareableProject[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  return getShareableProjectsFor(session.user.id);
 }
 
 export async function getHistory(targetUserId?: string) {

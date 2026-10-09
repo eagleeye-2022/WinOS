@@ -3,6 +3,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { logNoteActivity } from "../note-activity";
+import { NOTE_ACTIVITY } from "../note-activity-utils";
 
 export type CreateBoardNoteState = { message?: string };
 
@@ -77,6 +79,8 @@ export async function createBoardNote(
       skipDuplicates: true,
     });
   }
+
+  await logNoteActivity(note.id, session.user.id, NOTE_ACTIVITY.CREATED);
 
   console.log("[createBoardNote] Note created successfully:", { id: note.id, content: note.content });
 

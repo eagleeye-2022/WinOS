@@ -295,6 +295,14 @@ export function NewTimeLogModal({
     return regex.test(trimmed);
   };
 
+  // "Enter Hours" input: "01:30" is HH:MM, a bare number like "1.5" means hours.
+  // (parseDurationMinutes alone would read a bare number as minutes.)
+  const hoursInputToMinutes = (val: string): number => {
+    const trimmed = val.trim();
+    if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(parseFloat(trimmed) * 60);
+    return parseDurationMinutes(trimmed);
+  };
+
 
   const isSelectedDateToday = React.useMemo(() => {
     if (!logDate) return false;
@@ -347,7 +355,7 @@ export function NewTimeLogModal({
         return "Invalid duration format (e.g. 00:30 or 1.5)";
       }
       if (hoursDuration && isValidDurationFormat(hoursDuration)) {
-        const mins = parseDurationMinutes(hoursDuration);
+        const mins = hoursInputToMinutes(hoursDuration);
         if (mins <= 0) {
           return "Duration must be greater than 0.";
         }
@@ -413,13 +421,9 @@ export function NewTimeLogModal({
     let timePeriodStr = "";
 
     if (useHoursMode) {
-      durationStr = hoursDuration;
-      const mins = parseDurationMinutes(hoursDuration);
-      if (mins <= 720) {
-        timePeriodStr = "";
-      } else {
-        timePeriodStr = "";
-      }
+      // Normalize to HH:MM so the stored duration is unambiguous ("1.5" -> "01:30").
+      durationStr = formatDurationDisplay(hoursInputToMinutes(hoursDuration));
+      timePeriodStr = "";
     } else {
       const rangeMins = calculateMinutesFromTimeRange(startTime, endTime);
       durationStr = formatDurationDisplay(rangeMins || 0);
