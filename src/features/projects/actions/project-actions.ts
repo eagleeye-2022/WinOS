@@ -3810,10 +3810,30 @@ import {
   formatTimePeriodRange,
   parseDateAndTimeToDate,
   toISTDateString,
+  parseTimeToMinutes,
+  MAX_LOG_MINUTES,
+  MAX_LOG_DURATION_ERROR,
+  SAME_DAY_LOG_ERROR,
 } from "../utils/time-helpers";
 
 function formatMinutes(totalMinutes: number): string {
   return formatMinutesToHHMM(totalMinutes);
+}
+
+/**
+ * Effort-log rule (see MAX_LOG_MINUTES): any length, but start and end on the same day. Returns
+ * the error to show, or null when the log is fine. A "start – end" range whose end isn't after
+ * its start would run past midnight.
+ */
+function sameDayLogError(durationMinutes: number, timePeriod: string | null | undefined): string | null {
+  if (durationMinutes > MAX_LOG_MINUTES) return MAX_LOG_DURATION_ERROR;
+  const parts = (timePeriod || "").split(/[-–]/).map((s) => s.trim());
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    const start = parseTimeToMinutes(parts[0]);
+    const end = parseTimeToMinutes(parts[1]);
+    if (start !== null && end !== null && end <= start) return SAME_DAY_LOG_ERROR;
+  }
+  return null;
 }
 
 async function recalculateProjectTimeTotals(projectId: string) {
@@ -4069,10 +4089,9 @@ export async function createTimeLogAction(
   let durationMinutes = parseDurationMinutes(logData.duration);
   if (durationMinutes <= 0) durationMinutes = 60;
 
-  let timePeriodStr = logData.timePeriod || "";
-  if (durationMinutes > 720) {
-    timePeriodStr = "";
-  }
+  const timePeriodStr = logData.timePeriod || "";
+  const sameDayError = sameDayLogError(durationMinutes, timePeriodStr);
+  if (sameDayError) throw new Error(sameDayError);
   const description = encodeDescriptionWithTimePeriod(logData.remarks || logData.title, timePeriodStr);
   const startTimePart = timePeriodStr ? timePeriodStr.split(/[-–]/)[0]?.trim() : undefined;
   const logDate = parseDateAndTimeToDate(logData.date, startTimePart);
@@ -4192,14 +4211,19 @@ export async function updateTimeLogAction(
   if (updates.billingType) {
     dataToUpdate.billingType = updates.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE";
   }
+  if (dataToUpdate.duration !== undefined || updates.timePeriod !== undefined) {
+    const finalDuration = dataToUpdate.duration !== undefined ? dataToUpdate.duration : existingLog.duration;
+    const finalTp =
+      updates.timePeriod !== undefined
+        ? updates.timePeriod
+        : decodeDescriptionWithTimePeriod(existingLog.description).timePeriod;
+    const sameDayError = sameDayLogError(finalDuration, finalTp);
+    if (sameDayError) throw new Error(sameDayError);
+  }
   if (updates.remarks !== undefined || updates.timePeriod !== undefined) {
     const { timePeriod: existingTp, remarks: existingRem } = decodeDescriptionWithTimePeriod(existingLog.description);
     const newRemarks = updates.remarks !== undefined ? updates.remarks : existingRem;
-    let newTp = updates.timePeriod !== undefined ? updates.timePeriod : existingTp;
-    const finalDuration = dataToUpdate.duration !== undefined ? dataToUpdate.duration : existingLog.duration;
-    if (finalDuration > 720) {
-      newTp = "";
-    }
+    const newTp = updates.timePeriod !== undefined ? updates.timePeriod : existingTp;
     dataToUpdate.description = encodeDescriptionWithTimePeriod(newRemarks, newTp);
   }
   if (updates.approvalStatus && isManager) {

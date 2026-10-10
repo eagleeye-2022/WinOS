@@ -53,19 +53,36 @@ export function parseTimeToMinutes(val: string): number | null {
 }
 
 /**
- * Calculates duration in minutes between start time and end time strings.
- * Handles overnight crossover (e.g., 6:00 PM to 6:00 AM = 720 minutes = 12h).
+ * Effort-log rule: a log (timer or manual) can be any length, but its start and end must fall on
+ * the same calendar day — 6:00 AM–6:00 PM or 7:00 AM–8:00 PM are fine, 10:00 PM–1:00 AM is not.
+ * So the longest possible log is 23:59.
+ */
+export const MAX_LOG_MINUTES = 24 * 60 - 1;
+export const SAME_DAY_LOG_ERROR = "Start and end time must be on the same day.";
+export const MAX_LOG_DURATION_ERROR = "An effort log can't be longer than one day (23:59).";
+
+/** Local calendar date of `d` as "YYYY-MM-DD" (unlike toISOString, which gives the UTC date). */
+export function toLocalDateString(d: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** True when both instants fall on the same local calendar day. */
+export function isSameLocalDay(a: Date, b: Date): boolean {
+  return toLocalDateString(a) === toLocalDateString(b);
+}
+
+/**
+ * Duration in minutes between a start and end time string on the same day, e.g.
+ * "6:00 AM" → "6:00 PM" = 720. Returns null when either time is invalid or the end isn't after
+ * the start (a range can't run past midnight — see MAX_LOG_MINUTES).
  */
 export function calculateMinutesFromTimeRange(startTimeStr: string, endTimeStr: string): number | null {
   const startMin = parseTimeToMinutes(startTimeStr);
   const endMin = parseTimeToMinutes(endTimeStr);
   if (startMin === null || endMin === null) return null;
-
-  let diff = endMin - startMin;
-  if (diff <= 0) {
-    diff += 24 * 60; // Midnight crossover
-  }
-  return diff;
+  const diff = endMin - startMin;
+  return diff > 0 ? diff : null;
 }
 
 /**
@@ -152,13 +169,6 @@ export function parseDurationMinutes(duration: string | number | null | undefine
   return 0;
 }
 
-/**
- * Formats duration minutes into standard display string.
- * Rules:
- * - If duration > 12 hours (720 mins), return e.g. "13h" (or "13h 30m")
- * - If exact hours (e.g. 720 mins = 12h, 60 mins = 1h), return "12h", "1h"
- * - Otherwise return "HH:MM" e.g. "00:08", "01:30"
- */
 /**
  * Formats duration minutes into standard display string in 00:00 (HH:MM) format.
  * E.g., 720 mins -> "12:00", 780 mins -> "13:00", 90 mins -> "01:30", 8 mins -> "00:08".
@@ -258,19 +268,20 @@ export function decodeDescriptionWithTimePeriod(description?: string | null): {
 
 /**
  * Resolves the actual time period string for a log.
- * If timePeriod is recorded in DB (e.g. live timer start/stop or manual range entry), returns it.
- * Otherwise, if duration <= 12 hours (720 mins), derives actual start and end times from log timestamp and duration.
- * If duration > 12 hours, returns "" (showing duration only).
+ * If timePeriod is recorded in DB (e.g. live timer start/stop or manual range entry), returns it,
+ * whatever the duration. Otherwise (older/imported logs saved without one), for durations up to
+ * 12 hours it derives a start–end range from the log timestamp and duration; longer unrecorded
+ * logs return "" (showing duration only), since a derived range for those is a guess.
  */
 export function resolveLogTimePeriod(
   recordedTimePeriod: string | undefined | null,
   durationMinutes: number,
   logDateOrCreatedAt?: Date | string | null
 ): string {
-  if (durationMinutes > 720) return "";
   if (recordedTimePeriod && recordedTimePeriod.trim()) {
     return recordedTimePeriod.trim();
   }
+  if (durationMinutes > 720) return "";
 
   const end = logDateOrCreatedAt
     ? logDateOrCreatedAt instanceof Date

@@ -10,7 +10,7 @@ import {
   getActiveTimerAction,
 } from "../actions/active-timer-actions";
 import { createTimeLogAction } from "../actions/project-actions";
-import { formatTimePeriodRange } from "../utils/time-helpers";
+import { formatTimePeriodRange, isSameLocalDay, toLocalDateString } from "../utils/time-helpers";
 import { useActiveTimerContext, type ActiveTimerData } from "../context/active-timer-context";
 import type { TimeLogEntry } from "../types";
 import { useConfirm } from "@/components/shared/confirm-dialog";
@@ -43,6 +43,7 @@ interface TimerWidgetProps {
   onStopTimer?: (elapsedSeconds: number, formattedTime: string) => void;
   onSaveLog?: (data: {
     duration: string;
+    date: string;
     startTime: string;
     endTime: string;
     isBillable: boolean;
@@ -221,6 +222,14 @@ export function TimerWidget({
       const pad = (n: number) => n.toString().padStart(2, "0");
       const clock = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
       savePendingTimerLog({ ...ended.data, taskTitle: running.task?.title });
+      if (!isSameLocalDay(started, endedAt)) {
+        // Ran past midnight: a log must start and end on the same day, so let the user trim it
+        // in the "Timer stopped" modal instead of saving it as-is.
+        toast.info(`"${runningTitle}" ran past midnight. Adjust its times to save the effort log.`);
+        requestPendingTimerLogRecovery();
+        activeTimerCtx?.setLocalActiveTimer(null, null);
+        return true;
+      }
       try {
         await createTimeLogAction(
           {
@@ -230,7 +239,7 @@ export function TimerWidget({
             billingType: ended.data.billingType === "BILLABLE" ? "BILLABLE" : "NON BILLABLE",
             remarks: "",
             timePeriod: formatTimePeriodRange(clock(started), clock(endedAt)),
-            date: started.toISOString().split("T")[0],
+            date: toLocalDateString(started),
           },
           ended.data.projectId
         );
@@ -404,6 +413,7 @@ export function TimerWidget({
 
   const handleModalSaveLog = async (data: {
     duration: string;
+    date: string;
     startTime: string;
     endTime: string;
     isBillable: boolean;
@@ -430,9 +440,8 @@ export function TimerWidget({
           billingType: data.isBillable ? "BILLABLE" : "NON BILLABLE",
           remarks: data.notes,
           timePeriod: formatTimePeriodRange(data.startTime, data.endTime),
-          date: (ctx?.startedAt ? new Date(ctx.startedAt) : new Date())
-            .toISOString()
-            .split("T")[0],
+          // The day the modal's (possibly edited) start time falls on, in local time.
+          date: data.date,
         };
         await createTimeLogAction(payload, targetProjectId);
         clearPendingTimerLog();

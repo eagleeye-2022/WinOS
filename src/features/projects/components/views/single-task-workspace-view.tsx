@@ -693,6 +693,7 @@ export function SingleTaskWorkspaceView({
 
   const handleTimerLogSaved = async (logData: {
     duration: string;
+    date: string;
     startTime: string;
     endTime: string;
     isBillable: boolean;
@@ -711,9 +712,8 @@ export function SingleTaskWorkspaceView({
         billingType: logData.isBillable ? "BILLABLE" : "NON BILLABLE",
         remarks: logData.notes || `Logged from task ${activeTask.code}`,
         timePeriod: formatTimePeriodRange(logData.startTime, logData.endTime),
-        date: (ctx?.startedAt ? new Date(ctx.startedAt) : new Date())
-          .toISOString()
-          .split("T")[0],
+        // Local day of the modal's (possibly edited) start time.
+        date: logData.date,
       };
       await createTimeLogAction(payload, targetProjectId);
       clearPendingTimerLog();

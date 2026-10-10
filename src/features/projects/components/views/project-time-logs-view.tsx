@@ -38,6 +38,7 @@ import {
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
   compareTimeLogsLatestFirst,
+  SAME_DAY_LOG_ERROR,
 } from "../../utils/time-helpers";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
@@ -217,7 +218,12 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
         const parts = editDraft.split(/[-–]/);
         if (parts.length === 2) {
           const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
+          // Same-day only: null when the end isn't after the start (it would run past midnight).
           const mins = calculateMinutesFromTimeRange(parts[0], parts[1]);
+          if (rangeStr && !mins) {
+            toast.error(`End time must be after Start time. ${SAME_DAY_LOG_ERROR}`);
+            return;
+          }
           if (rangeStr) updatePayload.timePeriod = rangeStr;
           if (mins && mins > 0) {
             updatePayload.duration = formatDurationDisplay(mins);

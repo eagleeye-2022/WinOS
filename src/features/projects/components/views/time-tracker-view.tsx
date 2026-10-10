@@ -51,6 +51,9 @@ import {
   calculateMinutesFromTimeRange,
   formatTime12h,
   compareTimeLogsLatestFirst,
+  MAX_LOG_MINUTES,
+  MAX_LOG_DURATION_ERROR,
+  SAME_DAY_LOG_ERROR,
 } from "../../utils/time-helpers";
 import {
   updateTimeLogAction,
@@ -513,8 +516,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         setUserGroups([...userGroups]);
         return;
       }
-      if (mins > 720) {
-        toast.error("Time duration cannot exceed 12 hours (720 minutes).");
+      if (mins > MAX_LOG_MINUTES) {
+        toast.error(MAX_LOG_DURATION_ERROR);
         setUserGroups([...userGroups]);
         return;
       }
@@ -565,18 +568,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             }
           }
 
+          // Any length is fine within the day; an end before the start would run past midnight.
           if (endMin <= startMin) {
-            toast.error("End time must be after Start time.");
+            toast.error(`End time must be after Start time. ${SAME_DAY_LOG_ERROR}`);
             setUserGroups([...userGroups]);
             return;
           }
 
           const diffMinutes = endMin - startMin;
-          if (diffMinutes > 720) {
-            toast.error("Time duration cannot exceed 12 hours (720 minutes).");
-            setUserGroups([...userGroups]);
-            return;
-          }
 
           const rangeStr = formatTimePeriodRange(parts[0], parts[1]);
           if (rangeStr) updatePayload.timePeriod = rangeStr;
