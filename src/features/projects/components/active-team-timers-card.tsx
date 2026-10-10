@@ -161,6 +161,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
 
   const handleSaveLog = async (data: {
     duration: string;
+    date: string;
     startTime: string;
     endTime: string;
     isBillable: boolean;
@@ -176,7 +177,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
         billingType: data.isBillable ? "BILLABLE" : "NON BILLABLE",
         remarks: data.notes,
         timePeriod: formatTimePeriodRange(data.startTime, data.endTime),
-        date: new Date(stopped.startedAt).toISOString().split("T")[0],
+        date: data.date,
       };
       await createTimeLogAction(payload, stopped.projectId);
       clearPendingTimerLog();

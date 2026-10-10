@@ -244,7 +244,9 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       const startedAt = new Date(existing.startedAt);
       const now = new Date();
       const minutes = Math.max(1, Math.round((now.getTime() - startedAt.getTime()) / 60000));
-      const timePeriod = minutes <= 720 ? `${formatTime12h(startedAt)} – ${formatTime12h(now)}` : "";
+      // Safety net (stale screen / other tab), so it's logged without asking. Keep the range when
+      // it stayed within one day; a timer left running past midnight is logged duration-only.
+      const timePeriod = isSameLocalDay(startedAt, now) ? `${formatTime12h(startedAt)} – ${formatTime12h(now)}` : "";
       await d.projectTimeLog.create({
         data: {
           projectId: existing.projectId,
@@ -317,6 +319,7 @@ import {
   calculateMinutesFromTimeRange,
   formatTimePeriodRange,
   parseDateAndTimeToDate,
+  isSameLocalDay,
 } from "../utils/time-helpers";
 
 export async function stopActiveTimerAction(params?: StopActiveTimerParams | any) {
@@ -354,7 +357,7 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
     if (rangeMins && rangeMins > 0) {
       durationMinutes = rangeMins;
     }
-  } else if (durationMinutes <= 720) {
+  } else if (isSameLocalDay(startedAt, now)) {
     timePeriodStr = `${formatTime12h(startedAt)} – ${formatTime12h(now)}`;
   }
 
@@ -371,10 +374,6 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
   }
 
   const rawNotes = params?.description || params?.notes || activeTimer.description || `Logged from live timer for ${activeTimer.task?.code || activeTimer.taskId}`;
-
-  if (durationMinutes > 720) {
-    timePeriodStr = "";
-  }
 
   const description = encodeDescriptionWithTimePeriod(rawNotes, timePeriodStr);
 

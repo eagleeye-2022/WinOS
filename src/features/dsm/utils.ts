@@ -15,6 +15,50 @@ export function toIsoDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Number of tasks with no project picked. A task counts as linked when it has a project
+ * (`projectId`) or a project task (`projectTaskId`, which implies the project). Every task needs
+ * one before a DSM can be submitted or reviewed.
+ */
+export function countTasksWithoutProject(
+  tasks: { projectId?: string | null; projectTaskId?: string | null }[]
+): number {
+  return tasks.filter((t) => !t.projectId?.trim() && !t.projectTaskId?.trim()).length;
+}
+
+export const PROJECT_REQUIRED_MESSAGE = "Select a project for every task before submitting";
+
+/**
+ * The catch-all task list every project has for work not yet aligned to a real task. Found by
+ * name, not code — its hidden code differs per project (7.9, 7.10, 8.1, …). Starting a timer on a
+ * DSM row that has a project but no task creates the task here (see ensureNatTaskForTimerAction);
+ * a manager aligns it later by moving it to the right list on the project's board.
+ */
+export const NAT_TASK_LIST_NAME = "Not Aligned Task (NAT)";
+
+/**
+ * A DSM task is "not aligned" (the NAT filter) when it has no linked project task, or its linked
+ * task (or a subtask's parent) sits in the project's NAT task list — i.e. a manager still has to
+ * move it to the right list.
+ */
+export function isNotAlignedTaskLink(
+  projectTaskId: string | null | undefined,
+  projects: {
+    taskLists: { code: string; name: string }[];
+    tasks: { id: string; phaseCode: string | null; subtasks: { id: string }[] }[];
+  }[]
+): boolean {
+  if (!projectTaskId) return true;
+  for (const p of projects) {
+    const t = p.tasks.find((x) => x.id === projectTaskId || x.subtasks.some((st) => st.id === projectTaskId));
+    if (t) {
+      const list = p.taskLists.find((l) => l.code === t.phaseCode);
+      return !!list && list.name.trim().toLowerCase() === NAT_TASK_LIST_NAME.toLowerCase();
+    }
+  }
+  return false;
+}
+
 /** Effort minutes as "1h 20m" / "45m". */
 export function formatEffortMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);

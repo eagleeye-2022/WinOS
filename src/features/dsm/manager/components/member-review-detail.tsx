@@ -39,7 +39,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -51,7 +51,9 @@ import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-sup
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
-import { TaskIdChip, ProjectPill, DueDateCell, DueDateInput, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
@@ -59,16 +61,16 @@ import type { CascadingProjectOption } from "@/features/dsm/queries";
 function findSelectedTaskMeta(
   projects: CascadingProjectOption[],
   projectTaskId: string
-): { code: string | null; title?: string; projectName: string } | null {
+): { code: string | null; title?: string; projectName: string; projectId: string } | null {
   if (!projectTaskId) return null;
   for (const project of projects) {
     for (const task of project.tasks) {
       if (task.id === projectTaskId) {
-        return { code: task.code, title: task.title, projectName: project.name };
+        return { code: task.code, title: task.title, projectName: project.name, projectId: project.id };
       }
       for (const subtask of task.subtasks) {
         if (subtask.id === projectTaskId) {
-          return { code: subtask.code, title: subtask.title, projectName: project.name };
+          return { code: subtask.code, title: subtask.title, projectName: project.name, projectId: project.id };
         }
       }
     }
@@ -282,25 +284,33 @@ function AddTaskRow({
   entryId,
   kind = "TODAY",
   cascadingProjects = [],
+  projectsLoading = false,
+  onProjectsChange,
+  memberUserId,
 }: {
   entryId: string;
   kind?: "TODAY" | "YESTERDAY";
   cascadingProjects?: CascadingProjectOption[];
+  projectsLoading?: boolean;
+  /** Receives task lists / tasks created in place, same as the /dsm form. */
+  onProjectsChange: (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
+  /** The member this task is for — tasks created in place are owned by them. */
+  memberUserId?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [state, action, pending] = useActionState<AddTaskState, FormData>(addTask, {});
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedTaskListCode, setSelectedTaskListCode] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
-  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState("");
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   const resetForm = () => {
     setSelectedProjectId("");
+    setSelectedTaskListCode("");
     setSelectedTaskId("");
     setSelectedSubtaskId("");
-    setSelectedProjectTaskId("");
     setText("");
     setDueDate("");
     setAdding(false);
@@ -308,40 +318,37 @@ function AddTaskRow({
 
   const handleProjectChange = (pId: string) => {
     setSelectedProjectId(pId);
+    setSelectedTaskListCode("");
     setSelectedTaskId("");
     setSelectedSubtaskId("");
-    setSelectedProjectTaskId("");
   };
 
-  const handleTaskChange = (tId: string) => {
-    setSelectedTaskId(tId);
+  const handleTaskListChange = (code: string) => {
+    setSelectedTaskListCode(code);
+    // Keep the picked task only if it belongs to the newly chosen list.
     const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
-    const chosen = proj?.tasks.find((t) => t.id === tId);
-    if (chosen && chosen.subtasks && chosen.subtasks.length > 0) {
+    const task = proj?.tasks.find((t) => t.id === selectedTaskId);
+    if (code && task && task.phaseCode !== code) {
+      setSelectedTaskId("");
       setSelectedSubtaskId("");
-      setSelectedProjectTaskId("");
-    } else {
-      setSelectedSubtaskId("");
-      setSelectedProjectTaskId(chosen?.id || "");
-      if (!text.trim() && chosen) {
-        setText(chosen.title);
-      }
     }
   };
 
-  const handleSubtaskChange = (stId: string) => {
+  const handleTaskChange = (chosen: CascadingProjectOption["tasks"][number] | undefined) => {
+    setSelectedTaskId(chosen?.id || "");
+    setSelectedSubtaskId("");
+    if (chosen?.phaseCode) setSelectedTaskListCode(chosen.phaseCode);
+    if (!text.trim() && chosen) setText(chosen.title);
+  };
+
+  const handleSubtaskChange = (stId: string, parent: CascadingProjectOption["tasks"][number] | undefined) => {
     setSelectedSubtaskId(stId);
-    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
-    const chosenTask = proj?.tasks.find((t) => t.id === selectedTaskId);
-    const chosenSubtask = chosenTask?.subtasks?.find((st) => st.id === stId);
-    setSelectedProjectTaskId(stId || chosenTask?.id || "");
-    if (chosenSubtask && (!text.trim() || text === chosenTask?.title)) {
-      setText(chosenSubtask.title);
-    }
+    const chosenSubtask = parent?.subtasks.find((st) => st.id === stId);
+    if (chosenSubtask && (!text.trim() || text === parent?.title)) setText(chosenSubtask.title);
   };
 
-  const currentProject = cascadingProjects.find((p) => p.id === selectedProjectId);
-  const currentTask = currentProject?.tasks?.find((t) => t.id === selectedTaskId);
+  // The subtask if one is picked, else the task.
+  const selectedProjectTaskId = selectedSubtaskId || selectedTaskId;
   const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
 
   if (!adding) {
@@ -367,47 +374,26 @@ function AddTaskRow({
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
+      <input type="hidden" name="projectId" value={selectedProjectId} />
       <input type="hidden" name="priority" value="" />
 
-      <div className="flex items-center gap-2 flex-wrap text-xs">
+      {/* Project → Task list → Task → Subtask; task lists and tasks can be created in place. */}
+      <div className="flex items-center gap-2.5 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
-
-        <SearchableSelect
-          value={selectedProjectId}
-          onChange={(v) => handleProjectChange(v)}
-          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
-          placeholder="Select Project"
-          searchPlaceholder="Search projects..."
-          className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"
+        <ProjectTaskSelectors
+          projects={cascadingProjects}
+          projectsLoading={projectsLoading}
+          projectId={selectedProjectId}
+          taskListCode={selectedTaskListCode}
+          taskId={selectedTaskId}
+          subtaskId={selectedSubtaskId}
+          onProjectChange={handleProjectChange}
+          onTaskListChange={handleTaskListChange}
+          onTaskChange={handleTaskChange}
+          onSubtaskChange={handleSubtaskChange}
+          onProjectsChange={onProjectsChange}
+          taskOwnerId={memberUserId}
         />
-
-        {currentProject && (
-          <SearchableSelect
-            value={selectedTaskId}
-            onChange={(v) => handleTaskChange(v)}
-            options={currentProject.tasks.map((t) => ({
-              value: t.id,
-              label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
-            }))}
-            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-            searchPlaceholder="Search tasks..."
-            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
-          />
-        )}
-
-        {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
-          <SearchableSelect
-            value={selectedSubtaskId}
-            onChange={(v) => handleSubtaskChange(v)}
-            options={currentTask.subtasks.map((st) => ({
-              value: st.id,
-              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
-            }))}
-            placeholder="Select Subtask"
-            searchPlaceholder="Search subtasks..."
-            className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[180px]"
-          />
-        )}
       </div>
 
       {/* Middle: Code chip + Text Input */}
@@ -419,6 +405,9 @@ function AddTaskRow({
           >
             {selectedMeta.code}
           </span>
+        )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
         )}
         <input
           name="text"
@@ -439,6 +428,7 @@ function AddTaskRow({
             <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
             <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
+          <TodayDueButton value={dueDate} onChange={setDueDate} />
         </div>
 
         {/* Add / Cancel */}
@@ -999,8 +989,9 @@ function AddSupportRow({
 
 // ── Review button ─────────────────────────────────────────────────────────────
 
-function ReviewButton({ entryId }: { entryId: string }) {
+function ReviewButton({ entryId, tasksWithoutProject = 0 }: { entryId: string; tasksWithoutProject?: number }) {
   const [state, action, pending] = useActionState<ReviewStandupState, FormData>(reviewStandup, {});
+  const blocked = tasksWithoutProject > 0;
 
   if (state.message === "reviewed") {
     return (
@@ -1015,12 +1006,19 @@ function ReviewButton({ entryId }: { entryId: string }) {
       <input type="hidden" name="entryId" value={entryId} />
       <button
         type="submit"
-        disabled={pending}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
+        disabled={pending || blocked}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
       >
         {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
         {pending ? "Reviewing…" : "Reviewed ✓"}
       </button>
+      {blocked ? (
+        <p className="mt-2 text-center text-xs text-destructive">
+          Select a project for every task before reviewing ({tasksWithoutProject} task{tasksWithoutProject === 1 ? "" : "s"} missing a project).
+        </p>
+      ) : (
+        state.message && <p className="mt-2 text-center text-xs text-destructive">{state.message}</p>
+      )}
     </form>
   );
 }
@@ -1348,6 +1346,8 @@ function TaskRow({
   memberUser,
   entryDate,
   cascadingProjects = [],
+  projectsLoading = false,
+  onProjectsChange,
   onPriorityChange,
 }: {
   task: TaskItem;
@@ -1359,28 +1359,30 @@ function TaskRow({
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
   entryDate?: Date;
   cascadingProjects?: CascadingProjectOption[];
+  projectsLoading?: boolean;
+  /** Receives task lists / tasks created in place from the edit form, same as the /dsm form. */
+  onProjectsChange: (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
   onPriorityChange?: (taskId: string, newPriority: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
   const [, deleteAction, deleting] = useActionState<DeleteTaskState, FormData>(deleteTask, {});
 
-  // Edit form state
-  const initialTree = resolveTaskTree(task.projectTaskId, cascadingProjects);
-  const [selectedProjectId, setSelectedProjectId] = useState(initialTree.projectId);
-  const [selectedTaskId, setSelectedTaskId] = useState(initialTree.taskId);
-  const [selectedSubtaskId, setSelectedSubtaskId] = useState(initialTree.subtaskId);
-  const [selectedProjectTaskId, setSelectedProjectTaskId] = useState(task.projectTaskId || "");
+  // Edit form state — the row's project/task link is resolved when editing starts.
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedTaskListCode, setSelectedTaskListCode] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
   const [text, setText] = useState(task.text);
   const [priority, setPriority] = useState(task.managerPriority || "");
   const [dueDate, setDueDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
 
   const handleStartEdit = () => {
-    const tree = resolveTaskTree(task.projectTaskId, cascadingProjects);
+    const tree = resolveTaskTree(task.projectTaskId, cascadingProjects, task.projectId ?? "");
     setSelectedProjectId(tree.projectId);
+    setSelectedTaskListCode(tree.currentTask?.phaseCode || "");
     setSelectedTaskId(tree.taskId);
     setSelectedSubtaskId(tree.subtaskId);
-    setSelectedProjectTaskId(task.projectTaskId || "");
     setText(task.text);
     setPriority(task.managerPriority || "");
     setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
@@ -1389,40 +1391,37 @@ function TaskRow({
 
   const handleProjectChange = (pId: string) => {
     setSelectedProjectId(pId);
+    setSelectedTaskListCode("");
     setSelectedTaskId("");
     setSelectedSubtaskId("");
-    setSelectedProjectTaskId("");
   };
 
-  const handleTaskChange = (tId: string) => {
-    setSelectedTaskId(tId);
+  const handleTaskListChange = (code: string) => {
+    setSelectedTaskListCode(code);
+    // Keep the picked task only if it belongs to the newly chosen list.
     const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
-    const chosen = proj?.tasks.find((t) => t.id === tId);
-    if (chosen && chosen.subtasks && chosen.subtasks.length > 0) {
+    const current = proj?.tasks.find((t) => t.id === selectedTaskId);
+    if (code && current && current.phaseCode !== code) {
+      setSelectedTaskId("");
       setSelectedSubtaskId("");
-      setSelectedProjectTaskId("");
-    } else {
-      setSelectedSubtaskId("");
-      setSelectedProjectTaskId(chosen?.id || "");
-      if (!text.trim() && chosen) {
-        setText(chosen.title);
-      }
     }
   };
 
-  const handleSubtaskChange = (stId: string) => {
+  const handleTaskChange = (chosen: CascadingProjectOption["tasks"][number] | undefined) => {
+    setSelectedTaskId(chosen?.id || "");
+    setSelectedSubtaskId("");
+    if (chosen?.phaseCode) setSelectedTaskListCode(chosen.phaseCode);
+    if (!text.trim() && chosen) setText(chosen.title);
+  };
+
+  const handleSubtaskChange = (stId: string, parent: CascadingProjectOption["tasks"][number] | undefined) => {
     setSelectedSubtaskId(stId);
-    const proj = cascadingProjects.find((p) => p.id === selectedProjectId);
-    const chosenTask = proj?.tasks.find((t) => t.id === selectedTaskId);
-    const chosenSubtask = chosenTask?.subtasks?.find((st) => st.id === stId);
-    setSelectedProjectTaskId(stId || chosenTask?.id || "");
-    if (chosenSubtask && (!text.trim() || text === chosenTask?.title)) {
-      setText(chosenSubtask.title);
-    }
+    const chosenSubtask = parent?.subtasks.find((st) => st.id === stId);
+    if (chosenSubtask && (!text.trim() || text === parent?.title)) setText(chosenSubtask.title);
   };
 
-  const currentProject = cascadingProjects.find((p) => p.id === selectedProjectId);
-  const currentTask = currentProject?.tasks?.find((t) => t.id === selectedTaskId);
+  // The subtask if one is picked, else the task.
+  const selectedProjectTaskId = selectedSubtaskId || selectedTaskId;
   const selectedMeta = findSelectedTaskMeta(cascadingProjects, selectedProjectTaskId);
 
   const isCarriedOver = carryChain.length > 1;
@@ -1444,47 +1443,25 @@ function TaskRow({
           >
             <input type="hidden" name="taskId" value={task.id} />
             <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
+            <input type="hidden" name="projectId" value={selectedProjectId} />
 
-            {/* Project/Task/Subtask selectors */}
-            <div className="flex items-center gap-2 flex-wrap text-xs">
+            {/* Project → Task list → Task → Subtask; task lists and tasks can be created in place. */}
+            <div className="flex items-center gap-2.5 flex-wrap text-xs">
               <span className="font-semibold text-muted-foreground uppercase text-[11px]">Edit Task:</span>
-
-              <SearchableSelect
-                value={selectedProjectId}
-                onChange={(v) => handleProjectChange(v)}
-                options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
-                placeholder="Select Project"
-                searchPlaceholder="Search projects..."
-                className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"
+              <ProjectTaskSelectors
+                projects={cascadingProjects}
+                projectsLoading={projectsLoading}
+                projectId={selectedProjectId}
+                taskListCode={selectedTaskListCode}
+                taskId={selectedTaskId}
+                subtaskId={selectedSubtaskId}
+                onProjectChange={handleProjectChange}
+                onTaskListChange={handleTaskListChange}
+                onTaskChange={handleTaskChange}
+                onSubtaskChange={handleSubtaskChange}
+                onProjectsChange={onProjectsChange}
+                taskOwnerId={memberUser?.id}
               />
-
-              {currentProject && (
-                <SearchableSelect
-                  value={selectedTaskId}
-                  onChange={(v) => handleTaskChange(v)}
-                  options={currentProject.tasks.map((t) => ({
-                    value: t.id,
-                    label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
-                  }))}
-                  placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
-                  searchPlaceholder="Search tasks..."
-                  className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
-                />
-              )}
-
-              {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
-                <SearchableSelect
-                  value={selectedSubtaskId}
-                  onChange={(v) => handleSubtaskChange(v)}
-                  options={currentTask.subtasks.map((st) => ({
-                    value: st.id,
-                    label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
-                  }))}
-                  placeholder="Select Subtask"
-                  searchPlaceholder="Search subtasks..."
-                  className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[180px]"
-                />
-              )}
             </div>
 
             {/* Middle: Code chip + Text Input */}
@@ -1496,6 +1473,9 @@ function TaskRow({
                 >
                   {selectedMeta.code}
                 </span>
+              )}
+              {selectedMeta?.code && (
+                <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
               )}
               <input
                 name="text"
@@ -1539,6 +1519,7 @@ function TaskRow({
                   <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
                   <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
                 </div>
+                <TodayDueButton value={dueDate} onChange={setDueDate} />
               </div>
 
               {/* Save / Cancel */}
@@ -1698,10 +1679,10 @@ function TaskRow({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        ) : projectTaskHref(task) ? (
+        ) : taskItemHref(task) ? (
           // Locked rows can't be edited, but the linked project task can still be opened.
           <Link
-            href={projectTaskHref(task)!}
+            href={taskItemHref(task)!}
             title="View Task"
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
@@ -1753,7 +1734,7 @@ function SummaryTaskEditor({
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState<SummaryTaskState, FormData>(saveSummaryTask, {});
-  const initialTree = resolveTaskTree(task?.projectTaskId, cascadingProjects);
+  const initialTree = resolveTaskTree(task?.projectTaskId, cascadingProjects, task?.projectId ?? "");
   const [projectId, setProjectId] = useState(initialTree.projectId);
   const [parentTaskId, setParentTaskId] = useState(initialTree.taskId);
   const [subtaskId, setSubtaskId] = useState(initialTree.subtaskId);
@@ -1780,6 +1761,7 @@ function SummaryTaskEditor({
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="projectTaskId" value={projectTaskId} />
+      <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="isCompleted" value={String(isCompleted)} />
 
       <div className="flex items-center gap-2 flex-wrap text-xs">
@@ -1833,6 +1815,9 @@ function SummaryTaskEditor({
           >
             {selectedMeta.code}
           </span>
+        )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
         )}
         <input
           name="text"
@@ -1888,13 +1873,17 @@ function LinkedTaskCell({
   fallbackTitle,
   showStatus = true,
 }: {
-  projectTask: { id: string; code: string; title: string | null; status: string };
+  projectTask: { id: string; code: string; title: string | null; status: string; project?: { id: string } | null };
   fallbackTitle: string;
   showStatus?: boolean;
 }) {
   return (
     <div className="flex flex-col items-start gap-1">
-      <TaskIdChip code={projectTask.code} title={projectTask.title || fallbackTitle} />
+      <TaskIdChip
+        code={projectTask.code}
+        title={projectTask.title || fallbackTitle}
+        href={projectTaskHref(projectTask.project?.id, projectTask.code)}
+      />
       {showStatus && (
         <ProjectTaskStatusPill
           taskId={projectTask.id}
@@ -1907,14 +1896,12 @@ function LinkedTaskCell({
   );
 }
 
-function projectTaskHref(task: TaskItem): string | null {
-  const projectId = task.projectTask?.project?.id;
-  const code = task.projectTask?.code;
-  return projectId && code ? `/projects/${projectId}/tasks/${code}` : null;
+function taskItemHref(task: TaskItem): string | null {
+  return projectTaskHref(task.projectTask?.project?.id, task.projectTask?.code);
 }
 
 function ViewTaskMenuItem({ task }: { task: TaskItem }) {
-  const href = projectTaskHref(task);
+  const href = taskItemHref(task);
   if (!href) return null;
   return (
     <>
@@ -2273,16 +2260,21 @@ function TodayTasksSection({
   memberUser?: { id?: string; name?: string | null; email?: string | null; image?: string | null } | null;
 }) {
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [sortMode, setSortMode] = useState("priority");
   const [overridePriorities, setOverridePriorities] = useState<Record<string, string | null>>({});
-  // "Not Aligned Task" filter: tasks with no linked project task (project selected or not).
+  // "Not Aligned Task" filter: tasks with no linked project task (project selected or not), or
+  // whose task is still in the project's NAT list — those are the ones to align.
   const [showNotAligned, setShowNotAligned] = useState(false);
-  const notAlignedCount = tasks.filter((t) => !t.projectTaskId).length;
+  const isNotAligned = (t: TaskItem) => isNotAlignedTaskLink(t.projectTaskId, cascadingProjects);
+  const notAlignedCount = tasks.filter(isNotAligned).length;
 
   useEffect(() => {
-    fetchUserProjectsWithTasksAction(memberUser?.id).then((res) => {
-      if (res) setCascadingProjects(res);
-    });
+    fetchUserProjectsWithTasksAction(memberUser?.id)
+      .then((res) => {
+        if (res) setCascadingProjects(res);
+      })
+      .finally(() => setProjectsLoading(false));
   }, [memberUser?.id]);
 
   const handlePriorityChange = (taskId: string, newPriority: string | null) => {
@@ -2371,7 +2363,7 @@ function TodayTasksSection({
           <table className="w-full border-collapse">
             <TaskTableHead withAction />
             <tbody>
-              {sorted.map((task, i) => showNotAligned && task.projectTaskId ? null : (
+              {sorted.map((task, i) => showNotAligned && !isNotAligned(task) ? null : (
                 <TaskRow
                   key={task.id}
                   task={task}
@@ -2383,6 +2375,8 @@ function TodayTasksSection({
                   memberUser={memberUser}
                   entryDate={entry?.date}
                   cascadingProjects={cascadingProjects}
+                  projectsLoading={projectsLoading}
+                  onProjectsChange={setCascadingProjects}
                   onPriorityChange={handlePriorityChange}
                 />
               ))}
@@ -2397,6 +2391,9 @@ function TodayTasksSection({
       <AddTaskRow
         entryId={entryId}
         cascadingProjects={cascadingProjects}
+        projectsLoading={projectsLoading}
+        onProjectsChange={setCascadingProjects}
+        memberUserId={memberUser?.id}
       />
     </div>
   );
@@ -2629,7 +2626,7 @@ function parkedTaskToItem(t: ParkedTask): ParkedTaskItem {
     text: t.text,
     priority: t.priority ?? "",
     projectTaskId: t.projectTaskId ?? "",
-    projectId: t.projectTask?.project?.id ?? "",
+    projectId: t.projectTask?.project?.id ?? t.projectId ?? "",
     dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
     persisted: true,
   };
@@ -2679,7 +2676,7 @@ export function ParkingLotSection({
     const n = [...items];
     n[i] = { ...n[i], projectId: newProjectId, projectTaskId: "" };
     setItems(n);
-    persistField(i, { projectTaskId: "" });
+    persistField(i, { projectId: newProjectId, projectTaskId: "" });
   };
 
   const handleTaskChange = (i: number, newTaskId: string, currentProject?: CascadingProjectOption) => {
@@ -2718,6 +2715,7 @@ export function ParkingLotSection({
         text: item.text,
         priority: item.priority || undefined,
         projectTaskId: item.projectTaskId || undefined,
+        projectId: item.projectId || undefined,
         dueDate: item.dueDate || undefined,
         targetUserId: memberUserId,
       });
@@ -2728,7 +2726,7 @@ export function ParkingLotSection({
     });
   };
 
-  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; dueDate?: string; text?: string }) => {
+  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; projectId?: string; dueDate?: string; text?: string }) => {
     const item = items[i];
     if (!item.persisted) return;
     startTransition(async () => {
@@ -2801,6 +2799,9 @@ export function ParkingLotSection({
                     >
                       {selectedMeta.code}
                     </span>
+                  )}
+                  {selectedMeta?.code && (
+                    <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
                   )}
                   <div className="flex-1 min-w-0">
                     <input
@@ -3164,7 +3165,10 @@ function EntryExpanded({
       {/* Review action */}
       {isReviewable && (
         <div className="pt-1">
-          <ReviewButton entryId={entry.id} />
+          <ReviewButton
+            entryId={entry.id}
+            tasksWithoutProject={countTasksWithoutProject(entry.tasks.filter((t) => t.kind === "TODAY"))}
+          />
         </div>
       )}
 

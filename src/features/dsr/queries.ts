@@ -220,7 +220,7 @@ export type ProjectLinkSummary = {
   /** The DSM task's own due date, set directly by the team member — independent of any linked project task. */
   dueDate: Date | null;
   projectTaskId: string | null;
-  projectTask: { id: string; code: string; title: string; project: { name: string } | null } | null;
+  projectTask: { id: string; code: string; title: string; project: { id: string; name: string } | null } | null;
   timeSummary: DailyTimeSummary;
 };
 
@@ -254,7 +254,7 @@ export async function getDsrProjectTaskLinks(
           dueDate: true,
           projectTaskId: true,
           projectTask: {
-            select: { id: true, code: true, title: true, project: { select: { name: true } } },
+            select: { id: true, code: true, title: true, project: { select: { id: true, name: true } } },
           },
         },
       },
@@ -301,7 +301,7 @@ export type ReportTimeSummary = {
   /** Tasks with time logged on this day that aren't linked to any of that day's DSM tasks. */
   extraTasks: DayEffortRow[];
   /** The user's currently running timer, if any (only meaningful for today). */
-  runningTimer: { taskId: string; code: string; title: string; startedAt: Date } | null;
+  runningTimer: { taskId: string; code: string; title: string; projectId: string | null; startedAt: Date } | null;
 };
 
 /**
@@ -322,7 +322,7 @@ export async function getReportTimeSummary(userId: string, dateStr: string): Pro
     }),
     d.activeTimer.findUnique({
       where: { userId },
-      select: { taskId: true, startedAt: true, task: { select: { code: true, title: true } } },
+      select: { taskId: true, projectId: true, startedAt: true, task: { select: { code: true, title: true } } },
     }),
   ]);
 
@@ -336,7 +336,13 @@ export async function getReportTimeSummary(userId: string, dateStr: string): Pro
     totalLoggedMinutes: effort.reduce((sum, row) => sum + row.minutes, 0),
     extraTasks: effort.filter((row) => !dsmTaskIds.has(row.taskId)),
     runningTimer: timer
-      ? { taskId: timer.taskId, code: timer.task?.code ?? "", title: timer.task?.title ?? "", startedAt: timer.startedAt }
+      ? {
+          taskId: timer.taskId,
+          code: timer.task?.code ?? "",
+          title: timer.task?.title ?? "",
+          projectId: timer.projectId ?? null,
+          startedAt: timer.startedAt,
+        }
       : null,
   };
 }

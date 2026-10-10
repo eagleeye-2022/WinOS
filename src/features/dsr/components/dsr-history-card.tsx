@@ -9,6 +9,7 @@ import type { DsrEntryData } from "../queries";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { ProjectLinkSummary } from "../queries";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 import { renderTextWithMentions } from "./dsr-form";
@@ -256,7 +257,7 @@ export function DsrHistoryCard({
                           )}
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
-                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} href={projectTaskHref(link.projectTask.project?.id, link.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                           )}
                           <td className="py-2 pr-3 align-top">

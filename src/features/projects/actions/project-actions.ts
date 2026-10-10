@@ -37,6 +37,7 @@ import {
   scaffoldTasksFromTemplate,
 } from "../data/sop-templates";
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
+import { findCountry, getCountryCities } from "../location-data";
 
 /**
  * Display label for each Prisma `ProfileRole` value — backs the "Portal Profile" column.
@@ -1488,21 +1489,20 @@ export async function updateProjectIndustryAction(
   return { success: true };
 }
 
-export type ProjectLocationLevel = "country" | "state" | "city";
+export type ProjectLocationLevel = "country" | "city";
 
-/** What the table should show after a location change (lower levels are cleared on change). */
+/** What the table should show after a location change (the city is cleared when the country changes). */
 export type ProjectLocationPatch = {
   clientCountry?: string;
   clientCountryCode?: string;
-  clientState?: string;
-  clientStateCode?: string;
   clientCity?: string;
 };
 
 /**
- * Updates one level of the client location. `code` is the ISO country code / state code when the
- * value was picked from the list, or empty for typed-in text. Changing the country clears state
- * and city; changing the state clears city, so a location never mixes two countries.
+ * Updates the client country or city. Both must be picked from the list (no typed-in values): a
+ * country by its ISO `code`, a city by name from that country's cities. An empty name clears.
+ * Changing the country clears the city, so a location never mixes two countries. State is no
+ * longer used — it's cleared on every save so stale values from older rows don't linger.
  */
 export async function updateProjectLocationAction(
   projectId: string,
@@ -1515,37 +1515,45 @@ export async function updateProjectLocationAction(
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
-  if (!["country", "state", "city"].includes(level)) {
+  if (!["country", "city"].includes(level)) {
     return { success: false, error: "Invalid location field." };
   }
 
-  const name = (value?.name || "").trim().slice(0, 100) || null;
-  const code = name ? (value?.code || "").trim().slice(0, 10) || null : null;
+  const rawName = (value?.name || "").trim();
 
   const project = await db.project.findFirst({ where: { OR: [{ id: projectId }, { code: projectId }] } });
   if (!project) return { success: false, error: "Project not found." };
 
+  const noState = { clientState: null, clientStateCode: null };
   let data: Record<string, string | null>;
   let oldVal: string | null;
+  let name: string | null;
   let label: string;
   if (level === "country") {
     oldVal = project.clientCountry;
     label = "Client Country";
+    const country = rawName ? findCountry(value?.code) : undefined;
+    if (rawName && !country) return { success: false, error: "Pick a country from the list." };
+    name = country?.name ?? null;
+    const code = country?.code ?? null;
     const changed = name !== project.clientCountry || code !== project.clientCountryCode;
     data = changed
-      ? { clientCountry: name, clientCountryCode: code, clientState: null, clientStateCode: null, clientCity: null }
-      : { clientCountry: name, clientCountryCode: code };
-  } else if (level === "state") {
-    oldVal = project.clientState;
-    label = "Client State";
-    const changed = name !== project.clientState || code !== project.clientStateCode;
-    data = changed
-      ? { clientState: name, clientStateCode: code, clientCity: null }
-      : { clientState: name, clientStateCode: code };
+      ? { clientCountry: name, clientCountryCode: code, clientCity: null, ...noState }
+      : { clientCountry: name, clientCountryCode: code, ...noState };
   } else {
     oldVal = project.clientCity;
     label = "Client City";
-    data = { clientCity: name };
+    if (rawName) {
+      if (!findCountry(project.clientCountryCode)) {
+        return { success: false, error: "Pick a country from the list first." };
+      }
+      const cities = await getCountryCities(project.clientCountryCode!);
+      if (!cities.includes(rawName)) {
+        return { success: false, error: `Pick a city of ${project.clientCountry} from the list.` };
+      }
+    }
+    name = rawName || null;
+    data = { clientCity: name, ...noState };
   }
 
   const updated = await db.project.update({
@@ -1554,8 +1562,6 @@ export async function updateProjectLocationAction(
     select: {
       clientCountry: true,
       clientCountryCode: true,
-      clientState: true,
-      clientStateCode: true,
       clientCity: true,
     },
   });
@@ -1566,7 +1572,7 @@ export async function updateProjectLocationAction(
       userId: session.user.id,
       userName: session.user.name,
       action: `changed ${label}`,
-      fieldName: level === "country" ? "clientCountry" : level === "state" ? "clientState" : "clientCity",
+      fieldName: level === "country" ? "clientCountry" : "clientCity",
       oldValue: oldVal || "None",
       newValue: name || "None",
     });
@@ -1578,8 +1584,6 @@ export async function updateProjectLocationAction(
     patch: {
       clientCountry: updated.clientCountry || undefined,
       clientCountryCode: updated.clientCountryCode || undefined,
-      clientState: updated.clientState || undefined,
-      clientStateCode: updated.clientStateCode || undefined,
       clientCity: updated.clientCity || undefined,
     },
   };
@@ -3806,10 +3810,30 @@ import {
   formatTimePeriodRange,
   parseDateAndTimeToDate,
   toISTDateString,
+  parseTimeToMinutes,
+  MAX_LOG_MINUTES,
+  MAX_LOG_DURATION_ERROR,
+  SAME_DAY_LOG_ERROR,
 } from "../utils/time-helpers";
 
 function formatMinutes(totalMinutes: number): string {
   return formatMinutesToHHMM(totalMinutes);
+}
+
+/**
+ * Effort-log rule (see MAX_LOG_MINUTES): any length, but start and end on the same day. Returns
+ * the error to show, or null when the log is fine. A "start – end" range whose end isn't after
+ * its start would run past midnight.
+ */
+function sameDayLogError(durationMinutes: number, timePeriod: string | null | undefined): string | null {
+  if (durationMinutes > MAX_LOG_MINUTES) return MAX_LOG_DURATION_ERROR;
+  const parts = (timePeriod || "").split(/[-–]/).map((s) => s.trim());
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    const start = parseTimeToMinutes(parts[0]);
+    const end = parseTimeToMinutes(parts[1]);
+    if (start !== null && end !== null && end <= start) return SAME_DAY_LOG_ERROR;
+  }
+  return null;
 }
 
 async function recalculateProjectTimeTotals(projectId: string) {
@@ -4065,10 +4089,9 @@ export async function createTimeLogAction(
   let durationMinutes = parseDurationMinutes(logData.duration);
   if (durationMinutes <= 0) durationMinutes = 60;
 
-  let timePeriodStr = logData.timePeriod || "";
-  if (durationMinutes > 720) {
-    timePeriodStr = "";
-  }
+  const timePeriodStr = logData.timePeriod || "";
+  const sameDayError = sameDayLogError(durationMinutes, timePeriodStr);
+  if (sameDayError) throw new Error(sameDayError);
   const description = encodeDescriptionWithTimePeriod(logData.remarks || logData.title, timePeriodStr);
   const startTimePart = timePeriodStr ? timePeriodStr.split(/[-–]/)[0]?.trim() : undefined;
   const logDate = parseDateAndTimeToDate(logData.date, startTimePart);
@@ -4188,14 +4211,19 @@ export async function updateTimeLogAction(
   if (updates.billingType) {
     dataToUpdate.billingType = updates.billingType === "BILLABLE" ? "BILLABLE" : "NON_BILLABLE";
   }
+  if (dataToUpdate.duration !== undefined || updates.timePeriod !== undefined) {
+    const finalDuration = dataToUpdate.duration !== undefined ? dataToUpdate.duration : existingLog.duration;
+    const finalTp =
+      updates.timePeriod !== undefined
+        ? updates.timePeriod
+        : decodeDescriptionWithTimePeriod(existingLog.description).timePeriod;
+    const sameDayError = sameDayLogError(finalDuration, finalTp);
+    if (sameDayError) throw new Error(sameDayError);
+  }
   if (updates.remarks !== undefined || updates.timePeriod !== undefined) {
     const { timePeriod: existingTp, remarks: existingRem } = decodeDescriptionWithTimePeriod(existingLog.description);
     const newRemarks = updates.remarks !== undefined ? updates.remarks : existingRem;
-    let newTp = updates.timePeriod !== undefined ? updates.timePeriod : existingTp;
-    const finalDuration = dataToUpdate.duration !== undefined ? dataToUpdate.duration : existingLog.duration;
-    if (finalDuration > 720) {
-      newTp = "";
-    }
+    const newTp = updates.timePeriod !== undefined ? updates.timePeriod : existingTp;
     dataToUpdate.description = encodeDescriptionWithTimePeriod(newRemarks, newTp);
   }
   if (updates.approvalStatus && isManager) {

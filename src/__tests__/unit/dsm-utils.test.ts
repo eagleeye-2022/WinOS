@@ -15,7 +15,72 @@ import {
   buildTaskListOptions,
   nextTaskListCode,
   formatTaskListName,
+  countTasksWithoutProject,
+  isNotAlignedTaskLink,
 } from "@/features/dsm/utils";
+
+// ── NAT (Not Aligned Task) ────────────────────────────────────────────────────
+
+describe("isNotAlignedTaskLink", () => {
+  const projects = [
+    {
+      taskLists: [
+        { code: "4.1", name: "4.1 DEVELOPMENT" },
+        { code: "7.10", name: "Not Aligned Task (NAT)" },
+      ],
+      tasks: [
+        { id: "dev-task", phaseCode: "4.1", subtasks: [{ id: "dev-sub" }] },
+        { id: "nat-task", phaseCode: "7.10", subtasks: [{ id: "nat-sub" }] },
+      ],
+    },
+  ];
+
+  it("counts a row with no linked task as not aligned", () => {
+    expect(isNotAlignedTaskLink(undefined, projects)).toBe(true);
+    expect(isNotAlignedTaskLink("", projects)).toBe(true);
+  });
+
+  it("counts a task (or its subtask) still in the NAT list as not aligned, whatever its code", () => {
+    expect(isNotAlignedTaskLink("nat-task", projects)).toBe(true);
+    expect(isNotAlignedTaskLink("nat-sub", projects)).toBe(true);
+  });
+
+  it("treats tasks in a real list — e.g. after a manager moves it — as aligned", () => {
+    expect(isNotAlignedTaskLink("dev-task", projects)).toBe(false);
+    expect(isNotAlignedTaskLink("dev-sub", projects)).toBe(false);
+  });
+
+  it("treats a linked task not in the loaded projects as aligned", () => {
+    expect(isNotAlignedTaskLink("unknown", projects)).toBe(false);
+  });
+});
+
+// ── Project required on every task ───────────────────────────────────────────
+
+describe("countTasksWithoutProject", () => {
+  it("counts a task linked to a project only (no task picked) as linked", () => {
+    expect(countTasksWithoutProject([{ projectId: "p1", projectTaskId: null }])).toBe(0);
+  });
+
+  it("counts a task linked to a project task as linked", () => {
+    expect(countTasksWithoutProject([{ projectId: null, projectTaskId: "t1" }])).toBe(0);
+  });
+
+  it("counts tasks with neither (null, undefined or blank) as missing", () => {
+    expect(
+      countTasksWithoutProject([
+        { projectId: null, projectTaskId: null },
+        {},
+        { projectId: "  ", projectTaskId: "" },
+        { projectId: "p1" },
+      ])
+    ).toBe(3);
+  });
+
+  it("returns 0 for no tasks", () => {
+    expect(countTasksWithoutProject([])).toBe(0);
+  });
+});
 
 // ── Project task lists ────────────────────────────────────────────────────────
 

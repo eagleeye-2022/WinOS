@@ -13,6 +13,8 @@ interface TimerStoppedModalProps {
   taskCode?: string;
   onSaveLog?: (data: {
     duration: string;
+    /** Local calendar day of the (possibly edited) start, "YYYY-MM-DD" — the log's date. */
+    date: string;
     startTime: string;
     endTime: string;
     isBillable: boolean;
@@ -21,7 +23,7 @@ interface TimerStoppedModalProps {
   onDiscardLog?: () => void;
 }
 
-import { formatTime12h } from "../../utils/time-helpers";
+import { formatTime12h, isSameLocalDay, SAME_DAY_LOG_ERROR, toLocalDateString } from "../../utils/time-helpers";
 
 // Format date time for display (e.g., 30/07/2026 4:04 PM)
 function formatDisplayDateTime(d: Date) {
@@ -133,9 +135,9 @@ export function TimerStoppedModal({
       return;
     }
 
-    const diffMinutes = Math.floor((newEnd.getTime() - newStart.getTime()) / 60000);
-    if (diffMinutes > 720) {
-      setErrorMsg("Time duration cannot exceed 12 hours (720 minutes).");
+    // Any length is fine as long as it starts and ends on the same day.
+    if (!isSameLocalDay(newStart, newEnd)) {
+      setErrorMsg(SAME_DAY_LOG_ERROR);
       return;
     }
 
@@ -161,9 +163,9 @@ export function TimerStoppedModal({
       return;
     }
 
-    const totalMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
-    if (totalMinutes > 720) {
-      setErrorMsg("Time duration cannot exceed 12 hours (720 minutes).");
+    // A timer left running past midnight has to be trimmed to one day before it can be saved.
+    if (!isSameLocalDay(startTime, endTime)) {
+      setErrorMsg(`${SAME_DAY_LOG_ERROR} Use the pencil next to "Starts" to adjust the times.`);
       return;
     }
 
@@ -172,6 +174,7 @@ export function TimerStoppedModal({
     if (onSaveLog) {
       onSaveLog({
         duration: durationObj.formatted,
+        date: toLocalDateString(startTime),
         startTime: formatTime12h(startTime),
         endTime: formatTime12h(endTime),
         isBillable,

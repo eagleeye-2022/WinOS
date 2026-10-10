@@ -4,7 +4,16 @@ import { useActionState, useState, useEffect, useRef, useTransition, type Dispat
 import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
-import { toIsoDateStr, toUtcDate } from "../utils";
+import {
+  toIsoDateStr,
+  toUtcDate,
+  countTasksWithoutProject,
+  PROJECT_REQUIRED_MESSAGE,
+  NAT_TASK_LIST_NAME,
+  isNotAlignedTaskLink,
+} from "../utils";
+import { ensureNatTaskForTimerAction } from "../actions/create-project-items";
+import { toast } from "@/components/shared/toast";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
 import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -19,23 +28,24 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { fetchUserOpenProjectTasksAction, fetchLinkedTimeLogsAction, fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { OpenProjectTaskOption, CascadingProjectOption } from "../queries";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
-import { SortFilterButton, DueDateInput } from "@/components/shared/task-table-parts";
+import { SortFilterButton, DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { ProjectTaskSelectors } from "./project-task-selectors";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
   projects: CascadingProjectOption[],
   projectTaskId: string
-): { code: string | null; title?: string; projectName: string } | null {
+): { code: string | null; title?: string; projectName: string; projectId: string } | null {
   if (!projectTaskId) return null;
   for (const project of projects) {
     for (const task of project.tasks) {
       if (task.id === projectTaskId) {
-        return { code: task.code, title: task.title, projectName: project.name };
+        return { code: task.code, title: task.title, projectName: project.name, projectId: project.id };
       }
       for (const subtask of task.subtasks) {
         if (subtask.id === projectTaskId) {
-          return { code: subtask.code, title: subtask.title, projectName: project.name };
+          return { code: subtask.code, title: subtask.title, projectName: project.name, projectId: project.id };
         }
       }
     }
@@ -80,11 +90,11 @@ type Task = { id: string; text: string; priority: string; carried: boolean; proj
 type ProjectsUpdater = (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
 
 /**
- * "Not Aligned Task" filter: a row with no linked project task — whether or not a project
- * is selected.
+ * "Not Aligned Task" filter: a row with no linked project task (project selected or not), or one
+ * whose task is still in the project's NAT list — see isNotAlignedTaskLink.
  */
-function isNotAlignedTask(task: { projectTaskId?: string }): boolean {
-  return !task.projectTaskId;
+function isNotAlignedTask(task: { projectTaskId?: string }, projects: CascadingProjectOption[]): boolean {
+  return isNotAlignedTaskLink(task.projectTaskId, projects);
 }
 
 function resolveTaskTree(task: { projectTaskId?: string; projectId?: string; taskListCode?: string }, cascadingProjects: CascadingProjectOption[]) {
@@ -211,8 +221,33 @@ function TaskRows({
     onChange(n);
   };
 
+  /**
+   * Timer started on a row with a project but no task: get (or create) the user's task named
+   * after the row in the project's NAT list, link the row to it and hand it to the timer.
+   */
+  const startOnNatTask = async (row: Task, pid: string) => {
+    const title = row.text.trim();
+    if (!title) {
+      toast.error("Write what you're working on first — it becomes the task's name.");
+      return null;
+    }
+    const res = await ensureNatTaskForTimerAction(pid, title);
+    if (!res.success) {
+      toast.error(res.error);
+      return null;
+    }
+    onProjectsChange((prev) =>
+      prev.map((p) =>
+        p.id === pid && !p.tasks.some((t) => t.id === res.task.id) ? { ...p, tasks: [res.task, ...p.tasks] } : p
+      )
+    );
+    patchRow(row.id, () => ({ projectTaskId: res.task.id, taskListCode: res.taskListCode }));
+    if (res.created) toast.success(`Added "${title}" to ${NAT_TASK_LIST_NAME}.`);
+    return { taskId: res.task.id, taskCode: res.task.code ?? undefined, projectId: pid };
+  };
+
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
-  const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t));
+  const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t, cascadingProjects));
 
   return (
     <div className="flex flex-col gap-3">
@@ -236,13 +271,15 @@ function TaskRows({
         const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
         return (
-          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task) && "hidden")}>
+          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task, cascadingProjects) && "hidden")}>
             {/* Left index label: T1, T2, T3 */}
             <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
               T{i + 1}
             </span>
             <input type="hidden" name="taskProjectTaskId" value={projectTaskId} />
             <input type="hidden" name="taskProjectId" value={tree.projectId} />
+            {/* Task list picked without a task: on submit, a task is created there from the text. */}
+            <input type="hidden" name="taskListCode" value={tree.taskListCode} />
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
 
             {/* Main Card */}
@@ -256,6 +293,9 @@ function TaskRows({
                   >
                     {selectedMeta.code}
                   </span>
+                )}
+                {selectedMeta?.code && (
+                  <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
                 )}
                 <div className="flex-1 min-w-0">
                   <MentionInput
@@ -375,10 +415,24 @@ function TaskRows({
                       taskCode={tree.activeTargetTask?.code ?? undefined}
                       taskTitle={task.text || tree.activeTargetTask?.title}
                       projectId={tree.currentProject?.id}
-                      canStart={Boolean(tree.activeTargetTask)}
-                      disabledReason="Select a task to start timer"
-                      disabledTitle="No task selected"
+                      // A project is enough: with no task picked, the timer runs on a NAT task.
+                      canStart={Boolean(tree.activeTargetTask || tree.currentProject)}
+                      disabledReason="Select a project to start timer"
+                      disabledTitle="No project selected"
                       defaultExpanded={true}
+                      onCreateTaskForTimer={
+                        tree.currentProject && !tree.activeTargetTask
+                          ? () => startOnNatTask(task, tree.currentProject!.id)
+                          : undefined
+                      }
+                      createTaskConfirm={
+                        tree.currentProject && !tree.activeTargetTask
+                          ? {
+                              title: "Start timer without a task?",
+                              description: `No task is picked, so the time will go to "${task.text.trim() || "this task"}" in ${tree.currentProject.name} → ${NAT_TASK_LIST_NAME}. Your manager can move it to the right task list later.`,
+                            }
+                          : undefined
+                      }
                     />
                     {/* Hidden by request: per-task "Xh Ym logged" badge.
                     {loggedMins !== undefined && loggedMins > 0 && (
@@ -818,7 +872,7 @@ type ParkedTaskItem = {
   text: string;
   priority: string;
   projectTaskId: string;
-  /** Client-only: tracks the chosen project before/without a specific task being picked yet. Not persisted directly — only projectTaskId is saved. */
+  /** Project picked for the row — saved too, so a row can link a project with no task. */
   projectId: string;
   /** Client-only: task list the row is filtered by. */
   taskListCode?: string;
@@ -832,7 +886,7 @@ function parkedTaskToItem(t: ParkedTask): ParkedTaskItem {
     text: t.text,
     priority: t.priority ?? "",
     projectTaskId: t.projectTaskId ?? "",
-    projectId: t.projectTask?.project?.id ?? "",
+    projectId: t.projectTask?.project?.id ?? t.projectId ?? "",
     dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
     persisted: true,
   };
@@ -874,7 +928,7 @@ function ParkingLotRows({
     const n = [...items];
     n[i] = { ...n[i], projectId: newProjectId, taskListCode: "", projectTaskId: "" };
     onChange(n);
-    persistField(i, { projectTaskId: "" });
+    persistField(i, { projectId: newProjectId, projectTaskId: "" });
   };
 
   // The two handlers below can run after an await (creating a task list / task), so they update
@@ -935,6 +989,7 @@ function ParkingLotRows({
         text: item.text,
         priority: item.priority || undefined,
         projectTaskId: item.projectTaskId || undefined,
+        projectId: item.projectId || undefined,
         dueDate: item.dueDate || undefined,
       });
       if (res.success && res.task) {
@@ -943,7 +998,7 @@ function ParkingLotRows({
     });
   };
 
-  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; dueDate?: string; text?: string }) => {
+  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; projectId?: string; dueDate?: string; text?: string }) => {
     const item = items[i];
     if (!item.persisted) return;
     startTransition(async () => {
@@ -1002,6 +1057,9 @@ function ParkingLotRows({
                   >
                     {selectedMeta.code}
                   </span>
+                )}
+                {selectedMeta?.code && (
+                  <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
                 )}
                 <div className="flex-1 min-w-0">
                   <input
@@ -1207,6 +1265,9 @@ export function SubmitDsmForm({
   const [taskSortMode, setTaskSortMode] = useState("");
   // "Not Aligned Task" filter for today's tasks (see isNotAlignedTask).
   const [showNotAligned, setShowNotAligned] = useState(false);
+  // Today's filled-in tasks with no project — submitting is blocked until this is 0 (saveDsm enforces it too).
+  const tasksWithoutProject = countTasksWithoutProject(tasks.filter((t) => t.text.trim()));
+  const [showProjectError, setShowProjectError] = useState(false);
 
   const applyTaskSort = (mode: string) => {
     setTaskSortMode(mode);
@@ -1376,7 +1437,7 @@ export function SubmitDsmForm({
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [linkedTimeLogs, setLinkedTimeLogs] = useState<Record<string, number>>({});
-  const notAlignedCount = tasks.filter((t) => isNotAlignedTask(t)).length;
+  const notAlignedCount = tasks.filter((t) => isNotAlignedTask(t, cascadingProjects)).length;
 
   useEffect(() => {
     fetchUserOpenProjectTasksAction().then((res) => {
@@ -1568,8 +1629,12 @@ export function SubmitDsmForm({
             onProjectsChange={setCascadingProjects}
             onlyNotAligned={showNotAligned}
           />
-          {state.errors?.tasks && (
-            <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
+          {showProjectError && tasksWithoutProject > 0 ? (
+            <p className="text-xs text-destructive">
+              {PROJECT_REQUIRED_MESSAGE} ({tasksWithoutProject} task{tasksWithoutProject === 1 ? "" : "s"} missing a project).
+            </p>
+          ) : (
+            state.errors?.tasks && <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
         </Section>
 
@@ -1679,6 +1744,12 @@ export function SubmitDsmForm({
               value="submit"
               type="submit"
               disabled={pending}
+              onClick={(e) => {
+                if (tasksWithoutProject > 0) {
+                  e.preventDefault();
+                  setShowProjectError(true);
+                }
+              }}
               className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
             >
               {pending && <Loader2 size={16} className="animate-spin" />}

@@ -10,7 +10,8 @@ import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
 import { toggleStandupTask } from "../actions/toggle-standup-task";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
-import { TaskIdChip, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { StandupLearningSection } from "./standup-learning-section";
 
@@ -160,7 +161,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                               {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
-                              {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} href={projectTaskHref(task.projectTask.project?.id, task.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -271,6 +272,9 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                             >
                               [{b.projectTask.code}]
                             </span>
+                          )}
+                          {b.projectTask?.project?.id && (
+                            <TaskInfoLink href={projectTaskHref(b.projectTask.project.id, b.projectTask.code)!} code={b.projectTask.code} />
                           )}
                           {renderTextWithMentions(b.text, mentioned, "font-semibold underline")}
                           {b.editedBy && (

@@ -39,6 +39,9 @@ import {
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
   formatTime12h,
+  MAX_LOG_MINUTES,
+  MAX_LOG_DURATION_ERROR,
+  SAME_DAY_LOG_ERROR,
 } from "../../utils/time-helpers";
 
 interface NewTimeLogModalProps {
@@ -341,12 +344,9 @@ export function NewTimeLogModal({
               return "Effort logging is not allowed for future dates and times.";
             }
           }
+          // Any length is fine within the day; an end before the start would run past midnight.
           if (endMin <= startMin) {
-            return "End time must be after Start time.";
-          }
-          const diff = endMin - startMin;
-          if (diff > 720) {
-            return "Time duration cannot exceed 12 hours (720 minutes).";
+            return `End time must be after Start time. ${SAME_DAY_LOG_ERROR}`;
           }
         }
       }
@@ -359,8 +359,8 @@ export function NewTimeLogModal({
         if (mins <= 0) {
           return "Duration must be greater than 0.";
         }
-        if (mins > 720) {
-          return "Time duration cannot exceed 12 hours (720 minutes).";
+        if (mins > MAX_LOG_MINUTES) {
+          return MAX_LOG_DURATION_ERROR;
         }
       }
     }
@@ -373,8 +373,8 @@ export function NewTimeLogModal({
     const startMin = parseTimeToMinutes(startTime);
     const endMin = parseTimeToMinutes(endTime);
     if (startMin === null || endMin === null) return null;
-    let diff = endMin - startMin;
-    if (diff < 0) diff += 24 * 60;
+    const diff = endMin - startMin;
+    if (diff <= 0) return null; // runs past midnight — flagged by timeError
     return `${String(Math.floor(diff / 60)).padStart(2, "0")}:${String(diff % 60).padStart(2, "0")}`;
   }, [useHoursMode, startTime, endTime]);
 
@@ -427,7 +427,7 @@ export function NewTimeLogModal({
     } else {
       const rangeMins = calculateMinutesFromTimeRange(startTime, endTime);
       durationStr = formatDurationDisplay(rangeMins || 0);
-      timePeriodStr = (rangeMins && rangeMins > 720) ? "" : formatTimePeriodRange(startTime, endTime);
+      timePeriodStr = formatTimePeriodRange(startTime, endTime);
     }
 
     const taskCode = !isGeneralLog && taskSearchQuery

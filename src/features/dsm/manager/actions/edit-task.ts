@@ -40,6 +40,9 @@ export async function editTask(
     const ptId = (formData.get("projectTaskId") as string)?.trim() || null;
     dataToUpdate.projectTaskId = ptId;
   }
+  if (formData.has("projectId")) {
+    dataToUpdate.projectId = (formData.get("projectId") as string)?.trim() || null;
+  }
   if (formData.has("dueDate")) {
     const dStr = (formData.get("dueDate") as string)?.trim();
     dataToUpdate.dueDate = dStr ? new Date(dStr) : null;

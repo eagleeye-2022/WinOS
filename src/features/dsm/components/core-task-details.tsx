@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarRange, Clock, FileText, FolderGit2, Users } from "lucide-react";
+import { ArrowUpRight, CalendarRange, Clock, FileText, FolderGit2, Loader2, Users } from "lucide-react";
 import { CORE_DAILY_TASKS_FALLBACK_DESCRIPTIONS } from "../core-daily-tasks";
-import type { CoreDailyTask } from "../queries";
+import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
+import { formatEffortMinutes, toIsoDateStr, toUtcDate } from "../utils";
+import type { CoreDailyTask, DailyTimeSummary } from "../queries";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -30,8 +33,19 @@ function formatTaskDate(value: string | null): string | null {
 
 const MAX_AVATARS = 8;
 
-/** Inline, expandable details for one Daily Core Task (shown under its row in the panel). */
-export function CoreTaskDetails({ task }: { task: CoreDailyTask }) {
+/**
+ * Inline, expandable details for one Daily Core Task (shown under its row in the panel).
+ * The day's effort is fetched each time the details open, so it includes timers stopped since
+ * the page loaded. `memberView` (manager review) shows that member's effort on `dateStr`;
+ * otherwise it's the viewer's own effort today.
+ */
+export function CoreTaskDetails({
+  task,
+  memberView,
+}: {
+  task: CoreDailyTask;
+  memberView?: { memberId: string; dateStr: string };
+}) {
   const description =
     (task.description && plainText(task.description)) ||
     CORE_DAILY_TASKS_FALLBACK_DESCRIPTIONS[task.title.trim()] ||
@@ -40,6 +54,20 @@ export function CoreTaskDetails({ task }: { task: CoreDailyTask }) {
   const start = formatTaskDate(task.startDate);
   const due = formatTaskDate(task.dueDate);
   const totalLogged = task.workHours && task.workHours !== "00:00" ? `${task.workHours} h` : null;
+
+  const effortDate = memberView?.dateStr ?? toIsoDateStr(toUtcDate());
+  const isToday = effortDate === toIsoDateStr(toUtcDate());
+  const dayLabel = isToday ? "today" : `on ${formatTaskDate(effortDate.split("-").reverse().join("/"))}`;
+  const [effort, setEffort] = useState<DailyTimeSummary | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    fetchDailyTimeSummaryAction([task.id], effortDate, memberView?.memberId)
+      .then((res) => !cancelled && setEffort(res[task.id] ?? null))
+      .catch(() => !cancelled && setEffort(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id, effortDate, memberView?.memberId]);
 
   return (
     <div className="mt-2 flex flex-col gap-2.5 rounded-lg border bg-muted/30 p-3 text-xs animate-in fade-in-0 slide-in-from-top-1 duration-150">
@@ -70,12 +98,30 @@ export function CoreTaskDetails({ task }: { task: CoreDailyTask }) {
         </div>
       )}
 
-      {totalLogged && (
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Clock size={12} className="shrink-0" />
-          <span>Total effort logged by the team: {totalLogged}</span>
-        </div>
-      )}
+      {/* Effort logged on this task for the day (the team's all-time total is in the tooltip). */}
+      <div
+        className="flex items-center gap-1.5 text-muted-foreground"
+        title={totalLogged ? `Total effort logged by the team: ${totalLogged}` : undefined}
+      >
+        <Clock size={12} className="shrink-0" />
+        {effort === undefined ? (
+          <span className="flex items-center gap-1">
+            <Loader2 size={11} className="animate-spin" /> Loading effort logged {dayLabel}…
+          </span>
+        ) : effort && effort.totalMinutes > 0 ? (
+          <span>
+            Effort logged {dayLabel}:{" "}
+            <span className="font-semibold text-foreground">{formatEffortMinutes(effort.totalMinutes)}</span>
+            {effort.firstStart && effort.lastStop && (
+              <span>
+                {" "}· {effort.firstStart} – {effort.lastStop}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="italic">No effort logged {dayLabel} yet.</span>
+        )}
+      </div>
 
       <div className="flex items-center gap-1.5">
         <Users size={12} className="shrink-0 text-muted-foreground" />

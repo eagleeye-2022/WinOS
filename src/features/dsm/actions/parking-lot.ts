@@ -35,6 +35,7 @@ export async function parkNewTask(input: {
   text: string;
   priority?: string;
   projectTaskId?: string;
+  projectId?: string;
   dueDate?: string;
   targetUserId?: string;
 }): Promise<ParkedTaskResult> {
@@ -59,6 +60,7 @@ export async function parkNewTask(input: {
       text,
       priority: input.priority || null,
       projectTaskId: input.projectTaskId || null,
+      projectId: input.projectId || null,
       dueDate: input.dueDate ? new Date(input.dueDate + "T00:00:00.000Z") : null,
       order: parkedCount,
       addedById: session.user.id,
@@ -97,10 +99,10 @@ async function loadOwnedParkedTask(taskId: string, userId: string) {
   return task;
 }
 
-/** Edits a parked task's fields (priority / linked project task / due date / text). */
+/** Edits a parked task's fields (priority / project / linked project task / due date / text). */
 export async function updateParkedTask(
   taskId: string,
-  input: { text?: string; priority?: string; projectTaskId?: string; dueDate?: string }
+  input: { text?: string; priority?: string; projectTaskId?: string; projectId?: string; dueDate?: string }
 ): Promise<ParkedTaskResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, message: "Unauthorized" };
@@ -116,6 +118,7 @@ export async function updateParkedTask(
       ...(input.text !== undefined ? { text: input.text.trim() } : {}),
       ...(input.priority !== undefined ? { priority: input.priority || null } : {}),
       ...(input.projectTaskId !== undefined ? { projectTaskId: input.projectTaskId || null } : {}),
+      ...(input.projectId !== undefined ? { projectId: input.projectId || null } : {}),
       ...(input.dueDate !== undefined
         ? { dueDate: input.dueDate ? new Date(input.dueDate + "T00:00:00.000Z") : null }
         : {}),

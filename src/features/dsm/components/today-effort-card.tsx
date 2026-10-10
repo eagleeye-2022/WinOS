@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowUpRight, Timer } from "lucide-react";
 import { formatEffortMinutes } from "../utils";
+import { TaskInfoLink } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import type { DayEffortRow } from "../queries";
 
 const MAX_ROWS = 6;
@@ -36,6 +38,9 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
                   {r.task?.code && <span className="mr-1 font-mono text-[11px] text-muted-foreground">{r.task.code}</span>}
                   {r.task?.title ?? "Task"}
                 </span>
+                {r.task?.code && r.task.project?.id && (
+                  <TaskInfoLink href={projectTaskHref(r.task.project.id, r.task.code)!} code={r.task.code} />
+                )}
                 <span className="shrink-0 font-mono font-semibold text-foreground">{formatEffortMinutes(r.minutes)}</span>
               </li>
             ))}

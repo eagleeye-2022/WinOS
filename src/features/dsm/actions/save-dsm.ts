@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getStr } from "@/lib/action-utils";
+import { countTasksWithoutProject, PROJECT_REQUIRED_MESSAGE } from "../utils";
+import { ensureNatTaskForTimerAction, linkOrCreateDsmTaskAction } from "./create-project-items";
 
 export type SaveDsmState = {
   errors?: { tasks?: string[]; learningText?: string[] };
@@ -64,7 +66,8 @@ export async function saveDsm(
   const rawTaskProjectIds = formData.getAll("taskProjectTaskId") as string[];
   const rawTaskProjectRowIds = formData.getAll("taskProjectId") as string[];
   const rawTaskDueDates = formData.getAll("taskDueDate") as string[];
-  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; projectId: string | null; dueDate: Date | null }[] = [];
+  const rawTaskListCodes = formData.getAll("taskListCode") as string[];
+  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; projectId: string | null; taskListCode: string | null; dueDate: Date | null }[] = [];
   for (let i = 0; i < rawTaskTexts.length; i++) {
     const t = rawTaskTexts[i]?.trim();
     if (t) {
@@ -74,6 +77,7 @@ export async function saveDsm(
         priority: rawTaskPriorities[i] || null,
         projectTaskId: rawTaskProjectIds[i]?.trim() || null,
         projectId: rawTaskProjectRowIds[i]?.trim() || null,
+        taskListCode: rawTaskListCodes[i]?.trim() || null,
         dueDate: dueDateStr ? new Date(dueDateStr + "T00:00:00.000Z") : null,
       });
     }
@@ -96,6 +100,11 @@ export async function saveDsm(
     const errors: { tasks?: string[]; learningText?: string[] } = {};
     if (taskTexts.length === 0) {
       errors.tasks = ["At least one task is required to submit"];
+    } else {
+      const missing = countTasksWithoutProject(tasksToCreate);
+      if (missing > 0) {
+        errors.tasks = [`${PROJECT_REQUIRED_MESSAGE} (${missing} task${missing === 1 ? "" : "s"} missing a project).`];
+      }
     }
     if (!learningText || !learningText.trim()) {
       errors.learningText = ["Learning details are required to submit"];
@@ -112,6 +121,26 @@ export async function saveDsm(
   });
   if (existing?.status === "REVIEWED") {
     return { message: "This entry has already been reviewed and cannot be changed." };
+  }
+
+  // On submit, every row with a project but no task gets one, named after the row's text (the
+  // user's open task with that name is reused, otherwise a new one is created):
+  //  - task list picked → in that task list;
+  //  - no task list     → in the project's "Not Aligned Task (NAT)" list, for a manager to align.
+  // Best-effort — a row whose task can't be created (e.g. no access to that project) is saved
+  // with just its project, as before.
+  if (action === "submit") {
+    for (const item of tasksToCreate) {
+      if (!item.projectId || item.projectTaskId) continue;
+      const res = item.taskListCode
+        ? await linkOrCreateDsmTaskAction(item.projectId, item.text, item.taskListCode)
+        : await ensureNatTaskForTimerAction(item.projectId, item.text);
+      if (res.success) {
+        item.projectTaskId = res.task.id;
+      } else {
+        console.warn("[saveDsm] could not create a task for a DSM row:", { text: item.text, error: res.error });
+      }
+    }
   }
 
   // Editing an already-submitted entry keeps it visible to the manager — it

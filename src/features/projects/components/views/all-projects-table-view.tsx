@@ -57,7 +57,7 @@ import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell } from "../project-table-cells";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
 import { ProjectINotesCell } from "../project-inotes-panel";
-import { CityCell, CountryCell, CountryFilterDropdown, IndustryCell, StateCell } from "../project-client-cells";
+import { CityCell, CountryCell, CountryFilterDropdown, IndustryCell } from "../project-client-cells";
 import { getProjectNoteSummariesAction, type ProjectNoteSummary } from "../../actions/project-notes-actions";
 import { AddProjectDrawer } from "../modals/add-project-drawer";
 import { BulkProjectActionsBar } from "../bulk-project-actions-bar";
@@ -92,7 +92,6 @@ type CollapsibleColId =
   | "projectNotes"
   | "industry"
   | "clientCountry"
-  | "clientState"
   | "clientCity"
   | "techLead"
   | "techAssignee"
@@ -107,7 +106,7 @@ type CollapsibleColId =
   | "assetLink"
   | "projectTimeline";
 
-const CLIENT_LOCATION_COLS: CollapsibleColId[] = ["clientCountry", "clientState", "clientCity"];
+const CLIENT_LOCATION_COLS: CollapsibleColId[] = ["clientCountry", "clientCity"];
 const TECH_COLS: CollapsibleColId[] = ["techLead", "techAssignee"];
 const CREATIVE_UIUX_COLS: CollapsibleColId[] = ["creativeUiuxLead", "creativeUiuxAssignee"];
 const CREATIVE_GRAPHIC_COLS: CollapsibleColId[] = ["creativeGraphicLead", "creativeGraphicAssignee"];
@@ -125,7 +124,6 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
   "projectNotes",
   "industry",
   "clientCountry",
-  "clientState",
   "clientCity",
   "techLead",
   "techAssignee",
@@ -152,7 +150,6 @@ const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   projectNotes: 220,
   industry: 150,
   clientCountry: 160,
-  clientState: 140,
   clientCity: 130,
   techLead: 120,
   techAssignee: 120,
@@ -179,7 +176,6 @@ const LEAF_LABELS: Record<CollapsibleColId, string> = {
   projectNotes: "Project iNotes",
   industry: "Industry",
   clientCountry: "Country",
-  clientState: "State",
   clientCity: "City",
   techLead: "Lead",
   techAssignee: "Assignee",
@@ -193,6 +189,22 @@ const LEAF_LABELS: Record<CollapsibleColId, string> = {
   projectCalendar: "Project Calendar",
   assetLink: "Asset Link",
   projectTimeline: "Timeline",
+};
+
+/** Labels for the "all columns collapsed" cards, where there are no group headers — so the
+ *  grouped leaves ("Lead", "Assignee", ...) carry their group name. Others use LEAF_LABELS. */
+const COLLAPSED_CARD_LABELS: Partial<Record<CollapsibleColId, string>> = {
+  clientCountry: "Client Country",
+  clientCity: "Client City",
+  techLead: "Tech Lead",
+  techAssignee: "Tech Assignee",
+  creativeUiuxLead: "UI/UX Lead",
+  creativeUiuxAssignee: "UI/UX Assignee",
+  creativeGraphicLead: "Graphic Lead",
+  creativeGraphicAssignee: "Graphic Assignee",
+  marketingLead: "Marketing Lead",
+  marketingSeo: "Marketing SEO Assignee",
+  marketingContent: "Marketing Content Assignee",
 };
 
 function formatDisplayDate(dateStr?: string): string {
@@ -326,7 +338,7 @@ const FIXED_WIDTH_COLS = new Set<CollapsibleColId>(["projectName", "projectNotes
 const CELL_PADDING_X = 24;
 
 /** Columns pinned to the left while the table scrolls horizontally (after the checkbox column). */
-const STICKY_LEFT_COL: CollapsibleColId = "projectId";
+const STICKY_LEFT_COL: CollapsibleColId = "projectName";
 /** Sticky cells need an opaque background so scrolled cells pass underneath; these layer the
  *  row/header tints (muted/40, accent/30 hover, primary/5 selected) over the page background. */
 const STICKY_HEADER_BG = "bg-background bg-linear-to-r from-muted/40 to-muted/40";
@@ -336,7 +348,8 @@ const STICKY_BODY_SELECTED_BG = "bg-background bg-linear-to-r from-primary/5 to-
 /** Right-edge divider + soft shadow so the pinned column reads as floating over the scroll. */
 const STICKY_EDGE = "shadow-[inset_-1px_0_0_var(--border),6px_0_8px_-6px_rgba(0,0,0,0.35)]";
 
-const COLLAPSED_COL_WIDTH = 34;
+/** A collapsed column: a 48px card (same as the task board's collapsed phases) + 4px gap each side. */
+const COLLAPSED_COL_WIDTH = 56;
 const CHECKBOX_COL_WIDTH = 40;
 const ACTIONS_COL_WIDTH = 56;
 
@@ -450,8 +463,8 @@ export function AllProjectsTableView({
   }, []);
 
   const canEditAssignments = userRole !== "TEAM_MEMBER";
-  /** Left offset of the pinned Project ID column. The checkbox column is not pinned (it scrolls
-   *  away), so Project ID pins to the very left edge once it reaches it. */
+  /** Left offset of the pinned Project Name column. The checkbox and Project ID columns are not
+   *  pinned (they scroll away), so Project Name pins to the very left edge once it reaches it. */
   const stickyLeftOffset = 0;
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -772,7 +785,7 @@ export function AllProjectsTableView({
       project.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.owner?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.departmentAlias || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      [project.industry, project.clientCountry, project.clientState, project.clientCity]
+      [project.industry, project.clientCountry, project.clientCity]
         .some((v) => (v || "").toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
@@ -821,8 +834,6 @@ export function AllProjectsTableView({
         return (project.industry || "").trim().toLowerCase();
       case "clientCountry":
         return (project.clientCountry || "").trim().toLowerCase();
-      case "clientState":
-        return (project.clientState || "").trim().toLowerCase();
       case "clientCity":
         return (project.clientCity || "").trim().toLowerCase();
       case "projectNotes": {
@@ -916,44 +927,56 @@ export function AllProjectsTableView({
     setShowOptionsMenu(false);
   };
 
-  /** Vertical (bottom-to-top) label used inside a collapsed column's dark strip — same
-   *  writing-mode trick as the collapsed Kanban phase columns on the task board. */
+  /** Vertical (bottom-to-top) label used inside a collapsed column's card — same writing-mode
+   *  trick and type style as the collapsed phase columns on the task board. */
   const renderVerticalLabel = (label: string) => (
     <span
-      className="font-extrabold text-[10px] text-slate-100 uppercase tracking-wider whitespace-nowrap"
+      className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
       style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
     >
       {label}
     </span>
   );
 
-  /** Collapsed leaf column's header box — icon-only toggle, rounded on top so it reads as the
-   *  cap of the same dark bar that continues down through every body row below it. */
+  /* A collapsed column is drawn as one rounded card, like a collapsed phase column on the task
+     board: the header cell is the card's top (expand icon) and a single body cell spanning every
+     row is the rest (vertical name). Both fill their cell with an absolutely positioned layer —
+     `height: 100%` doesn't stretch reliably inside table cells — and share an opaque background
+     so the two halves read as one card. The header half overhangs by 1px to cover the thead's
+     bottom divider. */
+  const COLLAPSED_CARD =
+    "absolute flex flex-col items-center border-slate-200/80 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-900 group-hover/card:border-primary/40 transition-colors cursor-pointer";
+
+  /** Collapsed leaf column's header cell — top of the card, with the expand icon. */
   const renderCollapsedHeaderBox = (id: CollapsibleColId, label: string, rowSpan?: number) => (
-    <th key={id} rowSpan={rowSpan} className="p-0 align-top w-8">
+    <th key={id} rowSpan={rowSpan} className="relative p-0 align-top" style={{ width: COLLAPSED_COL_WIDTH }}>
       <button
         type="button"
         onClick={() => toggleCol(id)}
         title={`Expand ${label}`}
-        className="flex h-full w-full min-h-9 items-center justify-center rounded-t-lg bg-slate-900 dark:bg-neutral-900 hover:bg-slate-800 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+        className={`group/card ${COLLAPSED_CARD} inset-x-1 top-2 -bottom-px z-10 justify-start rounded-t-2xl border border-b-0 pt-2`}
       >
-        <ArrowRightToLine size={12} className="text-primary shrink-0" />
+        <span className="p-1 rounded text-slate-500 group-hover/card:text-slate-800 dark:group-hover/card:text-white group-hover/card:bg-slate-200/50 dark:group-hover/card:bg-slate-800 transition-colors">
+          <ArrowRightToLine size={14} />
+        </span>
       </button>
     </th>
   );
 
   /** Collapsed leaf column's body — rendered once per table (rowSpan across every visible row)
-   *  so the whole column becomes a single continuous full-height dark bar with the column name
-   *  running vertically and centered along it, matching the collapsed Kanban phase columns. */
+   *  as the rest of the card, with the column name running vertically from the top. */
   const renderCollapsedBodyBox = (id: CollapsibleColId, label: string, rowIndex: number, totalRows: number) => {
     if (rowIndex !== 0) return null;
     return (
-      <td rowSpan={totalRows} className="p-0 align-top">
+      <td rowSpan={totalRows} className="relative p-0 align-top bg-background" style={{ width: COLLAPSED_COL_WIDTH }}>
+        {/* The card is absolutely positioned, so this spacer keeps the cell tall enough for the
+            vertical name even when only a row or two is shown (~7px per uppercase character). */}
+        <div aria-hidden="true" style={{ height: label.length * 7 + 32 }} />
         <button
           type="button"
           onClick={() => toggleCol(id)}
           title={`Expand ${label}`}
-          className="flex h-full w-full min-h-full flex-col items-center justify-center gap-2 rounded-b-lg bg-slate-900 dark:bg-neutral-900 hover:bg-slate-800 dark:hover:bg-neutral-800 transition-colors cursor-pointer py-3"
+          className={`group/card ${COLLAPSED_CARD} inset-x-1 top-0 bottom-2 rounded-b-2xl border border-t-0 pt-2 pb-3`}
         >
           {renderVerticalLabel(label)}
         </button>
@@ -1538,6 +1561,34 @@ export function AllProjectsTableView({
             ))}
           </div>
         </div>
+      ) : allColsCollapsed ? (
+        /* Every column collapsed: one rounded vertical card per column, same look as the collapsed
+           phase columns on the task board. Clicking a card expands that column back into the table. */
+        <div className="flex-1 min-h-0 min-w-0 overflow-x-auto overflow-y-hidden dsm-columns-scrollbar">
+          <div className="flex h-full min-h-[420px] w-max gap-4 p-4">
+            {LEAF_COL_ORDER.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => toggleCol(id)}
+                title={`Expand ${COLLAPSED_CARD_LABELS[id] ?? LEAF_LABELS[id]}`}
+                className="group w-12 shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-2 flex flex-col items-center h-full shadow-2xs transition-colors hover:border-primary/40 cursor-pointer"
+              >
+                <span className="mb-2 p-1 rounded text-slate-500 group-hover:text-slate-800 dark:group-hover:text-white group-hover:bg-slate-200/50 dark:group-hover:bg-slate-800 transition-colors">
+                  <ArrowRightToLine size={14} />
+                </span>
+                <span className="flex-1 flex items-start justify-center">
+                  <span
+                    className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
+                    style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
+                  >
+                    {COLLAPSED_CARD_LABELS[id] ?? LEAF_LABELS[id]}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       ) : (
         /* Main Responsive Table */
         <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
@@ -1591,7 +1642,7 @@ export function AllProjectsTableView({
                 {renderLeafHeader("projectLead", "Project Lead / SPOC", 3)}
                 {renderLeafHeader("projectNotes", "Project iNotes", 3)}
                 {renderLeafHeader("industry", "Industry", 3)}
-                {renderGroupHeader("Client Location", CLIENT_LOCATION_COLS, 3)}
+                {renderGroupHeader("Client Location", CLIENT_LOCATION_COLS, 2)}
                 {renderGroupHeader("Tech", TECH_COLS, 2)}
                 {renderGroupHeader("Creative", CREATIVE_COLS, 4)}
                 {renderGroupHeader("Marketing", MARKETING_COLS, 3)}
@@ -1602,7 +1653,6 @@ export function AllProjectsTableView({
               </tr>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 {renderLeafHeader("clientCountry", "Country", 2)}
-                {renderLeafHeader("clientState", "State", 2)}
                 {renderLeafHeader("clientCity", "City", 2)}
                 {renderLeafHeader("techLead", "Lead", 2)}
                 {renderLeafHeader("techAssignee", "Assignee", 2)}
@@ -1744,15 +1794,6 @@ export function AllProjectsTableView({
                       {cell(
                         "clientCountry",
                         <CountryCell
-                          project={project}
-                          editable={canEditAssignments}
-                          onUpdated={(patch) => patchProject(project.id, patch)}
-                        />
-                      )}
-
-                      {cell(
-                        "clientState",
-                        <StateCell
                           project={project}
                           editable={canEditAssignments}
                           onUpdated={(patch) => patchProject(project.id, patch)}
