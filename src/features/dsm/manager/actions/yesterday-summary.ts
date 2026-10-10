@@ -127,6 +127,7 @@ export async function saveSummaryTask(_prev: SummaryTaskState, formData: FormDat
   const entryId = (formData.get("entryId") as string | null)?.trim() || "";
   const text = (formData.get("text") as string | null)?.trim() || "";
   const projectTaskId = (formData.get("projectTaskId") as string | null)?.trim() || null;
+  const projectId = (formData.get("projectId") as string | null)?.trim() || null;
   const isCompleted = formData.get("isCompleted") === "true";
 
   if (!text) return { message: "Task text cannot be empty" };
@@ -140,7 +141,7 @@ export async function saveSummaryTask(_prev: SummaryTaskState, formData: FormDat
 
     await d.standupTask.update({
       where: { id: taskId },
-      data: { text, projectTaskId, isCompleted, editedById: manager.id },
+      data: { text, projectTaskId, projectId, isCompleted, editedById: manager.id },
     });
     // Match on the pre-edit text: that's what the DSR planned task still carries.
     await syncDsrPlannedTask(existing.entry.userId, existing.entry.date, existing.text, isCompleted);
@@ -166,6 +167,7 @@ export async function saveSummaryTask(_prev: SummaryTaskState, formData: FormDat
       kind,
       text,
       projectTaskId,
+      projectId,
       isCompleted,
       order: maxOrder + 1,
       addedAfterReview: entry.status === "REVIEWED",

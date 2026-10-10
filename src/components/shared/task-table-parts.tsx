@@ -208,6 +208,43 @@ export function DueDateInput({
   );
 }
 
+/** Today's local calendar date as "YYYY-MM-DD" (the format DueDateInput uses). */
+function todayDateValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** One-click "Today" shortcut that sets a DueDateInput's value to today's date. */
+export function TodayDueButton({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string; // "YYYY-MM-DD" or ""
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const today = todayDateValue();
+  const isToday = value === today;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onChange(today)}
+      aria-pressed={isToday}
+      title="Set the due date to today"
+      className={cn(
+        "rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+        isToday
+          ? "border-primary/40 bg-primary/10 text-primary"
+          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+      )}
+    >
+      Today
+    </button>
+  );
+}
+
 /** Static, read-only `HH:MM:SS`-style time-tracked badge (for surfaces without a live timer). */
 export function TimeTrackedBadge({ totalMinutes }: { totalMinutes: number }) {
   const h = Math.floor(totalMinutes / 60);

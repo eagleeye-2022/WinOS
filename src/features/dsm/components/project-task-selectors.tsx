@@ -31,7 +31,10 @@ export function ProjectTaskSelectors({
   onTaskChange,
   onSubtaskChange,
   onProjectsChange,
+  taskOwnerId,
 }: {
+  /** Owner of tasks created here — set when a manager adds a task for a member. Defaults to the current user. */
+  taskOwnerId?: string;
   projects: CascadingProjectOption[];
   projectsLoading: boolean;
   projectId: string;
@@ -93,7 +96,7 @@ export function ProjectTaskSelectors({
     if (!project || !taskListCode) return;
     const pid = project.id;
     startCreate(async () => {
-      const res = await createDsmProjectTaskAction(pid, { title, taskListCode });
+      const res = await createDsmProjectTaskAction(pid, { title, taskListCode, ownerUserId: taskOwnerId });
       if (!res.success) {
         toast.error(res.error);
         return;

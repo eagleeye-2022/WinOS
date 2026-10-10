@@ -4,7 +4,7 @@ import { useActionState, useState, useEffect, useRef, useTransition, type Dispat
 import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
-import { toIsoDateStr, toUtcDate } from "../utils";
+import { toIsoDateStr, toUtcDate, countTasksWithoutProject, PROJECT_REQUIRED_MESSAGE } from "../utils";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
 import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -818,7 +818,7 @@ type ParkedTaskItem = {
   text: string;
   priority: string;
   projectTaskId: string;
-  /** Client-only: tracks the chosen project before/without a specific task being picked yet. Not persisted directly — only projectTaskId is saved. */
+  /** Project picked for the row — saved too, so a row can link a project with no task. */
   projectId: string;
   /** Client-only: task list the row is filtered by. */
   taskListCode?: string;
@@ -832,7 +832,7 @@ function parkedTaskToItem(t: ParkedTask): ParkedTaskItem {
     text: t.text,
     priority: t.priority ?? "",
     projectTaskId: t.projectTaskId ?? "",
-    projectId: t.projectTask?.project?.id ?? "",
+    projectId: t.projectTask?.project?.id ?? t.projectId ?? "",
     dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
     persisted: true,
   };
@@ -874,7 +874,7 @@ function ParkingLotRows({
     const n = [...items];
     n[i] = { ...n[i], projectId: newProjectId, taskListCode: "", projectTaskId: "" };
     onChange(n);
-    persistField(i, { projectTaskId: "" });
+    persistField(i, { projectId: newProjectId, projectTaskId: "" });
   };
 
   // The two handlers below can run after an await (creating a task list / task), so they update
@@ -935,6 +935,7 @@ function ParkingLotRows({
         text: item.text,
         priority: item.priority || undefined,
         projectTaskId: item.projectTaskId || undefined,
+        projectId: item.projectId || undefined,
         dueDate: item.dueDate || undefined,
       });
       if (res.success && res.task) {
@@ -943,7 +944,7 @@ function ParkingLotRows({
     });
   };
 
-  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; dueDate?: string; text?: string }) => {
+  const persistField = (i: number, patch: { priority?: string; projectTaskId?: string; projectId?: string; dueDate?: string; text?: string }) => {
     const item = items[i];
     if (!item.persisted) return;
     startTransition(async () => {
@@ -1207,6 +1208,9 @@ export function SubmitDsmForm({
   const [taskSortMode, setTaskSortMode] = useState("");
   // "Not Aligned Task" filter for today's tasks (see isNotAlignedTask).
   const [showNotAligned, setShowNotAligned] = useState(false);
+  // Today's filled-in tasks with no project — submitting is blocked until this is 0 (saveDsm enforces it too).
+  const tasksWithoutProject = countTasksWithoutProject(tasks.filter((t) => t.text.trim()));
+  const [showProjectError, setShowProjectError] = useState(false);
 
   const applyTaskSort = (mode: string) => {
     setTaskSortMode(mode);
@@ -1568,8 +1572,12 @@ export function SubmitDsmForm({
             onProjectsChange={setCascadingProjects}
             onlyNotAligned={showNotAligned}
           />
-          {state.errors?.tasks && (
-            <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
+          {showProjectError && tasksWithoutProject > 0 ? (
+            <p className="text-xs text-destructive">
+              {PROJECT_REQUIRED_MESSAGE} ({tasksWithoutProject} task{tasksWithoutProject === 1 ? "" : "s"} missing a project).
+            </p>
+          ) : (
+            state.errors?.tasks && <p className="text-xs text-destructive">{state.errors.tasks[0]}</p>
           )}
         </Section>
 
@@ -1679,6 +1687,12 @@ export function SubmitDsmForm({
               value="submit"
               type="submit"
               disabled={pending}
+              onClick={(e) => {
+                if (tasksWithoutProject > 0) {
+                  e.preventDefault();
+                  setShowProjectError(true);
+                }
+              }}
               className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
             >
               {pending && <Loader2 size={16} className="animate-spin" />}

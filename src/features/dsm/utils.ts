@@ -15,6 +15,19 @@ export function toIsoDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Number of tasks with no project picked. A task counts as linked when it has a project
+ * (`projectId`) or a project task (`projectTaskId`, which implies the project). Every task needs
+ * one before a DSM can be submitted or reviewed.
+ */
+export function countTasksWithoutProject(
+  tasks: { projectId?: string | null; projectTaskId?: string | null }[]
+): number {
+  return tasks.filter((t) => !t.projectId?.trim() && !t.projectTaskId?.trim()).length;
+}
+
+export const PROJECT_REQUIRED_MESSAGE = "Select a project for every task before submitting";
+
 /** Effort minutes as "1h 20m" / "45m". */
 export function formatEffortMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);

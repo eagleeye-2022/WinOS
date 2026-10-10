@@ -20,6 +20,7 @@ export async function addTask(
   const kind = (formData.get("kind") as string) || "TODAY";
   const priority = (formData.get("priority") as string) || null;
   const projectTaskId = (formData.get("projectTaskId") as string)?.trim() || null;
+  const projectId = (formData.get("projectId") as string)?.trim() || null;
   const dueDateStr = (formData.get("dueDate") as string)?.trim();
   const dueDate = dueDateStr ? new Date(dueDateStr) : null;
 
@@ -55,6 +56,7 @@ export async function addTask(
       priority: isParking ? null : priority,
       managerPriority: isParking ? null : priority,
       projectTaskId,
+      projectId,
       dueDate,
       order: maxOrder + 1,
       addedAfterReview,

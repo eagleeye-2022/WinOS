@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getStr } from "@/lib/action-utils";
+import { countTasksWithoutProject, PROJECT_REQUIRED_MESSAGE } from "../utils";
 
 export type SaveDsmState = {
   errors?: { tasks?: string[]; learningText?: string[] };
@@ -96,6 +97,11 @@ export async function saveDsm(
     const errors: { tasks?: string[]; learningText?: string[] } = {};
     if (taskTexts.length === 0) {
       errors.tasks = ["At least one task is required to submit"];
+    } else {
+      const missing = countTasksWithoutProject(tasksToCreate);
+      if (missing > 0) {
+        errors.tasks = [`${PROJECT_REQUIRED_MESSAGE} (${missing} task${missing === 1 ? "" : "s"} missing a project).`];
+      }
     }
     if (!learningText || !learningText.trim()) {
       errors.learningText = ["Learning details are required to submit"];

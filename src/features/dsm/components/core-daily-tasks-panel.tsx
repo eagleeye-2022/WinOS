@@ -68,7 +68,7 @@ export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelPr
                   <ChevronDown size={14} className={cn("transition-transform duration-150", isExpanded && "rotate-180")} />
                 </button>
               </div>
-              {isExpanded && <CoreTaskDetails task={task} />}
+              {isExpanded && <CoreTaskDetails task={task} memberView={memberView} />}
             </li>
           );
         })}

@@ -15,7 +15,35 @@ import {
   buildTaskListOptions,
   nextTaskListCode,
   formatTaskListName,
+  countTasksWithoutProject,
 } from "@/features/dsm/utils";
+
+// ── Project required on every task ───────────────────────────────────────────
+
+describe("countTasksWithoutProject", () => {
+  it("counts a task linked to a project only (no task picked) as linked", () => {
+    expect(countTasksWithoutProject([{ projectId: "p1", projectTaskId: null }])).toBe(0);
+  });
+
+  it("counts a task linked to a project task as linked", () => {
+    expect(countTasksWithoutProject([{ projectId: null, projectTaskId: "t1" }])).toBe(0);
+  });
+
+  it("counts tasks with neither (null, undefined or blank) as missing", () => {
+    expect(
+      countTasksWithoutProject([
+        { projectId: null, projectTaskId: null },
+        {},
+        { projectId: "  ", projectTaskId: "" },
+        { projectId: "p1" },
+      ])
+    ).toBe(3);
+  });
+
+  it("returns 0 for no tasks", () => {
+    expect(countTasksWithoutProject([])).toBe(0);
+  });
+});
 
 // ── Project task lists ────────────────────────────────────────────────────────
 

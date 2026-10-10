@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// All Projects table: Industry + Client Location (Country / State / City).
+// All Projects table: Industry + Client Location (Country / City).
 // Save actions run with auth/db mocked; the location dropdown data uses the real dataset.
 
 const mocks = vi.hoisted(() => {
@@ -19,11 +19,7 @@ vi.mock("@/lib/db", () => ({ db: mocks.db }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { updateProjectIndustryAction, updateProjectLocationAction } from "@/features/projects/actions/project-actions";
-import {
-  getCityOptionsAction,
-  getCountryOptionsAction,
-  getStateOptionsAction,
-} from "@/features/projects/actions/location-actions";
+import { getCityOptionsAction, getCountryOptionsAction } from "@/features/projects/actions/location-actions";
 import { GET as getFlag } from "@/app/api/flags/[code]/route";
 
 const d = mocks.db;
@@ -85,7 +81,7 @@ describe("updateProjectIndustryAction", () => {
 });
 
 describe("updateProjectLocationAction", () => {
-  it("changing the country clears state and city", async () => {
+  it("changing the country clears the city (and the retired state)", async () => {
     loginAs("MANAGER");
     const res = await updateProjectLocationAction("EEDP-1", "country", { name: "United Kingdom", code: "GB" });
     expect(lastWrite()).toEqual({
@@ -95,27 +91,34 @@ describe("updateProjectLocationAction", () => {
       clientStateCode: null,
       clientCity: null,
     });
-    expect(res.patch).toMatchObject({ clientCountry: "United Kingdom", clientCountryCode: "GB", clientState: undefined, clientCity: undefined });
+    expect(res.patch).toEqual({ clientCountry: "United Kingdom", clientCountryCode: "GB", clientCity: undefined });
   });
 
-  it("re-picking the same country keeps state and city", async () => {
+  it("re-picking the same country keeps the city", async () => {
     loginAs("MANAGER");
     await updateProjectLocationAction("EEDP-1", "country", { name: "India", code: "IN" });
-    expect(lastWrite()).toEqual({ clientCountry: "India", clientCountryCode: "IN" });
+    expect(lastWrite()).toEqual({ clientCountry: "India", clientCountryCode: "IN", clientState: null, clientStateCode: null });
   });
 
-  it("changing the state clears the city", async () => {
+  it("saves any city of the project's country, whatever its state", async () => {
     loginAs("MANAGER");
-    await updateProjectLocationAction("EEDP-1", "state", { name: "Maharashtra", code: "MH" });
-    expect(lastWrite()).toEqual({ clientState: "Maharashtra", clientStateCode: "MH", clientCity: null });
+    expect((await updateProjectLocationAction("EEDP-1", "city", { name: "Mumbai" })).success).toBe(true);
+    expect(lastWrite()).toEqual({ clientCity: "Mumbai", clientState: null, clientStateCode: null });
   });
 
-  it("typed-in values are stored without a code", async () => {
+  it("refuses typed-in countries and cities not in the country's list", async () => {
     loginAs("MANAGER");
-    await updateProjectLocationAction("EEDP-1", "country", { name: "Atlantis", code: "" });
-    expect(lastWrite()).toMatchObject({ clientCountry: "Atlantis", clientCountryCode: null });
-    await updateProjectLocationAction("EEDP-1", "city", { name: "New Town" });
-    expect(lastWrite()).toEqual({ clientCity: "New Town" });
+    expect((await updateProjectLocationAction("EEDP-1", "country", { name: "Atlantis", code: "" })).success).toBe(false);
+    expect((await updateProjectLocationAction("EEDP-1", "city", { name: "New Town" })).success).toBe(false);
+    expect((await updateProjectLocationAction("EEDP-1", "city", { name: "London" })).success).toBe(false);
+    expect(d.project.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a city when the country wasn't picked from the list", async () => {
+    loginAs("MANAGER");
+    d.project.findFirst.mockResolvedValue({ ...baseProject, clientCountry: "Atlantis", clientCountryCode: null, ownerId: "x" });
+    expect((await updateProjectLocationAction("EEDP-1", "city", { name: "Indore" })).success).toBe(false);
+    expect(d.project.update).not.toHaveBeenCalled();
   });
 
   it("clearing the country clears everything below it", async () => {
@@ -159,16 +162,17 @@ describe("location dropdown data (real dataset)", () => {
     expect([...names].sort((a, b) => a.localeCompare(b))).toEqual(names);
   });
 
-  it("lists a country's states and a state's cities", async () => {
-    const states = await getStateOptionsAction("IN");
-    expect(states).toContainEqual({ code: "MP", name: "Madhya Pradesh" });
-    const cities = await getCityOptionsAction("IN", "MP");
-    expect(cities.map((c) => c.name)).toContain("Indore");
+  it("lists every city of a country across its states, sorted and de-duplicated", async () => {
+    const names = (await getCityOptionsAction("IN")).map((c) => c.name);
+    expect(names).toContain("Indore");
+    expect(names).toContain("Mumbai");
+    expect(new Set(names).size).toBe(names.length);
+    expect([...names].sort((a, b) => a.localeCompare(b))).toEqual(names);
   });
 
   it("returns nothing for unknown codes or when signed out", async () => {
-    expect(await getStateOptionsAction("")).toEqual([]);
-    expect(await getCityOptionsAction("IN", "")).toEqual([]);
+    expect(await getCityOptionsAction("")).toEqual([]);
+    expect(await getCityOptionsAction("ZZ")).toEqual([]);
     mocks.auth.mockResolvedValue(null);
     expect(await getCountryOptionsAction()).toEqual([]);
   });

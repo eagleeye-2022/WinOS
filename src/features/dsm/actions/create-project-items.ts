@@ -19,6 +19,7 @@ type Failure = { success: false; error: string };
 type EditableProject = {
   user: { id: string; name: string };
   project: { id: string; code: string | null };
+  isManager: boolean;
 };
 
 /**
@@ -64,7 +65,7 @@ async function resolveEditableProject(projectId: string): Promise<EditableProjec
   });
   if (!project) return { success: false, error: "You can't add to this project." };
 
-  return { user: { id: userId, name: user.name || user.email || "User" }, project };
+  return { user: { id: userId, name: user.name || user.email || "User" }, project, isManager };
 }
 
 /** Creates a new task list (board phase column) in a project from the DSM picker. */
@@ -100,10 +101,13 @@ export async function createDsmTaskListAction(
   return { success: true, taskList: { code: res.phase.code, name: res.phase.name } };
 }
 
-/** Creates a task in one of a project's task lists, owned by the current user, from the DSM picker. */
+/**
+ * Creates a task in one of a project's task lists from the DSM picker. Owned by the current
+ * user, or — when a manager adds it from a member's review page — by `ownerUserId`.
+ */
 export async function createDsmProjectTaskAction(
   projectId: string,
-  input: { title: string; taskListCode: string }
+  input: { title: string; taskListCode: string; ownerUserId?: string }
 ): Promise<{ success: true; task: CascadingTaskOption } | Failure> {
   const title = input.title.trim();
   if (!title) return { success: false, error: "Task title is required." };
@@ -114,10 +118,22 @@ export async function createDsmProjectTaskAction(
 
   const ctx = await resolveEditableProject(projectId);
   if ("success" in ctx) return ctx;
-  const { user, project } = ctx;
+  const { user, project, isManager } = ctx;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
+
+  let owner = user;
+  if (input.ownerUserId && input.ownerUserId !== user.id) {
+    if (!isManager) return { success: false, error: "Only a manager can create a task for someone else." };
+    const target = await d.user.findUnique({
+      where: { id: input.ownerUserId },
+      select: { id: true, name: true, email: true },
+    });
+    if (!target) return { success: false, error: "That team member could not be found." };
+    owner = { id: target.id, name: target.name || target.email || "User" };
+  }
+
   const phase = await d.projectPhase.findFirst({
     where: { projectId: project.id, code: input.taskListCode },
     select: { id: true, name: true },
@@ -157,14 +173,14 @@ export async function createDsmProjectTaskAction(
       status: "Open",
       authorId: user.id,
       authorName: user.name,
-      ownerId: user.id,
-      owner: user.name,
+      ownerId: owner.id,
+      owner: owner.name,
     },
     select: { id: true, code: true, title: true, status: true, phaseCode: true },
   });
 
   await d.projectTaskOwner.create({
-    data: { taskId: created.id, userId: user.id, assignedById: user.id },
+    data: { taskId: created.id, userId: owner.id, assignedById: user.id },
   });
   await d.projectTaskActivity.create({
     data: {

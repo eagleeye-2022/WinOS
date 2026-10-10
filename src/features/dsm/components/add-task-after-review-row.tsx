@@ -125,6 +125,7 @@ export function AddTaskAfterReviewRow({
       <input type="hidden" name="entryId" value={entryId} />
       <input type="hidden" name="kind" value="TODAY" />
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
+      <input type="hidden" name="projectId" value={selectedProjectId} />
       <input type="hidden" name="priority" value="" />
 
       {/* Cascading Project/Task/Subtask selectors */}

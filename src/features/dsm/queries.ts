@@ -598,6 +598,8 @@ export type ParkedTask = {
   text: string;
   priority: string | null;
   projectTaskId: string | null;
+  /** Project picked for the row — set even when no project task is linked. */
+  projectId?: string | null;
   dueDate: Date | null;
   createdAt: Date;
   projectTask?: {

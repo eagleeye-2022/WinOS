@@ -8,22 +8,17 @@ import {
   updateProjectLocationAction,
   type ProjectLocationLevel,
 } from "../actions/project-actions";
-import {
-  getCityOptionsAction,
-  getCountryOptionsAction,
-  getStateOptionsAction,
-  type LocationOption,
-} from "../actions/location-actions";
+import { getCityOptionsAction, getCountryOptionsAction } from "../actions/location-actions";
+import type { LocationOption } from "../location-data";
 import { PROJECT_INDUSTRIES } from "../data/industries";
 import { AnchoredPopover } from "./popover-portal";
 import { toast } from "@/components/shared/toast";
 
-/** Max options rendered at once — a state can have 1,000+ cities; typing narrows the list. */
+/** Max options rendered at once — a country can have 10,000+ cities; typing narrows the list. */
 const MAX_VISIBLE_OPTIONS = 200;
 
 // ── Option caches (shared by every row, so each list is fetched once per page) ───────────────
 let countriesPromise: Promise<LocationOption[]> | null = null;
-const statesPromises = new Map<string, Promise<LocationOption[]>>();
 const citiesPromises = new Map<string, Promise<LocationOption[]>>();
 
 /** All countries (cached). Also used by the table's Country filter. */
@@ -37,31 +32,17 @@ export function loadCountryOptions(): Promise<LocationOption[]> {
   return countriesPromise;
 }
 
-function loadStateOptions(countryCode: string): Promise<LocationOption[]> {
-  if (!statesPromises.has(countryCode)) {
-    statesPromises.set(
-      countryCode,
-      getStateOptionsAction(countryCode).catch(() => {
-        statesPromises.delete(countryCode);
-        return [];
-      })
-    );
-  }
-  return statesPromises.get(countryCode)!;
-}
-
-function loadCityOptions(countryCode: string, stateCode: string): Promise<LocationOption[]> {
-  const key = `${countryCode}/${stateCode}`;
-  if (!citiesPromises.has(key)) {
+function loadCityOptions(countryCode: string): Promise<LocationOption[]> {
+  if (!citiesPromises.has(countryCode)) {
     citiesPromises.set(
-      key,
-      getCityOptionsAction(countryCode, stateCode).catch(() => {
-        citiesPromises.delete(key);
+      countryCode,
+      getCityOptionsAction(countryCode).catch(() => {
+        citiesPromises.delete(countryCode);
         return [];
       })
     );
   }
-  return citiesPromises.get(key)!;
+  return citiesPromises.get(countryCode)!;
 }
 
 /**
@@ -87,7 +68,7 @@ export function CountryFlag({ code, className = "" }: { code?: string | null; cl
   );
 }
 
-// ── Generic searchable dropdown with "type your own" ─────────────────────────────────────────
+// ── Generic searchable dropdown, optionally with "type your own" ────────────────────────────
 type ComboOption = { code: string; name: string; label?: string; icon?: React.ReactNode };
 
 function ComboCell({
@@ -99,7 +80,10 @@ function ComboCell({
   loadOptions,
   onSelect,
   title,
+  allowCustom = true,
 }: {
+  /** When false, only listed options can be picked — no `Use "…"` row for typed text. */
+  allowCustom?: boolean;
   /** Text shown in the cell. */
   value: string;
   /** Optional icon before the value (e.g. a country flag). */
@@ -201,16 +185,19 @@ function ComboCell({
                 if (e.key === "Enter" && query.trim()) {
                   e.preventDefault();
                   const exact = (options || []).find((o) => o.name.toLowerCase() === q);
-                  void choose(exact ? { name: exact.name, code: exact.code } : { name: query.trim(), code: "" });
+                  // Without custom values, Enter picks the exact match or else the only match.
+                  const pick = exact ?? (!allowCustom && filtered.length === 1 ? filtered[0] : undefined);
+                  if (pick) void choose({ name: pick.name, code: pick.code });
+                  else if (allowCustom) void choose({ name: query.trim(), code: "" });
                 }
               }}
-              placeholder={`Search or type ${title.toLowerCase()}...`}
+              placeholder={allowCustom ? `Search or type ${title.toLowerCase()}...` : `Search ${title.toLowerCase()}...`}
               className="w-full bg-transparent text-xs outline-none"
             />
           </div>
 
           <div className="max-h-60 overflow-y-auto py-1">
-            {query.trim() && !exactMatch && (
+            {allowCustom && query.trim() && !exactMatch && (
               <button
                 type="button"
                 onClick={() => void choose({ name: query.trim(), code: "" })}
@@ -226,10 +213,16 @@ function ComboCell({
                 <Loader2 size={14} className="animate-spin text-muted-foreground" />
               </div>
             ) : filtered.length === 0 ? (
-              !query.trim() && (
+              !allowCustom ? (
                 <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">
-                  No list available — type a {title.toLowerCase()} above.
+                  {query.trim() ? `No ${title.toLowerCase()} matches "${query.trim()}".` : `No ${title.toLowerCase()} list available.`}
                 </p>
+              ) : (
+                !query.trim() && (
+                  <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">
+                    No list available — type a {title.toLowerCase()} above.
+                  </p>
+                )
               )
             ) : (
               filtered.map((o) => {
@@ -366,7 +359,7 @@ export function IndustryCell({ project, editable, onUpdated }: CellProps) {
   );
 }
 
-/** Shared save path for the three location levels (server clears the lower levels). */
+/** Shared save path for Country and City (server clears the city when the country changes). */
 async function saveLocation(
   project: Project,
   level: ProjectLocationLevel,
@@ -378,8 +371,8 @@ async function saveLocation(
     onUpdated({
       clientCountry: res.patch.clientCountry,
       clientCountryCode: res.patch.clientCountryCode,
-      clientState: res.patch.clientState,
-      clientStateCode: res.patch.clientStateCode,
+      clientState: undefined,
+      clientStateCode: undefined,
       clientCity: res.patch.clientCity,
     });
   } else {
@@ -403,37 +396,19 @@ export function CountryCell({ project, editable, onUpdated }: CellProps) {
       valueIcon={<CountryFlag code={project.clientCountryCode} />}
       placeholder="Add country..."
       editable={editable}
+      allowCustom={false}
       loadOptions={loadOptions}
       onSelect={(v) => saveLocation(project, "country", v, onUpdated)}
     />
   );
 }
 
-export function StateCell({ project, editable, onUpdated }: CellProps) {
-  const countryCode = project.clientCountryCode || "";
-  const loadOptions = useMemo(
-    () => () => (countryCode ? loadStateOptions(countryCode) : Promise.resolve([])),
-    [countryCode]
-  );
-  return (
-    <ComboCell
-      title="State"
-      value={project.clientState || ""}
-      placeholder="Add state..."
-      editable={editable}
-      disabledReason={project.clientCountry ? undefined : "Pick a country first"}
-      loadOptions={loadOptions}
-      onSelect={(v) => saveLocation(project, "state", v, onUpdated)}
-    />
-  );
-}
-
+/** Cities of the project's country only (needs a country picked from the list). */
 export function CityCell({ project, editable, onUpdated }: CellProps) {
   const countryCode = project.clientCountryCode || "";
-  const stateCode = project.clientStateCode || "";
   const loadOptions = useMemo(
-    () => () => (countryCode && stateCode ? loadCityOptions(countryCode, stateCode) : Promise.resolve([])),
-    [countryCode, stateCode]
+    () => () => (countryCode ? loadCityOptions(countryCode) : Promise.resolve([])),
+    [countryCode]
   );
   return (
     <ComboCell
@@ -441,7 +416,8 @@ export function CityCell({ project, editable, onUpdated }: CellProps) {
       value={project.clientCity || ""}
       placeholder="Add city..."
       editable={editable}
-      disabledReason={project.clientState ? undefined : "Pick a state first"}
+      allowCustom={false}
+      disabledReason={countryCode ? undefined : "Pick a country from the list first"}
       loadOptions={loadOptions}
       onSelect={(v) => saveLocation(project, "city", v, onUpdated)}
     />
