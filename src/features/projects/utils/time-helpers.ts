@@ -188,37 +188,49 @@ export function parseDateAndTimeToDate(
   dateVal?: string | Date | null,
   timeStr?: string | null
 ): Date {
-  let baseDate = new Date();
+  // Times are Indian Standard Time wall-clock times (what the user typed), whatever time zone the
+  // server runs in — it runs in UTC when deployed, where using the server's local time stored
+  // "10 Oct, 8:00 PM" as 8 PM UTC = 1:30 AM IST on 11 Oct.
+  const mins = timeStr && timeStr.trim() ? parseTimeToMinutes(timeStr) : null;
+  let day: { y: number; m: number; d: number } | null = null;
 
   if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
-    baseDate = new Date(dateVal.getTime());
+    if (mins === null) return new Date(dateVal.getTime());
+    day = istCalendarDay(dateVal);
   } else if (typeof dateVal === "string" && dateVal.trim()) {
     const str = dateVal.trim();
-    // DD/MM/YYYY or DD-MM-YYYY
-    const matchDDMM = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/);
+    const matchDDMM = str.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/); // DD/MM/YYYY or DD-MM-YYYY
+    const matchISO = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // YYYY-MM-DD (date only)
     if (matchDDMM) {
-      const d = parseInt(matchDDMM[1], 10);
-      const m = parseInt(matchDDMM[2], 10) - 1;
-      const y = parseInt(matchDDMM[3], 10);
-      baseDate = new Date(y, m, d);
+      day = { y: +matchDDMM[3], m: +matchDDMM[2] - 1, d: +matchDDMM[1] };
+    } else if (matchISO) {
+      day = { y: +matchISO[1], m: +matchISO[2] - 1, d: +matchISO[3] };
     } else {
       const parsed = new Date(str);
       if (!isNaN(parsed.getTime())) {
-        baseDate = parsed;
+        if (mins === null) return parsed;
+        day = istCalendarDay(parsed);
       }
     }
   }
 
-  if (timeStr && timeStr.trim()) {
-    const mins = parseTimeToMinutes(timeStr);
-    if (mins !== null) {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      baseDate.setHours(h, m, 0, 0);
-    }
+  if (!day) {
+    if (mins === null) return new Date();
+    day = istCalendarDay(new Date());
   }
+  // A date with no time is stored as midnight UTC of that calendar date — the convention the
+  // DSM / Report day matching (logMatchesDay) treats as "the whole day".
+  if (mins === null) return new Date(Date.UTC(day.y, day.m, day.d));
+  return new Date(Date.UTC(day.y, day.m, day.d, 0, mins) - IST_OFFSET_MINUTES * 60000);
+}
 
-  return baseDate;
+/** India has one fixed offset (+05:30) and no daylight saving. */
+const IST_OFFSET_MINUTES = 330;
+
+/** Calendar day of `d` in IST. */
+function istCalendarDay(d: Date): { y: number; m: number; d: number } {
+  const shifted = new Date(d.getTime() + IST_OFFSET_MINUTES * 60000);
+  return { y: shifted.getUTCFullYear(), m: shifted.getUTCMonth(), d: shifted.getUTCDate() };
 }
 
 /**

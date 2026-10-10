@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, Clock, Calendar, FileText, Loader2, Check, AlertCircle } from "lucide-react";
 import { TimeLogEntry } from "../../types";
 import { updateTimeLogAction } from "../../actions/project-actions";
+import { toLocalDateString } from "../../utils/time-helpers";
 
 interface EditTimeLogModalProps {
   isOpen: boolean;
@@ -36,7 +37,7 @@ export function EditTimeLogModal({
         setTitle(log.title || "");
         setProject(log.project || "");
         setDuration(log.duration || "01:00");
-        setDate(log.date || new Date().toISOString().split("T")[0]);
+        setDate(log.date || toLocalDateString(new Date()));
         setBillingType(log.billingType || "NON BILLABLE");
         setRemarks(log.remarks || "");
         setApprovalStatus(log.approvalStatus || "Pending");

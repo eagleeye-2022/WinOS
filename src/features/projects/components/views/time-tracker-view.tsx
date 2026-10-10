@@ -51,6 +51,7 @@ import {
   calculateMinutesFromTimeRange,
   formatTime12h,
   compareTimeLogsLatestFirst,
+  toLocalDateString,
   MAX_LOG_MINUTES,
   MAX_LOG_DURATION_ERROR,
   SAME_DAY_LOG_ERROR,
@@ -321,7 +322,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         project: runningTimer.project,
         taskCode: runningTimer.taskCode,
         duration: formattedDuration,
-        date: new Date().toISOString().split("T")[0],
+        date: toLocalDateString(new Date()), // local (IST) day — toISOString gives the UTC date
         billingType: "NON BILLABLE",
         remarks: "Logged via timer",
       });
@@ -608,7 +609,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   };
 
   const handleAddInlineTimeLog = async (dateStr?: string) => {
-    const targetDate = dateStr || new Date().toISOString().split("T")[0];
+    const targetDate = dateStr || toLocalDateString(new Date());
     const now = new Date();
     const oneMinAgo = new Date(now.getTime() - 60000);
     const timePeriodStr = `${formatTime12h(oneMinAgo)} – ${formatTime12h(now)}`;
