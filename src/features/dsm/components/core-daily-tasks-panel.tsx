@@ -7,6 +7,8 @@ import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
 import { MemberTaskTimerBadge } from "../manager/components/member-task-timer-badge";
 import { CoreTaskDetails } from "./core-task-details";
+import { TaskInfoLink } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import type { CoreDailyTask } from "../queries";
 
 type CoreDailyTasksPanelProps = {
@@ -38,7 +40,10 @@ export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelPr
                   <p className="truncate text-sm font-medium text-foreground" title={task.title}>
                     {task.title}
                   </p>
-                  <span className="font-mono text-[11px] text-muted-foreground">{task.code}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="font-mono text-[11px] text-muted-foreground">{task.code}</span>
+                    <TaskInfoLink href={projectTaskHref(task.projectId, task.code)!} code={task.code} />
+                  </span>
                 </div>
                 {memberView ? (
                   <MemberTaskTimerBadge

@@ -25,7 +25,8 @@ import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
-import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
@@ -35,14 +36,14 @@ import { ParkingLotSection } from "@/features/dsm/manager/components/member-revi
 function findSelectedTaskMeta(
   cascadingProjects: CascadingProjectOption[],
   selectedId: string
-): { code?: string | null; title?: string } | null {
+): { code?: string | null; title?: string; projectId: string } | null {
   if (!selectedId) return null;
   for (const p of cascadingProjects) {
     for (const t of p.tasks || []) {
-      if (t.id === selectedId) return { code: t.code, title: t.title };
+      if (t.id === selectedId) return { code: t.code, title: t.title, projectId: p.id };
       if (t.subtasks) {
         for (const st of t.subtasks) {
-          if (st.id === selectedId) return { code: st.code, title: st.title };
+          if (st.id === selectedId) return { code: st.code, title: st.title, projectId: p.id };
         }
       }
     }
@@ -199,7 +200,7 @@ function TaskItemRow({
         {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} href={projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -376,6 +377,9 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
           <span className="rounded bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-mono font-bold text-primary shrink-0">
             {selectedMeta.code}
           </span>
+        )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
         )}
         <input
           ref={inputRef}

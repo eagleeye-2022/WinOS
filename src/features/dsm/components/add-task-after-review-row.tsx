@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Check, Calendar as CalendarIcon, Loader2, Plus, X } from "lucide-react";
 import { SearchableSelect } from "@/components/shared/searchable-select";
-import { DueDateInput } from "@/components/shared/task-table-parts";
+import { DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
@@ -11,14 +12,14 @@ import type { CascadingProjectOption } from "../queries";
 function findSelectedTaskMeta(
   cascadingProjects: CascadingProjectOption[],
   selectedId: string
-): { code?: string | null; title?: string } | null {
+): { code?: string | null; title?: string; projectId: string } | null {
   if (!selectedId) return null;
   for (const p of cascadingProjects) {
     for (const t of p.tasks || []) {
-      if (t.id === selectedId) return { code: t.code, title: t.title };
+      if (t.id === selectedId) return { code: t.code, title: t.title, projectId: p.id };
       if (t.subtasks) {
         for (const st of t.subtasks) {
-          if (st.id === selectedId) return { code: st.code, title: st.title };
+          if (st.id === selectedId) return { code: st.code, title: st.title, projectId: p.id };
         }
       }
     }
@@ -179,6 +180,9 @@ export function AddTaskAfterReviewRow({
           >
             {selectedMeta.code}
           </span>
+        )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
         )}
         <input
           ref={inputRef}

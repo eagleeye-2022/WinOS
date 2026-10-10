@@ -8,7 +8,8 @@ import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-link
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
 import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
 import { formatMinutes, usableRecordingUrl } from "../reporting";
-import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -265,7 +266,7 @@ function PlannedTasksSection({
                   )}
                   {hasProjectsAccess && (
                     <td className="py-2 pr-3 align-top">
-                      {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                      {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} href={projectTaskHref(link.projectTask.project?.id, link.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
                     </td>
                   )}
                   <td className="py-2 pr-3 align-top">
@@ -324,7 +325,13 @@ export function ReportTimeSection({ summary }: { summary: ReportTimeSummary }) {
       {summary.runningTimer && (
         <p className="mb-3 flex items-center gap-1.5 rounded-md bg-success/10 px-3 py-2 text-xs">
           <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
-          Timer running on <span className="font-semibold">{summary.runningTimer.code}</span>{" "}
+          Timer running on <span className="font-semibold">{summary.runningTimer.code}</span>
+          {summary.runningTimer.projectId && summary.runningTimer.code && (
+            <TaskInfoLink
+              href={projectTaskHref(summary.runningTimer.projectId, summary.runningTimer.code)!}
+              code={summary.runningTimer.code}
+            />
+          )}{" "}
           {summary.runningTimer.title}. Stop it so today&apos;s time is complete.
         </p>
       )}
@@ -337,7 +344,7 @@ export function ReportTimeSection({ summary }: { summary: ReportTimeSummary }) {
         <ul className="flex flex-col gap-1.5">
           {summary.extraTasks.map((row) => (
             <li key={row.taskId} className="flex items-center gap-2 text-sm">
-              {row.task?.code && <TaskIdChip code={row.task.code} title={row.task.title} />}
+              {row.task?.code && <TaskIdChip code={row.task.code} title={row.task.title} href={projectTaskHref(row.task.project?.id, row.task.code)} />}
               <span className="min-w-0 flex-1 truncate">{row.task?.title ?? "Task"}</span>
               {row.task?.project?.name && <ProjectPill name={row.task.project.name} />}
               <span className="shrink-0 text-xs font-semibold">{formatMinutes(row.minutes)}</span>

@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { toast } from "@/components/shared/toast";
 import { ProjectTaskStatusPill } from "./project-task-status-pill";
-import { createDsmProjectTaskAction, createDsmTaskListAction } from "../actions/create-project-items";
+import { createDsmProjectTaskAction } from "../actions/create-project-items";
 import type { CascadingProjectOption, CascadingTaskOption } from "../queries";
 
 const selectCls = "text-xs font-medium text-foreground hover:text-primary transition-colors";
@@ -15,9 +15,10 @@ function Divider() {
 }
 
 /**
- * Project → Task list → Task → Subtask pickers for a DSM task row. Task lists and tasks can be
- * created in place (type a name in the search box); new items are added to `projects` via
- * `onProjectsChange` and selected immediately, and they show up in the Projects module too.
+ * Project → Task list → Task → Subtask pickers for a DSM task row. Task lists can only be picked
+ * here (they're created on the project's board); tasks can be created in place inside the chosen
+ * list (type a title in the search box) — they're added to `projects` via `onProjectsChange`,
+ * selected immediately, and show up in the Projects module too.
  */
 export function ProjectTaskSelectors({
   projects,
@@ -74,24 +75,6 @@ export function ProjectTaskSelectors({
       })),
     }));
 
-  const createTaskList = (name: string) => {
-    if (!project) return;
-    const pid = project.id;
-    startCreate(async () => {
-      const res = await createDsmTaskListAction(pid, name);
-      if (!res.success) {
-        toast.error(res.error);
-        return;
-      }
-      updateProject(pid, (p) => ({
-        ...p,
-        taskLists: p.taskLists.some((l) => l.code === res.taskList.code) ? p.taskLists : [...p.taskLists, res.taskList],
-      }));
-      onTaskListChange(res.taskList.code);
-      toast.success(`Task list "${res.taskList.name}" created`);
-    });
-  };
-
   const createTask = (title: string) => {
     if (!project || !taskListCode) return;
     const pid = project.id;
@@ -127,8 +110,6 @@ export function ProjectTaskSelectors({
             options={project.taskLists.map((l) => ({ value: l.code, label: l.name }))}
             placeholder="All task lists"
             searchPlaceholder="Search task lists..."
-            onCreate={createTaskList}
-            createNoun="task list"
             className={`${selectCls} max-w-[180px]`}
           />
           <Divider />

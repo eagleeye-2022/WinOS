@@ -1,6 +1,8 @@
 import { AlertTriangle, CheckCircle2, Circle, Clock, Link2Off } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatEffortMinutes } from "../utils";
+import { TaskInfoLink } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import type { YesterdayTaskItem } from "../queries";
 
 /**
@@ -38,6 +40,9 @@ export function YesterdayTaskList({ tasks }: { tasks: YesterdayTaskItem[] }) {
             <span className="shrink-0 rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400">
               {t.code}
             </span>
+          )}
+          {t.code && t.taskProjectId && (
+            <TaskInfoLink href={projectTaskHref(t.taskProjectId, t.code)!} code={t.code} />
           )}
           <span className={cn("min-w-0 flex-1", !t.isCompleted && "text-muted-foreground")}>{t.text}</span>
 

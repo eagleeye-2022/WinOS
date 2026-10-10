@@ -34,8 +34,7 @@ function isClaimHeldByMountedWidget(
   dbTimer: { taskId?: string; task?: { code?: string } | null }
 ): boolean {
   const keys = mountedTimerWidgets.get(instanceId);
-  if (!keys) return false;
-  if (keys.length === 0) return true; // task-less widget shows any running timer
+  if (!keys || keys.length === 0) return false; // a widget with no task never owns a running timer
   return keys.includes(dbTimer.taskId ?? "") || keys.includes(dbTimer.task?.code ?? "");
 }
 
@@ -65,6 +64,11 @@ interface TimerWidgetProps {
   defaultExpanded?: boolean;
   /** Unique identifier for this widget instance on pages that may render multiple rows for the same task (e.g. DSM). */
   instanceId?: string;
+  /** For a row with no task yet (e.g. a DSM row with only a project): called on Start, after
+   *  `createTaskConfirm` is accepted, to get a task to time — e.g. one in the project's
+   *  "Not Aligned Task (NAT)" list. Return null to cancel (the callback shows its own error). */
+  onCreateTaskForTimer?: () => Promise<{ taskId: string; taskCode?: string; projectId?: string } | null>;
+  createTaskConfirm?: { title: string; description: string; confirmLabel?: string };
 }
 
 export function TimerWidget({
@@ -80,18 +84,27 @@ export function TimerWidget({
   disabledTitle = "You're not the owner of this task",
   defaultExpanded = false,
   instanceId,
+  onCreateTaskForTimer,
+  createTaskConfirm,
 }: TimerWidgetProps) {
   const internalId = React.useId();
   const widgetInstanceId = instanceId || internalId;
 
+  // Task just created for this widget by onCreateTaskForTimer — bridges the moment between the
+  // timer starting on it and the parent passing it back down as taskId/taskCode.
+  const [pendingTask, setPendingTask] = useState<{ taskId: string; taskCode?: string } | null>(null);
+  if (pendingTask && (taskId || taskCode)) setPendingTask(null); // parent caught up
+  const boundTaskId = taskId || pendingTask?.taskId;
+  const boundTaskCode = taskCode || pendingTask?.taskCode;
+
   // Layout effect: every widget on the page registers before any of them runs applyDbTimer
   // (a passive effect), so the stale-claim check below sees the whole page.
   React.useLayoutEffect(() => {
-    mountedTimerWidgets.set(widgetInstanceId, [taskId, taskCode].filter(Boolean) as string[]);
+    mountedTimerWidgets.set(widgetInstanceId, [boundTaskId, boundTaskCode].filter(Boolean) as string[]);
     return () => {
       mountedTimerWidgets.delete(widgetInstanceId);
     };
-  }, [widgetInstanceId, taskId, taskCode]);
+  }, [widgetInstanceId, boundTaskId, boundTaskCode]);
 
   const { confirm, ConfirmDialog } = useConfirm();
   const showCannotStart = (title: string, description: string) => {
@@ -143,13 +156,12 @@ export function TimerWidget({
       currentActiveInstanceId?: string | null
     ) => {
       if (isStoppingRef.current) return;
+      // A widget with no task (e.g. a DSM row with only a project) never shows the running timer —
+      // it belongs to whichever row is actually linked to that task.
       const isCurrentTask =
         !!dbTimer &&
-        (!taskCode && !taskId
-          ? true
-          : dbTimer.task?.code === taskCode ||
-            dbTimer.taskId === taskId ||
-            dbTimer.taskId === taskCode);
+        ((!!boundTaskCode && (dbTimer.task?.code === boundTaskCode || dbTimer.taskId === boundTaskCode)) ||
+          (!!boundTaskId && dbTimer.taskId === boundTaskId));
 
       if (dbTimer && isCurrentTask) {
         // sessionStorage is written synchronously on every claim, so it's fresher than the
@@ -183,26 +195,27 @@ export function TimerWidget({
           setSeconds(0);
           setIsExpanded(defaultExpanded);
         }
-      } else if (timerStateRef.current === "RUNNING" && (taskCode || taskId)) {
+      } else if (timerStateRef.current === "RUNNING" && (boundTaskCode || boundTaskId)) {
         // The server's timer is now on another task (or was stopped elsewhere) — stop showing it here.
         setTimerState("IDLE");
         setSeconds(0);
         setIsExpanded(defaultExpanded);
       }
     },
-    [taskCode, taskId, defaultExpanded, widgetInstanceId, activeTimerCtx]
+    [boundTaskCode, boundTaskId, defaultExpanded, widgetInstanceId, activeTimerCtx]
   );
 
   /**
    * Only one timer can run per user. If one is running on another task, ask before replacing it,
    * and save its effort log so the time isn't silently lost. Returns false if the user cancels.
    */
-  const stopOtherRunningTimer = async (): Promise<boolean> => {
+  const stopOtherRunningTimer = async (target: { taskId?: string; taskCode?: string }): Promise<boolean> => {
     const current = await getActiveTimerAction();
     const running = current.success ? (current.data as ActiveTimerData | null) : null;
     if (!running) return true;
     const isThisTask =
-      running.taskId === taskId || running.taskId === taskCode || running.task?.code === taskCode;
+      (!!target.taskId && running.taskId === target.taskId) ||
+      (!!target.taskCode && (running.taskId === target.taskCode || running.task?.code === target.taskCode));
     if (isThisTask) return true;
 
     const runningTitle = running.task?.title || running.task?.code || "another task";
@@ -323,15 +336,44 @@ export function TimerWidget({
     }
     setIsExpanded(true);
 
-    const startTask = taskCode || taskId;
+    let target: { taskId?: string; taskCode?: string; projectId?: string } = {
+      taskId: boundTaskId,
+      taskCode: boundTaskCode,
+      projectId,
+    };
+    // No task on this row yet: get one to time (e.g. in the project's NAT list), after confirming.
+    if (!target.taskId && !target.taskCode && onCreateTaskForTimer) {
+      if (createTaskConfirm) {
+        const ok = await confirm({
+          title: createTaskConfirm.title,
+          description: createTaskConfirm.description,
+          confirmLabel: createTaskConfirm.confirmLabel ?? "Start timer",
+          danger: false,
+        });
+        if (!ok) {
+          setIsExpanded(defaultExpanded);
+          return;
+        }
+      }
+      const created = await onCreateTaskForTimer();
+      if (!created) {
+        setIsExpanded(defaultExpanded);
+        return;
+      }
+      target = { taskId: created.taskId, taskCode: created.taskCode, projectId: created.projectId ?? projectId };
+      setPendingTask({ taskId: created.taskId, taskCode: created.taskCode });
+      mountedTimerWidgets.set(widgetInstanceId, [created.taskId, created.taskCode].filter(Boolean) as string[]);
+    }
+
+    const startTask = target.taskCode || target.taskId;
     if (startTask) {
-      if (!(await stopOtherRunningTimer())) {
+      if (!(await stopOtherRunningTimer(target))) {
         setIsExpanded(defaultExpanded);
         return;
       }
       const res = await createActiveTimerAction({
         taskId: startTask,
-        projectId,
+        projectId: target.projectId,
       });
 
       if (res.success && res.data) {

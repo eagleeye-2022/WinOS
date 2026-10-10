@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, Clock, Timer, Filter, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Clock, Timer, Filter, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type SortFilterOption = { value: string; label: string };
@@ -111,14 +112,39 @@ export function ExpandableTaskText({
   );
 }
 
-/** `[WIN-T101]`-style mono code chip for a linked project task. */
-export function TaskIdChip({ code, title }: { code: string; title?: string }) {
+/** ⓘ icon that opens a project task's page (same tab). */
+export function TaskInfoLink({ href, code, className }: { href: string; code: string; className?: string }) {
   return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      title={`Open task ${code}`}
+      aria-label={`Open task ${code}`}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-primary",
+        className
+      )}
+    >
+      <Info size={13} />
+    </Link>
+  );
+}
+
+/** `[WIN-T101]`-style mono code chip for a linked project task; with `href`, followed by an ⓘ link to its page. */
+export function TaskIdChip({ code, title, href }: { code: string; title?: string; href?: string | null }) {
+  const chip = (
     <span
       title={title || code}
       className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0 whitespace-nowrap cursor-default"
     >
       {code}
+    </span>
+  );
+  if (!href) return chip;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {chip}
+      <TaskInfoLink href={href} code={code} />
     </span>
   );
 }

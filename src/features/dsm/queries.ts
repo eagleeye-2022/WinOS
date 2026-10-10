@@ -392,6 +392,8 @@ export type YesterdayTaskItem = {
   projectTaskId: string | null;
   projectId: string | null;
   code: string | null;
+  /** Project of the linked project task (for its task page link); null when not linked. */
+  taskProjectId: string | null;
   /** Effort the member logged on the linked project task that day; null when not linked. */
   loggedMinutes: number | null;
 };
@@ -425,7 +427,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
       tasks: {
         where: { kind: "TODAY" },
         orderBy: { order: "asc" },
-        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true } } },
+        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true, projectId: true } } },
       },
     },
     orderBy: { date: "desc" },
@@ -445,13 +447,14 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   return {
     date: dateStr,
     tasks: entry.tasks.map(
-      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectId: string | null; projectTask: { code: string } | null }) => ({
+      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectId: string | null; projectTask: { code: string; projectId: string | null } | null }) => ({
         id: t.id,
         text: t.text,
         isCompleted: isYesterdayTaskDone(t, dsrDone),
         projectTaskId: t.projectTaskId,
         projectId: t.projectId,
         code: t.projectTask?.code ?? null,
+        taskProjectId: t.projectTask?.projectId ?? null,
         loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
       })
     ),
@@ -1236,7 +1239,7 @@ function logMatchesDay(logDate: Date, dStr: string): boolean {
 export type DayEffortRow = {
   taskId: string;
   minutes: number;
-  task: { code: string; title: string; project: { name: string } | null } | null;
+  task: { code: string; title: string; project: { id: string; name: string } | null } | null;
 };
 
 /**
@@ -1269,7 +1272,7 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
       taskId: true,
       duration: true,
       date: true,
-      task: { select: { code: true, title: true, project: { select: { name: true } } } },
+      task: { select: { code: true, title: true, project: { select: { id: true, name: true } } } },
     },
   });
 

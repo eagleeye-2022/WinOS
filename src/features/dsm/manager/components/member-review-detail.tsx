@@ -39,7 +39,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -52,7 +52,8 @@ import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
-import { TaskIdChip, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
@@ -60,16 +61,16 @@ import type { CascadingProjectOption } from "@/features/dsm/queries";
 function findSelectedTaskMeta(
   projects: CascadingProjectOption[],
   projectTaskId: string
-): { code: string | null; title?: string; projectName: string } | null {
+): { code: string | null; title?: string; projectName: string; projectId: string } | null {
   if (!projectTaskId) return null;
   for (const project of projects) {
     for (const task of project.tasks) {
       if (task.id === projectTaskId) {
-        return { code: task.code, title: task.title, projectName: project.name };
+        return { code: task.code, title: task.title, projectName: project.name, projectId: project.id };
       }
       for (const subtask of task.subtasks) {
         if (subtask.id === projectTaskId) {
-          return { code: subtask.code, title: subtask.title, projectName: project.name };
+          return { code: subtask.code, title: subtask.title, projectName: project.name, projectId: project.id };
         }
       }
     }
@@ -404,6 +405,9 @@ function AddTaskRow({
           >
             {selectedMeta.code}
           </span>
+        )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
         )}
         <input
           name="text"
@@ -1470,6 +1474,9 @@ function TaskRow({
                   {selectedMeta.code}
                 </span>
               )}
+              {selectedMeta?.code && (
+                <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
+              )}
               <input
                 name="text"
                 value={text}
@@ -1672,10 +1679,10 @@ function TaskRow({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        ) : projectTaskHref(task) ? (
+        ) : taskItemHref(task) ? (
           // Locked rows can't be edited, but the linked project task can still be opened.
           <Link
-            href={projectTaskHref(task)!}
+            href={taskItemHref(task)!}
             title="View Task"
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
@@ -1809,6 +1816,9 @@ function SummaryTaskEditor({
             {selectedMeta.code}
           </span>
         )}
+        {selectedMeta?.code && (
+          <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
+        )}
         <input
           name="text"
           value={text}
@@ -1863,13 +1873,17 @@ function LinkedTaskCell({
   fallbackTitle,
   showStatus = true,
 }: {
-  projectTask: { id: string; code: string; title: string | null; status: string };
+  projectTask: { id: string; code: string; title: string | null; status: string; project?: { id: string } | null };
   fallbackTitle: string;
   showStatus?: boolean;
 }) {
   return (
     <div className="flex flex-col items-start gap-1">
-      <TaskIdChip code={projectTask.code} title={projectTask.title || fallbackTitle} />
+      <TaskIdChip
+        code={projectTask.code}
+        title={projectTask.title || fallbackTitle}
+        href={projectTaskHref(projectTask.project?.id, projectTask.code)}
+      />
       {showStatus && (
         <ProjectTaskStatusPill
           taskId={projectTask.id}
@@ -1882,14 +1896,12 @@ function LinkedTaskCell({
   );
 }
 
-function projectTaskHref(task: TaskItem): string | null {
-  const projectId = task.projectTask?.project?.id;
-  const code = task.projectTask?.code;
-  return projectId && code ? `/projects/${projectId}/tasks/${code}` : null;
+function taskItemHref(task: TaskItem): string | null {
+  return projectTaskHref(task.projectTask?.project?.id, task.projectTask?.code);
 }
 
 function ViewTaskMenuItem({ task }: { task: TaskItem }) {
-  const href = projectTaskHref(task);
+  const href = taskItemHref(task);
   if (!href) return null;
   return (
     <>
@@ -2251,9 +2263,11 @@ function TodayTasksSection({
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [sortMode, setSortMode] = useState("priority");
   const [overridePriorities, setOverridePriorities] = useState<Record<string, string | null>>({});
-  // "Not Aligned Task" filter: tasks with no linked project task (project selected or not).
+  // "Not Aligned Task" filter: tasks with no linked project task (project selected or not), or
+  // whose task is still in the project's NAT list — those are the ones to align.
   const [showNotAligned, setShowNotAligned] = useState(false);
-  const notAlignedCount = tasks.filter((t) => !t.projectTaskId).length;
+  const isNotAligned = (t: TaskItem) => isNotAlignedTaskLink(t.projectTaskId, cascadingProjects);
+  const notAlignedCount = tasks.filter(isNotAligned).length;
 
   useEffect(() => {
     fetchUserProjectsWithTasksAction(memberUser?.id)
@@ -2349,7 +2363,7 @@ function TodayTasksSection({
           <table className="w-full border-collapse">
             <TaskTableHead withAction />
             <tbody>
-              {sorted.map((task, i) => showNotAligned && task.projectTaskId ? null : (
+              {sorted.map((task, i) => showNotAligned && !isNotAligned(task) ? null : (
                 <TaskRow
                   key={task.id}
                   task={task}
@@ -2785,6 +2799,9 @@ export function ParkingLotSection({
                     >
                       {selectedMeta.code}
                     </span>
+                  )}
+                  {selectedMeta?.code && (
+                    <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
                   )}
                   <div className="flex-1 min-w-0">
                     <input
