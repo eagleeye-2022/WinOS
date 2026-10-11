@@ -24,7 +24,15 @@ type SearchableSelectProps = {
   onCreate?: (name: string) => void;
   /** What a created item is called in the create row and hint, e.g. "task list". */
   createNoun?: string;
+  /** Rows visible before the list scrolls (fixed height). Default: about 9 (max-h-64). */
+  maxVisibleRows?: number;
+  /** Classes for the dropdown panel, e.g. to match the trigger's width. */
+  contentClassName?: string;
 };
+
+/** Height of one list row (py-1.5 + text-xs line) and the list's p-1 padding, in px. */
+const ROW_HEIGHT_PX = 28;
+const LIST_PADDING_PX = 8;
 
 /** Sentinel row value for the "+ Create …" row — never a real option value. */
 const CREATE_ROW = "__searchable_select_create__";
@@ -44,6 +52,8 @@ export function SearchableSelect({
   className,
   onCreate,
   createNoun = "item",
+  maxVisibleRows,
+  contentClassName,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -125,7 +135,7 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-72 p-0"
+        className={cn("w-72 p-0", contentClassName)}
         onOpenAutoFocus={(e) => {
           // Focus the search box rather than the first focusable row.
           e.preventDefault();
@@ -145,7 +155,12 @@ export function SearchableSelect({
             className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <ul ref={listRef} role="listbox" className="max-h-64 overflow-y-auto p-1">
+        <ul
+          ref={listRef}
+          role="listbox"
+          className={cn("overflow-y-auto p-1", !maxVisibleRows && "max-h-64")}
+          style={maxVisibleRows ? { maxHeight: maxVisibleRows * ROW_HEIGHT_PX + LIST_PADDING_PX } : undefined}
+        >
           {rows.map((row, i) => {
             const isPlaceholder = i === 0;
             const isSelected = row.value === value;
