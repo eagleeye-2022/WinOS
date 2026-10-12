@@ -608,7 +608,7 @@ export async function getProjectsAction(): Promise<Project[]> {
   }
 
   const dbProjects = await db.project.findMany({
-    // Whyfi Learning lists live in the Project table but have their own Pulse page.
+    // Whyfi School lists live in the Project table but have their own Pulse page.
     where: { AND: [NOT_LEARNING_PROJECT, whereCondition] },
     include: PROJECT_LIST_INCLUDE,
     orderBy: { createdAt: "desc" },
@@ -2083,7 +2083,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
             ]
           : []),
       ],
-      // Whyfi Learning cards have their own page under Pulse.
+      // Whyfi School cards have their own page under Pulse.
       NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } },
     },
     include: {
@@ -3815,31 +3815,13 @@ import {
   formatTimePeriodRange,
   parseDateAndTimeToDate,
   toISTDateString,
-  parseTimeToMinutes,
-  MAX_LOG_MINUTES,
-  MAX_LOG_DURATION_ERROR,
-  SAME_DAY_LOG_ERROR,
+  sameDayLogError,
 } from "../utils/time-helpers";
 
 function formatMinutes(totalMinutes: number): string {
   return formatMinutesToHHMM(totalMinutes);
 }
 
-/**
- * Effort-log rule (see MAX_LOG_MINUTES): any length, but start and end on the same day. Returns
- * the error to show, or null when the log is fine. A "start – end" range whose end isn't after
- * its start would run past midnight.
- */
-function sameDayLogError(durationMinutes: number, timePeriod: string | null | undefined): string | null {
-  if (durationMinutes > MAX_LOG_MINUTES) return MAX_LOG_DURATION_ERROR;
-  const parts = (timePeriod || "").split(/[-–]/).map((s) => s.trim());
-  if (parts.length === 2 && parts[0] && parts[1]) {
-    const start = parseTimeToMinutes(parts[0]);
-    const end = parseTimeToMinutes(parts[1]);
-    if (start !== null && end !== null && end <= start) return SAME_DAY_LOG_ERROR;
-  }
-  return null;
-}
 
 async function recalculateProjectTimeTotals(projectId: string) {
   if (!projectId) return;
@@ -4030,6 +4012,10 @@ export async function createTimeLogAction(
   const d = db as any;
 
   const rawTaskId = (logData as any).taskId || logData.taskCode;
+  // Without this, `{ id: undefined }` matches every row and the log lands on an arbitrary task.
+  if (!rawTaskId) {
+    throw new Error("Pick a task for this effort log.");
+  }
   const task = await d.projectTask.findFirst({
     where: { OR: [{ id: rawTaskId }, { code: rawTaskId }] },
     select: { id: true, code: true, title: true, phaseId: true, projectId: true },

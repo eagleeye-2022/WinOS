@@ -177,17 +177,26 @@ function toTaskTitle(rawTitle: string): string {
  * such a row and when the DSM is submitted. Time logged on it shows in the NAT column on the
  * board, where a manager aligns it by moving the task to the right list — its time logs move
  * with it.
+ *
+ * `ownerUserId` (managers only): create/reuse the task for that member instead of the caller —
+ * used when a manager reviews a DSM or adds a task to an already-reviewed one, so the member can
+ * run the timer on it.
  */
 export async function ensureNatTaskForTimerAction(
   projectId: string,
-  rawTitle: string
+  rawTitle: string,
+  ownerUserId?: string
 ): Promise<{ success: true; task: CascadingTaskOption; taskListCode: string; created: boolean } | Failure> {
   const title = toTaskTitle(rawTitle);
   if (!title) return { success: false, error: "Write what you're working on first." };
 
   const ctx = await resolveEditableProject(projectId);
   if ("success" in ctx) return ctx;
-  const { user, project } = ctx;
+  const { user, project, isManager } = ctx;
+  if (ownerUserId && ownerUserId !== user.id && !isManager) {
+    return { success: false, error: "Only a manager can create a task for someone else." };
+  }
+  const ownerId = ownerUserId || user.id;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -214,7 +223,7 @@ export async function ensureNatTaskForTimerAction(
     };
   }
 
-  const res = await findOrCreateOwnTaskInList(project.id, user.id, title, natCode);
+  const res = await findOrCreateOwnTaskInList(project.id, ownerId, title, natCode, ownerId !== user.id ? ownerId : undefined);
   if (!res.success) return res;
   return { ...res, taskListCode: natCode };
 }
@@ -242,13 +251,15 @@ export async function linkOrCreateDsmTaskAction(
 /**
  * The user's open (not done) top-level task named `title` in task list `listCode`, or a new one
  * created there via createDsmProjectTaskAction. Callers must have already checked the user may
- * add to the project (resolveEditableProject).
+ * add to the project (resolveEditableProject). `ownerUserId` creates it for that member (manager
+ * only — createDsmProjectTaskAction re-checks).
  */
 async function findOrCreateOwnTaskInList(
   projectDbId: string,
   userId: string,
   title: string,
-  listCode: string
+  listCode: string,
+  ownerUserId?: string
 ): Promise<{ success: true; task: CascadingTaskOption; created: boolean } | Failure> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -269,7 +280,7 @@ async function findOrCreateOwnTaskInList(
     return { success: true, task: { ...task, subtasks: [] }, created: false };
   }
 
-  const res = await createDsmProjectTaskAction(projectDbId, { title, taskListCode: listCode });
+  const res = await createDsmProjectTaskAction(projectDbId, { title, taskListCode: listCode, ownerUserId });
   if (!res.success) return res;
   return { success: true, task: res.task, created: true };
 }

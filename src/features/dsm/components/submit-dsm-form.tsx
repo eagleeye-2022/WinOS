@@ -32,7 +32,7 @@ import { SortFilterButton, DueDateInput, TaskInfoLink } from "@/components/share
 import { projectTaskHref } from "@/lib/project-task-href";
 import { ProjectTaskSelectors } from "./project-task-selectors";
 import { SearchableSelect } from "@/components/shared/searchable-select";
-import { getMyWhyfiTasksAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
+import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
 import {
   formatLearningLine,
   parseLearningLineCode,
@@ -491,16 +491,9 @@ function LearningRows({
   teamMembers: TeamMember[];
   onChange: (items: { id: string; text: string; carried?: boolean }[]) => void;
 }) {
-  // Whyfi Learning cards shared with this user. A row linked to one is stored as
+  // Whyfi School cards shared with this user. A row linked to one is stored as
   // "[WL-1-T3] text" (learning rows are plain text), so the link survives drafts and reloads.
-  const [whyfiTasks, setWhyfiTasks] = useState<WhyfiPickerTask[]>([]);
-  const [whyfiLoading, setWhyfiLoading] = useState(true);
-  useEffect(() => {
-    getMyWhyfiTasksAction()
-      .then(setWhyfiTasks)
-      .catch(() => setWhyfiTasks([]))
-      .finally(() => setWhyfiLoading(false));
-  }, []);
+  const { tasks: whyfiTasks, loading: whyfiLoading, setDueDate: setWhyfiDueDate } = useWhyfiTasks();
 
   const setText = (i: number, text: string) => {
     const n = [...items];
@@ -562,27 +555,33 @@ function LearningRows({
           )}
         </div>
         {(whyfiTasks.length > 0 || linkedCode) && (
-          <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
-              <SearchableSelect
-                value={linkedTask?.id ?? ""}
-                onChange={(v) => linkTask(i, v)}
-                options={whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }))}
-                placeholder={whyfiLoading ? "Loading..." : linkedCode && !linkedTask ? linkedCode : "Select learning task"}
-                searchPlaceholder="Search learning tasks..."
-                className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
-              />
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                <SearchableSelect
+                  value={linkedTask?.id ?? ""}
+                  onChange={(v) => linkTask(i, v)}
+                  options={whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }))}
+                  placeholder={whyfiLoading ? "Loading..." : linkedCode && !linkedTask ? linkedCode : "Select learning task"}
+                  searchPlaceholder="Search learning tasks..."
+                  className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
+                />
+              </div>
+              {linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
             </div>
-            {linkedCode && (
-              <TimerWidget
-                instanceId={`dsm-learning-${item.id}`}
-                taskId={linkedTask?.id}
-                taskCode={linkedCode}
-                taskTitle={linkedTask?.title ?? stripLearningLineCode(item.text)}
-                projectId={linkedTask?.projectId}
-              />
-            )}
+            {/* Full start/stop timer, same as the DSM task rows. */}
+            <TimerWidget
+              instanceId={`dsm-learning-${item.id}`}
+              taskId={linkedTask?.id}
+              taskCode={linkedCode ?? undefined}
+              taskTitle={linkedTask?.title ?? stripLearningLineCode(item.text)}
+              projectId={linkedTask?.projectId}
+              canStart={Boolean(linkedCode)}
+              disabledReason="Select a learning task to start the timer"
+              disabledTitle="No learning task selected"
+              defaultExpanded={true}
+            />
           </div>
         )}
         </div>
@@ -1732,7 +1731,7 @@ export function SubmitDsmForm({
         {/* What will you learn today */}
         <Section
           icon={<GraduationCap size={16} className="text-primary" />}
-          title="What Will You Learn Today( Whyfi School )?"
+          title="What Will You Learn Today (Whyfi School)?"
           required
         >
           <input

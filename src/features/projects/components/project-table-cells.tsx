@@ -126,8 +126,8 @@ export function AssigneeCell({
                 </span>
               )}
             </span>
-            <span className="font-medium text-foreground truncate">
-              {current.length === 1 ? current[0].name : `${current.length} assigned`}
+            <span className="font-medium text-foreground truncate" title={current.map((a) => a.name).join(", ")}>
+              {current.length === 1 ? firstName(current[0].name) : `${current.length} assigned`}
             </span>
           </>
         ) : (
@@ -148,6 +148,14 @@ export function AssigneeCell({
       />
     </div>
   );
+}
+
+/** First name only for compact display on /projects ("Rudraram Vamshivardhan Reddy" → "Rudraram");
+ *  an email-like name shows its part before "@". The full name stays in the hover title. */
+export function firstName(name: string | null | undefined): string {
+  const n = (name || "").trim();
+  if (!n) return "";
+  return n.split("@")[0].split(/\s+/)[0];
 }
 
 function parseDateOnly(dStr?: string): Date | null {

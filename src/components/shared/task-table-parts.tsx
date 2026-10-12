@@ -117,9 +117,11 @@ export function TaskInfoLink({ href, code, className }: { href: string; code: st
   return (
     <Link
       href={href}
+      target="_blank"
+      rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      title={`Open task ${code}`}
-      aria-label={`Open task ${code}`}
+      title={`Open task ${code} in a new tab`}
+      aria-label={`Open task ${code} in a new tab`}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:text-primary",
         className

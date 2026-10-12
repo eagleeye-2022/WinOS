@@ -1,5 +1,5 @@
 /**
- * Whyfi Learning (Pulse → /pulse/whyfi-learning) stores its data in the existing Projects tables
+ * Whyfi School (Pulse → /pulse/whyfi-learning) stores its data in the existing Projects tables
  * rather than new ones: each shareable learning *task list* is a `Project` row with
  * `projectCategory = "LEARNING"` (one phase, one task list), its cards are `ProjectTask` rows, and
  * "sharing the list with a user" is a `ProjectMember` row. That reuses the project timer, time logs
@@ -26,11 +26,27 @@ export const LEARNING_DONE_STATUSES = ["Done", "Closed", "Approved", "Completed"
 
 /**
  * Learning time is ordinary project time logs, so it already shows in the Effort Logs, Active
- * Timers, DSM effort card and Report. This labels its "project" there as "Whyfi Learning · <list>"
+ * Timers, DSM effort card and Report. This labels its "project" there as "Whyfi School · <list>"
  * so it's recognisable (and sorts together) next to client projects.
  */
 export function effortProjectLabel(name: string, projectCategory?: string | null): string {
-  return projectCategory === LEARNING_PROJECT_CATEGORY ? `Whyfi Learning · ${name}` : name;
+  return projectCategory === LEARNING_PROJECT_CATEGORY ? `Whyfi School · ${name}` : name;
+}
+
+/**
+ * `ProjectTask.dueDate` is a free-form string: "YYYY-MM-DD" (Whyfi), "DD/MM/YYYY" (imported from
+ * Zoho/projects) or "--"/empty. Returns "YYYY-MM-DD", or "" when there's no valid date.
+ */
+export function normalizeDueDate(raw: string | null | undefined): string {
+  const s = (raw || "").trim();
+  let y: string, m: string, d: string;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (iso) [, y, m, d] = iso;
+  else if (dmy) [y, m, d] = [dmy[3], dmy[2].padStart(2, "0"), dmy[1].padStart(2, "0")];
+  else return "";
+  const date = new Date(`${y}-${m}-${d}T00:00:00Z`);
+  return !isNaN(date.getTime()) && date.getUTCDate() === Number(d) ? `${y}-${m}-${d}` : "";
 }
 
 /** Prisma `where` fragment that excludes learning lists from regular project queries. */

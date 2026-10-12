@@ -49,7 +49,6 @@ import {
   formatDurationDisplay,
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
-  formatTime12h,
   compareTimeLogsLatestFirst,
   toLocalDateString,
   MAX_LOG_MINUTES,
@@ -68,6 +67,8 @@ import {
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+import Link from "next/link";
+import { projectTaskHref } from "@/lib/project-task-href";
 
 const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
@@ -77,6 +78,26 @@ interface TimeTrackerViewProps {
   projectId?: string;
   projectName?: string;
   assignedUsers?: string[];
+}
+
+/** Log Title cell text: a link to the logged task (new tab, like the ⓘ task icon elsewhere);
+ *  plain text when the log has no task code (`taskCode` falls back to the log id then). */
+function LogTitleLink({ log }: { log: TimeLogEntry }) {
+  const code = log.taskCode && log.taskCode !== log.id ? log.taskCode : null;
+  const href = projectTaskHref(log.projectId, code);
+  if (!href) return <span>{log.title}</span>;
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title={`Open task ${code} in a new tab`}
+      className="hover:text-primary hover:underline underline-offset-2 transition-colors"
+    >
+      {log.title}
+    </Link>
+  );
 }
 
 function InlineTextCell({
@@ -605,50 +626,6 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       console.error(`Failed to update ${field}:`, err);
       toast.error(`Failed to update ${field}.`);
       setUserGroups(previousGroups);
-    }
-  };
-
-  const handleAddInlineTimeLog = async (dateStr?: string) => {
-    const targetDate = dateStr || toLocalDateString(new Date());
-    const now = new Date();
-    const oneMinAgo = new Date(now.getTime() - 60000);
-    const timePeriodStr = `${formatTime12h(oneMinAgo)} – ${formatTime12h(now)}`;
-    try {
-      const createdLog = await createTimeLogAction(
-        {
-          title: "Logged Work",
-          project: projectName || "Project",
-          duration: "00:01",
-          timePeriod: timePeriodStr,
-          date: targetDate,
-          billingType: "BILLABLE",
-          approvalStatus: "Pending",
-          remarks: "",
-        },
-        projectId
-      );
-
-      setUserGroups((prev) => {
-        const next = [...prev];
-        if (next.length > 0) {
-          next[0] = {
-            ...next[0],
-            timeLogs: [createdLog, ...next[0].timeLogs],
-          };
-        } else {
-          next.push({
-            userId: createdLog.userId || "user-1",
-            userName: createdLog.userName || "User",
-            userInitials: createdLog.userInitials || "US",
-            avatarColor: "bg-primary text-primary-foreground",
-            dailyLogHours: "00:01 | 00:01 | 00:00",
-            timeLogs: [createdLog],
-          });
-        }
-        return next;
-      });
-    } catch (err) {
-      console.error("Failed to add inline time log:", err);
     }
   };
 
@@ -1423,17 +1400,22 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                     <span>Time Period</span>
                   </div>
                 </th>
+                {/* User column hidden in Group By Date by request.
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px] text-foreground font-bold">
                   <div className="flex items-center gap-1.5">
                     <UserIcon size={13} className="text-muted-foreground" />
                     <span>User</span>
                   </div>
                 </th>
+                */}
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
                   Billing Type
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
                   Approval Status
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px] text-foreground font-bold">
+                  Remarks
                 </th>
                 <th className="py-2.5 px-4 whitespace-nowrap text-foreground font-bold text-right">
                   Actions
@@ -1485,8 +1467,10 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <td className="py-2 px-3 border-r border-border text-center" />
                           <td
                             colSpan={9}
-                            onClick={() => handleAddInlineTimeLog(group.date)}
-                            className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors flex items-center justify-between"
+                            // Opens the Add Effort Log form for this date (pick project/task there) —
+                            // it used to create a log with no task, which the server can't place.
+                            onClick={() => handleOpenAddModalForDate(group.date)}
+                            className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors"
                           >
                             <div className="flex items-center gap-1.5 text-primary font-semibold">
                               <Plus size={14} />
@@ -1518,7 +1502,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                                <span>{log.title}</span>
+                                <LogTitleLink log={log} />
                               </div>
                             </td>
 
@@ -1553,7 +1537,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               />
                             </td>
 
-                            {/* User Column */}
+                            {/* User Column — hidden in Group By Date by request.
                             <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-muted-foreground text-[11px]">↑</span>
@@ -1562,6 +1546,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 </span>
                               </div>
                             </td>
+                            */}
 
                             {/* Billing Type Column — INLINE EDITABLE */}
                             <td className="py-2 px-3 border-r border-border whitespace-nowrap">
@@ -1625,6 +1610,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   Rejected
                                 </option>
                               </select>
+                            </td>
+
+                            {/* Remarks Column — INLINE EDITABLE (same as Group By User / Project) */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
+                              <InlineTextCell
+                                value={log.remarks || ""}
+                                onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
+                                placeholder="Add remarks"
+                                className="text-muted-foreground min-w-[160px] truncate"
+                                title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
+                              />
                             </td>
 
                             {/* Actions Column */}
@@ -1768,7 +1764,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                              <span>{log.title}</span>
+                              <LogTitleLink log={log} />
                             </div>
                           </td>
 
@@ -1997,7 +1993,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                              <span>{log.title}</span>
+                              <LogTitleLink log={log} />
                             </div>
                           </td>
 

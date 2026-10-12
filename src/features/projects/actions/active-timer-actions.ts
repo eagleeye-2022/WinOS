@@ -141,7 +141,7 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       },
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
     ) ||
-    // EED Core's shared daily tasks (DSM, meetings, …) and Whyfi Learning cards can be timed by
+    // EED Core's shared daily tasks (DSM, meetings, …) and Whyfi School cards can be timed by
     // any member of their project (for learning: anyone the list is shared with).
     ((isCoreDailyTask(task) || task.project?.projectCategory === LEARNING_PROJECT_CATEGORY) &&
       !!(await d.projectMember.findFirst({

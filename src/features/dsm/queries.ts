@@ -1081,7 +1081,7 @@ export async function getUserOpenProjectTasks(userIdInput?: string): Promise<Ope
         { ownerId: userId },
         { owners: { some: { userId } } },
       ],
-      // Whyfi Learning cards are picked separately, in the DSM learning rows.
+      // Whyfi School cards are picked separately, in the DSM learning rows.
       NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } },
     },
     select: {
@@ -1406,7 +1406,7 @@ export async function getUserProjectsWithTasksAndSubtasks(
   const projects = await d.project.findMany({
     where: {
       status: "ACTIVE",
-      // Whyfi Learning lists are picked separately, in the DSM learning rows.
+      // Whyfi School lists are picked separately, in the DSM learning rows.
       AND: [NOT_LEARNING_PROJECT],
       ...(isManager
         ? {}
