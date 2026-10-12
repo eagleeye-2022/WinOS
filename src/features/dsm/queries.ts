@@ -10,6 +10,7 @@ import {
   CORE_DAILY_TASKS_PROJECT_CODE,
   sortCoreDailyTasks,
 } from "./core-daily-tasks";
+import { LEARNING_PROJECT_CATEGORY, NOT_LEARNING_PROJECT, effortProjectLabel } from "@/features/whyfi/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1080,6 +1081,8 @@ export async function getUserOpenProjectTasks(userIdInput?: string): Promise<Ope
         { ownerId: userId },
         { owners: { some: { userId } } },
       ],
+      // Whyfi Learning cards are picked separately, in the DSM learning rows.
+      NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } },
     },
     select: {
       id: true,
@@ -1272,7 +1275,9 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
       taskId: true,
       duration: true,
       date: true,
-      task: { select: { code: true, title: true, project: { select: { id: true, name: true } } } },
+      task: {
+        select: { code: true, title: true, project: { select: { id: true, name: true, projectCategory: true } } },
+      },
     },
   });
 
@@ -1280,7 +1285,19 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const log of logs as any[]) {
     if (!logMatchesDay(new Date(log.date), dStr)) continue;
-    const row = byTask.get(log.taskId) ?? { taskId: log.taskId, minutes: 0, task: log.task ?? null };
+    const task = log.task
+      ? {
+          code: log.task.code,
+          title: log.task.title,
+          project: log.task.project
+            ? {
+                id: log.task.project.id,
+                name: effortProjectLabel(log.task.project.name, log.task.project.projectCategory),
+              }
+            : null,
+        }
+      : null;
+    const row = byTask.get(log.taskId) ?? { taskId: log.taskId, minutes: 0, task };
     row.minutes += log.duration;
     byTask.set(log.taskId, row);
   }
@@ -1389,6 +1406,8 @@ export async function getUserProjectsWithTasksAndSubtasks(
   const projects = await d.project.findMany({
     where: {
       status: "ACTIVE",
+      // Whyfi Learning lists are picked separately, in the DSM learning rows.
+      AND: [NOT_LEARNING_PROJECT],
       ...(isManager
         ? {}
         : {

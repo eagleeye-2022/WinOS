@@ -38,6 +38,11 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
                   {r.task?.code && <span className="mr-1 font-mono text-[11px] text-muted-foreground">{r.task.code}</span>}
                   {r.task?.title ?? "Task"}
                 </span>
+                {r.task?.project?.name.startsWith("Whyfi Learning") && (
+                  <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    Learning
+                  </span>
+                )}
                 {r.task?.code && r.task.project?.id && (
                   <TaskInfoLink href={projectTaskHref(r.task.project.id, r.task.code)!} code={r.task.code} />
                 )}
