@@ -629,6 +629,7 @@ export function AllProjectsTableView({
         taskLayout: data.taskLayout,
         accessType: data.accessType,
         projectCategory: data.projectCategory,
+        ...(result.templateUsed ? { templateUsed: result.templateUsed } : {}),
       });
       setEditingProject(null);
     }

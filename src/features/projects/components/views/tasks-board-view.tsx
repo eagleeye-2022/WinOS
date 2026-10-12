@@ -33,7 +33,7 @@ import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/shared/confirm-dialog";
-import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES } from "../../types";
+import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { getAvatarColor } from "../assignee-picker-popover";
@@ -1068,8 +1068,15 @@ export function TasksBoardView({
     const isClosed = statusUpper === "CLOSED" || statusUpper === "DONE";
     const isInProgress = statusUpper === "IN PROGRESS" || statusUpper === "IN_PROGRESS";
 
+    // A done task is locked: only its status can still be changed (by the owner) to reopen it.
+    const isLocked = isTaskDone(task.status, undefined, task.completionPercentage);
+    const canEdit = isOwner && !isLocked;
+    const lockedReason = isLocked
+      ? "This task is done — reopen it by changing the status to edit"
+      : `Only the task owner (${task.owner || "Unassigned"}) can edit this task`;
+
     const isSelected = selectedTaskIds.has(task.id);
-    const isDraggable = !isSubtask && Boolean(columnCode);
+    const isDraggable = !isSubtask && Boolean(columnCode) && !isLocked;
     const isBeingDragged = draggedTaskId === task.id;
 
     return (
@@ -1171,9 +1178,9 @@ export function TasksBoardView({
               <button
                 type="button"
                 onClick={(e) => e.stopPropagation()}
-                disabled={!isOwner}
+                disabled={!canEdit}
                 className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                title={isOwner ? "More options" : `Only the task owner (${task.owner || "Unassigned"}) can delete this task`}
+                title={canEdit ? "More options" : lockedReason}
               >
                 <MoreVertical size={13} />
               </button>
@@ -1201,12 +1208,12 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  disabled={!isOwner}
+                  disabled={!canEdit}
                   className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   title={
-                    isOwner
+                    canEdit
                       ? `Move to another phase (currently: ${task.phaseName || task.phaseCode || "Unassigned"})`
-                      : `Only the task owner (${task.owner || "Unassigned"}) can move this task`
+                      : lockedReason
                   }
                 >
                   <ArrowRightLeft size={13} />
@@ -1261,17 +1268,17 @@ export function TasksBoardView({
         ) : (
           <h4
             onClick={(e) => {
-              if (isOwner) {
+              if (canEdit) {
                 handleStartEditTitle(e, task);
               }
             }}
-            title={isOwner ? "Click to rename" : task.title}
+            title={canEdit ? "Click to rename" : task.title}
             className={cn(
               "rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary",
               isClosed
                 ? "line-through text-slate-400 dark:text-neutral-500 decoration-slate-400/80 dark:decoration-neutral-500/80"
                 : "text-slate-800 dark:text-neutral-200",
-              isOwner ? "hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text" : "cursor-pointer"
+              canEdit ? "hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text" : "cursor-pointer"
             )}
           >
             {task.title}
@@ -1286,8 +1293,8 @@ export function TasksBoardView({
               taskCode={task.code}
               taskId={task.id}
               projectId={task.projectId || realProjectId}
-              canStart={isOwner}
-              disabledReason={`Only the task owner (${task.owner || "Unassigned"}) can start this timer`}
+              canStart={canEdit}
+              disabledReason={isLocked ? lockedReason : `Only the task owner (${task.owner || "Unassigned"}) can start this timer`}
               onSaveLog={() => router.refresh()}
             />
             {isSubtask && (
@@ -1309,12 +1316,12 @@ export function TasksBoardView({
                   <button
                     type="button"
                     onClick={(e) => e.stopPropagation()}
-                    disabled={!isOwner}
+                    disabled={!canEdit}
                     className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-slate-400 hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#121316] dark:border-white/10"
                     title={
-                      isOwner
+                      canEdit
                         ? `Move to another phase (currently: ${task.phaseName || task.phaseCode || "Unassigned"})`
-                        : `Only the task owner (${task.owner || "Unassigned"}) can move this task`
+                        : lockedReason
                     }
                   >
                     <ArrowRightLeft size={13} />
@@ -1400,7 +1407,7 @@ export function TasksBoardView({
                 className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 onClick={(e) => e.stopPropagation()}
               >
-                {currentUser && (!task.owner || task.owner === "Unassigned") && (
+                {currentUser && !isLocked && (!task.owner || task.owner === "Unassigned") && (
                   <button
                     type="button"
                     onClick={() =>
@@ -1420,8 +1427,14 @@ export function TasksBoardView({
                       : []
                     ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                   }
-                  disabled={!isOwner && Boolean(task.owner && task.owner !== "Unassigned")}
-                  disabledReason={!isOwner && Boolean(task.owner && task.owner !== "Unassigned") ? `Only the task owner (${task.owner}) can change ownership` : undefined}
+                  disabled={isLocked || (!isOwner && Boolean(task.owner && task.owner !== "Unassigned"))}
+                  disabledReason={
+                    isLocked
+                      ? lockedReason
+                      : !isOwner && Boolean(task.owner && task.owner !== "Unassigned")
+                      ? `Only the task owner (${task.owner}) can change ownership`
+                      : undefined
+                  }
                   onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}
                   ownersList={userOptions}
                   listLabel="Project Users"

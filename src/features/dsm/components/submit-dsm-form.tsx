@@ -31,6 +31,13 @@ import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { SortFilterButton, DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { ProjectTaskSelectors } from "./project-task-selectors";
+import { SearchableSelect } from "@/components/shared/searchable-select";
+import { getMyWhyfiTasksAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
+import {
+  formatLearningLine,
+  parseLearningLineCode,
+  stripLearningLineCode,
+} from "@/features/whyfi/constants";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -484,28 +491,60 @@ function LearningRows({
   teamMembers: TeamMember[];
   onChange: (items: { id: string; text: string; carried?: boolean }[]) => void;
 }) {
-  const updateText = (i: number, v: string) => {
+  // Whyfi Learning cards shared with this user. A row linked to one is stored as
+  // "[WL-1-T3] text" (learning rows are plain text), so the link survives drafts and reloads.
+  const [whyfiTasks, setWhyfiTasks] = useState<WhyfiPickerTask[]>([]);
+  const [whyfiLoading, setWhyfiLoading] = useState(true);
+  useEffect(() => {
+    getMyWhyfiTasksAction()
+      .then(setWhyfiTasks)
+      .catch(() => setWhyfiTasks([]))
+      .finally(() => setWhyfiLoading(false));
+  }, []);
+
+  const setText = (i: number, text: string) => {
     const n = [...items];
-    n[i] = { ...n[i], text: v };
+    n[i] = { ...n[i], text };
     onChange(n);
+  };
+  const updateText = (i: number, v: string) => {
+    const code = parseLearningLineCode(items[i].text);
+    setText(i, code ? formatLearningLine(code, v) : v);
+  };
+  const linkTask = (i: number, taskId: string) => {
+    const body = stripLearningLineCode(items[i].text);
+    const task = whyfiTasks.find((t) => t.id === taskId);
+    setText(i, task ? formatLearningLine(task.code, body || task.title) : body);
   };
   const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
   const add = () => onChange([...items, { id: crypto.randomUUID(), text: "" }]);
 
   return (
     <div className="flex flex-col gap-2">
-      {items.map((item, i) => (
-        <div key={item.id} className="flex items-center gap-2 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+      {items.map((item, i) => {
+        const linkedCode = parseLearningLineCode(item.text);
+        const linkedTask = linkedCode ? whyfiTasks.find((t) => t.code === linkedCode) : undefined;
+        return (
+        <div key={item.id} className="flex flex-col gap-2 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
+        <div className="flex items-center gap-2">
           <span className={cn(
             "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
             item.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
           )}>
             L{i + 1}
           </span>
+          {linkedCode && (
+            <span
+              title={linkedTask ? `${linkedTask.title} · ${linkedTask.listName}` : linkedCode}
+              className="shrink-0 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary"
+            >
+              {linkedCode}
+            </span>
+          )}
+          <input type="hidden" name="learningItemText" value={item.text} />
           <MentionInput
-            key={item.id}
-            name="learningItemText"
-            defaultValue={item.text}
+            key={`${item.id}-${linkedCode ?? ""}`}
+            defaultValue={stripLearningLineCode(item.text)}
             onChange={(v) => updateText(i, v)}
             onEnterSubmit={i === items.length - 1 && item.text.trim() ? add : undefined}
             placeholder="Add learning task details..."
@@ -522,7 +561,33 @@ function LearningRows({
             </button>
           )}
         </div>
-      ))}
+        {(whyfiTasks.length > 0 || linkedCode) && (
+          <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+              <SearchableSelect
+                value={linkedTask?.id ?? ""}
+                onChange={(v) => linkTask(i, v)}
+                options={whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }))}
+                placeholder={whyfiLoading ? "Loading..." : linkedCode && !linkedTask ? linkedCode : "Select learning task"}
+                searchPlaceholder="Search learning tasks..."
+                className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
+              />
+            </div>
+            {linkedCode && (
+              <TimerWidget
+                instanceId={`dsm-learning-${item.id}`}
+                taskId={linkedTask?.id}
+                taskCode={linkedCode}
+                taskTitle={linkedTask?.title ?? stripLearningLineCode(item.text)}
+                projectId={linkedTask?.projectId}
+              />
+            )}
+          </div>
+        )}
+        </div>
+        );
+      })}
       <button
         type="button"
         onClick={add}

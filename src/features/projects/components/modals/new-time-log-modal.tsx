@@ -26,6 +26,7 @@ import {
   AlignLeft,
 } from "lucide-react";
 import { TimeLogEntry, Project } from "../../types";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   createTimeLogAction,
   updateTimeLogAction,
@@ -57,6 +58,13 @@ interface NewTimeLogModalProps {
   onLogAdded?: (newLog: TimeLogEntry) => void;
   onLogUpdated?: (updatedLog: TimeLogEntry) => void;
 }
+
+/** Project / task pickers: the "none" row + 5 items are visible, the rest of the list scrolls. */
+const PICKER_VISIBLE_ROWS = 6;
+const PICKER_TRIGGER_CLASS =
+  "w-full justify-between rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary";
+/** Dropdown as wide as the field it opens from. */
+const PICKER_CONTENT_CLASS = "w-[var(--radix-popover-trigger-width)]";
 
 const FALLBACK_TASK_OPTIONS = [
   { code: "WI1-T11", title: "V1 Keyword Research & Figma Layout" },
@@ -410,6 +418,12 @@ export function NewTimeLogModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (dateError || timeError) return;
+    // The project picker is no longer a native <select required>, so check it here.
+    if (!selectedProject) {
+      setSubmitError("Select a project first.");
+      return;
+    }
+    setSubmitError("");
 
     setIsSubmitting(true);
 
@@ -541,27 +555,17 @@ export function NewTimeLogModal({
                 <span>{projectName}</span>
               </div>
             ) : (
-              <div className="relative">
-                <select
-                  required
-                  value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
-                  className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
-                >
-                  <option value="" disabled>
-                    Select Project
-                  </option>
-                  {realProjects.map((p) => (
-                    <option key={p.id} value={p.name} className="bg-background text-foreground">
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="absolute right-3 top-2.5 text-muted-foreground pointer-events-none"
-                />
-              </div>
+              // Searchable, fixed-height list: 5 projects visible, the rest scroll.
+              <SearchableSelect
+                value={selectedProject}
+                onChange={setSelectedProject}
+                options={realProjects.map((p) => ({ value: p.name, label: p.name }))}
+                placeholder={realProjects.length === 0 ? "Loading projects..." : "Select Project"}
+                searchPlaceholder="Search projects..."
+                maxVisibleRows={PICKER_VISIBLE_ROWS}
+                className={PICKER_TRIGGER_CLASS}
+                contentClassName={PICKER_CONTENT_CLASS}
+              />
             )}
           </div>
 
@@ -574,31 +578,20 @@ export function NewTimeLogModal({
 
               {!isGeneralLog ? (
                 <div className="space-y-1.5">
-                  {/* Single Clean Dropdown Select for Tasks/Bugs */}
-                  <div className="relative">
-                    <select
-                      value={taskSearchQuery}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setTaskSearchQuery(val);
-                        setSelectedTaskOption(val);
-                      }}
-                      className="w-full appearance-none rounded-md border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer pr-10"
-                    >
-                      <option value="">
-                        General / Direct Project Effort Log (No Task)
-                      </option>
-                      {allTaskOptions.map((t) => (
-                        <option key={t.code} value={`${t.code} - ${t.title}`} className="bg-background text-foreground">
-                          {t.code}: {t.title}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={16}
-                      className="absolute right-3 top-2.5 text-muted-foreground pointer-events-none"
-                    />
-                  </div>
+                  {/* Searchable, fixed-height list: 5 tasks visible, the rest scroll. Search matches code or title. */}
+                  <SearchableSelect
+                    value={taskSearchQuery}
+                    onChange={(val) => {
+                      setTaskSearchQuery(val);
+                      setSelectedTaskOption(val);
+                    }}
+                    options={allTaskOptions.map((t) => ({ value: `${t.code} - ${t.title}`, label: `${t.code}: ${t.title}` }))}
+                    placeholder="General / Direct Project Effort Log (No Task)"
+                    searchPlaceholder="Search tasks by code or title..."
+                    maxVisibleRows={PICKER_VISIBLE_ROWS}
+                    className={PICKER_TRIGGER_CLASS}
+                    contentClassName={PICKER_CONTENT_CLASS}
+                  />
 
                   {/* Enter General Log toggle (Commented out per user request)
                   <button
@@ -947,6 +940,7 @@ export function NewTimeLogModal({
             >
               Cancel
             </button>
+            {submitError && <p className="text-xs text-destructive">{submitError}</p>}
           </div>
         </form>
       </div>

@@ -17,7 +17,11 @@ import {
   Globe,
   Lock,
 } from "lucide-react";
-import { DEFAULT_PROJECT_TEMPLATES, scaffoldPhasesFromTemplate } from "../../data/sop-templates";
+import {
+  DEFAULT_PROJECT_TEMPLATES,
+  DIGITAL_PROJECT_TEMPLATES,
+  scaffoldPhasesFromTemplate,
+} from "../../data/sop-templates";
 import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
 import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
 
@@ -40,13 +44,19 @@ export function AddProjectDrawer({
 }: AddProjectDrawerProps) {
   const [projectName, setProjectName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate>(
-    DEFAULT_PROJECT_TEMPLATES[0]
+    DIGITAL_PROJECT_TEMPLATES[0]
   );
   const [projectCategory, setProjectCategory] = useState<ProjectType>("CLIENT_DELIVERY");
   const [departmentAlias, setDepartmentAlias] = useState("digitalproducts@");
   const [phases, setPhases] = useState<ProjectPhase[]>(
-    scaffoldPhasesFromTemplate(DEFAULT_PROJECT_TEMPLATES[0])
+    scaffoldPhasesFromTemplate(DIGITAL_PROJECT_TEMPLATES[0])
   );
+
+  // Digital Projects pick between the Ecommerce / Enterprise templates; SMM keeps the default one.
+  const applyTemplate = (tmpl: ProjectTemplate) => {
+    setSelectedTemplate(tmpl);
+    setPhases(scaffoldPhasesFromTemplate(tmpl));
+  };
 
   // Accordion Section Toggle States
   const [phasesOpen, setPhasesOpen] = useState(true);
@@ -148,6 +158,8 @@ export function AddProjectDrawer({
       setProjectAccess(projectToEdit.accessType || "PUBLIC");
       setProjectCategory(projectToEdit.projectCategory || "CLIENT_DELIVERY");
       setTags(projectToEdit.tags || []);
+      const editTemplate = DIGITAL_PROJECT_TEMPLATES.find((t) => t.name === projectToEdit.templateUsed);
+      if (editTemplate) setSelectedTemplate(editTemplate);
       if (projectToEdit.phases && projectToEdit.phases.length > 0) {
         setPhases(projectToEdit.phases);
       }
@@ -160,13 +172,17 @@ export function AddProjectDrawer({
       setProjectGroup("");
       setProjectAccess("PRIVATE");
       setProjectCategory("CLIENT_DELIVERY");
-      setPhases(scaffoldPhasesFromTemplate(DEFAULT_PROJECT_TEMPLATES[0]));
+      applyTemplate(DIGITAL_PROJECT_TEMPLATES[0]);
     }
   }, [projectToEdit, isOpen]);
 
   const toggleExpandPhase = (phaseId: string) => {
     setExpandedPhaseId((prev) => (prev === phaseId ? null : phaseId));
   };
+
+  const isDigitalTemplateProject = DIGITAL_PROJECT_TEMPLATES.some(
+    (t) => t.name === projectToEdit?.templateUsed
+  );
 
   if (!isOpen) return null;
 
@@ -345,6 +361,9 @@ export function AddProjectDrawer({
                 onClick={() => {
                   setProjectCategory("CLIENT_DELIVERY");
                   setDepartmentAlias("digitalproducts@");
+                  if (!DIGITAL_PROJECT_TEMPLATES.some((t) => t.id === selectedTemplate.id)) {
+                    applyTemplate(DIGITAL_PROJECT_TEMPLATES[0]);
+                  }
                 }}
                 className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
                   projectCategory !== "SMM"
@@ -359,6 +378,7 @@ export function AddProjectDrawer({
                 onClick={() => {
                   setProjectCategory("SMM");
                   setDepartmentAlias("smm@");
+                  applyTemplate(DEFAULT_PROJECT_TEMPLATES[0]);
                 }}
                 className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
                   projectCategory === "SMM"
@@ -370,6 +390,39 @@ export function AddProjectDrawer({
               </button>
             </div>
           </div>
+
+          {/* Digital Project Template: Ecommerce vs Enterprise. On edit it's only offered for
+              projects built from one of them — switching re-maps the phases server-side. */}
+          {projectCategory !== "SMM" && (!projectToEdit || isDigitalTemplateProject) && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                Project Template
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {DIGITAL_PROJECT_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    onClick={() => applyTemplate(tmpl)}
+                    title={tmpl.description}
+                    className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
+                      selectedTemplate.id === tmpl.id
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-background text-muted-foreground border-input hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    {tmpl.name}
+                  </button>
+                ))}
+              </div>
+              {projectToEdit && selectedTemplate.name !== projectToEdit.templateUsed && (
+                <p className="text-[11px] text-muted-foreground">
+                  Saving will renumber this project&apos;s phases to the {selectedTemplate.name} template. Existing
+                  tasks and logged time are kept.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Collapsible: Phases Section */}
           {/* <div className="rounded-md border border-border bg-card">
@@ -614,7 +667,7 @@ export function AddProjectDrawer({
                 </div> */}
 
                 {/* Business Hours */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Business Hours <span className="text-destructive">*</span>
                   </label>
@@ -628,7 +681,7 @@ export function AddProjectDrawer({
                     <option value="Extended Business Hours">Extended Business Hours</option>
                     <option value="24/7 Coverage">24/7 Coverage</option>
                   </select>
-                </div>
+                </div> */}
 
                 {/* Task Layout */}
                 {/* <div className="space-y-1.5">
@@ -682,7 +735,7 @@ export function AddProjectDrawer({
                 </div>
 
                 {/* Priority */}
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">
                     Priority
                   </label>
@@ -697,7 +750,7 @@ export function AddProjectDrawer({
                     <option value="High">High</option>
                     <option value="Urgent">Urgent</option>
                   </select>
-                </div>
+                </div> */}
 
                 {/* Tags */}
                 {/* <div className="space-y-1.5">

@@ -32,11 +32,13 @@ import {
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
+  DIGITAL_PROJECT_TEMPLATES,
   scaffoldPhasesFromTemplate,
   scaffoldTaskListsFromTemplate,
   scaffoldTasksFromTemplate,
 } from "../data/sop-templates";
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
+import { LEARNING_PROJECT_CATEGORY, NOT_LEARNING_PROJECT, effortProjectLabel } from "@/features/whyfi/constants";
 import { findCountry, getCountryCities } from "../location-data";
 
 /**
@@ -606,7 +608,8 @@ export async function getProjectsAction(): Promise<Project[]> {
   }
 
   const dbProjects = await db.project.findMany({
-    where: whereCondition,
+    // Whyfi Learning lists live in the Project table but have their own Pulse page.
+    where: { AND: [NOT_LEARNING_PROJECT, whereCondition] },
     include: PROJECT_LIST_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -627,7 +630,7 @@ export async function getMyProjectsAction(): Promise<Project[]> {
   const userMap = await getUserMap();
 
   const dbProjects = await db.project.findMany({
-    where: { members: { some: { userId: session.user.id } } },
+    where: { AND: [NOT_LEARNING_PROJECT, { members: { some: { userId: session.user.id } } }] },
     include: PROJECT_LIST_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
@@ -655,7 +658,7 @@ export async function getMyProjectCalendarEventsAction(): Promise<MyProjectCalen
   const session = await requireAuth();
 
   const dbProjects = await db.project.findMany({
-    where: { members: { some: { userId: session.user.id } } },
+    where: { AND: [NOT_LEARNING_PROJECT, { members: { some: { userId: session.user.id } } }] },
     select: {
       id: true,
       name: true,
@@ -2080,6 +2083,8 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
             ]
           : []),
       ],
+      // Whyfi Learning cards have their own page under Pulse.
+      NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } },
     },
     include: {
       ownerUser: {
@@ -3940,7 +3945,7 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
     where: { ...projectFilter, ...ownershipFilter },
     include: {
       user: { select: { id: true, name: true } },
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, projectCategory: true } },
       task: { select: { id: true, code: true, title: true } },
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -3982,7 +3987,7 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
       id: log.id,
       code: displayCode,
       title: log.task?.title || remarks || "Logged Work",
-      project: log.project?.name || "Project",
+      project: log.project ? effortProjectLabel(log.project.name, log.project.projectCategory) : "Project",
       projectId: log.projectId || undefined,
       taskCode: displayCode,
       duration: durationStr,
@@ -5045,10 +5050,123 @@ export async function getTaskTimelineAction(taskIdOrCode: string): Promise<Proje
 /**
  * Updates full project details (Name, description, dates, priority, owner, billing type, category, etc.).
  */
+/** "7.3 MSO Off-Page" → "mso off-page": a phase's identity independent of its number. */
+function phaseKey(name: string): string {
+  return name.replace(/^\d+(\.\d+)*\s+/, "").trim().toLowerCase();
+}
+
+/**
+ * Re-maps an existing project's phases from one SOP template to another without losing work:
+ * phases are matched by name (ignoring the number) and renumbered/reordered in place along with
+ * their task lists and tasks; phases only in the new template are created (with their task
+ * lists); phases only in the old template are deleted when they hold no tasks, time logs or
+ * timers, otherwise kept and given the next free number so codes never collide.
+ */
+async function switchProjectPhasesToTemplate(
+  projectId: string,
+  from: ProjectTemplate,
+  to: ProjectTemplate
+): Promise<void> {
+  // Snapshot everything up front — codes shift during the updates below, so task lists must be
+  // tied to their phase by the *original* code before anything is written.
+  const phases = await db.projectPhase.findMany({
+    where: { projectId },
+    orderBy: { order: "asc" },
+    include: { _count: { select: { tasks: true, timeLogs: true, activeTimers: true } } },
+  });
+  const taskLists = await db.projectTaskList.findMany({ where: { projectId } });
+  const listsByPhaseId = new Map(
+    phases.map((p) => [p.id, taskLists.filter((tl) => tl.phaseCode === p.code)])
+  );
+
+  const phaseByKey = new Map(phases.map((p) => [phaseKey(p.name), p]));
+  const fromKeys = new Set(from.phases.map((p) => phaseKey(p.name)));
+  const matchedIds = new Set<string>();
+  const ownerId = phases[0]?.ownerId ?? null;
+
+  const renumberPhase = async (phase: (typeof phases)[number], code: string, name: string, order: number) => {
+    await db.projectPhase.update({ where: { id: phase.id }, data: { code, name, order } });
+    await db.projectTask.updateMany({
+      where: { projectId, phaseId: phase.id },
+      data: { phaseCode: code, phaseName: name },
+    });
+    for (const tl of listsByPhaseId.get(phase.id) || []) {
+      // "7.3 MSO Off-Page" → "7.2 MSO Off-Page"; "7.1.1 Done ..." keeps its sub-number.
+      const newListName = tl.name.startsWith(`${phase.code} `) || tl.name.startsWith(`${phase.code}.`)
+        ? `${code}${tl.name.slice(phase.code.length)}`
+        : tl.name;
+      await db.projectTaskList.update({
+        where: { id: tl.id },
+        data: { phaseCode: code, name: newListName },
+      });
+      if (newListName !== tl.name) {
+        await db.projectTask.updateMany({
+          where: { projectId, phaseId: phase.id, taskListName: tl.name },
+          data: { taskListName: newListName },
+        });
+      }
+    }
+  };
+
+  for (const [idx, tp] of to.phases.entries()) {
+    const existing = phaseByKey.get(phaseKey(tp.name));
+    if (existing) {
+      matchedIds.add(existing.id);
+      if (existing.code !== tp.code || existing.name !== tp.name || existing.order !== idx) {
+        await renumberPhase(existing, tp.code, tp.name, idx);
+      }
+      continue;
+    }
+    await db.projectPhase.create({
+      data: { code: tp.code, name: tp.name, isCompleted: false, order: idx, ownerId, projectId },
+    });
+    const lists = tp.taskLists || [];
+    if (lists.length > 0) {
+      await db.projectTaskList.createMany({
+        data: lists.map((tl) => ({
+          name: tl.name,
+          flag: tl.flag,
+          status: "Active",
+          sequence: tl.sequence,
+          phaseCode: tp.code,
+          projectId,
+        })),
+      });
+    }
+  }
+
+  // Phases not in the new template: drop empty ones that came from the old template; keep the
+  // rest (they hold work or were added by hand) after the template phases, on a free code.
+  const usedCodes = new Set(to.phases.map((p) => p.code));
+  let nextOrder = to.phases.length;
+  for (const phase of phases) {
+    if (matchedIds.has(phase.id)) continue;
+    const { tasks, timeLogs, activeTimers } = phase._count;
+    if (fromKeys.has(phaseKey(phase.name)) && tasks + timeLogs + activeTimers === 0) {
+      const listIds = (listsByPhaseId.get(phase.id) || []).map((tl) => tl.id);
+      if (listIds.length > 0) {
+        await db.projectTaskList.deleteMany({ where: { id: { in: listIds } } });
+      }
+      await db.projectPhase.delete({ where: { id: phase.id } });
+      continue;
+    }
+    let code = phase.code;
+    if (usedCodes.has(code)) {
+      const major = code.split(".")[0];
+      let minor = 1;
+      while (usedCodes.has(`${major}.${minor}`)) minor++;
+      code = `${major}.${minor}`;
+    }
+    usedCodes.add(code);
+    const name = code === phase.code ? phase.name : `${code} ${phase.name.replace(/^\d+(\.\d+)*\s+/, "")}`;
+    await renumberPhase(phase, code, name, nextOrder++);
+  }
+}
+
 export async function updateProjectDetailsAction(
   projectId: string,
   data: Partial<NewProjectFormData>
-): Promise<{ success: boolean; project?: Project; error?: string }> {
+): Promise<{ success: boolean; project?: Project; error?: string; templateUsed?: string }> {
   const session = await requireAuth();
   try {
     await requireProjectEditor(projectId, session.user.id);
@@ -5103,10 +5221,30 @@ export async function updateProjectDetailsAction(
     updateData.ownerInitials = initials;
   }
 
+  // Switching between the Digital Project templates (Ecommerce ↔ Enterprise) restructures the
+  // project's phases in place; any other template change is ignored.
+  const fromTemplate = DIGITAL_PROJECT_TEMPLATES.find((t) => t.name === project.templateUsed);
+  const toTemplate = DIGITAL_PROJECT_TEMPLATES.find((t) => t.id === data.templateId);
+  const switchTemplate = Boolean(fromTemplate && toTemplate && fromTemplate.id !== toTemplate.id);
+  if (switchTemplate) updateData.templateUsed = toTemplate!.name;
+
   await db.project.update({
     where: { id: project.id },
     data: updateData,
   });
+
+  if (switchTemplate) {
+    await switchProjectPhasesToTemplate(project.id, fromTemplate!, toTemplate!);
+    await logProjectActivity({
+      projectId: project.id,
+      userId: session.user.id,
+      userName: session.user.name,
+      action: "changed Project Template",
+      fieldName: "templateUsed",
+      oldValue: fromTemplate!.name,
+      newValue: toTemplate!.name,
+    });
+  }
 
   // Log activity for each field that changed
   if (data.name !== undefined && data.name !== project.name) {
@@ -5165,7 +5303,7 @@ export async function updateProjectDetailsAction(
 
   revalidatePath("/projects");
   revalidatePath(`/projects/${projectId}`);
-  return { success: true };
+  return { success: true, templateUsed: switchTemplate ? toTemplate!.name : undefined };
 }
 
 export async function createProjectTaskListAction(

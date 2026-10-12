@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { isCoreDailyTask } from "@/features/dsm/core-daily-tasks";
+import { LEARNING_PROJECT_CATEGORY, effortProjectLabel } from "@/features/whyfi/constants";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -114,7 +115,7 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       owner: true,
       taskListName: true,
       owners: { select: { userId: true, user: { select: { name: true, email: true } } } },
-      project: { select: { ownerId: true, code: true } },
+      project: { select: { ownerId: true, code: true, projectCategory: true } },
     },
   });
 
@@ -140,8 +141,9 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       },
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
     ) ||
-    // EED Core's shared daily tasks (DSM, meetings, …) can be timed by any project member.
-    (isCoreDailyTask(task) &&
+    // EED Core's shared daily tasks (DSM, meetings, …) and Whyfi Learning cards can be timed by
+    // any member of their project (for learning: anyone the list is shared with).
+    ((isCoreDailyTask(task) || task.project?.projectCategory === LEARNING_PROJECT_CATEGORY) &&
       !!(await d.projectMember.findFirst({
         where: { projectId: task.projectId, userId: sessionUser.id },
         select: { id: true },
@@ -564,7 +566,7 @@ export async function getAllActiveTimersAction(projectId?: string) {
             title: true,
           },
         },
-        project: { select: { id: true, code: true, name: true } },
+        project: { select: { id: true, code: true, name: true, projectCategory: true } },
         phase: { select: { id: true, code: true, name: true } },
         task: { select: { id: true, code: true, title: true } },
       },
@@ -577,6 +579,9 @@ export async function getAllActiveTimersAction(projectId?: string) {
       const elapsedSeconds = Math.max(0, Math.floor((nowMs - startedAt.getTime()) / 1000));
       return {
         ...timer,
+        project: timer.project
+          ? { ...timer.project, name: effortProjectLabel(timer.project.name, timer.project.projectCategory) }
+          : timer.project,
         elapsedSeconds,
         formattedTime: formatTimeSeconds(elapsedSeconds),
       };

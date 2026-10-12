@@ -27,6 +27,7 @@ import {
   AlarmClock,
   ClockFading,
   Timer,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -110,6 +111,9 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Regularization") {
     return pathname.startsWith("/pulse/regularization");
   }
+  if (label === "Whyfi Learning") {
+    return pathname.startsWith("/pulse/whyfi-learning");
+  }
   if (label === "Reports" && (pathname.startsWith("/pulse") || pathname.startsWith("/people"))) {
     return pathname.startsWith("/pulse/reports");
   }
@@ -181,6 +185,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          { label: "Whyfi Learning", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ]
       : [
@@ -189,6 +194,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          { label: "Whyfi Learning", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {
