@@ -52,6 +52,8 @@ import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
+import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
+import { parseLearningLineCode } from "@/features/whyfi/constants";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
@@ -1683,7 +1685,9 @@ function TaskRow({
           // Locked rows can't be edited, but the linked project task can still be opened.
           <Link
             href={taskItemHref(task)!}
-            title="View Task"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View Task (opens in a new tab)"
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <SquareArrowOutUpRight size={14} />
@@ -1906,7 +1910,7 @@ function ViewTaskMenuItem({ task }: { task: TaskItem }) {
   return (
     <>
       <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-        <Link href={href}>
+        <Link href={href} target="_blank" rel="noopener noreferrer">
           <SquareArrowOutUpRight size={13} className="text-muted-foreground" />
           <span>View Task</span>
         </Link>
@@ -2420,6 +2424,9 @@ function LearningSection({
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
   const [editText, setEditText] = useState("");
+  // Whyfi School cards (managers see every list) — lines linked to one ("[WL-1-T3] …") get a
+  // Due date + Today control, saved on the card.
+  const { tasks: whyfiTasks, setDueDate: setWhyfiDueDate } = useWhyfiTasks();
 
   const lines = learningText
     ? learningText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -2461,7 +2468,7 @@ function LearningSection({
       <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-primary">
         <span className="flex items-center gap-2">
           <GraduationCap size={15} className="text-primary" />
-          What Will You Learn Today( Whyfi School )?
+          What Will You Learn Today (Whyfi School)?
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             {lines.length}
           </span>
@@ -2525,6 +2532,15 @@ function LearningSection({
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
+                {(() => {
+                  const code = parseLearningLineCode(line);
+                  const linked = code ? whyfiTasks.find((t) => t.code === code) : undefined;
+                  return linked ? (
+                    <span className="mr-1">
+                      <WhyfiDueDate task={linked} onSaved={setWhyfiDueDate} />
+                    </span>
+                  ) : null;
+                })()}
                 <button
                   type="button"
                   onClick={() => {

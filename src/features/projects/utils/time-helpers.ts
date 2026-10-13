@@ -61,6 +61,27 @@ export const MAX_LOG_MINUTES = 24 * 60 - 1;
 export const SAME_DAY_LOG_ERROR = "Start and end time must be on the same day.";
 export const MAX_LOG_DURATION_ERROR = "An effort log can't be longer than one day (23:59).";
 
+/**
+ * Server-side check of that rule. Returns the error to show, or null when the log is fine. A
+ * "start – end" range whose end is before its start would run past midnight. Start == end is only
+ * allowed for a 1-minute log: a timer stopped in the same clock minute it started has a range like
+ * "10:05 AM – 10:05 AM" (times are to the minute) and is saved as 1 minute — rejecting it made
+ * every such timer impossible to save.
+ */
+export function sameDayLogError(durationMinutes: number, timePeriod: string | null | undefined): string | null {
+  if (durationMinutes > MAX_LOG_MINUTES) return MAX_LOG_DURATION_ERROR;
+  const parts = (timePeriod || "").split(/[-–]/).map((s) => s.trim());
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    const start = parseTimeToMinutes(parts[0]);
+    const end = parseTimeToMinutes(parts[1]);
+    if (start !== null && end !== null) {
+      if (end < start) return SAME_DAY_LOG_ERROR;
+      if (end === start && durationMinutes > 1) return SAME_DAY_LOG_ERROR;
+    }
+  }
+  return null;
+}
+
 /** Local calendar date of `d` as "YYYY-MM-DD" (unlike toISOString, which gives the UTC date). */
 export function toLocalDateString(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, "0");

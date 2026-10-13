@@ -31,20 +31,46 @@ export function AnchoredPopover({
   align = "left",
 }: AnchoredPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState<{ top: number; left: number; right: number } | null>(null);
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    right: number;
+    /** Trigger's top edge, for opening above it. */
+    anchorTop: number;
+  } | null>(null);
+  // Decided after the popover has rendered once (hidden) and can be measured.
+  const [placement, setPlacement] = useState<{ above: boolean; maxHeight?: number } | null>(null);
 
   useLayoutEffect(() => {
     if (!isOpen || !anchorRef.current) {
       setCoords(null);
+      setPlacement(null);
       return;
     }
     const rect = anchorRef.current.getBoundingClientRect();
+    setPlacement(null);
     setCoords({
       top: rect.bottom + 4,
       left: rect.left,
       right: window.innerWidth - rect.right,
+      anchorTop: rect.top,
     });
   }, [isOpen, anchorRef]);
+
+  // Flip above the trigger when it doesn't fit below (e.g. the last rows of a table near the
+  // bottom of the screen used to cut the picker off); if it fits neither way, open on the roomier
+  // side and cap its height so it scrolls instead of running off-screen.
+  useLayoutEffect(() => {
+    if (!coords || placement || !popoverRef.current) return;
+    const MARGIN = 8;
+    const height = popoverRef.current.offsetHeight;
+    const spaceBelow = window.innerHeight - coords.top - MARGIN;
+    const spaceAbove = coords.anchorTop - 4 - MARGIN;
+    if (height <= spaceBelow) setPlacement({ above: false });
+    else if (height <= spaceAbove) setPlacement({ above: true });
+    else if (spaceAbove > spaceBelow) setPlacement({ above: true, maxHeight: spaceAbove });
+    else setPlacement({ above: false, maxHeight: spaceBelow });
+  }, [coords, placement]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,8 +114,13 @@ export function AnchoredPopover({
       ref={popoverRef}
       style={{
         position: "fixed",
-        top: coords.top,
+        ...(placement?.above
+          ? { bottom: window.innerHeight - coords.anchorTop + 4 }
+          : { top: coords.top }),
         ...(align === "right" ? { right: coords.right } : { left: coords.left }),
+        ...(placement?.maxHeight ? { maxHeight: placement.maxHeight, overflowY: "auto" as const } : {}),
+        // Hidden for the one measuring frame before placement is decided — avoids a visible jump.
+        visibility: placement ? "visible" : "hidden",
       }}
       className={`z-50 rounded-lg border bg-popover shadow-2xl overflow-hidden text-xs animate-in fade-in zoom-in-95 duration-100 ${className}`}
     >

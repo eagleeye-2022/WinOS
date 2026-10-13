@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { countTasksWithoutProject } from "../../utils";
+import { linkProjectOnlyRowsToNat } from "../nat-rows";
 
 export type ReviewStandupState = { message?: string };
 
@@ -36,6 +37,16 @@ export async function reviewStandup(
     return {
       message: `Select a project for every task before reviewing (${missing} task${missing === 1 ? "" : "s"} missing a project).`,
     };
+  }
+
+  // Like a member's submit: today's rows with a project but no task get a task in that project's
+  // NAT list, owned by the member, so they can run the timer on it.
+  const projectOnlyRows = await d.standupTask.findMany({
+    where: { entryId, kind: "TODAY", projectId: { not: null }, projectTaskId: null },
+    select: { id: true, text: true, projectId: true },
+  });
+  if (projectOnlyRows.length > 0) {
+    await linkProjectOnlyRowsToNat(projectOnlyRows, entry.userId);
   }
 
   const dbUser = await d.user.findUnique({ where: { id: session.user.id }, select: { id: true } });

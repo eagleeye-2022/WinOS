@@ -1188,7 +1188,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
             <div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-sm font-bold text-muted-foreground">WL</span>
-                <h1 className="text-base font-bold tracking-tight text-foreground">Whyfi Learning</h1>
+                <h1 className="text-base font-bold tracking-tight text-foreground">Whyfi School</h1>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {workspace.isManager ? "Manager view" : "Shared with you"} &bull; Lists:{" "}

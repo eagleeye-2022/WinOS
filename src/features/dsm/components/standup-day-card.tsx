@@ -126,8 +126,9 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
       {/* Expanded content */}
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-4 pb-4 pt-3">
+          {/* Two separate sections: Today's Task, then Whyfi School learning (below). */}
           {(todayTasks.length > 0 || isReviewed) && (
-            <div className="mb-3">
+            <section className="mb-3 rounded-lg border bg-card p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task
               </p>
@@ -220,13 +221,16 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
               {isReviewed && (
                 <AddTaskAfterReviewRow entryId={entry.id} userId={entry.user?.id} />
               )}
-            </div>
+            </section>
           )}
 
           <StandupLearningSection
             entryId={entry.id}
             learningText={entry.learningText}
             isReviewed={isReviewed}
+            isToday={isToday}
+            memberId={entry.user?.id}
+            dateStr={new Date(entry.date).toISOString().slice(0, 10)}
           />
 
           {(entry.supportNeeds.length > 0 || entry.blockers.length > 0) && (

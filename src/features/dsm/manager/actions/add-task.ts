@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { linkProjectOnlyRowsToNat } from "../nat-rows";
 
 export type AddTaskState = { message?: string };
 
@@ -47,7 +48,8 @@ export async function addTask(
   const isParking = priority === "PARKING";
   const resolvedKind = isParking ? "PARKED" : (kind as "TODAY" | "YESTERDAY");
 
-  await d.standupTask.create({
+  const created = await d.standupTask.create({
+    select: { id: true },
     data: {
       entryId,
       kind: resolvedKind,
@@ -63,6 +65,12 @@ export async function addTask(
       addedById: session.user.id,
     },
   });
+
+  // Added to an already-reviewed DSM with a project but no task: there's no later review to
+  // create its NAT task, so do it now (see reviewStandup).
+  if (addedAfterReview && resolvedKind === "TODAY" && projectId && !projectTaskId) {
+    await linkProjectOnlyRowsToNat([{ id: created.id, text, projectId }], entry.userId);
+  }
 
   const managerName = session.user.name ?? "Manager";
   await d.standupTimelineEvent.create({

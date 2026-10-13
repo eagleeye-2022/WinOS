@@ -54,7 +54,7 @@ import {
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
-import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell } from "../project-table-cells";
+import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell, firstName } from "../project-table-cells";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
 import { ProjectINotesCell } from "../project-inotes-panel";
 import { CityCell, CountryCell, CountryFilterDropdown, IndustryCell } from "../project-client-cells";
@@ -1542,8 +1542,8 @@ export function AllProjectsTableView({
                     >
                       {project.owner.initials}
                     </span>
-                    <span className="font-medium text-foreground truncate max-w-[100px]">
-                      {project.owner.name}
+                    <span className="font-medium text-foreground truncate max-w-[100px]" title={project.owner.name}>
+                      {firstName(project.owner.name)}
                     </span>
                   </div>
 

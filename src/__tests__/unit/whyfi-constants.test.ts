@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   effortProjectLabel,
+  normalizeDueDate,
   formatLearningLine,
   parseLearningLineCode,
   stripLearningLineCode,
@@ -30,9 +31,25 @@ describe("Whyfi learning line links", () => {
   });
 });
 
+describe("normalizeDueDate", () => {
+  it("reads Whyfi ISO dates and imported DD/MM/YYYY dates", () => {
+    expect(normalizeDueDate("2026-10-12")).toBe("2026-10-12");
+    expect(normalizeDueDate("23/08/2025")).toBe("2025-08-23");
+    expect(normalizeDueDate("3/8/2025")).toBe("2025-08-03");
+  });
+
+  it("returns empty for no date or an invalid one", () => {
+    expect(normalizeDueDate("--")).toBe("");
+    expect(normalizeDueDate("")).toBe("");
+    expect(normalizeDueDate(null)).toBe("");
+    expect(normalizeDueDate("31/02/2026")).toBe("");
+    expect(normalizeDueDate("next week")).toBe("");
+  });
+});
+
 describe("effortProjectLabel", () => {
   it("labels learning lists in effort views and leaves projects alone", () => {
-    expect(effortProjectLabel("Dhruv - Jr SDE", "LEARNING")).toBe("Whyfi Learning · Dhruv - Jr SDE");
+    expect(effortProjectLabel("Dhruv - Jr SDE", "LEARNING")).toBe("Whyfi School · Dhruv - Jr SDE");
     expect(effortProjectLabel("MalavGram", "CLIENT_DELIVERY")).toBe("MalavGram");
     expect(effortProjectLabel("MalavGram", null)).toBe("MalavGram");
   });

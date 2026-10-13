@@ -12,6 +12,7 @@ import {
   LEARNING_PHASE_NAME,
   LEARNING_PROJECT_CATEGORY,
   LEARNING_TASK_STATUSES,
+  normalizeDueDate,
 } from "./constants";
 
 // Learning data lives in the Projects tables — see constants.ts for the mapping.
@@ -214,7 +215,7 @@ export async function getWhyfiWorkspaceAction(): Promise<WhyfiWorkspace | null> 
             title: t.title,
             description: t.description || "",
             status: t.status,
-            dueDate: t.dueDate && t.dueDate !== "--" ? t.dueDate : "",
+            dueDate: normalizeDueDate(t.dueDate),
             authorId: t.authorId,
             authorName: t.authorName || "",
             owners: t.owners.map((o: any) => toUser(o.user)),
@@ -250,6 +251,8 @@ export type WhyfiPickerTask = {
   status: string;
   projectId: string;
   listName: string;
+  /** "YYYY-MM-DD", or "" when the card has no due date. */
+  dueDate: string;
 };
 
 /** Open learning cards the current user can pick in their DSM learning rows. */
@@ -272,6 +275,7 @@ export async function getMyWhyfiTasksAction(): Promise<WhyfiPickerTask[]> {
       code: true,
       title: true,
       status: true,
+      dueDate: true,
       projectId: true,
       project: { select: { name: true } },
       parentTask: { select: { title: true } },
@@ -285,6 +289,47 @@ export async function getMyWhyfiTasksAction(): Promise<WhyfiPickerTask[]> {
     status: t.status,
     projectId: t.projectId,
     listName: t.project?.name || "",
+    dueDate: normalizeDueDate(t.dueDate),
+  }));
+}
+
+/**
+ * Whyfi School cards by code (open or done) — for showing linked DSM learning lines ("[WL-1-T3] …")
+ * with their list, status, due date and timer. Same visibility as the picker.
+ */
+export async function getWhyfiTasksByCodesAction(codes: string[]): Promise<WhyfiPickerTask[]> {
+  const actor = await getActor();
+  const wanted = Array.from(new Set(codes.filter(Boolean)));
+  if (!actor || wanted.length === 0) return [];
+
+  const tasks = await d.projectTask.findMany({
+    where: {
+      code: { in: wanted },
+      project: {
+        projectCategory: LEARNING_PROJECT_CATEGORY,
+        ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
+      },
+    },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      status: true,
+      dueDate: true,
+      projectId: true,
+      project: { select: { name: true } },
+      parentTask: { select: { title: true } },
+    },
+  });
+
+  return tasks.map((t: any) => ({
+    id: t.id,
+    code: t.code,
+    title: t.parentTask ? `${t.parentTask.title} › ${t.title}` : t.title,
+    status: t.status,
+    projectId: t.projectId,
+    listName: t.project?.name || "",
+    dueDate: normalizeDueDate(t.dueDate),
   }));
 }
 
@@ -511,7 +556,7 @@ export async function setWhyfiListMembersAction(projectId: string, userIds: stri
       data: toAdd.map((userId) => ({
         type: "PROJECT_ASSIGNED",
         title: "Learning task list shared with you",
-        message: `${actor.name} shared the Whyfi Learning list "${list?.name || ""}" with you.`,
+        message: `${actor.name} shared the Whyfi School list "${list?.name || ""}" with you.`,
         userId,
         createdById: actor.id,
         relatedEntryId: projectId,
@@ -606,8 +651,8 @@ export async function createWhyfiTaskAction(
 
 /**
  * Managers can change anything. Members (who must have the list shared with them) can change the
- * status of cards assigned to them or to nobody, and edit the title/description/due date of cards
- * they added themselves. Only managers reassign cards.
+ * status and due date of cards assigned to them or to nobody, and edit the title/description of
+ * cards they added themselves. Only managers reassign cards.
  */
 export async function updateWhyfiTaskAction(
   taskId: string,
@@ -637,7 +682,7 @@ export async function updateWhyfiTaskAction(
     data.completionPercentage = isTaskDone(input.status) ? 100 : 0;
     changes.push(`changed status to ${input.status}`);
   }
-  if (input.title !== undefined || input.description !== undefined || input.dueDate !== undefined) {
+  if (input.title !== undefined || input.description !== undefined) {
     if (!canEditDetails) return { success: false, error: "Only a manager or the card's author can edit it." };
     if (input.title !== undefined) {
       const title = input.title.trim();
@@ -646,7 +691,16 @@ export async function updateWhyfiTaskAction(
       changes.push("renamed this task");
     }
     if (input.description !== undefined) data.description = input.description.trim();
-    if (input.dueDate !== undefined) data.dueDate = input.dueDate || "--";
+  }
+  // The due date can also be set by whoever works on the card (e.g. from their DSM learning row).
+  if (input.dueDate !== undefined) {
+    if (!canEditDetails && !canChangeStatus) {
+      return { success: false, error: "Only the people this card is assigned to can change its due date." };
+    }
+    const due = normalizeDueDate(input.dueDate);
+    if (input.dueDate && !due) return { success: false, error: "Invalid due date." };
+    data.dueDate = due || "--";
+    changes.push(due ? `set the due date to ${due}` : "cleared the due date");
   }
 
   if (input.ownerIds !== undefined) {
