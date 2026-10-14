@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
+import { isProjectUser, projectUserWhere } from "../project-user";
 import {
   Project,
   TaskItem,
@@ -38,6 +39,8 @@ import {
   scaffoldTasksFromTemplate,
 } from "../data/sop-templates";
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
+import { joinIndustries, parseIndustries } from "../data/industries";
+import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 import { LEARNING_PROJECT_CATEGORY, NOT_LEARNING_PROJECT, effortProjectLabel } from "@/features/whyfi/constants";
 import { findCountry, getCountryCities } from "../location-data";
 
@@ -1022,6 +1025,43 @@ export async function deleteProjectAction(projectId: string): Promise<boolean> {
  * ----------------------------------------------------
  */
 
+/**
+ * A NAT task ("Not Aligned Task (NAT)" list) is named after the DSM row it was created from, so
+ * renaming it in Srijan renames those DSM rows too (the reverse of editTask in DSM review).
+ * Tasks in any other list are left alone — their DSM rows keep their own wording.
+ */
+async function syncNatTitleToDsm(
+  task: { id: string; phaseName: string | null; taskListName: string | null },
+  newTitle: string
+): Promise<void> {
+  const title = newTitle.trim();
+  if (!title) return;
+  const natName = NAT_TASK_LIST_NAME.toLowerCase();
+  const isNat = [task.taskListName, task.phaseName].some((n) => (n || "").trim().toLowerCase() === natName);
+  if (!isNat) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const res = await (db as any).standupTask.updateMany({
+    where: { projectTaskId: task.id },
+    data: { text: title },
+  });
+  if (res.count > 0) {
+    revalidatePath("/dsm");
+    revalidatePath("/dsm/all");
+    revalidatePath("/dsm/my");
+  }
+}
+
+/** Ids of every project the current user is a project user of (see isProjectUser) — lets the
+ *  Srijan screens enable timer/assign/edit controls without a round trip per task. */
+export async function getMyProjectUserProjectIdsAction(): Promise<string[]> {
+  const session = await requireAuth();
+  const rows = await db.project.findMany({
+    where: projectUserWhere(session.user.id),
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 async function requireProjectEditor(projectId: string, userId: string) {
   if (await isPrivilegedViewer(userId, projectId)) return;
   const isMember = await db.projectMember.findFirst({
@@ -1457,7 +1497,8 @@ export async function updateProjectLinkAction(
   return { success: true };
 }
 
-/** Updates the project's Industry (picked from the list or typed in). Same access as links/notes. */
+/** Updates the project's Industries (picked from the list or typed in; several are stored
+ *  comma-separated, see parseIndustries). Same access as links/notes. */
 export async function updateProjectIndustryAction(
   projectId: string,
   industry: string
@@ -1468,7 +1509,8 @@ export async function updateProjectIndustryAction(
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
-  const value = (industry || "").trim().slice(0, 100);
+  // Normalise the list (trim, de-dupe); each name capped at 100 chars, the whole list at 1000.
+  const value = joinIndustries(parseIndustries(industry).map((n) => n.slice(0, 100))).slice(0, 1000);
 
   const project = await db.project.findFirst({ where: { OR: [{ id: projectId }, { code: projectId }] } });
   if (!project) return { success: false, error: "Project not found." };
@@ -2478,12 +2520,14 @@ export async function updateTaskAction(
         projectOwnerId: task.project?.ownerId,
       },
       { id: session.user.id, name: session.user.name, email: session.user.email }
-    );
+    ) ||
+    // Any project user can change and (re)assign any task in the project — see isProjectUser.
+    (await isProjectUser(session.user.id, task.projectId));
   const isUnownedAssignOrAuthor =
     !hasOwnerRows &&
     (updates.owners !== undefined || updates.owner !== undefined || task.authorId === session.user.id);
   if (!isAuthorized && !isUnownedAssignOrAuthor) {
-    return { success: false, error: "Only the task owner can edit or perform actions on this task." };
+    return { success: false, error: "Only users of this project can edit or assign its tasks." };
   }
 
   let ownerNames: string[] = [];
@@ -2616,6 +2660,10 @@ export async function updateTaskAction(
     );
   }
 
+  if (updates.title && updates.title !== task.title) {
+    await syncNatTitleToDsm(task, updates.title);
+  }
+
   // By primary key — the row was already resolved above, so no need to re-match on id/code.
   await db.projectTask.update({
     where: { id: task.id },
@@ -2699,8 +2747,8 @@ export async function deleteTaskAction(taskId: string): Promise<boolean> {
   });
   if (!task) return false;
 
-  // Same permission rule as updateTaskAction: the task's own owner(s), the owner of the
-  // project it belongs to, or — for a still-unowned task — whoever authored it.
+  // Same permission rule as updateTaskAction: any user of the task's project (see
+  // isProjectUser), its owner(s), the project owner, or — for a still-unowned task — its author.
   const ownerIdsOnTask = task.owners.map((o) => o.userId);
   const ownerNamesOnTask =
     task.owners.length > 0
@@ -2719,7 +2767,8 @@ export async function deleteTaskAction(taskId: string): Promise<boolean> {
         projectOwnerId: task.project?.ownerId,
       },
       { id: session.user.id, name: session.user.name, email: session.user.email }
-    );
+    ) ||
+    (await isProjectUser(session.user.id, task.projectId));
   const isUnownedAuthor =
     !hasOwnerRows &&
     !task.ownerId &&
@@ -2899,8 +2948,11 @@ export async function updateSubtaskAction(
 
   const subtask = await db.projectTask.findFirst({
     where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
-    select: { id: true },
+    select: { id: true, title: true, phaseName: true, taskListName: true },
   });
+  if (subtask && updates.title && updates.title !== subtask.title) {
+    await syncNatTitleToDsm(subtask, updates.title);
+  }
 
   await db.projectTask.updateMany({
     where: { OR: [{ id: subtaskId }, { code: subtaskId }] },

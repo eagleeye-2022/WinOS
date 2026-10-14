@@ -9,7 +9,6 @@ import {
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
   MoreHorizontal,
-  SquareArrowOutUpRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,8 +52,9 @@ import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
-import { parseLearningLineCode } from "@/features/whyfi/constants";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
+import { assignWhyfiTaskToMemberAction } from "@/features/whyfi/actions";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
@@ -1576,7 +1576,7 @@ function TaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
-          <ExpandableTaskText text={task.text} />
+          <WrappedTaskText text={task.text} />
           {task.priority && (
             <span
               className={cn(
@@ -1639,7 +1639,8 @@ function TaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         {!isLocked ? (
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center gap-0.5">
+            <TaskInfoAction task={task} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -1651,7 +1652,6 @@ function TaskRow({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40 p-1">
-                <ViewTaskMenuItem task={task} />
                 <DropdownMenuItem
                   onClick={handleStartEdit}
                   className="flex items-center gap-2 cursor-pointer text-xs font-medium"
@@ -1681,19 +1681,21 @@ function TaskRow({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        ) : taskItemHref(task) ? (
-          // Locked rows can't be edited, but the linked project task can still be opened.
-          <Link
-            href={taskItemHref(task)!}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="View Task (opens in a new tab)"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <SquareArrowOutUpRight size={14} />
-          </Link>
         ) : (
-          <span className="text-xs text-muted-foreground/60">—</span>
+          // Reviewed rows: open the linked task (ⓘ) or edit the row — editing the text also
+          // renames the linked Srijan task when it's a NAT task (see editTask).
+          <div className="flex items-center justify-center gap-0.5">
+            <TaskInfoAction task={task} />
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              title="Edit task (a linked NAT task is renamed too)"
+              aria-label="Edit task"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+            >
+              <Pencil size={13} />
+            </button>
+          </div>
         )}
       </td>
     </tr>
@@ -1883,11 +1885,8 @@ function LinkedTaskCell({
 }) {
   return (
     <div className="flex flex-col items-start gap-1">
-      <TaskIdChip
-        code={projectTask.code}
-        title={projectTask.title || fallbackTitle}
-        href={projectTaskHref(projectTask.project?.id, projectTask.code)}
-      />
+      {/* No ⓘ here — the task's info icon lives in the row's Action column. */}
+      <TaskIdChip code={projectTask.code} title={projectTask.title || fallbackTitle} />
       {showStatus && (
         <ProjectTaskStatusPill
           taskId={projectTask.id}
@@ -1904,19 +1903,16 @@ function taskItemHref(task: TaskItem): string | null {
   return projectTaskHref(task.projectTask?.project?.id, task.projectTask?.code);
 }
 
-function ViewTaskMenuItem({ task }: { task: TaskItem }) {
+/** ⓘ in a row's Action column that opens the linked Srijan task in a new tab (nothing when unlinked). */
+function TaskInfoAction({ task }: { task: TaskItem }) {
   const href = taskItemHref(task);
-  if (!href) return null;
+  if (!href || !task.projectTask?.code) return null;
   return (
-    <>
-      <DropdownMenuItem asChild className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-        <Link href={href} target="_blank" rel="noopener noreferrer">
-          <SquareArrowOutUpRight size={13} className="text-muted-foreground" />
-          <span>View Task</span>
-        </Link>
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-    </>
+    <TaskInfoLink
+      href={href}
+      code={task.projectTask.code}
+      className="h-7 w-7 rounded-lg hover:bg-muted"
+    />
   );
 }
 
@@ -1987,7 +1983,7 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
-          <ExpandableTaskText text={task.text} />
+          <WrappedTaskText text={task.text} />
           {/* {!done && (
             <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
               Not done
@@ -2019,7 +2015,8 @@ function SummaryTaskRow({
         )}
       </td>
       <td className="py-2 pr-2 align-top text-center">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-0.5">
+          <TaskInfoAction task={task} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -2031,7 +2028,6 @@ function SummaryTaskRow({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40 p-1">
-              <ViewTaskMenuItem task={task} />
               <DropdownMenuItem
                 onClick={() => setEditing(true)}
                 className="flex items-center gap-2 cursor-pointer text-xs font-medium"
@@ -2411,22 +2407,39 @@ function LearningSection({
   isLocked,
   entry,
   allEntries = [],
+  memberId,
 }: {
   entryId: string;
   learningText: string | null;
   isLocked: boolean;
   entry: MemberReviewEntry;
   allEntries?: MemberReviewEntry[];
+  /** The member whose DSM this is — learning cards picked here are assigned to them. */
+  memberId?: string;
 }) {
   const [, action, pending] = useActionState<UpdateLearningState, FormData>(updateLearningText, {});
   const [, startTransition] = useTransition();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
+  const [newTaskId, setNewTaskId] = useState("");
   const [editText, setEditText] = useState("");
-  // Whyfi School cards (managers see every list) — lines linked to one ("[WL-1-T3] …") get a
-  // Due date + Today control, saved on the card.
-  const { tasks: whyfiTasks, setDueDate: setWhyfiDueDate } = useWhyfiTasks();
+  // Whyfi School cards (managers see every list). A line linked to one is stored as
+  // "[WL-1-T3] text"; the manager can pick/change the card per line (it's then assigned to the
+  // member) and set its due date.
+  // Only this member's learning lists (not every list the manager can see).
+  const { tasks: whyfiTasks, setDueDate: setWhyfiDueDate } = useWhyfiTasks(memberId);
+  const whyfiOptions = whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }));
+
+  /** Assigns a picked card to the member (adds them as owner, shares its list with them). */
+  const assignToMember = (taskId: string) => {
+    if (!memberId) return;
+    startTransition(async () => {
+      const res = await assignWhyfiTaskToMemberAction(taskId, memberId);
+      if (!res.success) toast.error(res.error || "Couldn't assign the learning task");
+      else toast.success("Learning task assigned to the member");
+    });
+  };
 
   const lines = learningText
     ? learningText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -2444,7 +2457,9 @@ function LearningSection({
   const handleEdit = (index: number) => {
     if (!editText.trim()) return;
     const updated = [...lines];
-    updated[index] = editText.trim();
+    // Keep the line's card link while its text is edited.
+    const code = parseLearningLineCode(lines[index]);
+    updated[index] = code ? formatLearningLine(code, editText) : editText.trim();
     handleSaveAll(updated);
     setEditingIndex(null);
     setEditText("");
@@ -2455,11 +2470,25 @@ function LearningSection({
     handleSaveAll(updated);
   };
 
-  const handleAdd = () => {
-    if (!newText.trim()) return;
-    const updated = [...lines, newText.trim()];
+  /** Links (or unlinks, with "") line `index` to a Whyfi card and assigns the card to the member. */
+  const handleLinkLine = (index: number, taskId: string) => {
+    const body = stripLearningLineCode(lines[index]);
+    const task = whyfiTasks.find((t) => t.id === taskId);
+    const updated = [...lines];
+    updated[index] = task ? formatLearningLine(task.code, body || task.title) : body;
     handleSaveAll(updated);
+    if (task) assignToMember(task.id);
+  };
+
+  const handleAdd = () => {
+    const task = whyfiTasks.find((t) => t.id === newTaskId);
+    const text = newText.trim() || task?.title || "";
+    if (!text) return;
+    const updated = [...lines, task ? formatLearningLine(task.code, text) : text];
+    handleSaveAll(updated);
+    if (task) assignToMember(task.id);
     setNewText("");
+    setNewTaskId("");
     setAdding(false);
   };
 
@@ -2516,14 +2545,25 @@ function LearningSection({
             );
           }
 
+          const lineCode = parseLearningLineCode(line);
+          const linkedTask = lineCode ? whyfiTasks.find((t) => t.code === lineCode) : undefined;
           return (
             <div
               key={i}
-              className="group/item flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40"
+              className="group/item flex flex-col gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/40"
             >
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-start gap-2 text-sm leading-relaxed text-foreground/80 flex-1 min-w-0">
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
-                <span className="truncate">{line}</span>
+                {lineCode && (
+                  <span
+                    title={linkedTask ? `${linkedTask.title} · ${linkedTask.listName}` : lineCode}
+                    className="mt-0.5 shrink-0 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-primary"
+                  >
+                    {lineCode}
+                  </span>
+                )}
+                <span className="truncate">{stripLearningLineCode(line)}</span>
                 {isLearningCarriedOver(line, entry, allEntries) && (
                   <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
                     CO
@@ -2532,20 +2572,11 @@ function LearningSection({
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {(() => {
-                  const code = parseLearningLineCode(line);
-                  const linked = code ? whyfiTasks.find((t) => t.code === code) : undefined;
-                  return linked ? (
-                    <span className="mr-1">
-                      <WhyfiDueDate task={linked} onSaved={setWhyfiDueDate} />
-                    </span>
-                  ) : null;
-                })()}
                 <button
                   type="button"
                   onClick={() => {
                     setEditingIndex(i);
-                    setEditText(line);
+                    setEditText(stripLearningLineCode(line));
                   }}
                   title="Edit learning item"
                   className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -2562,6 +2593,23 @@ function LearningSection({
                 </button>
               </div>
             </div>
+
+            {/* Whyfi task picker (assigns the card to the member) + due date */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                <SearchableSelect
+                  value={linkedTask?.id ?? ""}
+                  onChange={(v) => handleLinkLine(i, v)}
+                  options={whyfiOptions}
+                  placeholder={lineCode && !linkedTask ? lineCode : "Select learning task"}
+                  searchPlaceholder="Search learning tasks..."
+                  className="max-w-[300px] text-xs font-medium text-foreground transition-colors hover:text-primary"
+                />
+              </div>
+              {linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
+            </div>
+            </div>
           );
         })}
 
@@ -2572,43 +2620,58 @@ function LearningSection({
 
       <div className="mt-2.5">
         {adding ? (
-          <div className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
-            <input
-              type="text"
-              value={newText}
-              onChange={(e) => setNewText(e.target.value)}
-              autoFocus
-              placeholder="Describe what will be learned (Whyfi School)..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-              onBlur={() => {
-                if (newText.trim()) handleAdd();
-                else setAdding(false);
-              }}
-              className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={pending}
-              className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors"
-            >
-              <Check size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAdding(false);
-                setNewText("");
-              }}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
-            >
-              <X size={14} />
-            </button>
+          <div className="flex flex-col gap-2 rounded-lg border bg-background p-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newText}
+                onChange={(e) => setNewText(e.target.value)}
+                autoFocus
+                placeholder={newTaskId ? "Optional note (defaults to the task title)..." : "Describe what will be learned (Whyfi School)..."}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAdd();
+                  } else if (e.key === "Escape") {
+                    setAdding(false);
+                    setNewText("");
+                    setNewTaskId("");
+                  }
+                }}
+                className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={pending || (!newText.trim() && !newTaskId)}
+                className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdding(false);
+                  setNewText("");
+                  setNewTaskId("");
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {/* Pick a Whyfi School card to assign to the member (optional). */}
+            <div className="flex min-w-0 items-center gap-1.5 pl-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+              <SearchableSelect
+                value={newTaskId}
+                onChange={setNewTaskId}
+                options={whyfiOptions}
+                placeholder="Select learning task"
+                searchPlaceholder="Search learning tasks..."
+                className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
+              />
+            </div>
           </div>
         ) : (
           <button
@@ -3013,6 +3076,7 @@ function EntryExpanded({
         isLocked={isLocked}
         entry={entry}
         allEntries={allEntries}
+        memberId={memberUser?.id}
       />
 
       {/* Blockers */}

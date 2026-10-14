@@ -55,9 +55,18 @@ import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell, firstName } from "../project-table-cells";
+import { shortProjectName } from "../../utils/project-name";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
 import { ProjectINotesCell } from "../project-inotes-panel";
-import { CityCell, CountryCell, CountryFilterDropdown, IndustryCell } from "../project-client-cells";
+import {
+  CityCell,
+  CountryCell,
+  CountryFilterDropdown,
+  IndustryCell,
+  IndustryColumnFilter,
+  NO_INDUSTRY_FILTER_KEY,
+} from "../project-client-cells";
+import { parseIndustries } from "../../data/industries";
 import { getProjectNoteSummariesAction, type ProjectNoteSummary } from "../../actions/project-notes-actions";
 import { AddProjectDrawer } from "../modals/add-project-drawer";
 import { BulkProjectActionsBar } from "../bulk-project-actions-bar";
@@ -579,6 +588,9 @@ export function AllProjectsTableView({
   const [ownerFilter, setOwnerFilter] = useState<string>("ALL");
   /** Client country filter: "ALL", "NONE" (no country set) or a country name. */
   const [countryFilter, setCountryFilter] = useState<string>("ALL");
+  // Industry column filter: lower-cased industry names (or NO_INDUSTRY_FILTER_KEY); empty = all.
+  // A project matches when it has ANY of the ticked industries (projects can have several).
+  const [industryFilter, setIndustryFilter] = useState<string[]>([]);
 
   // AI Client Report Modal State
   const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
@@ -741,6 +753,28 @@ export function AllProjectsTableView({
   const smmProjectsCount = smmProjects.length;
 
   const currentCategoryProjects = categoryTab === "DIGITAL" ? digitalProjects : smmProjects;
+
+  // Industries used by projects in this category, with how many projects use each.
+  const industryFilterOptions = (() => {
+    const byKey = new Map<string, { name: string; count: number }>();
+    let none = 0;
+    for (const p of currentCategoryProjects) {
+      const list = parseIndustries(p.industry);
+      if (list.length === 0) none++;
+      for (const name of list) {
+        const key = name.toLowerCase();
+        const cur = byKey.get(key);
+        if (cur) cur.count++;
+        else byKey.set(key, { name, count: 1 });
+      }
+    }
+    return {
+      options: [...byKey.entries()]
+        .map(([key, v]) => ({ key, name: v.name, count: v.count }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      noneCount: none,
+    };
+  })();
   const activeCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "ACTIVE").length;
   const inactiveCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "INACTIVE").length;
   const completedCount = currentCategoryProjects.filter((p) => (p.status || "").toUpperCase() === "COMPLETED").length;
@@ -780,6 +814,13 @@ export function AllProjectsTableView({
         ? !(project.clientCountry || "").trim()
         : (project.clientCountry || "").trim() === countryFilter);
 
+    const matchesIndustry = (() => {
+      if (industryFilter.length === 0) return true;
+      const keys = parseIndustries(project.industry).map((n) => n.toLowerCase());
+      if (keys.length === 0) return industryFilter.includes(NO_INDUSTRY_FILTER_KEY);
+      return keys.some((k) => industryFilter.includes(k));
+    })();
+
     const matchesSearch =
       searchQuery.trim() === "" ||
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -791,6 +832,7 @@ export function AllProjectsTableView({
 
     return (
       matchesCountry &&
+      matchesIndustry &&
       matchesTab &&
       matchesStatusDropdown &&
       matchesDepartment &&
@@ -996,7 +1038,8 @@ export function AllProjectsTableView({
 
   /** Leaf column header (Project ID / Project Name / Status / Lead / Assignee / etc.) —
    *  features sort toggle (ascending -> descending -> unsorted). */
-  const renderLeafHeader = (id: CollapsibleColId, label: string, rowSpan?: number) => {
+  /** `extra`: an optional control shown after the sort button (e.g. the Industry filter). */
+  const renderLeafHeader = (id: CollapsibleColId, label: string, rowSpan?: number, extra?: React.ReactNode) => {
     const collapsed = isColCollapsed(id);
     if (collapsed) {
       return renderCollapsedHeaderBox(id, label, rowSpan);
@@ -1036,6 +1079,7 @@ export function AllProjectsTableView({
               <ArrowUpDown size={11} className="text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 transition-colors" />
             )}
           </button>
+          {extra}
         </div>
       </th>
     );
@@ -1494,9 +1538,10 @@ export function AllProjectsTableView({
 
                   <Link
                     href={`/projects/${project.id}`}
+                    title={project.name}
                     className="text-base font-bold text-foreground hover:text-primary hover:underline line-clamp-1"
                   >
-                    {project.name}
+                    {shortProjectName(project.name)}
                   </Link>
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1642,7 +1687,17 @@ export function AllProjectsTableView({
                 {/* {renderLeafHeader("projectStatus", "Status", 3)} */}
                 {renderLeafHeader("projectLead", "Project Lead / SPOC", 3)}
                 {renderLeafHeader("projectNotes", "Project iNotes", 3)}
-                {renderLeafHeader("industry", "Industry", 3)}
+                {renderLeafHeader(
+                  "industry",
+                  "Industry",
+                  3,
+                  <IndustryColumnFilter
+                    options={industryFilterOptions.options}
+                    noneCount={industryFilterOptions.noneCount}
+                    value={industryFilter}
+                    onChange={setIndustryFilter}
+                  />
+                )}
                 {renderGroupHeader("Client Location", CLIENT_LOCATION_COLS, 2)}
                 {renderGroupHeader("Tech", TECH_COLS, 2)}
                 {renderGroupHeader("Creative", CREATIVE_COLS, 4)}
@@ -1732,9 +1787,10 @@ export function AllProjectsTableView({
                         <div className="flex flex-col gap-1 items-start">
                           <Link
                             href={`/projects/${project.id}`}
+                            title={project.name}
                             className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
                           >
-                            {project.name}
+                            {shortProjectName(project.name)}
                           </Link>
                           {/* <span
                           className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"

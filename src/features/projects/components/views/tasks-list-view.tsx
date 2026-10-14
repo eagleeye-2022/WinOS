@@ -11,6 +11,7 @@ import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import {
   getCurrentUserContextAction,
+  getMyProjectUserProjectIdsAction,
   updateTaskAction,
   deleteTaskAction,
 } from "../../actions/project-actions";
@@ -55,10 +56,21 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
 
   const displayTasks = useMemo(() => (tasks || []).filter((t) => !t.parentTaskId), [tasks]);
 
+  // Projects the current user is a project user of — any project user can run the timer on,
+  // edit and (re)assign every task in that project, not only the task's owner.
+  const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getMyProjectUserProjectIdsAction()
+      .then((ids) => setMyProjectIds(new Set(ids)))
+      .catch(() => {});
+  }, []);
+
+  /** "Can act on this task": owner, ADMIN, or a user of the task's project. */
   const isTaskOwner = useCallback(
     (task: TaskItem): boolean => {
       if (!currentUser) return false;
       if (currentUser.role === "ADMIN") return true;
+      if (task.projectId && myProjectIds.has(task.projectId)) return true;
 
       const uId = currentUser.id.toLowerCase();
       const uName = currentUser.name.trim().toLowerCase();
@@ -94,7 +106,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
         );
       });
     },
-    [currentUser]
+    [currentUser, myProjectIds]
   );
 
   const handleOpenTask = (task: TaskItem) => {
@@ -350,7 +362,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                   ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                 }
                 disabled={!isOwner && Boolean(task.owner && task.owner !== "Unassigned")}
-                disabledReason={!isOwner && Boolean(task.owner && task.owner !== "Unassigned") ? `Only the task owner (${task.owner}) can change ownership` : undefined}
+                disabledReason={!isOwner && Boolean(task.owner && task.owner !== "Unassigned") ? "Only users of this project can change ownership" : undefined}
                 onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}
                 ownersList={userOptions}
                 listLabel="Project Users"
@@ -373,7 +385,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
               title={
                 isOwner
                   ? "Change status"
-                  : `Only the task owner (${task.owner || "Unassigned"}) can change the status`
+                  : "Only users of this project can change the status"
               }
               className="appearance-none rounded-md bg-transparent py-1.5 pl-3 pr-6 outline-none cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all disabled:cursor-not-allowed disabled:opacity-70"
             >
@@ -403,7 +415,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
               taskId={task.id}
               projectId={task.projectId}
               canStart={isOwner}
-              disabledReason={`Only the task owner (${task.owner || "Unassigned"}) can start this timer`}
+              disabledReason={"You're not a user of this project, so you can't start this timer"}
               onSaveLog={() => router.refresh()}
             />
             <button
@@ -414,7 +426,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
               title={
                 isOwner
                   ? "Delete task"
-                  : `Only the task owner (${task.owner || "Unassigned"}) can delete this task`
+                  : "Only users of this project can delete this task"
               }
             >
               <Trash2 size={14} />

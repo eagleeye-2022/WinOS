@@ -5,8 +5,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
-import { isCoreDailyTask } from "@/features/dsm/core-daily-tasks";
-import { LEARNING_PROJECT_CATEGORY, effortProjectLabel } from "@/features/whyfi/constants";
+import { effortProjectLabel } from "@/features/whyfi/constants";
+import { isProjectUser } from "../project-user";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -141,21 +141,14 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       },
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
     ) ||
-    // EED Core's shared daily tasks (DSM, meetings, …) and Whyfi School cards can be timed by
-    // any member of their project (for learning: anyone the list is shared with).
-    ((isCoreDailyTask(task) || task.project?.projectCategory === LEARNING_PROJECT_CATEGORY) &&
-      !!(await d.projectMember.findFirst({
-        where: { projectId: task.projectId, userId: sessionUser.id },
-        select: { id: true },
-      })));
+    // Any project user can run the timer on any task in the project, owned or not — this also
+    // covers EED Core's shared daily tasks and Whyfi School lists shared with the user.
+    (await isProjectUser(sessionUser.id, task.projectId));
   if (!isAuthorized) {
-    const ownerLabel = ownerNamesOnTask.length > 0 ? ownerNamesOnTask.join(", ") : null;
     return {
       success: false,
-      code: "NOT_TASK_OWNER" as const,
-      error: ownerLabel
-        ? `You are not the owner of task ${task.code || ""}. Only its owner (${ownerLabel}) can start a timer on it.`
-        : `Task ${task.code || ""} has no owner yet. Assign it to yourself before starting a timer.`,
+      code: "NOT_PROJECT_USER" as const,
+      error: `You're not a user of this project, so you can't start a timer on task ${task.code || ""}. Ask a manager to add you to the project.`,
     };
   }
 
