@@ -4185,11 +4185,11 @@ export async function createTimeLogAction(
     await recalculateTaskWorkHours(task.id);
   }
 
-  revalidatePath(`/projects/${project.id}/time-tracker`);
+  revalidatePath(`/projects/${project.id}/effort-log-report`);
   revalidatePath(`/projects/${project.id}/tasks/${task.code}`);
   revalidatePath(`/projects/${project.id}/tasks/${task.id}`);
   revalidatePath(`/projects/${project.id}`);
-  revalidatePath("/projects/time-tracker");
+  revalidatePath("/projects/effort-log-report");
 
   const { timePeriod: decodedTimePeriod, remarks: decodedRemarks } = decodeDescriptionWithTimePeriod(newLog.description);
   const finalTimePeriod = resolveLogTimePeriod(decodedTimePeriod, newLog.duration, newLog.createdAt || newLog.date);
@@ -4285,7 +4285,7 @@ export async function updateTimeLogAction(
     await recalculateTaskWorkHours(existingLog.taskId);
   }
 
-  revalidatePath("/projects/time-tracker");
+  revalidatePath("/projects/effort-log-report");
   return true;
 }
 
@@ -4337,7 +4337,7 @@ export async function deleteTimeLogAction(logId: string): Promise<{ success: boo
     return { success: false, error: "Couldn't delete the effort log. Please try again." };
   }
 
-  revalidatePath("/projects/time-tracker");
+  revalidatePath("/projects/effort-log-report");
   return { success: true };
 }
 
@@ -4355,7 +4355,7 @@ export async function approveTimeLogsAction(logIds: string[]): Promise<boolean> 
     data: { approvalStatus: "APPROVED", rejectionReason: null },
   });
 
-  revalidatePath("/projects/time-tracker");
+  revalidatePath("/projects/effort-log-report");
   return true;
 }
 
@@ -4376,7 +4376,7 @@ export async function rejectTimeLogsAction(
     data: { approvalStatus: "REJECTED", rejectionReason: reason || "Rejected by manager" },
   });
 
-  revalidatePath("/projects/time-tracker");
+  revalidatePath("/projects/effort-log-report");
   return true;
 }
 

@@ -399,13 +399,13 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
       where: { id: activeTimer.id },
     });
 
-    revalidatePath(`/projects/${activeTimer.projectId}/time-tracker`);
+    revalidatePath(`/projects/${activeTimer.projectId}/effort-log-report`);
     if (activeTimer.task?.code) {
       revalidatePath(`/projects/${activeTimer.projectId}/tasks/${activeTimer.task.code}`);
     }
     revalidatePath(`/projects/${activeTimer.projectId}/tasks/${activeTimer.taskId}`);
     revalidatePath(`/projects/${activeTimer.projectId}`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return {
       success: true,
@@ -450,8 +450,8 @@ export async function endActiveTimerAction() {
   await d.activeTimer.delete({ where: { id: activeTimer.id } });
 
   revalidatePath(`/projects/${activeTimer.projectId}`);
-  revalidatePath(`/projects/${activeTimer.projectId}/time-tracker`);
-  revalidatePath("/projects/time-tracker");
+  revalidatePath(`/projects/${activeTimer.projectId}/effort-log-report`);
+  revalidatePath("/projects/effort-log-report");
 
   return {
     success: true,
@@ -653,7 +653,7 @@ export async function discardActiveTimerAction() {
     });
 
     revalidatePath("/projects");
-    revalidatePath("/projects/time-tracker");
+    revalidatePath("/projects/effort-log-report");
 
     return { success: true, count: deleted.count };
   } catch (err: any) {

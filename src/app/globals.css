@@ -416,10 +416,24 @@ body {
 }
 
 /* Custom scrollbar utility to show scrollbars specifically for DSM columns and tables */
+/* Always visible (not only on hover). In Chromium a non-default scrollbar-color makes the browser
+   ignore the ::-webkit-scrollbar styles below and fall back to its own overlay scrollbar, which on
+   Windows 11 / macOS only shows while hovering or scrolling (and the old near-white color was
+   invisible on the light theme). So scrollbar-color is set only where ::-webkit-scrollbar isn't
+   supported (Firefox). scrollbar-width: auto (the default) stays everywhere — it just undoes the
+   global "none" above and doesn't switch off the custom styles. */
 .dsm-columns-scrollbar {
   scrollbar-width: auto !important;
-  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05) !important;
   -ms-overflow-style: auto !important;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .dsm-columns-scrollbar {
+    scrollbar-color: rgba(120, 130, 160, 0.6) rgba(0, 0, 0, 0.08) !important;
+  }
+  .dark .dsm-columns-scrollbar {
+    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.08) !important;
+  }
 }
 
 .dsm-columns-scrollbar::-webkit-scrollbar {
@@ -446,6 +460,12 @@ body {
 
 .dark .dsm-columns-scrollbar::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Where both scrollbars meet (tables scrolling both ways) — otherwise Chromium paints an opaque
+   white square there, very visible in dark mode. */
+.dsm-columns-scrollbar::-webkit-scrollbar-corner {
+  background: transparent !important;
 }
 
 .dsm-columns-scrollbar::-webkit-scrollbar-thumb:hover {
