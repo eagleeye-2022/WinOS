@@ -83,6 +83,7 @@ import {
   deleteSubtaskAction,
   createTaskRemarkAction,
   getTaskRemarksAction,
+  getMyProjectUserProjectIdsAction,
 } from "../../actions/project-actions";
 import {
   createActiveTimerAction,
@@ -90,7 +91,7 @@ import {
   getActiveTimerAction,
 } from "../../actions/active-timer-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
-import { LinkifyEditableTextarea } from "../linkify-editable-textarea";
+import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
@@ -100,43 +101,6 @@ import { toast } from "@/components/shared/toast";
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
   taskId: string;
-}
-
-const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-
-/** Splits free-text on bare URLs and renders each URL as a clickable link, keeping
- *  everything else as plain text — used for descriptions/notes that mix prose with links. */
-function linkifyText(text: string): React.ReactNode[] {
-  // Splitting on a capturing-group regex interleaves the matches back into the
-  // result, alternating [text, url, text, url, ...] — odd indices are always URLs.
-  const parts = text.split(URL_PATTERN);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? (
-      // Trim trailing punctuation (commas, periods) that's more likely sentence
-      // punctuation than part of the URL, without eating a real path segment.
-      (() => {
-        const trailingMatch = part.match(/[.,;:!?)]+$/);
-        const trailing = trailingMatch ? trailingMatch[0] : "";
-        const url = trailing ? part.slice(0, -trailing.length) : part;
-        return (
-          <React.Fragment key={i}>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-info underline hover:text-info/80 dark:text-sky-400 dark:hover:text-sky-300 break-all"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {url}
-            </a>
-            {trailing}
-          </React.Fragment>
-        );
-      })()
-    ) : (
-      <React.Fragment key={i}>{part}</React.Fragment>
-    )
-  );
 }
 
 export function SingleTaskWorkspaceView({
@@ -268,6 +232,14 @@ export function SingleTaskWorkspaceView({
 
   const taskNotFound = !isLoading && !foundTask;
 
+  // Projects the current user is a project user of (see canStartTimer / canEditTask below).
+  const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getMyProjectUserProjectIdsAction()
+      .then((ids) => setMyProjectIds(new Set(ids)))
+      .catch(() => {});
+  }, []);
+
   // Only the task's own owner may start the live timer on it or edit it — everyone else can
   // still view read-only data (subject to the admin/team-member visibility scoping server-side).
   // Shared with the server-side check in project-actions.ts and the DSM-side timer entry points
@@ -289,14 +261,17 @@ export function SingleTaskWorkspaceView({
   // The owner of the project has full control over every task inside it, not just tasks they
   // personally own — mirrors the same rule enforced server-side in updateTaskAction.
   const isProjectOwner = Boolean(currentUser && project && project.owner.id === currentUser.id);
-  const canStartTimer = isTaskOwner || isProjectOwner;
-  const notOwnerMessage = `Only the task owner (${
-    taskOwnerNames.length > 0 ? taskOwnerNames.join(", ") : "Unassigned"
-  }) can start a timer on ${activeTask.code}.`;
+  // Any user of this project can run the timer on, edit and (re)assign every task in it —
+  // ownership no longer gates that (same rule as isProjectUser on the server).
+  const isUserOfThisProject =
+    myProjectIds.has(projectId) || Boolean(project?.id && myProjectIds.has(project.id));
+  const canStartTimer = isTaskOwner || isProjectOwner || isUserOfThisProject;
+  const notOwnerMessage = `You're not a user of this project, so you can't start a timer on ${activeTask.code}. Ask a manager to add you to the project.`;
   const canEditTask = Boolean(
     currentUser &&
       (isTaskOwner ||
         isProjectOwner ||
+        isUserOfThisProject ||
         (taskOwnerNames.length === 0 && activeTask.authorId === currentUser.id))
   );
 
@@ -361,7 +336,8 @@ export function SingleTaskWorkspaceView({
       setIsEditingDescription(false);
       return;
     }
-    const trimmed = descriptionDraft.trim();
+    // An emptied rich editor leaves "<p></p>" — store that as no description.
+    const trimmed = isEmptyDescription(descriptionDraft) ? "" : descriptionDraft.trim();
     setIsEditingDescription(false);
     const updatedTask = { ...activeTask, description: trimmed };
     setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
@@ -900,7 +876,7 @@ export function SingleTaskWorkspaceView({
         setActiveTimerStatus(previousStatus);
         setActiveTimerStartTime(previousStartTime);
         showTimerNotice(
-          "code" in res && res.code === "NOT_TASK_OWNER" ? "You're not the owner of this task" : "Couldn't start the timer",
+          "code" in res && res.code === "NOT_PROJECT_USER" ? "You're not a user of this project" : "Couldn't start the timer",
           res.error || "Something went wrong starting the timer. Please try again."
         );
       }
@@ -1296,21 +1272,34 @@ export function SingleTaskWorkspaceView({
                     setIsEditingTitle(false);
                   }
                 }}
-                className="text-lg font-bold text-foreground tracking-tight bg-transparent outline-none border-b border-primary w-full dark:text-neutral-100"
+                className="-mx-2 w-full rounded-md border border-primary/60 bg-transparent px-2 py-0.5 text-lg font-bold tracking-tight text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary dark:text-neutral-100"
               />
             ) : (
               <h2
                 onClick={() => canEditTask && setIsEditingTitle(true)}
                 title={canEditTask ? "Click to edit title" : undefined}
-                className={`text-lg font-bold text-foreground tracking-tight truncate dark:text-neutral-100 ${
-                  canEditTask ? "cursor-text hover:underline decoration-dashed underline-offset-4" : ""
+                // Bordered box on hover (instead of a dashed underline) so it reads as editable.
+                className={`-mx-2 truncate rounded-md border border-transparent px-2 py-0.5 text-lg font-bold tracking-tight text-foreground transition-colors dark:text-neutral-100 ${
+                  canEditTask ? "cursor-text hover:border-border hover:bg-accent/30 dark:hover:border-zinc-700" : ""
                 }`}
               >
                 {activeTask.title}
               </h2>
             )}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5 dark:text-neutral-400">
-              <span>By {activeTask.authorName || activeTask.owner || project?.owner.name || "System"}</span>
+              {/* The project's owner (toProject reports a missing owner as "Unassigned"). */}
+              {(() => {
+                const ownerName = (project?.owner?.name || "").trim();
+                const hasOwner = Boolean(ownerName) && ownerName.toLowerCase() !== "unassigned";
+                return (
+                  <span title="Project owner">
+                    Owner:{" "}
+                    <span className={hasOwner ? "font-medium text-foreground dark:text-zinc-300" : "italic"}>
+                      {hasOwner ? ownerName : "No Owner"}
+                    </span>
+                  </span>
+                );
+              })()}
               <span>|</span>
               <button
                 type="button"
@@ -1521,14 +1510,8 @@ export function SingleTaskWorkspaceView({
               <div className="px-4 pb-4 pt-1 text-xs text-muted-foreground border-t border-border/60 dark:text-zinc-400 dark:border-zinc-800/60">
                 {isEditingDescription ? (
                   <div className="space-y-2 pt-2">
-                    <LinkifyEditableTextarea
-                      autoFocus
-                      rows={4}
-                      value={descriptionDraft}
-                      onChange={setDescriptionDraft}
-                      placeholder="Add a description..."
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:bg-[#09090b] dark:border-zinc-800 dark:text-zinc-100"
-                    />
+                    {/* Rich-text description (headings, lists, links, images…) — same editor as Notes. */}
+                    <RichDescriptionEditor value={descriptionDraft} onChange={setDescriptionDraft} />
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -1549,24 +1532,18 @@ export function SingleTaskWorkspaceView({
                       </button>
                     </div>
                   </div>
-                ) : activeTask.description ? (
-                  /^https?:\/\//i.test(activeTask.description.trim()) ? (
-                    <a
-                      href={activeTask.description}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline break-all hover:text-primary/80 font-mono"
-                    >
-                      {activeTask.description}
-                    </a>
-                  ) : (
-                    <p
-                      onClick={() => startEditingDescription()}
-                      className="whitespace-pre-wrap break-words cursor-text hover:text-foreground transition-colors dark:hover:text-zinc-100"
-                    >
-                      {linkifyText(activeTask.description)}
-                    </p>
-                  )
+                ) : !isEmptyDescription(activeTask.description) ? (
+                  // Click anywhere (except a link) to edit; links open in a new tab.
+                  <div
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("a")) return;
+                      startEditingDescription();
+                    }}
+                    title="Click to edit description"
+                    className="cursor-text rounded-md pt-2 transition-colors hover:bg-accent/30"
+                  >
+                    <RichDescriptionView value={activeTask.description || ""} />
+                  </div>
                 ) : (
                   <span
                     onClick={() => setIsEditingDescription(true)}

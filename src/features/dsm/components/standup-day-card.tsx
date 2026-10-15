@@ -10,7 +10,7 @@ import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
 import { toggleStandupTask } from "../actions/toggle-standup-task";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, WrappedTaskText } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { StandupLearningSection } from "./standup-learning-section";
@@ -167,7 +167,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                             <td className="py-2.5 pr-3 align-top">
                               <div className="flex flex-wrap items-center gap-1.5 text-sm">
                                 <span className={cn(task.isCompleted && "line-through text-muted-foreground")}>
-                                  <ExpandableTaskText text={task.text} />
+                                  <WrappedTaskText text={task.text} />
                                 </span>
                                 {task.addedAfterReview && (
                                   <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary shrink-0" title="Added After Review">

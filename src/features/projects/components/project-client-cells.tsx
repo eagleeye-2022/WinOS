@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Loader2, Plus, Search, X } from "lucide-react";
+import { Check, ChevronDown, Filter, Loader2, Plus, Search, X } from "lucide-react";
 import { Project } from "../types";
 import {
   updateProjectIndustryAction,
@@ -10,8 +10,9 @@ import {
 } from "../actions/project-actions";
 import { getCityOptionsAction, getCountryOptionsAction } from "../actions/location-actions";
 import type { LocationOption } from "../location-data";
-import { PROJECT_INDUSTRIES } from "../data/industries";
+import { INDUSTRY_SEPARATOR, PROJECT_INDUSTRIES, joinIndustries, parseIndustries } from "../data/industries";
 import { AnchoredPopover } from "./popover-portal";
+import { getAvatarColor, getInitials } from "./assignee-picker-popover";
 import { toast } from "@/components/shared/toast";
 
 /** Max options rendered at once — a country can have 10,000+ cities; typing narrows the list. */
@@ -328,6 +329,128 @@ export function CountryFilterDropdown({
   );
 }
 
+// ── Industry column header filter ────────────────────────────────────────────────────────────
+/** Filter value for "projects with no industry set". */
+export const NO_INDUSTRY_FILTER_KEY = "__no_industry__";
+
+/**
+ * Filter icon in the Industry column header. Tick one or more industries; a project shows when it
+ * has ANY of them (projects can have several industries). `value` holds lower-cased names.
+ */
+export function IndustryColumnFilter({
+  options,
+  noneCount,
+  value,
+  onChange,
+}: {
+  /** Industries used by the projects, with how many projects use each. */
+  options: { key: string; name: string; count: number }[];
+  noneCount: number;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const active = value.length > 0;
+
+  const q = query.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+
+  const toggle = (key: string) =>
+    onChange(value.includes(key) ? value.filter((k) => k !== key) : [...value, key]);
+
+  const row = (key: string, label: string, count: number, italic = false) => {
+    const isOn = value.includes(key);
+    return (
+      <label
+        key={key}
+        className={`flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-xs normal-case tracking-normal hover:bg-accent ${
+          isOn ? "font-semibold text-primary" : "font-normal text-foreground"
+        } ${italic ? "italic" : ""}`}
+      >
+        <input type="checkbox" checked={isOn} onChange={() => toggle(key)} className="h-3.5 w-3.5 shrink-0 accent-primary" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{count}</span>
+      </label>
+    );
+  };
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          setQuery("");
+        }}
+        title={active ? `Filtering by ${value.length} industr${value.length === 1 ? "y" : "ies"} — click to change` : "Filter by industry"}
+        aria-label="Filter by industry"
+        className={`relative inline-flex shrink-0 items-center rounded p-0.5 transition-colors cursor-pointer ${
+          active ? "text-primary" : "text-muted-foreground/50 hover:text-muted-foreground"
+        }`}
+      >
+        <Filter size={11} className={active ? "fill-primary/20" : ""} />
+        {active && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold text-primary-foreground">
+            {value.length}
+          </span>
+        )}
+      </button>
+
+      <AnchoredPopover anchorRef={anchorRef} isOpen={open} onClose={() => setOpen(false)} className="w-64">
+        <div className="rounded-md border bg-popover text-left shadow-lg">
+          <div className="border-b px-2.5 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            Filter by industry
+            <span className="mt-0.5 block font-normal normal-case tracking-normal">
+              Shows projects with any of the ticked industries.
+            </span>
+          </div>
+          {options.length > 6 && (
+            <div className="flex items-center gap-1.5 border-b px-2.5 py-2">
+              <Search size={12} className="shrink-0 text-muted-foreground" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search industries..."
+                className="w-full bg-transparent text-xs font-normal normal-case outline-none"
+              />
+            </div>
+          )}
+          <div className="max-h-64 overflow-y-auto py-1">
+            {filtered.map((o) => row(o.key, o.name, o.count))}
+            {!q && noneCount > 0 && row(NO_INDUSTRY_FILTER_KEY, "No industry set", noneCount, true)}
+            {filtered.length === 0 && (
+              <p className="px-2.5 py-2 text-[11px] font-normal normal-case italic text-muted-foreground">
+                {options.length === 0 ? "No industries set on any project yet." : `No industry matches "${query.trim()}".`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-between border-t px-2.5 py-1.5">
+            <button
+              type="button"
+              disabled={!active}
+              onClick={() => onChange([])}
+              className="flex items-center gap-1 text-[11px] font-normal normal-case text-muted-foreground hover:text-destructive disabled:opacity-40"
+            >
+              <X size={11} /> Clear filter
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded bg-primary px-2.5 py-1 text-[11px] font-semibold normal-case text-primary-foreground hover:bg-primary/90"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </AnchoredPopover>
+    </>
+  );
+}
+
 // ── Column cells ─────────────────────────────────────────────────────────────────────────────
 type CellProps = {
   project: Project;
@@ -335,27 +458,194 @@ type CellProps = {
   onUpdated: (patch: Partial<Project>) => void;
 };
 
-const INDUSTRY_OPTIONS: ComboOption[] = PROJECT_INDUSTRIES.map((name) => ({ code: name, name }));
-
+/**
+ * Industry: several can be picked (checkbox list + search, or type your own). Saved after each
+ * change as a comma-separated list in `Project.industry` — see parseIndustries.
+ */
 export function IndustryCell({ project, editable, onUpdated }: CellProps) {
-  const loadOptions = useMemo(() => () => Promise.resolve(INDUSTRY_OPTIONS), []);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const selected = parseIndustries(project.industry);
+  const selectedKeys = new Set(selected.map((s) => s.toLowerCase()));
+  const summary = selected.join(INDUSTRY_SEPARATOR);
+
+  // Listed industries plus any custom ones already on this project.
+  const allOptions = useMemo(() => {
+    const listed = new Set(PROJECT_INDUSTRIES.map((n) => n.toLowerCase()));
+    const custom = parseIndustries(project.industry).filter((n) => !listed.has(n.toLowerCase()));
+    return [...custom, ...PROJECT_INDUSTRIES];
+  }, [project.industry]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q ? allOptions.filter((n) => n.toLowerCase().includes(q)) : allOptions;
+  const exactMatch = allOptions.some((n) => n.toLowerCase() === q);
+
+  const save = async (next: string[]) => {
+    const value = joinIndustries(next);
+    const prev = project.industry;
+    onUpdated({ industry: value || undefined });
+    setSaving(true);
+    try {
+      const res = await updateProjectIndustryAction(project.id, value);
+      if (!res.success) {
+        onUpdated({ industry: prev });
+        toast.error(res.error || "Failed to update industry.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggle = (name: string) => {
+    const key = name.toLowerCase();
+    void save(selectedKeys.has(key) ? selected.filter((s) => s.toLowerCase() !== key) : [...selected, name]);
+  };
+
+  const addTyped = () => {
+    const name = query.trim().replace(/,/g, " ").trim();
+    if (!name) return;
+    const listed = allOptions.find((n) => n.toLowerCase() === name.toLowerCase());
+    if (!selectedKeys.has((listed || name).toLowerCase())) void save([...selected, listed || name]);
+    setQuery("");
+  };
+
+  // Same look as the assignee cells: overlapping initials circles, then the name (one industry)
+  // or "N industries" (several). Hover the cell for the full list.
+  const chips = (
+    <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+      <span className="flex shrink-0 items-center -space-x-1.5">
+        {selected.slice(0, 3).map((name) => (
+          <span
+            key={name}
+            title={name}
+            className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background ${getAvatarColor(name)}`}
+          >
+            {getInitials(name)}
+          </span>
+        ))}
+        {selected.length > 3 && (
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground ring-2 ring-background">
+            +{selected.length - 3}
+          </span>
+        )}
+      </span>
+      <span className="truncate font-medium text-foreground">
+        {selected.length === 1 ? selected[0] : `${selected.length} industries`}
+      </span>
+    </span>
+  );
+
+  if (!editable) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 px-1.5 py-1 text-xs" title={summary}>
+        {selected.length > 0 ? chips : <span className="text-muted-foreground/60">—</span>}
+      </span>
+    );
+  }
+
   return (
-    <ComboCell
-      title="Industry"
-      value={project.industry || ""}
-      placeholder="Add industry..."
-      editable={editable}
-      loadOptions={loadOptions}
-      onSelect={async ({ name }) => {
-        const prev = project.industry;
-        onUpdated({ industry: name || undefined });
-        const res = await updateProjectIndustryAction(project.id, name);
-        if (!res.success) {
-          onUpdated({ industry: prev });
-          toast.error(res.error || "Failed to update industry.");
-        }
-      }}
-    />
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        disabled={saving}
+        onClick={() => setOpen((v) => !v)}
+        title={summary || "Set industry"}
+        className={`group flex w-full min-w-0 items-center gap-1 rounded px-1.5 py-1 text-left text-xs transition-colors cursor-pointer hover:bg-accent ${
+          selected.length > 0 ? "text-foreground" : "italic text-muted-foreground/60"
+        }`}
+      >
+        {selected.length > 0 ? chips : <span className="min-w-0 flex-1 truncate">Add industry...</span>}
+        {saving ? (
+          <Loader2 size={11} className="shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <ChevronDown size={11} className="shrink-0 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
+        )}
+      </button>
+
+      <AnchoredPopover anchorRef={anchorRef} isOpen={open} onClose={() => setOpen(false)} className="w-64">
+        <div className="rounded-md border bg-popover shadow-lg">
+          <div className="flex items-center gap-1.5 border-b px-2.5 py-2">
+            <Search size={12} className="shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && query.trim()) {
+                  e.preventDefault();
+                  addTyped();
+                }
+              }}
+              placeholder="Search or type industry..."
+              className="w-full bg-transparent text-xs outline-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <span>Industries</span>
+            {selected.length > 0 && <span className="normal-case font-semibold">{selected.length} selected</span>}
+          </div>
+
+          <div className="max-h-60 overflow-y-auto py-1">
+            {query.trim() && !exactMatch && (
+              <button
+                type="button"
+                onClick={addTyped}
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-xs font-semibold text-primary hover:bg-accent"
+              >
+                <Plus size={12} className="shrink-0" />
+                <span className="truncate">Add &quot;{query.trim()}&quot;</span>
+              </button>
+            )}
+            {filtered.map((name) => {
+              const isOn = selectedKeys.has(name.toLowerCase());
+              return (
+                <label
+                  key={name}
+                  className={`flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs hover:bg-accent ${
+                    isOn ? "font-semibold text-primary" : "text-foreground"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isOn}
+                    onChange={() => toggle(name)}
+                    disabled={saving}
+                    className="h-3.5 w-3.5 shrink-0 accent-primary"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{name}</span>
+                </label>
+              );
+            })}
+            {filtered.length === 0 && !query.trim() && (
+              <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">No industries listed.</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t px-2.5 py-1.5">
+            <button
+              type="button"
+              disabled={selected.length === 0 || saving}
+              onClick={() => void save([])}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-40"
+            >
+              <X size={11} /> Clear all
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </AnchoredPopover>
+    </>
   );
 }
 

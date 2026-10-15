@@ -8,16 +8,20 @@ import { DueDateInput } from "@/components/shared/task-table-parts";
 import { toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
 import { getMyWhyfiTasksAction, updateWhyfiTaskAction, type WhyfiPickerTask } from "../actions";
 
-/** The viewer's open Whyfi School cards (managers: every list), fetched once per mount. */
-export function useWhyfiTasks() {
+/**
+ * Open Whyfi School cards, fetched once per mount: the viewer's own (managers: every list), or —
+ * with `forUserId`, on a manager's review of a member's DSM — only that member's lists.
+ */
+export function useWhyfiTasks(forUserId?: string) {
   const [tasks, setTasks] = useState<WhyfiPickerTask[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    getMyWhyfiTasksAction()
+    setLoading(true);
+    getMyWhyfiTasksAction(forUserId)
       .then(setTasks)
       .catch(() => setTasks([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [forUserId]);
   /** Keeps a card's due date in the local list in step after it's saved. */
   const setDueDate = (taskId: string, dueDate: string) =>
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, dueDate } : t)));

@@ -255,10 +255,19 @@ export type WhyfiPickerTask = {
   dueDate: string;
 };
 
-/** Open learning cards the current user can pick in their DSM learning rows. */
-export async function getMyWhyfiTasksAction(): Promise<WhyfiPickerTask[]> {
+/**
+ * Open learning cards for the DSM learning rows. By default: the current user's (managers see
+ * every list). `forUserId` (managers only, e.g. on a member's DSM review): only the cards in
+ * lists shared with that member.
+ */
+export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPickerTask[]> {
   const actor = await getActor();
   if (!actor) return [];
+
+  const viewingMember = Boolean(forUserId && forUserId !== actor.id);
+  if (viewingMember && !actor.isManager) return [];
+  // Restrict to lists shared with this user; a manager viewing their own DSM sees every list.
+  const scopeUserId = viewingMember ? forUserId! : actor.isManager ? null : actor.id;
 
   // Cards and their subtasks (learners usually work on the subtasks).
   const tasks = await d.projectTask.findMany({
@@ -266,7 +275,7 @@ export async function getMyWhyfiTasksAction(): Promise<WhyfiPickerTask[]> {
       status: { notIn: LEARNING_DONE_STATUSES },
       project: {
         projectCategory: LEARNING_PROJECT_CATEGORY,
-        ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
+        ...(scopeUserId ? { members: { some: { userId: scopeUserId } } } : {}),
       },
     },
     orderBy: [{ projectId: "asc" }, { order: "asc" }, { createdAt: "asc" }],
@@ -331,6 +340,42 @@ export async function getWhyfiTasksByCodesAction(codes: string[]): Promise<Whyfi
     listName: t.project?.name || "",
     dueDate: normalizeDueDate(t.dueDate),
   }));
+}
+
+/**
+ * Manager picks a Whyfi School card for a member from their DSM review: adds the member as an
+ * owner of the card (existing owners are kept) and shares the card's list with them if it isn't
+ * already, so they can see it, pick it in their DSM and run its timer.
+ */
+export async function assignWhyfiTaskToMemberAction(taskId: string, memberId: string): Promise<ActionResult> {
+  const actor = await getActor();
+  if (!actor) return { success: false, error: "Unauthorized" };
+  if (!actor.isManager) return { success: false, error: "Only a manager can assign learning tasks." };
+
+  const task = await findLearningTask(taskId);
+  if (!task) return { success: false, error: "Learning task not found." };
+  const member = await d.user.findUnique({ where: { id: memberId }, select: { id: true, name: true, email: true } });
+  if (!member) return { success: false, error: "That team member could not be found." };
+
+  const ownerIds: string[] = task.owners.map((o: { userId: string }) => o.userId);
+  if (!ownerIds.includes(member.id)) {
+    await d.projectTaskOwner.create({ data: { taskId: task.id, userId: member.id, assignedById: actor.id } });
+    if (ownerIds.length === 0) {
+      await d.projectTask.update({
+        where: { id: task.id },
+        data: { ownerId: member.id, owner: member.name || member.email, lastActivityDate: new Date() },
+      });
+    }
+    await logTaskActivity(task.id, actor, `assigned this task to ${member.name || member.email} from DSM`);
+  }
+
+  await d.projectMember.createMany({
+    data: [{ projectId: task.projectId, userId: member.id, projectRole: "Learner" }],
+    skipDuplicates: true,
+  });
+
+  revalidatePath(WHYFI_PATH);
+  return { success: true, data: undefined };
 }
 
 /** Ids of a task and all its descendants. */

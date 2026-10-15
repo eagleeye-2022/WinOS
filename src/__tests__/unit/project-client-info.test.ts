@@ -67,6 +67,12 @@ describe("updateProjectIndustryAction", () => {
     expect(lastWrite()).toEqual({ industry: null });
   });
 
+  it("saves several industries as a clean comma-separated list", async () => {
+    loginAs("MANAGER");
+    await updateProjectIndustryAction("EEDP-1", " Healthcare ,Skin Care,, healthcare ");
+    expect(lastWrite()).toEqual({ industry: "Healthcare, Skin Care" });
+  });
+
   it("refuses users who are neither managers nor project members", async () => {
     loginAs("TEAM_MEMBER", false);
     const res = await updateProjectIndustryAction("EEDP-1", "Healthcare");

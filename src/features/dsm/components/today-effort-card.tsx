@@ -56,7 +56,7 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
         </>
       )}
 
-      <Link href="/projects/time-tracker" className="mt-3 flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+      <Link href="/projects/effort-log-report" className="mt-3 flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
         View Effort Logs <ArrowUpRight size={12} />
       </Link>
     </div>

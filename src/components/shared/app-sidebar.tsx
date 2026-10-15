@@ -133,7 +133,7 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
     return pathname === "/projects/active-timers";
   }
   if (label === "Effort Logs" && pathname.startsWith("/projects")) {
-    return pathname === "/projects/time-tracker";
+    return pathname === "/projects/effort-log-report";
   }
   if (label === "Projects Dashboard") {
     return pathname.startsWith("/projects");
@@ -206,7 +206,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
-          { label: "Effort Logs", href: "/projects/time-tracker", icon: ClockFading, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ]
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
@@ -214,7 +214,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
-          { label: "Effort Logs", href: "/projects/time-tracker", icon: ClockFading, section: "OVERVIEW" },
+          { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Sales") {
     navItems = [

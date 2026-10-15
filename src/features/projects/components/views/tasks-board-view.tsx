@@ -51,6 +51,7 @@ import {
   updateTaskAction,
   deleteTaskAction,
   getProjectMembersAction,
+  getMyProjectUserProjectIdsAction,
   reorderProjectTasksAction,
   createProjectTaskListAction,
   renameProjectTaskListAction,
@@ -539,10 +540,22 @@ export function TasksBoardView({
     }
   }, [realProjectId]);
 
+  // Projects the current user is a project user of — any project user can run the timer on,
+  // edit and (re)assign every task in that project, not only the task's owner.
+  const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getMyProjectUserProjectIdsAction()
+      .then((ids) => setMyProjectIds(new Set(ids)))
+      .catch(() => {});
+  }, []);
+
+  /** "Can act on this task": owner, ADMIN, or a user of the task's project. */
   const isTaskOwner = useCallback(
     (task: TaskItem): boolean => {
       if (!currentUser) return false;
       if (currentUser.role === "ADMIN") return true;
+      const taskProjectId = task.projectId || realProjectId;
+      if (taskProjectId && myProjectIds.has(taskProjectId)) return true;
 
       const uId = currentUser.id.toLowerCase();
       const uName = currentUser.name.trim().toLowerCase();
@@ -578,7 +591,7 @@ export function TasksBoardView({
         );
       });
     },
-    [currentUser]
+    [currentUser, myProjectIds, realProjectId]
   );
 
   const handleChangeTaskOwners = async (task: TaskItem, nextOwners: string[]) => {
@@ -1073,7 +1086,7 @@ export function TasksBoardView({
     const canEdit = isOwner && !isLocked;
     const lockedReason = isLocked
       ? "This task is done — reopen it by changing the status to edit"
-      : `Only the task owner (${task.owner || "Unassigned"}) can edit this task`;
+      : "Only users of this project can edit this task";
 
     const isSelected = selectedTaskIds.has(task.id);
     const isDraggable = !isSubtask && Boolean(columnCode) && !isLocked;
@@ -1109,7 +1122,7 @@ export function TasksBoardView({
                 handleToggleTaskSelection(e, task.id);
               }}
               disabled={!isOwner}
-              title={isOwner ? "Select task" : `Only the task owner (${task.owner || "Unassigned"}) can select this task`}
+              title={isOwner ? "Select task" : "Only users of this project can select this task"}
               className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 accent-primary cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
             />
             <span className="font-mono text-[11px] font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">
@@ -1143,7 +1156,7 @@ export function TasksBoardView({
               value={task.status}
               onChange={(e) => handleChangeTaskStatus(task, e.target.value as TaskStatus)}
               disabled={!isOwner}
-              title={isOwner ? "Change status" : `Only the task owner (${task.owner || "Unassigned"}) can change the status`}
+              title={isOwner ? "Change status" : "Only users of this project can change the status"}
               className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-[10px]"
             >
               {PROJECT_TASK_STATUSES.map((s) => (
@@ -1294,7 +1307,7 @@ export function TasksBoardView({
               taskId={task.id}
               projectId={task.projectId || realProjectId}
               canStart={canEdit}
-              disabledReason={isLocked ? lockedReason : `Only the task owner (${task.owner || "Unassigned"}) can start this timer`}
+              disabledReason={isLocked ? lockedReason : "You're not a user of this project, so you can't start this timer"}
               onSaveLog={() => router.refresh()}
             />
             {isSubtask && (
@@ -1432,7 +1445,7 @@ export function TasksBoardView({
                     isLocked
                       ? lockedReason
                       : !isOwner && Boolean(task.owner && task.owner !== "Unassigned")
-                      ? `Only the task owner (${task.owner}) can change ownership`
+                      ? "Only users of this project can change ownership"
                       : undefined
                   }
                   onChangeOwners={(nextOwners) => handleChangeTaskOwners(task, nextOwners)}

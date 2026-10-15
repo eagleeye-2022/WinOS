@@ -36,7 +36,11 @@ import { TaskItem, TaskRemark, TaskStatus, TaskSubtask, PROJECT_TASK_STATUSES } 
 import { PickTemplateModal } from "./pick-template-modal";
 import { NewTimeLogModal } from "./new-time-log-modal";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
-import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
+import {
+  getOwnersAndTeamsAction,
+  getCurrentUserContextAction,
+  getMyProjectUserProjectIdsAction,
+} from "../../actions/project-actions";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -114,9 +118,20 @@ export function TaskDetailDrawer({
     });
   }, []);
 
+  // Projects the current user is a project user of — any project user can edit and (re)assign
+  // every task in that project, not only its owner.
+  const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getMyProjectUserProjectIdsAction()
+      .then((ids) => setMyProjectIds(new Set(ids)))
+      .catch(() => {});
+  }, []);
+
+  /** "Can act on this task": owner, ADMIN, or a user of the task's project. */
   const isOwner = React.useMemo(() => {
     if (!currentUser || !task) return false;
     if (currentUser.role === "ADMIN") return true;
+    if (task.projectId && myProjectIds.has(task.projectId)) return true;
 
     const uId = currentUser.id.toLowerCase();
     const uName = currentUser.name.trim().toLowerCase();
@@ -146,7 +161,7 @@ export function TaskDetailDrawer({
         (o.length > 2 && uName.includes(o))
       );
     });
-  }, [currentUser, task]);
+  }, [currentUser, task, myProjectIds]);
 
   useEffect(() => {
     const pCode = (task as { projectId?: string } | null)?.projectId || (task?.code ? task.code.split("-T")[0] : undefined);

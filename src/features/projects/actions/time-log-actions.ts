@@ -237,11 +237,11 @@ export async function createTimeLogAction(params: CreateTimeLogParams | any, ove
       },
     }));
 
-    revalidatePath(`/projects/${project.id}/time-tracker`);
+    revalidatePath(`/projects/${project.id}/effort-log-report`);
     revalidatePath(`/projects/${project.id}/tasks/${task.code}`);
     revalidatePath(`/projects/${project.id}/tasks/${task.id}`);
     revalidatePath(`/projects/${project.id}`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return { success: true, data: newLog };
   } catch (err: any) {
@@ -367,9 +367,9 @@ export async function updateTimeLogAction(logIdOrParams: string | UpdateTimeLogP
       },
     });
 
-    revalidatePath(`/projects/${updated.projectId}/time-tracker`);
+    revalidatePath(`/projects/${updated.projectId}/effort-log-report`);
     revalidatePath(`/projects/${updated.projectId}`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return { success: true, data: updated };
   } catch (err: any) {
@@ -408,9 +408,9 @@ export async function deleteTimeLogAction(logId: string) {
       where: { id: logId },
     });
 
-    revalidatePath(`/projects/${existingLog.projectId}/time-tracker`);
+    revalidatePath(`/projects/${existingLog.projectId}/effort-log-report`);
     revalidatePath(`/projects/${existingLog.projectId}`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return { success: true };
   } catch (err: any) {
@@ -458,8 +458,8 @@ export async function approveTimeLogAction(logId: string) {
       },
     });
 
-    revalidatePath(`/projects/${updated.projectId}/time-tracker`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/${updated.projectId}/effort-log-report`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return { success: true, data: updated };
   } catch (err: any) {
@@ -511,8 +511,8 @@ export async function rejectTimeLogAction(logId: string, rejectionReason: string
       },
     });
 
-    revalidatePath(`/projects/${updated.projectId}/time-tracker`);
-    revalidatePath(`/projects/time-tracker`);
+    revalidatePath(`/projects/${updated.projectId}/effort-log-report`);
+    revalidatePath(`/projects/effort-log-report`);
 
     return { success: true, data: updated };
   } catch (err: any) {

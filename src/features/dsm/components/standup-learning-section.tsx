@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { updateLearningText, type UpdateLearningState } from "@/features/dsm/manager/actions/update-learning";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
-import { DueDateCell, ExpandableTaskText, ProjectPill, TaskIdChip } from "@/components/shared/task-table-parts";
+import { DueDateCell, WrappedTaskText, ProjectPill, TaskIdChip } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { isTaskDone } from "@/features/projects/types";
 import { getWhyfiTasksByCodesAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
@@ -191,7 +191,7 @@ export function StandupLearningSection({
                         </div>
                       ) : (
                         <span className={cn("text-sm", done && "text-muted-foreground line-through")}>
-                          <ExpandableTaskText text={text} />
+                          <WrappedTaskText text={text} />
                         </span>
                       )}
                     </td>

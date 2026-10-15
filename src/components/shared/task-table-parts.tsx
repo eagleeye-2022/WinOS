@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Calendar, Clock, Timer, Filter, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { projectPillName } from "@/features/projects/utils/project-name";
 
 export type SortFilterOption = { value: string; label: string };
 
@@ -112,6 +113,42 @@ export function ExpandableTaskText({
   );
 }
 
+/**
+ * Excel-style task / subtask cell for the DSM tables: a fixed-width, single-line cell that cuts
+ * long text with "…" (every row keeps one line height); click it to expand the full text in place
+ * (wrapped, same row), click again to collapse. Hover shows the full text too. The Report tables
+ * still use ExpandableTaskText.
+ */
+export function WrappedTaskText({ text, className }: { text: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const toggle = () => setExpanded((v) => !v);
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      title={expanded ? "Click to collapse" : text}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      }}
+      className={cn(
+        "block w-60 max-w-full cursor-pointer rounded-sm leading-snug outline-none focus-visible:ring-1 focus-visible:ring-primary",
+        expanded ? "whitespace-normal break-words" : "truncate",
+        className
+      )}
+    >
+      {text}
+    </span>
+  );
+}
+
 /** ⓘ icon that opens a project task's page (same tab). */
 export function TaskInfoLink({ href, code, className }: { href: string; code: string; className?: string }) {
   return (
@@ -153,7 +190,8 @@ export function TaskIdChip({ code, title, href }: { code: string; title?: string
 
 /** Colored pill for a linked project's name. */
 export function ProjectPill({ name }: { name: string }) {
-  const displayName = name.length > 5 ? `${name.slice(0, 5)}.` : name;
+  // "MGM : MalavGram" → "MGM"; no ":" → first 5 chars + "." ("Kosmetics" → "Kosme.").
+  const displayName = projectPillName(name);
   return (
     <span
       title={name}

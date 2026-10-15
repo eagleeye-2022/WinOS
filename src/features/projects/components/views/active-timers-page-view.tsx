@@ -27,7 +27,7 @@ export function ActiveTimersPageView() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/projects/time-tracker"
+            href="/projects/effort-log-report"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors border border-border/50"
           >
             <Clock className="w-3.5 h-3.5" />

@@ -72,7 +72,7 @@ let workspaceCache: WorkspaceCache | null = null;
 export function ProjectsWorkspace() {
   const pathname = usePathname();
   const needsTasks = pathname === "/projects/my-tasks" || pathname === "/projects/tasks";
-  const needsTimeLogs = pathname === "/projects/time-tracker";
+  const needsTimeLogs = pathname === "/projects/effort-log-report";
 
   // Snapshot of the cache at mount — seeds state so a return visit paints immediately.
   const [initialCache] = useState(() => workspaceCache);
@@ -137,7 +137,7 @@ export function ProjectsWorkspace() {
     activeNav = "USERS";
   } else if (pathname === "/projects/my-tasks" || pathname === "/projects/tasks") {
     activeNav = "MY_TASKS";
-  } else if (pathname === "/projects/time-tracker") {
+  } else if (pathname === "/projects/effort-log-report") {
     activeNav = "TIME_TRACKER";
   } else if (pathname === "/projects/timeline") {
     activeNav = "TIMELINE";
