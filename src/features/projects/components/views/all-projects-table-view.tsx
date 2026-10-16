@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 
 const PROJECT_LIST_TABS = ["ACTIVE", "INACTIVE", "COMPLETED", "TEMPLATES"] as const;
@@ -49,14 +49,25 @@ import {
   bulkShiftProjectDatesAction,
   updateProjectDetailsAction,
   updateProjectCalendarAction,
+  updateProjectStatusAction,
   ProjectAssigneeField,
 } from "../../actions/project-actions";
 import { generateAIClientStatusReport, ClientStatusReport } from "../../manager/ai-project-assistant";
 import { Sparkles, Bot, AlertTriangle } from "lucide-react";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
-import { AssigneeCell, CalendarCell, LinksCell, StatusCell, TimelineCell, firstName } from "../project-table-cells";
+import {
+  AssigneeCell,
+  CalendarCell,
+  LinksCell,
+  StatusCell,
+  TimelineCell,
+  firstName,
+  STATUS_OPTIONS,
+  STATUS_STYLES,
+} from "../project-table-cells";
 import { shortProjectName } from "../../utils/project-name";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
+import { AnchoredPopover } from "../popover-portal";
 import { ProjectINotesCell } from "../project-inotes-panel";
 import {
   CityCell,
@@ -362,6 +373,39 @@ const COLLAPSED_COL_WIDTH = 56;
 const CHECKBOX_COL_WIDTH = 40;
 const ACTIONS_COL_WIDTH = 56;
 
+/** 3-dots trigger + menu portaled to <body>, so it isn't clipped by the table's overflow-hidden
+ *  cells / scroll container and flips above the trigger near the bottom of the screen. */
+function RowActionsMenu({
+  isOpen,
+  onToggle,
+  onClose,
+  children,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={onToggle}
+        className={`p-1 transition-colors rounded hover:bg-accent ${isOpen ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
+          }`}
+        title="More Actions"
+      >
+        <MoreVertical size={14} />
+      </button>
+      <AnchoredPopover anchorRef={triggerRef} isOpen={isOpen} onClose={onClose} align="right" className="w-48 py-1 text-left">
+        {children}
+      </AnchoredPopover>
+    </>
+  );
+}
+
 interface AllProjectsTableViewProps {
   projects: Project[];
   onOpenAddModal: () => void;
@@ -602,15 +646,12 @@ export function AllProjectsTableView({
   const [timelineDrawerProject, setTimelineDrawerProject] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
-  // Auto-close open menus (top "More Options" dropdown and row 3-dots action menus) when clicking anywhere else
+  // Auto-close the top "More Options" dropdown when clicking anywhere else. (Row 3-dots menus are
+  // portaled via AnchoredPopover, which handles its own outside-click/Escape/scroll closing.)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-
-      if (openRowMenuId && !target.closest("[data-row-menu-container]")) {
-        setOpenRowMenuId(null);
-      }
 
       if (showOptionsMenu && !target.closest("[data-options-menu-container]")) {
         setShowOptionsMenu(false);
@@ -621,7 +662,7 @@ export function AllProjectsTableView({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [openRowMenuId, showOptionsMenu]);
+  }, [showOptionsMenu]);
 
   const handleUpdateProjectDetails = async (id: string, data: NewProjectFormData) => {
     const result = await updateProjectDetailsAction(id, data);
@@ -646,6 +687,108 @@ export function AllProjectsTableView({
       setEditingProject(null);
     }
   };
+
+  const handleChangeStatus = async (project: Project, next: string) => {
+    setOpenRowMenuId(null);
+    const prev = project.status;
+    if ((prev || "").toUpperCase() === next) return;
+    patchProject(project.id, { status: next as Project["status"] });
+    const result = await updateProjectStatusAction(project.id, next);
+    if (!result.success) {
+      patchProject(project.id, { status: prev });
+      toast.error(result.error || "Failed to update status.");
+    } else {
+      toast.success(`Project status changed to ${next}`);
+    }
+  };
+
+  /** "Change Status" section of a row's 3-dots menu — manager-only, same gate as Edit/Delete. */
+  const renderStatusMenuItems = (project: Project) => {
+    if (!canEditAssignments) return null;
+    const current = (project.status || "").toUpperCase();
+    return (
+      <>
+        <div className="my-1 border-t" />
+        <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Change Status
+        </div>
+        {STATUS_OPTIONS.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => handleChangeStatus(project, opt)}
+            className={`flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left font-medium ${opt === current ? "text-primary font-bold" : "text-foreground"
+              }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${STATUS_STYLES[opt]?.split(" ")[0] || "bg-secondary"}`} />
+            <span className="flex-1">{opt.charAt(0) + opt.slice(1).toLowerCase()}</span>
+            {opt === current && <Check size={12} />}
+          </button>
+        ))}
+        <div className="my-1 border-t" />
+      </>
+    );
+  };
+
+  /** Per-row 3-dots actions menu (shared by the list and grid layouts). */
+  const renderRowMenu = (project: Project) => (
+    <RowActionsMenu
+      isOpen={openRowMenuId === project.id}
+      onToggle={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
+      onClose={() => setOpenRowMenuId((v) => (v === project.id ? null : v))}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          setOpenRowMenuId(null);
+          handleCopyLink(project.id);
+        }}
+        className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
+      >
+        <Copy size={12} /> Copy Link
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setOpenRowMenuId(null);
+          setTimelineDrawerProject(project);
+        }}
+        className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
+      >
+        <History size={12} /> View Timeline
+      </button>
+      {canEditAssignments && (
+        <button
+          type="button"
+          onClick={() => {
+            setOpenRowMenuId(null);
+            setEditingProject(project);
+          }}
+          className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
+        >
+          <Pencil size={12} /> Edit Details
+        </button>
+      )}
+      {renderStatusMenuItems(project)}
+      {canEditAssignments && (
+        <button
+          type="button"
+          onClick={async () => {
+            setOpenRowMenuId(null);
+            const ok = await confirm({
+              title: "Delete project?",
+              description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
+            });
+            if (!ok) return;
+            onDeleteProject && onDeleteProject(project.id);
+          }}
+          className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-destructive font-medium"
+        >
+          <Trash2 size={12} /> Delete Project
+        </button>
+      )}
+    </RowActionsMenu>
+  );
 
   // Collapsible Tech/Creative/Marketing columns — a leaf column collapses to a thin chevron
   // strip; collapsing a group's header collapses/expands every leaf column under it at once.
@@ -1469,71 +1612,7 @@ export function AllProjectsTableView({
                       {project.id}
                     </span>
 
-                    <div data-row-menu-container className="relative inline-flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
-                        className={`p-1 transition-colors rounded hover:bg-accent ${openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        title="More Actions"
-                      >
-                        <MoreVertical size={14} />
-                      </button>
-
-                      {openRowMenuId === project.id && (
-                        <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenRowMenuId(null);
-                              handleCopyLink(project.id);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                          >
-                            <Copy size={12} /> Copy Link
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenRowMenuId(null);
-                              setTimelineDrawerProject(project);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                          >
-                            <History size={12} /> View Timeline
-                          </button>
-                          {canEditAssignments && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenRowMenuId(null);
-                                setEditingProject(project);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                            >
-                              <Pencil size={12} /> Edit Details
-                            </button>
-                          )}
-                          {canEditAssignments && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setOpenRowMenuId(null);
-                                const ok = await confirm({
-                                  title: "Delete project?",
-                                  description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
-                                });
-                                if (!ok) return;
-                                onDeleteProject && onDeleteProject(project.id);
-                              }}
-                              className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-destructive font-medium"
-                            >
-                              <Trash2 size={12} /> Delete Project
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    {renderRowMenu(project)}
                   </div>
 
                   <Link
@@ -2024,71 +2103,7 @@ export function AllProjectsTableView({
                           <History size={13} />
                         </button> */}
 
-                          <div data-row-menu-container className="relative inline-flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => setOpenRowMenuId((v) => (v === project.id ? null : project.id))}
-                              className={`p-1 transition-colors rounded hover:bg-accent ${openRowMenuId === project.id ? "text-primary bg-accent" : "text-muted-foreground hover:text-foreground"
-                                }`}
-                              title="More Actions"
-                            >
-                              <MoreVertical size={14} />
-                            </button>
-
-                            {openRowMenuId === project.id && (
-                              <div className="absolute right-0 top-full mt-1 z-30 w-44 rounded-md border bg-popover py-1 shadow-lg text-xs animate-in fade-in duration-150 text-left">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenRowMenuId(null);
-                                    handleCopyLink(project.id);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                                >
-                                  <Copy size={12} /> Copy Link
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenRowMenuId(null);
-                                    setTimelineDrawerProject(project);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                                >
-                                  <History size={12} /> View Timeline
-                                </button>
-                                {canEditAssignments && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenRowMenuId(null);
-                                      setEditingProject(project);
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-foreground font-medium"
-                                  >
-                                    <Pencil size={12} /> Edit Details
-                                  </button>
-                                )}
-                                {canEditAssignments && (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      setOpenRowMenuId(null);
-                                      const ok = await confirm({
-                                        title: "Delete project?",
-                                        description: `Delete project "${project.name}" (${project.id})? This cannot be undone.`,
-                                      });
-                                      if (!ok) return;
-                                      onDeleteProject && onDeleteProject(project.id);
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-accent text-left text-destructive font-medium"
-                                  >
-                                    <Trash2 size={12} /> Delete Project
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          {renderRowMenu(project)}
                         </div>
                       </td>
                     </tr>
