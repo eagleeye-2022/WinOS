@@ -733,9 +733,9 @@ export function NotesCell({
   );
 }
 
-const STATUS_OPTIONS = ["ACTIVE", "INACTIVE", "COMPLETED"] as const;
+export const STATUS_OPTIONS = ["ACTIVE", "INACTIVE", "COMPLETED"] as const;
 
-const STATUS_STYLES: Record<string, string> = {
+export const STATUS_STYLES: Record<string, string> = {
   ACTIVE: "bg-green-300 text-green-950",
   INACTIVE: "bg-muted-foreground/70 text-white",
   COMPLETED: "bg-info text-white",
