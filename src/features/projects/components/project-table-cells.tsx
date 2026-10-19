@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Calendar,
   Plus,
   ExternalLink,
-  Copy,
   Check,
   X,
   History,
@@ -14,7 +14,6 @@ import {
   FileText,
   Loader2,
   Globe,
-  Pencil,
 } from "lucide-react";
 import { Project, ProjectAssignee, TeamMemberOption } from "../types";
 import {
@@ -110,18 +109,19 @@ export function AssigneeCell({
           <>
             <span className="flex items-center -space-x-1.5 shrink-0">
               {current.slice(0, 3).map((a) => (
-                <span
+                <UserAvatar
                   key={a.id}
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background ${
+                  userId={a.id}
+                  name={a.name}
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background ${
                     a.avatarColor || "bg-primary text-primary-foreground"
                   }`}
-                  title={a.name}
                 >
                   {a.initials}
-                </span>
+                </UserAvatar>
               ))}
               {current.length > 3 && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold bg-muted text-muted-foreground ring-2 ring-background">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold bg-muted text-muted-foreground ring-2 ring-background">
                   +{current.length - 3}
                 </span>
               )}
@@ -255,7 +255,7 @@ export function CalendarCell({
         type="button"
         disabled={!editable}
         onClick={() => setDropdownOpen((v) => !v)}
-        className={`flex items-center justify-between gap-1.5 rounded border border-input/60 bg-background/80 px-2 py-1 text-[11px] font-medium transition-all w-full ${
+        className={`flex items-center justify-between gap-1.5 rounded border border-input/60 bg-background/80 px-2 py-1 text-xs font-medium transition-all w-full ${
           editable ? "hover:bg-accent/80 hover:border-primary/40 cursor-pointer" : "cursor-default"
         } ${saving ? "opacity-50" : ""}`}
       >
@@ -418,17 +418,49 @@ export function LinksCell({
 }) {
   const [editingField, setEditingField] = useState<ProjectLinkField | null>(null);
   const [draft, setDraft] = useState("");
-  const [copiedField, setCopiedField] = useState<ProjectLinkField | null>(null);
+  // Single click opens the link, double click edits it: the open waits one double-click
+  // interval so the second click can cancel it (otherwise a double click also opens a tab).
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (openTimerRef.current) clearTimeout(openTimerRef.current);
+  }, []);
 
   const startEdit = (field: ProjectLinkField, current?: string) => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
+    skipBlurSaveRef.current = false;
     setEditingField(field);
     setDraft(current || "");
   };
 
-  const save = async (field: ProjectLinkField) => {
-    const prev = project[field];
-    onUpdated({ [field]: draft || undefined } as Partial<Project>);
+  const openLinkSoon = (url: string) => {
+    if (!editable) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (openTimerRef.current) clearTimeout(openTimerRef.current);
+    openTimerRef.current = setTimeout(() => {
+      openTimerRef.current = null;
+      window.open(url, "_blank", "noopener,noreferrer");
+    }, 250);
+  };
+
+  // Set while leaving the editor via Esc / ✕ / ✓, so the input's blur doesn't save (again).
+  const skipBlurSaveRef = useRef(false);
+
+  const cancelEdit = () => {
+    skipBlurSaveRef.current = true;
     setEditingField(null);
+  };
+
+  const save = async (field: ProjectLinkField) => {
+    skipBlurSaveRef.current = true;
+    const prev = project[field];
+    setEditingField(null);
+    if (draft.trim() === (prev || "").trim()) return; // unchanged — nothing to save
+    onUpdated({ [field]: draft || undefined } as Partial<Project>);
     const result = await updateProjectLinkAction(project.id, field, draft.trim());
     if (!result.success) {
       onUpdated({ [field]: prev } as Partial<Project>);
@@ -456,28 +488,19 @@ export function LinksCell({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") save(editingField);
-              if (e.key === "Escape") setEditingField(null);
+              if (e.key === "Escape") cancelEdit();
+            }}
+            // Clicking anywhere else saves, like a spreadsheet cell.
+            onBlur={() => {
+              if (skipBlurSaveRef.current) return;
+              save(editingField);
             }}
             placeholder={activeDef?.placeholder || "https://..."}
-            className="w-full min-w-[130px] pl-6 pr-1.5 py-0.5 rounded border border-input bg-background text-[11px] outline-none focus:ring-1 focus:ring-primary shadow-xs"
+            // No ✓/✕ buttons, so the editor fits the narrow Asset Link column.
+            title="Enter or click away to save · Esc to cancel"
+            className="w-full min-w-0 pl-6 pr-1.5 py-0.5 rounded border border-input bg-background text-xs outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => save(editingField)}
-          className="p-1 text-success hover:bg-success/10 rounded transition-colors shrink-0 cursor-pointer"
-          title="Save (Enter)"
-        >
-          <Check size={12} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditingField(null)}
-          className="p-1 text-muted-foreground hover:bg-muted rounded transition-colors shrink-0 cursor-pointer"
-          title="Cancel (Esc)"
-        >
-          <X size={12} />
-        </button>
       </div>
     );
   }
@@ -487,51 +510,34 @@ export function LinksCell({
       {LINK_DEFS.map(({ field, label, icon }) => {
         const url = project[field];
         return (
-          <div key={field} className="relative group inline-flex items-center shrink-0">
+          <div key={field} className="relative group/chip inline-flex items-center shrink-0">
             {url ? (
               <div className="inline-flex items-center">
                 <a
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onDoubleClick={(e) => {
-                    if (!editable) return;
+                  onClick={(e) => {
+                    // Let ctrl/cmd/middle-click keep their normal new-tab behaviour.
+                    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
                     e.preventDefault();
+                    if (e.detail > 1) return; // second click of a double click
+                    openLinkSoon(url);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    if (!editable) return;
                     startEdit(field, url);
                   }}
                   title={
                     editable
-                      ? `${label}: Click to open · double-click to edit`
+                      ? `${label}: Click to open · Double-click to edit (Enter or click away to save)`
                       : `${label}: Click to open`
                   }
                   className="flex h-6 w-6 items-center justify-center rounded border border-border/80 bg-muted/40 hover:bg-accent hover:border-primary/50 transition-colors cursor-pointer"
                 >
                   {icon("w-3.5 h-3.5 shrink-0")}
                 </a>
-                {editable && (
-                  <span className="hidden group-hover:inline-flex items-center gap-0.5 ml-0.5">
-                    <button
-                      type="button"
-                      title={`Edit ${label} link`}
-                      onClick={() => startEdit(field, url)}
-                      className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent cursor-pointer"
-                    >
-                      <Pencil size={10} />
-                    </button>
-                    <button
-                      type="button"
-                      title={`Copy ${label} link`}
-                      onClick={() => {
-                        navigator.clipboard.writeText(url);
-                        setCopiedField(field);
-                        setTimeout(() => setCopiedField(null), 1500);
-                      }}
-                      className="text-muted-foreground hover:text-primary p-0.5 rounded hover:bg-accent cursor-pointer"
-                    >
-                      {copiedField === field ? <Check size={10} className="text-success" /> : <Copy size={10} />}
-                    </button>
-                  </span>
-                )}
               </div>
             ) : (
               <button
@@ -616,7 +622,7 @@ export function NotesCell({
         type="button"
         onClick={handleOpen}
         title={value || (editable ? "Click to add notes" : "No notes")}
-        className={`group flex items-center gap-1.5 w-full truncate text-left text-[11px] rounded px-1.5 py-1 transition-colors ${
+        className={`group flex items-center gap-1.5 w-full truncate text-left text-xs rounded px-1.5 py-1 transition-colors ${
           editable ? "hover:bg-accent cursor-pointer" : "cursor-pointer hover:bg-accent/60"
         } ${value ? "text-foreground font-medium" : "text-muted-foreground/60 italic"}`}
       >
@@ -641,7 +647,7 @@ export function NotesCell({
                   <FileText size={16} className="text-primary" />
                   <h3 className="text-sm font-bold text-foreground">{title}</h3>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {project.id ? `${project.id} — ` : ""}{project.name}
                 </p>
               </div>
@@ -675,8 +681,8 @@ export function NotesCell({
                     placeholder={`Enter ${title.toLowerCase()} for this project...`}
                     className="w-full rounded-lg border border-input bg-background p-3 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all resize-y min-h-[140px]"
                   />
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>Press <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">Ctrl+Enter</kbd> to save</span>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Press <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-xs">Ctrl+Enter</kbd> to save</span>
                     <span>{draft.length} characters</span>
                   </div>
                 </>
@@ -783,7 +789,7 @@ export function StatusCell({
         type="button"
         disabled={!editable}
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-full min-h-9 w-full items-center justify-center text-[11px] font-bold uppercase tracking-wide transition-opacity ${
+        className={`flex h-full min-h-9 w-full items-center justify-center text-xs font-bold uppercase tracking-wide transition-opacity ${
           STATUS_STYLES[status] || "bg-secondary text-secondary-foreground"
         } ${editable ? "cursor-pointer hover:opacity-90" : "cursor-default"} ${saving ? "opacity-50" : ""}`}
       >
@@ -795,7 +801,7 @@ export function StatusCell({
             key={opt}
             type="button"
             onClick={() => handleSelect(opt)}
-            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[11px] font-medium hover:bg-accent ${
+            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium hover:bg-accent ${
               opt === status ? "text-primary font-bold" : "text-foreground"
             }`}
           >

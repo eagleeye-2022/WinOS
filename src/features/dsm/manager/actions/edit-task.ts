@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { NAT_TASK_LIST_NAME } from "../../utils";
+import { syncDueDateFromDsm } from "../../due-date-sync";
 
 export type EditTaskState = { message?: string };
 
@@ -63,6 +64,11 @@ export async function editTask(
     data: dataToUpdate,
     select: { projectTaskId: true, entry: { select: { userId: true } } },
   });
+
+  // Keep the linked Srijan task's due date (and other DSM rows for it) in step with this row.
+  if (dataToUpdate.dueDate instanceof Date) {
+    await syncDueDateFromDsm(task.projectTaskId, dataToUpdate.dueDate);
+  }
 
   // Only a NAT task (the "Not Aligned Task (NAT)" list — created from a DSM row with no task
   // picked) is named after its DSM row, so editing the row's text renames that Srijan task too.

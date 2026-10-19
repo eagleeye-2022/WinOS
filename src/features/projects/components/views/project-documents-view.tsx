@@ -153,7 +153,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
             Project Attachments & Documents
           </h2>
           {/* <p className="text-muted-foreground text-xs mt-0.5">
-            Upload files directly to <code className="bg-muted px-1 py-0.5 rounded font-mono text-[11px]">/api/upload</code> for project {projectName || projectId}.
+            Upload files directly to <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs">/api/upload</code> for project {projectName || projectId}.
           </p> */}
         </div>
 
@@ -210,7 +210,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
               <span className="font-bold text-foreground text-sm hover:underline">Click to upload files</span>{" "}
               <span className="text-muted-foreground">or drag and drop</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Supports documents, spreadsheets, images, PDFs, code, and zip archives up to 50MB.
             </p>
           </label>
@@ -228,7 +228,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
       <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between font-bold text-foreground">
           <span>Uploaded Files ({filteredDocs.length})</span>
-          <span className="text-muted-foreground font-normal text-[11px]">Direct File Storage</span>
+          <span className="text-muted-foreground font-normal text-xs">Direct File Storage</span>
         </div>
 
         {isLoading ? (
@@ -239,7 +239,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
           <div className="p-12 text-center text-muted-foreground space-y-2">
             <FileText size={36} className="mx-auto opacity-40" />
             <p className="font-semibold text-foreground">No documents uploaded yet.</p>
-            <p className="text-[11px]">Upload project attachments to share them with the team.</p>
+            <p className="text-xs">Upload project attachments to share them with the team.</p>
           </div>
         ) : (
           <table className="w-full text-left text-xs border-collapse">
@@ -269,11 +269,11 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
                       </a>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-mono text-muted-foreground text-[11px]">
+                  <td className="py-3 px-4 font-mono text-muted-foreground text-xs">
                     {formatFileSize(doc.sizeBytes)}
                   </td>
                   <td className="py-3 px-4 text-foreground font-medium">{doc.uploadedBy}</td>
-                  <td className="py-3 px-4 text-muted-foreground text-[11px]">
+                  <td className="py-3 px-4 text-muted-foreground text-xs">
                     {new Date(doc.createdAt).toLocaleDateString()} {new Date(doc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="py-3 px-4 text-right whitespace-nowrap">

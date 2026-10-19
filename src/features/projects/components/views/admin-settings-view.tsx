@@ -6,6 +6,8 @@ import { getUsersAction } from "../../actions/project-actions";
 import { ProjectUser } from "../../types";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { ProjectTemplatesModal } from "../modals/project-templates-modal";
+import { toast } from "@/components/shared/toast";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function AdminSettingsView() {
   const [activeTab, setActiveTab] = useState<"DEPARTMENTS" | "TEMPLATES" | "HOURS">("DEPARTMENTS");
@@ -56,10 +58,10 @@ export function AdminSettingsView() {
         <div className="flex items-center gap-3">
           <Settings size={24} className="text-primary" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Admin & Portal Workspace Settings</h1>
-            <p className="text-xs text-muted-foreground">
+            <PageTitle>Admin & Portal Workspace Settings</PageTitle>
+            <PageDescription>
               Manage operational departments, user roles, SOP template library, and organization working hours.
-            </p>
+            </PageDescription>
           </div>
         </div>
       </div>
@@ -112,7 +114,7 @@ export function AdminSettingsView() {
             </h2>
             <button
               type="button"
-              onClick={() => alert("Department creation dialog opened.")}
+              onClick={() => toast.info("Adding departments isn't available yet.")}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Plus size={14} /> Add New Department
@@ -127,7 +129,7 @@ export function AdminSettingsView() {
                     <h3 className="font-bold text-sm text-foreground">{dept.name}</h3>
                     <code className="text-xs text-primary font-mono">{dept.alias}</code>
                   </div>
-                  <span className="rounded bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
+                  <span className="rounded bg-primary/10 text-primary px-2 py-0.5 text-xs font-bold">
                     {dept.usersCount} Assigned Users
                   </span>
                 </div>
@@ -175,7 +177,7 @@ export function AdminSettingsView() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-foreground">{tmpl.name}</h3>
                     {tmpl.isDefault && (
-                      <span className="rounded bg-primary/20 text-primary px-2 py-0.5 text-[10px] font-bold">
+                      <span className="rounded bg-primary/20 text-primary px-2 py-0.5 text-xs font-bold">
                         Default Active SOP
                       </span>
                     )}
@@ -213,7 +215,7 @@ export function AdminSettingsView() {
               <label className="font-semibold text-muted-foreground">Standard Workday Hours</label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Start Time</span>
+                  <span className="text-xs text-muted-foreground">Start Time</span>
                   <input
                     type="text"
                     defaultValue="09:30 AM"
@@ -221,7 +223,7 @@ export function AdminSettingsView() {
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground">End Time</span>
+                  <span className="text-xs text-muted-foreground">End Time</span>
                   <input
                     type="text"
                     defaultValue="06:30 PM"
@@ -234,7 +236,7 @@ export function AdminSettingsView() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => alert("Working hours saved.")}
+                onClick={() => toast.info("Saving working hours isn't available yet.")}
                 className="rounded bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 Save Settings

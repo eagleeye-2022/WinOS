@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { AlertTriangle, UserCheck, Loader2, X } from "lucide-react";
 import { ProjectMemberUser } from "../../actions/project-actions";
+import { toast } from "@/components/shared/toast";
 
 interface RemoveUserReassignModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function RemoveUserReassignModal({
       onClose();
     } catch (err) {
       console.error("Failed to remove user:", err);
-      alert("An error occurred while removing user.");
+      toast.error("An error occurred while removing user.");
     } finally {
       setIsSubmitting(false);
     }
@@ -72,12 +73,12 @@ export function RemoveUserReassignModal({
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
                 <span>Active Tasks Notice ({openTasks} Open Tasks)</span>
               </div>
-              <p className="text-[11px] leading-relaxed">
+              <p className="text-xs leading-relaxed">
                 This user currently has <span className="font-bold">{openTasks} open task(s)</span> assigned to them in this project. You can choose another team member to automatically receive these tasks.
               </p>
 
               <div className="pt-2">
-                <label className="block text-[11px] font-bold text-foreground mb-1">
+                <label className="block text-xs font-bold text-foreground mb-1">
                   Reassign Open Tasks To:
                 </label>
                 <select
@@ -95,7 +96,7 @@ export function RemoveUserReassignModal({
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground text-[11px]">
+            <p className="text-muted-foreground text-xs">
               This user has no open assigned tasks. Removing them will revoke their access to this project.
             </p>
           )} */}

@@ -13,6 +13,7 @@ import {
   LEARNING_PROJECT_CATEGORY,
   LEARNING_TASK_STATUSES,
   normalizeDueDate,
+  nextTaskCode,
 } from "./constants";
 
 // Learning data lives in the Projects tables — see constants.ts for the mapping.
@@ -247,13 +248,33 @@ function buildTaskTree(flat: WhyfiTask[]): WhyfiTask[] {
 export type WhyfiPickerTask = {
   id: string;
   code: string;
+  /** Display title — "Parent › Subtask" for a subtask. */
   title: string;
+  /** The card's own title (without its parent's), for the List → Task → Subtask picker. */
+  name: string;
+  /** Parent card's id for a subtask, null for a top-level card. */
+  parentTaskId: string | null;
   status: string;
   projectId: string;
   listName: string;
   /** "YYYY-MM-DD", or "" when the card has no due date. */
   dueDate: string;
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toPickerTask(t: any): WhyfiPickerTask {
+  return {
+    id: t.id,
+    code: t.code,
+    title: t.parentTask ? `${t.parentTask.title} › ${t.title}` : t.title,
+    name: t.title,
+    parentTaskId: t.parentTaskId ?? null,
+    status: t.status,
+    projectId: t.projectId,
+    listName: t.project?.name || "",
+    dueDate: normalizeDueDate(t.dueDate),
+  };
+}
 
 /**
  * Open learning cards for the DSM learning rows. By default: the current user's (managers see
@@ -286,20 +307,13 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
       status: true,
       dueDate: true,
       projectId: true,
+      parentTaskId: true,
       project: { select: { name: true } },
       parentTask: { select: { title: true } },
     },
   });
 
-  return tasks.map((t: any) => ({
-    id: t.id,
-    code: t.code,
-    title: t.parentTask ? `${t.parentTask.title} › ${t.title}` : t.title,
-    status: t.status,
-    projectId: t.projectId,
-    listName: t.project?.name || "",
-    dueDate: normalizeDueDate(t.dueDate),
-  }));
+  return tasks.map(toPickerTask);
 }
 
 /**
@@ -326,20 +340,13 @@ export async function getWhyfiTasksByCodesAction(codes: string[]): Promise<Whyfi
       status: true,
       dueDate: true,
       projectId: true,
+      parentTaskId: true,
       project: { select: { name: true } },
       parentTask: { select: { title: true } },
     },
   });
 
-  return tasks.map((t: any) => ({
-    id: t.id,
-    code: t.code,
-    title: t.parentTask ? `${t.parentTask.title} › ${t.title}` : t.title,
-    status: t.status,
-    projectId: t.projectId,
-    listName: t.project?.name || "",
-    dueDate: normalizeDueDate(t.dueDate),
-  }));
+  return tasks.map(toPickerTask);
 }
 
 /**
@@ -617,12 +624,7 @@ export async function setWhyfiListMembersAction(projectId: string, userIds: stri
 
 async function nextLearningTaskCode(projectId: string, projectCode: string): Promise<string> {
   const rows: { code: string }[] = await d.projectTask.findMany({ where: { projectId }, select: { code: true } });
-  let max = 0;
-  for (const row of rows) {
-    const match = row.code.match(/-T(\d+)$/);
-    if (match) max = Math.max(max, parseInt(match[1], 10));
-  }
-  return `${projectCode}-T${max + 1}`;
+  return nextTaskCode(projectCode, rows.map((r) => r.code));
 }
 
 /** Managers create cards for anyone; members can add cards to lists shared with them (the card

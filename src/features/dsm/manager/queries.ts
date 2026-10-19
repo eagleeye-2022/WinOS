@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange, getTeamRank, sortTeamGroups, sortTeamMembers } from "../utils";
+import { entriesWithLinkedDueDates } from "../due-date-sync";
 
 export { getTeamRank, sortTeamGroups, sortTeamMembers };
 
@@ -506,6 +507,7 @@ export async function getMemberReview(
               code: true,
               title: true,
               status: true,
+              dueDate: true, // shared with the DSM row's due date (due-date-sync.ts)
               ownerId: true,
               owner: true,
               owners: { select: { userId: true } },
@@ -570,6 +572,7 @@ export async function getMemberReview(
               code: true,
               title: true,
               status: true,
+              dueDate: true, // shared with the DSM row's due date (due-date-sync.ts)
               ownerId: true,
               owner: true,
               owners: { select: { userId: true } },
@@ -615,7 +618,7 @@ export async function getMemberReview(
     }
   }
 
-  const entries = await attachMentionedUsers(entriesRaw);
+  const entries = entriesWithLinkedDueDates(await attachMentionedUsers(entriesRaw));
 
   return { user, entries: entries as MemberReviewEntry[] };
 }

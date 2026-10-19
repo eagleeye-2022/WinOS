@@ -116,7 +116,7 @@ export function StandupLearningSection({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 whitespace-nowrap pb-2.5 pr-2 font-semibold">#</th>
                 <th className="whitespace-nowrap pb-2.5 pr-3 font-semibold">List</th>
                 <th className="whitespace-nowrap pb-2.5 pr-3 font-semibold">Task ID</th>
@@ -199,7 +199,7 @@ export function StandupLearningSection({
                       {card ? (
                         <span
                           className={cn(
-                            "rounded-md border px-1.5 py-0.5 text-[10px] font-bold",
+                            "rounded-md border px-1.5 py-0.5 text-xs font-bold",
                             done
                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                               : card.status === "In Progress"
@@ -308,9 +308,9 @@ export function StandupLearningSection({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:border-[#3B82F6]/40 dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
             >
-              <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+              <Plus size={13} /> Add Learning Task
             </button>
           )}
         </div>

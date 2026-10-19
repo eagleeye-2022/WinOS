@@ -169,6 +169,40 @@ export function relativeDayLabel(date: Date, today: Date = new Date()): string |
   return null;
 }
 
+/**
+ * The day in the "What Did You Do …?" heading: the user's own previous DSM day relative to the day
+ * being viewed — not the calendar day before — so a member who submitted on Tuesday and was absent
+ * after sees "Tuesday". "Yesterday" when it really was the day before (or there's no previous DSM),
+ * the weekday within the past week, and "on 7 Oct" for anything older.
+ */
+export function previousDsmDayLabel(
+  previousDate: Date | string | null | undefined,
+  currentDate: Date | string = new Date()
+): string {
+  if (!previousDate) return "Yesterday";
+  // DSM dates are stored as UTC midnight ("YYYY-MM-DD"), so read those by their UTC day; a live
+  // "now" is read in local time like the rest of the DSM pages.
+  const dayOf = (d: Date | string) => {
+    if (typeof d === "string") return isoToUtcDate(d.slice(0, 10));
+    const isUtcMidnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+    return isUtcMidnight ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())) : toUtcDate(d);
+  };
+  const prev = dayOf(previousDate);
+  const current = dayOf(currentDate);
+  const diff = Math.round((current.getTime() - prev.getTime()) / 86400000);
+  if (diff === 1) return "Yesterday";
+  if (diff > 1 && diff <= 6) {
+    return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(prev);
+  }
+  const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(prev);
+  return `on ${dayMonth}`;
+}
+
+/** "What Did You Do Tuesday?" — always past tense, named after the user's previous DSM day. */
+export function previousDsmHeading(previousDate: Date | string | null | undefined, currentDate?: Date | string): string {
+  return `What Did You Do ${previousDsmDayLabel(previousDate, currentDate)}?`;
+}
+
 /** Format a date like "May 28" */
 export function formatShortDate(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {

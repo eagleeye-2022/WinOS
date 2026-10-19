@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Users2,
   HeartHandshake,
-  Quote,
   Archive,
   Settings,
   UserCheck,
@@ -34,22 +33,7 @@ import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
 import { useNavigationStore } from "@/stores/navigation-store";
-
-// ── Daily quotes ─────────────────────────────────────────────────────────────
-
-const DSM_QUOTES = [
-  { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
-  { text: "Great things are done by a series of small things brought together.", author: "Vincent van Gogh" },
-  { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
-  { text: "Great things in business are never done by one person. They're done by a team of people.", author: "Steve Jobs" },
-  { text: "It always seems impossible until it's done.", author: "Nelson Mandela" },
-  { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
-  { text: "Alone we can do so little; together we can do so much.", author: "Helen Keller" },
-];
-
-function getDayQuote() {
-  return DSM_QUOTES[new Date().getDay() % DSM_QUOTES.length];
-}
+import { shortProjectName } from "@/features/projects/utils/project-name";
 
 // ── Active route helper ───────────────────────────────────────────────────────
 
@@ -148,7 +132,6 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
 
 export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: string }) {
   const pathname = usePathname();
-  const quote = getDayQuote();
 
   const isManager = userRole === "MANAGER";
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
@@ -186,6 +169,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           { label: "Whyfi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
+          // Effort logs of Whyfi School tasks only.
+          { label: "Whyfi Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ]
       : [
@@ -239,6 +224,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
         { label: "Blockers ", href: ROUTES.blockers, icon: AlertCircle },
         { label: "Support Needed ", href: ROUTES.support, icon: SupportNeededIcon },
+        // The team's effort logs without leaving Standup (same report as Srijan → Effort Logs).
+        { label: "Effort Log", href: "/dsm/effort-logs", icon: ClockFading },
       ]
       : [
         { label: "DSM", href: ROUTES.dsm, icon: ClipboardList },
@@ -253,10 +240,12 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   }
 
   return (
-    <aside className="flex justify-between w-56 shrink-0 flex-col border-r bg-card select-none h-full overflow-y-auto">
-      <div>
+    // The sidebar itself doesn't scroll: the top part takes the space left above the footer,
+    // and inside it only the Recent Projects list scrolls (the menu scrolls only if it alone overflows).
+    <aside className="flex justify-between w-56 shrink-0 flex-col border-r bg-card select-none h-full overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Top Header matching exact screenshot design */}
-        <div className="px-5 pt-6 pb-4">
+        <div className="shrink-0 px-5 pt-6 pb-4">
           <h2 className="text-xl font-semibold tracking-tight text-foreground">
             {activeModuleTitle}
           </h2>
@@ -266,7 +255,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         </div>
 
         {/* Navigation links */}
-        <nav className="flex flex-col gap-1.5 px-3 py-2 text-sm">
+        <nav className="flex shrink-0 flex-col gap-1.5 px-3 py-2 text-sm">
           {(() => {
             const firstSectionIdx = navItems.findIndex((i) => Boolean(i.section));
             return navItems.map((item, idx) => {
@@ -279,7 +268,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
               <div key={item.label} className="contents">
                 {/* First OVERVIEW header commented out per request */}
                 {showSectionHeader && idx !== firstSectionIdx && (
-                  <p className="px-3 pt-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+                  <p className="px-3 pt-3 pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
                     {item.section}
                   </p>
                 )}
@@ -306,19 +295,21 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
         {/* Recent Projects shortcuts (Srijan module only) */}
         {(activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") && recentProjects.length > 0 && (
-          <div className="px-3 py-2">
-            <p className="px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+          <div className="flex min-h-28 flex-1 flex-col px-3 py-2">
+            <p className="shrink-0 px-3 pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
               Recent Projects
             </p>
-            <div className="flex flex-col gap-1">
-              {recentProjects.slice(0, 2).map((rp) => (
+            {/* Every remembered project (up to RECENT_PROJECTS_LIMIT); only this list scrolls. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto dsm-columns-scrollbar">
+              {recentProjects.map((rp) => (
                 <Link
                   key={rp.id}
                   href={`/projects/${rp.id}`}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium min-w-0 text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-all"
+                  title={rp.name}
+                  className="flex shrink-0 items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium min-w-0 text-muted-foreground hover:bg-accent/60 hover:text-foreground transition-all"
                 >
                   <FolderKanban size={16} strokeWidth={2} className="shrink-0" />
-                  <span className="truncate">{rp.name}</span>
+                  <span className="truncate">{shortProjectName(rp.name)}</span>
                 </Link>
               ))}
             </div>
@@ -326,14 +317,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
         )}
       </div>
 
-      <div>
-        {/* Quote Card */}
-        <div className="mx-3 mb-3 rounded-xl border-l-2 border-primary/40 bg-muted/30 p-3">
-          <Quote size={12} className="mb-1 text-primary/60" />
-          <p className="text-[13px] leading-relaxed text-muted-foreground italic">&quot;{quote.text}&quot;</p>
-          <p className="mt-1 text-[12px] font-medium text-muted-foreground/70">— {quote.author}</p>
-        </div>
-
+      <div className="shrink-0">
         {/* Footer / Secondary navigation */}
         <div className="border-t p-2 flex gap-1">
           <span

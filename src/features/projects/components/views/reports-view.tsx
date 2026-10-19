@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { BarChart3, Users, AlertTriangle, Clock, CheckCircle2, TrendingUp, Download, Loader2 } from "lucide-react";
 import { getProjectsAction, getTasksAction } from "../../actions/project-actions";
 import { Project, TaskItem } from "../../types";
+import { toast } from "@/components/shared/toast";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function ReportsView() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,16 +98,16 @@ export function ReportsView() {
         <div className="flex items-center gap-3">
           <BarChart3 size={24} className="text-primary" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Executive & Workload Reports</h1>
-            <p className="text-xs text-muted-foreground">
+            <PageTitle>Executive & Workload Reports</PageTitle>
+            <PageDescription>
               Cross-project %complete rollups, department workload distribution, and live database analytics.
-            </p>
+            </PageDescription>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => alert("Report exported successfully.")}
+          onClick={() => toast.info("Exporting the executive report isn't available yet.")}
           className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <Download size={14} /> Export Executive Report
@@ -120,7 +122,7 @@ export function ReportsView() {
             <TrendingUp size={16} className="text-primary" />
           </div>
           <div className="text-2xl font-bold text-foreground">{activeProjects}</div>
-          <p className="text-[11px] text-muted-foreground">Live database count</p>
+          <p className="text-xs text-muted-foreground">Live database count</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -129,7 +131,7 @@ export function ReportsView() {
             <CheckCircle2 size={16} className="text-success" />
           </div>
           <div className="text-2xl font-bold text-success">{avgProgress}%</div>
-          <p className="text-[11px] text-muted-foreground">Rollup progress across projects</p>
+          <p className="text-xs text-muted-foreground">Rollup progress across projects</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -138,7 +140,7 @@ export function ReportsView() {
             <Clock size={16} className="text-info" />
           </div>
           <div className="text-2xl font-bold text-info">{tasks.length} Tasks</div>
-          <p className="text-[11px] text-muted-foreground">Across all project boards</p>
+          <p className="text-xs text-muted-foreground">Across all project boards</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -147,7 +149,7 @@ export function ReportsView() {
             <AlertTriangle size={16} className="text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-amber-500">{overdueTasksCount} Tasks</div>
-          <p className="text-[11px] text-muted-foreground">Requires owner follow-up</p>
+          <p className="text-xs text-muted-foreground">Requires owner follow-up</p>
         </div>
       </div>
 
@@ -226,7 +228,7 @@ export function ReportsView() {
                       {p.completedTasksCount} / {p.totalTasksCount}
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className="rounded bg-success/15 text-success px-2 py-0.5 font-bold text-[10px]">
+                      <span className="rounded bg-success/15 text-success px-2 py-0.5 font-bold text-xs">
                         {p.status}
                       </span>
                     </td>

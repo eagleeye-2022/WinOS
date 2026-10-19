@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -17,6 +18,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { getUserProjectDetailsDrawerAction } from "../../actions/project-actions";
+import { getInitials } from "@/lib/avatar";
 
 interface UserDetailDrawerProps {
   isOpen: boolean;
@@ -99,15 +101,6 @@ export function UserDetailDrawer({
 
   if (!isOpen || !userId) return null;
 
-  const getInitials = (name: string) => {
-    if (!name) return "U";
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const getStatusBadgeClass = (status: string) => {
     switch (status?.toUpperCase()) {
       case "COMPLETED":
@@ -162,16 +155,20 @@ export function UserDetailDrawer({
             <div className="p-6 border-b bg-card space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold shadow-md">
+                  <UserAvatar
+                    userId={details.user.id}
+                    name={details.user.name}
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold shadow-md"
+                  >
                     {getInitials(details.user.name)}
-                  </div>
+                  </UserAvatar>
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-bold text-foreground leading-tight">
                         {details.user.name}
                       </h2>
                       {details.user.isOwner && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
                           Owner
                         </span>
                       )}
@@ -199,7 +196,7 @@ export function UserDetailDrawer({
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border">
                   <Briefcase size={14} className="text-primary" />
                   <div>
-                    <div className="text-[10px] text-muted-foreground">Project Role</div>
+                    <div className="text-xs text-muted-foreground">Project Role</div>
                     <div className="font-semibold text-foreground">{details.user.projectRole}</div>
                   </div>
                 </div>
@@ -207,7 +204,7 @@ export function UserDetailDrawer({
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border">
                   <Shield size={14} className="text-primary" />
                   <div>
-                    <div className="text-[10px] text-muted-foreground">System Role</div>
+                    <div className="text-xs text-muted-foreground">System Role</div>
                     <div className="font-semibold text-foreground">{details.user.role}</div>
                   </div>
                 </div>
@@ -215,7 +212,7 @@ export function UserDetailDrawer({
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border">
                   <DollarSign size={14} className="text-emerald-600 dark:text-emerald-400" />
                   <div>
-                    <div className="text-[10px] text-muted-foreground">Hourly Rate</div>
+                    <div className="text-xs text-muted-foreground">Hourly Rate</div>
                     <div className="font-semibold text-foreground font-mono">
                       ${details.user.hourlyRate}/hr
                     </div>
@@ -225,7 +222,7 @@ export function UserDetailDrawer({
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40 border">
                   <Clock size={14} className="text-blue-600 dark:text-blue-400" />
                   <div>
-                    <div className="text-[10px] text-muted-foreground">Weekly Capacity</div>
+                    <div className="text-xs text-muted-foreground">Weekly Capacity</div>
                     <div className="font-semibold text-foreground font-mono">
                       {details.user.weeklyCapacity || 40} hrs
                     </div>
@@ -257,7 +254,7 @@ export function UserDetailDrawer({
                 }`}
               >
                 <span>Assigned Tasks</span>
-                <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] text-primary">
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-xs text-primary">
                   {details.tasks.length}
                 </span>
               </button>
@@ -271,7 +268,7 @@ export function UserDetailDrawer({
                 }`}
               >
                 <span>Effort Logs</span>
-                <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-mono text-primary">
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-xs font-mono text-primary">
                   {details.timeStats?.totalLogged || "00:00 h"}
                 </span>
               </button>
@@ -363,7 +360,7 @@ export function UserDetailDrawer({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                            <span className="font-mono text-xs text-muted-foreground font-semibold">
                               #{t.code || t.id.slice(-5)}
                             </span>
                             <h5 className="text-xs font-bold text-foreground leading-snug">
@@ -371,7 +368,7 @@ export function UserDetailDrawer({
                             </h5>
                           </div>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getStatusBadgeClass(
+                            className={`px-2 py-0.5 rounded text-xs font-bold border ${getStatusBadgeClass(
                               t.status
                             )}`}
                           >
@@ -380,7 +377,7 @@ export function UserDetailDrawer({
                         </div>
 
                         {t.deadline && (
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
                             <span>Deadline: {t.deadline}</span>
                             <span>Progress: {t.progressPercent || 0}%</span>
                           </div>
@@ -412,7 +409,7 @@ export function UserDetailDrawer({
                             {log.hours}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{log.date}</span>
                           <span
                             className={`font-semibold ${
@@ -425,7 +422,7 @@ export function UserDetailDrawer({
                           </span>
                         </div>
                         {log.notes && (
-                          <p className="text-[11px] text-muted-foreground bg-muted/40 p-1.5 rounded mt-1 font-mono">
+                          <p className="text-xs text-muted-foreground bg-muted/40 p-1.5 rounded mt-1 font-mono">
                             {log.notes}
                           </p>
                         )}

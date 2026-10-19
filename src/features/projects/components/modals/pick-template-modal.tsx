@@ -103,7 +103,7 @@ export function PickTemplateModal({
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               TEMPLATES
             </span>
 
@@ -128,7 +128,7 @@ export function PickTemplateModal({
                     <h4 className="font-bold text-foreground leading-tight">
                       {template.title}
                     </h4>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {template.description}
                     </p>
                   </div>

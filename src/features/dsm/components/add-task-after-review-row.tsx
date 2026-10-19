@@ -108,9 +108,9 @@ export function AddTaskAfterReviewRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task (After Review)
+        <Plus size={13} /> Add Task (After Review)
       </button>
     );
   }
@@ -131,7 +131,7 @@ export function AddTaskAfterReviewRow({
 
       {/* Cascading Project/Task/Subtask selectors */}
       <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
+        <span className="font-semibold text-muted-foreground uppercase text-xs">New Task:</span>
 
         <SearchableSelect
           value={selectedProjectId}
@@ -201,7 +201,7 @@ export function AddTaskAfterReviewRow({
           {/* Due Date */}
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <CalendarIcon size={12} className="text-muted-foreground" />
-            <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
             <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
         </div>

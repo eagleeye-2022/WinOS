@@ -1,5 +1,7 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { RemarksPopupCell } from "../remarks-popup-cell";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Clock,
@@ -17,6 +19,8 @@ import {
   FileSpreadsheet,
   Lock,
   ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   ChevronRight,
   UserCheck,
 } from "lucide-react";
@@ -206,6 +210,19 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
     setEditDraft(getFieldValue(log, field));
   };
 
+  // Remarks are edited in a popup (RemarksPopupCell), not inline.
+  const saveRemarks = async (log: TimeLogEntry, remarks: string) => {
+    try {
+      await updateTimeLogAction(log.id, { remarks });
+      await loadData(false);
+      toast.success("Task notes saved");
+    } catch (err) {
+      console.error("Failed to save remarks:", err);
+      toast.error("Failed to save task notes");
+      throw err;
+    }
+  };
+
   const commitCellEdit = async (log: TimeLogEntry, field: EditableField) => {
     setEditingCell(null);
     const original = getFieldValue(log, field);
@@ -235,7 +252,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       await loadData(false);
     } catch (err) {
       console.error("Failed to update time log:", err);
-      alert(err instanceof Error ? err.message : "Failed to update effort log.");
+      toast.error(err instanceof Error ? err.message : "Failed to update effort log.");
     }
   };
 
@@ -246,7 +263,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       await loadData(false);
     } catch (err) {
       console.error("Failed to update billing type:", err);
-      alert(err instanceof Error ? err.message : "Failed to update billing type.");
+      toast.error(err instanceof Error ? err.message : "Failed to update billing type.");
     }
   };
 
@@ -326,7 +343,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           <p className="text-2xl font-extrabold text-foreground font-mono mt-2">
             {summary?.totalHoursStr || "00:00 h"}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {allLogs.length} effort log{allLogs.length !== 1 ? "s" : ""} recorded
           </p>
         </div>
@@ -341,7 +358,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           <p className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-2">
             {summary?.billableHoursStr || "00:00 h"}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Client billable time</p>
+          <p className="text-xs text-muted-foreground mt-1">Client billable time</p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4 shadow-2xs">
@@ -354,7 +371,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
           <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-2">
             {summary?.nonBillableHoursStr || "00:00 h"}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Internal / overhead time</p>
+          <p className="text-xs text-muted-foreground mt-1">Internal / overhead time</p>
         </div>
       </div> */}
 
@@ -377,9 +394,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                     className="flex items-center justify-between p-2 rounded-lg bg-muted/40 text-xs hover:bg-muted/70 transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">
+                      <UserAvatar
+                        userId={u.userId}
+                        name={u.userName}
+                        title=""
+                        className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0"
+                      >
                         {u.userInitials}
-                      </span>
+                      </UserAvatar>
                       <span className="font-semibold text-foreground truncate">{u.userName}</span>
                     </div>
                     <span className="font-mono font-bold text-primary shrink-0 ml-2">
@@ -405,7 +427,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono font-semibold text-info shrink-0">{t.taskCode}</span>
-                      <span className="text-foreground/80 truncate text-[11px]">{t.taskTitle}</span>
+                      <span className="text-foreground/80 truncate text-xs">{t.taskTitle}</span>
                     </div>
                     <span className="font-mono font-bold text-foreground shrink-0 ml-2">
                       {t.totalHoursStr}
@@ -478,6 +500,34 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             <option value="BILLABLE">Billable</option>
             <option value="NON BILLABLE">Non Billable</option>
           </select>
+
+          {/* Expand / collapse every user's effort logs at once. */}
+          {canViewAll && userGroupMap.length > 0 && (() => {
+            const allCollapsed = userGroupMap.every((g) => collapsedUserIds[g.userId]);
+            const label = allCollapsed ? "Expand All" : "Collapse All";
+            return (
+              <button
+                type="button"
+                onClick={() =>
+                  setCollapsedUserIds((prev) => {
+                    const next = { ...prev };
+                    for (const g of userGroupMap) next[g.userId] = !allCollapsed;
+                    return next;
+                  })
+                }
+                className="flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer"
+                title={label}
+                aria-label={label}
+              >
+                {allCollapsed ? (
+                  <ChevronsUpDown size={13} className="text-primary" />
+                ) : (
+                  <ChevronsDownUp size={13} className="text-primary" />
+                )}
+                <span>{label}</span>
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -509,15 +559,20 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                       >
                         {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                       </button>
-                      <div className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                      <UserAvatar
+                        userId={userGroup.userId}
+                        name={userGroup.userName}
+                        title=""
+                        className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
+                      >
                         {userGroup.userInitials}
-                      </div>
+                      </UserAvatar>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-foreground">
                             {userGroup.userName}
                           </span>
-                          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                             {userGroup.timeLogs.length} log{userGroup.timeLogs.length !== 1 ? "s" : ""}
                           </span>
                         </div>
@@ -527,15 +582,15 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                     {/* User Hours Summary Pills */}
                     <div className="flex items-center gap-2 font-mono text-xs">
                       <div className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1 rounded-md shadow-2xs">
-                        <span className="text-muted-foreground text-[10px] uppercase font-bold">Total:</span>
+                        <span className="text-muted-foreground text-xs uppercase font-bold">Total:</span>
                         <span className="font-bold text-foreground">{formatMinsToStr(userGroup.totalMinutes)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-md shadow-2xs">
-                        <span className="text-[10px] uppercase font-bold">Billable:</span>
+                        <span className="text-xs uppercase font-bold">Billable:</span>
                         <span className="font-bold">{formatMinsToStr(userGroup.billableMinutes)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-md shadow-2xs">
-                        <span className="text-[10px] uppercase font-bold">Non-Billable:</span>
+                        <span className="text-xs uppercase font-bold">Non-Billable:</span>
                         <span className="font-bold">{formatMinsToStr(userGroup.nonBillableMinutes)}</span>
                       </div>
                     </div>
@@ -551,20 +606,22 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DATE</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
+                            {/* Approval Status column hidden by request.
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">APPROVAL STATUS</th>
-                            <th className="py-2.5 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
+                            */}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {userGroup.timeLogs.map((log) => (
                             <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                              <td className="px-4 py-2.5 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                              <td className="px-4 py-2.5 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                                 {log.taskCode || log.code}
                               </td>
-                              <td className="px-4 py-2.5 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                              <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
                                 {log.title}
                               </td>
                               <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
@@ -582,17 +639,20 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                                       if (e.key === "Enter") e.currentTarget.blur();
                                       if (e.key === "Escape") setEditingCell(null);
                                     }}
-                                    className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono font-bold text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                    className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
                                   />
                                 ) : (
                                   <span
                                     onClick={() => handleStartEditCell(log, "duration")}
                                     title="Click to edit"
-                                    className={cn("inline-block rounded-md px-1 -mx-1 font-mono font-bold text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                                    className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                                   >
                                     {log.duration}
                                   </span>
                                 )}
+                              </td>
+                              <td className="px-3 py-2 border-r border-border text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
+                                <RemarksPopupCell value={log.remarks || ""} onSave={(next) => saveRemarks(log, next)} editable={!isClient} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
                               </td>
                               <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 {editingCell?.logId === log.id && editingCell.field === "timePeriod" ? (
@@ -607,19 +667,19 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                                       if (e.key === "Escape") setEditingCell(null);
                                     }}
                                     placeholder="00:00 - 00:00"
-                                    className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-[11px] text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                    className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
                                   />
                                 ) : (
                                   <span
                                     onClick={() => handleStartEditCell(log, "timePeriod")}
                                     title="Click to edit"
-                                    className={cn("inline-block rounded-md px-1 -mx-1 text-[11px] text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                                    className={cn("inline-block rounded-md px-1 -mx-1 text-xs text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                                   >
                                     {log.timePeriod || "—"}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                              <td className="px-4 py-2.5 border-r border-border font-mono text-xs text-muted-foreground whitespace-nowrap">
                                 {log.date}
                               </td>
                               <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -638,35 +698,13 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                                   <option value="NON BILLABLE" className="bg-card text-amber-600 font-bold">NON BILLABLE</option>
                                 </select>
                               </td>
+                              {/* Approval Status column hidden by request.
                               <td className="px-4 py-2.5 border-r border-border whitespace-nowrap">
-                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
                                   {log.approvalStatus || "Pending"}
                                 </span>
                               </td>
-                              <td className="px-4 py-2.5 text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
-                                {editingCell?.logId === log.id && editingCell.field === "remarks" ? (
-                                  <input
-                                    type="text"
-                                    autoFocus
-                                    value={editDraft}
-                                    onChange={(e) => setEditDraft(e.target.value)}
-                                    onBlur={() => commitCellEdit(log, "remarks")}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") e.currentTarget.blur();
-                                      if (e.key === "Escape") setEditingCell(null);
-                                    }}
-                                    className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() => handleStartEditCell(log, "remarks")}
-                                    title="Click to edit"
-                                    className={cn("block truncate rounded-md px-1 -mx-1", !isClient && "cursor-text hover:bg-muted/60")}
-                                  >
-                                    {log.remarks || "—"}
-                                  </span>
-                                )}
-                              </td>
+                              */}
                             </tr>
                           ))}
                         </tbody>
@@ -688,27 +726,29 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
+                  {/* Approval Status column hidden by request.
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">APPROVAL STATUS</th>
-                  <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
+                  */}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground italic">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground italic">
                       No effort logs found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                      <td className="px-4 py-3 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         {log.taskCode || log.code}
                       </td>
-                      <td className="px-4 py-3 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                      <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
                         {log.title}
                       </td>
                       <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
@@ -726,17 +766,20 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                               if (e.key === "Enter") e.currentTarget.blur();
                               if (e.key === "Escape") setEditingCell(null);
                             }}
-                            className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono font-bold text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                            className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
                           />
                         ) : (
                           <span
                             onClick={() => handleStartEditCell(log, "duration")}
                             title="Click to edit"
-                            className={cn("inline-block rounded-md px-1 -mx-1 font-mono font-bold text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                            className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                           >
                             {log.duration}
                           </span>
                         )}
+                      </td>
+                      <td className="px-3 py-2 border-r border-border text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
+                        <RemarksPopupCell value={log.remarks || ""} onSave={(next) => saveRemarks(log, next)} editable={!isClient} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
                       </td>
                       <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         {editingCell?.logId === log.id && editingCell.field === "timePeriod" ? (
@@ -750,19 +793,19 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                               if (e.key === "Enter") e.currentTarget.blur();
                               if (e.key === "Escape") setEditingCell(null);
                             }}
-                            className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-[11px] text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                            className="w-40 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-muted-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
                           />
                         ) : (
                           <span
                             onClick={() => handleStartEditCell(log, "timePeriod")}
                             title="Click to edit"
-                            className={cn("inline-block rounded-md px-1 -mx-1 text-[11px] text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                            className={cn("inline-block rounded-md px-1 -mx-1 text-xs text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                           >
                             {log.timePeriod || "—"}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                      <td className="px-4 py-3 border-r border-border font-mono text-xs text-muted-foreground whitespace-nowrap">
                         {log.date}
                       </td>
                       <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -781,35 +824,13 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                           <option value="NON BILLABLE" className="bg-card text-amber-600 font-bold">NON BILLABLE</option>
                         </select>
                       </td>
+                      {/* Approval Status column hidden by request.
                       <td className="px-4 py-3 border-r border-border whitespace-nowrap">
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${log.approvalStatus === "Approved" ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : log.approvalStatus === "Rejected" ? "bg-rose-500/15 text-rose-600 dark:text-rose-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400"}`}>
                           {log.approvalStatus || "Pending"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
-                        {editingCell?.logId === log.id && editingCell.field === "remarks" ? (
-                          <input
-                            type="text"
-                            autoFocus
-                            value={editDraft}
-                            onChange={(e) => setEditDraft(e.target.value)}
-                            onBlur={() => commitCellEdit(log, "remarks")}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") e.currentTarget.blur();
-                              if (e.key === "Escape") setEditingCell(null);
-                            }}
-                            className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
-                          />
-                        ) : (
-                          <span
-                            onClick={() => handleStartEditCell(log, "remarks")}
-                            title="Click to edit"
-                            className={cn("block truncate rounded-md px-1 -mx-1", !isClient && "cursor-text hover:bg-muted/60")}
-                          >
-                            {log.remarks || "—"}
-                          </span>
-                        )}
-                      </td>
+                      */}
                     </tr>
                   ))
                 )}

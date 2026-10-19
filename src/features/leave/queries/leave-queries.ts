@@ -2,6 +2,10 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { loadAttendanceRange } from "@/features/attendance/attendance-data";
+import { addDaysToKey, formatShortDate, fullDayName, istDateKey } from "@/features/attendance/utils";
+
+const ACTION_LOOKBACK_DAYS = 30;
 
 export interface FormattedBalance {
   id: string;
@@ -244,22 +248,25 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     };
   });
 
-  // 4. Action Required items (attendance regularizations)
-  const actionRequired = await db.attendanceRegularization.findMany({
-    where: { userId, status: "PENDING" },
-    orderBy: { missingDate: "desc" },
-  });
+  // 4. Action Required items — the same unexplained working days the attendance page flags,
+  //    over the last ACTION_LOOKBACK_DAYS, so the employee can regularize or apply leave here too.
+  const todayKey = istDateKey();
+  const lookbackStart = addDaysToKey(todayKey, -ACTION_LOOKBACK_DAYS);
+  const lookbackKeys: string[] = [];
+  for (let k = lookbackStart; k < todayKey; k = addDaysToKey(k, 1)) lookbackKeys.push(k);
+  const attendanceRange = await loadAttendanceRange([userId], lookbackStart, todayKey);
 
-  const formattedActionRequired = actionRequired.map((a) => ({
-    id: a.id,
-    date: a.missingDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    dayOfWeek: a.missingDate.toLocaleDateString("en-US", { weekday: "long" }),
-    issue: a.issueDescription,
-  }));
+  const formattedActionRequired = attendanceRange
+    .daysFor(userId, lookbackKeys)
+    .filter((d) => d.resolved.action)
+    .reverse()
+    .map((d) => ({
+      id: `act-${d.key}`,
+      date: formatShortDate(d.key),
+      dateKey: d.key,
+      dayOfWeek: fullDayName(d.key),
+      issue: d.resolved.action!.issue,
+    }));
 
   // Stats
   const totalBookedThisYear = userBalances.reduce((acc, b) => acc + b.bookedDays, 0);

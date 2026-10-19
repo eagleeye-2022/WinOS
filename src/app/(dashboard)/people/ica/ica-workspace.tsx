@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
   FileText,
@@ -636,9 +637,13 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">SUBMITTED BY</label>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
+                      <UserAvatar
+                        name={profile.userName}
+                        title=""
+                        className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0"
+                      >
                         {getInitials(profile.userName)}
-                      </div>
+                      </UserAvatar>
                       <span className="text-xs font-semibold text-foreground truncate">{profile.userName}</span>
                     </div>
                   </div>
@@ -1154,9 +1159,13 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SUBMITTED BY</label>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
+                  <UserAvatar
+                    name={profile.userName}
+                    title=""
+                    className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0"
+                  >
                     {getInitials(profile.userName)}
-                  </div>
+                  </UserAvatar>
                   <span className="text-xs font-bold text-foreground truncate">{profile.userName}</span>
                 </div>
               </div>

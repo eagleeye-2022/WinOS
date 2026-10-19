@@ -44,12 +44,12 @@ export function SendRemindersButton({ teamId, pendingCount }: Props) {
       <button
         type="submit"
         disabled={pending || pendingCount === 0}
-        className="flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline disabled:text-muted-foreground disabled:no-underline dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+        className="flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline disabled:text-muted-foreground disabled:no-underline"
       >
         {pending ? (
           <Loader2 size={11} className="animate-spin" />
         ) : (
-          <Bell size={11} className="dark:text-[#93C5FD]" />
+          <Bell size={11} />
         )}
         {pending ? "Sending…" : "Send Reminders"}
       </button>

@@ -91,7 +91,10 @@ export interface LeaveRequest {
 
 export interface ActionRequiredItem {
   id: string;
+  /** Display date, e.g. "15 Aug 2026". */
   date: string;
+  /** "YYYY-MM-DD" — what regularize / apply-leave submit. */
+  dateKey: string;
   dayOfWeek: string;
   issue: string;
 }

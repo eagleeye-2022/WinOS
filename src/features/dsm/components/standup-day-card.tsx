@@ -248,7 +248,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                           {i + 1}){" "}
                           {renderTextWithMentions(s.text, mentioned, "font-medium text-primary")}
                           {s.editedBy && (
-                            <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                            <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
                               (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
                             </span>
                           )}
@@ -272,7 +272,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                           {b.projectTask && (
                             <span
                               title={b.projectTask.title || b.text}
-                              className="rounded bg-destructive/10 border border-destructive/20 text-destructive px-1.5 py-0.5 text-[10px] font-mono font-bold shrink-0 cursor-default"
+                              className="rounded bg-destructive/10 border border-destructive/20 text-destructive px-1.5 py-0.5 text-xs font-mono font-bold shrink-0 cursor-default"
                             >
                               [{b.projectTask.code}]
                             </span>
@@ -282,7 +282,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                           )}
                           {renderTextWithMentions(b.text, mentioned, "font-semibold underline")}
                           {b.editedBy && (
-                            <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                            <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
                               (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
                             </span>
                           )}

@@ -64,13 +64,13 @@ export function LeaveDetailModal({
 
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40">
               <div>
-                <span className="text-[10px] text-muted-foreground uppercase">From</span>
+                <span className="text-xs text-muted-foreground uppercase">From</span>
                 <p className="font-semibold text-foreground whitespace-pre-line mt-0.5">
                   {request.fromDateDisplay}
                 </p>
               </div>
               <div>
-                <span className="text-[10px] text-muted-foreground uppercase">To</span>
+                <span className="text-xs text-muted-foreground uppercase">To</span>
                 <p className="font-semibold text-foreground whitespace-pre-line mt-0.5">
                   {request.toDateDisplay}
                 </p>
@@ -80,7 +80,7 @@ export function LeaveDetailModal({
 
           {/* Reason */}
           <div className="space-y-1">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">
               Reason for Leave
             </span>
             <p className="p-3 bg-background border rounded-xl text-foreground font-medium leading-relaxed">
@@ -91,7 +91,7 @@ export function LeaveDetailModal({
           {/* Approver comments if rejected */}
           {request.approverComments && (
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase flex items-center gap-1">
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5" /> Manager Feedback
               </span>
               <p className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-900 dark:text-red-300">
@@ -103,7 +103,7 @@ export function LeaveDetailModal({
           {/* Attachments */}
           {request.attachments && request.attachments.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+              <span className="text-xs font-semibold text-muted-foreground uppercase">
                 Attachments ({request.attachments.length})
               </span>
               <div className="space-y-1.5">
@@ -118,7 +118,7 @@ export function LeaveDetailModal({
                         <div className="font-medium text-foreground truncate max-w-[200px]">
                           {att.name}
                         </div>
-                        <div className="text-[10px] text-muted-foreground">{att.size}</div>
+                        <div className="text-xs text-muted-foreground">{att.size}</div>
                       </div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
@@ -130,7 +130,7 @@ export function LeaveDetailModal({
             </div>
           )}
 
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t">
+          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
             <span>Applied On: {request.appliedOn}</span>
             <span>Ref ID: #{request.id}</span>
           </div>

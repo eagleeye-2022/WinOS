@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
+import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { DELETED_TASK_LIST_STATUS } from "@/features/projects/types";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
@@ -157,6 +158,8 @@ const entryInclude = {
           title: true,
           status: true,
           completionPercentage: true,
+          // Shared with the DSM row's own due date — see due-date-sync.ts.
+          dueDate: true,
           ownerId: true,
           owner: true,
           owners: { select: { userId: true } },
@@ -273,7 +276,7 @@ export async function getTodayEntry(): Promise<EntryWithDetails | null> {
   });
   if (!entry) return null;
 
-  const [resolved] = await attachMentionedUsers([entry]);
+  const [resolved] = entriesWithLinkedDueDates(await attachMentionedUsers([entry]));
   return resolved as EntryWithDetails;
 }
 
@@ -476,7 +479,7 @@ export async function getWeekEntries(weekOffset = 0): Promise<EntryWithDetails[]
     orderBy: { date: "desc" },
   });
 
-  const resolved = await attachMentionedUsers(entries);
+  const resolved = entriesWithLinkedDueDates(await attachMentionedUsers(entries));
   return resolved as EntryWithDetails[];
 }
 
@@ -638,6 +641,7 @@ export async function getParkedTasks(targetUserId?: string): Promise<ParkedTask[
           id: true,
           code: true,
           title: true,
+          dueDate: true,
           project: { select: { id: true, name: true } },
         },
       },
@@ -645,7 +649,7 @@ export async function getParkedTasks(targetUserId?: string): Promise<ParkedTask[
     orderBy: { createdAt: "asc" },
   });
 
-  return tasks as ParkedTask[];
+  return withLinkedDueDates(tasks) as ParkedTask[];
 }
 
 export type CoreDailyTask = {

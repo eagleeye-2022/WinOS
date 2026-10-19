@@ -175,7 +175,7 @@ export function InviteClientModal({
 
             {generatedUrl && (
               <div className="space-y-1.5 pt-1">
-                <label className="text-[11px] font-semibold text-foreground block">
+                <label className="text-xs font-semibold text-foreground block">
                   Direct Invitation Link (Share with client):
                 </label>
                 <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export function InviteClientModal({
                     type="text"
                     readOnly
                     value={generatedUrl}
-                    className="flex-1 rounded border border-emerald-500/40 bg-background px-2.5 py-1.5 font-mono text-[11px] text-foreground select-all outline-none"
+                    className="flex-1 rounded border border-emerald-500/40 bg-background px-2.5 py-1.5 font-mono text-xs text-foreground select-all outline-none"
                   />
                   <button
                     type="button"
@@ -311,7 +311,7 @@ export function InviteClientModal({
                         />
                         <span className="font-medium truncate">{project.name}</span>
                       </div>
-                      <span className="text-[11px] font-mono text-muted-foreground shrink-0">
+                      <span className="text-xs font-mono text-muted-foreground shrink-0">
                         {project.id}
                       </span>
                     </label>

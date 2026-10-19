@@ -461,7 +461,7 @@ export function EventDialog({
 
               {showRoomPicker && (
                 <div className="absolute left-0 top-6 z-20 w-60 rounded-xl border border-border bg-popover p-2 shadow-xl text-popover-foreground">
-                  <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1">Select Available Room</p>
+                  <p className="text-xs font-semibold text-muted-foreground px-2 py-1">Select Available Room</p>
                   {ROOM_OPTIONS.map((rm) => (
                     <button
                       key={rm}

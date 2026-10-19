@@ -14,9 +14,10 @@ import {
 import { MyMonthlyPayrollItem } from "../types";
 import { getMyPayrollReportData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { istDateKey } from "../utils";
 
 export function MyPayrollReportView() {
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(() => istDateKey().slice(0, 4));
   const [items, setItems] = useState<MyMonthlyPayrollItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -76,7 +77,7 @@ export function MyPayrollReportView() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3.5 px-5">Month</th>
                 <th className="py-3.5 px-5">Company Working Days</th>
                 <th className="py-3.5 px-5">Expected Payable Days</th>

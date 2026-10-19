@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getStr } from "@/lib/action-utils";
 import { countTasksWithoutProject, PROJECT_REQUIRED_MESSAGE } from "../utils";
 import { ensureNatTaskForTimerAction, linkOrCreateDsmTaskAction } from "./create-project-items";
+import { syncDueDatesFromDsm } from "../due-date-sync";
 
 export type SaveDsmState = {
   errors?: { tasks?: string[]; learningText?: string[] };
@@ -184,6 +185,8 @@ export async function saveDsm(
           addedById: userId,
         })),
       });
+      // A due date set on a linked row becomes the Srijan task's due date too (and other DSM rows').
+      await syncDueDatesFromDsm(tasksToCreate);
     }
 
     // Sync blockers (replace)

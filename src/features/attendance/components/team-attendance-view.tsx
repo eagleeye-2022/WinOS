@@ -21,6 +21,7 @@ import {
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { formatShortDate, istDateKey } from "../utils";
 
 interface TeamAttendanceViewProps {
   onViewEmployee?: (member: TeamMemberAttendance) => void;
@@ -31,8 +32,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const [statusFilter, setStatusFilter] = useState("All");
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [workModeFilter, setWorkModeFilter] = useState("All");
-  const [selectedDate, setSelectedDate] = useState("Today, 20 Aug 2026");
-  const [currentDateObj, setCurrentDateObj] = useState(new Date("2026-08-20"));
+  const [selectedDate, setSelectedDate] = useState(() => `Today, ${formatShortDate(istDateKey())}`);
+  const [currentDateObj, setCurrentDateObj] = useState(() => new Date(istDateKey()));
   const [teamMembers, setTeamMembers] = useState<TeamMemberAttendance[]>([]);
   const [counts, setCounts] = useState({ total: 0, workingNow: 0, completed: 0, onLeave: 0, absent: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -243,7 +244,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Status</th>
                 <th className="py-3.5 px-5">Check-in</th>
@@ -286,7 +287,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           <div className="font-bold text-slate-900 dark:text-slate-100">
                             {member.name}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {member.designation} • ID: {member.employeeId}
                           </div>
                         </div>
@@ -296,25 +297,25 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                     {/* Status Badge */}
                     <td className="py-3.5 px-5">
                       {member.status === "Working Now" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:border-blue-900/60 dark:text-blue-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                           Working Now
                         </span>
                       )}
                       {member.status === "Completed" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           Completed
                         </span>
                       )}
                       {member.status === "On Leave" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                           {member.leaveType || "On Leave"}
                         </span>
                       )}
                       {member.status === "Absent" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           Absent
                         </span>
@@ -328,7 +329,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           <div className="font-semibold text-slate-800 dark:text-slate-200">
                             {member.checkInTime}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {member.checkInSource}
                           </div>
                         </div>
@@ -344,7 +345,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           <div className="font-semibold text-slate-800 dark:text-slate-200">
                             {member.checkOutTime}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {member.checkOutSource}
                           </div>
                         </div>
@@ -360,7 +361,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           <div className="font-extrabold text-slate-900 dark:text-slate-100">
                             {member.workedHours}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {member.workedHoursSubtext}
                           </div>
                         </div>
@@ -371,7 +372,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
 
                     {/* Work Mode */}
                     <td className="py-3.5 px-5">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         {member.workMode === "Office" ? (
                           <Building2 className="w-3 h-3 text-slate-500" />
                         ) : (

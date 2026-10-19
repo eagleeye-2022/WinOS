@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { uploadRtdFileAction, getRtdDocumentsAction, saveRtdManagerNotesAction, type RTDDocument } from "./actions";
 import {
@@ -316,9 +317,13 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       {/* Submitted By */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          <UserAvatar
+                            name={doc.submittedBy.name}
+                            title=""
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+                          >
                             {doc.submittedBy.initials}
-                          </div>
+                          </UserAvatar>
                           <div>
                             <span className="font-medium text-foreground">{doc.submittedBy.name}</span>
                             <span className="block text-xs text-muted-foreground leading-none mt-0.5">{doc.submittedBy.email}</span>
@@ -566,9 +571,13 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                     <div>
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Submitted By</label>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        <UserAvatar
+                          name={activeDoc.submittedBy.name}
+                          title=""
+                          className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+                        >
                           {activeDoc.submittedBy.initials}
-                        </div>
+                        </UserAvatar>
                         <span className="text-xs font-semibold text-foreground truncate">{activeDoc.submittedBy.name}</span>
                       </div>
                     </div>

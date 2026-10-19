@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Pencil, Trash2, Clock, Crown, User as UserIcon, Loader2, Repeat } from "lucide-react";
@@ -111,7 +112,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
               {/* Date Box with Accent Bar */}
               <div className="relative flex flex-col items-center justify-center rounded-lg bg-card border border-border px-4 py-2.5 min-w-[64px] overflow-hidden shadow-2xs">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
-                <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">
+                <span className="text-xs font-bold text-muted-foreground tracking-wider uppercase">
                   {monthName}
                 </span>
                 <span className="text-xl font-extrabold text-foreground leading-tight">
@@ -210,22 +211,26 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         {/* Avatar */}
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground border border-border">
+                        <UserAvatar
+                          email={a.email}
+                          title=""
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground border border-border"
+                        >
                           {initials || <UserIcon size={16} />}
-                        </div>
+                        </UserAvatar>
 
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-foreground capitalize truncate">
+                          <p className="text-xs font-semibold text-foreground truncate">
                             {nameStr}
                           </p>
-                          <p className="text-[11px] text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {a.email}
                           </p>
                         </div>
                       </div>
 
                       {/* Status pill */}
-                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-border bg-muted/80 text-muted-foreground uppercase tracking-wider">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full border border-border bg-muted/80 text-muted-foreground uppercase tracking-wider">
                         {a.status || "NEEDS_ACTION"}
                       </span>
                     </div>

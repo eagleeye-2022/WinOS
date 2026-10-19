@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Calendar, Check, Loader2, Award, AlertCircle } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { submitCompOffAction } from "../actions/attendance-actions";
+import { workedMinutesBetween } from "../utils";
 
 interface CompensatoryRequestModalProps {
   isOpen: boolean;
@@ -28,20 +29,31 @@ export function CompensatoryRequestModal({
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    const minutes = workedMinutesBetween(record.checkInTime, record.checkOutTime);
+    if (!minutes) {
+      setIsSubmitting(false);
+      setError("Check in and check out on this day before requesting a comp-off.");
+      return;
+    }
     try {
-      await submitCompOffAction({
+      const res = await submitCompOffAction({
         workDate: record.date,
-        fromTime: record.checkInTime || "09:00 AM",
-        toTime: record.checkOutTime || "06:00 PM",
-        hoursWorked: 8.0,
+        fromTime: record.checkInTime!,
+        toTime: record.checkOutTime!,
+        hoursWorked: Math.round((minutes / 60) * 100) / 100,
         reason,
       });
-      setIsSubmitting(false);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
       onSubmitSuccess?.();
       onClose();
     } catch (err: unknown) {
+      console.error("Failed to submit comp-off:", err);
+      setError("Failed to submit compensatory off request");
+    } finally {
       setIsSubmitting(false);
-      setError(err instanceof Error ? err.message : "Failed to submit compensatory off request");
     }
   };
 

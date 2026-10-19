@@ -35,11 +35,11 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
             {rows.slice(0, MAX_ROWS).map((r) => (
               <li key={r.taskId} className="flex items-center gap-2 text-xs">
                 <span className="min-w-0 flex-1 truncate text-foreground" title={r.task?.project?.name ?? undefined}>
-                  {r.task?.code && <span className="mr-1 font-mono text-[11px] text-muted-foreground">{r.task.code}</span>}
+                  {r.task?.code && <span className="mr-1 font-mono text-xs text-muted-foreground">{r.task.code}</span>}
                   {r.task?.title ?? "Task"}
                 </span>
                 {r.task?.project?.name.startsWith("Whyfi School") && (
-                  <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                  <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
                     Learning
                   </span>
                 )}
@@ -51,7 +51,7 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
             ))}
           </ul>
           {rows.length > MAX_ROWS && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">+{rows.length - MAX_ROWS} more</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">+{rows.length - MAX_ROWS} more</p>
           )}
         </>
       )}

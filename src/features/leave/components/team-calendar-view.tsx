@@ -289,7 +289,7 @@ export function TeamCalendarView() {
           {/* Calendar Grid */}
           <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
             {/* Days Header */}
-            <div className="grid grid-cols-7 text-center bg-muted/40 border-b text-[11px] font-semibold text-muted-foreground py-2.5">
+            <div className="grid grid-cols-7 text-center bg-muted/40 border-b text-xs font-semibold text-muted-foreground py-2.5">
               <div>Sun</div>
               <div>Mon</div>
               <div>Tue</div>
@@ -332,7 +332,7 @@ export function TeamCalendarView() {
                     {/* Top Day Number */}
                     <div className="flex items-center justify-between">
                       {isToday ? (
-                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[11px] shadow-2xs">
+                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs">
                           {day}
                         </span>
                       ) : (
@@ -347,7 +347,7 @@ export function TeamCalendarView() {
                       )}
 
                       {isToday && (
-                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                           Today
                         </span>
                       )}
@@ -360,7 +360,7 @@ export function TeamCalendarView() {
                         <div
                           key={h.id}
                           className={cn(
-                            "px-1.5 py-0.5 rounded text-[9px] font-bold truncate",
+                            "px-1.5 py-0.5 rounded text-xs font-bold truncate",
                             h.type === "PUBLIC"
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                               : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
@@ -374,7 +374,7 @@ export function TeamCalendarView() {
                       {/* Leaves */}
                       {dayLeaves.length === 1 && (
                         <div
-                          className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate"
+                          className="px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate"
                           title={`${dayLeaves[0].employeeName} - ${dayLeaves[0].leaveType}`}
                         >
                           {dayLeaves[0].employeeName.split(" ")[0]} ({dayLeaves[0].leaveTypeCode})
@@ -382,7 +382,7 @@ export function TeamCalendarView() {
                       )}
 
                       {dayLeaves.length > 1 && (
-                        <div className="inline-flex items-center gap-1 w-full px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate">
+                        <div className="inline-flex items-center gap-1 w-full px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate">
                           <span>{dayLeaves.length} on leave</span>
                           <Users className="w-2.5 h-2.5 ml-auto shrink-0" />
                         </div>
@@ -444,7 +444,7 @@ export function TeamCalendarView() {
           {/* Holidays on this day */}
           {selectedDayHolidays.length > 0 && (
             <div className="space-y-2">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Holidays ({selectedDayHolidays.length})
               </div>
               <div className="space-y-2">
@@ -460,13 +460,13 @@ export function TeamCalendarView() {
                   >
                     <div>
                       <div className="font-bold text-xs text-foreground">{h.name}</div>
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {h.description || (h.type === "PUBLIC" ? "Public / Gazetted Holiday" : "Company / Optional Holiday")}
                       </div>
                     </div>
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded-md text-[10px] font-bold border",
+                        "px-2 py-0.5 rounded-md text-xs font-bold border",
                         h.type === "PUBLIC"
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200"
                           : "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200"
@@ -482,7 +482,7 @@ export function TeamCalendarView() {
 
           {/* Leaves on this day */}
           <div className="space-y-3">
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               On Leave ({selectedDayLeaves.length})
             </div>
 
@@ -492,7 +492,7 @@ export function TeamCalendarView() {
                 <div className="text-xs font-semibold text-foreground">
                   No Team Leaves or Holidays
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   All team members are scheduled to be available on this date.
                 </p>
               </div>
@@ -526,7 +526,7 @@ export function TeamCalendarView() {
                         </div>
                         <span
                           className={cn(
-                            "px-1.5 py-0.2 rounded text-[9px] font-semibold border shrink-0",
+                            "px-1.5 py-0.2 rounded text-xs font-semibold border shrink-0",
                             leave.status === "APPROVED"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
                               : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
@@ -536,17 +536,17 @@ export function TeamCalendarView() {
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-muted-foreground font-medium">
+                      <div className="text-xs text-muted-foreground font-medium">
                         {leave.leaveType} ({leave.leaveTypeCode})
                       </div>
 
-                      <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 pt-0.5">
+                      <div className="text-xs text-muted-foreground/80 flex items-center gap-1.5 pt-0.5">
                         <Clock className="w-3 h-3 text-muted-foreground" />
                         <span>{leave.dateRangeDisplay}</span>
                       </div>
 
                       {leave.reason && (
-                        <p className="text-[10px] text-muted-foreground/70 italic pt-0.5 truncate" title={leave.reason}>
+                        <p className="text-xs text-muted-foreground/70 italic pt-0.5 truncate" title={leave.reason}>
                           &ldquo;{leave.reason}&rdquo;
                         </p>
                       )}

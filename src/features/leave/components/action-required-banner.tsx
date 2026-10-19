@@ -43,7 +43,7 @@ export function ActionRequiredBanner({
 
       {/* Table of items */}
       <div className="bg-background/80 dark:bg-background/50 border border-amber-200/60 dark:border-amber-900/40 rounded-xl overflow-hidden shadow-2xs">
-        <div className="grid grid-cols-12 px-4 py-2.5 bg-amber-100/50 dark:bg-amber-950/40 border-b border-amber-200/50 dark:border-amber-900/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="grid grid-cols-12 px-4 py-2.5 bg-amber-100/50 dark:bg-amber-950/40 border-b border-amber-200/50 dark:border-amber-900/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           <div className="col-span-3">Date</div>
           <div className="col-span-5">Issue</div>
           <div className="col-span-4 text-right pr-2">Choose an action</div>
@@ -62,7 +62,7 @@ export function ActionRequiredBanner({
                 </div>
                 <div>
                   <div className="font-semibold text-foreground">{item.date}</div>
-                  <div className="text-[11px] text-muted-foreground">{item.dayOfWeek}</div>
+                  <div className="text-xs text-muted-foreground">{item.dayOfWeek}</div>
                 </div>
               </div>
 

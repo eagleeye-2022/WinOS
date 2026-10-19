@@ -6,6 +6,7 @@ import { getMyTasksAction, updateTaskAction } from "@/features/projects/actions/
 import { TaskItem } from "@/features/projects/types";
 import { TasksListView } from "@/features/projects/components/views/tasks-list-view";
 import { toast } from "@/components/shared/toast";
+import { PageTitle } from "@/components/shared/page-header";
 
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -69,7 +70,7 @@ export default function MyTasksPage() {
         <div className="flex items-center gap-3">
           <ListTodo size={22} className="text-primary" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">My Assigned Tasks</h1>
+            <PageTitle>My Assigned Tasks</PageTitle>
           </div>
         </div>
 
@@ -90,7 +91,7 @@ export default function MyTasksPage() {
               Workflow Nudge: <strong>{unassignedCount} tasks</strong> in your workspace currently have no assigned owner.
             </span>
           </div>
-          <span className="text-[11px] font-mono">Required-Owner Policy</span>
+          <span className="text-xs font-mono">Required-Owner Policy</span>
         </div>
       )}
 

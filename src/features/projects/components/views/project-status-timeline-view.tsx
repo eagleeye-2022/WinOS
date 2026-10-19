@@ -142,12 +142,12 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-foreground text-sm">{ev.title}</span>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                         {ev.type.replace("_", " ")}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-mono">
+                    <div className="flex items-center gap-1.5 text-muted-foreground text-xs font-mono">
                       <Calendar size={12} />
                       <span>{formattedDate}</span>
                       <span>&bull;</span>
@@ -178,8 +178,8 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
                     </p>
                   )}
 
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] text-muted-foreground">
-                    <div className={`h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold ${ev.actorAvatarColor || "bg-primary text-primary-foreground"}`}>
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
+                    <div className={`h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold ${ev.actorAvatarColor || "bg-primary text-primary-foreground"}`}>
                       {ev.actorName[0]?.toUpperCase()}
                     </div>
                     <span>By <strong className="text-foreground">{ev.actorName}</strong></span>

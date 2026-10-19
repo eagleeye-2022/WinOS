@@ -302,7 +302,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
           )}
           {(task.taskListName || task.phaseName) && (
             <div className="mt-1">
-              <span className="inline-block rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-semibold">
+              <span className="inline-block rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 px-2 py-0.5 text-xs font-semibold">
                 {task.taskListName || task.phaseName}
               </span>
             </div>
@@ -322,10 +322,10 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                 className="flex items-center gap-2 rounded-full pr-1.5 hover:bg-accent transition-colors cursor-pointer"
                 title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
               >
-                <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-[11px] font-bold shrink-0">
+                <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold shrink-0">
                   {ownerInitials}
                   {task.owners && task.owners.length > 1 && (
-                    <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[8px] font-bold ring-2 ring-background">
+                    <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold ring-2 ring-background">
                       +{task.owners.length - 1}
                     </span>
                   )}
@@ -520,7 +520,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                           {/* Owner, Status — left blank on group rows */}
                           <td className="py-2 px-4 border-r" />
                           <td className="py-2 px-4 border-r" />
-                          <td className="py-2 px-4 border-r font-mono text-[11px] text-muted-foreground font-normal">
+                          <td className="py-2 px-4 border-r font-mono text-xs text-muted-foreground font-normal">
                             {formatMinutesToHHMM(totalMinutes)}
                           </td>
                           <td className="py-2 px-4" />
@@ -538,7 +538,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                                 const firstProjectId = group.tasks[0]?.projectId;
                                 if (firstProjectId) router.push(`/projects/${firstProjectId}`);
                               }}
-                              className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                              className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
                             >
                               <Plus size={12} />
                               <span>Add Task</span>

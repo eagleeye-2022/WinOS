@@ -49,6 +49,25 @@ export function normalizeDueDate(raw: string | null | undefined): string {
   return !isNaN(date.getTime()) && date.getUTCDate() === Number(d) ? `${y}-${m}-${d}` : "";
 }
 
+/**
+ * Next "<prefix>-T<n>" task code: one past the highest number already used in the project (or
+ * past `floor`, e.g. the task count). Whyfi lists number every card this way, subtasks included,
+ * and a plain count would reuse a code once a task has been deleted.
+ */
+export function nextTaskCode(prefix: string, existingCodes: string[], floor = 0): string {
+  let max = floor;
+  for (const code of existingCodes) {
+    const n = Number(code.match(/-T(\d+)$/)?.[1]);
+    if (Number.isInteger(n) && n > max) max = n;
+  }
+  return `${prefix}-T${max + 1}`;
+}
+
+/** The list prefix of a Whyfi card code: "WL-3-T12" → "WL-3" (also for dotted "WL-3-T12.1"). */
+export function learningListPrefix(taskCode: string): string {
+  return taskCode.replace(/-T\d+(\.\d+)*$/, "");
+}
+
 /** Prisma `where` fragment that excludes learning lists from regular project queries. */
 export const NOT_LEARNING_PROJECT = {
   OR: [{ projectCategory: null }, { projectCategory: { not: LEARNING_PROJECT_CATEGORY } }],

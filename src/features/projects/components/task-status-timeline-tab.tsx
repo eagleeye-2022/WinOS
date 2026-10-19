@@ -88,7 +88,7 @@ export function TaskStatusTimelineTab({ taskId }: TaskStatusTimelineTabProps) {
           <History size={16} className="text-primary" />
           Task Activity & Status Timeline
         </h3>
-        <span className="text-[11px] font-mono text-muted-foreground dark:text-zinc-400">
+        <span className="text-xs font-mono text-muted-foreground dark:text-zinc-400">
           Latest activity first &bull; Saved in Database
         </span>
       </div>
@@ -114,7 +114,7 @@ export function TaskStatusTimelineTab({ taskId }: TaskStatusTimelineTabProps) {
               {/* Event Content */}
               <div className="rounded-xl border border-border bg-card p-3.5 shadow-2xs space-y-1 hover:border-primary/40 transition-colors dark:border-zinc-800 dark:bg-[#121215]">
                 {/* Header Time */}
-                <div className="text-[11px] font-mono font-bold text-muted-foreground dark:text-zinc-400">
+                <div className="text-xs font-mono font-bold text-muted-foreground dark:text-zinc-400">
                   {formatTimelineHeaderTime(ev.timestamp)}
                 </div>
 
@@ -125,7 +125,7 @@ export function TaskStatusTimelineTab({ taskId }: TaskStatusTimelineTabProps) {
 
                 {/* Additional Description if distinct */}
                 {ev.description && !ev.title.includes(ev.description) && (
-                  <p className="text-[11px] text-muted-foreground dark:text-zinc-400">
+                  <p className="text-xs text-muted-foreground dark:text-zinc-400">
                     {ev.description}
                   </p>
                 )}

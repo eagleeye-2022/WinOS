@@ -82,7 +82,7 @@ export function ParticipantPicker({ users, currentUserId, selectedIds, onChange 
                   {u.name ?? u.email.split("@")[0]}
                   {u.id === currentUserId ? " (You)" : ""}
                 </span>
-                <span className="text-muted-foreground text-[11px] truncate">
+                <span className="text-muted-foreground text-xs truncate">
                   ({u.email})
                 </span>
               </div>

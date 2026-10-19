@@ -215,12 +215,12 @@ function ComboCell({
               </div>
             ) : filtered.length === 0 ? (
               !allowCustom ? (
-                <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">
+                <p className="px-2.5 py-2 text-xs italic text-muted-foreground">
                   {query.trim() ? `No ${title.toLowerCase()} matches "${query.trim()}".` : `No ${title.toLowerCase()} list available.`}
                 </p>
               ) : (
                 !query.trim() && (
-                  <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">
+                  <p className="px-2.5 py-2 text-xs italic text-muted-foreground">
                     No list available — type a {title.toLowerCase()} above.
                   </p>
                 )
@@ -246,7 +246,7 @@ function ComboCell({
             )}
 
             {options !== null && totalMatches > filtered.length && (
-              <p className="px-2.5 py-1.5 text-[10px] text-muted-foreground">
+              <p className="px-2.5 py-1.5 text-xs text-muted-foreground">
                 Showing {filtered.length} of {totalMatches} — type to narrow down.
               </p>
             )}
@@ -256,7 +256,7 @@ function ComboCell({
             <button
               type="button"
               onClick={() => void choose({ name: "", code: "" })}
-              className="flex w-full items-center gap-1.5 border-t px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-accent hover:text-destructive"
+              className="flex w-full items-center gap-1.5 border-t px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-destructive"
             >
               <X size={11} /> Clear
             </button>
@@ -371,7 +371,7 @@ export function IndustryColumnFilter({
       >
         <input type="checkbox" checked={isOn} onChange={() => toggle(key)} className="h-3.5 w-3.5 shrink-0 accent-primary" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{count}</span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">{count}</span>
       </label>
     );
   };
@@ -393,7 +393,7 @@ export function IndustryColumnFilter({
       >
         <Filter size={11} className={active ? "fill-primary/20" : ""} />
         {active && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold text-primary-foreground">
+          <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-xs font-bold text-primary-foreground">
             {value.length}
           </span>
         )}
@@ -401,7 +401,7 @@ export function IndustryColumnFilter({
 
       <AnchoredPopover anchorRef={anchorRef} isOpen={open} onClose={() => setOpen(false)} className="w-64">
         <div className="rounded-md border bg-popover text-left shadow-lg">
-          <div className="border-b px-2.5 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="border-b px-2.5 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Filter by industry
             <span className="mt-0.5 block font-normal normal-case tracking-normal">
               Shows projects with any of the ticked industries.
@@ -423,7 +423,7 @@ export function IndustryColumnFilter({
             {filtered.map((o) => row(o.key, o.name, o.count))}
             {!q && noneCount > 0 && row(NO_INDUSTRY_FILTER_KEY, "No industry set", noneCount, true)}
             {filtered.length === 0 && (
-              <p className="px-2.5 py-2 text-[11px] font-normal normal-case italic text-muted-foreground">
+              <p className="px-2.5 py-2 text-xs font-normal normal-case italic text-muted-foreground">
                 {options.length === 0 ? "No industries set on any project yet." : `No industry matches "${query.trim()}".`}
               </p>
             )}
@@ -433,14 +433,14 @@ export function IndustryColumnFilter({
               type="button"
               disabled={!active}
               onClick={() => onChange([])}
-              className="flex items-center gap-1 text-[11px] font-normal normal-case text-muted-foreground hover:text-destructive disabled:opacity-40"
+              className="flex items-center gap-1 text-xs font-normal normal-case text-muted-foreground hover:text-destructive disabled:opacity-40"
             >
               <X size={11} /> Clear filter
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded bg-primary px-2.5 py-1 text-[11px] font-semibold normal-case text-primary-foreground hover:bg-primary/90"
+              className="rounded bg-primary px-2.5 py-1 text-xs font-semibold normal-case text-primary-foreground hover:bg-primary/90"
             >
               Done
             </button>
@@ -521,13 +521,13 @@ export function IndustryCell({ project, editable, onUpdated }: CellProps) {
           <span
             key={name}
             title={name}
-            className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background ${getAvatarColor(name)}`}
+            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background ${getAvatarColor(name)}`}
           >
             {getInitials(name)}
           </span>
         ))}
         {selected.length > 3 && (
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground ring-2 ring-background">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground ring-2 ring-background">
             +{selected.length - 3}
           </span>
         )}
@@ -585,7 +585,7 @@ export function IndustryCell({ project, editable, onUpdated }: CellProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             <span>Industries</span>
             {selected.length > 0 && <span className="normal-case font-semibold">{selected.length} selected</span>}
           </div>
@@ -622,7 +622,7 @@ export function IndustryCell({ project, editable, onUpdated }: CellProps) {
               );
             })}
             {filtered.length === 0 && !query.trim() && (
-              <p className="px-2.5 py-2 text-[11px] italic text-muted-foreground">No industries listed.</p>
+              <p className="px-2.5 py-2 text-xs italic text-muted-foreground">No industries listed.</p>
             )}
           </div>
 
@@ -631,14 +631,14 @@ export function IndustryCell({ project, editable, onUpdated }: CellProps) {
               type="button"
               disabled={selected.length === 0 || saving}
               onClick={() => void save([])}
-              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive disabled:opacity-40"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-40"
             >
               <X size={11} /> Clear all
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"
+              className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
             >
               Done
             </button>

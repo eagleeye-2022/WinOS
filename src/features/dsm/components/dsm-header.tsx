@@ -1,5 +1,6 @@
 import { formatDayHeader, formatFullDate, toUtcDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
+import { PageTitle } from "@/components/shared/page-header";
 
 type DsmHeaderProps = {
   entry: EntryWithDetails | null;
@@ -15,7 +16,7 @@ export function DsmHeader({ entry }: DsmHeaderProps) {
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p className="text-xs font-medium text-muted-foreground">{formatDayHeader(now)}</p>
-        <h1 className="text-3xl font-bold tracking-tight">{formatFullDate(now)}</h1>
+        <PageTitle>{formatFullDate(now)}</PageTitle>
       </div>
 
       <div className="mb-0.5 flex flex-wrap items-center gap-5">

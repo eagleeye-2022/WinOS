@@ -23,6 +23,7 @@ import { Project, TaskItem, UserTimeGroup, isTaskDone } from "../../types";
 import { PhasesTableView } from "./phases-table-view";
 import { ProjectTimeLogsView } from "./project-time-logs-view";
 import { parseDurationMinutes } from "../../utils/time-helpers";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function ClientPortalView() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -136,14 +137,14 @@ export function ClientPortalView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">Client Portal Workspace</h1>
-              <span className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-bold flex items-center gap-1">
+              <PageTitle>Client Portal Workspace</PageTitle>
+              <span className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 text-xs font-bold flex items-center gap-1">
                 <Lock size={12} /> Read-Only Mode
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <PageDescription className="mt-0.5">
               Project Status & Effort Logs Overview
-            </p>
+            </PageDescription>
           </div>
         </div>
 
@@ -190,7 +191,7 @@ export function ClientPortalView() {
                   }`}
                 >
                   <span>{p.name}</span>
-                  <span className="font-mono text-[10px] opacity-75">({p.id})</span>
+                  <span className="font-mono text-xs opacity-75">({p.id})</span>
                 </button>
               );
             })}
@@ -203,7 +204,7 @@ export function ClientPortalView() {
         {/* Project Progress */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Overall Progress</span>
+            <span className="text-xs font-semibold">Overall Progress</span>
             <PieChart size={15} className="text-primary" />
           </div>
           <div className="text-lg font-bold text-foreground">{progressPercent}%</div>
@@ -218,57 +219,57 @@ export function ClientPortalView() {
         {/* Tasks Completed */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Tasks Completed</span>
+            <span className="text-xs font-semibold">Tasks Completed</span>
             <ListTodo size={15} className="text-emerald-500" />
           </div>
           <div className="text-lg font-bold text-foreground">
             {completedTasksCount} / {totalTasksCount}
           </div>
-          <p className="text-[10px] text-muted-foreground">Tasks Closed</p>
+          <p className="text-xs text-muted-foreground">Tasks Closed</p>
         </div>
 
         {/* Phases Completed */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Phases Completed</span>
+            <span className="text-xs font-semibold">Phases Completed</span>
             <Flag size={15} className="text-indigo-500" />
           </div>
           <div className="text-lg font-bold text-foreground">
             {completedPhasesCount} / {totalPhasesCount}
           </div>
-          <p className="text-[10px] text-muted-foreground">Phases Verified</p>
+          <p className="text-xs text-muted-foreground">Phases Verified</p>
         </div>
 
         {/* Total Hours */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Total Hours</span>
+            <span className="text-xs font-semibold">Total Hours</span>
             <Clock size={15} className="text-sky-500" />
           </div>
           <div className="text-lg font-bold text-foreground">{totalHoursText}</div>
-          <p className="text-[10px] text-muted-foreground">Total Effort Logged</p>
+          <p className="text-xs text-muted-foreground">Total Effort Logged</p>
         </div>
 
         {/* Billable Hours */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Billable Hours</span>
+            <span className="text-xs font-semibold">Billable Hours</span>
             <DollarSign size={15} className="text-emerald-500" />
           </div>
           <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
             {billableHoursText}
           </div>
-          <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-medium">Billable Work</p>
+          <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 font-medium">Billable Work</p>
         </div>
 
         {/* Non-Billable Hours */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-semibold">Non-Billable Hours</span>
+            <span className="text-xs font-semibold">Non-Billable Hours</span>
             <Coffee size={15} className="text-amber-500" />
           </div>
           <div className="text-lg font-bold text-muted-foreground">{nonBillableHoursText}</div>
-          <p className="text-[10px] text-muted-foreground">Internal / Standard</p>
+          <p className="text-xs text-muted-foreground">Internal / Standard</p>
         </div>
       </div>
 

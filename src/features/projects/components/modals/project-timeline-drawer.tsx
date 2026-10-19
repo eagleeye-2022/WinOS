@@ -124,7 +124,7 @@ export function ProjectTimelineDrawer({
           <div>
             <h3 className="text-sm font-bold text-foreground">Project Activity</h3>
             {(projectCode || projectName) && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {projectCode ? `${projectCode} - ` : ""}
                 {projectName || ""}
               </p>
@@ -193,7 +193,7 @@ export function ProjectTimelineDrawer({
 
                     <div className="space-y-1">
                       {/* Date & Time header */}
-                      <p className="text-[10px] text-muted-foreground font-medium">
+                      <p className="text-xs text-muted-foreground font-medium">
                         {formattedDate} · {formattedTime}
                       </p>
 
@@ -206,21 +206,21 @@ export function ProjectTimelineDrawer({
                       {ev.oldValue && ev.newValue ? (
                         <div className="mt-1 flex items-center flex-wrap gap-1.5 text-xs">
                           <span
-                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground font-mono line-through text-[11px] align-middle"
+                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-muted text-muted-foreground font-mono line-through text-xs align-middle"
                             title={ev.oldValue}
                           >
                             {formatTimelineValue(ev.oldValue, 40)}
                           </span>
                           <span className="text-muted-foreground font-bold text-xs shrink-0">→</span>
                           <span
-                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-primary/10 text-primary font-mono font-semibold text-[11px] align-middle"
+                            className="inline-block max-w-[160px] truncate rounded px-1.5 py-0.5 bg-primary/10 text-primary font-mono font-semibold text-xs align-middle"
                             title={ev.newValue}
                           >
                             {formatTimelineValue(ev.newValue, 40)}
                           </span>
                         </div>
                       ) : (
-                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3 break-words" title={ev.description}>
+                        <p className="text-xs text-muted-foreground leading-snug line-clamp-3 break-words" title={ev.description}>
                           {ev.description}
                         </p>
                       )}

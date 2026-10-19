@@ -61,7 +61,7 @@ export function WhyfiDueDate({
     <div className="flex items-center gap-1.5">
       <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
         <CalendarIcon size={12} className="text-muted-foreground" />
-        <span className="text-[11px] font-bold uppercase tracking-wider">Due:</span>
+        <span className="text-xs font-bold uppercase tracking-wider">Due:</span>
         <DueDateInput value={task.dueDate} onChange={save} disabled={pending} />
         {pending && <Loader2 size={11} className="animate-spin" />}
       </div>

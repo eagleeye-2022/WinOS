@@ -173,7 +173,7 @@ export function ProjectTaskCascadingPicker({
       {/* 3. Subtask Selector (Visible if chosen task has subtasks) */}
       {taskId && currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
         <div className="flex items-center gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subtask:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Subtask:</span>
           <select
             value={subtaskId}
             onChange={(e) => handleSubtaskChange(e.target.value)}

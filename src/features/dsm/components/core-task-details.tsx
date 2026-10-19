@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarRange, Clock, FileText, FolderGit2, Loader2, Users } from "lucide-react";
@@ -7,11 +8,7 @@ import { CORE_DAILY_TASKS_FALLBACK_DESCRIPTIONS } from "../core-daily-tasks";
 import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
 import { formatEffortMinutes, toIsoDateStr, toUtcDate } from "../utils";
 import type { CoreDailyTask, DailyTimeSummary } from "../queries";
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
-}
+import { getInitials } from "@/lib/avatar";
 
 function displayName(user: { name: string | null; email: string }): string {
   return user.name?.trim() || user.email.split("@")[0];
@@ -84,7 +81,7 @@ export function CoreTaskDetails({
         <span className="truncate text-muted-foreground">
           {task.project?.name ?? "—"} · {task.taskListName ?? "—"}
         </span>
-        <span className="ml-auto shrink-0 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+        <span className="ml-auto shrink-0 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
           {task.status}
         </span>
       </div>
@@ -130,23 +127,20 @@ export function CoreTaskDetails({
         ) : (
           <div className="flex flex-wrap items-center gap-1">
             {owners.slice(0, MAX_AVATARS).map((u) => (
-              <span
+              <UserAvatar
                 key={u.id}
-                title={displayName(u)}
-                className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-primary/15 text-[9px] font-bold text-primary ring-1 ring-primary/30"
+                userId={u.id}
+                name={displayName(u)}
+                image={u.image}
+                className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-primary/15 text-xs font-bold text-primary ring-1 ring-primary/30"
               >
-                {u.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={u.image} alt={displayName(u)} className="h-full w-full object-cover" />
-                ) : (
-                  initialsOf(displayName(u))
-                )}
-              </span>
+                {getInitials(displayName(u))}
+              </UserAvatar>
             ))}
             {owners.length > MAX_AVATARS && (
               <span
                 title={owners.slice(MAX_AVATARS).map(displayName).join(", ")}
-                className="flex h-6 items-center rounded-full bg-muted px-1.5 text-[9px] font-bold text-muted-foreground"
+                className="flex h-6 items-center rounded-full bg-muted px-1.5 text-xs font-bold text-muted-foreground"
               >
                 +{owners.length - MAX_AVATARS}
               </span>

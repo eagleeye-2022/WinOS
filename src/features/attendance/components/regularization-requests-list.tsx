@@ -206,7 +206,7 @@ export function RegularizationRequestsList({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3.5 px-5">Employee</th>
                 <th className="py-3.5 px-5">Attendance Date</th>
                 <th className="py-3.5 px-5">Existing Timing</th>
@@ -250,7 +250,7 @@ export function RegularizationRequestsList({
                           <div className="font-bold text-slate-900 dark:text-slate-100">
                             {req.employee.name}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {req.employee.designation} • ID: {req.employee.employeeId}
                           </div>
                         </div>
@@ -262,7 +262,7 @@ export function RegularizationRequestsList({
                       <div className="font-semibold text-slate-800 dark:text-slate-200">
                         {req.attendanceDate}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {req.attendanceDay}
                       </div>
                     </td>
@@ -273,7 +273,7 @@ export function RegularizationRequestsList({
                         {req.existingAttendance.checkIn || "--:--"} →{" "}
                         {req.existingAttendance.checkOut || "--:--"}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {req.existingAttendance.workedDuration || "--"}
                       </div>
                     </td>
@@ -284,7 +284,7 @@ export function RegularizationRequestsList({
                         {req.requestedAttendance.checkIn} →{" "}
                         {req.requestedAttendance.checkOut}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {req.requestedAttendance.workedDuration}
                       </div>
                     </td>
@@ -294,7 +294,7 @@ export function RegularizationRequestsList({
                       <div className="font-medium text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
                         {req.reason}
                       </div>
-                      <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
+                      <div className="text-xs text-slate-400 truncate max-w-[180px]">
                         {req.remarks || "No remarks"}
                       </div>
                     </td>
@@ -302,19 +302,19 @@ export function RegularizationRequestsList({
                     {/* Status */}
                     <td className="py-3.5 px-5">
                       {req.status === "Pending" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                           Pending
                         </span>
                       )}
                       {req.status === "Approved" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           Approved
                         </span>
                       )}
                       {req.status === "Rejected" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
                           <XCircle className="w-3 h-3 text-rose-600" />
                           Rejected
                         </span>

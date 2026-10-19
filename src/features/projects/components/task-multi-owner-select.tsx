@@ -1,7 +1,9 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Search, Check } from "lucide-react";
+import { getAvatarColor, getInitials } from "@/lib/avatar";
 
 export interface OwnerUserOption {
   id: string;
@@ -104,34 +106,6 @@ export function TaskMultiOwnerSelect({
   }, [ownersList]);
 
   // Generate consistent vibrant background color per user name
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-amber-500 text-white",
-      "bg-emerald-500 text-white",
-      "bg-sky-500 text-white",
-      "bg-purple-500 text-white",
-      "bg-rose-500 text-white",
-      "bg-indigo-500 text-white",
-      "bg-teal-500 text-white",
-      "bg-orange-500 text-white",
-      "bg-cyan-500 text-white",
-      "bg-pink-500 text-white",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const filteredList = effectiveOwnersList.filter(
     (u) =>
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -204,11 +178,11 @@ export function TaskMultiOwnerSelect({
           squeezing it into a side column, which wraps badly in narrow popovers. */}
       {label && (
         <div className="mb-1.5 flex items-center justify-between select-none">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground dark:text-neutral-400">
+          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground dark:text-neutral-400">
             {label}
           </span>
           {internalSelected.length > 0 && (
-            <span className="text-[10px] font-semibold text-muted-foreground/70">
+            <span className="text-xs font-semibold text-muted-foreground/70">
               {internalSelected.length} assigned
             </span>
           )}
@@ -244,13 +218,15 @@ export function TaskMultiOwnerSelect({
                   key={key}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-zinc-700 bg-muted/60 dark:bg-zinc-800 pl-0.5 pr-2 py-0.5 text-xs font-medium text-foreground dark:text-zinc-200 transition-colors group select-none shadow-2xs"
                 >
-                  <span
-                    className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
+                  <UserAvatar
+                    name={displayName}
+                    title=""
+                    className={`h-5 w-5 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 shadow-2xs ${getAvatarColor(
                       displayName
                     )}`}
                   >
                     {getInitials(displayName)}
-                  </span>
+                  </UserAvatar>
                   <span className="truncate max-w-[170px] leading-none">{displayName}</span>
                   {!disabled && (
                     <button
@@ -309,7 +285,7 @@ export function TaskMultiOwnerSelect({
             {/* Member Options List */}
             <div className="max-h-56 overflow-y-auto py-1 space-y-0.5">
               {listLabel && (
-                <p className="px-3 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                <p className="px-3 pt-1 pb-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
                   {listLabel}
                 </p>
               )}
@@ -323,7 +299,7 @@ export function TaskMultiOwnerSelect({
                   }`}
                 >
                   <div className="flex items-center gap-2.5 truncate">
-                    <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 bg-neutral-200 text-neutral-600 dark:bg-zinc-800 dark:text-zinc-400">
+                    <span className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-neutral-200 text-neutral-600 dark:bg-zinc-800 dark:text-zinc-400">
                       Ø
                     </span>
                     <span className="truncate italic">Unassigned</span>
@@ -351,13 +327,17 @@ export function TaskMultiOwnerSelect({
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">
-                        <span
-                          className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs ${getAvatarColor(
+                        <UserAvatar
+                          userId={u.id}
+                          name={u.name}
+                          email={u.email}
+                          title=""
+                          className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-2xs ${getAvatarColor(
                             u.name
                           )}`}
                         >
                           {getInitials(u.name)}
-                        </span>
+                        </UserAvatar>
                         <span className="truncate">{u.name}</span>
                       </div>
 

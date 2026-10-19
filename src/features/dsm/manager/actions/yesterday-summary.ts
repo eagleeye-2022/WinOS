@@ -97,13 +97,53 @@ async function syncDsrPlannedTask(userId: string, date: Date, text: string, isCo
   });
 }
 
+/** When a manager marks a previous-day task not done, carry it into the member's next submitted
+ *  DSM. The member form only carries unfinished tasks into a *fresh* form, so once the next DSM
+ *  is submitted (the usual case by review time) the task would otherwise be dropped. Skipped when
+ *  that entry already has a TODAY task with the same text, or when there's no next entry yet
+ *  (the fresh form will carry it itself). */
+async function carryIntoNextEntry(
+  task: { text: string; projectTaskId: string | null; projectId: string | null; entry: { userId: string; date: Date } },
+  managerId: string,
+  managerName: string | null
+) {
+  const next = await d.standupEntry.findFirst({
+    where: {
+      userId: task.entry.userId,
+      date: { gt: task.entry.date },
+      status: { in: ["SUBMITTED", "PENDING_REVIEW", "REVIEWED"] },
+    },
+    orderBy: { date: "asc" },
+    select: { id: true, status: true, tasks: { select: { kind: true, text: true, order: true } } },
+  });
+  if (!next) return;
+
+  const tasks = next.tasks as { kind: string; text: string; order: number }[];
+  if (tasks.some((t) => t.kind === "TODAY" && normText(t.text) === normText(task.text))) return;
+
+  const maxOrder = tasks.reduce((max, t) => Math.max(max, t.order ?? 0), -1);
+  await d.standupTask.create({
+    data: {
+      entryId: next.id,
+      kind: "TODAY",
+      text: task.text,
+      projectTaskId: task.projectTaskId,
+      projectId: task.projectId,
+      order: maxOrder + 1,
+      addedAfterReview: next.status === "REVIEWED",
+      addedById: managerId,
+    },
+  });
+  await logTimeline(next.id, `${managerName ?? "Manager"} carried over unfinished task: "${task.text}"`);
+}
+
 export async function toggleSummaryTask(taskId: string, isCompleted: boolean): Promise<SummaryTaskState> {
   const manager = await requireManagerUser();
   if (!manager) return { message: "Unauthorized" };
 
   const task = await d.standupTask.findUnique({
     where: { id: taskId },
-    select: { text: true, entryId: true, entry: { select: { userId: true, date: true } } },
+    select: { text: true, entryId: true, projectTaskId: true, projectId: true, entry: { select: { userId: true, date: true } } },
   });
   if (!task) return { message: "Task not found" };
 
@@ -113,6 +153,7 @@ export async function toggleSummaryTask(taskId: string, isCompleted: boolean): P
     task.entryId,
     `${manager.name ?? "Manager"} marked "${task.text}" as ${isCompleted ? "done" : "not done"}`
   );
+  if (!isCompleted) await carryIntoNextEntry(task, manager.id, manager.name);
 
   revalidateMember(task.entry.userId);
   return { message: "updated" };
@@ -146,6 +187,7 @@ export async function saveSummaryTask(_prev: SummaryTaskState, formData: FormDat
     // Match on the pre-edit text: that's what the DSR planned task still carries.
     await syncDsrPlannedTask(existing.entry.userId, existing.entry.date, existing.text, isCompleted);
     await logTimeline(existing.entryId, `${manager.name ?? "Manager"} edited yesterday's task: "${text}"`);
+    if (!isCompleted) await carryIntoNextEntry({ text, projectTaskId, projectId, entry: existing.entry }, manager.id, manager.name);
     revalidateMember(existing.entry.userId);
     return { message: "saved" };
   }

@@ -38,7 +38,7 @@ export function YesterdayAdditionalWork({
   return (
     <div className="mt-4 border-t border-border/60 pt-4">
       <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-        <CheckCircle2 size={15} className="text-primary dark:text-[#3B82F6]" />
+        <CheckCircle2 size={15} className="text-primary" />
         Additional Work
         <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
           {items.length} task{items.length !== 1 ? "s" : ""}

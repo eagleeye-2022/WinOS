@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect } from "react";
 import { Search, X, UserPlus, Check, Loader2, Shield, Users } from "lucide-react";
 import {
@@ -7,6 +8,7 @@ import {
   addProjectMembersAction,
   ProjectMemberUser,
 } from "../../actions/project-actions";
+import { getAvatarColor, getInitials } from "@/lib/avatar";
 
 interface AddProjectUsersModalProps {
   isOpen: boolean;
@@ -89,32 +91,6 @@ export function AddProjectUsersModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-emerald-600 text-white",
-      "bg-blue-600 text-white",
-      "bg-purple-600 text-white",
-      "bg-amber-600 text-white",
-      "bg-rose-600 text-white",
-      "bg-indigo-600 text-white",
-      "bg-teal-600 text-white",
-      "bg-cyan-600 text-white",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
   };
 
   return (
@@ -208,21 +184,23 @@ export function AddProjectUsersModal({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div
+                      <UserAvatar
+                        userId={user.id}
+                        name={user.name}
                         className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${getAvatarColor(
                           user.name
                         )}`}
                       >
                         {getInitials(user.name)}
-                      </div>
+                      </UserAvatar>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-foreground">{user.name}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
                             {user.department || "Team"}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">{user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
 

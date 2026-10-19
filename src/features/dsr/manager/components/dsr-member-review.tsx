@@ -332,7 +332,7 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
 
       <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="font-semibold text-muted-foreground uppercase text-[11px]">Project:</span>
+        <span className="font-semibold text-muted-foreground uppercase text-xs">Project:</span>
 
         <SearchableSelect
           value={selectedProjectId}
@@ -395,7 +395,7 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
       <div className="flex items-center justify-between gap-3 flex-wrap border-t pt-2 border-border/50">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Priority:
             </span>
             <select
@@ -412,7 +412,7 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
           </div>
 
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
-            <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
             <input
               type="date"
               name="dueDate"
@@ -968,7 +968,7 @@ function ReviewerActionsCard({
         </div>
         {managerComment && (
           <div className="rounded-lg bg-success/15 p-3 text-xs text-success border border-success/30">
-            <p className="font-semibold uppercase tracking-wider text-[10px] text-success mb-1">
+            <p className="font-semibold uppercase tracking-wider text-xs text-success mb-1">
               Manager Comment:
             </p>
             <p className="whitespace-pre-wrap leading-relaxed">{managerComment}</p>

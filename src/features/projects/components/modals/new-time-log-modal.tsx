@@ -195,7 +195,7 @@ export function NewTimeLogModal({
 
   // Rich Text Editor states
   const [notesText, setNotesText] = useState("");
-  const [fontFamily, setFontFamily] = useState("Puvi");
+  const [fontFamily, setFontFamily] = useState("Poppins");
   const [fontSize, setFontSize] = useState("13");
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
@@ -597,7 +597,7 @@ export function NewTimeLogModal({
                   <button
                     type="button"
                     onClick={() => setIsGeneralLog(true)}
-                    className="text-primary hover:underline font-medium text-[11px] cursor-pointer"
+                    className="text-primary hover:underline font-medium text-xs cursor-pointer"
                   >
                     Enter General Log
                   </button>
@@ -617,7 +617,7 @@ export function NewTimeLogModal({
                   <button
                     type="button"
                     onClick={() => setIsGeneralLog(false)}
-                    className="text-primary hover:underline font-medium text-[11px] cursor-pointer"
+                    className="text-primary hover:underline font-medium text-xs cursor-pointer"
                   >
                     Select Task/Bug Log
                   </button>
@@ -719,14 +719,14 @@ export function NewTimeLogModal({
                             />
                           </div>
                           {computedRangeDuration && (
-                            <p className="text-[11px] font-semibold text-foreground">
+                            <p className="text-xs font-semibold text-foreground">
                               Daily Log Hours: <span className="font-mono text-primary">{computedRangeDuration} h</span>
                             </p>
                           )}
                           <button
                             type="button"
                             onClick={() => setUseHoursMode(true)}
-                            className="text-primary hover:underline font-medium text-[11px] cursor-pointer"
+                            className="text-primary hover:underline font-medium text-xs cursor-pointer"
                           >
                             Enter Hours
                           </button>
@@ -747,14 +747,14 @@ export function NewTimeLogModal({
                           <button
                             type="button"
                             onClick={() => setUseHoursMode(false)}
-                            className="text-primary hover:underline font-medium text-[11px] cursor-pointer"
+                            className="text-primary hover:underline font-medium text-xs cursor-pointer"
                           >
                             Enter Time Range
                           </button>
                         </div>
                       )}
                       {timeError && (
-                        <p className="text-[11px] font-semibold text-destructive pt-0.5">
+                        <p className="text-xs font-semibold text-destructive pt-0.5">
                           {timeError}
                         </p>
                       )}
@@ -842,17 +842,15 @@ export function NewTimeLogModal({
                         <select
                           value={fontFamily}
                           onChange={(e) => setFontFamily(e.target.value)}
-                          className="bg-transparent text-foreground text-[11px] outline-none cursor-pointer px-1"
+                          className="bg-transparent text-foreground text-xs outline-none cursor-pointer px-1"
                         >
-                          <option value="Puvi" className="bg-background text-foreground">Puvi</option>
-                          <option value="Inter" className="bg-background text-foreground">Inter</option>
-                          <option value="Roboto" className="bg-background text-foreground">Roboto</option>
+                          <option value="Poppins" className="bg-background text-foreground">Poppins</option>
                         </select>
 
                         <select
                           value={fontSize}
                           onChange={(e) => setFontSize(e.target.value)}
-                          className="bg-transparent text-foreground text-[11px] outline-none cursor-pointer px-1"
+                          className="bg-transparent text-foreground text-xs outline-none cursor-pointer px-1"
                         >
                           <option value="12" className="bg-background text-foreground">12</option>
                           <option value="13" className="bg-background text-foreground">13</option>
@@ -889,7 +887,7 @@ export function NewTimeLogModal({
 
                         <button
                           type="button"
-                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 text-[10px] font-semibold hover:bg-purple-500/30"
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 text-xs font-semibold hover:bg-purple-500/30"
                           title="AI Assistant"
                         >
                           <Sparkles size={11} />

@@ -1,13 +1,18 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { RemarksPopupCell } from "../remarks-popup-cell";
+import { shortProjectName } from "../../utils/project-name";
+import { EffortLogPeriodPicker } from "../effort-log-period-picker";
 import React, { useState, useEffect } from "react";
 import {
   Clock,
   Settings,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Calendar as CalendarIcon,
   Plus,
   Filter,
@@ -54,6 +59,7 @@ import {
   MAX_LOG_MINUTES,
   MAX_LOG_DURATION_ERROR,
   SAME_DAY_LOG_ERROR,
+  formatMinutesToHHMM,
 } from "../../utils/time-helpers";
 import {
   updateTimeLogAction,
@@ -69,15 +75,19 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 import Link from "next/link";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { PageTitle } from "@/components/shared/page-header";
 
 const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
+const PERIOD_MODES = ["Day", "Month", "Range"] as const;
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
   projectId?: string;
   projectName?: string;
   assignedUsers?: string[];
+  /** Only Whyfi School (learning) logs — keeps that filter when the view re-fetches. */
+  learningOnly?: boolean;
 }
 
 /** Log Title cell text: a link to the logged task (new tab, like the ⓘ task icon elsewhere);
@@ -150,7 +160,11 @@ function InlineTextCell({
   );
 }
 
-export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers }: TimeTrackerViewProps) {
+export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers, learningOnly = false }: TimeTrackerViewProps) {
+  // Pulse → Whyfi Effort Logs: learning time isn't billed, and its "project" is a Whyfi School list —
+  // so no billing column/filter/split, a single hours total, and "Whyfi School" instead of "Project".
+  const showBilling = !learningOnly;
+  const projectLabel = learningOnly ? "Whyfi School" : "Project";
   const { confirm: confirmDialog, ConfirmDialog } = useConfirm();
   const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
   const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
@@ -236,22 +250,33 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   };
 
-  // Both filter bounds are the same day — kept as a pair for a minimal diff
-  // against the filtering logic below.
-  const currentWeekStart = selectedDate;
-  const currentWeekEnd = selectedDate;
-
-  const isToday = formatYYYYMMDD(selectedDate) === formatYYYYMMDD(getToday());
-
-  const dateRangeStr = isToday ? `${formatDDMMYYYY(selectedDate)} (Today)` : formatDDMMYYYY(selectedDate);
-
-  const shiftSelectedDate = (deltaDays: number) => {
-    setSelectedDate((prev) => {
-      const next = new Date(prev);
-      next.setDate(next.getDate() + deltaDays);
-      return next;
-    });
+  // Period mode: a single day (default), a whole month, or a custom from–to range — all kept in
+  // the URL (?logPeriod, ?logMonth=YYYY-MM, ?logFrom/?logTo=YYYY-MM-DD) like the other filters.
+  const [periodMode, setPeriodMode] = useUrlState<(typeof PERIOD_MODES)[number]>("logPeriod", "Day", {
+    allowed: PERIOD_MODES,
+  });
+  const parseYYYYMMDD = (s: string): Date | null => {
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
   };
+  const [logMonthParam, setLogMonthParam] = useUrlState("logMonth", "");
+  const monthMatch = logMonthParam.match(/^(\d{4})-(\d{2})$/);
+  const selectedMonthStart = monthMatch
+    ? new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1)
+    : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const selectedMonthEnd = new Date(selectedMonthStart.getFullYear(), selectedMonthStart.getMonth() + 1, 0);
+  const formatYYYYMM = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+  const [logFromParam, setLogFromParam] = useUrlState("logFrom", "");
+  const [logToParam, setLogToParam] = useUrlState("logTo", "");
+  const rangeFrom = parseYYYYMMDD(logFromParam) ?? selectedDate;
+  const rangeToRaw = parseYYYYMMDD(logToParam) ?? selectedDate;
+  // A "to" before "from" is treated as the same single day rather than an empty result.
+  const rangeTo = rangeToRaw < rangeFrom ? rangeFrom : rangeToRaw;
+
+  // Inclusive filter bounds for the chosen period.
+  const currentWeekStart = periodMode === "Month" ? selectedMonthStart : periodMode === "Range" ? rangeFrom : selectedDate;
+  const currentWeekEnd = periodMode === "Month" ? selectedMonthEnd : periodMode === "Range" ? rangeTo : selectedDate;
 
   const parseDDMMYYYYToDate = (dateStr: string): Date | null => {
     const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -316,7 +341,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   const handleStartGlobalTimer = (project: string, taskTitle: string, taskCode?: string) => {
     if (runningTimer) {
-      alert(
+      toast.warning(
         `A timer is already running for "${runningTimer.taskTitle}" in project "${runningTimer.project}". Please stop the active timer before starting a new one.`
       );
       return;
@@ -713,7 +738,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
     // 3. Re-fetch the full canonical time logs from the server in background to ensure 100% sync
     try {
-      const freshGroups = await getTimeLogsAction(projectId);
+      const freshGroups = await getTimeLogsAction(projectId, { learningOnly });
       if (freshGroups && Array.isArray(freshGroups)) {
         setUserGroups(freshGroups);
       }
@@ -736,7 +761,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
     // 2. Refresh canonical from server in background
     try {
-      const freshGroups = await getTimeLogsAction(projectId);
+      const freshGroups = await getTimeLogsAction(projectId, { learningOnly });
       if (freshGroups && Array.isArray(freshGroups)) {
         setUserGroups(freshGroups);
       }
@@ -750,17 +775,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return parseDurationMinutes(duration);
   };
 
-  const formatMinutes = (totalMinutes: number): string => {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
-  };
-
-  const formatMinutesShort = (totalMinutes: number): string => {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  };
+  const formatMinutes = (totalMinutes: number): string => `${formatMinutesToHHMM(totalMinutes)} h`;
+  const formatMinutesShort = formatMinutesToHHMM;
 
   const normalizeDateStr = (dateStr: string): string => {
     if (!dateStr) return "Today";
@@ -790,7 +806,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     if (normalizedLogDate && (normalizedLogDate < currentWeekStart || normalizedLogDate > currentWeekEnd)) return false;
     if (filterUser !== "ALL" && l.userName.toLowerCase() !== filterUser.toLowerCase()) return false;
     if (filterProject !== "ALL" && l.project.toLowerCase() !== filterProject.toLowerCase()) return false;
-    if (filterBilling !== "ALL" && l.billingType !== filterBilling) return false;
+    // (Ignored on the Whyfi page, which has no billing filter to clear a stale ?logBilling.)
+    if (showBilling && filterBilling !== "ALL" && l.billingType !== filterBilling) return false;
     if (filterStatus !== "ALL" && (l.approvalStatus || "Pending") !== filterStatus) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -936,14 +953,42 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     document.body.removeChild(link);
   };
 
+  // Expand / collapse every group (user, date or project) of the current grouping at once —
+  // shown in the first header cell of each table, where a select-all checkbox used to be.
+  const visibleGroupKeys =
+    groupBy === "Group By User"
+      ? filteredUserGroupsData.map((g) => g.userId)
+      : groupBy === "Group By Project"
+        ? filteredProjectGroupsData.map((g) => `project:${g.projectKey}`)
+        : dateGroupsData.map((g) => g.date);
+  const allGroupsCollapsed = visibleGroupKeys.length > 0 && visibleGroupKeys.every((k) => collapsedDates[k]);
+  const expandCollapseAllHeader = (
+    <button
+      type="button"
+      disabled={visibleGroupKeys.length === 0}
+      onClick={() =>
+        setCollapsedDates((prev) => {
+          const next = { ...prev };
+          for (const k of visibleGroupKeys) next[k] = !allGroupsCollapsed;
+          return next;
+        })
+      }
+      className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+      title={allGroupsCollapsed ? "Expand All" : "Collapse All"}
+      aria-label={allGroupsCollapsed ? "Expand All" : "Collapse All"}
+    >
+      {allGroupsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+    </button>
+  );
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-background text-foreground overflow-hidden relative text-xs">
       {/* ── Top App Title Bar with Role Switcher (Commented out per user request) ────────────────
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-3">
-          <h1 className="text-base font-bold tracking-wide text-foreground">
+          <PageTitle>
             Effort Logs
-          </h1>
+          </PageTitle>
           <span className="text-muted-foreground">•</span>
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 text-xs font-semibold">
             <button
@@ -1037,7 +1082,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-3 border-b border-border bg-muted/20">
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                 Total Hours Logged
               </span>
               <span className="text-base font-extrabold text-foreground font-mono mt-0.5 block">
@@ -1051,7 +1096,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                 Billable Ratio
               </span>
               <span className="text-base font-extrabold text-info font-mono mt-0.5 block">
@@ -1065,7 +1110,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                 Non-Billable Hours
               </span>
               <span className="text-base font-extrabold text-warning font-mono mt-0.5 block">
@@ -1079,7 +1124,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
                 Pending Approvals
               </span>
               <span className="text-base font-extrabold text-amber-500 font-mono mt-0.5 block">
@@ -1114,10 +1159,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             >
               <option value="Group By Date" className="bg-card text-foreground">Group By Date</option>
               <option value="Group By User" className="bg-card text-foreground">Group By User</option>
-              <option value="Group By Project" className="bg-card text-foreground">Group By Project</option>
+              <option value="Group By Project" className="bg-card text-foreground">Group By {projectLabel}</option>
             </select>
             <ChevronDown size={14} className="text-primary pointer-events-none -ml-3" />
           </div>
+
 
           {/* <span className="text-muted-foreground font-bold">&gt;</span> */}
 
@@ -1136,57 +1182,34 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div> */}
         </div>
 
-        {/* Center Date Navigator — day view, defaults to today */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-foreground bg-card border border-border px-3 py-1 rounded-md shadow-2xs">
-          <button
-            type="button"
-            onClick={() => shiftSelectedDate(-1)}
-            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Previous Day"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <label className="relative flex items-center gap-1.5 cursor-pointer">
-            <CalendarIcon size={13} className="text-primary pointer-events-none" />
-            <span>{dateRangeStr}</span>
-            <input
-              type="date"
-              value={formatYYYYMMDD(selectedDate)}
-              onChange={(e) => {
-                if (!e.target.value) return;
-                const [y, m, d] = e.target.value.split("-").map(Number);
-                setSelectedDate(new Date(y, m - 1, d));
-              }}
-              className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
-              title="Pick a date"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => shiftSelectedDate(1)}
-            className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Next Day"
-          >
-            <ChevronRight size={14} />
-          </button>
-          {!isToday && (
-            <button
-              type="button"
-              onClick={() => setSelectedDate(getToday())}
-              className="ml-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-              title="Jump to today"
-            >
-              Today
-            </button>
-          )}
-        </div>
+        {/* Center Date Picker — one control; its popover switches between Day, Month and Range */}
+        <EffortLogPeriodPicker
+          mode={periodMode}
+          day={selectedDate}
+          month={selectedMonthStart}
+          rangeFrom={rangeFrom}
+          rangeTo={rangeTo}
+          onDay={(d) => {
+            setPeriodMode("Day");
+            setSelectedDate(d);
+          }}
+          onMonth={(m) => {
+            setPeriodMode("Month");
+            setLogMonthParam(formatYYYYMM(m));
+          }}
+          onRange={(from, to) => {
+            setPeriodMode("Range");
+            setLogFromParam(formatYYYYMMDD(from));
+            setLogToParam(formatYYYYMMDD(to));
+          }}
+        />
 
         {/* Right Action Buttons & Batch Operations */}
         <div className="flex items-center gap-2.5 text-xs">
           {/* Selected Action Buttons */}
           {selectedLogIds.length > 0 && (
             <div className="flex items-center gap-1.5 animate-in fade-in-0 duration-150 pr-2 border-r border-border">
-              <span className="text-[11px] font-bold text-muted-foreground mr-1">
+              <span className="text-xs font-bold text-muted-foreground mr-1">
                 {selectedLogIds.length} Selected:
               </span>
               {roleMode === "ADMIN" ? (
@@ -1194,7 +1217,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                   <button
                     type="button"
                     onClick={handleApproveSelected}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
                   >
                     <CheckCircle2 size={13} />
                     <span>Approve</span>
@@ -1202,7 +1225,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                   <button
                     type="button"
                     onClick={() => setShowRejectionModal(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
                   >
                     <XCircle size={13} />
                     <span>Reject</span>
@@ -1212,7 +1235,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                 <button
                   type="button"
                   onClick={handleSubmitTimesheet}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
                 >
                   <CheckCircle2 size={13} />
                   <span>Submit Approval</span>
@@ -1303,31 +1326,33 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground font-medium">Project:</span>
+            <span className="text-muted-foreground font-medium">{projectLabel}:</span>
             <select
               value={filterProject}
               onChange={(e) => setFilterProject(e.target.value)}
               className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
             >
-              <option value="ALL">All Projects</option>
+              <option value="ALL">{learningOnly ? "All Task Lists" : "All Projects"}</option>
               {uniqueProjects.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p} title={p}>{shortProjectName(p)}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground font-medium">Billing:</span>
-            <select
-              value={filterBilling}
-              onChange={(e) => setFilterBilling(e.target.value)}
-              className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
-            >
-              <option value="ALL">All Types</option>
-              <option value="BILLABLE">BILLABLE</option>
-              <option value="NON BILLABLE">NON BILLABLE</option>
-            </select>
-          </div>
+          {showBilling && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground font-medium">Billing:</span>
+              <select
+                value={filterBilling}
+                onChange={(e) => setFilterBilling(e.target.value)}
+                className="rounded border border-input bg-background px-2.5 py-1 text-xs font-semibold text-foreground cursor-pointer"
+              >
+                <option value="ALL">All Types</option>
+                <option value="BILLABLE">BILLABLE</option>
+                <option value="NON BILLABLE">NON BILLABLE</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground font-medium">Status:</span>
@@ -1368,57 +1393,53 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-2.5 px-3 border-r border-border w-10 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <ChevronDown size={13} className="text-muted-foreground" />
-                    <input
-                      type="checkbox"
-                      className="rounded border-input bg-background text-primary h-3.5 w-3.5"
-                    />
-                  </div>
+                  {expandCollapseAllHeader}
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
-                  Task ID
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                  ID
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px] text-foreground font-bold">
-                  Log Title
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px]">
+                  LOG TITLE
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px] text-foreground font-bold">
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   <div className="flex items-center gap-1.5">
                     <Folder size={13} className="text-muted-foreground" />
-                    <span>Project</span>
+                    <span>{projectLabel.toUpperCase()}</span>
                   </div>
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Clock size={13} className="text-muted-foreground" />
-                    <span>Daily Log Hours</span>
+                    <span>DAILY LOG HOURS</span>
                   </div>
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                  TASK NOTES
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Clock size={13} className="text-muted-foreground" />
-                    <span>Time Period</span>
+                    <span>TIME PERIOD</span>
                   </div>
                 </th>
                 {/* User column hidden in Group By Date by request.
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px] text-foreground font-bold">
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   <div className="flex items-center gap-1.5">
                     <UserIcon size={13} className="text-muted-foreground" />
-                    <span>User</span>
+                    <span>USER</span>
                   </div>
                 </th>
                 */}
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
-                  Billing Type
+                {showBilling && (<th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                  BILLING TYPE
+                </th>)}
+                {/* Approval Status column hidden by request (header + cell below; colSpans adjusted).
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                  APPROVAL STATUS
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap text-foreground font-bold">
-                  Approval Status
-                </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px] text-foreground font-bold">
-                  Remarks
-                </th>
-                <th className="py-2.5 px-4 whitespace-nowrap text-foreground font-bold text-right">
-                  Actions
+                */}
+                <th className="py-2.5 px-4 whitespace-nowrap text-right">
+                  ACTIONS
                 </th>
               </tr>
             </thead>
@@ -1453,11 +1474,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                       <td className="py-2.5 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-foreground font-bold">{group.totalHours}</span>
-                          <span className="text-info font-bold">{group.billableHours}</span>
-                          <span className="text-warning font-bold">{group.nonBillableHours}</span>
+                          {showBilling && <span className="text-info font-bold">{group.billableHours}</span>}
+                          {showBilling && <span className="text-warning font-bold">{group.nonBillableHours}</span>}
                         </div>
                       </td>
-                      <td colSpan={5} className="py-2.5 px-4" />
+                      <td colSpan={showBilling ? 4 : 3} className="py-2.5 px-4" />
                     </tr>
 
                     {!isCollapsed && (
@@ -1466,17 +1487,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                         <tr className="border-b border-border bg-muted/20 hover:bg-accent/40 transition-colors">
                           <td className="py-2 px-3 border-r border-border text-center" />
                           <td
-                            colSpan={9}
+                            colSpan={showBilling ? 8 : 7}
                             // Opens the Add Effort Log form for this date (pick project/task there) —
                             // it used to create a log with no task, which the server can't place.
                             onClick={() => handleOpenAddModalForDate(group.date)}
-                            className="py-2 px-4 text-muted-foreground text-[11px] font-medium cursor-pointer hover:text-primary transition-colors"
+                            className="py-2 px-4 text-muted-foreground text-xs font-medium cursor-pointer hover:text-primary transition-colors"
                           >
                             <div className="flex items-center gap-1.5 text-primary font-semibold">
                               <Plus size={14} />
                               <span>Add Effort Log</span>
                             </div>
-                            {/* <span className="text-[10px] text-muted-foreground font-normal">Click to add new inline editable row</span> */}
+                            {/* <span className="text-xs text-muted-foreground font-normal">Click to add new inline editable row</span> */}
                           </td>
                         </tr>
 
@@ -1495,11 +1516,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               />
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                               {log.taskCode || log.code}
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                            <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                                 <LogTitleLink log={log} />
@@ -1509,7 +1530,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <Folder size={14} className="text-muted-foreground shrink-0" />
-                                <span>{log.project}</span>
+                                <span title={log.project}>{shortProjectName(log.project)}</span>
                               </div>
                             </td>
 
@@ -1520,9 +1541,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
                                 mono
                                 placeholder="00:00"
-                                className="font-mono font-bold text-foreground min-w-[70px]"
+                                className="font-mono text-foreground min-w-[70px]"
                                 title="Click to edit Daily Log Hours inline"
                               />
+                            </td>
+
+                            {/* Task Notes (remarks) Column — opens a popup to read/edit */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
+                              <RemarksPopupCell value={log.remarks || ""} onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
                             </td>
 
                             {/* Time Period Column — INLINE EDITABLE */}
@@ -1532,7 +1558,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
                                 mono
                                 placeholder="00:00 - 00:00"
-                                className="text-[11px] text-muted-foreground min-w-[110px]"
+                                className="text-xs text-muted-foreground min-w-[110px]"
                                 title="Click to edit Time Period inline"
                               />
                             </td>
@@ -1540,7 +1566,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             {/* User Column — hidden in Group By Date by request.
                             <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-muted-foreground text-[11px]">↑</span>
+                                <span className="text-muted-foreground text-xs">↑</span>
                                 <span className="font-semibold text-foreground">
                                   {log.userName}
                                 </span>
@@ -1548,8 +1574,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </td>
                             */}
 
-                            {/* Billing Type Column — INLINE EDITABLE */}
-                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                            {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                               <select
                                 value={log.billingType}
                                 onChange={(e) =>
@@ -1571,9 +1597,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   NON BILLABLE
                                 </option>
                               </select>
-                            </td>
+                            </td>)}
 
-                            {/* Approval Status Column — INLINE EDITABLE */}
+                            {/* Approval Status Column — hidden by request (inline-editable select).
                             <td className="py-2 px-3 border-r border-border whitespace-nowrap">
                               <select
                                 value={log.approvalStatus || "Pending"}
@@ -1590,7 +1616,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                     ? "Only a manager can change approval status"
                                     : "Click to change approval status inline"
                                 }
-                                className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                                className={`rounded-md border px-2.5 py-0.5 text-xs font-bold outline-hidden transition-all ${
                                   roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
                                 } ${
                                   log.approvalStatus === "Approved"
@@ -1611,17 +1637,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 </option>
                               </select>
                             </td>
-
-                            {/* Remarks Column — INLINE EDITABLE (same as Group By User / Project) */}
-                            <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
-                              <InlineTextCell
-                                value={log.remarks || ""}
-                                onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
-                                placeholder="Add remarks"
-                                className="text-muted-foreground min-w-[160px] truncate"
-                                title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
-                              />
-                            </td>
+                            */}
 
                             {/* Actions Column */}
                             <td className="py-2.5 px-4 whitespace-nowrap text-right">
@@ -1662,11 +1678,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
-                  <input
-                    type="checkbox"
-                    className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
-                    onChange={(e) => handleSelectAllLogs(filteredAllLogs)}
-                  />
+                  {expandCollapseAllHeader}
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
@@ -1678,17 +1690,19 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   DAILY LOG HOURS
                 </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   TIME PERIOD
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                {showBilling && (<th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   BILLING TYPE
-                </th>
+                </th>)}
+                {/* Approval Status column hidden by request (header + cell below; colSpans adjusted).
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   APPROVAL STATUS
                 </th>
-                <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
+                */}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -1723,8 +1737,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                         <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
                           <Folder size={13} />
                         </div>
-                        <span className="text-foreground font-bold text-xs">{group.projectName}</span>
-                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        <span className="text-foreground font-bold text-xs" title={group.projectName}>{shortProjectName(group.projectName)}</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                           {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
                         </span>
                       </div>
@@ -1733,12 +1747,12 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
-                        <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>
-                        <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>
+                        {showBilling && <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>}
+                        {showBilling && <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>}
                       </div>
                     </td>
 
-                    <td colSpan={5} className="py-3 px-4" />
+                    <td colSpan={showBilling ? 4 : 3} className="py-3 px-4" />
                   </tr>
 
                   {!collapsedDates[groupKey] && (
@@ -1757,11 +1771,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                             {log.taskCode || log.code}
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                               <LogTitleLink log={log} />
@@ -1782,9 +1796,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
                               mono
                               placeholder="00:00"
-                              className="font-mono font-bold text-foreground min-w-[70px]"
+                              className="font-mono text-foreground min-w-[70px]"
                               title="Click to edit Daily Log Hours inline"
                             />
+                          </td>
+
+                          {/* Task Notes (remarks) Column — opens a popup to read/edit */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
+                            <RemarksPopupCell value={log.remarks || ""} onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
                           </td>
 
                           {/* Time Period Column — INLINE EDITABLE */}
@@ -1794,17 +1813,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
                               mono
                               placeholder="00:00 - 00:00"
-                              className="text-[11px] text-muted-foreground min-w-[175px]"
+                              className="text-xs text-muted-foreground min-w-[175px]"
                               title="Click to edit Time Period inline"
                             />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs text-muted-foreground whitespace-nowrap">
                             {log.date}
                           </td>
 
-                          {/* Billing Type Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                          {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                          {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.billingType}
                               onChange={(e) =>
@@ -1826,9 +1845,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 NON BILLABLE
                               </option>
                             </select>
-                          </td>
+                          </td>)}
 
-                          {/* Approval Status Column — INLINE EDITABLE */}
+                          {/* Approval Status Column — hidden by request (inline-editable select).
                           <td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.approvalStatus || "Pending"}
@@ -1845,7 +1864,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   ? "Only a manager can change approval status"
                                   : "Click to change approval status inline"
                               }
-                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                              className={`rounded-md border px-2.5 py-0.5 text-xs font-bold outline-hidden transition-all ${
                                 roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
                               } ${
                                 log.approvalStatus === "Approved"
@@ -1866,17 +1885,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               </option>
                             </select>
                           </td>
-
-                          {/* Remarks Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 whitespace-nowrap max-w-[260px]">
-                            <InlineTextCell
-                              value={log.remarks || ""}
-                              onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
-                              placeholder="Add remarks"
-                              className="text-muted-foreground min-w-[160px] truncate"
-                              title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
-                            />
-                          </td>
+                          */}
                         </tr>
                       ))}
                     </>
@@ -1892,33 +1901,31 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
-                  <input
-                    type="checkbox"
-                    className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
-                    onChange={(e) => handleSelectAllLogs(filteredAllLogs)}
-                  />
+                  {expandCollapseAllHeader}
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
                   LOG TITLE
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
-                  PROJECT
+                  {projectLabel.toUpperCase()}
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   DAILY LOG HOURS
                 </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   TIME PERIOD
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                {showBilling && (<th className="py-3 px-4 border-r border-border whitespace-nowrap">
                   BILLING TYPE
-                </th>
+                </th>)}
+                {/* Approval Status column hidden by request (header + cell below; colSpans adjusted).
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   APPROVAL STATUS
                 </th>
-                <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">REMARKS</th>
+                */}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -1949,11 +1956,16 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
                     <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px] shrink-0">
+                        <UserAvatar
+                          userId={group.userId}
+                          name={group.userName}
+                          title=""
+                          className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0"
+                        >
                           {group.userInitials || "US"}
-                        </div>
+                        </UserAvatar>
                         <span className="text-foreground font-bold text-xs">{group.userName}</span>
-                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                           {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
                         </span>
                       </div>
@@ -1962,12 +1974,12 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
                         <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
-                        <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>
-                        <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>
+                        {showBilling && <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>}
+                        {showBilling && <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>}
                       </div>
                     </td>
 
-                    <td colSpan={5} className="py-3 px-4" />
+                    <td colSpan={showBilling ? 4 : 3} className="py-3 px-4" />
                   </tr>
 
                   {!collapsedDates[group.userId] && (
@@ -1986,11 +1998,11 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                             {log.taskCode || log.code}
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                               <LogTitleLink log={log} />
@@ -2000,7 +2012,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                           <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Folder size={14} className="text-muted-foreground shrink-0" />
-                              <span>{log.project}</span>
+                              <span title={log.project}>{shortProjectName(log.project)}</span>
                             </div>
                           </td>
 
@@ -2011,9 +2023,14 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
                               mono
                               placeholder="00:00"
-                              className="font-mono font-bold text-foreground min-w-[70px]"
+                              className="font-mono text-foreground min-w-[70px]"
                               title="Click to edit Daily Log Hours inline"
                             />
+                          </td>
+
+                          {/* Task Notes (remarks) Column — opens a popup to read/edit */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
+                            <RemarksPopupCell value={log.remarks || ""} onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
                           </td>
 
                           {/* Time Period Column — INLINE EDITABLE */}
@@ -2023,17 +2040,17 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               onSave={(newVal) => handleInlineFieldChange(log.id, "timePeriod", newVal)}
                               mono
                               placeholder="00:00 - 00:00"
-                              className="text-[11px] text-muted-foreground min-w-[175px]"
+                              className="text-xs text-muted-foreground min-w-[175px]"
                               title="Click to edit Time Period inline"
                             />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs text-muted-foreground whitespace-nowrap">
                             {log.date}
                           </td>
 
-                          {/* Billing Type Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                          {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                          {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.billingType}
                               onChange={(e) =>
@@ -2055,9 +2072,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                 NON BILLABLE
                               </option>
                             </select>
-                          </td>
+                          </td>)}
 
-                          {/* Approval Status Column — INLINE EDITABLE */}
+                          {/* Approval Status Column — hidden by request (inline-editable select).
                           <td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.approvalStatus || "Pending"}
@@ -2074,7 +2091,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                                   ? "Only a manager can change approval status"
                                   : "Click to change approval status inline"
                               }
-                              className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold outline-hidden transition-all ${
+                              className={`rounded-md border px-2.5 py-0.5 text-xs font-bold outline-hidden transition-all ${
                                 roleMode !== "ADMIN" ? "cursor-not-allowed opacity-70" : "cursor-pointer"
                               } ${
                                 log.approvalStatus === "Approved"
@@ -2095,17 +2112,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                               </option>
                             </select>
                           </td>
-
-                          {/* Remarks Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 whitespace-nowrap max-w-[260px]">
-                            <InlineTextCell
-                              value={log.remarks || ""}
-                              onSave={(newVal) => handleInlineFieldChange(log.id, "remarks", newVal)}
-                              placeholder="Add remarks"
-                              className="text-muted-foreground min-w-[160px] truncate"
-                              title={log.remarks ? `${log.remarks}\n\nClick to edit remarks inline` : "Click to add remarks"}
-                            />
-                          </td>
+                          */}
                         </tr>
                       ))}
                     </>
@@ -2121,19 +2128,23 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       {/* ── Bottom Summary Footer Bar ────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-t border-border px-6 py-2.5 bg-muted/40 text-xs font-semibold shrink-0 text-foreground overflow-x-auto dsm-columns-scrollbar">
         <div className="flex items-center gap-6">
-          <div>
-            <span className="text-muted-foreground font-normal">Billable</span>{" "}
-            <strong className="text-info ml-1 font-bold">{formatMinutes(billableMinutes)}</strong>
-          </div>
+          {showBilling && (
+            <>
+              <div>
+                <span className="text-muted-foreground font-normal">Billable</span>{" "}
+                <strong className="text-info ml-1 font-bold">{formatMinutes(billableMinutes)}</strong>
+              </div>
 
-          <div className="h-4 w-px bg-border" />
+              <div className="h-4 w-px bg-border" />
 
-          <div>
-            <span className="text-muted-foreground font-normal">Non Billable</span>{" "}
-            <strong className="text-warning ml-1 font-bold">{formatMinutes(nonBillableMinutes)}</strong>
-          </div>
+              <div>
+                <span className="text-muted-foreground font-normal">Non Billable</span>{" "}
+                <strong className="text-warning ml-1 font-bold">{formatMinutes(nonBillableMinutes)}</strong>
+              </div>
 
-          <div className="h-4 w-px bg-border" />
+              <div className="h-4 w-px bg-border" />
+            </>
+          )}
 
           <div>
             <span className="text-muted-foreground font-normal">Total</span>{" "}
@@ -2179,7 +2190,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             <div className="flex items-center justify-between border-b pb-3 border-border">
               <div className="flex items-center gap-2">
                 <BarChart3 size={20} className="text-primary" />
-                <h3 className="text-base font-bold text-foreground">Effort Log Productivity & Billing Report</h3>
+                <h3 className="text-base font-bold text-foreground">
+                  {showBilling ? "Effort Log Productivity & Billing Report" : "Whyfi School Effort Report"}
+                </h3>
               </div>
               <button
                 type="button"
@@ -2190,23 +2203,27 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+            <div className={`grid ${showBilling ? "grid-cols-3" : "grid-cols-1"} gap-3 p-3 rounded-xl bg-muted/30 border border-border`}>
               <div>
-                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Total Logged Time</span>
+                <span className="text-xs text-muted-foreground font-semibold block uppercase">Total Logged Time</span>
                 <span className="text-sm font-bold text-foreground font-mono">{formatMinutes(totalMinutesAll)}</span>
               </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Billable Ratio</span>
-                <span className="text-sm font-bold text-info font-mono">{billablePercentage}% ({formatMinutes(billableMinutes)})</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-muted-foreground font-semibold block uppercase">Non-Billable Time</span>
-                <span className="text-sm font-bold text-warning font-mono">{formatMinutes(nonBillableMinutes)}</span>
-              </div>
+              {showBilling && (
+                <>
+                  <div>
+                    <span className="text-xs text-muted-foreground font-semibold block uppercase">Billable Ratio</span>
+                    <span className="text-sm font-bold text-info font-mono">{billablePercentage}% ({formatMinutes(billableMinutes)})</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground font-semibold block uppercase">Non-Billable Time</span>
+                    <span className="text-sm font-bold text-warning font-mono">{formatMinutes(nonBillableMinutes)}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-2">
-              <h4 className="font-bold text-foreground">Project Time Distribution</h4>
+              <h4 className="font-bold text-foreground">{projectLabel} Time Distribution</h4>
               <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
                 {uniqueProjects.map((p) => {
                   const pLogs = filteredAllLogs.filter((l) => l.project === p);
@@ -2214,10 +2231,10 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                   const pBillable = pLogs.filter((l) => l.billingType === "BILLABLE").reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
                   return (
                     <div key={p} className="flex items-center justify-between p-2.5">
-                      <span className="font-semibold text-foreground">{p}</span>
+                      <span className="font-semibold text-foreground" title={p}>{shortProjectName(p)}</span>
                       <div className="flex items-center gap-3 font-mono font-bold">
                         <span className="text-foreground">{formatMinutes(pMinutes)}</span>
-                        <span className="text-info text-[11px]">({formatMinutes(pBillable)} Billable)</span>
+                        {showBilling && <span className="text-info text-xs">({formatMinutes(pBillable)} Billable)</span>}
                       </div>
                     </div>
                   );

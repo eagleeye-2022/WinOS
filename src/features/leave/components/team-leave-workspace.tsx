@@ -266,25 +266,25 @@ export function TeamLeaveWorkspace({
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
             Approved
           </span>
         );
       case "REJECTED":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-300">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-300">
             Rejected
           </span>
         );
       case "PENDING":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
             Pending
           </span>
         );
       case "CANCELLED":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
             Cancelled
           </span>
         );
@@ -399,7 +399,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Pending</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.pending} <span className="text-[10px] font-normal text-muted-foreground">Requests</span>
+                  {metrics.pending} <span className="text-xs font-normal text-muted-foreground">Requests</span>
                 </div>
               </div>
             </div>
@@ -412,7 +412,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Approved</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.approved} <span className="text-[10px] font-normal text-muted-foreground">Requests</span>
+                  {metrics.approved} <span className="text-xs font-normal text-muted-foreground">Requests</span>
                 </div>
               </div>
             </div>
@@ -425,7 +425,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Rejected</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.rejected} <span className="text-[10px] font-normal text-muted-foreground">Requests</span>
+                  {metrics.rejected} <span className="text-xs font-normal text-muted-foreground">Requests</span>
                 </div>
               </div>
             </div>
@@ -438,7 +438,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Cancelled</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.cancelled} <span className="text-[10px] font-normal text-muted-foreground">Requests</span>
+                  {metrics.cancelled} <span className="text-xs font-normal text-muted-foreground">Requests</span>
                 </div>
               </div>
             </div>
@@ -451,7 +451,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Total Requests</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.total} <span className="text-[10px] font-normal text-muted-foreground">This Month</span>
+                  {metrics.total} <span className="text-xs font-normal text-muted-foreground">This Month</span>
                 </div>
               </div>
             </div>
@@ -519,7 +519,7 @@ export function TeamLeaveWorkspace({
               </Select>
 
               {/* Date range */}
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-[11px] font-medium text-foreground">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-xs font-medium text-foreground">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span>01 May – 31 May</span>
               </div>
@@ -529,7 +529,7 @@ export function TeamLeaveWorkspace({
             <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-muted/40 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-3 w-8">
                       <input
                         type="checkbox"
@@ -581,7 +581,7 @@ export function TeamLeaveWorkspace({
                               <div className="font-semibold text-foreground leading-tight">
                                 {req.employeeName}
                               </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 {req.department}
                               </div>
                             </div>
@@ -711,8 +711,8 @@ export function TeamLeaveWorkspace({
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Pending</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.pending} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Pending</div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.pending} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -721,8 +721,8 @@ export function TeamLeaveWorkspace({
                 <CheckCircle2 className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Approved</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.approved} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Approved</div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.approved} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -731,8 +731,8 @@ export function TeamLeaveWorkspace({
                 <XCircle className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Rejected</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.rejected} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Rejected</div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.rejected} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -741,8 +741,8 @@ export function TeamLeaveWorkspace({
                 <Ban className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Cancelled</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.cancelled} <span className="text-[10px] font-normal text-muted-foreground">Requests</span></div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Cancelled</div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.cancelled} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
               </div>
             </div>
 
@@ -751,8 +751,8 @@ export function TeamLeaveWorkspace({
                 <Calendar className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Total Requests</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-[10px] font-normal text-muted-foreground">This Month</span></div>
+                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Total Requests</div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-xs font-normal text-muted-foreground">This Month</span></div>
               </div>
             </div>
           </div>
@@ -794,7 +794,7 @@ export function TeamLeaveWorkspace({
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-[11px] font-medium text-foreground">
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-xs font-medium text-foreground">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span>01 May – 31 May</span>
               </div>
@@ -804,7 +804,7 @@ export function TeamLeaveWorkspace({
             <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-muted/40 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-4 font-semibold">EMPLOYEE</th>
                     <th className="py-3 px-4 font-semibold">WORK DATE</th>
                     <th className="py-3 px-4 font-semibold">HOURS WORKED</th>
@@ -834,7 +834,7 @@ export function TeamLeaveWorkspace({
                               <div className="font-semibold text-foreground leading-tight">
                                 {comp.employeeName}
                               </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                              <div className="text-xs text-muted-foreground mt-0.5">
                                 {comp.designation}
                               </div>
                             </div>
@@ -843,7 +843,7 @@ export function TeamLeaveWorkspace({
 
                         <td className="py-3 px-4">
                           <div className="font-semibold text-foreground">{comp.workDate}</div>
-                          <div className="text-[10px] text-muted-foreground">({comp.workDay})</div>
+                          <div className="text-xs text-muted-foreground">({comp.workDay})</div>
                         </td>
 
                         <td className="py-3 px-4 whitespace-pre-line text-muted-foreground font-medium">

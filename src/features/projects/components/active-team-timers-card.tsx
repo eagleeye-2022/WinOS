@@ -238,7 +238,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
           <div className="py-8 text-center text-xs text-muted-foreground">
             <AlarmClock className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground/50" />
             <p className="font-medium text-foreground">No Active Live Timers</p>
-            <p className="text-[11px] mt-0.5">
+            <p className="text-xs mt-0.5">
               Team members will automatically appear here in real-time when they start a task timer.
             </p>
           </div>
@@ -292,12 +292,12 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                             <p className="font-semibold text-foreground text-xs flex items-center gap-1.5">
                               {userName}
                               {isOwnTimer && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                                   You
                                 </span>
                               )}
                             </p>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               {item.user?.title || item.user?.email || "Team Member"}
                             </p>
                           </div>
@@ -316,7 +316,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                       {/* Task ID Column */}
                       <td className="py-3 px-4">
                         {item.task?.code ? (
-                          <span className="font-mono text-[11px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                          <span className="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
                             {item.task.code}
                           </span>
                         ) : (
@@ -335,11 +335,11 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                       {/*
                       <td className="py-3 px-4">
                         {isBillable ? (
-                          <span className="inline-flex items-center text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded border border-blue-500/20">
+                          <span className="inline-flex items-center text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold px-2 py-0.5 rounded border border-blue-500/20">
                             Billable
                           </span>
                         ) : (
-                          <span className="inline-flex items-center text-[10px] bg-slate-500/10 text-slate-600 dark:text-slate-400 font-semibold px-2 py-0.5 rounded border border-slate-500/20">
+                          <span className="inline-flex items-center text-xs bg-slate-500/10 text-slate-600 dark:text-slate-400 font-semibold px-2 py-0.5 rounded border border-slate-500/20">
                             Non-Billable
                           </span>
                         )}

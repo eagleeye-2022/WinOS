@@ -243,7 +243,7 @@ export function AttendanceDetailsDrawer({
                         ? "Missing Check-in"
                         : "Missing Check-out"}
                     </h5>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {missingType === "MISSING_BOTH"
                         ? "No check-in and check-out was recorded for this day."
                         : missingType === "MISSING_CHECKIN"
@@ -297,7 +297,7 @@ export function AttendanceDetailsDrawer({
                           <p className="font-semibold text-blue-600 dark:text-blue-400">
                             {record.checkInLocation?.name || "Hyderabad Office"}
                           </p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             {record.checkInLocation?.address || "HITEC City, Madhapur, Hyderabad – 500081"}
                           </p>
                         </div>
@@ -337,7 +337,7 @@ export function AttendanceDetailsDrawer({
                           <p className="font-semibold text-blue-600 dark:text-blue-400">
                             {record.checkOutLocation?.name || "Hyderabad Office"}
                           </p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             {record.checkOutLocation?.address || "HITEC City, Madhapur, Hyderabad – 500081"}
                           </p>
                         </div>
@@ -389,7 +389,7 @@ export function AttendanceDetailsDrawer({
                   <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
                     {record.workedDuration || "3h 34m"}
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     {record.liveSince || `Since ${record.checkInTime || "09:08 AM"}`}
                   </p>
                 </div>
@@ -441,7 +441,7 @@ export function AttendanceDetailsDrawer({
                     <span className="flex items-center gap-2 text-slate-500">
                       <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" /> Leave Status
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       {record.earlyLeaveInfo?.status || "Approved"}
                     </span>
                   </div>
@@ -455,7 +455,7 @@ export function AttendanceDetailsDrawer({
                         <p className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
                           {record.earlyLeaveInfo?.approvedBy?.name || "Rohit Sharma"}
                         </p>
-                        <p className="text-[10px] text-slate-400">
+                        <p className="text-xs text-slate-400">
                           {record.earlyLeaveInfo?.approvedBy?.role || "HR Manager"}
                         </p>
                       </div>
@@ -520,7 +520,7 @@ export function AttendanceDetailsDrawer({
                     <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <CheckCircle2 className="w-4 h-4 text-slate-400" /> Leave Status
                     </span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold tracking-wide uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       {record.leaveInfo.status}
                     </span>
                   </div>
@@ -546,7 +546,7 @@ export function AttendanceDetailsDrawer({
                           <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
                             {record.leaveInfo.approvedBy.name}
                           </p>
-                          <p className="text-[11px] text-slate-400">
+                          <p className="text-xs text-slate-400">
                             {record.leaveInfo.approvedBy.role}
                           </p>
                         </div>

@@ -70,8 +70,8 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
       {/* Header Row with Day Names & Date Badges */}
       <div className="grid grid-cols-[85px_repeat(7,1fr)] border-b border-border bg-card sticky top-0 z-10 select-none">
         <div className="flex flex-col items-center justify-center border-r border-border py-2.5 px-1 text-center">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">GMT</span>
-          <span className="text-[11px] font-semibold text-primary">+05:30</span>
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">GMT</span>
+          <span className="text-xs font-semibold text-primary">+05:30</span>
         </div>
 
         {days.map((day) => {
@@ -109,7 +109,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
               <div
                 key={idx}
                 style={{ height: `${slot.height}px` }}
-                className="border-b border-border/40 pr-3 pt-1 text-right text-[11px] font-medium text-muted-foreground relative"
+                className="border-b border-border/40 pr-3 pt-1 text-right text-xs font-medium text-muted-foreground relative"
               >
                 {slot.label}
               </div>
@@ -154,7 +154,7 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                     }}
                     className="block w-full border-b border-border/40 hover:bg-primary/10 transition-colors group cursor-pointer"
                   >
-                    <span className="opacity-0 group-hover:opacity-100 text-[10px] font-semibold text-primary pl-2 pt-1 block text-left">
+                    <span className="opacity-0 group-hover:opacity-100 text-xs font-semibold text-primary pl-2 pt-1 block text-left">
                       + Add Event
                     </span>
                   </button>
@@ -193,12 +193,12 @@ export function CalendarWeekView({ anchorDate, events, onSelectEvent, onSelectSl
                           {event.title}
                         </p>
                         {event.description && (
-                          <p className="truncate text-[10px] opacity-80 font-normal">
+                          <p className="truncate text-xs opacity-80 font-normal">
                             {event.description}
                           </p>
                         )}
                       </div>
-                      <p className="text-[10px] font-medium opacity-90">
+                      <p className="text-xs font-medium opacity-90">
                         {formatTime(eStart)} - {formatTime(eEnd)}
                       </p>
                     </button>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowLeftToLine,
   ArrowRightToLine,
@@ -25,11 +26,13 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
+import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
 import { getAvatarColor } from "@/features/projects/components/assignee-picker-popover";
 import {
@@ -49,11 +52,26 @@ import {
   type WhyfiWorkspace as WhyfiWorkspaceData,
 } from "../actions";
 import { LEARNING_TASK_STATUSES } from "../constants";
+import { isOptimisticId, newCardOwners, optimisticList, optimisticTask, withTaskAdded } from "../board-utils";
 import { isTaskDone } from "@/features/projects/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type Result = { success: boolean; error?: string };
+
+/**
+ * Runs a mutation, toasts the outcome and reloads the board. With `optimistic`, the board is
+ * updated *first* (and `after` runs right away, e.g. to close the form), then the request goes to
+ * the server; a failure reloads the real board, undoing the optimistic change.
+ */
+type RunFn = (
+  fn: () => Promise<Result>,
+  okMessage?: string,
+  after?: () => void,
+  optimistic?: (ws: WhyfiWorkspaceData) => WhyfiWorkspaceData
+) => void;
+
+// Optimistic list/card helpers live in ../board-utils (unit-tested).
 
 function formatMinutes(minutes: number): string {
   if (!minutes) return "0m";
@@ -129,16 +147,18 @@ const ICON_BTN =
 
 function Avatar({ user, className }: { user: WhyfiUser; className?: string }) {
   return (
-    <span
-      title={user.name}
+    <UserAvatar
+      userId={user.id}
+      name={user.name}
+      email={user.email}
       className={cn(
-        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background",
+        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background",
         getAvatarColor(user.name),
         className
       )}
     >
       {initials(user.name)}
-    </span>
+    </UserAvatar>
   );
 }
 
@@ -189,7 +209,7 @@ function UserMultiSelect({
         className="z-50 w-72 border border-border bg-popover p-0 text-popover-foreground shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{title}</div>
+        <div className="border-b px-3 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</div>
         <div className="flex items-center gap-2 border-b px-2.5 py-2">
           <Search size={13} className="shrink-0 text-muted-foreground" />
           <input
@@ -216,7 +236,7 @@ function UserMultiSelect({
                   <Avatar user={u} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-foreground">{u.name}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">{u.email}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{u.email}</span>
                   </span>
                 </label>
               </li>
@@ -225,7 +245,7 @@ function UserMultiSelect({
           {filtered.length === 0 && <li className="px-2 py-3 text-center text-xs text-muted-foreground">No matches</li>}
         </ul>
         <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
-          <span className="text-[11px] text-muted-foreground">{draft.length} selected</span>
+          <span className="text-xs text-muted-foreground">{draft.length} selected</span>
           <button
             type="button"
             disabled={saving}
@@ -255,7 +275,7 @@ function LearningCard({
   task: WhyfiTask;
   list: WhyfiList;
   workspace: WhyfiWorkspaceData;
-  run: (fn: () => Promise<Result>, okMessage?: string, after?: () => void) => void;
+  run: RunFn;
 }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [expanded, setExpanded] = useState(false);
@@ -282,11 +302,16 @@ function LearningCard({
   const addSubtask = () => {
     const t = subTitle.trim();
     if (!t) return;
-    run(() => createWhyfiTaskAction(list.id, { title: t, parentTaskId: task.id }), "Subtask added", () => {
-      setSubTitle("");
-      setAddingSub(false);
-      setShowSubtasks(true);
-    });
+    run(
+      () => createWhyfiTaskAction(list.id, { title: t, parentTaskId: task.id }),
+      "Subtask added",
+      () => {
+        setSubTitle("");
+        setAddingSub(false);
+        setShowSubtasks(true);
+      },
+      (ws) => withTaskAdded(ws, list.id, optimisticTask(t, task.id, newCardOwners(ws, list), ws.currentUserId))
+    );
   };
 
   const startEdit = () => {
@@ -308,20 +333,28 @@ function LearningCard({
   };
 
   const firstOwner = task.owners[0];
+  // Shown instantly while the server creates it (see `addOptimisticTask`); not interactive yet.
+  const isSaving = isOptimisticId(task.id);
 
   return (
-    <div className="group relative space-y-2.5 overflow-hidden rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs transition-all hover:border-primary/60 hover:shadow-md dark:border-neutral-800 dark:bg-card">
+    <div
+      aria-busy={isSaving || undefined}
+      className={cn(
+        "group relative space-y-2.5 overflow-hidden rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs transition-all hover:border-primary/60 hover:shadow-md dark:border-neutral-800 dark:bg-card",
+        isSaving && "pointer-events-none opacity-60"
+      )}
+    >
       {ConfirmDialog}
 
       {/* Top row: code, status, details, more */}
       <div className="flex items-center justify-between gap-3">
-        <span className="whitespace-nowrap font-mono text-[11px] font-bold text-slate-400 dark:text-neutral-500">
+        <span className="whitespace-nowrap font-mono text-xs font-bold text-slate-400 dark:text-neutral-500">
           {task.code}
         </span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <div
             className={cn(
-              "relative inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-tight text-white shadow-2xs transition-all",
+              "relative inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tracking-tight text-white shadow-2xs transition-all",
               statusPillClass(task.status)
             )}
           >
@@ -330,7 +363,7 @@ function LearningCard({
               disabled={!canChangeStatus}
               onChange={(e) => run(() => updateWhyfiTaskAction(task.id, { status: e.target.value }))}
               title={canChangeStatus ? "Change status" : "Only the people this card is assigned to can change its status"}
-              className="cursor-pointer appearance-none bg-transparent pr-4 text-[10px] font-bold text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
+              className="cursor-pointer appearance-none bg-transparent pr-4 text-xs font-bold text-white outline-none disabled:cursor-not-allowed disabled:opacity-70"
             >
               {LEARNING_TASK_STATUSES.map((s) => (
                 <option key={s} value={s} className="bg-card text-foreground">
@@ -415,13 +448,8 @@ function LearningCard({
             autoFocus
             className="w-full rounded-md border border-primary/50 bg-transparent px-1.5 py-1 text-xs font-bold text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
           />
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            placeholder="What should be learned, links, resources..."
-            className="w-full resize-none rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
-          />
+          {/* Same rich editor as the card's task page, so formatting made there isn't lost here. */}
+          <RichDescriptionEditor value={description} onChange={setDescription} />
           <div className="flex items-center gap-2">
             <input
               type="date"
@@ -432,7 +460,7 @@ function LearningCard({
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="ml-auto cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="ml-auto cursor-pointer rounded px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               Cancel
             </button>
@@ -444,32 +472,35 @@ function LearningCard({
                   setEditing(false)
                 )
               }
-              className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#0077ee] disabled:opacity-50"
+              className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-xs font-bold text-white hover:bg-[#0077ee] disabled:opacity-50"
             >
               <Check size={12} /> Save
             </button>
           </div>
         </div>
       ) : (
-        <h4
-          onClick={() => setExpanded((v) => !v)}
-          title={task.title}
+        // Opens the card's own page (description, subtasks, comments, effort logs, timer) — the same
+        // full task page as Srijan, kept inside Pulse. The eye icon still shows details inline.
+        <Link
+          href={`/pulse/whyfi-learning/${list.id}/tasks/${task.code}`}
+          title={`Open ${task.code}`}
           className={cn(
-            "-mx-1 cursor-pointer rounded-md px-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary",
+            "-mx-1 block cursor-pointer rounded-md px-1 text-xs font-semibold leading-snug transition-colors hover:underline group-hover:text-primary",
             isDone
               ? "text-slate-400 line-through decoration-slate-400/80 dark:text-neutral-500"
               : "text-slate-800 dark:text-neutral-200"
           )}
         >
           {task.title}
-        </h4>
+        </Link>
       )}
 
       {/* Details (eye) */}
       {expanded && !editing && (
-        <div className="space-y-1.5 rounded-lg bg-muted/50 px-2.5 py-2 text-[11px] text-muted-foreground">
-          {task.description ? (
-            <p className="whitespace-pre-line leading-relaxed text-foreground/80">{task.description}</p>
+        <div className="space-y-1.5 rounded-lg bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground">
+          {!isEmptyDescription(task.description) ? (
+            // Rich text (from the task page) or plain text (older cards) — both render correctly.
+            <RichDescriptionView value={task.description} className="leading-relaxed text-foreground/80" />
           ) : (
             <p className="italic">No description.</p>
           )}
@@ -488,7 +519,7 @@ function LearningCard({
       )}
 
       {/* Footer: timer + owner avatar */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-400 dark:border-neutral-800/80">
+      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-400 dark:border-neutral-800/80">
         <div className="flex items-center gap-2 text-slate-400">
           <TimerWidget
             instanceId={`whyfi-card-${task.id}`}
@@ -502,7 +533,7 @@ function LearningCard({
             onSaveLog={() => run(async () => ({ success: true }))}
           />
           {task.myLoggedMinutes > 0 && (
-            <span className="font-mono text-[10px] font-semibold" title="Your logged time on this card">
+            <span className="font-mono text-xs font-semibold" title="Your logged time on this card">
               {formatMinutes(task.myLoggedMinutes)}
             </span>
           )}
@@ -514,7 +545,7 @@ function LearningCard({
               title={`${task.subtasks.length} subtask${task.subtasks.length > 1 ? "s" : ""} — ${doneSubtasks}/${allSubtasks.length} done incl. nested (click to ${showSubtasks ? "hide" : "view"})`}
             >
               <CheckSquare size={13} />
-              <span className="text-[10px] font-bold">
+              <span className="text-xs font-bold">
                 {doneSubtasks}/{allSubtasks.length}
               </span>
               {showSubtasks ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -526,7 +557,7 @@ function LearningCard({
           const avatar = (
             <span
               className={cn(
-                "relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shadow-2xs ring-2 ring-background transition-transform",
+                "relative flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shadow-2xs ring-2 ring-background transition-transform",
                 workspace.isManager && "cursor-pointer hover:scale-105",
                 firstOwner
                   ? getAvatarColor(firstOwner.name)
@@ -538,9 +569,16 @@ function LearningCard({
                   : "Open to everyone on this list"
               }
             >
-              {firstOwner ? initials(firstOwner.name) : <UserIcon size={12} />}
+              {firstOwner ? (
+                // Nested (not replacing the circle) so the "+N" badge isn't clipped by the photo's mask.
+                <UserAvatar userId={firstOwner.id} name={firstOwner.name} title="" className="h-full w-full">
+                  {initials(firstOwner.name)}
+                </UserAvatar>
+              ) : (
+                <UserIcon size={12} />
+              )}
               {task.owners.length > 1 && (
-                <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground ring-2 ring-background">
+                <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground ring-2 ring-background">
                   +{task.owners.length - 1}
                 </span>
               )}
@@ -590,7 +628,7 @@ function LearningCard({
                 type="button"
                 onClick={addSubtask}
                 disabled={!subTitle.trim()}
-                className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-2 py-1 text-[10px] font-bold text-white hover:bg-[#0077ee] disabled:opacity-50"
+                className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-2 py-1 text-xs font-bold text-white hover:bg-[#0077ee] disabled:opacity-50"
               >
                 <Plus size={11} /> Add
               </button>
@@ -636,7 +674,7 @@ function ListColumn({
   onToggleCollapse: () => void;
   adding: boolean;
   onToggleAdding: (open: boolean) => void;
-  run: (fn: () => Promise<Result>, okMessage?: string, after?: () => void) => void;
+  run: RunFn;
 }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [newTitle, setNewTitle] = useState("");
@@ -649,7 +687,13 @@ function ListColumn({
   const addCard = () => {
     const title = newTitle.trim();
     if (!title) return;
-    run(() => createWhyfiTaskAction(list.id, { title }), "Card added", () => setNewTitle(""));
+    run(
+      () => createWhyfiTaskAction(list.id, { title }),
+      "Card added",
+      () => setNewTitle(""),
+      // Appears at the end of the list right away; the reload swaps in the saved card.
+      (ws) => withTaskAdded(ws, list.id, optimisticTask(title, null, newCardOwners(ws, list), ws.currentUserId))
+    );
   };
 
   const commitRename = () => {
@@ -677,7 +721,7 @@ function ListColumn({
         </button>
         <div className="flex flex-1 items-start justify-center">
           <span
-            className="whitespace-nowrap text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+            className="whitespace-nowrap text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300"
             style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
           >
             {list.name}
@@ -688,7 +732,17 @@ function ListColumn({
   }
 
   return (
-    <div className="flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40">
+    // Drag its right edge to resize (TableColumnResizer).
+    <div
+      data-resizable-col
+      data-col-key={`whyfi-list-${list.id}`}
+      aria-busy={isOptimisticId(list.id) || undefined}
+      className={cn(
+        "flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
+        // A list being created: visible straight away, usable once the server has saved it.
+        isOptimisticId(list.id) && "pointer-events-none opacity-60"
+      )}
+    >
       {ConfirmDialog}
       {/* Column header */}
       <div className="mb-3 flex items-center justify-between border-b border-slate-200/60 pb-3 dark:border-neutral-800">
@@ -775,17 +829,17 @@ function ListColumn({
       </div>
 
       {/* Shared-with strip */}
-      <div className="-mt-1 mb-3 flex items-center justify-between gap-2 px-0.5 text-[11px] text-muted-foreground">
+      <div className="-mt-1 mb-3 flex items-center justify-between gap-2 px-0.5 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <Users size={11} />
           {list.members.length > 0 ? `Shared with ${list.members.length}` : "Not shared yet"}
         </span>
         <div className="flex -space-x-1.5">
           {list.members.slice(0, 6).map((m) => (
-            <Avatar key={m.id} user={m} className="h-5 w-5 text-[9px]" />
+            <Avatar key={m.id} user={m} className="h-5 w-5 text-xs" />
           ))}
           {list.members.length > 6 && (
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-bold ring-2 ring-background">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-bold ring-2 ring-background">
               +{list.members.length - 6}
             </span>
           )}
@@ -795,7 +849,8 @@ function ListColumn({
       {/* Cards */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl pr-1">
         {adding && (
-          <div className="animate-in fade-in zoom-in-95 space-y-2.5 rounded-xl border border-slate-700/80 bg-[#16181d] p-3 shadow-md duration-150">
+          // Theme colours (it was always dark, even in light mode); dark mode keeps the old look.
+          <div className="animate-in fade-in zoom-in-95 space-y-2.5 rounded-xl border border-border bg-card p-3 shadow-md duration-150 dark:border-slate-700/80 dark:bg-[#16181d]">
             <textarea
               autoFocus
               rows={3}
@@ -811,10 +866,10 @@ function ListColumn({
                 }
               }}
               placeholder="Enter learning task name..."
-              className="min-h-[70px] w-full resize-y rounded-lg border border-neutral-700/80 bg-[#111216] p-2.5 text-xs font-medium text-white outline-none placeholder:text-neutral-500 focus:ring-1 focus:ring-primary"
+              className="min-h-[70px] w-full resize-y rounded-lg border border-input bg-background p-2.5 text-xs font-medium text-foreground outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary dark:border-neutral-700/80 dark:bg-[#111216] dark:text-white dark:placeholder:text-neutral-500"
             />
-            <div className="flex items-center justify-between gap-2 border-t border-neutral-800 pt-1">
-              <span className="font-mono text-[10px] text-neutral-400">↵ Enter to create</span>
+            <div className="flex items-center justify-between gap-2 border-t border-border pt-1 dark:border-neutral-800">
+              <span className="font-mono text-xs text-muted-foreground dark:text-neutral-400">↵ Enter to create</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -822,7 +877,7 @@ function ListColumn({
                     onToggleAdding(false);
                     setNewTitle("");
                   }}
-                  className="cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+                  className="cursor-pointer rounded px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
                 >
                   Cancel
                 </button>
@@ -830,7 +885,7 @@ function ListColumn({
                   type="button"
                   disabled={!newTitle.trim()}
                   onClick={addCard}
-                  className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-[11px] font-bold text-white shadow-xs transition-colors hover:bg-[#0077ee] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#0077ee] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus size={12} />
                   <span>Add Task</span>
@@ -842,12 +897,12 @@ function ListColumn({
 
         {list.tasks.length === 0 && !adding ? (
           <div className="flex h-36 flex-col items-center justify-center space-y-2 rounded-xl border border-dashed border-slate-300/70 p-6 text-center text-muted-foreground/60 dark:border-neutral-800">
-            <span className="text-[11px] font-medium">No learning tasks in this list</span>
+            <span className="text-xs font-medium">No learning tasks in this list</span>
             {canAddCards && (
               <button
                 type="button"
                 onClick={() => onToggleAdding(true)}
-                className="flex cursor-pointer items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-primary hover:underline"
               >
                 <Plus size={12} /> Add Task
               </button>
@@ -870,13 +925,13 @@ function LearnersView({
   run,
 }: {
   workspace: WhyfiWorkspaceData;
-  run: (fn: () => Promise<Result>, okMessage?: string, after?: () => void) => void;
+  run: RunFn;
 }) {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="overflow-x-auto rounded-xl border bg-card">
         <table className="w-full text-xs">
-          <thead className="border-b bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+          <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-semibold">Task list</th>
               <th className="px-4 py-2.5 font-semibold">Shared with</th>
@@ -891,7 +946,7 @@ function LearnersView({
               <tr key={l.id} className="border-b align-top last:border-0">
                 <td className="px-4 py-3">
                   <span className="font-semibold text-foreground">{l.name}</span>
-                  <span className="ml-2 font-mono text-[10px] text-muted-foreground">{l.code}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">{l.code}</span>
                 </td>
                 <td className="px-4 py-3">
                   {l.members.length === 0 ? (
@@ -900,7 +955,7 @@ function LearnersView({
                     <div className="flex flex-wrap gap-1.5">
                       {l.members.map((m) => (
                         <span key={m.id} className="inline-flex items-center gap-1.5 rounded-full border bg-background py-0.5 pl-0.5 pr-2">
-                          <Avatar user={m} className="h-5 w-5 text-[9px] ring-0" />
+                          <Avatar user={m} className="h-5 w-5 text-xs ring-0" />
                           <span className="text-foreground">{m.name}</span>
                         </span>
                       ))}
@@ -1055,7 +1110,7 @@ function LearningTimeline({ workspace }: { workspace: WhyfiWorkspaceData }) {
           {workspace.isManager && !memberId && byMember.length > 0 && (
             <div className="overflow-x-auto rounded-xl border bg-card">
               <table className="w-full text-xs">
-                <thead className="border-b bg-muted/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-semibold">Member</th>
                     <th className="px-3 py-2 font-semibold">Time</th>
@@ -1100,11 +1155,11 @@ function LearningTimeline({ workspace }: { workspace: WhyfiWorkspaceData }) {
                       {workspace.isManager && !memberId && (
                         <span className="font-semibold text-foreground">{e.userName}</span>
                       )}
-                      <span className="font-mono text-[11px] text-muted-foreground">{e.taskCode}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{e.taskCode}</span>
                       <span className="min-w-0 flex-1 truncate text-foreground">{e.taskTitle}</span>
                       <span className="text-muted-foreground">{e.listName}</span>
                       <span
-                        className={cn("rounded-md border px-1.5 py-0.5 text-[10px] font-bold", statusBadgeClass(e.taskStatus))}
+                        className={cn("rounded-md border px-1.5 py-0.5 text-xs font-bold", statusBadgeClass(e.taskStatus))}
                       >
                         {e.taskStatus}
                       </span>
@@ -1133,35 +1188,51 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [pending, startTransition] = useTransition();
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const reload = useCallback(async () => {
     const next = await getWhyfiWorkspaceAction();
     if (next) setWorkspace(next);
   }, []);
 
-  /** Runs a mutation, toasts the outcome, and reloads the board. */
-  const run = useCallback(
-    (fn: () => Promise<Result>, okMessage?: string, after?: () => void) =>
+  /** See `RunFn`: optimistic update (optional) → server request → toast → reload. */
+  const run: RunFn = useCallback(
+    (fn, okMessage, after, optimistic) => {
+      if (optimistic) {
+        setWorkspace((ws) => optimistic(ws));
+        after?.();
+      }
       startTransition(async () => {
         const res = await fn();
         if (!res.success) {
           toast.error(res.error || "Something went wrong");
+          if (optimistic) await reload(); // drop the optimistic change
           return;
         }
         if (okMessage) toast.success(okMessage);
-        after?.();
+        if (!optimistic) after?.();
         await reload();
-      }),
+      });
+    },
     [reload]
   );
 
   const createList = () => {
     const name = newListName.trim();
     if (!name) return;
-    run(() => createWhyfiListAction({ name }), "Task list created — share it with your team", () => {
-      setNewListName("");
-      setIsAddingList(false);
-    });
+    run(
+      () => createWhyfiListAction({ name }),
+      "Task list created — share it with your team",
+      () => {
+        setNewListName("");
+        setIsAddingList(false);
+      },
+      // Shown at the end of the board right away (lists are ordered by creation).
+      (ws) => ({
+        ...ws,
+        lists: [...ws.lists, optimisticList(name)],
+      })
+    );
   };
 
   // Counts include subtasks at every depth, like the project board's totals.
@@ -1171,10 +1242,6 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
   const assignedToMe = allTasks.filter((t) => t.owners.some((o) => o.id === workspace.currentUserId)).length;
   const allCollapsed = workspace.lists.length > 0 && workspace.lists.every((l) => collapsedIds.has(l.id));
 
-  // "Add Task" in the toolbar opens the quick-add box on the first list the user can add to.
-  const firstAddableList = workspace.lists.find(
-    (l) => workspace.isManager || l.members.some((m) => m.id === workspace.currentUserId)
-  );
 
   return (
     <ActiveTimerProvider>
@@ -1235,28 +1302,30 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   </button>
                   {pending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
                 </div>
-                {firstAddableList && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCollapsedIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(firstAddableList.id);
-                        return next;
-                      });
-                      setAddingListId(firstAddableList.id);
-                    }}
-                    className="ml-1 flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#0088ff] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0077ee]"
-                  >
-                    <Plus size={16} />
-                    <span>Add Task</span>
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Same form as the dashed column at the end of the board — opens it and scrolls there. */}
+                  {workspace.isManager && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingList(true);
+                        requestAnimationFrame(() =>
+                          boardRef.current?.scrollTo({ left: boardRef.current.scrollWidth, behavior: "smooth" })
+                        );
+                      }}
+                      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-4 py-2 text-xs font-bold text-primary shadow-xs transition-all hover:bg-primary/10 dark:text-sky-400"
+                    >
+                      <Layers size={15} />
+                      <span>Create Task List</span>
+                    </button>
+                  )}
+                  {/* Toolbar "Add Task" removed by request — cards are added with the + on each list. */}
+                </div>
               </div>
 
               {/* Board */}
-              <div className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-slate-50/50 p-4.5 dark:bg-background/40">
-                <div className="flex h-full items-stretch gap-3.5">
+              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-slate-50/50 p-4.5 dark:bg-background/40">
+                <div data-col-scope className="flex h-full items-stretch gap-3.5">
                   {workspace.lists.map((list) => (
                     <ListColumn
                       key={list.id}
@@ -1314,7 +1383,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                           </button>
                         </div>
                         <div className="text-xs">
-                          <label className="mb-1 block text-[11px] font-semibold text-muted-foreground">
+                          <label className="mb-1 block text-xs font-semibold text-muted-foreground">
                             Task List Name <span className="text-destructive">*</span>
                           </label>
                           <input
@@ -1333,7 +1402,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                             }}
                             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary"
                           />
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          <p className="mt-1.5 text-xs text-muted-foreground">
                             After creating it, use the share icon on the list to choose who can see it.
                           </p>
                         </div>
@@ -1369,7 +1438,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
                   <span>LEARNING: {completion}% COMPLETE</span>
                 </div>
-                <div className="flex items-center gap-5 text-[11px]">
+                <div className="flex items-center gap-5 text-xs">
                   <span>
                     TOTAL COUNT: <strong className="text-foreground">{allTasks.length} TASKS</strong>
                   </span>

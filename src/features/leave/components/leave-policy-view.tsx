@@ -321,7 +321,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
         <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3 px-5 font-semibold">Leave Type</th>
                 <th className="py-3 px-4 font-semibold">Code</th>
                 <th className="py-3 px-4 font-semibold">Category</th>
@@ -356,7 +356,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                         <div className="font-bold text-foreground leading-tight">
                           {item.name}
                         </div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {item.description}
                         </div>
                       </div>
@@ -372,7 +372,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                   <td className="py-3 px-4">
                     <span
                       className={cn(
-                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border",
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
                         item.category === "Paid Leave"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
                           : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
@@ -384,7 +384,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
 
                   {/* Unit */}
                   <td className="py-3 px-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
                       {item.unit}
                     </span>
                   </td>

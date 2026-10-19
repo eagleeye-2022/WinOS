@@ -33,10 +33,8 @@ import {
   getMyLeaveTrackerDataAction,
   getLeaveRequestByIdAction,
 } from "../queries/leave-queries";
-import {
-  cancelLeaveRequestAction,
-  submitRegularizationAction,
-} from "../actions/leave-actions";
+import { cancelLeaveRequestAction } from "../actions/leave-actions";
+import { submitRegularizationAction } from "@/features/attendance/actions/attendance-actions";
 
 type ActiveTab =
   | "overview"
@@ -194,27 +192,32 @@ export function LeaveWorkspace({
     setIsRegularizeModalOpen(true);
   };
 
+  /** Returns an error message to show in the modal, or null on success. */
   const handleRegularizeSubmit = async (
-    itemId: string,
+    item: ActionRequiredItem,
     checkIn: string,
     checkOut: string,
     reason: string
-  ) => {
+  ): Promise<string | null> => {
     try {
-      await submitRegularizationAction({
-        id: itemId,
-        checkIn,
-        checkOut,
+      const res = await submitRegularizationAction({
+        missingDate: item.dateKey,
+        checkInTime: checkIn,
+        checkOutTime: checkOut,
         reason,
+        issueDescription: item.issue,
       });
+      if (!res.success) return res.message;
       loadData();
+      return null;
     } catch (err) {
       console.error("Failed to regularize attendance:", err);
+      return "Failed to submit regularization. Please try again.";
     }
   };
 
   const handleApplyLeaveFromAction = (item: ActionRequiredItem) => {
-    setPrefilledApplyDate(item.date);
+    setPrefilledApplyDate(item.dateKey);
     setActiveTab("apply");
   };
 

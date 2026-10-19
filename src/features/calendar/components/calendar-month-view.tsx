@@ -88,13 +88,13 @@ export function CalendarMonthView({ anchorDate, events, onSelectEvent, onSelectS
                       e.stopPropagation();
                       onSelectEvent(event);
                     }}
-                    className="truncate rounded-md bg-primary/15 border border-primary/40 px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/25 transition-all"
+                    className="truncate rounded-md bg-primary/15 border border-primary/40 px-1.5 py-0.5 text-xs font-semibold text-primary hover:bg-primary/25 transition-all"
                   >
                     {event.isAllDay ? event.title : `${formatTime(event.start)} ${event.title}`}
                   </span>
                 ))}
                 {dayEvents.length > 3 && (
-                  <span className="text-[10px] font-medium text-primary pl-1">
+                  <span className="text-xs font-medium text-primary pl-1">
                     +{dayEvents.length - 3} more
                   </span>
                 )}

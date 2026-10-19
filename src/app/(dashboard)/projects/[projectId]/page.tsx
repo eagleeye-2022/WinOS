@@ -22,7 +22,8 @@ const PROJECT_TABS = ["TASKS", "USERS", "DOCUMENTS", "TIME_LOGS", "TIMELINE", "I
 type ProjectTab = (typeof PROJECT_TABS)[number];
 
 const RECENT_PROJECTS_KEY = "winos:recentProjects";
-const RECENT_PROJECTS_LIMIT = 4;
+// Shown in full in the sidebar's scrollable "Recent Projects" section.
+const RECENT_PROJECTS_LIMIT = 15;
 
 function rememberRecentProject(project: Project) {
   try {

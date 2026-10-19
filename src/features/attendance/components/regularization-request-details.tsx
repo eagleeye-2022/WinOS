@@ -25,6 +25,9 @@ interface RegularizationRequestDetailsProps {
   onBack: () => void;
   onCancelRequest?: (id: string) => void;
   onStatusUpdated?: () => void;
+  /** Managers may approve / reject requests that aren't their own. */
+  canReview?: boolean;
+  currentUserId?: string;
 }
 
 export function RegularizationRequestDetails({
@@ -32,54 +35,69 @@ export function RegularizationRequestDetails({
   onBack,
   onCancelRequest,
   onStatusUpdated,
+  canReview = false,
+  currentUserId,
 }: RegularizationRequestDetailsProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(request.status);
+  const [error, setError] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  const handleApprove = async () => {
+  const isOwn = request.employee.id === currentUserId;
+  const showReview = canReview && !isOwn;
+
+  const run = async (action: () => Promise<{ success: boolean; message?: string }>, onOk: () => void) => {
     setIsProcessing(true);
+    setError(null);
     try {
-      await reviewRegularizationAction({
-        requestId: request.id,
-        status: "APPROVED",
-      });
-      setCurrentStatus("Approved");
-      onStatusUpdated?.();
+      const res = await action();
+      if (!res.success) {
+        setError(res.message || "Something went wrong.");
+        return;
+      }
+      onOk();
     } catch (err) {
       console.error(err);
+      setError("Something went wrong. Please try again.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleReject = async () => {
-    setIsProcessing(true);
-    try {
-      await reviewRegularizationAction({
-        requestId: request.id,
-        status: "REJECTED",
-        rejectionReason: "Does not meet attendance policy requirements",
-      });
-      setCurrentStatus("Rejected");
-      onStatusUpdated?.();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsProcessing(false);
+  const handleApprove = () =>
+    run(
+      () => reviewRegularizationAction({ requestId: request.id, status: "APPROVED" }),
+      () => {
+        setCurrentStatus("Approved");
+        onStatusUpdated?.();
+      }
+    );
+
+  const handleReject = () => {
+    if (!isRejecting) {
+      setIsRejecting(true);
+      return;
     }
+    return run(
+      () =>
+        reviewRegularizationAction({
+          requestId: request.id,
+          status: "REJECTED",
+          rejectionReason: rejectionReason.trim() || undefined,
+        }),
+      () => {
+        setCurrentStatus("Rejected");
+        onStatusUpdated?.();
+      }
+    );
   };
 
-  const handleCancel = async () => {
-    setIsProcessing(true);
-    try {
-      await cancelRegularizationAction(request.id);
-      onCancelRequest?.(request.id);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const handleCancel = () =>
+    run(
+      () => cancelRegularizationAction(request.id),
+      () => onCancelRequest?.(request.id)
+    );
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -99,17 +117,23 @@ export function RegularizationRequestDetails({
           {/* Employee Header Card */}
           <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <img
-                src={request.employee.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
-                alt={request.employee.name}
-                className="w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-              />
+              {request.employee.avatarUrl ? (
+                <img
+                  src={request.employee.avatarUrl}
+                  alt={request.employee.name}
+                  className="w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-base font-bold shrink-0">
+                  {request.employee.name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
                     {request.employee.name}
                   </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                     {request.employee.status}
                   </span>
                 </div>
@@ -151,11 +175,11 @@ export function RegularizationRequestDetails({
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Attendance Date</div>
+                <div className="text-xs text-slate-400 font-medium">Attendance Date</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                   {request.attendanceDate}
                 </div>
-                <div className="text-[10px] text-slate-400">{request.attendanceDay}</div>
+                <div className="text-xs text-slate-400">{request.attendanceDay}</div>
               </div>
             </div>
 
@@ -165,11 +189,11 @@ export function RegularizationRequestDetails({
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Applied On</div>
+                <div className="text-xs text-slate-400 font-medium">Applied On</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                   {request.appliedOn}
                 </div>
-                <div className="text-[10px] text-slate-400">{request.appliedDay}</div>
+                <div className="text-xs text-slate-400">{request.appliedDay}</div>
               </div>
             </div>
 
@@ -179,11 +203,11 @@ export function RegularizationRequestDetails({
                 <Info className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Reason</div>
+                <div className="text-xs text-slate-400 font-medium">Reason</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5 truncate max-w-[130px]">
                   {request.reason}
                 </div>
-                <div className="text-[10px] text-slate-400">Regularization</div>
+                <div className="text-xs text-slate-400">Regularization</div>
               </div>
             </div>
           </div>
@@ -261,38 +285,62 @@ export function RegularizationRequestDetails({
             </p>
           </div>
 
-          {/* Bottom Actions for Manager / Employee */}
-          {currentStatus === "Pending" && (
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
-              <button
-                disabled={isProcessing}
-                onClick={handleCancel}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-slate-900 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors shadow-2xs disabled:opacity-50"
-              >
-                <XCircle className="w-4 h-4" />
-                <span>Cancel Request</span>
-              </button>
+          {error && (
+            <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+              {error}
+            </div>
+          )}
 
-              <div className="flex items-center gap-2.5">
-                <button
-                  disabled={isProcessing}
-                  onClick={handleReject}
-                  className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition-colors disabled:opacity-50"
-                >
-                  Reject
-                </button>
-                <button
-                  disabled={isProcessing}
-                  onClick={handleApprove}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Check className="w-3.5 h-3.5" />
-                  )}
-                  <span>Approve Request</span>
-                </button>
+          {/* Bottom Actions: owner can withdraw, a manager (not the owner) can review */}
+          {currentStatus === "Pending" && (isOwn || showReview) && (
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+              {showReview && isRejecting && (
+                <textarea
+                  rows={2}
+                  maxLength={250}
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Reason for rejection (shared with the employee)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
+                />
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {isOwn ? (
+                  <button
+                    disabled={isProcessing}
+                    onClick={handleCancel}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-slate-900 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors shadow-2xs disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Withdraw Request</span>
+                  </button>
+                ) : (
+                  <span />
+                )}
+
+                {showReview && (
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      disabled={isProcessing}
+                      onClick={handleReject}
+                      className="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition-colors disabled:opacity-50"
+                    >
+                      {isRejecting ? "Confirm Reject" : "Reject"}
+                    </button>
+                    <button
+                      disabled={isProcessing}
+                      onClick={handleApprove}
+                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>Approve Request</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -311,7 +359,7 @@ export function RegularizationRequestDetails({
               {request.timeline.map((step, idx) => (
                 <div key={idx} className="relative">
                   <div className={cn(
-                    "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                    "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-xs",
                     step.status === "completed" ? "bg-blue-600 text-white" :
                     step.status === "current" ? "bg-amber-500 text-white" :
                     "bg-slate-200 dark:bg-slate-700 text-slate-500"
@@ -327,12 +375,12 @@ export function RegularizationRequestDetails({
                       {step.title}
                     </h5>
                     {step.timestamp && (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-xs text-slate-400">
                         {step.timestamp}
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {step.subtitle}
                   </p>
                 </div>
@@ -344,7 +392,7 @@ export function RegularizationRequestDetails({
           <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
             <span>
-              Once approved, the attendance record is updated in the database automatically.
+              Once approved, the requested timings replace the attendance record for that day.
             </span>
           </div>
         </div>

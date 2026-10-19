@@ -92,9 +92,9 @@ export function DsmSelfPanel({
                 onClick={() => setIsEditing(true)}
                 title="Edit Today's DSM"
                 aria-label="Edit Today's DSM"
-                className="rounded-full border bg-card p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+                className="rounded-full border bg-card p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <Pencil size={16} className="dark:text-[#93C5FD]" />
+                <Pencil size={16} />
               </button>
             )}
           </div>

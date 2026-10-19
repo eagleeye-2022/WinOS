@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
+import { teamDotColor } from "@/lib/team-colors";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "./send-reminder-button";
 import type { TeamGroup, MemberSubmissionCard } from "../queries";
+import { getInitials } from "@/lib/avatar";
 
 // Department dot color cycles: blue, blue, green, amber
-const DOT_COLORS = ["bg-primary", "bg-primary", "bg-success", "bg-warning"] as const;
 
 // Deterministic avatar gradient per user, cycling through a small palette
 const AVATAR_GRADIENTS = [
@@ -28,14 +29,6 @@ function displayNameOf(card: Pick<MemberSubmissionCard, "name" | "email">) {
   return toTitleCase(raw);
 }
 
-function initialsOf(displayName: string) {
-  const parts = displayName.split(" ");
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return displayName.slice(0, 2).toUpperCase();
-}
-
 // ── Submitted member card ─────────────────────────────────────────────────────
 
 function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; selectedDateStr?: string }) {
@@ -53,7 +46,7 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
   }
 
   const displayName = displayNameOf(card);
-  const initials = initialsOf(displayName);
+  const initials = getInitials(displayName);
   const isReviewed = card.status === "REVIEWED";
   const gradient = avatarGradientFor(card.userId);
   const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
@@ -153,8 +146,8 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
           ) : (
             <span />
           )}
-          <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5 dark:text-[#3B82F6] dark:group-hover:text-[#2563EB]">
-            Add Task <ChevronRight size={13} className="dark:text-[#93C5FD]" />
+          <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
+            Add Task <ChevronRight size={13} />
           </span>
         </div>
       )}
@@ -166,7 +159,7 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
 
 function PendingMemberCard({ card, teamId, selectedDateStr }: { card: MemberSubmissionCard; teamId: string; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
-  const initials = initialsOf(displayName);
+  const initials = getInitials(displayName);
   const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
 
   return (
@@ -209,10 +202,15 @@ type Props = { group: TeamGroup; colorIndex?: number; selectedDateStr?: string }
 
 export function TeamColumn({ group, colorIndex = 0, selectedDateStr }: Props) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
-  const dotColor = DOT_COLORS[colorIndex % DOT_COLORS.length];
+  const dotColor = teamDotColor(group.teamName, colorIndex);
 
   return (
-    <div className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5">
+    // Drag its right edge to resize (TableColumnResizer).
+    <div
+      data-resizable-col
+      data-col-key={`dsm-team-${group.teamId}`}
+      className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5"
+    >
       {/* Column header (fixed) */}
       <div className="flex shrink-0 items-center gap-2 pr-2">
         <span className={cn("h-2.5 w-2.5 rounded-full", dotColor)} />

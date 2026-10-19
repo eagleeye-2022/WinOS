@@ -941,7 +941,7 @@ export function NotesWorkspace({
                         <span className="flex items-center gap-1.5 truncate pr-1">
                           <span className="truncate">{b.name}</span>
                           {b.type === "DSM" && (
-                            <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                            <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-primary">
                               DSM
                             </span>
                           )}
@@ -1220,7 +1220,7 @@ export function NotesWorkspace({
                       <div
                         key={s.userId}
                         title={displayName}
-                        className="w-7 h-7 rounded-full border-2 border-white/30 bg-primary flex items-center justify-center text-[10px] font-bold text-white -ml-2 first:ml-0 shadow"
+                        className="w-7 h-7 rounded-full border-2 border-white/30 bg-primary flex items-center justify-center text-xs font-bold text-white -ml-2 first:ml-0 shadow"
                         style={{ zIndex: 10 - i }}
                       >
                         {s.user?.image ? (
@@ -1230,7 +1230,7 @@ export function NotesWorkspace({
                     );
                   })}
                   {activeBoard.shares.length > 4 && (
-                    <div className="w-7 h-7 rounded-full border-2 border-white/30 bg-white/20 flex items-center justify-center text-[10px] font-bold text-white -ml-2 shadow">
+                    <div className="w-7 h-7 rounded-full border-2 border-white/30 bg-white/20 flex items-center justify-center text-xs font-bold text-white -ml-2 shadow">
                       +{activeBoard.shares.length - 4}
                     </div>
                   )}
@@ -1586,7 +1586,7 @@ export function NotesWorkspace({
                       <p className="text-xs font-bold text-foreground truncate">{ownerName}</p>
                       <p className="text-xs text-muted-foreground/70 truncate">{owner?.title || owner?.email}</p>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full shrink-0">Owner</span>
+                    <span className="text-xs font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full shrink-0">Owner</span>
                   </div>
                 );
               })()}
@@ -1622,7 +1622,7 @@ export function NotesWorkspace({
                             )
                           }
                           className={cn(
-                            "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border transition-all shrink-0",
+                            "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold border transition-all shrink-0",
                             s.canEdit
                               ? "bg-primary/15 text-primary border-primary/30"
                               : "bg-muted text-muted-foreground border-border hover:border-primary/30 hover:text-primary"
@@ -1648,7 +1648,7 @@ export function NotesWorkspace({
 
               {/* Add people section */}
               <div className="border-t px-5 py-3 flex flex-col gap-2 bg-muted/20">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Add People</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Add People</label>
                 <input
                   type="text"
                   value={collaboratorSearch}
@@ -1683,14 +1683,14 @@ export function NotesWorkspace({
                           }}
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-accent transition-colors text-left w-full"
                         >
-                          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-foreground shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground shrink-0">
                             {u.image ? <img src={u.image} alt={initials} className="w-full h-full rounded-full object-cover" /> : initials}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
-                            <p className="text-[10px] text-muted-foreground/70 truncate">{u.title || u.email}</p>
+                            <p className="text-xs text-muted-foreground/70 truncate">{u.title || u.email}</p>
                           </div>
-                          <span className="text-[10px] text-primary font-bold shrink-0">+ Add</span>
+                          <span className="text-xs text-primary font-bold shrink-0">+ Add</span>
                         </button>
                       );
                     })}
@@ -2267,7 +2267,7 @@ export function NotesWorkspace({
                     <FolderKanban size={16} className="text-emerald-600 dark:text-emerald-400" />
                     <span className="text-sm font-bold text-foreground">Share Card to Project</span>
                   </div>
-                  {/* <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+                  {/* <p className="mt-1 text-xs text-muted-foreground leading-snug">
                     Members of the selected projects can view this card in Projects → Project iNotes.
                     Only managers can edit it there.
                   </p> */}
@@ -2313,7 +2313,7 @@ export function NotesWorkspace({
                           onChange={() => toggle(p.id)}
                           className="cursor-pointer"
                         />
-                        {p.code && <span className="font-mono text-[11px] text-muted-foreground">{p.code}</span>}
+                        {p.code && <span className="font-mono text-xs text-muted-foreground">{p.code}</span>}
                         <span className="truncate font-medium text-foreground">{p.name}</span>
                       </label>
                     );
@@ -2322,7 +2322,7 @@ export function NotesWorkspace({
               </div>
 
               <div className="flex items-center justify-between border-t pt-3">
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {projectSharing.selected.length} selected
                 </span>
                 <div className="flex gap-2">

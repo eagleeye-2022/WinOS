@@ -95,7 +95,7 @@ export function GanttTimelineView() {
               Phase / Milestone
             </div>
             {weeks.map((w) => (
-              <div key={w} className="col-span-1 border-r text-[11px]">
+              <div key={w} className="col-span-1 border-r text-xs">
                 {w}
               </div>
             ))}
@@ -112,11 +112,11 @@ export function GanttTimelineView() {
                 <div className="col-span-5 px-4 border-r space-y-0.5">
                   <div className="flex items-center justify-between font-bold text-foreground truncate">
                     <span className="truncate pr-2">{phase.name}</span>
-                    <span className="text-[10px] font-mono text-primary shrink-0">
+                    <span className="text-xs font-mono text-primary shrink-0">
                       {phase.progress}%
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-mono">{phase.departmentAlias}</span>
                     <span>• {phase.taskListsCount} Task Lists</span>
                   </div>
@@ -125,14 +125,14 @@ export function GanttTimelineView() {
                 {/* Duration Bar Column Grid */}
                 <div className="col-span-11 grid grid-cols-11 px-2 relative items-center h-8">
                   <div
-                    className="absolute h-6 rounded-md bg-gradient-to-r from-primary/80 to-primary text-primary-foreground text-[10px] font-bold px-2 flex items-center justify-between shadow-xs transition-all cursor-pointer hover:opacity-90"
+                    className="absolute h-6 rounded-md bg-gradient-to-r from-primary/80 to-primary text-primary-foreground text-xs font-bold px-2 flex items-center justify-between shadow-xs transition-all cursor-pointer hover:opacity-90"
                     style={{
                       left: `${((phase.startWeek - 1) / 14) * 100}%`,
                       width: `${(phase.durationWeeks / 14) * 100}%`,
                     }}
                   >
                     <span className="truncate">{phase.code}</span>
-                    <span className="text-[9px] opacity-90">{phase.progress}%</span>
+                    <span className="text-xs opacity-90">{phase.progress}%</span>
                   </div>
                 </div>
               </div>
