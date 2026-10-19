@@ -131,7 +131,7 @@ export function ShareTimesheetModal({ isOpen, onClose, date, dateLabel }: ShareT
                   readOnly
                   value={link.url}
                   onFocus={(e) => e.currentTarget.select()}
-                  className="flex-1 min-w-0 rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-[11px] text-foreground outline-none"
+                  className="flex-1 min-w-0 rounded-md border border-input bg-muted/40 px-3 py-2 font-mono text-xs text-foreground outline-none"
                 />
                 <button
                   type="button"
@@ -142,7 +142,7 @@ export function ShareTimesheetModal({ isOpen, onClose, date, dateLabel }: ShareT
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </button>
               </div>
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>
                   {link.expiresAt
                     ? `Expires ${new Date(link.expiresAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`

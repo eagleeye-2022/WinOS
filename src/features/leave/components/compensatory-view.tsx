@@ -101,7 +101,7 @@ export function CompensatoryView() {
         <div className="border border-border/80 rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="bg-muted/40 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3 px-4">WORKED DATE</th>
                 <th className="py-3 px-4">HOURS WORKED</th>
                 <th className="py-3 px-4">REASON</th>
@@ -124,7 +124,7 @@ export function CompensatoryView() {
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                         r.status === "APPROVED"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
                           : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"

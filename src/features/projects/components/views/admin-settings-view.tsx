@@ -129,7 +129,7 @@ export function AdminSettingsView() {
                     <h3 className="font-bold text-sm text-foreground">{dept.name}</h3>
                     <code className="text-xs text-primary font-mono">{dept.alias}</code>
                   </div>
-                  <span className="rounded bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
+                  <span className="rounded bg-primary/10 text-primary px-2 py-0.5 text-xs font-bold">
                     {dept.usersCount} Assigned Users
                   </span>
                 </div>
@@ -177,7 +177,7 @@ export function AdminSettingsView() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-foreground">{tmpl.name}</h3>
                     {tmpl.isDefault && (
-                      <span className="rounded bg-primary/20 text-primary px-2 py-0.5 text-[10px] font-bold">
+                      <span className="rounded bg-primary/20 text-primary px-2 py-0.5 text-xs font-bold">
                         Default Active SOP
                       </span>
                     )}
@@ -215,7 +215,7 @@ export function AdminSettingsView() {
               <label className="font-semibold text-muted-foreground">Standard Workday Hours</label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[10px] text-muted-foreground">Start Time</span>
+                  <span className="text-xs text-muted-foreground">Start Time</span>
                   <input
                     type="text"
                     defaultValue="09:30 AM"
@@ -223,7 +223,7 @@ export function AdminSettingsView() {
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground">End Time</span>
+                  <span className="text-xs text-muted-foreground">End Time</span>
                   <input
                     type="text"
                     defaultValue="06:30 PM"

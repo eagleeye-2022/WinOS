@@ -174,7 +174,7 @@ export function TaskIdChip({ code, title, href }: { code: string; title?: string
   const chip = (
     <span
       title={title || code}
-      className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[11px] font-mono font-bold shrink-0 whitespace-nowrap cursor-default"
+      className="rounded bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-xs font-mono font-bold shrink-0 whitespace-nowrap cursor-default"
     >
       {code}
     </span>
@@ -352,7 +352,7 @@ export function PriorityBadge({ priority }: { priority?: string | null }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded px-2 py-0.5 text-[11px] font-bold uppercase shrink-0 whitespace-nowrap border",
+        "inline-flex items-center rounded px-2 py-0.5 text-xs font-bold uppercase shrink-0 whitespace-nowrap border",
         isP1 && "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
         isP2 && "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
         isP3 && "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -382,7 +382,7 @@ export function formatCreatedAt(date: Date | string): string {
 export function TaskCreatedAtLabel({ date }: { date: Date | string | null | undefined }) {
   if (!date) return null;
   return (
-    <span className="mt-0.5 block text-[10px] text-muted-foreground/60 whitespace-nowrap">
+    <span className="mt-0.5 block text-xs text-muted-foreground/60 whitespace-nowrap">
       Created {formatCreatedAt(date)}
     </span>
   );
@@ -402,7 +402,7 @@ export function TaskTableHead({
 }) {
   return (
     <thead>
-      <tr className="border-b text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <tr className="border-b text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {withCheckbox && <th className="w-8 pb-2.5 pr-2 font-semibold whitespace-nowrap"></th>}
         <th className="w-10 pb-2.5 pr-2 font-semibold whitespace-nowrap">#</th>
         {withProject && <th className="pb-2.5 pr-3 font-semibold whitespace-nowrap">Project</th>}

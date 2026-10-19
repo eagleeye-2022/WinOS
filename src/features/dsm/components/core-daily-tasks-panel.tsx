@@ -41,7 +41,7 @@ export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelPr
                     {task.title}
                   </p>
                   <span className="inline-flex items-center gap-1">
-                    <span className="font-mono text-[11px] text-muted-foreground">{task.code}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{task.code}</span>
                     <TaskInfoLink href={projectTaskHref(task.projectId, task.code)!} code={task.code} />
                   </span>
                 </div>

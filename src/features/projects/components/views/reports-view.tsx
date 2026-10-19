@@ -122,7 +122,7 @@ export function ReportsView() {
             <TrendingUp size={16} className="text-primary" />
           </div>
           <div className="text-2xl font-bold text-foreground">{activeProjects}</div>
-          <p className="text-[11px] text-muted-foreground">Live database count</p>
+          <p className="text-xs text-muted-foreground">Live database count</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -131,7 +131,7 @@ export function ReportsView() {
             <CheckCircle2 size={16} className="text-success" />
           </div>
           <div className="text-2xl font-bold text-success">{avgProgress}%</div>
-          <p className="text-[11px] text-muted-foreground">Rollup progress across projects</p>
+          <p className="text-xs text-muted-foreground">Rollup progress across projects</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -140,7 +140,7 @@ export function ReportsView() {
             <Clock size={16} className="text-info" />
           </div>
           <div className="text-2xl font-bold text-info">{tasks.length} Tasks</div>
-          <p className="text-[11px] text-muted-foreground">Across all project boards</p>
+          <p className="text-xs text-muted-foreground">Across all project boards</p>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-1">
@@ -149,7 +149,7 @@ export function ReportsView() {
             <AlertTriangle size={16} className="text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-amber-500">{overdueTasksCount} Tasks</div>
-          <p className="text-[11px] text-muted-foreground">Requires owner follow-up</p>
+          <p className="text-xs text-muted-foreground">Requires owner follow-up</p>
         </div>
       </div>
 
@@ -228,7 +228,7 @@ export function ReportsView() {
                       {p.completedTasksCount} / {p.totalTasksCount}
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className="rounded bg-success/15 text-success px-2 py-0.5 font-bold text-[10px]">
+                      <span className="rounded bg-success/15 text-success px-2 py-0.5 font-bold text-xs">
                         {p.status}
                       </span>
                     </td>

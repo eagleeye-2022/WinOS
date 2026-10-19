@@ -339,7 +339,7 @@ function DetailPanel({
             <div className="space-y-2">
               <p className="text-sm leading-relaxed font-medium">{item.text}</p>
               {item.editedBy && (
-                <span className="text-[10px] text-muted-foreground/70 block font-normal">
+                <span className="text-xs text-muted-foreground/70 block font-normal">
                   (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
                 </span>
               )}
@@ -641,7 +641,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
             )}
           >
             <div className="space-y-0.5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Blockers</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Blockers</p>
               <p className="text-xl font-bold text-foreground">{activeItems.length}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-transparent text-primary">
@@ -662,8 +662,8 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-warning uppercase tracking-wider">Pending</p>
-                <span className="text-[9px] font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-xs font-semibold text-warning uppercase tracking-wider">Pending</p>
+                <span className="text-xs font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Active
                 </span>
               </div>
@@ -687,8 +687,8 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-success uppercase tracking-wider">Resolved</p>
-                <span className="text-[9px] font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-xs font-semibold text-success uppercase tracking-wider">Resolved</p>
+                <span className="text-xs font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Done
                 </span>
               </div>
@@ -712,8 +712,8 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-primary uppercase tracking-wider">With Me</p>
-                <span className="text-[9px] font-semibold uppercase text-primary border border-violet-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wider">With Me</p>
+                <span className="text-xs font-semibold uppercase text-primary border border-violet-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Tagged
                 </span>
               </div>
@@ -909,7 +909,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
                       <td className="max-w-xs px-5 py-3.5">
                         <p className="line-clamp-2 text-sm font-medium leading-snug">{item.text}</p>
                         {item.editedBy && (
-                          <span className="text-[10px] text-muted-foreground/70 block mt-0.5 font-normal">
+                          <span className="text-xs text-muted-foreground/70 block mt-0.5 font-normal">
                             (edited by {item.editedBy.name?.split(" ")[0] ?? item.editedBy.email.split("@")[0]})
                           </span>
                         )}

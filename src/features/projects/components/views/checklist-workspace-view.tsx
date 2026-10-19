@@ -36,7 +36,7 @@ export function ChecklistWorkspaceView() {
             <span className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-xs shadow-2xs">
               ✓
             </span>
-            <span className="absolute -bottom-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 font-bold text-[10px]">
+            <span className="absolute -bottom-1 -left-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 font-bold text-xs">
               ≡
             </span>
           </div>
@@ -93,7 +93,7 @@ export function ChecklistWorkspaceView() {
                   <div className="flex items-center gap-2">
                     <ChevronDown size={16} className="text-muted-foreground" />
                     <h4 className="font-bold text-xs text-foreground">{title}</h4>
-                    <span className="rounded bg-info/10 text-info px-2 py-0.5 text-[10px] font-bold">
+                    <span className="rounded bg-info/10 text-info px-2 py-0.5 text-xs font-bold">
                       ACTIVE
                     </span>
                   </div>
@@ -122,7 +122,7 @@ export function ChecklistWorkspaceView() {
             <Zap size={18} />
           </div>
           <h4 className="text-xs font-bold text-foreground">Boost Accuracy</h4>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Checklists reduce human error in repetitive SOP tasks by 40%.
           </p>
         </div>
@@ -133,7 +133,7 @@ export function ChecklistWorkspaceView() {
             <Clock size={18} />
           </div>
           <h4 className="text-xs font-bold text-foreground">Full Traceability</h4>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Every tick is logged in the status timeline for audit readiness.
           </p>
         </div>
@@ -144,7 +144,7 @@ export function ChecklistWorkspaceView() {
             <Share2 size={18} />
           </div>
           <h4 className="text-xs font-bold text-foreground">Collaborative Flow</h4>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Share task lists across teams to ensure synchronized progress.
           </p>
         </div>

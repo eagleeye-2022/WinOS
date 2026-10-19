@@ -278,7 +278,7 @@ function CustomRecurrenceDialog({
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input type="radio" checked={monthlyMode === "DAY"} onChange={() => setMonthlyMode("DAY")} className="text-primary" />
-                  <span className="capitalize">On the {nthWeekdayLabel}</span>
+                  <span>On the {nthWeekdayLabel}</span>
                 </label>
               </div>
             )}

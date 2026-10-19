@@ -173,7 +173,7 @@ function PermissionCell({
             title="Assignee"
             onClick={() => persist({ scopeAssignee: !optimistic.scopeAssignee })}
             className={cn(
-              "flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold text-white transition-opacity",
+              "flex h-5 w-5 items-center justify-center rounded text-xs font-bold text-white transition-opacity",
               optimistic.scopeAssignee ? "bg-success opacity-100" : "bg-success/40 opacity-50"
             )}
           >
@@ -184,7 +184,7 @@ function PermissionCell({
             title="Owner"
             onClick={() => persist({ scopeOwner: !optimistic.scopeOwner })}
             className={cn(
-              "flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold text-white transition-opacity",
+              "flex h-5 w-5 items-center justify-center rounded text-xs font-bold text-white transition-opacity",
               optimistic.scopeOwner ? "bg-warning opacity-100" : "bg-warning/40 opacity-50"
             )}
           >

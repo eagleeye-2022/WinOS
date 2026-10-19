@@ -60,7 +60,7 @@ function Brand() {
         className="-my-10 -ml-2 h-32 w-auto object-contain hidden dark:block"
         priority
       />
-      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
         Shared Timesheet
       </span>
     </div>
@@ -121,7 +121,7 @@ export default async function SharedTimesheetPage({
         <div className="grid grid-cols-3 gap-3">
           {stats.map((s) => (
             <div key={s.label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
-              <span className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {s.label}
               </span>
               <span className={`mt-1 block font-mono text-lg sm:text-xl font-bold ${s.className}`}>
@@ -152,7 +152,7 @@ export default async function SharedTimesheetPage({
               <tbody className="divide-y divide-border">
                 {sheet.logs.map((log) => (
                   <tr key={log.id} className="align-top">
-                    <td className="py-2.5 px-4 font-mono text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+                    <td className="py-2.5 px-4 font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                       {log.taskCode || "—"}
                     </td>
                     <td className="py-2.5 px-4">
@@ -167,7 +167,7 @@ export default async function SharedTimesheetPage({
                         <span>{log.project}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    <td className="py-2.5 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
                       {log.timePeriod || "—"}
                     </td>
                     <td className="py-2.5 px-4 font-mono font-bold text-right whitespace-nowrap">{log.duration}</td>
@@ -180,7 +180,7 @@ export default async function SharedTimesheetPage({
                     </td>
                     <td className="py-2.5 px-4 whitespace-nowrap">
                       <span
-                        className={`rounded-md border px-2 py-0.5 text-[11px] font-bold ${STATUS_STYLES[log.approvalStatus]}`}
+                        className={`rounded-md border px-2 py-0.5 text-xs font-bold ${STATUS_STYLES[log.approvalStatus]}`}
                       >
                         {STATUS_LABELS[log.approvalStatus]}
                       </span>
@@ -192,7 +192,7 @@ export default async function SharedTimesheetPage({
           </div>
         )}
 
-        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock size={12} />
           Read-only view shared from {APP_CONFIG.name}. Shows the latest logged entries for this day.
           {sheet.expiresAt && ` Link expires ${new Date(sheet.expiresAt).toLocaleDateString("en-GB")}.`}

@@ -38,7 +38,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -52,6 +52,7 @@ import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
+import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selectors";
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
 import { assignWhyfiTaskToMemberAction } from "@/features/whyfi/actions";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
@@ -381,7 +382,7 @@ function AddTaskRow({
 
       {/* Project → Task list → Task → Subtask; task lists and tasks can be created in place. */}
       <div className="flex items-center gap-2.5 flex-wrap text-xs">
-        <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
+        <span className="font-semibold text-muted-foreground uppercase text-xs">New Task:</span>
         <ProjectTaskSelectors
           projects={cascadingProjects}
           projectsLoading={projectsLoading}
@@ -427,7 +428,7 @@ function AddTaskRow({
           {/* Due Date */}
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <Calendar size={12} className="text-muted-foreground" />
-            <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
             <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
           <TodayDueButton value={dueDate} onChange={setDueDate} />
@@ -524,7 +525,7 @@ function EditBlockerRow({
           </button>
         </div>
         {editedBy && (
-          <span className="text-[10px] text-muted-foreground/70">
+          <span className="text-xs text-muted-foreground/70">
             Edited by {editedBy.name?.split(" ")[0] ?? editedBy.email.split("@")[0]}
           </span>
         )}
@@ -734,7 +735,7 @@ function EditSupportRow({
           </button>
         </div>
         {editedBy && (
-          <span className="text-[10px] text-muted-foreground/70">
+          <span className="text-xs text-muted-foreground/70">
             Edited by {editedBy.name?.split(" ")[0] ?? editedBy.email.split("@")[0]}
           </span>
         )}
@@ -815,7 +816,7 @@ function ScheduledMeetingActions({
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       {displayTitle && (
-        <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px]" title={displayTitle}>
+        <span className="text-xs text-muted-foreground font-medium truncate max-w-[140px]" title={displayTitle}>
           {displayTitle}
         </span>
       )}
@@ -823,7 +824,7 @@ function ScheduledMeetingActions({
         type="button"
         onClick={onEdit}
         title="Edit meeting"
-        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
       >
         <Pencil size={11} className="text-muted-foreground" />
         Edit Meeting
@@ -837,7 +838,7 @@ function ScheduledMeetingActions({
           disabled={pending}
           onClick={onDeleted}
           title="Delete meeting"
-          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
         >
           {pending ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
         </button>
@@ -950,7 +951,7 @@ function AddSupportRow({
                   const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
                   onScheduleMeeting(titleText, mentionedUserIds, (createdView) => setScheduledEvent(createdView));
                 }}
-                className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
+                className="flex items-center gap-1.5 text-xs font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 <Calendar size={12} className="text-muted-foreground" />
                 Schedule Meeting
@@ -1261,12 +1262,12 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                       {i + 1}){" "}
                       {renderTextWithMentions(s.text, mentioned, "font-semibold text-primary")}
                       {isSupportCarriedOver(s.text, entry, allEntries) && (
-                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                           CO
                         </span>
                       )}
                       {s.editedBy && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                        <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
                           (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
                         </span>
                       )}
@@ -1292,12 +1293,12 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                       {i + 1}){" "}
                       {renderTextWithMentions(b.text, mentioned, "font-semibold text-destructive")}
                       {isBlockerCarriedOver(b.text, entry, allEntries) && (
-                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                        <span className="ml-1.5 shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                           CO
                         </span>
                       )}
                       {b.editedBy && (
-                        <span className="ml-1.5 text-[10px] text-muted-foreground/70 font-normal">
+                        <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
                           (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
                         </span>
                       )}
@@ -1449,7 +1450,7 @@ function TaskRow({
 
             {/* Project → Task list → Task → Subtask; task lists and tasks can be created in place. */}
             <div className="flex items-center gap-2.5 flex-wrap text-xs">
-              <span className="font-semibold text-muted-foreground uppercase text-[11px]">Edit Task:</span>
+              <span className="font-semibold text-muted-foreground uppercase text-xs">Edit Task:</span>
               <ProjectTaskSelectors
                 projects={cascadingProjects}
                 projectsLoading={projectsLoading}
@@ -1494,7 +1495,7 @@ function TaskRow({
               <div className="flex items-center gap-3 flex-wrap">
                 {/* Priority */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Priority:</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Priority:</span>
                   <div className="relative flex items-center">
                     <select
                       name="managerPriority"
@@ -1518,7 +1519,7 @@ function TaskRow({
                 {/* Due Date */}
                 <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                   <Calendar size={12} className="text-muted-foreground" />
-                  <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                  <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
                   <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
                 </div>
                 <TodayDueButton value={dueDate} onChange={setDueDate} />
@@ -1765,7 +1766,7 @@ function SummaryTaskEditor({
       <input type="hidden" name="isCompleted" value={String(isCompleted)} />
 
       <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="font-semibold text-muted-foreground uppercase text-[11px]">{task ? "Edit Task:" : "New Task:"}</span>
+        <span className="font-semibold text-muted-foreground uppercase text-xs">{task ? "Edit Task:" : "New Task:"}</span>
         <SearchableSelect
           value={projectId}
           onChange={(v) => { setProjectId(v); setParentTaskId(""); setSubtaskId(""); }}
@@ -1979,7 +1980,7 @@ function SummaryTaskRow({
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
           <WrappedTaskText text={task.text} />
           {/* {!done && (
-            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
+            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning">
               Not done
             </span>
           )} */}
@@ -1992,14 +1993,14 @@ function SummaryTaskRow({
           </span>
         ) : done && task.projectTaskId ? (
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning"
+            className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning"
             title="Marked done, but no effort was logged on this task that day"
           >
             <AlertCircle size={11} /> No effort logged
           </span>
         ) : done && !task.projectTaskId ? (
           <span
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs font-semibold text-muted-foreground"
             title="Not linked to a project task, so effort can't be tracked"
           >
             Not linked
@@ -2150,7 +2151,8 @@ function YesterdayTasksSection({
       <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-primary">
           <CheckCircle2 size={15} className="text-primary" />
-          What Did You Do Yesterday?
+          {/* Named after the member's own previous DSM day (e.g. "Tuesday" if absent since). */}
+          {previousDsmHeading(prevEntry?.date, entry.date)}
           <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             {rows.length} task{rows.length !== 1 ? "s" : ""}
           </span>
@@ -2186,7 +2188,7 @@ function YesterdayTasksSection({
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 py-2 pr-2">Done</th>
                 <th className="py-2 pr-3">Project</th>
                 <th className="py-2 pr-3">Task ID</th>
@@ -2328,7 +2330,7 @@ function TodayTasksSection({
               )}
             >
               NAT
-              <span className="rounded bg-muted px-1.5 text-[10px] font-bold tabular-nums">{notAlignedCount}</span>
+              <span className="rounded bg-muted px-1.5 text-xs font-bold tabular-nums">{notAlignedCount}</span>
             </button>
           )}
           {tasks.length > 1 && (
@@ -2422,8 +2424,7 @@ function LearningSection({
   // "[WL-1-T3] text"; the manager can pick/change the card per line (it's then assigned to the
   // member) and set its due date.
   // Only this member's learning lists (not every list the manager can see).
-  const { tasks: whyfiTasks, setDueDate: setWhyfiDueDate } = useWhyfiTasks(memberId);
-  const whyfiOptions = whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }));
+  const { tasks: whyfiTasks, loading: whyfiLoading, setDueDate: setWhyfiDueDate } = useWhyfiTasks(memberId);
 
   /** Assigns a picked card to the member (adds them as owner, shares its list with them). */
   const assignToMember = (taskId: string) => {
@@ -2552,14 +2553,14 @@ function LearningSection({
                 {lineCode && (
                   <span
                     title={linkedTask ? `${linkedTask.title} · ${linkedTask.listName}` : lineCode}
-                    className="mt-0.5 shrink-0 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-primary"
+                    className="mt-0.5 shrink-0 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-xs font-bold text-primary"
                   >
                     {lineCode}
                   </span>
                 )}
                 <span className="truncate">{stripLearningLineCode(line)}</span>
                 {isLearningCarriedOver(line, entry, allEntries) && (
-                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                  <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                     CO
                   </span>
                 )}
@@ -2590,16 +2591,20 @@ function LearningSection({
 
             {/* Whyfi task picker (assigns the card to the member) + due date */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3.5">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
-                <SearchableSelect
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                {/* Task List → Task → Subtask; picking one assigns the card to the member. */}
+                <WhyfiTaskSelectors
+                  tasks={whyfiTasks}
+                  loading={whyfiLoading}
                   value={linkedTask?.id ?? ""}
                   onChange={(v) => handleLinkLine(i, v)}
-                  options={whyfiOptions}
-                  placeholder={lineCode && !linkedTask ? lineCode : "Select learning task"}
-                  searchPlaceholder="Search learning tasks..."
-                  className="max-w-[300px] text-xs font-medium text-foreground transition-colors hover:text-primary"
                 />
+                {lineCode && !linkedTask && !whyfiLoading && (
+                  <span className="text-xs text-muted-foreground" title="Linked card is closed or not shared with this member">
+                    ({lineCode})
+                  </span>
+                )}
               </div>
               {linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
             </div>
@@ -2655,16 +2660,9 @@ function LearningSection({
               </button>
             </div>
             {/* Pick a Whyfi School card to assign to the member (optional). */}
-            <div className="flex min-w-0 items-center gap-1.5 pl-0.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
-              <SearchableSelect
-                value={newTaskId}
-                onChange={setNewTaskId}
-                options={whyfiOptions}
-                placeholder="Select learning task"
-                searchPlaceholder="Search learning tasks..."
-                className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
-              />
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 pl-0.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+              <WhyfiTaskSelectors tasks={whyfiTasks} loading={whyfiLoading} value={newTaskId} onChange={setNewTaskId} />
             </div>
           </div>
         ) : (
@@ -2942,7 +2940,7 @@ export function ParkingLotSection({
                 <div className="mt-1 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
                   <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                     <Calendar size={12} className="text-muted-foreground" />
-                    <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                    <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
                     <DueDateInput
                       value={item.dueDate}
                       disabled={isLocked && item.persisted}
@@ -3109,13 +3107,13 @@ function EntryExpanded({
                           {renderTextWithMentions(b.text, members, "font-semibold text-destructive")}
                         </span>
                         {isBlockerCarriedOver(b.text, entry, allEntries) && (
-                          <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                          <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                             CO
                           </span>
                         )}
                       </div>
                       {b.editedBy && (
-                        <span className="text-[10px] text-muted-foreground/70">
+                        <span className="text-xs text-muted-foreground/70">
                           Edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]}
                         </span>
                       )}
@@ -3169,13 +3167,13 @@ function EntryExpanded({
                             {renderTextWithMentions(s.text, members, "font-medium text-primary")}
                           </span>
                           {isSupportCarriedOver(s.text, entry, allEntries) && (
-                            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase text-warning">
+                            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-xs font-bold tracking-wide uppercase text-warning">
                               CO
                             </span>
                           )}
                         </div>
                         {s.editedBy && (
-                          <span className="text-[10px] text-muted-foreground/70">
+                          <span className="text-xs text-muted-foreground/70">
                             Edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]}
                           </span>
                         )}
@@ -3215,7 +3213,7 @@ function EntryExpanded({
                           const titleText = s.text.trim() ? `Support Needed: ${s.text.trim()}` : "Support Needed Meeting";
                           setScheduleModal({ supportId: s.id, mode: "create", title: titleText, participantIds: withMember(uIds) });
                         }}
-                        className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                        className="flex items-center gap-1.5 text-xs font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
                       >
                         <Calendar size={12} className="text-muted-foreground" />
                         Schedule Meeting

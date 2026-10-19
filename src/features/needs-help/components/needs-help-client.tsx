@@ -181,7 +181,7 @@ export function NeedsHelpClient({ items }: Props) {
             )}
           >
             <div className="space-y-0.5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Requests</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Requests</p>
               <p className="text-xl font-bold text-foreground">{items.length}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-transparent text-primary">
@@ -201,8 +201,8 @@ export function NeedsHelpClient({ items }: Props) {
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-warning uppercase tracking-wider">Pending</p>
-                <span className="text-[9px] font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-xs font-semibold text-warning uppercase tracking-wider">Pending</p>
+                <span className="text-xs font-semibold uppercase text-warning border border-amber-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Active
                 </span>
               </div>
@@ -225,8 +225,8 @@ export function NeedsHelpClient({ items }: Props) {
           >
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11px] font-semibold text-success uppercase tracking-wider">Resolved</p>
-                <span className="text-[9px] font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
+                <p className="text-xs font-semibold text-success uppercase tracking-wider">Resolved</p>
+                <span className="text-xs font-semibold uppercase text-success border border-emerald-500/40 px-1.5 py-0.2 rounded-full bg-transparent">
                   Done
                 </span>
               </div>

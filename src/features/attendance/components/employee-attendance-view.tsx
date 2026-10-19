@@ -146,7 +146,7 @@ export function EmployeeAttendanceView({
               <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
                 {employee.name}
               </h2>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                 {employee.status}
               </span>
             </div>

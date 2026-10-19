@@ -18,8 +18,11 @@ import { Button } from "@/components/ui/button";
 import { RouteDarkScope } from "@/components/shared/route-dark-scope";
 import { SessionGuard } from "@/components/shared/session-guard";
 import { NavigationStateTracker } from "@/components/shared/navigation-state-tracker";
+import { TableColumnResizer } from "@/components/shared/table-column-resizer";
 import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
 import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
+import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
+import { db } from "@/lib/db";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -79,17 +82,25 @@ export default async function DashboardLayout({
 
   const isManager = userRole === "MANAGER";
 
-  const [unreadCount, recentNotifications, myModuleAccess] = await Promise.all([
+  const [unreadCount, recentNotifications, myModuleAccess, avatarUsers] = await Promise.all([
     getUnreadCount(),
     getNotifications(20),
     getMyModuleAccessAction(),
+    // Only users with a photo — everyone else falls back to initials.
+    db.user.findMany({
+      where: { image: { not: null } },
+      select: { id: true, name: true, email: true, image: true },
+    }),
   ]);
 
   return (
+    <UserAvatarProvider users={avatarUsers}>
     <div className="flex h-screen w-screen flex-col overflow-hidden">
       <SessionGuard />
       {/* Per-module "where you left off": last URL + scroll, restored on module re-entry. */}
       <NavigationStateTracker />
+      {/* Excel-style drag-to-resize on every table header edge. */}
+      <TableColumnResizer />
       {/* Re-opens the "Timer stopped" log modal if a stopped timer's log was never saved. */}
       <PendingTimerLogRecovery userId={userId} />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
@@ -129,9 +140,15 @@ export default async function DashboardLayout({
             <Link
               href={`/settings/users/member/${session.user.id}/edit`}
               title={`Profile: ${userName}`}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity"
+              className="rounded-full hover:opacity-90 transition-opacity"
             >
-              {initials || "U"}
+              <UserAvatar
+                userId={userId}
+                title=""
+                className="h-8 w-8 bg-primary text-xs font-bold text-primary-foreground"
+              >
+                {initials || "U"}
+              </UserAvatar>
             </Link>
             <form action={logoutAction}>
               <Button
@@ -162,5 +179,6 @@ export default async function DashboardLayout({
       </div>
 
     </div>
+    </UserAvatarProvider>
   );
 }

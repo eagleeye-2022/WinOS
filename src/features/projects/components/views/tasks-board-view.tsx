@@ -1125,14 +1125,14 @@ export function TasksBoardView({
               title={isOwner ? "Select task" : "Only users of this project can select this task"}
               className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 accent-primary cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
             />
-            <span className="font-mono text-[11px] font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">
+            <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">
               {task.code}
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
           <div
             className={cn(
-              "relative inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-tight text-white transition-all shadow-2xs",
+              "relative inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tracking-tight text-white transition-all shadow-2xs",
               task.status === "Done" || task.status === "Closed" || task.status === "Approved"
                 ? "bg-emerald-500 hover:bg-emerald-600"
                 : task.status === "In Progress"
@@ -1157,7 +1157,7 @@ export function TasksBoardView({
               onChange={(e) => handleChangeTaskStatus(task, e.target.value as TaskStatus)}
               disabled={!isOwner}
               title={isOwner ? "Change status" : "Only users of this project can change the status"}
-              className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-[10px]"
+              className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-xs"
             >
               {PROJECT_TASK_STATUSES.map((s) => (
                 <option key={s} value={s} className="bg-card text-foreground">{s}</option>
@@ -1238,7 +1238,7 @@ export function TasksBoardView({
                 className="w-52 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 onClick={(e) => e.stopPropagation()}
               >
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
                   Move to Phase
                 </p>
                 <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -1299,7 +1299,7 @@ export function TasksBoardView({
         )}
 
         {/* Card Footer: Icons & Owner Avatar matching reference screenshot */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-[11px]">
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-xs">
           <div className="flex items-center gap-2 text-slate-400" onClick={(e) => e.stopPropagation()}>
             <TimerWidget
               taskTitle={task.title}
@@ -1346,7 +1346,7 @@ export function TasksBoardView({
                   className="w-52 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                  <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
                     Move to Phase
                   </p>
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -1378,7 +1378,7 @@ export function TasksBoardView({
                 })`}
               >
                 <CheckSquare size={13} />
-                <span className="text-[10px] font-bold">{task.subtasks.length}</span>
+                <span className="text-xs font-bold">{task.subtasks.length}</span>
                 {expandedSubtaskCardIds.has(task.id) ? (
                   <ChevronDown size={11} />
                 ) : (
@@ -1395,7 +1395,7 @@ export function TasksBoardView({
                   type="button"
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    "relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer",
+                    "relative flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer",
                     isUnassigned
                       ? "bg-slate-100 text-slate-400 border border-slate-200/80 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
                       : getAvatarColor(resolvedName)
@@ -1408,7 +1408,7 @@ export function TasksBoardView({
                     ownerInitials
                   )}
                   {task.owners && task.owners.length > 1 && (
-                    <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[8px] font-bold ring-2 ring-background">
+                    <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold ring-2 ring-background">
                       +{task.owners.length - 1}
                     </span>
                   )}
@@ -1480,7 +1480,7 @@ export function TasksBoardView({
       {/* ── Subtabs Navigator matching reference image ────────────────────── */}
       {/* <div className="flex items-center justify-between border-b border-border px-6 py-2.5 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-6 text-xs font-medium">
-          <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-semibold">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs font-semibold">
             <span>Task List</span>
             <span>›</span>
             <span className="text-foreground font-bold">
@@ -1648,7 +1648,7 @@ export function TasksBoardView({
                   align="start"
                   className="w-52 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 >
-                  <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                  <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
                     Move to Phase
                   </p>
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -1709,7 +1709,7 @@ export function TasksBoardView({
                   align="start"
                   className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 >
-                  <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                  <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
                     Assign Owner
                   </p>
                   <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -1756,7 +1756,7 @@ export function TasksBoardView({
                 <AlertTriangle size={15} className="text-amber-500 shrink-0" />
                 <span>{stalenessAnalysis.recommendation}</span>
               </div>
-              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold">
+              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-bold">
                 {stalenessAnalysis.staleCount} Stale Task(s) Detected
               </span>
             </div>
@@ -1846,7 +1846,7 @@ export function TasksBoardView({
           {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
             <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40">
-              <div className="flex gap-3.5 h-full items-stretch">
+              <div data-col-scope className="flex gap-3.5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   const isCollapsed = collapsedPhaseCodes.has(col.code);
 
@@ -1865,13 +1865,13 @@ export function TasksBoardView({
                           <ArrowRightToLine size={14} />
                         </button>
                         {/* Task count hidden
-                        <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 font-mono mb-3">
+                        <span className="rounded-full bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold text-slate-600 dark:text-slate-300 font-mono mb-3">
                           {col.count}
                         </span>
                         */}
                         <div className="flex-1 flex items-start justify-center">
                           <span
-                            className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
+                            className="font-extrabold text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
                             style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
                           >
                             {col.name}
@@ -1884,6 +1884,9 @@ export function TasksBoardView({
                   return (
                     <div
                       key={col.code}
+                      // Drag its right edge to resize (TableColumnResizer).
+                      data-resizable-col
+                      data-col-key={`phase-${col.code}`}
                       className="w-[360px] shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
                     >
                       {/* Column Header matching reference screenshot */}
@@ -2026,7 +2029,7 @@ export function TasksBoardView({
                               className="w-full resize-y rounded-lg border border-neutral-700/80 bg-[#111216] p-2.5 text-xs font-medium text-white outline-none focus:ring-1 focus:ring-primary placeholder:text-neutral-500 min-h-[70px]"
                             />
                             <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-800">
-                              <span className="text-[10px] text-neutral-400 font-mono">↵ Enter to create</span>
+                              <span className="text-xs text-neutral-400 font-mono">↵ Enter to create</span>
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
@@ -2034,7 +2037,7 @@ export function TasksBoardView({
                                     setInlineAddingPhaseCode(null);
                                     setInlineTaskTitle("");
                                   }}
-                                  className="px-2.5 py-1 rounded text-[11px] font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                                  className="px-2.5 py-1 rounded text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                                 >
                                   Cancel
                                 </button>
@@ -2042,7 +2045,7 @@ export function TasksBoardView({
                                   type="button"
                                   disabled={!inlineTaskTitle.trim() || isCreatingInlineTask}
                                   onClick={() => handleCreateInlineTask(col.code, col.name)}
-                                  className="px-3 py-1 rounded bg-primary text-white text-[11px] font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shadow-xs"
+                                  className="px-3 py-1 rounded bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shadow-xs"
                                 >
                                   {isCreatingInlineTask ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
                                   <span>Add Task</span>
@@ -2054,14 +2057,14 @@ export function TasksBoardView({
 
                         {col.tasks.length === 0 && inlineAddingPhaseCode !== col.code ? (
                           <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-300/70 dark:border-neutral-800 rounded-xl text-center text-muted-foreground/60 space-y-2 h-36">
-                            <span className="text-[11px] font-medium">No tasks in this phase</span>
+                            <span className="text-xs font-medium">No tasks in this phase</span>
                             <button
                               type="button"
                               onClick={() => {
                                 setInlineAddingPhaseCode(col.code);
                                 setInlineTaskTitle("");
                               }}
-                              className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                              className="text-xs text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                             >
                               <Plus size={12} /> Add Task
                             </button>
@@ -2113,7 +2116,7 @@ export function TasksBoardView({
 
                     <div className="space-y-2.5 text-xs">
                       <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">
                           Task List / Phase Name <span className="text-destructive">*</span>
                         </label>
                         <input
@@ -2136,7 +2139,7 @@ export function TasksBoardView({
                       </div>
 
                       {/* <div>
-                        <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">
                           Phase Code <span className="text-muted-foreground/60">(Optional)</span>
                         </label>
                         <input
@@ -2184,7 +2187,7 @@ export function TasksBoardView({
               <span>ACTIVE SPRINT: {realCompletionPercent}% COMPLETE</span>
             </div>
 
-            <div className="flex items-center gap-5 text-[11px]">
+            <div className="flex items-center gap-5 text-xs">
               <span>TOTAL COUNT: <strong className="text-foreground">{realTaskCount} TASKS</strong></span>
               <span>ASSIGNED TO ME: <strong className="text-foreground">{assignedToMeCount}</strong></span>
             </div>

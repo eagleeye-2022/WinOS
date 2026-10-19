@@ -55,7 +55,7 @@ function MemberListDropdown({
         alignRight ? "right-0" : "left-0"
       )}
     >
-      <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-snug">
+      <p className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 leading-snug">
         {title} ({members.length})
       </p>
       <div className="max-h-72 overflow-y-auto space-y-1">
@@ -74,13 +74,13 @@ function MemberListDropdown({
               </span>
               {m.meta && (
                 <span
-                  className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground font-normal"
+                  className="min-w-0 flex-1 truncate text-xs text-muted-foreground font-normal"
                   title={m.meta}
                 >
                   {m.meta}
                 </span>
               )}
-              <span className="shrink-0 text-[11px] text-muted-foreground/70 font-medium">{m.teamName}</span>
+              <span className="shrink-0 text-xs text-muted-foreground/70 font-medium">{m.teamName}</span>
             </Link>
           ))
         )}

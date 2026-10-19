@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { toUtcDate } from "../utils";
+import { syncDueDateFromDsm } from "../due-date-sync";
 
 export type ParkedTaskResult = {
   success: boolean;
@@ -67,6 +68,7 @@ export async function parkNewTask(input: {
     },
     select: { id: true, text: true, priority: true, projectTaskId: true, dueDate: true },
   });
+  await syncDueDateFromDsm(task.projectTaskId, task.dueDate);
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");
@@ -125,6 +127,7 @@ export async function updateParkedTask(
     },
     select: { id: true, text: true, priority: true, projectTaskId: true, dueDate: true },
   });
+  if (input.dueDate !== undefined) await syncDueDateFromDsm(task.projectTaskId, task.dueDate);
 
   revalidatePath("/dsm");
   revalidatePath("/dsm/my");

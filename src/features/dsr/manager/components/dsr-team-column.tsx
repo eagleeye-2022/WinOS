@@ -2,12 +2,12 @@ import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, Clock, AlertTriangle, Video, VideoOff, Timer } from "lucide-react";
 
 import { cn, toTitleCase } from "@/lib/utils";
+import { teamDotColor } from "@/lib/team-colors";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "@/features/dsm/manager/components/send-reminder-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
 import { formatMinutes } from "../../reporting";
 
-const DOT_COLORS = ["bg-primary", "bg-primary", "bg-success", "bg-warning"];
 
 // Deterministic avatar gradient per user, cycling through a small palette
 const AVATAR_GRADIENTS = [
@@ -183,10 +183,15 @@ export function DsrTeamColumn({ group, colorIndex = 0, selectedDateStr }: { grou
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
 
   return (
-    <div className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5">
+    // Drag its right edge to resize (TableColumnResizer).
+    <div
+      data-resizable-col
+      data-col-key={`report-team-${group.teamId}`}
+      className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5"
+    >
       {/* Column header (fixed) */}
       <div className="flex shrink-0 items-center gap-2 pr-2">
-        <span className={cn("h-2.5 w-2.5 rounded-full", DOT_COLORS[colorIndex % DOT_COLORS.length])} />
+        <span className={cn("h-2.5 w-2.5 rounded-full", teamDotColor(group.teamName, colorIndex))} />
         <span className="text-sm font-bold truncate">{group.teamName}</span>
         {allSubmitted ? (
           <span className="ml-auto flex items-center gap-1 flex-nowrap rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">

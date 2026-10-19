@@ -181,7 +181,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
               <span className="font-bold text-foreground text-xs hover:underline">Click to upload documents</span>{" "}
               <span className="text-muted-foreground">or drag and drop</span>
             </div>
-            {/* <p className="text-[10px] text-muted-foreground">
+            {/* <p className="text-xs text-muted-foreground">
               Files uploaded to <code className="bg-muted px-1 py-0.5 rounded font-mono">/api/upload</code> remain available permanently for this task.
             </p> */}
           </label>
@@ -202,7 +202,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
             <Paperclip size={14} className="text-primary" />
             Task Attachments ({documents.length})
           </span>
-          <span className="text-muted-foreground font-normal text-[10px]">Saved in Database</span>
+          <span className="text-muted-foreground font-normal text-xs">Saved in Database</span>
         </div>
 
         {isLoading ? (
@@ -213,7 +213,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
           <div className="p-8 text-center text-muted-foreground space-y-1">
             <FileText size={30} className="mx-auto opacity-40" />
             <p className="font-semibold text-foreground text-xs">No documents attached to this task yet.</p>
-            <p className="text-[10px]">Upload files above to save them with this task.</p>
+            <p className="text-xs">Upload files above to save them with this task.</p>
           </div>
         ) : (
           <table className="w-full text-left text-xs border-collapse">
@@ -243,11 +243,11 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
                       </a>
                     </div>
                   </td>
-                  <td className="py-2.5 px-4 font-mono text-muted-foreground text-[11px]">
+                  <td className="py-2.5 px-4 font-mono text-muted-foreground text-xs">
                     {formatFileSize(doc.sizeBytes)}
                   </td>
                   <td className="py-2.5 px-4 text-foreground font-medium">{doc.uploadedBy}</td>
-                  <td className="py-2.5 px-4 text-muted-foreground text-[11px]">
+                  <td className="py-2.5 px-4 text-muted-foreground text-xs">
                     {new Date(doc.createdAt).toLocaleDateString()} {new Date(doc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="py-2.5 px-4 text-right whitespace-nowrap">

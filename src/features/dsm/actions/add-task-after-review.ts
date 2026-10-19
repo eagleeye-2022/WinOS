@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { syncDueDateFromDsm } from "../due-date-sync";
 
 export type AddTaskAfterReviewState = { message?: string };
 
@@ -66,6 +67,8 @@ export async function addTaskAfterReview(
       addedById: session.user.id,
     },
   });
+  // A due date on a linked row becomes the Srijan task's due date too.
+  await syncDueDateFromDsm(projectTaskId, dueDate);
 
   const userName = session.user.name ?? (isManager ? "Manager" : "Member");
   await d.standupTimelineEvent.create({

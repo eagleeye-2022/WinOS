@@ -154,7 +154,7 @@ export function HolidaysView() {
           <div>
             <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.total}</div>
             <div className="text-xs font-semibold text-foreground">Total Holidays</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -166,7 +166,7 @@ export function HolidaysView() {
           <div>
             <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.upcoming}</div>
             <div className="text-xs font-semibold text-foreground">Upcoming Holidays</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -178,7 +178,7 @@ export function HolidaysView() {
           <div>
             <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.passed}</div>
             <div className="text-xs font-semibold text-foreground">Holidays Passed</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
 
@@ -190,7 +190,7 @@ export function HolidaysView() {
           <div>
             <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.special}</div>
             <div className="text-xs font-semibold text-foreground">Special / Optional</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{selectedYear}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
           </div>
         </div>
       </div>
@@ -218,7 +218,7 @@ export function HolidaysView() {
         <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3 px-5 font-semibold">HOLIDAY NAME</th>
                 <th className="py-3 px-4 font-semibold">DATE ↕</th>
                 <th className="py-3 px-4 font-semibold">DAY</th>
@@ -259,7 +259,7 @@ export function HolidaysView() {
                     <td className="py-3 px-4">
                       <span
                         className={cn(
-                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
                           holiday.type === "PUBLIC"
                             ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
                             : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -275,7 +275,7 @@ export function HolidaysView() {
 
                     {/* Description */}
                     <td className="py-3 px-5">
-                      <div className="text-muted-foreground text-[11px] max-w-xs truncate">
+                      <div className="text-muted-foreground text-xs max-w-xs truncate">
                         {holiday.description || "Company Holiday"}
                       </div>
                     </td>
@@ -363,7 +363,7 @@ export function HolidaysView() {
                   <SelectItem value="OPTIONAL">Optional Holiday</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Choose whether this is a company holiday or optional holiday.
               </p>
             </div>
@@ -374,7 +374,7 @@ export function HolidaysView() {
                 <label className="font-semibold text-foreground">
                   Description / Note (Optional)
                 </label>
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-xs text-muted-foreground font-mono">
                   {newHolidayDesc.length}/200
                 </span>
               </div>
@@ -388,7 +388,7 @@ export function HolidaysView() {
                 placeholder="Add a short note or description about the holiday..."
                 className="min-h-[80px] text-xs resize-none rounded-xl"
               />
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Maximum 200 characters
               </p>
             </div>

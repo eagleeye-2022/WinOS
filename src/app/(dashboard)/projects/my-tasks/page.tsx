@@ -91,7 +91,7 @@ export default function MyTasksPage() {
               Workflow Nudge: <strong>{unassignedCount} tasks</strong> in your workspace currently have no assigned owner.
             </span>
           </div>
-          <span className="text-[11px] font-mono">Required-Owner Policy</span>
+          <span className="text-xs font-mono">Required-Owner Policy</span>
         </div>
       )}
 

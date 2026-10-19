@@ -444,7 +444,7 @@ export function ApplyLeaveForm({
                           className="h-10 rounded-xl text-xs bg-background"
                           required
                         />
-                        <div className="text-[11px] text-muted-foreground font-medium pl-1">
+                        <div className="text-xs text-muted-foreground font-medium pl-1">
                           {formatDateDisplay(fromDate)}
                         </div>
                       </div>
@@ -460,7 +460,7 @@ export function ApplyLeaveForm({
                           className="h-10 rounded-xl text-xs bg-background"
                           required
                         />
-                        <div className="text-[11px] text-muted-foreground font-medium pl-1">
+                        <div className="text-xs text-muted-foreground font-medium pl-1">
                           {formatDateDisplay(toDate)}
                         </div>
                       </div>
@@ -486,7 +486,7 @@ export function ApplyLeaveForm({
                             required
                           />
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-medium pl-1">
+                        <div className="text-xs text-muted-foreground font-medium pl-1">
                           {formatDateDisplay(date)}
                         </div>
                       </div>
@@ -559,7 +559,7 @@ export function ApplyLeaveForm({
                       className="h-10 rounded-xl text-xs bg-background max-w-md"
                       required
                     />
-                    <div className="text-[11px] text-muted-foreground font-medium pl-1">
+                    <div className="text-xs text-muted-foreground font-medium pl-1">
                       {formatDateDisplay(date)}
                     </div>
                   </div>
@@ -630,7 +630,7 @@ export function ApplyLeaveForm({
                     className="min-h-[100px] text-xs resize-none bg-background rounded-xl p-3"
                     required
                   />
-                  <div className="text-[10px] text-muted-foreground text-right mt-1 font-mono">
+                  <div className="text-xs text-muted-foreground text-right mt-1 font-mono">
                     {reason.length}/500
                   </div>
                 </div>
@@ -662,7 +662,7 @@ export function ApplyLeaveForm({
                           <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">
                             {att.name}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {att.size}
                           </div>
                         </div>
@@ -728,7 +728,7 @@ export function ApplyLeaveForm({
               <div className="border border-border rounded-xl overflow-hidden bg-background">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-muted/40 border-b text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <tr className="bg-muted/40 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2.5 px-4 font-semibold">LEAVE TYPE</th>
                       {isEarlyLeave ? (
                         <>
@@ -791,7 +791,7 @@ export function ApplyLeaveForm({
                       <td className="py-3 px-4 text-center">
                         <span
                           className={cn(
-                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border",
+                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
                             isEarlyLeave
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
                               : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
@@ -842,7 +842,7 @@ export function ApplyLeaveForm({
                 <div className="p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-500">
                   <Calendar className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-medium">Casual Leave</div>
+                <div className="text-xs text-muted-foreground font-medium">Casual Leave</div>
                 <div className="text-xs font-bold text-primary">4 Days</div>
               </div>
 
@@ -851,7 +851,7 @@ export function ApplyLeaveForm({
                 <div className="p-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500">
                   <Heart className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-medium">Sick Leave</div>
+                <div className="text-xs text-muted-foreground font-medium">Sick Leave</div>
                 <div className="text-xs font-bold text-primary">3 Days</div>
               </div>
 
@@ -860,7 +860,7 @@ export function ApplyLeaveForm({
                 <div className="p-1.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-500">
                   <CalendarCheck className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-medium">Annual Leave</div>
+                <div className="text-xs text-muted-foreground font-medium">Annual Leave</div>
                 <div className="text-xs font-bold text-primary">5 Days</div>
               </div>
 
@@ -869,7 +869,7 @@ export function ApplyLeaveForm({
                 <div className="p-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-500">
                   <History className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-medium">Comp Off</div>
+                <div className="text-xs text-muted-foreground font-medium">Comp Off</div>
                 <div className="text-xs font-bold text-primary">1 Day</div>
               </div>
 
@@ -878,14 +878,14 @@ export function ApplyLeaveForm({
                 <div className="p-1.5 rounded-full bg-cyan-50 dark:bg-cyan-950/40 text-cyan-500">
                   <Clock className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-[11px] text-muted-foreground font-medium">Early Leave</div>
+                <div className="text-xs text-muted-foreground font-medium">Early Leave</div>
                 <div className="text-xs font-bold text-primary">2 Days</div>
               </div>
 
               {/* +4 More */}
               <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
                 <div className="text-sm font-bold text-foreground">+4</div>
-                <div className="text-[11px] text-muted-foreground font-medium">More</div>
+                <div className="text-xs text-muted-foreground font-medium">More</div>
               </div>
             </div>
           </div>
@@ -955,7 +955,7 @@ export function ApplyLeaveForm({
                   <h3 className="text-sm font-bold text-foreground truncate max-w-md">
                     {previewAttachment.name}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {previewAttachment.size} • {previewAttachment.type || "Document"}
                   </p>
                 </div>

@@ -280,7 +280,7 @@ export function LeaveBalanceAdjustmentView({
               <Building className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase">
+              <div className="text-xs font-medium text-muted-foreground uppercase">
                 Department
               </div>
               <div className="font-bold text-foreground">
@@ -295,7 +295,7 @@ export function LeaveBalanceAdjustmentView({
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[10px] font-medium text-muted-foreground uppercase">
+              <div className="text-xs font-medium text-muted-foreground uppercase">
                 Status
               </div>
               <div className="font-bold text-emerald-600 dark:text-emerald-400">
@@ -333,7 +333,7 @@ export function LeaveBalanceAdjustmentView({
         <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="bg-muted/40 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3 px-4 font-semibold">LEAVE TYPE</th>
                 <th className="py-3 px-4 font-semibold">ADJUSTMENT TYPE</th>
                 <th className="py-3 px-4 font-semibold">DAYS *</th>
@@ -416,7 +416,7 @@ export function LeaveBalanceAdjustmentView({
                           }
                           className="h-9 w-24 rounded-xl text-xs bg-background font-semibold"
                         />
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           Enter positive number for add
                         </div>
                       </div>
@@ -500,7 +500,7 @@ export function LeaveBalanceAdjustmentView({
               <label className="text-xs font-semibold text-foreground">
                 Remarks (Optional)
               </label>
-              <span className="text-[10px] text-muted-foreground font-mono">
+              <span className="text-xs text-muted-foreground font-mono">
                 {remarks.length}/300
               </span>
             </div>
@@ -527,7 +527,7 @@ export function LeaveBalanceAdjustmentView({
 
           <div className="flex items-center gap-8">
             <div>
-              <div className="text-[10px] text-muted-foreground uppercase">
+              <div className="text-xs text-muted-foreground uppercase">
                 Total Adjustment
               </div>
               <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
@@ -536,7 +536,7 @@ export function LeaveBalanceAdjustmentView({
             </div>
 
             <div className="border-l pl-6">
-              <div className="text-[10px] text-muted-foreground uppercase">
+              <div className="text-xs text-muted-foreground uppercase">
                 Updated On
               </div>
               <div className="font-semibold text-foreground">{effectiveDate}</div>

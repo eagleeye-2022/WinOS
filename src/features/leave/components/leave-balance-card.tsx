@@ -114,25 +114,25 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
       {/* Metric values */}
       <div className="grid grid-cols-2 gap-1 pt-1 border-t border-border/40 text-center">
         <div>
-          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
+          <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
             Remaining
           </div>
           <div className="text-base font-bold text-primary">
             {type.remainingDays}
           </div>
-          <div className="text-[9px] text-muted-foreground/80 -mt-0.5">
+          <div className="text-xs text-muted-foreground/80 -mt-0.5">
             {type.unit}
           </div>
         </div>
 
         <div className="border-l border-border/50">
-          <div className="text-[10px] font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
+          <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase whitespace-nowrap">
             Booked
           </div>
           <div className="text-base font-bold text-foreground/80">
             {type.bookedDays}
           </div>
-          <div className="text-[9px] text-muted-foreground/80 -mt-0.5">
+          <div className="text-xs text-muted-foreground/80 -mt-0.5">
             {type.unit}
           </div>
         </div>

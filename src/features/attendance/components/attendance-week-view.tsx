@@ -160,7 +160,7 @@ export function AttendanceWeekView({
                       <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                         {record.checkInTime}
                       </div>
-                      <div className="text-[11px] text-slate-400">Check-in</div>
+                      <div className="text-xs text-slate-400">Check-in</div>
                     </div>
 
                     {/* Check Out Dot & Time */}
@@ -176,7 +176,7 @@ export function AttendanceWeekView({
                       <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                         {record.checkOutTime || "--:--"}
                       </div>
-                      <div className="text-[11px] text-slate-400">Check-out</div>
+                      <div className="text-xs text-slate-400">Check-out</div>
                     </div>
                   </div>
 
@@ -206,7 +206,7 @@ export function AttendanceWeekView({
                       {record.leaveInfo?.leaveType || "Leave"}
                     </div>
                     {record.leaveInfo?.session && (
-                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
+                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
                         {record.leaveInfo.session}
                       </span>
                     )}
@@ -219,7 +219,7 @@ export function AttendanceWeekView({
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
                         {record.checkInTime || "--:--"}
                       </div>
-                      <div className="text-[10px] text-slate-400">Check-in</div>
+                      <div className="text-xs text-slate-400">Check-in</div>
                     </div>
 
                     <div className="relative">
@@ -227,7 +227,7 @@ export function AttendanceWeekView({
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
                         {record.checkOutTime || "--:--"}
                       </div>
-                      <div className="text-[10px] text-slate-400">Check-out</div>
+                      <div className="text-xs text-slate-400">Check-out</div>
                     </div>
                   </div>
 
@@ -253,7 +253,7 @@ export function AttendanceWeekView({
                       <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                         {record.checkInTime || "--:--"}
                       </div>
-                      <div className="text-[11px] text-slate-400">Check-in</div>
+                      <div className="text-xs text-slate-400">Check-in</div>
                     </div>
 
                     <div className="relative">
@@ -261,7 +261,7 @@ export function AttendanceWeekView({
                       <div className="text-sm font-bold text-slate-400 dark:text-slate-500">
                         --:--
                       </div>
-                      <div className="text-[11px] text-slate-400">Check-out</div>
+                      <div className="text-xs text-slate-400">Check-out</div>
                     </div>
                   </div>
 
@@ -338,7 +338,7 @@ export function AttendanceWeekView({
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Check-out</span>
                   </button>
-                  <p className="text-[10px] text-slate-400 text-center leading-tight">
+                  <p className="text-xs text-slate-400 text-center leading-tight">
                     Working hours will update after check-out.
                   </p>
                 </div>

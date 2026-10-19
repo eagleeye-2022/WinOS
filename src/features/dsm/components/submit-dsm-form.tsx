@@ -11,6 +11,7 @@ import {
   PROJECT_REQUIRED_MESSAGE,
   NAT_TASK_LIST_NAME,
   isNotAlignedTaskLink,
+  previousDsmHeading,
 } from "../utils";
 import { ensureNatTaskForTimerAction } from "../actions/create-project-items";
 import { toast } from "@/components/shared/toast";
@@ -31,8 +32,8 @@ import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { SortFilterButton, DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { ProjectTaskSelectors } from "./project-task-selectors";
-import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
+import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selectors";
 import {
   formatLearningLine,
   parseLearningLineCode,
@@ -346,7 +347,7 @@ function TaskRows({
                 {/* Left: Priority & Due Date */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       PRIORITY:
                     </span>
                     <div className="relative flex items-center">
@@ -385,7 +386,7 @@ function TaskRows({
 
                   <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                     <CalendarIcon size={12} className="text-muted-foreground" />
-                    <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                    <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
                     <DueDateInput
                       value={task.dueDate || ""}
                       onChange={(v) => updateField(i, "dueDate", v)}
@@ -443,7 +444,7 @@ function TaskRows({
                     />
                     {/* Hidden by request: per-task "Xh Ym logged" badge.
                     {loggedMins !== undefined && loggedMins > 0 && (
-                      <span className="flex items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+                      <span className="flex items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
                         <Clock size={11} /> {Math.floor(loggedMins / 60)}h {loggedMins % 60}m logged
                       </span>
                     )} */}
@@ -557,16 +558,20 @@ function LearningRows({
         {(whyfiTasks.length > 0 || linkedCode) && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
-                <SearchableSelect
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                {/* Task List → Task → Subtask, same flow as the Srijan pickers on task rows. */}
+                <WhyfiTaskSelectors
+                  tasks={whyfiTasks}
+                  loading={whyfiLoading}
                   value={linkedTask?.id ?? ""}
                   onChange={(v) => linkTask(i, v)}
-                  options={whyfiTasks.map((t) => ({ value: t.id, label: `[${t.code}] ${t.title} · ${t.listName}` }))}
-                  placeholder={whyfiLoading ? "Loading..." : linkedCode && !linkedTask ? linkedCode : "Select learning task"}
-                  searchPlaceholder="Search learning tasks..."
-                  className="max-w-[320px] text-xs font-medium text-foreground transition-colors hover:text-primary"
                 />
+                {linkedCode && !linkedTask && !whyfiLoading && (
+                  <span className="text-xs text-muted-foreground" title="Linked card is closed or no longer shared">
+                    ({linkedCode})
+                  </span>
+                )}
               </div>
               {linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
             </div>
@@ -716,7 +721,7 @@ function BlockerRows({
                       const titleText = b.text.trim() ? `Blocker Sync: ${b.text.trim()}` : "Blocker Resolution Meeting";
                       onScheduleMeeting(titleText, b.mentionedUserIds);
                     }}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
+                    className="flex items-center gap-1.5 text-xs font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
                     <CalendarIcon size={12} className="text-muted-foreground" />
                     Schedule Meeting
@@ -794,14 +799,14 @@ function ScheduledMeetingActions({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px]" title={event.title}>
+      <span className="text-xs text-muted-foreground font-medium truncate max-w-[140px]" title={event.title}>
         {event.title}
       </span>
       <button
         type="button"
         onClick={onEdit}
         title="Edit meeting"
-        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer"
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer"
       >
         <Pencil size={11} className="text-muted-foreground" />
         Edit Meeting
@@ -811,7 +816,7 @@ function ScheduledMeetingActions({
         disabled={isDeleting}
         title="Delete meeting"
         onClick={handleDelete}
-        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50"
+        className="flex items-center gap-1 rounded-lg border border-border bg-transparent hover:bg-destructive/10 text-muted-foreground hover:text-destructive px-2 py-1 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
       >
         {isDeleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
         Delete
@@ -889,14 +894,14 @@ function SupportRows({
                   />
                 ) : (
                   <>
-                    <span className="text-[11px] text-muted-foreground font-medium">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {s.mentionedUserIds.length > 0 ? `${s.mentionedUserIds.length} tagged for meeting` : "Tag people (@) to invite"}
                     </span>
                     {onScheduleMeeting && (
                       <button
                         type="button"
                         onClick={() => onScheduleMeeting(i)}
-                        className="flex items-center gap-1.5 text-[11px] font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
+                        className="flex items-center gap-1.5 text-xs font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
                       >
                         <CalendarIcon size={12} className="text-muted-foreground" />
                         Schedule Meeting
@@ -1158,7 +1163,7 @@ function ParkingLotRows({
               <div className="mt-1 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-2">
                 <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
                   <CalendarIcon size={12} className="text-muted-foreground" />
-                  <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+                  <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
                   <DueDateInput
                     value={item.dueDate}
                     onChange={(v) => {
@@ -1575,8 +1580,12 @@ export function SubmitDsmForm({
       <form action={action} className="flex flex-col gap-6 px-5 py-5">
         <input type="hidden" name="date" value={todayDateStr} />
 
-        {/* Yesterday — read-only completed tasks */}
-        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What Did You Complete Yesterday?">
+        {/* Previous DSM day — read-only completed tasks. Named after the member's own last DSM day
+            (e.g. "What Did You Do Tuesday?" after being absent), not always "yesterday". */}
+        <Section
+          icon={<CheckCircle2 size={16} className="text-primary" />}
+          title={previousDsmHeading(yesterday.date, todayDateStr)}
+        >
           <YesterdayTaskList tasks={yesterday.tasks} />
           <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
         </Section>
@@ -1589,7 +1598,7 @@ export function SubmitDsmForm({
                 <CalendarIcon size={16} className="text-primary" />
                 <span>Today&apos;s Scheduled Calendar Meetings ({todayCalendarEvents.length})</span>
               </div>
-              <span className="text-[11px] font-semibold text-primary/80 bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+              <span className="text-xs font-semibold text-primary/80 bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
                 Zoho Calendar Integration
               </span>
             </div>
@@ -1602,12 +1611,12 @@ export function SubmitDsmForm({
                     <div>
                       <div className="flex items-center justify-between text-xs font-semibold text-foreground">
                         <span className="truncate max-w-[180px]">{ev.title}</span>
-                        <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
                           <Clock size={10} /> {timeStr}
                         </span>
                       </div>
                       {ev.description && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{ev.description}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ev.description}</p>
                       )}
                     </div>
 
@@ -1620,7 +1629,7 @@ export function SubmitDsmForm({
                             { text: `Meeting: ${ev.title} (${timeStr})`, priority: "P1", carried: false },
                           ]);
                         }}
-                        className="flex-1 rounded-md bg-primary/10 border border-primary/30 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-all text-center cursor-pointer"
+                        className="flex-1 rounded-md bg-primary/10 border border-primary/30 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-all text-center cursor-pointer"
                       >
                         + Add to Tasks
                       </button>
@@ -1632,7 +1641,7 @@ export function SubmitDsmForm({
                             { text: `Data/Input needed for meeting: ${ev.title} (${timeStr})`, mentionedUserIds: [] },
                           ]);
                         }}
-                        className="flex-1 rounded-md bg-secondary border border-border py-1 text-[11px] font-semibold text-foreground hover:bg-accent transition-all text-center cursor-pointer"
+                        className="flex-1 rounded-md bg-secondary border border-border py-1 text-xs font-semibold text-foreground hover:bg-accent transition-all text-center cursor-pointer"
                       >
                         + Add to Data Needed
                       </button>
@@ -1664,7 +1673,7 @@ export function SubmitDsmForm({
                 )}
               >
                 NAT
-                <span className="rounded bg-muted px-1.5 text-[10px] font-bold tabular-nums">{notAlignedCount}</span>
+                <span className="rounded bg-muted px-1.5 text-xs font-bold tabular-nums">{notAlignedCount}</span>
               </button>
               {tasks.length > 1 && (
                 <SortFilterButton

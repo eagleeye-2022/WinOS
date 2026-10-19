@@ -72,11 +72,11 @@ function MemberListDropdown({
                 {displayNameOf(m)}
               </span>
               {m.meta && (
-                <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground font-normal" title={m.meta}>
+                <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground font-normal" title={m.meta}>
                   {m.meta}
                 </span>
               )}
-              <span className="shrink-0 text-[11px] text-muted-foreground/70 font-medium">
+              <span className="shrink-0 text-xs text-muted-foreground/70 font-medium">
                 {m.teamName}
               </span>
             </Link>

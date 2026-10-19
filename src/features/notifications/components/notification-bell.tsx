@@ -176,7 +176,7 @@ export function NotificationBell({ initialUnread, initialNotifications }: Props)
       >
         <Bell size={16} />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 px-1 leading-none items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}

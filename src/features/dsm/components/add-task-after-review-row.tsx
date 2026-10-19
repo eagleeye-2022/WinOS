@@ -131,7 +131,7 @@ export function AddTaskAfterReviewRow({
 
       {/* Cascading Project/Task/Subtask selectors */}
       <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="font-semibold text-muted-foreground uppercase text-[11px]">New Task:</span>
+        <span className="font-semibold text-muted-foreground uppercase text-xs">New Task:</span>
 
         <SearchableSelect
           value={selectedProjectId}
@@ -201,7 +201,7 @@ export function AddTaskAfterReviewRow({
           {/* Due Date */}
           <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
             <CalendarIcon size={12} className="text-muted-foreground" />
-            <span className="font-bold uppercase tracking-wider text-[11px]">Due:</span>
+            <span className="font-bold uppercase tracking-wider text-xs">Due:</span>
             <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
         </div>

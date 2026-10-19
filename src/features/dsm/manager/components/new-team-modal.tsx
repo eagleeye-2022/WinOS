@@ -214,7 +214,7 @@ function MemberPicker({
             key={u.id}
             className="flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-xs font-medium"
           >
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
               {(u.name ?? u.email).slice(0, 2).toUpperCase()}
             </span>
 

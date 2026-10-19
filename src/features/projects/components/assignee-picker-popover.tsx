@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
 import { TeamMemberOption } from "../types";
@@ -75,7 +76,7 @@ export function AssigneePickerPopover({
           <button
             type="button"
             onClick={() => setActiveTab("ALL")}
-            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
               activeTab === "ALL" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-accent"
             }`}
           >
@@ -86,7 +87,7 @@ export function AssigneePickerPopover({
               key={dep}
               type="button"
               onClick={() => setActiveTab(dep)}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
                 activeTab === dep ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-accent"
               }`}
             >
@@ -97,9 +98,9 @@ export function AssigneePickerPopover({
       )}
 
       <div className="px-3 pt-2 pb-1 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Team Members</span>
+        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Team Members</span>
         {selectedIds.length > 0 && (
-          <span className="text-[10px] font-semibold text-muted-foreground/70">{selectedIds.length} selected</span>
+          <span className="text-xs font-semibold text-muted-foreground/70">{selectedIds.length} selected</span>
         )}
       </div>
       <div className="max-h-56 overflow-y-auto py-1">
@@ -118,18 +119,20 @@ export function AssigneePickerPopover({
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold ${getAvatarColor(
+                  <UserAvatar
+                    userId={m.id}
+                    name={m.name}
+                    className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${getAvatarColor(
                       m.name
                     )}`}
                   >
                     {getInitials(m.name)}
-                  </span>
+                  </UserAvatar>
                   <span className="min-w-0">
                     <div className={`truncate font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
                       {m.name}
                     </div>
-                    {m.title && <div className="truncate text-[10px] text-muted-foreground">{m.title}</div>}
+                    {m.title && <div className="truncate text-xs text-muted-foreground">{m.title}</div>}
                   </span>
                 </div>
                 {isSelected && <Check size={14} className="text-primary shrink-0" />}
@@ -144,14 +147,14 @@ export function AssigneePickerPopover({
           type="button"
           onClick={onClearAll}
           disabled={selectedIds.length === 0}
-          className="text-[11px] font-semibold text-destructive hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+          className="text-xs font-semibold text-destructive hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
         >
           Remove All
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+          className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           Done
         </button>

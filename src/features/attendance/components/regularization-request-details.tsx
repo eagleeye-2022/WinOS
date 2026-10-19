@@ -133,7 +133,7 @@ export function RegularizationRequestDetails({
                   <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
                     {request.employee.name}
                   </h2>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                     {request.employee.status}
                   </span>
                 </div>
@@ -175,11 +175,11 @@ export function RegularizationRequestDetails({
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Attendance Date</div>
+                <div className="text-xs text-slate-400 font-medium">Attendance Date</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                   {request.attendanceDate}
                 </div>
-                <div className="text-[10px] text-slate-400">{request.attendanceDay}</div>
+                <div className="text-xs text-slate-400">{request.attendanceDay}</div>
               </div>
             </div>
 
@@ -189,11 +189,11 @@ export function RegularizationRequestDetails({
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Applied On</div>
+                <div className="text-xs text-slate-400 font-medium">Applied On</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                   {request.appliedOn}
                 </div>
-                <div className="text-[10px] text-slate-400">{request.appliedDay}</div>
+                <div className="text-xs text-slate-400">{request.appliedDay}</div>
               </div>
             </div>
 
@@ -203,11 +203,11 @@ export function RegularizationRequestDetails({
                 <Info className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-[11px] text-slate-400 font-medium">Reason</div>
+                <div className="text-xs text-slate-400 font-medium">Reason</div>
                 <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5 truncate max-w-[130px]">
                   {request.reason}
                 </div>
-                <div className="text-[10px] text-slate-400">Regularization</div>
+                <div className="text-xs text-slate-400">Regularization</div>
               </div>
             </div>
           </div>
@@ -359,7 +359,7 @@ export function RegularizationRequestDetails({
               {request.timeline.map((step, idx) => (
                 <div key={idx} className="relative">
                   <div className={cn(
-                    "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[10px]",
+                    "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-xs",
                     step.status === "completed" ? "bg-blue-600 text-white" :
                     step.status === "current" ? "bg-amber-500 text-white" :
                     "bg-slate-200 dark:bg-slate-700 text-slate-500"
@@ -375,12 +375,12 @@ export function RegularizationRequestDetails({
                       {step.title}
                     </h5>
                     {step.timestamp && (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-xs text-slate-400">
                         {step.timestamp}
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {step.subtitle}
                   </p>
                 </div>

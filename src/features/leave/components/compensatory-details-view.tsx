@@ -155,7 +155,7 @@ export function CompensatoryDetailsView({
                 <div className="font-bold text-foreground text-sm">
                   {employee.name}
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {employee.empId} • {employee.role}
                 </div>
               </div>
@@ -165,7 +165,7 @@ export function CompensatoryDetailsView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs pt-2">
               {/* Work Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Work Date</span>
+                <span className="text-muted-foreground font-medium text-xs">Work Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>15 May 2025 (Thu)</span>
@@ -174,7 +174,7 @@ export function CompensatoryDetailsView({
 
               {/* Working Hours */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Working Hours</span>
+                <span className="text-muted-foreground font-medium text-xs">Working Hours</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Clock className="w-4 h-4 text-primary" />
                   <span>07:00 PM – 10:30 PM</span>
@@ -183,7 +183,7 @@ export function CompensatoryDetailsView({
 
               {/* Duration */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Duration</span>
+                <span className="text-muted-foreground font-medium text-xs">Duration</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <CalendarDays className="w-4 h-4 text-emerald-500" />
                   <span>{request.durationText || "Full Day"}</span>
@@ -192,7 +192,7 @@ export function CompensatoryDetailsView({
 
               {/* Requested On */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Requested On</span>
+                <span className="text-muted-foreground font-medium text-xs">Requested On</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>16 May 2025 at 09:15 AM</span>
@@ -201,7 +201,7 @@ export function CompensatoryDetailsView({
 
               {/* Expiry Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Expiry Date</span>
+                <span className="text-muted-foreground font-medium text-xs">Expiry Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-orange-500" />
                   <span>15 Jun 2025 (in 26 days)</span>
@@ -210,7 +210,7 @@ export function CompensatoryDetailsView({
 
               {/* Reason */}
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="text-muted-foreground font-medium text-[11px]">Reason</span>
+                <span className="text-muted-foreground font-medium text-xs">Reason</span>
                 <div className="flex items-start gap-2 text-foreground font-medium pt-1">
                   <MessageSquare className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <span>{request.reason || "Worked on product release support."}</span>
@@ -237,7 +237,7 @@ export function CompensatoryDetailsView({
                   <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">
                     Doctor_Appointment_Proof.pdf
                   </div>
-                  <div className="text-[10px] text-muted-foreground">245 KB</div>
+                  <div className="text-xs text-muted-foreground">245 KB</div>
                 </div>
               </div>
 
@@ -300,8 +300,8 @@ export function CompensatoryDetailsView({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-foreground">Requested</h4>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{employee.name}</p>
-                  <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">{employee.name}</p>
+                  <p className="text-xs text-muted-foreground/80 mt-0.5">
                     18 Aug 2025 at 09:15 AM
                   </p>
                 </div>
@@ -315,11 +315,11 @@ export function CompensatoryDetailsView({
                 <div className="p-3.5 rounded-xl border border-amber-200/80 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/40 space-y-1">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold text-foreground">Manager Approval</h4>
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                       Pending
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Rajesh N (Product Director)
                   </p>
                 </div>
@@ -332,7 +332,7 @@ export function CompensatoryDetailsView({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-muted-foreground">Final Approval</h4>
-                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">Pending</p>
+                  <p className="text-xs text-muted-foreground/70 mt-0.5">Pending</p>
                 </div>
               </div>
             </div>

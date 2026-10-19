@@ -62,7 +62,7 @@ export function ProjectTaskStatusPill({
       title={`Status of ${label || "this task"} in Srijan`}
       aria-label="Project task status"
       className={cn(
-        "cursor-pointer appearance-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold outline-none disabled:opacity-60",
+        "cursor-pointer appearance-none rounded-full px-2.5 py-0.5 text-xs font-semibold outline-none disabled:opacity-60",
         getTaskStatusBadgeClasses(current),
         className
       )}

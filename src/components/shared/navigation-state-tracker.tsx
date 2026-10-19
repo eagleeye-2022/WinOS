@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { resolveNavModule, toUrlKey, type NavModuleId } from "@/lib/navigation/modules";
+import { resolveNavModule, toUrlKey } from "@/lib/navigation/modules";
 import { restoreScroll, snapshotScroll } from "@/lib/navigation/scroll-restore";
 import { useNavigationStore } from "@/stores/navigation-store";
 
@@ -13,7 +13,7 @@ export const NAV_ROOT_ATTR = "data-nav-root";
  * layout, so every module and every future sub-page gets it for free):
  *  - records the current URL as its module's `lastUrl` (the ModuleSwitcher returns there);
  *  - tracks scroll offsets of containers inside <main data-nav-root> per URL;
- *  - restores those offsets when re-entering a module from another one, or on Back/Forward.
+ *  - restores those offsets whenever the user returns to a URL it has offsets for.
  * View state itself (open record, tab, filters) is already in the URL, so returning to the
  * remembered URL restores it.
  */
@@ -26,31 +26,17 @@ export function NavigationStateTracker() {
   const recordUrl = useNavigationStore((s) => s.recordUrl);
   const saveScroll = useNavigationStore((s) => s.saveScroll);
 
-  const prevModuleRef = useRef<NavModuleId | null>(null);
-  const popRef = useRef(false);
   const restoringRef = useRef(false);
 
-  useEffect(() => {
-    const onPop = () => {
-      popRef.current = true;
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  // Remember the URL and, when re-entering a module or going Back/Forward, restore scroll.
+  // Remember the URL and restore its scroll whenever the user comes back to it — via the
+  // sidebar, the module switcher, an in-page link or Back/Forward. The store is in-memory only,
+  // so a full reload still starts every page at the top.
   useEffect(() => {
     recordUrl(moduleId, urlKey);
 
-    const prevModule = prevModuleRef.current;
-    const reEntered = prevModule !== null && prevModule !== moduleId;
-    const viaHistory = popRef.current;
-    prevModuleRef.current = moduleId;
-    popRef.current = false;
-
     const root = document.querySelector(`[${NAV_ROOT_ATTR}]`);
     const saved = useNavigationStore.getState().modules[moduleId]?.scroll[urlKey];
-    if (!root || !saved?.length || !(reEntered || viaHistory)) return;
+    if (!root || !saved?.length) return;
 
     restoringRef.current = true;
     const cancel = restoreScroll(root, saved, {

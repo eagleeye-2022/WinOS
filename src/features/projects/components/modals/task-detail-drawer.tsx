@@ -393,10 +393,10 @@ export function TaskDetailDrawer({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold text-muted-foreground">
+                  <span className="font-mono text-xs font-bold text-muted-foreground">
                     {item.code}
                   </span>
-                  <span className="rounded-full bg-info/10 px-2 py-0.5 text-[9px] font-bold text-info">
+                  <span className="rounded-full bg-info/10 px-2 py-0.5 text-xs font-bold text-info">
                     {item.status.toUpperCase()}
                   </span>
                 </div>
@@ -405,7 +405,7 @@ export function TaskDetailDrawer({
                   {item.title}
                 </h4>
 
-                <div className="flex items-center justify-between pt-1 text-[10px] text-muted-foreground">
+                <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
                   <span>Unassigned</span>
                   {item.warning && (
                     <span className="text-destructive font-bold">!</span>
@@ -422,7 +422,7 @@ export function TaskDetailDrawer({
           <div className="border-b px-6 py-4 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="rounded-md bg-sky-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                <span className="rounded-md bg-sky-500 px-2 py-0.5 text-xs font-bold text-white">
                   Task
                 </span>
                 <span className="font-mono text-xs text-muted-foreground font-semibold">
@@ -477,7 +477,7 @@ export function TaskDetailDrawer({
               </h2>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-4 w-4 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold">
+                  <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
                     DP
                   </span>
                   <span>By Dhruv Patidar</span>
@@ -519,7 +519,7 @@ export function TaskDetailDrawer({
                   )}
                 </select>
               </div>
-              <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">
+              <span className="text-xs font-bold text-muted-foreground tracking-wider uppercase">
                 STATUS
               </span>
             </div>
@@ -710,7 +710,7 @@ export function TaskDetailDrawer({
                             }`}
                           />
                           <span>{sop.title}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-xs text-muted-foreground font-mono">
                             {sop.count}
                           </span>
                         </div>

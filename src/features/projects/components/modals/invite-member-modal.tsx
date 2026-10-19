@@ -276,7 +276,7 @@ export function InviteMemberModal({
                           onChange={() => handleToggleProject(project.id)}
                           className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                         />
-                        <span className="font-mono text-muted-foreground text-[11px]">
+                        <span className="font-mono text-muted-foreground text-xs">
                           {project.id}
                         </span>
                         <span className="font-medium">{project.name}</span>

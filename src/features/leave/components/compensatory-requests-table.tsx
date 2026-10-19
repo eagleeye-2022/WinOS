@@ -64,25 +64,25 @@ export function CompensatoryRequestsTable({
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
             Approved
           </span>
         );
       case "CANCELLED":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
             Cancelled
           </span>
         );
       case "PENDING":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
             Pending
           </span>
         );
       case "REJECTED":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
             Rejected
           </span>
         );
@@ -152,8 +152,8 @@ export function CompensatoryRequestsTable({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-muted/40 border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="py-3 px-4 font-semibold">WORK DATE<br /><span className="text-[10px] font-normal lowercase">(date worked)</span></th>
+                <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="py-3 px-4 font-semibold">WORK DATE<br /><span className="text-xs font-normal lowercase">(date worked)</span></th>
                   <th className="py-3 px-4 font-semibold">HOURS WORKED</th>
                   <th className="py-3 px-4 font-semibold">DURATION</th>
                   <th className="py-3 px-4 font-semibold">REASON</th>
@@ -178,7 +178,7 @@ export function CompensatoryRequestsTable({
                       {/* Work Date */}
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{r.workDate}</div>
-                        <div className="text-[11px] text-muted-foreground">{r.workDayOfWeek}</div>
+                        <div className="text-xs text-muted-foreground">{r.workDayOfWeek}</div>
                       </td>
 
                       {/* Hours Worked */}

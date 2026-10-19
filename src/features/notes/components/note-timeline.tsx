@@ -113,7 +113,7 @@ export function NoteTimelineDrawer({
               <History size={16} className="text-primary" />
               <h3 className="text-sm font-bold text-foreground">Card Timeline</h3>
             </div>
-            {cardTitle && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{cardTitle}</p>}
+            {cardTitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{cardTitle}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
@@ -160,7 +160,7 @@ export function NoteTimelineDrawer({
                     {e.role && (
                       <span
                         className={cn(
-                          "ml-1 rounded px-1 py-px text-[10px] font-semibold",
+                          "ml-1 rounded px-1 py-px text-xs font-semibold",
                           e.role === "Manager" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         )}
                       >
@@ -169,7 +169,7 @@ export function NoteTimelineDrawer({
                     )}{" "}
                     {e.label}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">{formatWhen(e.createdAt)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{formatWhen(e.createdAt)}</p>
                 </li>
               ))}
             </ol>

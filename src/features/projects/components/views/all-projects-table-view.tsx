@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect, useRef } from "react";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 
@@ -65,7 +66,6 @@ import {
   STATUS_OPTIONS,
   STATUS_STYLES,
 } from "../project-table-cells";
-import { shortProjectName } from "../../utils/project-name";
 import { ProjectTimelineDrawer } from "../modals/project-timeline-drawer";
 import { AnchoredPopover } from "../popover-portal";
 import { ProjectINotesCell } from "../project-inotes-panel";
@@ -165,7 +165,7 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
 const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   projectId: 110,
   projectName: 200,
-  projectStartDate: 135,
+  projectStartDate: 145,
   projectStatus: 110,
   projectLead: 160,
   projectNotes: 220,
@@ -182,7 +182,7 @@ const EXPANDED_COL_WIDTH: Record<CollapsibleColId, number> = {
   marketingSeo: 130,
   marketingContent: 140,
   projectCalendar: 210,
-  assetLink: 205,
+  assetLink: 128,
   projectTimeline: 75,
 };
 
@@ -354,7 +354,7 @@ function StartDateCell({
 }
 
 /** Columns kept at a fixed width (EXPANDED_COL_WIDTH) while every other column sizes to content. */
-const FIXED_WIDTH_COLS = new Set<CollapsibleColId>(["projectName", "projectNotes"]);
+const FIXED_WIDTH_COLS = new Set<CollapsibleColId>(["projectName", "projectNotes", "projectStartDate", "assetLink"]);
 /** Horizontal padding of a body cell (px-3 on both sides) — subtracted so the column is exactly the fixed width. */
 const CELL_PADDING_X = 24;
 
@@ -710,7 +710,7 @@ export function AllProjectsTableView({
     return (
       <>
         <div className="my-1 border-t" />
-        <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="px-3 pt-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Change Status
         </div>
         {STATUS_OPTIONS.map((opt) => (
@@ -1118,7 +1118,7 @@ export function AllProjectsTableView({
    *  trick and type style as the collapsed phase columns on the task board. */
   const renderVerticalLabel = (label: string) => (
     <span
-      className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
+      className="font-extrabold text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
       style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
     >
       {label}
@@ -1194,6 +1194,8 @@ export function AllProjectsTableView({
       <th
         key={id}
         rowSpan={rowSpan}
+        // Drag-resizing this header (TableColumnResizer) sets --colw-<id>, which the body cells read.
+        data-col-key={id}
         className={`py-2 px-2.5 border-r whitespace-nowrap overflow-hidden text-center align-middle ${isSticky ? `sticky z-20 ${STICKY_HEADER_BG} ${STICKY_EDGE}` : ""
           }`}
         style={isSticky ? { left: stickyLeftOffset } : undefined}
@@ -1273,14 +1275,19 @@ export function AllProjectsTableView({
           <div
             className="flex justify-start min-w-0"
             style={{
-              width: EXPANDED_COL_WIDTH[id] - CELL_PADDING_X,
-              maxWidth: EXPANDED_COL_WIDTH[id] - CELL_PADDING_X,
+              width: `calc(var(--colw-${id}, ${EXPANDED_COL_WIDTH[id]}px) - ${CELL_PADDING_X}px)`,
+              maxWidth: `calc(var(--colw-${id}, ${EXPANDED_COL_WIDTH[id]}px) - ${CELL_PADDING_X}px)`,
             }}
           >
             {content}
           </div>
         ) : (
-          <div className="flex justify-start w-full min-w-0 max-w-[360px]">{content}</div>
+          <div
+            className="flex justify-start w-full min-w-0"
+            style={{ maxWidth: `calc(var(--colw-${id}, ${360 + CELL_PADDING_X}px) - ${CELL_PADDING_X}px)` }}
+          >
+            {content}
+          </div>
         )}
       </td>
     );
@@ -1375,10 +1382,10 @@ export function AllProjectsTableView({
                     <X size={12} />
                   </button>
                 </div>
-                <p className="text-muted-foreground text-[11px]">
+                <p className="text-muted-foreground text-xs">
                   Showing recent timeline events across all active projects.
                 </p>
-                <div className="space-y-1 text-[11px]">
+                <div className="space-y-1 text-xs">
                   <div className="text-foreground">● Project WinOS updated by Dhruv Patidar</div>
                   <div className="text-foreground">● New phase added to EED Website</div>
                 </div>
@@ -1421,7 +1428,7 @@ export function AllProjectsTableView({
           >
             <span>Digital Projects</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${categoryTab === "DIGITAL"
+              className={`px-1.5 py-0.2 rounded-full text-xs font-bold ${categoryTab === "DIGITAL"
                   ? "bg-white/20 text-white"
                   : "bg-muted text-muted-foreground"
                 }`}
@@ -1439,7 +1446,7 @@ export function AllProjectsTableView({
           >
             <span>SMM Projects</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${categoryTab === "SMM"
+              className={`px-1.5 py-0.2 rounded-full text-xs font-bold ${categoryTab === "SMM"
                   ? "bg-white/20 text-white"
                   : "bg-muted text-muted-foreground"
                 }`}
@@ -1463,7 +1470,7 @@ export function AllProjectsTableView({
               }`}
           >
             <span>Active Projects</span>
-            <span className="text-[10px] opacity-75 font-mono">({activeCount})</span>
+            <span className="text-xs opacity-75 font-mono">({activeCount})</span>
           </button>
           <button
             type="button"
@@ -1474,7 +1481,7 @@ export function AllProjectsTableView({
               }`}
           >
             <span>Inactive</span>
-            <span className="text-[10px] opacity-75 font-mono">({inactiveCount})</span>
+            <span className="text-xs opacity-75 font-mono">({inactiveCount})</span>
           </button>
           <button
             type="button"
@@ -1485,7 +1492,7 @@ export function AllProjectsTableView({
               }`}
           >
             <span>Completed Projects</span>
-            <span className="text-[10px] opacity-75 font-mono">({completedCount})</span>
+            <span className="text-xs opacity-75 font-mono">({completedCount})</span>
           </button>
         </div>
 
@@ -1540,7 +1547,7 @@ export function AllProjectsTableView({
             <button
               type="button"
               onClick={handleResetFilters}
-              className="inline-flex items-center gap-1 rounded bg-muted hover:bg-accent px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1 rounded bg-muted hover:bg-accent px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
               title="Reset search & filters"
             >
               <RotateCw size={11} /> Reset
@@ -1619,17 +1626,17 @@ export function AllProjectsTableView({
                   <Link
                     href={`/projects/${project.id}`}
                     title={project.name}
-                    className="text-base font-bold text-foreground hover:text-primary hover:underline line-clamp-1"
+                    className="text-base font-bold text-foreground hover:text-primary hover:underline line-clamp-2 break-words"
                   >
-                    {shortProjectName(project.name)}
+                    {project.name}
                   </Link>
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="rounded bg-secondary px-2 py-0.5 font-mono text-[10px]">
+                    <span className="rounded bg-secondary px-2 py-0.5 font-mono text-xs">
                       {project.departmentAlias || "digitalproducts@"}
                     </span>
                     {project.templateUsed && (
-                      <span className="truncate text-[10px] opacity-75">
+                      <span className="truncate text-xs opacity-75">
                         • {project.templateUsed}
                       </span>
                     )}
@@ -1648,7 +1655,7 @@ export function AllProjectsTableView({
                       style={{ width: `${project.progressPercent}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                       Tasks: <strong className="text-foreground">{project.completedTasksCount}/{project.totalTasksCount}</strong>
                     </span>
@@ -1661,12 +1668,14 @@ export function AllProjectsTableView({
                 {/* Footer Owner & AI Report */}
                 <div className="flex items-center justify-between pt-2 border-t text-xs">
                   <div className="flex items-center gap-1.5">
-                    <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
+                    <UserAvatar
+                      userId={project.owner.id}
+                      name={project.owner.name}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${project.owner.avatarColor || "bg-amber-500 text-white"
                         }`}
                     >
                       {project.owner.initials}
-                    </span>
+                    </UserAvatar>
                     <span className="font-medium text-foreground truncate max-w-[100px]" title={project.owner.name}>
                       {firstName(project.owner.name)}
                     </span>
@@ -1678,7 +1687,7 @@ export function AllProjectsTableView({
                       const report = generateAIClientStatusReport(project, []);
                       setActiveAIReport(report);
                     }}
-                    className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/20 transition-colors"
+                    className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition-colors"
                   >
                     <Sparkles size={11} className="text-amber-500 animate-pulse" /> AI Report
                   </button>
@@ -1705,7 +1714,7 @@ export function AllProjectsTableView({
                 </span>
                 <span className="flex-1 flex items-start justify-center">
                   <span
-                    className="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
+                    className="font-extrabold text-xs text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap"
                     style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
                   >
                     {COLLAPSED_CARD_LABELS[id] ?? LEAF_LABELS[id]}
@@ -1732,7 +1741,7 @@ export function AllProjectsTableView({
                     isColCollapsed(id)
                       ? { width: COLLAPSED_COL_WIDTH }
                       : FIXED_WIDTH_COLS.has(id)
-                        ? { width: EXPANDED_COL_WIDTH[id] }
+                        ? { width: `var(--colw-${id}, ${EXPANDED_COL_WIDTH[id]}px)` }
                         : undefined
                   }
                 />
@@ -1868,12 +1877,13 @@ export function AllProjectsTableView({
                           <Link
                             href={`/projects/${project.id}`}
                             title={project.name}
-                            className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5"
+                            // Full name (not the short "before :" form), wrapping inside the fixed-width column.
+                            className="font-semibold text-foreground hover:text-primary hover:underline transition-colors whitespace-normal break-words"
                           >
-                            {shortProjectName(project.name)}
+                            {project.name}
                           </Link>
                           {/* <span
-                          className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${project.projectCategory === "INTERNAL_BUILD"
+                          className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-bold ${project.projectCategory === "INTERNAL_BUILD"
                             ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                             : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
                             }`}
@@ -2135,13 +2145,13 @@ export function AllProjectsTableView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <div className="rounded-md border bg-muted/30 p-3 font-mono text-[11px] whitespace-pre-wrap leading-relaxed">
+              <div className="rounded-md border bg-muted/30 p-3 font-mono text-xs whitespace-pre-wrap leading-relaxed">
                 {activeAIReport.markdownReport}
               </div>
             </div>
 
             <div className="flex items-center justify-between border-t px-5 py-3 bg-muted/20">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Ready to copy and email/slack to client.
               </span>
               <button
@@ -2173,10 +2183,10 @@ export function AllProjectsTableView({
 
         return (
           <div className="flex items-center justify-between border-t px-6 py-2 bg-background text-xs text-muted-foreground font-medium shrink-0">
-            <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-0.5 text-info font-semibold text-[11px]">
+            <div className="inline-flex items-center rounded-full bg-info/10 px-3 py-0.5 text-info font-semibold text-xs">
               • PROJECTS: {avgCompletion}% COMPLETE
             </div>
-            <div className="flex items-center gap-4 text-[11px]">
+            <div className="flex items-center gap-4 text-xs">
               <span>TOTAL COUNT: <strong className="text-foreground">{totalTaskCount} TASKS</strong></span>
               <span>ASSIGNED TO ME: <strong className="text-foreground">{assignedToMeCount}</strong></span>
             </div>

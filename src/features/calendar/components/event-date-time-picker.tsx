@@ -366,7 +366,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
                 {selected === opt.id && !opt.disabled && <Check size={10} className="text-primary-foreground" />}
               </span>
               {opt.label}
-              {opt.disabled && <span className="ml-auto text-[10px] uppercase tracking-wide">Past</span>}
+              {opt.disabled && <span className="ml-auto text-xs uppercase tracking-wide">Past</span>}
             </button>
           ))}
 
@@ -426,7 +426,7 @@ export function EventDateTimePicker({ start, end, onStartChange, onEndChange, no
 
         {/* End time (auto = start + 1h, manually adjustable) */}
         <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
-          <span className="text-[11px] font-medium text-muted-foreground">Ends</span>
+          <span className="text-xs font-medium text-muted-foreground">Ends</span>
           <div className="flex items-center gap-1.5">
             <HourSelect
               value={endParts.hour12}

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Calendar, Loader2, Info } from "lucide-react";
 import { TaskSubtask, TaskStatus, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
+import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/rich-description";
 
 interface AddSubtaskDrawerProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface AddSubtaskDrawerProps {
   onAddSubtask: (subtask: TaskSubtask) => void;
   parentTaskCode: string;
   nextSubtaskNumber: number;
+  /** Hide the "<parent>.<n>" code preview — Whyfi School subtasks get their own "WL-…-T<n>" code. */
+  hideCodePreview?: boolean;
 }
 
 export function AddSubtaskDrawer({
@@ -18,6 +21,7 @@ export function AddSubtaskDrawer({
   onAddSubtask,
   parentTaskCode,
   nextSubtaskNumber,
+  hideCodePreview = false,
 }: AddSubtaskDrawerProps) {
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState(() =>
@@ -57,6 +61,8 @@ export function AddSubtaskDrawer({
       startDate: formatDateDisplay(startDate),
       dueDate: formatDateDisplay(dueDate),
       completed: isTaskDone(status),
+      // An emptied rich editor leaves "<p></p>" — store that as no description.
+      description: isEmptyDescription(description) ? "" : description.trim(),
     };
 
     onAddSubtask(newSubtask);
@@ -74,9 +80,11 @@ export function AddSubtaskDrawer({
         <div className="flex items-center justify-between border-b border-border px-6 py-4 dark:border-neutral-800">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-foreground dark:text-neutral-100">Add Subtask</h2>
-            <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono font-semibold text-muted-foreground">
-              {parentTaskCode}.{nextSubtaskNumber}
-            </span>
+            {!hideCodePreview && (
+              <span className="rounded bg-muted px-2 py-0.5 text-xs font-mono font-semibold text-muted-foreground">
+                {parentTaskCode}.{nextSubtaskNumber}
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -180,13 +188,7 @@ export function AddSubtaskDrawer({
             <label className="font-semibold text-muted-foreground">
               Description
             </label>
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Subtask details or specifications..."
-              className="w-full rounded-md border border-input bg-background p-3 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary resize-y font-sans"
-            />
+            <RichDescriptionEditor value={description} onChange={setDescription} />
           </div>
 
           {/* Footer Actions */}

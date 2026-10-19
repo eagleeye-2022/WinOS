@@ -416,7 +416,7 @@ export function AddProjectDrawer({
                 ))}
               </div>
               {projectToEdit && selectedTemplate.name !== projectToEdit.templateUsed && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Saving will renumber this project&apos;s phases to the {selectedTemplate.name} template. Existing
                   tasks and logged time are kept.
                 </p>
@@ -443,9 +443,9 @@ export function AddProjectDrawer({
 
             {phasesOpen && (
               <div className="border-t px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground pb-1">
+                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground pb-1">
                   <span>Scaffolded SOP Pipeline ({phases.length} Phases)</span>
-                  <span className="font-mono text-[10px]">1.1 → 7.7 SOP Pipeline</span>
+                  <span className="font-mono text-xs">1.1 → 7.7 SOP Pipeline</span>
                 </div>
 
                 <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
@@ -468,7 +468,7 @@ export function AddProjectDrawer({
                           className="flex items-center justify-between px-3 py-2 text-xs text-foreground hover:bg-accent/40 cursor-pointer select-none"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+                            <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary">
                               {phase.code}
                             </span>
                             <span className="font-semibold text-foreground">
@@ -477,7 +477,7 @@ export function AddProjectDrawer({
                           </div>
                           <div className="flex items-center gap-2">
                             {defaultTasks.length > 0 && (
-                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
                                 {defaultTasks.length} task(s)
                               </span>
                             )}
@@ -490,8 +490,8 @@ export function AddProjectDrawer({
                         </div>
 
                         {isExpanded && (
-                          <div className="border-t bg-muted/20 px-3 py-2 space-y-1.5 text-[11px]">
-                            <div className="font-bold text-muted-foreground uppercase text-[10px] tracking-wide pb-0.5">
+                          <div className="border-t bg-muted/20 px-3 py-2 space-y-1.5 text-xs">
+                            <div className="font-bold text-muted-foreground uppercase text-xs tracking-wide pb-0.5">
                               Starter Tasks in Phase {phase.code}:
                             </div>
                             {defaultTasks.length > 0 ? (
@@ -504,7 +504,7 @@ export function AddProjectDrawer({
                                     • {t.title}
                                   </span>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                    <span className="font-mono text-xs text-muted-foreground">
                                       {t.duration}
                                     </span>
                                   </div>
@@ -720,7 +720,7 @@ export function AddProjectDrawer({
                       </label>
                       <button
                         type="button"
-                        className="text-[10px] text-primary hover:underline"
+                        className="text-xs text-primary hover:underline"
                       >
                         Enter Duration
                       </button>
@@ -896,7 +896,7 @@ export function AddProjectDrawer({
                     <p className="text-xs text-muted-foreground font-medium">
                       Drop files or add attachments here...
                     </p>
-                    <span className="text-[10px] text-muted-foreground/70">
+                    <span className="text-xs text-muted-foreground/70">
                       Maximum 30 files
                     </span>
                   </div>
@@ -973,7 +973,7 @@ export function AddProjectDrawer({
                       )}
                     </div>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-tight">
                     Accessible to all workspace members
                   </p>
                 </div>
@@ -1013,7 +1013,7 @@ export function AddProjectDrawer({
                       )}
                     </div>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-tight">
                     Only assigned members & leads
                   </p>
                 </div>
@@ -1046,7 +1046,7 @@ export function AddProjectDrawer({
                 Cancel
               </button>
             </div>
-            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
               <input
                 type="checkbox"
                 checked={notifyAddedUsers}

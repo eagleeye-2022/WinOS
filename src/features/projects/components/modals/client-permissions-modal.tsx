@@ -104,7 +104,7 @@ export function ClientPermissionsModal({
                   <span className="font-medium text-foreground block">
                     {perm.label}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {perm.enabled ? "Enabled for client" : "Disabled"}
                   </span>
                 </div>

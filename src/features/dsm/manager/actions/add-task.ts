@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { linkProjectOnlyRowsToNat } from "../nat-rows";
+import { syncDueDateFromDsm } from "../../due-date-sync";
 
 export type AddTaskState = { message?: string };
 
@@ -65,6 +66,9 @@ export async function addTask(
       addedById: session.user.id,
     },
   });
+
+  // A due date on a linked row becomes the Srijan task's due date too.
+  await syncDueDateFromDsm(projectTaskId, dueDate);
 
   // Added to an already-reviewed DSM with a project but no task: there's no later review to
   // create its NAT task, so do it now (see reviewStandup).

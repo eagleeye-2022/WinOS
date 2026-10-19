@@ -637,7 +637,7 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
                   onChange={(e) => setFiles((prev) => ({ ...prev, [doc.key]: e.target.files?.[0] ?? null }))}
                 />
                 {existingDoc && (
-                  <div className="flex items-center gap-2.5 mt-1 text-[11px]">
+                  <div className="flex items-center gap-2.5 mt-1 text-xs">
                     <a
                       href={existingDoc.fileUrl}
                       target="_blank"

@@ -216,7 +216,7 @@ export function ApplyCompensatoryForm({
                     className="h-10 rounded-xl text-xs bg-background"
                     required
                   />
-                  <div className="text-[11px] text-muted-foreground font-medium pl-1">
+                  <div className="text-xs text-muted-foreground font-medium pl-1">
                     {formatDateWithWeekday(workDate)}
                   </div>
                 </div>
@@ -357,7 +357,7 @@ export function ApplyCompensatoryForm({
                     className="min-h-[100px] text-xs resize-none bg-background rounded-xl p-3"
                     required
                   />
-                  <div className="text-[10px] text-muted-foreground text-right mt-1 font-mono">
+                  <div className="text-xs text-muted-foreground text-right mt-1 font-mono">
                     {reason.length}/500
                   </div>
                 </div>
@@ -388,7 +388,7 @@ export function ApplyCompensatoryForm({
                           <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">
                             {att.name}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {att.size}
                           </div>
                         </div>
@@ -447,7 +447,7 @@ export function ApplyCompensatoryForm({
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{expiryDateFormatted}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Expiry date is auto calculated as 1 month from work date.
                 </p>
               </div>
@@ -536,10 +536,10 @@ export function ApplyCompensatoryForm({
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-foreground">Full Day</div>
-                    <div className="text-[10px] text-muted-foreground">More than 5 hours</div>
+                    <div className="text-xs text-muted-foreground">More than 5 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                   1 Day
                 </span>
               </div>
@@ -552,10 +552,10 @@ export function ApplyCompensatoryForm({
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-foreground">Half Day</div>
-                    <div className="text-[10px] text-muted-foreground">Up to 5 hours</div>
+                    <div className="text-xs text-muted-foreground">Up to 5 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                   0.5 Day
                 </span>
               </div>
@@ -570,10 +570,10 @@ export function ApplyCompensatoryForm({
                     <div className="text-xs font-semibold text-foreground">
                       Quarter Day (4 Hours)
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Up to 4 hours</div>
+                    <div className="text-xs text-muted-foreground">Up to 4 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                   0.25 Day
                 </span>
               </div>

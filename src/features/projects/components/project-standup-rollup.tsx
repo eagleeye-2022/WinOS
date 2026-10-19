@@ -45,7 +45,7 @@ export function ProjectStandupRollup({ projectId }: { projectId: string }) {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Standup & DSM Activity</h3>
-            <p className="text-[11px] text-muted-foreground">Recent standup mentions & blockers for this project</p>
+            <p className="text-xs text-muted-foreground">Recent standup mentions & blockers for this project</p>
           </div>
         </div>
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
@@ -78,18 +78,18 @@ export function ProjectStandupRollup({ projectId }: { projectId: string }) {
               >
                 <div className="flex items-center justify-between text-muted-foreground">
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                       {item.user?.name ? item.user.name.charAt(0).toUpperCase() : "U"}
                     </span>
                     <span className="font-semibold text-xs">{item.user?.name || item.user?.email}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {item.taskCode && (
-                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-background border border-border">
+                      <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-background border border-border">
                         [{item.taskCode}]
                       </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Calendar size={10} /> {formattedDate}
                     </span>
                   </div>

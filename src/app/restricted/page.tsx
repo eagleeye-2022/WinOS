@@ -73,7 +73,7 @@ function RestrictedContent() {
           align-items: center;
           gap: 0.75rem;
           text-align: center;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          font-family: var(--font-poppins), sans-serif;
           padding: 1.5rem;
         }
         .restricted-badge {

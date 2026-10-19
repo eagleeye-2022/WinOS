@@ -78,12 +78,12 @@ export function ProjectTemplatesModal({
                   <div className="flex items-center justify-between">
                     <span className="truncate pr-1">{tmpl.name}</span>
                     {tmpl.isDefault && (
-                      <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[9px] text-primary">
+                      <span className="rounded bg-primary/20 px-1.5 py-0.5 text-xs text-primary">
                         Default
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                     {tmpl.description}
                   </p>
                 </button>
@@ -153,7 +153,7 @@ export function ProjectTemplatesModal({
                   >
                     <div className="flex items-center justify-between font-bold text-xs text-foreground border-b pb-1.5">
                       <span>{phase.name}</span>
-                      <span className="text-[11px] font-mono text-muted-foreground">
+                      <span className="text-xs font-mono text-muted-foreground">
                         {phase.departmentAlias}
                       </span>
                     </div>
@@ -167,7 +167,7 @@ export function ProjectTemplatesModal({
                           <div className="flex items-center justify-between font-semibold">
                             <span className="truncate">{tl.name}</span>
                             <span
-                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                              className={`rounded px-1.5 py-0.5 text-xs font-bold ${
                                 tl.flag === "external"
                                   ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                                   : "bg-muted text-muted-foreground"
@@ -176,7 +176,7 @@ export function ProjectTemplatesModal({
                               {tl.flag === "external" ? "Client Visible" : "Internal Only"}
                             </span>
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {tl.defaultTasks.length} starter task(s)
                           </div>
                         </div>

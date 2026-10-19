@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { previousDsmDayLabel, previousDsmHeading } from "@/features/dsm/utils";
 import {
   toUtcDate,
   isoToUtcDate,
@@ -492,5 +493,28 @@ describe("sortTeamGroups", () => {
       "Tech Team",
       "SMM Team",
     ]);
+  });
+});
+
+describe("previousDsmDayLabel / previousDsmHeading", () => {
+  // 2026-10-19 is a Monday.
+  it("says Yesterday when the previous DSM was the day before", () => {
+    expect(previousDsmHeading("2026-10-18", "2026-10-19")).toBe("What Did You Do Yesterday?");
+  });
+
+  it("names the weekday of the user's last DSM (absent days in between)", () => {
+    expect(previousDsmDayLabel("2026-10-14", "2026-10-19")).toBe("Wednesday");
+    expect(previousDsmHeading("2026-10-16", "2026-10-19")).toBe("What Did You Do Friday?");
+    expect(previousDsmHeading(new Date("2026-10-13T00:00:00Z"), new Date("2026-10-19T00:00:00Z"))).toBe(
+      "What Did You Do Tuesday?"
+    );
+  });
+
+  it("uses a date for anything a week or more back", () => {
+    expect(previousDsmHeading("2026-10-07", "2026-10-19")).toBe("What Did You Do on 7 Oct?");
+  });
+
+  it("falls back to Yesterday when there is no previous DSM", () => {
+    expect(previousDsmHeading(null, "2026-10-19")).toBe("What Did You Do Yesterday?");
   });
 });

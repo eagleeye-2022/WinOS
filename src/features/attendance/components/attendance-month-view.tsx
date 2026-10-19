@@ -90,7 +90,7 @@ export function AttendanceMonthView({
                 </span>
 
                 {isSelected && (
-                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
                     {cell.day}
                   </span>
                 )}
@@ -101,7 +101,7 @@ export function AttendanceMonthView({
                 <div className="mt-1 space-y-1">
                   {/* Working now */}
                   {record.status === "WORKING_NOW" && (
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                       <span>Working</span>
                     </div>
@@ -110,12 +110,12 @@ export function AttendanceMonthView({
                   {/* Present */}
                   {record.status === "PRESENT" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>Present</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-[10px] text-slate-400 pl-4 font-medium">
+                        <div className="text-xs text-slate-400 pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -125,14 +125,14 @@ export function AttendanceMonthView({
                   {/* Half Day */}
                   {record.status === "HALF_DAY_LEAVE" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
                         <span className="w-2.5 h-2.5 rounded-full border border-amber-500 bg-amber-500/30 flex items-center justify-center">
                           <span className="w-1.2 h-2.5 bg-amber-500 rounded-l-full" />
                         </span>
                         <span>Half Day</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-[10px] text-slate-400 pl-3.5 font-medium">
+                        <div className="text-xs text-slate-400 pl-3.5 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -142,12 +142,12 @@ export function AttendanceMonthView({
                   {/* Early Leave */}
                   {record.status === "EARLY_LEAVE" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
                         <Clock className="w-3 h-3" />
                         <span>Early Leave</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-[10px] text-slate-400 pl-4 font-medium">
+                        <div className="text-xs text-slate-400 pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -157,11 +157,11 @@ export function AttendanceMonthView({
                   {/* Leave */}
                   {record.status === "ON_LEAVE" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
                         <ArrowRightCircle className="w-3 h-3" />
                         <span>{record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave"}</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 pl-4">
+                      <div className="text-xs text-slate-400 pl-4">
                         {record.leaveInfo?.leaveType || "Leave"}
                       </div>
                     </div>
@@ -170,12 +170,12 @@ export function AttendanceMonthView({
                   {/* Action Required */}
                   {record.status === "ACTION_REQUIRED" && (
                     record.actionRequiredType ? (
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
                         <AlertCircle className="w-3 h-3" />
                         <span>Action Required</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
                         <Clock className="w-3 h-3" />
                         <span>Pending review</span>
                       </div>
@@ -185,11 +185,11 @@ export function AttendanceMonthView({
                   {/* Holiday */}
                   {record.status === "HOLIDAY" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
                         <Calendar className="w-3 h-3" />
                         <span>Holiday</span>
                       </div>
-                      <div className="text-[10px] text-blue-500/90 dark:text-blue-300 pl-4 font-medium leading-tight">
+                      <div className="text-xs text-blue-500/90 dark:text-blue-300 pl-4 font-medium leading-tight">
                         {record.holidayInfo?.name}
                       </div>
                     </div>
@@ -197,7 +197,7 @@ export function AttendanceMonthView({
 
                   {/* Weekend */}
                   {record.status === "WEEKEND" && (
-                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <div className="flex items-center gap-1 text-xs text-slate-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
                       <span>Weekend</span>
                     </div>

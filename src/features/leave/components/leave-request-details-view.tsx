@@ -354,7 +354,7 @@ export function LeaveRequestDetailsView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
               {/* Employee */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Employee</span>
+                <span className="text-muted-foreground font-medium text-xs">Employee</span>
                 <div className="flex items-center gap-3 pt-0.5">
                   <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
                     {employee.avatarUrl ? (
@@ -367,7 +367,7 @@ export function LeaveRequestDetailsView({
                     <div className="font-bold text-foreground text-sm leading-tight">
                       {employee.name}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {employee.empId} • {employee.role}
                     </div>
                   </div>
@@ -376,7 +376,7 @@ export function LeaveRequestDetailsView({
 
               {/* Applied On */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Applied On</span>
+                <span className="text-muted-foreground font-medium text-xs">Applied On</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>{request.appliedOnDateTime || `${request.appliedOn} at 09:15 AM`}</span>
@@ -385,7 +385,7 @@ export function LeaveRequestDetailsView({
 
               {/* Leave Type */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Leave Type</span>
+                <span className="text-muted-foreground font-medium text-xs">Leave Type</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   {React.createElement(getLeaveIcon(request.leaveTypeIcon || "Calendar"), {
                     className: "w-4 h-4 text-primary",
@@ -396,7 +396,7 @@ export function LeaveRequestDetailsView({
 
               {/* Status */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Status</span>
+                <span className="text-muted-foreground font-medium text-xs">Status</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
                   <span>{status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}</span>
@@ -405,7 +405,7 @@ export function LeaveRequestDetailsView({
 
               {/* From Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">From Date</span>
+                <span className="text-muted-foreground font-medium text-xs">From Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>{request.fromDateDisplay.replace("\n", " ")}</span>
@@ -414,7 +414,7 @@ export function LeaveRequestDetailsView({
 
               {/* To Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">To Date</span>
+                <span className="text-muted-foreground font-medium text-xs">To Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <Calendar className="w-4 h-4 text-primary" />
                   <span>{request.toDateDisplay.replace("\n", " ")}</span>
@@ -423,7 +423,7 @@ export function LeaveRequestDetailsView({
 
               {/* Duration */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-[11px]">Duration</span>
+                <span className="text-muted-foreground font-medium text-xs">Duration</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   <Clock className="w-4 h-4 text-primary" />
                   <span>{request.durationText}</span>
@@ -432,7 +432,7 @@ export function LeaveRequestDetailsView({
 
               {/* Reason */}
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="text-muted-foreground font-medium text-[11px]">Reason</span>
+                <span className="text-muted-foreground font-medium text-xs">Reason</span>
                 <div className="flex items-start gap-2 text-foreground font-medium pt-1.5">
                   <MessageSquare className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <span>{request.reason}</span>
@@ -473,7 +473,7 @@ export function LeaveRequestDetailsView({
                       <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">
                         {att.name}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">{att.size}</div>
+                      <div className="text-xs text-muted-foreground">{att.size}</div>
                     </div>
                   </div>
 
@@ -651,7 +651,7 @@ export function LeaveRequestDetailsView({
                           <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
                           <span
                             className={cn(
-                              "px-2 py-0.5 rounded-md text-[10px] font-semibold border",
+                              "px-2 py-0.5 rounded-md text-xs font-semibold border",
                               isCompleted
                                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200"
                                 : isRejected
@@ -662,11 +662,11 @@ export function LeaveRequestDetailsView({
                             {isCompleted ? "Approved" : isRejected ? "Rejected" : "Pending"}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {step.actorName} {step.actorRole ? `(${step.actorRole})` : ""}
                         </p>
                         {step.dateStr && (
-                          <p className="text-[10px] text-muted-foreground/80">{step.dateStr}</p>
+                          <p className="text-xs text-muted-foreground/80">{step.dateStr}</p>
                         )}
                       </div>
                     </div>
@@ -699,11 +699,11 @@ export function LeaveRequestDetailsView({
                         <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border shadow-2xs", type.iconBgColor, type.iconTextColor)}>
                           <TypeIcon className="w-4 h-4" />
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-medium truncate max-w-[120px]" title={type.name}>
+                        <div className="text-xs text-muted-foreground font-medium truncate max-w-[120px]" title={type.name}>
                           {type.name}
                         </div>
                         <div className="text-xs font-bold text-foreground">
-                          {type.remainingDays} <span className="text-[10px] font-normal text-muted-foreground">{type.unit || "Days"}</span>
+                          {type.remainingDays} <span className="text-xs font-normal text-muted-foreground">{type.unit || "Days"}</span>
                         </div>
                       </div>
                     );
@@ -729,7 +729,7 @@ export function LeaveRequestDetailsView({
                   <h3 className="text-sm font-bold text-foreground truncate max-w-md">
                     {previewAttachment.name}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {previewAttachment.size} • {previewAttachment.type || "Document"}
                   </p>
                 </div>

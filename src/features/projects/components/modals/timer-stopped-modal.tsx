@@ -270,7 +270,7 @@ export function TimerStoppedModal({
               <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5 dark:border-zinc-800">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
+                    <label className="block text-xs text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
                       Start Time
                     </label>
                     <input
@@ -280,11 +280,11 @@ export function TimerStoppedModal({
                         setStartInput(e.target.value);
                         setErrorMsg("");
                       }}
-                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
+                    <label className="block text-xs text-muted-foreground font-semibold mb-1 dark:text-zinc-400">
                       End Time
                     </label>
                     <input
@@ -294,7 +294,7 @@ export function TimerStoppedModal({
                         setEndInput(e.target.value);
                         setErrorMsg("");
                       }}
-                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100"
                     />
                   </div>
                 </div>
@@ -303,14 +303,14 @@ export function TimerStoppedModal({
                   <button
                     type="button"
                     onClick={() => setIsEditingTimes(false)}
-                    className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer dark:text-zinc-400 dark:hover:text-zinc-200"
+                    className="px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer dark:text-zinc-400 dark:hover:text-zinc-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleApplyTimeEdit}
-                    className="px-3 py-1 rounded bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition-colors cursor-pointer"
+                    className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     Apply Time
                   </button>

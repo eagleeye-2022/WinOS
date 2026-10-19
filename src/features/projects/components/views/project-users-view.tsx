@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect } from "react";
 import {
   Users,
@@ -237,7 +238,7 @@ export function ProjectUsersView({
       {/* <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Total Users
             </span>
             <div className="text-xl font-extrabold text-foreground mt-0.5 font-mono">
@@ -251,7 +252,7 @@ export function ProjectUsersView({
 
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Active Members
             </span>
             <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
@@ -265,7 +266,7 @@ export function ProjectUsersView({
 
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Open Tasks Assigned
             </span>
             <div className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
@@ -279,7 +280,7 @@ export function ProjectUsersView({
 
         <div className="rounded-xl border bg-card p-3.5 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Total Logged Hours
             </span>
             <div className="text-xl font-extrabold text-purple-600 dark:text-purple-400 mt-0.5 font-mono">
@@ -441,14 +442,17 @@ export function ProjectUsersView({
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-xs cursor-pointer ${getAvatarColor(
-                        member.name
-                      )}`}
-                      onClick={() => setSelectedDrawerUserId(member.id)}
-                    >
-                      {getInitials(member.name)}
-                    </div>
+                    <button type="button" onClick={() => setSelectedDrawerUserId(member.id)} className="rounded-full">
+                      <UserAvatar
+                        userId={member.id}
+                        name={member.name}
+                        className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-xs cursor-pointer ${getAvatarColor(
+                          member.name
+                        )}`}
+                      >
+                        {getInitials(member.name)}
+                      </UserAvatar>
+                    </button>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <h4
@@ -458,7 +462,7 @@ export function ProjectUsersView({
                           {member.name}
                         </h4>
                         {member.isOwner && (
-                          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
                             Owner
                           </span>
                         )}
@@ -486,7 +490,7 @@ export function ProjectUsersView({
                 {editingUserId === member.id ? (
                   <div className="mt-3 p-2.5 rounded-lg border bg-muted/30 space-y-2 text-xs">
                     <div>
-                      <label className="text-[10px] font-bold text-muted-foreground">Project Role</label>
+                      <label className="text-xs font-bold text-muted-foreground">Project Role</label>
                       <select
                         value={editRole}
                         onChange={(e) => setEditRole(e.target.value)}
@@ -500,7 +504,7 @@ export function ProjectUsersView({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-muted-foreground">Hourly Rate ($/hr)</label>
+                      <label className="text-xs font-bold text-muted-foreground">Hourly Rate ($/hr)</label>
                       <input
                         type="number"
                         value={editRate}
@@ -512,7 +516,7 @@ export function ProjectUsersView({
                       <button
                         type="button"
                         onClick={() => setEditingUserId(null)}
-                        className="px-2 py-1 rounded border text-[11px]"
+                        className="px-2 py-1 rounded border text-xs"
                       >
                         Cancel
                       </button>
@@ -520,7 +524,7 @@ export function ProjectUsersView({
                         type="button"
                         onClick={() => saveEditUser(member.id)}
                         disabled={isSavingEdit}
-                        className="px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] font-semibold flex items-center gap-1"
+                        className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1"
                       >
                         {isSavingEdit ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                         Save
@@ -534,7 +538,7 @@ export function ProjectUsersView({
                       className="cursor-pointer hover:bg-muted/40 p-1.5 rounded-md transition-colors"
                       title="Click to edit role"
                     >
-                      <span className="text-[10px] text-muted-foreground block font-medium">
+                      <span className="text-xs text-muted-foreground block font-medium">
                         Project Role
                       </span>
                       <span className="font-semibold text-foreground flex items-center gap-1">
@@ -548,7 +552,7 @@ export function ProjectUsersView({
                       className="cursor-pointer hover:bg-muted/40 p-1.5 rounded-md transition-colors"
                       title="Click to edit rate"
                     >
-                      <span className="text-[10px] text-muted-foreground block font-medium">
+                      <span className="text-xs text-muted-foreground block font-medium">
                         Hourly Rate
                       </span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
@@ -561,7 +565,7 @@ export function ProjectUsersView({
               </div>
 
               {/* Details Footer */}
-              <div className="mt-3 pt-3 border-t flex items-center justify-between text-[11px] text-muted-foreground">
+              <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5 font-medium text-foreground/80">
                   <CheckSquare size={12} className="text-blue-500" />
                   <span>{member.openTasksCount || 0} Open Tasks</span>
@@ -580,7 +584,7 @@ export function ProjectUsersView({
           <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
             <table className="w-full min-w-[800px] text-left text-xs border-collapse">
               <thead className="sticky top-0 z-10 bg-card">
-                <tr className="border-b bg-muted/60 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
+                <tr className="border-b bg-muted/60 text-muted-foreground font-semibold uppercase tracking-wider text-xs">
                   <th className="py-3 px-4 border-r">User Name</th>
                   <th className="py-3 px-4 border-r">Email ID</th>
                   {/* <th className="py-3 px-4 border-r">Project Role</th> */}
@@ -600,14 +604,17 @@ export function ProjectUsersView({
                     {/* User Name */}
                     <td className="py-3 px-4 border-r whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-xs cursor-pointer ${getAvatarColor(
-                            member.name
-                          )}`}
-                          onClick={() => setSelectedDrawerUserId(member.id)}
-                        >
-                          {getInitials(member.name)}
-                        </div>
+                        <button type="button" onClick={() => setSelectedDrawerUserId(member.id)} className="rounded-full">
+                          <UserAvatar
+                            userId={member.id}
+                            name={member.name}
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-xs cursor-pointer ${getAvatarColor(
+                              member.name
+                            )}`}
+                          >
+                            {getInitials(member.name)}
+                          </UserAvatar>
+                        </button>
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span
@@ -617,12 +624,12 @@ export function ProjectUsersView({
                               {member.name}
                             </span>
                             {member.isOwner && (
-                              <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-[9px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                              <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
                                 Owner
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground block">
+                          <span className="text-xs text-muted-foreground block">
                             {member.department || "Development"}
                           </span>
                         </div>
@@ -630,7 +637,7 @@ export function ProjectUsersView({
                     </td>
 
                     {/* Email ID */}
-                    <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r font-mono text-xs text-muted-foreground whitespace-nowrap">
                       {member.email}
                     </td>
 
@@ -642,7 +649,7 @@ export function ProjectUsersView({
                     </td> */}
 
                     {/* System Role */}
-                    <td className="py-3 px-4 border-r whitespace-nowrap text-muted-foreground font-mono text-[11px]">
+                    <td className="py-3 px-4 border-r whitespace-nowrap text-muted-foreground font-mono text-xs">
                       {member.role}
                     </td>
 

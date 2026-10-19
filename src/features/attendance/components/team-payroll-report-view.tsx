@@ -101,7 +101,7 @@ export function TeamPayrollReportView() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-xs font-bold text-slate-400 uppercase tracking-wider">
                 <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Company Working Days</th>
                 <th className="py-3.5 px-5">Expected Payable Days</th>
@@ -147,7 +147,7 @@ export function TeamPayrollReportView() {
                           <div className="font-bold text-slate-900 dark:text-slate-100">
                             {item.name}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs text-slate-400">
                             {item.designation}
                           </div>
                         </div>

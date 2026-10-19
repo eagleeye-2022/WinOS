@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Toaster } from "@/components/shared/toast";
+import { TitleCaseEnforcer } from "@/components/shared/title-case-enforcer";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Poppins is the only typeface in the app — both the sans and mono tokens point at it
+// (see --font-sans / --font-mono in globals.css). Poppins isn't a variable font, so every
+// weight the UI uses (font-light … font-extrabold) is loaded explicitly.
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden`}
+      className={`${poppins.variable} h-full overflow-hidden`}
       suppressHydrationWarning
     >
       <body className="h-full overflow-hidden bg-background font-sans antialiased">
@@ -44,6 +45,8 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
+          {/* App-wide title case for text and inputs (small words like "and"/"of" stay lowercase). */}
+          <TitleCaseEnforcer />
         </ThemeProvider>
       </body>
     </html>

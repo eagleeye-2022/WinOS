@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
+import { teamDotColor } from "@/lib/team-colors";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "./send-reminder-button";
 import type { TeamGroup, MemberSubmissionCard } from "../queries";
 import { getInitials } from "@/lib/avatar";
 
 // Department dot color cycles: blue, blue, green, amber
-const DOT_COLORS = ["bg-primary", "bg-primary", "bg-success", "bg-warning"] as const;
 
 // Deterministic avatar gradient per user, cycling through a small palette
 const AVATAR_GRADIENTS = [
@@ -202,10 +202,15 @@ type Props = { group: TeamGroup; colorIndex?: number; selectedDateStr?: string }
 
 export function TeamColumn({ group, colorIndex = 0, selectedDateStr }: Props) {
   const allSubmitted = group.submittedCount === group.totalMembers && group.totalMembers > 0;
-  const dotColor = DOT_COLORS[colorIndex % DOT_COLORS.length];
+  const dotColor = teamDotColor(group.teamName, colorIndex);
 
   return (
-    <div className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5">
+    // Drag its right edge to resize (TableColumnResizer).
+    <div
+      data-resizable-col
+      data-col-key={`dsm-team-${group.teamId}`}
+      className="flex h-full min-h-[420px] flex-1 min-w-[230px] max-w-[440px] flex-col gap-2.5"
+    >
       {/* Column header (fixed) */}
       <div className="flex shrink-0 items-center gap-2 pr-2">
         <span className={cn("h-2.5 w-2.5 rounded-full", dotColor)} />

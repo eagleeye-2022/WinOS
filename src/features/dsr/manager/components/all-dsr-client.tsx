@@ -270,7 +270,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
           >
             <Filter size={13} /> Filters
             {(searchQuery || selectedDept !== "all") && (
-              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              <span className="ml-1 flex h-5 min-w-5 px-1 leading-none items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                 {Number(!!searchQuery) + Number(selectedDept !== "all")}
               </span>
             )}
@@ -378,7 +378,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
         onClickCapture={dragScroll.onClickCapture}
         className="min-h-0 flex-1 overflow-x-auto px-6 pb-6 cursor-grab active:cursor-grabbing select-none dsm-columns-scrollbar"
       >
-        <div className="flex h-full w-full min-w-full items-start gap-3.5">
+        <div data-col-scope className="flex h-full w-full min-w-full items-start gap-3.5">
           {filteredGroups.map((group, index) => (
             <DsrTeamColumn key={group.teamId} group={group} colorIndex={index} selectedDateStr={selectedDateStr} />
           ))}

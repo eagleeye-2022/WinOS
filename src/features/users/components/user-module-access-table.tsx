@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -73,12 +74,13 @@ export function UserModuleAccessTable({ data }: UserModuleAccessTableProps) {
       </div> */}
 
       {/* Access table */}
-      <div className="rounded-xl border bg-card overflow-x-auto">
+      {/* Dragging the "User" header's edge (TableColumnResizer) sets --colw-module-access-user here. */}
+      <div data-col-scope className="rounded-xl border bg-card overflow-x-auto">
         <div
           className="grid items-center border-b bg-muted/40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          style={{ gridTemplateColumns: `260px repeat(${data.modules.length}, 1fr)` }}
+          style={{ gridTemplateColumns: `var(--colw-module-access-user, 260px) repeat(${data.modules.length}, 1fr)` }}
         >
-          <span>User</span>
+          <span data-resizable-col data-col-key="module-access-user" className="block">User</span>
           {data.modules.map((mod) => {
             // const style = moduleStyle(mod.key);
             // const Icon = style.icon;
@@ -101,17 +103,21 @@ export function UserModuleAccessTable({ data }: UserModuleAccessTableProps) {
                 "grid items-center px-4 py-3",
                 !u.isActive && "opacity-50"
               )}
-              style={{ gridTemplateColumns: `260px repeat(${data.modules.length}, 1fr)` }}
+              style={{ gridTemplateColumns: `var(--colw-module-access-user, 260px) repeat(${data.modules.length}, 1fr)` }}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span
+                <UserAvatar
+                  userId={u.userId}
+                  name={u.name}
+                  email={u.email}
+                  image={u.image}
                   className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
                     AVATAR_COLORS[idx % AVATAR_COLORS.length]
                   )}
                 >
                   {initialsOf(u.name)[0]}
-                </span>
+                </UserAvatar>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>

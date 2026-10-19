@@ -344,6 +344,8 @@ export interface TaskSubtask {
   dueDate?: string;
   completed: boolean;
   hasLink?: boolean;
+  /** Rich-text (HTML) description — only sent when creating a subtask. */
+  description?: string;
 }
 
 export interface TaskItem {

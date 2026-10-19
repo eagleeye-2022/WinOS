@@ -214,7 +214,7 @@ export function SearchableSelect({
             </li>
           )}
           {onCreate && !createName && filtered.length > 0 && (
-            <li className="px-2 pb-1 pt-2 text-[11px] text-muted-foreground">Type a name to create a new {createNoun}</li>
+            <li className="px-2 pb-1 pt-2 text-xs text-muted-foreground">Type a name to create a new {createNoun}</li>
           )}
         </ul>
       </PopoverContent>

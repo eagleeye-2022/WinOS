@@ -41,7 +41,14 @@ import {
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
 import { joinIndustries, parseIndustries } from "../data/industries";
 import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
-import { LEARNING_PROJECT_CATEGORY, NOT_LEARNING_PROJECT, effortProjectLabel } from "@/features/whyfi/constants";
+import { syncDueDateFromProjectTask } from "@/features/dsm/due-date-sync";
+import {
+  LEARNING_PROJECT_CATEGORY,
+  NOT_LEARNING_PROJECT,
+  effortProjectLabel,
+  learningListPrefix,
+  nextTaskCode,
+} from "@/features/whyfi/constants";
 import { findCountry, getCountryCities } from "../location-data";
 
 /**
@@ -2287,7 +2294,12 @@ export async function createTaskAction(
   const count = resolvedProject
     ? await db.projectTask.count({ where: { projectId: resolvedProject.id } })
     : await db.projectTask.count();
-  const nextCode = `${codePrefix}-T${count + 1}`;
+  // Next number after the highest existing "<prefix>-T<n>" — a plain count reuses a code once a
+  // task has been deleted (and Whyfi lists number every card, subtasks included, the same way).
+  const existingCodes = resolvedProject
+    ? (await db.projectTask.findMany({ where: { projectId: resolvedProject.id }, select: { code: true } })).map((t) => t.code)
+    : [];
+  const nextCode = nextTaskCode(codePrefix, existingCodes, count);
 
   // Fix 1: Use the project's ownerId FK directly as the default owner source of truth.
   // This is set before name-resolution so the FK is always the reliable fallback even
@@ -2722,6 +2734,12 @@ export async function updateTaskAction(
       : null,
   ]);
 
+  // Srijan → DSM: every DSM row linked to this task shows the new due date.
+  if (updates.dueDate !== undefined && updates.dueDate !== task.dueDate) {
+    await syncDueDateFromProjectTask(task.id, updates.dueDate);
+    revalidatePath("/dsm", "layout");
+  }
+
   if (updates.owners !== undefined || updates.owner !== undefined) {
     console.log("[DB SAVE SUCCESS] Task owners saved in database:", {
       taskId: task.id,
@@ -2854,12 +2872,32 @@ export async function createSubtaskAction(
       owner: true,
       ownerId: true,
       owners: { select: { userId: true } },
-      project: { select: { ownerId: true, ownerName: true } },
+      taskListName: true,
+      project: { select: { ownerId: true, ownerName: true, code: true, projectCategory: true } },
     },
   });
   if (!parentTask) return null;
 
-  const count = await db.projectTask.count({ where: { parentTaskId: parentTask.id } });
+  const parentCode = parentTask.code || taskId;
+  let newCode: string;
+  if (parentTask.project?.projectCategory === LEARNING_PROJECT_CATEGORY) {
+    // Whyfi School subtask (added from its task page): same "WL-1-T<next>" scheme as the Whyfi
+    // board, so DSM learning rows ("[WL-1-T3] …") can link to it — a dotted "WL-1-T3.1" can't.
+    const rows = await db.projectTask.findMany({ where: { projectId: parentTask.projectId }, select: { code: true } });
+    newCode = nextTaskCode(parentTask.project.code || learningListPrefix(parentCode), rows.map((r) => r.code));
+  } else {
+    // Next free suffix after the highest existing one — a plain count would reuse a code after a
+    // subtask is deleted (e.g. .1 deleted → count 1 → a second ".2").
+    const siblings = await db.projectTask.findMany({
+      where: { parentTaskId: parentTask.id },
+      select: { code: true },
+    });
+    const maxSuffix = siblings.reduce((max, s) => {
+      const n = Number(s.code.startsWith(`${parentCode}.`) ? s.code.slice(parentCode.length + 1) : NaN);
+      return Number.isInteger(n) && n > max ? n : max;
+    }, siblings.length);
+    newCode = `${parentCode}.${maxSuffix + 1}`;
+  }
 
   // Subtask automatically inherits parent task's owner(s)
   const finalOwnerId = parentTask.ownerId;
@@ -2867,8 +2905,9 @@ export async function createSubtaskAction(
 
   const created = await db.projectTask.create({
     data: {
-      code: `${parentTask.code || taskId}.${count + 1}`,
+      code: newCode,
       title: subtaskData.title || "New Subtask",
+      ...(subtaskData.description && { description: subtaskData.description }),
       status: subtaskData.status || "Open",
       completionPercentage: subtaskData.completed ? 100 : 0,
       ownerId: finalOwnerId || undefined,
@@ -2877,6 +2916,8 @@ export async function createSubtaskAction(
       dueDate: subtaskData.dueDate || "--",
       phaseCode: parentTask.phaseCode || "1.1",
       phaseName: parentTask.phaseName || "General",
+      // Same task list as the parent (Whyfi cards all sit in "Learning Tasks").
+      ...(parentTask.taskListName && { taskListName: parentTask.taskListName }),
       projectId: parentTask.projectId,
       parentTaskId: parentTask.id,
     },
@@ -3950,7 +3991,11 @@ async function recalculateTaskWorkHours(taskCodeOrId: string) {
   });
 }
 
-export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGroup[]> {
+export async function getTimeLogsAction(
+  projectId?: string,
+  /** `learningOnly`: just time logged on Whyfi School (learning list) tasks — Pulse → Whyfi Effort Logs. */
+  options?: { learningOnly?: boolean }
+): Promise<UserTimeGroup[]> {
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   const canViewAll = isClient || (await isPrivilegedViewer(session.user.id, projectId));
@@ -3975,8 +4020,12 @@ export async function getTimeLogsAction(projectId?: string): Promise<UserTimeGro
     ? {}
     : { userId: session.user.id };
 
+  const learningFilter = options?.learningOnly
+    ? { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } }
+    : {};
+
   const dbLogs = await d.projectTimeLog.findMany({
-    where: { ...projectFilter, ...ownershipFilter },
+    where: { ...projectFilter, ...ownershipFilter, ...learningFilter },
     include: {
       user: { select: { id: true, name: true } },
       project: { select: { id: true, name: true, projectCategory: true } },

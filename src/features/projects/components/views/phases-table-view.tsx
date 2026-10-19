@@ -172,7 +172,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-info pointer-events-none"
             />
           </div>
-          <span className="text-muted-foreground text-[11px] font-semibold">
+          <span className="text-muted-foreground text-xs font-semibold">
             Hierarchy: Project → Phase → Task
           </span>
         </div>
@@ -295,7 +295,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
               <td
                 colSpan={7}
                 onClick={() => setShowAddPhaseForm(true)}
-                className="py-2.5 px-4 italic text-muted-foreground/70 text-[11px] cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
+                className="py-2.5 px-4 italic text-muted-foreground/70 text-xs cursor-pointer hover:text-primary hover:bg-accent/20 transition-colors"
               >
                 + Click here to add a new Phase...
               </td>
@@ -328,7 +328,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
                         <button
                           type="button"
                           onClick={() => onOpenAddModal?.(phase.code)}
-                          className="hidden group-hover:inline-flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-2 py-0.5 text-[10px] font-bold transition-colors cursor-pointer"
+                          className="hidden group-hover:inline-flex items-center gap-1 rounded bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-2 py-0.5 text-xs font-bold transition-colors cursor-pointer"
                         >
                           <Plus size={11} /> Add Task
                         </button>
@@ -339,11 +339,11 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
                   {/* Task Count Badge */}
                   <td className="py-3 px-4 border-r text-center font-mono whitespace-nowrap">
                     {isEmp ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
                         No tasks added yet
                       </span>
                     ) : (
-                      <span className="inline-block rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 px-2.5 py-0.5 text-[10px] font-bold">
+                      <span className="inline-block rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 px-2.5 py-0.5 text-xs font-bold">
                         {phase.taskCount} task{phase.taskCount === 1 ? "" : "s"}
                       </span>
                     )}
@@ -356,7 +356,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
 
                   {/* Status Badge */}
                   <td className="py-3 px-4 border-r whitespace-nowrap">
-                    <span className={`inline-block rounded px-3 py-0.5 text-[11px] font-bold text-center w-full shadow-2xs ${
+                    <span className={`inline-block rounded px-3 py-0.5 text-xs font-bold text-center w-full shadow-2xs ${
                       phase.status === "Completed"
                         ? "bg-emerald-600 text-white"
                         : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
@@ -368,7 +368,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
                   {/* Owner Avatar & Name */}
                   <td className="py-3 px-4 border-r whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white text-[10px] font-bold">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white text-xs font-bold">
                         MN
                       </span>
                       <span className="font-medium text-foreground">
@@ -378,12 +378,12 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
                   </td>
 
                   {/* Start Date */}
-                  <td className="py-3 px-4 border-r text-muted-foreground font-mono text-[11px] whitespace-nowrap">
+                  <td className="py-3 px-4 border-r text-muted-foreground font-mono text-xs whitespace-nowrap">
                     {phase.startDate}
                   </td>
 
                   {/* End Date */}
-                  <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                  <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
                     {phase.endDate}
                   </td>
                 </tr>

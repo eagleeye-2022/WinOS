@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState } from "react";
 import {
   UserPlus,
@@ -247,7 +248,7 @@ export function UsersTableView({
       <div className="flex-1 overflow-x-auto overflow-y-auto dsm-columns-scrollbar">
         <table className="w-full min-w-[950px] text-left text-xs border-collapse">
           <thead>
-            <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
+            <tr className="border-b bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider text-xs">
               <th className="py-3 px-4 border-r whitespace-nowrap">
                 <span className="flex items-center gap-1">
                   NAME / DETAILS <ArrowUpDown size={12} />
@@ -289,16 +290,18 @@ export function UsersTableView({
                     {/* USER NAME */}
                     <td className="py-3 px-4 border-r whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <span
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${
+                        <UserAvatar
+                          userId={user.id}
+                          name={user.name}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
                             user.avatarColor || "bg-primary text-primary-foreground"
                           }`}
                         >
                           {user.initials}
-                        </span>
+                        </UserAvatar>
                         <div className="flex flex-col">
                           <span className="font-semibold text-foreground">{user.name}</span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {user.userType === "CLIENT" ? "Client Partner" : user.title}
                           </span>
                         </div>
@@ -306,7 +309,7 @@ export function UsersTableView({
                     </td>
 
                     {/* EMAIL ID */}
-                    <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    <td className="py-3 px-4 border-r font-mono text-xs text-muted-foreground whitespace-nowrap">
                       {user.email}
                     </td>
 
@@ -318,7 +321,7 @@ export function UsersTableView({
                             onClick={() =>
                               setEditingUserId(editingUserId === user.id ? null : user.id)
                             }
-                            className={`inline-block rounded-md px-2.5 py-0.5 text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity ${
+                            className={`inline-block rounded-md px-2.5 py-0.5 text-xs font-bold cursor-pointer hover:opacity-80 transition-opacity ${
                               ROLE_BADGE_CONFIG[user.role]?.className || "bg-muted text-muted-foreground"
                             }`}
                           >
@@ -342,7 +345,7 @@ export function UsersTableView({
                         </td> */}
 
                         <td className="py-3 px-4 text-center whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             <CheckCircle2 size={11} />
                             Active
                           </span>
@@ -355,7 +358,7 @@ export function UsersTableView({
                         </td>
 
                         <td className="py-3 px-4 border-r whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             <CheckCircle2 size={11} />
                             Active Client
                           </span>
@@ -419,12 +422,12 @@ export function UsersTableView({
                           <span className="font-semibold text-foreground">
                             {inv.clientName || "Client Invitee"}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             Invited by {inv.invitedBy}
                           </span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 border-r font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                      <td className="py-3 px-4 border-r font-mono text-xs text-muted-foreground whitespace-nowrap">
                         {inv.email}
                       </td>
                       <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap max-w-xs truncate">
@@ -432,25 +435,25 @@ export function UsersTableView({
                       </td>
                       <td className="py-3 px-4 border-r whitespace-nowrap">
                         {inv.status === "PENDING" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
                             <Clock size={11} />
                             Pending Invitation
                           </span>
                         )}
                         {inv.status === "REVOKED" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-[10px] font-bold text-destructive">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-bold text-destructive">
                             <Slash size={11} />
                             Revoked
                           </span>
                         )}
                         {inv.status === "EXPIRED" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
                             <AlertTriangle size={11} />
                             Expired
                           </span>
                         )}
                         {inv.status === "ACCEPTED" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
                             <CheckCircle2 size={11} />
                             Accepted
                           </span>
@@ -540,7 +543,7 @@ function RoleEditorPopover({
       <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border bg-popover p-3 shadow-lg text-left">
         <div className="space-y-2">
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground">System Role</label>
+            <label className="text-xs font-semibold text-muted-foreground">System Role</label>
             <select
               value={role}
               onChange={(e) => {
@@ -556,7 +559,7 @@ function RoleEditorPopover({
             </select>
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-muted-foreground">
+            <label className="text-xs font-semibold text-muted-foreground">
               Portal Profile
             </label>
             <select
@@ -574,7 +577,7 @@ function RoleEditorPopover({
           <button
             type="button"
             onClick={() => onSave(role, role === "ADMIN" ? "ADMIN" : profileRole)}
-            className="w-full rounded bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="w-full rounded bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             Save
           </button>

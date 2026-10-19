@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect } from "react";
 import { Search, X, UserPlus, Check, Loader2, Shield, Users } from "lucide-react";
 import {
@@ -183,21 +184,23 @@ export function AddProjectUsersModal({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div
+                      <UserAvatar
+                        userId={user.id}
+                        name={user.name}
                         className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${getAvatarColor(
                           user.name
                         )}`}
                       >
                         {getInitials(user.name)}
-                      </div>
+                      </UserAvatar>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-foreground">{user.name}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
                             {user.department || "Team"}
                           </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">{user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
 
