@@ -18,9 +18,10 @@ import {
 import { ShiftSummaryItem } from "../types";
 import { getMyShiftSummaryData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { currentMonthLabel } from "../utils";
 
 export function MyShiftSummaryView() {
-  const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
   const [workModeFilter, setWorkModeFilter] = useState("All");
   const [items, setItems] = useState<ShiftSummaryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +31,7 @@ export function MyShiftSummaryView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getMyShiftSummaryData(7, 2026);
+        const data = await getMyShiftSummaryData();
         setItems(data);
       } catch (err) {
         console.error("Failed to load my shift summary:", err);

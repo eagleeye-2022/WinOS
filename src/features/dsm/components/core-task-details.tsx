@@ -7,11 +7,7 @@ import { CORE_DAILY_TASKS_FALLBACK_DESCRIPTIONS } from "../core-daily-tasks";
 import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
 import { formatEffortMinutes, toIsoDateStr, toUtcDate } from "../utils";
 import type { CoreDailyTask, DailyTimeSummary } from "../queries";
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
-}
+import { getInitials } from "@/lib/avatar";
 
 function displayName(user: { name: string | null; email: string }): string {
   return user.name?.trim() || user.email.split("@")[0];
@@ -139,7 +135,7 @@ export function CoreTaskDetails({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={u.image} alt={displayName(u)} className="h-full w-full object-cover" />
                 ) : (
-                  initialsOf(displayName(u))
+                  getInitials(displayName(u))
                 )}
               </span>
             ))}

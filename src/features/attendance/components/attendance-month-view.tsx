@@ -11,47 +11,33 @@ import {
 } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { cn } from "@/lib/utils";
+import { addDaysToKey, monthKeys, weekKeysFor } from "../utils";
 
 interface AttendanceMonthViewProps {
   records: Record<string, AttendanceRecord>;
-  selectedDate: string; // "2026-08-20"
+  selectedDate: string; // "YYYY-MM-DD"
   onSelectDate: (record: AttendanceRecord) => void;
+  monthIndex: number; // 0-based
+  year: number;
 }
 
 export function AttendanceMonthView({
   records,
   selectedDate,
   onSelectDate,
+  monthIndex,
+  year,
 }: AttendanceMonthViewProps) {
   const daysOfWeek = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-  // August 2026 calendar grid:
-  // Aug 1, 2026 is Saturday. So trailing days from July: 27, 28, 29, 30, 31 (5 days)
-  // Aug 1 - 31 (31 days)
-  // Leading days into Sept: 1, 2, 3, 4, 5, 6 (6 days) => Total 42 cells (6 weeks)
-  const calendarCells = [
-    // Trailing July days
-    { day: 27, dateStr: "2026-07-27", isCurrentMonth: false },
-    { day: 28, dateStr: "2026-07-28", isCurrentMonth: false },
-    { day: 29, dateStr: "2026-07-29", isCurrentMonth: false },
-    { day: 30, dateStr: "2026-07-30", isCurrentMonth: false },
-    { day: 31, dateStr: "2026-07-31", isCurrentMonth: false },
-
-    // August 1 to 31
-    ...Array.from({ length: 31 }, (_, i) => {
-      const d = i + 1;
-      const dateStr = `2026-08-${d < 10 ? `0${d}` : d}`;
-      return { day: d, dateStr, isCurrentMonth: true };
-    }),
-
-    // Leading Sept days
-    { day: 1, dateStr: "2026-09-01", isCurrentMonth: false },
-    { day: 2, dateStr: "2026-09-02", isCurrentMonth: false },
-    { day: 3, dateStr: "2026-09-03", isCurrentMonth: false },
-    { day: 4, dateStr: "2026-09-04", isCurrentMonth: false },
-    { day: 5, dateStr: "2026-09-05", isCurrentMonth: false },
-    { day: 6, dateStr: "2026-09-06", isCurrentMonth: false },
-  ];
+  // Whole Mon–Sun weeks covering the month; edge days belong to the neighbouring months.
+  const keys = monthKeys(monthIndex, year);
+  const firstKey = weekKeysFor(keys[0])[0];
+  const lastKey = weekKeysFor(keys[keys.length - 1])[6];
+  const calendarCells: { day: number; dateStr: string; isCurrentMonth: boolean }[] = [];
+  for (let k = firstKey; k <= lastKey; k = addDaysToKey(k, 1)) {
+    calendarCells.push({ day: Number(k.slice(8)), dateStr: k, isCurrentMonth: keys.includes(k) });
+  }
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -113,6 +99,14 @@ export function AttendanceMonthView({
               {/* Day Cell Content */}
               {cell.isCurrentMonth && record && (
                 <div className="mt-1 space-y-1">
+                  {/* Working now */}
+                  {record.status === "WORKING_NOW" && (
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      <span>Working</span>
+                    </div>
+                  )}
+
                   {/* Present */}
                   {record.status === "PRESENT" && (
                     <div className="space-y-0.5">
@@ -165,20 +159,27 @@ export function AttendanceMonthView({
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
                         <ArrowRightCircle className="w-3 h-3" />
-                        <span>Leave</span>
+                        <span>{record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave"}</span>
                       </div>
                       <div className="text-[10px] text-slate-400 pl-4">
-                        {record.leaveInfo?.leaveType || "Casual Leave"}
+                        {record.leaveInfo?.leaveType || "Leave"}
                       </div>
                     </div>
                   )}
 
                   {/* Action Required */}
                   {record.status === "ACTION_REQUIRED" && (
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>Action Required</span>
-                    </div>
+                    record.actionRequiredType ? (
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Action Required</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                        <Clock className="w-3 h-3" />
+                        <span>Pending review</span>
+                      </div>
+                    )
                   )}
 
                   {/* Holiday */}
@@ -204,12 +205,6 @@ export function AttendanceMonthView({
                 </div>
               )}
 
-              {!cell.isCurrentMonth && (
-                <div className="flex items-center gap-1 text-[10px] text-slate-300 dark:text-slate-700">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" />
-                  <span>Weekend</span>
-                </div>
-              )}
             </div>
           );
         })}

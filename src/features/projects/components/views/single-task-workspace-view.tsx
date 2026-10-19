@@ -298,7 +298,7 @@ export function SingleTaskWorkspaceView({
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!canEditTask) {
-      alert("Only the task owner can edit this task.");
+      toast.warning("Only the task owner can edit this task.");
       return;
     }
     const previousStatus = taskStatus;
@@ -332,7 +332,7 @@ export function SingleTaskWorkspaceView({
 
   const handleSaveDescription = async () => {
     if (!canEditTask) {
-      alert("Only the task owner can edit this task.");
+      toast.warning("Only the task owner can edit this task.");
       setIsEditingDescription(false);
       return;
     }
@@ -359,7 +359,7 @@ export function SingleTaskWorkspaceView({
   // priority) — same permission check and rollback-on-denial behavior as status/description.
   const handleUpdateTaskField = async (updates: Partial<TaskItem>): Promise<boolean> => {
     if (!canEditTask) {
-      alert("Only the task owner can edit this task.");
+      toast.warning("Only the task owner can edit this task.");
       return false;
     }
     const taskId = activeTask.id;
@@ -1331,7 +1331,7 @@ export function SingleTaskWorkspaceView({
             <button
               type="button"
               onClick={() => setIsTimeLogModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors cursor-pointer"
             >
               <Plus size={14} />
               <span>Effort Log</span>
@@ -1583,7 +1583,7 @@ export function SingleTaskWorkspaceView({
                     }
                     onChangeOwners={(newOwners) => {
                       if (!canEditTask) {
-                        alert("Only the task owner can change the owner.");
+                        toast.warning("Only the task owner can change the owner.");
                         return;
                       }
                       const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
@@ -1611,7 +1611,7 @@ export function SingleTaskWorkspaceView({
                             setTasks((prev) =>
                               prev.map((t) => (t.id === activeTask.id ? activeTask : t))
                             );
-                            alert(result.error || "You do not have permission to edit this task.");
+                            toast.error(result.error || "You do not have permission to edit this task.");
                           }
                         })
                         .catch((err) => console.error("Failed to update task owner in DB:", err));
@@ -1729,7 +1729,7 @@ export function SingleTaskWorkspaceView({
                 <button
                   type="button"
                   onClick={() => setIsTimeLogModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer shrink-0 ml-auto"
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors cursor-pointer shrink-0 ml-auto"
                 >
                   <Plus size={14} />
                   <span>Add Effort Log</span>
@@ -1756,7 +1756,7 @@ export function SingleTaskWorkspaceView({
                         type="button"
                         onClick={handleAddComment}
                         disabled={!commentText.trim() || isSavingComment}
-                        className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0077ee] transition-colors disabled:opacity-50 cursor-pointer"
+                        className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {isSavingComment ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                         <span>Save Comment</span>
@@ -1795,7 +1795,7 @@ export function SingleTaskWorkspaceView({
                     <button
                       type="button"
                       onClick={() => setIsAddSubtaskDrawerOpen(true)}
-                      className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors cursor-pointer"
                     >
                       <Plus size={14} />
                       <span>Add Subtask</span>

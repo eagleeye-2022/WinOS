@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { AlertTriangle, UserCheck, Loader2, X } from "lucide-react";
 import { ProjectMemberUser } from "../../actions/project-actions";
+import { toast } from "@/components/shared/toast";
 
 interface RemoveUserReassignModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export function RemoveUserReassignModal({
       onClose();
     } catch (err) {
       console.error("Failed to remove user:", err);
-      alert("An error occurred while removing user.");
+      toast.error("An error occurred while removing user.");
     } finally {
       setIsSubmitting(false);
     }

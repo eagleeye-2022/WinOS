@@ -235,7 +235,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       await loadData(false);
     } catch (err) {
       console.error("Failed to update time log:", err);
-      alert(err instanceof Error ? err.message : "Failed to update effort log.");
+      toast.error(err instanceof Error ? err.message : "Failed to update effort log.");
     }
   };
 
@@ -246,7 +246,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
       await loadData(false);
     } catch (err) {
       console.error("Failed to update billing type:", err);
-      alert(err instanceof Error ? err.message : "Failed to update billing type.");
+      toast.error(err instanceof Error ? err.message : "Failed to update billing type.");
     }
   };
 

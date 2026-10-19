@@ -111,6 +111,7 @@ export interface TeamMemberAttendance {
   avatarUrl?: string;
   designation: string;
   department: string;
+  email?: string;
   status: "Working Now" | "Completed" | "On Leave" | "Absent";
   leaveType?: string; // "Casual Leave", "Sick Leave"
   checkInTime?: string;

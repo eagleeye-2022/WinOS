@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { BarChart3, Users, AlertTriangle, Clock, CheckCircle2, TrendingUp, Download, Loader2 } from "lucide-react";
 import { getProjectsAction, getTasksAction } from "../../actions/project-actions";
 import { Project, TaskItem } from "../../types";
+import { toast } from "@/components/shared/toast";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function ReportsView() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,16 +98,16 @@ export function ReportsView() {
         <div className="flex items-center gap-3">
           <BarChart3 size={24} className="text-primary" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Executive & Workload Reports</h1>
-            <p className="text-xs text-muted-foreground">
+            <PageTitle>Executive & Workload Reports</PageTitle>
+            <PageDescription>
               Cross-project %complete rollups, department workload distribution, and live database analytics.
-            </p>
+            </PageDescription>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => alert("Report exported successfully.")}
+          onClick={() => toast.info("Exporting the executive report isn't available yet.")}
           className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <Download size={14} /> Export Executive Report

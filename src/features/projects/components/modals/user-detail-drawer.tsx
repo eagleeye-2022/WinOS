@@ -17,6 +17,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { getUserProjectDetailsDrawerAction } from "../../actions/project-actions";
+import { getInitials } from "@/lib/avatar";
 
 interface UserDetailDrawerProps {
   isOpen: boolean;
@@ -98,15 +99,6 @@ export function UserDetailDrawer({
   }, [isOpen, projectId, userId]);
 
   if (!isOpen || !userId) return null;
-
-  const getInitials = (name: string) => {
-    if (!name) return "U";
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status?.toUpperCase()) {

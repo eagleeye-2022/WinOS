@@ -6,6 +6,8 @@ import { getUsersAction } from "../../actions/project-actions";
 import { ProjectUser } from "../../types";
 import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { ProjectTemplatesModal } from "../modals/project-templates-modal";
+import { toast } from "@/components/shared/toast";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function AdminSettingsView() {
   const [activeTab, setActiveTab] = useState<"DEPARTMENTS" | "TEMPLATES" | "HOURS">("DEPARTMENTS");
@@ -56,10 +58,10 @@ export function AdminSettingsView() {
         <div className="flex items-center gap-3">
           <Settings size={24} className="text-primary" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Admin & Portal Workspace Settings</h1>
-            <p className="text-xs text-muted-foreground">
+            <PageTitle>Admin & Portal Workspace Settings</PageTitle>
+            <PageDescription>
               Manage operational departments, user roles, SOP template library, and organization working hours.
-            </p>
+            </PageDescription>
           </div>
         </div>
       </div>
@@ -112,7 +114,7 @@ export function AdminSettingsView() {
             </h2>
             <button
               type="button"
-              onClick={() => alert("Department creation dialog opened.")}
+              onClick={() => toast.info("Adding departments isn't available yet.")}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Plus size={14} /> Add New Department
@@ -234,7 +236,7 @@ export function AdminSettingsView() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => alert("Working hours saved.")}
+                onClick={() => toast.info("Saving working hours isn't available yet.")}
                 className="rounded bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 Save Settings

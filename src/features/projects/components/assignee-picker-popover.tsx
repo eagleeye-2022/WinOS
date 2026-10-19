@@ -4,29 +4,10 @@ import React, { useMemo, useState } from "react";
 import { Search, Check } from "lucide-react";
 import { TeamMemberOption } from "../types";
 import { AnchoredPopover } from "./popover-portal";
+import { getInitials, getAvatarColor } from "@/lib/avatar";
 
-const AVATAR_COLORS = [
-  "bg-amber-500 text-white",
-  "bg-emerald-500 text-white",
-  "bg-sky-500 text-white",
-  "bg-purple-500 text-white",
-  "bg-rose-500 text-white",
-  "bg-indigo-500 text-white",
-  "bg-teal-500 text-white",
-  "bg-orange-500 text-white",
-];
-
-export function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-export function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
+// Re-exported so existing imports from this file keep working; new code should import "@/lib/avatar".
+export { getInitials, getAvatarColor };
 
 // Only these two department tabs are surfaced as quick filters (search still reaches everyone
 // regardless of department) — trimmed down from every distinct department per request.

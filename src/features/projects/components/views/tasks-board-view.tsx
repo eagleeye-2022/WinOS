@@ -1149,7 +1149,7 @@ export function TasksBoardView({
                 ? "bg-slate-500 hover:bg-slate-600"
                 : task.status === "Delayed"
                 ? "bg-rose-500 hover:bg-rose-600"
-                : "bg-[#0088ff] hover:bg-[#0077ee]"
+                : "bg-primary hover:bg-primary/90"
             )}
           >
             <select
@@ -1835,7 +1835,7 @@ export function TasksBoardView({
               <button
                 type="button"
                 onClick={() => setIsAddTaskDrawerOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-[#0088ff] hover:bg-[#0077ee] text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
+                className="flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer ml-1"
               >
                 <Plus size={16} />
                 <span>Add Task</span>
@@ -2042,7 +2042,7 @@ export function TasksBoardView({
                                   type="button"
                                   disabled={!inlineTaskTitle.trim() || isCreatingInlineTask}
                                   onClick={() => handleCreateInlineTask(col.code, col.name)}
-                                  className="px-3 py-1 rounded bg-[#0088ff] text-white text-[11px] font-bold hover:bg-[#0077ee] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shadow-xs"
+                                  className="px-3 py-1 rounded bg-primary text-white text-[11px] font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shadow-xs"
                                 >
                                   {isCreatingInlineTask ? <Loader2 size={11} className="animate-spin" /> : <Plus size={12} />}
                                   <span>Add Task</span>
@@ -2095,7 +2095,7 @@ export function TasksBoardView({
                   <div className="w-[340px] shrink-0 rounded-2xl border border-slate-300 dark:border-neutral-700 bg-card dark:bg-[#16181d] p-4 flex flex-col h-full shadow-md transition-all duration-200 space-y-3">
                     <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
                       <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
-                        <Layers size={14} className="text-[#0088ff]" />
+                        <Layers size={14} className="text-primary" />
                         <span>Create Task List</span>
                       </div>
                       <button
@@ -2165,7 +2165,7 @@ export function TasksBoardView({
                         type="button"
                         disabled={!newTaskListName.trim() || isCreatingTaskList}
                         onClick={handleCreateTaskList}
-                        className="flex items-center gap-1.5 rounded-md bg-[#0088ff] hover:bg-[#0077ee] text-white px-3.5 py-1.5 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                        className="flex items-center gap-1.5 rounded-md bg-primary hover:bg-primary/90 text-white px-3.5 py-1.5 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
                       >
                         {isCreatingTaskList && <Loader2 size={13} className="animate-spin" />}
                         <span>Create List</span>

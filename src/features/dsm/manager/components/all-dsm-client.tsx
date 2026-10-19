@@ -11,6 +11,7 @@ import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
 import { NewTeamModal } from "./new-team-modal";
 import type { AllDsmStats, TeamGroup, TeamWithMembers, AllUser } from "../queries";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 type Props = {
   stats: AllDsmStats | null;
@@ -210,10 +211,10 @@ export function AllDsmClient({
       {/* Page heading + date filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Team DSM Submission</h1>
-          <p className="text-sm text-muted-foreground">
+          <PageTitle>All Team DSM Submission</PageTitle>
+          <PageDescription>
             Daily Status Management for All Departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
-          </p>
+          </PageDescription>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {/* Today Button */}
@@ -278,13 +279,13 @@ export function AllDsmClient({
             className={cn(
               "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-accent",
               showFilters || searchQuery || selectedDept !== "all"
-                ? "bg-primary/10 border-primary text-primary hover:bg-primary/15 dark:bg-[#1E293B] dark:border-[#3B82F6] dark:text-[#3B82F6]"
+                ? "bg-primary/10 border-primary text-primary hover:bg-primary/15 dark:bg-[#1E293B]"
                 : "text-muted-foreground"
             )}
           >
-            <Filter size={13} className="dark:text-[#93C5FD]" /> Filters
+            <Filter size={13} /> Filters
             {(searchQuery || selectedDept !== "all") && (
-              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground dark:bg-[#3B82F6] dark:text-[#F8FAFC]">
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                 {Number(!!searchQuery) + Number(selectedDept !== "all")}
               </span>
             )}
@@ -337,7 +338,7 @@ export function AllDsmClient({
                 setSearchQuery("");
                 setSelectedDept("all");
               }}
-              className="text-xs font-semibold text-primary hover:underline sm:ml-auto dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+              className="text-xs font-semibold text-primary hover:underline sm:ml-auto"
             >
               Clear Filters
             </button>
@@ -384,7 +385,7 @@ export function AllDsmClient({
       <button
         type="button"
         onClick={() => setShowModal(true)}
-        className="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
+        className="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
         aria-label="Create new team"
       >
         <Plus size={24} />

@@ -25,6 +25,8 @@ import {
   removeClientFromProjectAction,
 } from "@/features/projects/actions/client-invitation-actions";
 import { ClientPermissionsModal } from "../modals/client-permissions-modal";
+import { toast } from "@/components/shared/toast";
+import { PageTitle } from "@/components/shared/page-header";
 
 const ROLE_BADGE_CONFIG: Record<MemberRoleTier, { label: string; className: string }> = {
   ADMIN: { label: "ADMINISTRATOR", className: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
@@ -86,31 +88,35 @@ export function UsersTableView({
     try {
       const res = await resendClientInvitationAction(invitationId);
       if (res.success && res.data?.acceptUrl) {
+        const recipient = res.data.toEmail || "client";
+        let copied = true;
         try {
           await navigator.clipboard.writeText(res.data.acceptUrl);
-          const sender = res.data.fromEmail || "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
-          const recipient = res.data.toEmail || "client";
-          if (res.data.emailSent === false) {
-            alert(
-              `Invitation link regenerated & copied to clipboard!\n\nEmail Delivery Note: Failed to send from ${sender} to ${recipient} (${res.data.emailError || "SMTP issue"}).\n\nShare this invitation link directly with the client:\n${res.data.acceptUrl}`
-            );
-          } else {
-            alert(
-              `Email successfully sent from ${sender} to ${recipient}!\n\nInvitation Link (copied to clipboard):\n${res.data.acceptUrl}`
-            );
-          }
         } catch {
-          const sender = res.data.fromEmail || "WinOS <ishita.vishwakarma@eagleeyedigital.io>";
-          const recipient = res.data.toEmail || "client";
-          alert(`Email sent from ${sender} to ${recipient}.\nInvitation Link:\n${res.data.acceptUrl}`);
+          copied = false;
+        }
+        if (res.data.emailSent === false) {
+          // Email failed — the copied link is the only way to reach the client, so keep the toast up longer.
+          toast.warning(
+            copied
+              ? `Couldn't email ${recipient} (${res.data.emailError || "SMTP issue"}). Invitation link copied — share it with the client directly.`
+              : `Couldn't email ${recipient} (${res.data.emailError || "SMTP issue"}). Invitation link: ${res.data.acceptUrl}`,
+            10000
+          );
+        } else {
+          toast.success(
+            copied
+              ? `Invitation emailed to ${recipient}. Link copied to clipboard.`
+              : `Invitation emailed to ${recipient}.`
+          );
         }
       } else if (!res.success) {
-        alert(res.error || "Failed to resend invitation.");
+        toast.error(res.error || "Failed to resend invitation.");
       }
       onRefreshData?.();
     } catch (err) {
       console.error("Failed to resend invitation:", err);
-      alert("Failed to resend invitation.");
+      toast.error("Failed to resend invitation.");
     } finally {
       setActionLoading(false);
       setActiveMenuId(null);
@@ -166,7 +172,7 @@ export function UsersTableView({
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b px-6 py-4 gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight">Portal Users & Clients</h1>
+          <PageTitle>Portal Users & Clients</PageTitle>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary font-mono">
             {filteredUsers.length} Users
           </span>

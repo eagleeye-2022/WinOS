@@ -7,6 +7,7 @@ import {
   addProjectMembersAction,
   ProjectMemberUser,
 } from "../../actions/project-actions";
+import { getAvatarColor, getInitials } from "@/lib/avatar";
 
 interface AddProjectUsersModalProps {
   isOpen: boolean;
@@ -89,32 +90,6 @@ export function AddProjectUsersModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-emerald-600 text-white",
-      "bg-blue-600 text-white",
-      "bg-purple-600 text-white",
-      "bg-amber-600 text-white",
-      "bg-rose-600 text-white",
-      "bg-indigo-600 text-white",
-      "bg-teal-600 text-white",
-      "bg-cyan-600 text-white",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
   };
 
   return (

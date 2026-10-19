@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getTeamLeavePayrollData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { currentMonthLabel } from "../utils";
 
 interface LeavePayrollRecord {
   id: string;
@@ -30,7 +31,7 @@ interface LeavePayrollRecord {
 }
 
 export function TeamLeavePayrollView() {
-  const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
   const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
   const [records, setRecords] = useState<LeavePayrollRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +41,7 @@ export function TeamLeavePayrollView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTeamLeavePayrollData(7, 2026);
+        const data = await getTeamLeavePayrollData();
         setRecords(data);
       } catch (err) {
         console.error("Failed to load team leave payroll data:", err);

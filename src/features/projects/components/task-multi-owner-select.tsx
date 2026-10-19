@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { X, ChevronDown, Search, Check } from "lucide-react";
+import { getAvatarColor, getInitials } from "@/lib/avatar";
 
 export interface OwnerUserOption {
   id: string;
@@ -104,34 +105,6 @@ export function TaskMultiOwnerSelect({
   }, [ownersList]);
 
   // Generate consistent vibrant background color per user name
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-amber-500 text-white",
-      "bg-emerald-500 text-white",
-      "bg-sky-500 text-white",
-      "bg-purple-500 text-white",
-      "bg-rose-500 text-white",
-      "bg-indigo-500 text-white",
-      "bg-teal-500 text-white",
-      "bg-orange-500 text-white",
-      "bg-cyan-500 text-white",
-      "bg-pink-500 text-white",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const filteredList = effectiveOwnersList.filter(
     (u) =>
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

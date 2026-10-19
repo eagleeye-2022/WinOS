@@ -194,7 +194,7 @@ export function AddSubtaskDrawer({
             <button
               type="submit"
               disabled={isSubmitting || !title.trim()}
-              className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-6 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0077ee] transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting && <Loader2 size={13} className="animate-spin" />}
               <span>Add Subtask</span>

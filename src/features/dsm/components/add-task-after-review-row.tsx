@@ -108,9 +108,9 @@ export function AddTaskAfterReviewRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task (After Review)
+        <Plus size={13} /> Add Task (After Review)
       </button>
     );
   }

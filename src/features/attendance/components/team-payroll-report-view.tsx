@@ -14,9 +14,10 @@ import {
 import { TeamPayrollItem } from "../types";
 import { getTeamPayrollReportData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { currentMonthLabel } from "../utils";
 
 export function TeamPayrollReportView() {
-  const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
   const [searchTerm, setSearchTerm] = useState("");
   const [items, setItems] = useState<TeamPayrollItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +27,7 @@ export function TeamPayrollReportView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTeamPayrollReportData(7, 2026);
+        const data = await getTeamPayrollReportData();
         setItems(data);
       } catch (err) {
         console.error("Failed to load team payroll report:", err);

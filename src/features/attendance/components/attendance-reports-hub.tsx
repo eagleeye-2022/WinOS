@@ -25,30 +25,39 @@ type ReportType =
 
 interface AttendanceReportsHubProps {
   initialReport?: ReportType;
+  /** Team reports are manager-only (the queries enforce this too). */
+  canManage?: boolean;
 }
+
+const TEAM_REPORTS: ReportType[] = ["team-shift", "team-payroll", "team-leave-payroll"];
 
 export function AttendanceReportsHub({
   initialReport = "team-shift",
+  canManage = false,
 }: AttendanceReportsHubProps) {
-  const [activeReport, setActiveReport] = useState<ReportType>(initialReport);
+  const [activeReport, setActiveReport] = useState<ReportType>(
+    !canManage && TEAM_REPORTS.includes(initialReport) ? "my-shift" : initialReport
+  );
 
   return (
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
       <div className="max-w-[1600px] w-full mx-auto space-y-6">
         {/* Top Report Type Nav Tabs */}
         <div className="flex flex-wrap items-center border-b border-slate-200 dark:border-slate-800 gap-6">
-          <button
-            onClick={() => setActiveReport("team-shift")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-              activeReport === "team-shift"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
-            )}
-          >
-            <Users className="w-4 h-4" />
-            <span>Team Shift Summary</span>
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setActiveReport("team-shift")}
+              className={cn(
+                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
+                activeReport === "team-shift"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              )}
+            >
+              <Users className="w-4 h-4" />
+              <span>Team Shift Summary</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveReport("my-shift")}
@@ -63,31 +72,35 @@ export function AttendanceReportsHub({
             <span>My Shift Summary</span>
           </button>
 
-          <button
-            onClick={() => setActiveReport("team-payroll")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-              activeReport === "team-payroll"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
-            )}
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>Team Payroll Data</span>
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setActiveReport("team-payroll")}
+              className={cn(
+                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
+                activeReport === "team-payroll"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              )}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Team Payroll Data</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveReport("team-leave-payroll")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-              activeReport === "team-leave-payroll"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
-            )}
-          >
-            <CalendarCheck className="w-4 h-4" />
-            <span>Team Leave for Payroll</span>
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setActiveReport("team-leave-payroll")}
+              className={cn(
+                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
+                activeReport === "team-leave-payroll"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              )}
+            >
+              <CalendarCheck className="w-4 h-4" />
+              <span>Team Leave for Payroll</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveReport("my-payroll")}
@@ -104,10 +117,10 @@ export function AttendanceReportsHub({
         </div>
 
         {/* Report Views */}
-        {activeReport === "team-shift" && <TeamShiftSummaryView />}
+        {canManage && activeReport === "team-shift" && <TeamShiftSummaryView />}
         {activeReport === "my-shift" && <MyShiftSummaryView />}
-        {activeReport === "team-payroll" && <TeamPayrollReportView />}
-        {activeReport === "team-leave-payroll" && <TeamLeavePayrollView />}
+        {canManage && activeReport === "team-payroll" && <TeamPayrollReportView />}
+        {canManage && activeReport === "team-leave-payroll" && <TeamLeavePayrollView />}
         {activeReport === "my-payroll" && <MyPayrollReportView />}
       </div>
     </div>

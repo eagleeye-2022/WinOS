@@ -211,7 +211,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
           <button
             type="button"
             onClick={() => setShowAddPhaseForm(true)}
-            className="flex items-center gap-1.5 rounded-md bg-[#0088ff] hover:bg-[#0077ee] text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 rounded-md bg-primary hover:bg-primary/90 text-white px-3.5 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
           >
             <Plus size={15} /> Add Phase
           </button>

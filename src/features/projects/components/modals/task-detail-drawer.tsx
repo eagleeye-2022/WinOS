@@ -41,6 +41,7 @@ import {
   getCurrentUserContextAction,
   getMyProjectUserProjectIdsAction,
 } from "../../actions/project-actions";
+import { toast } from "@/components/shared/toast";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -433,7 +434,7 @@ export function TaskDetailDrawer({
                 <button
                   type="button"
                   onClick={() => setIsTimeLogModalOpen(true)}
-                  className="flex items-center gap-1 rounded bg-[#0088ff] px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors mr-1"
+                  className="flex items-center gap-1 rounded bg-primary px-2.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors mr-1"
                 >
                   <Plus size={13} />
                   <span>Effort Log</span>
@@ -777,7 +778,7 @@ export function TaskDetailDrawer({
                 <div className="flex justify-end pt-3">
                   <button
                     type="button"
-                    onClick={() => alert("Checklist progress saved successfully!")}
+                    onClick={() => toast.info("Saving checklist progress isn't available yet.")}
                     className="rounded-md bg-primary px-6 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors"
                   >
                     Save All Progress

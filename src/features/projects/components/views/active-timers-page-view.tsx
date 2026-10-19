@@ -4,6 +4,7 @@ import React from "react";
 import { AlarmClock, ClockFading, ArrowRight, RefreshCw, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function ActiveTimersPageView() {
   return (
@@ -16,13 +17,13 @@ export function ActiveTimersPageView() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
-            <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <PageTitle className="flex items-center gap-2">
               Active Team Timers
-            </h1>
+            </PageTitle>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <PageDescription className="mt-1">
             Real-time live monitoring of all team members actively tracking work across projects.
-          </p>
+          </PageDescription>
         </div>
 
         <div className="flex items-center gap-3">

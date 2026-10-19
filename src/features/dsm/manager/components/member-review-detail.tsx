@@ -38,7 +38,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -358,9 +358,9 @@ function AddTaskRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task
+        <Plus size={13} /> Add Task
       </button>
     );
   }
@@ -517,7 +517,7 @@ function EditBlockerRow({
             type="button"
             onClick={() => setEditing(true)}
             title="Edit blocker"
-            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
+            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors dark:hover:bg-[#1E293B]"
           >
             <Pencil size={12} />
             Edit
@@ -609,9 +609,9 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-destructive/40 py-2 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/10 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-destructive/40 py-2 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/10"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Blocker
+        <Plus size={13} /> Add Blocker
       </button>
     );
   }
@@ -727,7 +727,7 @@ function EditSupportRow({
             type="button"
             onClick={() => setEditing(true)}
             title="Edit support need"
-            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-info/80 hover:bg-info/10 hover:text-info transition-colors dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:hover:bg-[#1E293B]"
+            className="flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium text-info/80 hover:bg-info/10 hover:text-info transition-colors dark:hover:bg-[#1E293B]"
           >
             <Pencil size={12} />
             Edit
@@ -888,9 +888,9 @@ function AddSupportRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-info/40 py-2 text-xs font-medium text-info transition-colors hover:border-info hover:bg-info/10 dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed border-info/40 py-2 text-xs font-medium text-info transition-colors hover:border-info hover:bg-info/10"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Support Needed
+        <Plus size={13} /> Add Support Needed
       </button>
     );
   }
@@ -1009,7 +1009,7 @@ function ReviewButton({ entryId, tasksWithoutProject = 0 }: { entryId: string; t
       <button
         type="submit"
         disabled={pending || blocked}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {pending ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
         {pending ? "Reviewing…" : "Reviewed ✓"}
@@ -1716,12 +1716,6 @@ function getPreviousEntry(entry: MemberReviewEntry, allEntries: MemberReviewEntr
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 }
 
-function formatMinutes(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return h > 0 ? `${h}h ${m.toString().padStart(2, "0")}m` : `${m}m`;
-}
-
 /** Add/edit form for one summary row: done toggle + project/task/subtask link + text. */
 function SummaryTaskEditor({
   task,
@@ -1994,7 +1988,7 @@ function SummaryTaskRow({
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         {loggedMinutes ? (
           <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold">
-            {formatMinutes(loggedMinutes)}
+            {formatEffortMinutes(loggedMinutes)}
           </span>
         ) : done && task.projectTaskId ? (
           <span
@@ -2182,7 +2176,7 @@ function YesterdayTasksSection({
             )}
             <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{rows.length} done</span>
             {totalMinutes > 0 && (
-              <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{formatMinutes(totalMinutes)} logged</span>
+              <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{formatEffortMinutes(totalMinutes)} logged</span>
             )}
           </div>
         )}
@@ -2235,9 +2229,9 @@ function YesterdayTasksSection({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+          className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
         >
-          <Plus size={13} className="dark:text-[#93C5FD]" /> Add Task
+          <Plus size={13} /> Add Task
         </button>
       )} */}
     </div>
@@ -2677,9 +2671,9 @@ function LearningSection({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+            className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
           >
-            <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+            <Plus size={13} /> Add Learning Task
           </button>
         )}
       </div>
@@ -2967,7 +2961,7 @@ export function ParkingLotSection({
                       type="button"
                       onClick={() => moveToToday(i)}
                       disabled={!item.text.trim() || movingId === item.id}
-                      className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6] dark:border-[#3B82F6]/30 dark:bg-[#3B82F6]/10"
+                      className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline"
                     >
                       {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
                       To Today
@@ -2995,9 +2989,9 @@ export function ParkingLotSection({
       <button
         type="button"
         onClick={add}
-        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="mt-2.5 flex items-center justify-center gap-1.5 w-full rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Park Task
+        <Plus size={13} /> Park Task
       </button>
     </div>
   );

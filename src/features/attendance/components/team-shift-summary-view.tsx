@@ -20,9 +20,10 @@ import {
 import { ShiftSummaryItem } from "../types";
 import { getTeamShiftSummaryData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { formatShortDate, istDateKey } from "../utils";
 
 export function TeamShiftSummaryView() {
-  const [selectedDate, setSelectedDate] = useState("19 Aug 2026");
+  const [selectedDate, setSelectedDate] = useState(() => formatShortDate(istDateKey()));
   const [workModeFilter, setWorkModeFilter] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [items, setItems] = useState<ShiftSummaryItem[]>([]);
@@ -33,7 +34,7 @@ export function TeamShiftSummaryView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTeamShiftSummaryData("2026-08-19");
+        const data = await getTeamShiftSummaryData();
         setItems(data);
       } catch (err) {
         console.error("Failed to load shift summary:", err);

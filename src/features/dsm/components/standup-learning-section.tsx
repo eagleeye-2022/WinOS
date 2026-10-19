@@ -308,9 +308,9 @@ export function StandupLearningSection({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary dark:border-[#3B82F6]/40 dark:text-[#3B82F6] dark:hover:text-[#2563EB]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
             >
-              <Plus size={13} className="dark:text-[#93C5FD]" /> Add Learning Task
+              <Plus size={13} /> Add Learning Task
             </button>
           )}
         </div>

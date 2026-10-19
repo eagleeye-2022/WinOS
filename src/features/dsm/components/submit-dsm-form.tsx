@@ -472,9 +472,9 @@ function TaskRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add task
+        <Plus size={13} /> Add task
       </button>
     </div>
   );
@@ -590,9 +590,9 @@ function LearningRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add learning task
+        <Plus size={13} /> Add learning task
       </button>
     </div>
   );
@@ -741,9 +741,9 @@ function BlockerRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-destructive/60 transition-colors hover:border-destructive/40 hover:text-destructive"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Blocker
+        <Plus size={13} /> Add Blocker
       </button>
     </div>
   );
@@ -921,9 +921,9 @@ function SupportRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Add Support Needed
+        <Plus size={13} /> Add Support Needed
       </button>
     </div>
   );
@@ -1175,7 +1175,7 @@ function ParkingLotRows({
                   type="button"
                   onClick={() => moveToToday(i)}
                   disabled={!item.text.trim() || movingId === item.id}
-                  className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline dark:text-[#3B82F6] dark:border-[#3B82F6]/30 dark:bg-[#3B82F6]/10"
+                  className="flex shrink-0 items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 disabled:opacity-40 disabled:no-underline"
                 >
                   {movingId === item.id ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
                   To Today
@@ -1199,9 +1199,9 @@ function ParkingLotRows({
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary dark:text-[#3B82F6] dark:hover:text-[#2563EB] dark:border-[#3B82F6]/40"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
-        <Plus size={13} className="dark:text-[#93C5FD]" /> Park Task
+        <Plus size={13} /> Park Task
       </button>
     </div>
   );
@@ -1576,7 +1576,7 @@ export function SubmitDsmForm({
         <input type="hidden" name="date" value={todayDateStr} />
 
         {/* Yesterday — read-only completed tasks */}
-        <Section icon={<CheckCircle2 size={16} className="text-primary dark:text-[#3B82F6]" />} title="What Did You Complete Yesterday?">
+        <Section icon={<CheckCircle2 size={16} className="text-primary" />} title="What Did You Complete Yesterday?">
           <YesterdayTaskList tasks={yesterday.tasks} />
           <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
         </Section>
@@ -1814,7 +1814,7 @@ export function SubmitDsmForm({
                   setShowProjectError(true);
                 }
               }}
-              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {pending && <Loader2 size={16} className="animate-spin" />}
               {pending ? "Saving…" : isEditMode ? "Save Changes" : "Submit DSM"}

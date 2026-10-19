@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { getInitials } from "@/lib/avatar";
 
 export type TaskAuditActor = {
   id?: string;
@@ -55,15 +56,6 @@ export type TaskAuditHistoryPopoverProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
-
-function initialsOf(name?: string | null): string {
-  if (!name) return "U";
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2 && parts[0] && parts[1]) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
 
 function getUserDisplayName(user?: { name?: string | null; email?: string | null } | null, fallback = "User"): string {
   if (!user) return fallback;
@@ -245,7 +237,7 @@ export function TaskAuditHistoryPopover({
                         <img src={row.avatar} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
                       ) : (
                         <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[8px] font-bold">
-                          {initialsOf(row.who)}
+                          {getInitials(row.who)}
                         </span>
                       )}
                       <span className="truncate">{row.who}</span>

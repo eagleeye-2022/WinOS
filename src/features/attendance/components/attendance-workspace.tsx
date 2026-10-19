@@ -34,6 +34,14 @@ import { TeamAttendanceView } from "./team-attendance-view";
 import { EmployeeAttendanceView } from "./employee-attendance-view";
 import { getMyAttendanceData } from "../queries/attendance-queries";
 import { checkInAction, checkOutAction } from "../actions/attendance-actions";
+import {
+  MONTH_NAMES,
+  addDaysToKey,
+  dateFromKey,
+  formatShortDate,
+  istDateKey,
+  weekKeysFor,
+} from "../utils";
 import { cn } from "@/lib/utils";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 
@@ -41,12 +49,23 @@ type MainTab = "my-attendance" | "team-attendance" | "regularization";
 const MAIN_TABS = ["my-attendance", "team-attendance", "regularization"] as const;
 const VIEW_MODES = ["week", "month"] as const;
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+const EMPTY_SUMMARY: MonthlySummary = {
+  month: "",
+  totalWorkingDays: 0,
+  presentDays: 0,
+  leavesTaken: 0,
+  absentDays: 0,
+};
 
-export function AttendanceWorkspace() {
+interface AttendanceWorkspaceProps {
+  /** Managers see Team Attendance and can review / regularize on behalf. */
+  canManage?: boolean;
+  currentUserId?: string;
+}
+
+export function AttendanceWorkspace({ canManage = false, currentUserId }: AttendanceWorkspaceProps) {
+  const initialToday = istDateKey();
+  const initialDate = dateFromKey(initialToday)!;
   // Tab + week/month in the URL; the open sub-view / selected member / request in the Pulse
   // navigation slice — so all of it is restored when coming back to the module.
   const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", "my-attendance", {
@@ -54,9 +73,13 @@ export function AttendanceWorkspace() {
     history: "push",
   });
   const [viewMode, setViewMode] = useUrlState<"week" | "month">("view", "week", { allowed: VIEW_MODES });
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(7); // August
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [selectedDate, setSelectedDate] = useState<string>("2026-08-12");
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(initialDate.getUTCMonth());
+  const [currentYear, setCurrentYear] = useState(initialDate.getUTCFullYear());
+  const [selectedDate, setSelectedDate] = useState<string>(initialToday);
+  const [todayKey, setTodayKey] = useState<string>(initialToday);
+  const [isPunching, setIsPunching] = useState(false);
+  const [punchError, setPunchError] = useState<string | null>(null);
+  const [onBehalfEmployee, setOnBehalfEmployee] = useState<EmployeeProfile | null>(null);
   const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -90,13 +113,7 @@ export function AttendanceWorkspace() {
   // Data states
   const [recordsMap, setRecordsMap] = useState<Record<string, AttendanceRecord>>({});
   const [actionItems, setActionItems] = useState<ActionRequiredItem[]>([]);
-  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary>({
-    month: "August 2026",
-    totalWorkingDays: 22,
-    presentDays: 20,
-    leavesTaken: 1,
-    absentDays: 1,
-  });
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary>(EMPTY_SUMMARY);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
@@ -112,6 +129,7 @@ export function AttendanceWorkspace() {
         setRecordsMap(map);
         setActionItems(data.actionRequired);
         setMonthlySummary(data.summary);
+        setTodayKey(data.todayKey);
       } catch (err) {
         console.error("Failed to load attendance records:", err);
       } finally {
@@ -122,19 +140,28 @@ export function AttendanceWorkspace() {
 
   useEffect(() => {
     fetchAttendance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonthIndex, currentYear]);
 
-  // Week records (e.g. 12 Aug - 18 Aug 2026 or current active week)
-  const weekDates = [
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-12`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-13`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-14`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-15`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-16`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-17`,
-    `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}-18`,
-  ];
+  useEffect(() => {
+    if (!canManage && activeTab === "team-attendance") setActiveTab("my-attendance");
+  }, [canManage, activeTab, setActiveTab]);
+
+  // The week containing the selected date. The month payload is padded to whole weeks,
+  // so edge weeks render fully.
+  const weekDates = weekKeysFor(selectedDate);
   const currentWeekRecords = weekDates.map((d) => recordsMap[d]).filter(Boolean);
+  const weekLabel =
+    weekDates.length === 7 ? `${formatShortDate(weekDates[0])} – ${formatShortDate(weekDates[6])}` : "";
+
+  /** Moves the selected date and keeps the loaded month in sync with it. */
+  const goToDate = (key: string) => {
+    const d = dateFromKey(key);
+    if (!d) return;
+    setSelectedDate(key);
+    setCurrentMonthIndex(d.getUTCMonth());
+    setCurrentYear(d.getUTCFullYear());
+  };
 
   const handleOpenDrawer = (record: AttendanceRecord) => {
     setSelectedRecordForDrawer(record);
@@ -142,32 +169,25 @@ export function AttendanceWorkspace() {
     setIsDrawerOpen(true);
   };
 
-  const handleCheckIn = async (record: AttendanceRecord) => {
+  const punch = async (run: () => Promise<{ success: boolean; message?: string }>) => {
+    setIsPunching(true);
+    setPunchError(null);
     try {
-      await checkInAction({
-        workMode: record.workMode || "OFFICE",
-        source: "Web",
-        locationName: record.checkInLocation?.name || "Corporate Office HQ",
-        address: record.checkInLocation?.address || "Building 4, Cyber City, Gurgaon",
-      });
+      const res = await run();
+      if (!res.success) setPunchError(res.message || "Something went wrong. Please try again.");
       fetchAttendance();
     } catch (err) {
-      console.error("Check-in error:", err);
+      console.error("Attendance punch error:", err);
+      setPunchError("Something went wrong. Please try again.");
+    } finally {
+      setIsPunching(false);
     }
   };
 
-  const handleCheckOut = async (record: AttendanceRecord) => {
-    try {
-      await checkOutAction({
-        source: "Web",
-        locationName: record.checkOutLocation?.name || "Corporate Office HQ",
-        address: record.checkOutLocation?.address || "Building 4, Cyber City, Gurgaon",
-      });
-      fetchAttendance();
-    } catch (err) {
-      console.error("Check-out error:", err);
-    }
-  };
+  const handleCheckIn = (record: AttendanceRecord) =>
+    punch(() => checkInAction({ workMode: record.workMode || "OFFICE", source: "Web" }));
+
+  const handleCheckOut = () => punch(() => checkOutAction({ source: "Web" }));
 
   const handleRegularizeDay = (record: AttendanceRecord) => {
     const item: ActionRequiredItem = {
@@ -207,29 +227,20 @@ export function AttendanceWorkspace() {
       status: "ACTIVE",
       designation: member.designation,
       department: member.department,
-      email: `${member.name.toLowerCase().replace(" ", ".")}@winos.com`,
-      phone: "+91 98765 43210",
+      email: member.email || "",
+      phone: "—",
     });
     setTeamSubView("employee-view");
   };
 
-  const handlePrevMonth = () => {
-    if (currentMonthIndex === 0) {
-      setCurrentMonthIndex(11);
-      setCurrentYear((prev) => prev - 1);
-    } else {
-      setCurrentMonthIndex((prev) => prev - 1);
-    }
+  const shiftMonth = (delta: number) => {
+    const target = new Date(Date.UTC(currentYear, currentMonthIndex + delta, 1));
+    const sameMonthAsToday = todayKey.slice(0, 7) === target.toISOString().slice(0, 7);
+    goToDate(sameMonthAsToday ? todayKey : target.toISOString().slice(0, 10));
   };
 
-  const handleNextMonth = () => {
-    if (currentMonthIndex === 11) {
-      setCurrentMonthIndex(0);
-      setCurrentYear((prev) => prev + 1);
-    } else {
-      setCurrentMonthIndex((prev) => prev + 1);
-    }
-  };
+  const handlePrev = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, -7)) : shiftMonth(-1));
+  const handleNext = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, 7)) : shiftMonth(1));
 
   return (
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
@@ -248,20 +259,22 @@ export function AttendanceWorkspace() {
             Attendance Records
           </button>
 
-          <button
-            onClick={() => {
-              setActiveTab("team-attendance");
-              setTeamSubView("team-list");
-            }}
-            className={cn(
-              "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
-              activeTab === "team-attendance"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
-            )}
-          >
-            Team Attendance
-          </button>
+          {canManage && (
+            <button
+              onClick={() => {
+                setActiveTab("team-attendance");
+                setTeamSubView("team-list");
+              }}
+              className={cn(
+                "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
+                activeTab === "team-attendance"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              )}
+            >
+              Team Attendance
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -321,29 +334,37 @@ export function AttendanceWorkspace() {
                 </div>
 
                 <button
-                  onClick={handlePrevMonth}
+                  onClick={handlePrev}
                   className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <button className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs">
+                <button
+                  onClick={() => goToDate(todayKey)}
+                  title="Go to today"
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs"
+                >
                   <span>
-                    {viewMode === "week"
-                      ? `12 Aug – 18 Aug ${currentYear}`
-                      : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
+                    {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
                   </span>
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
                 </button>
 
                 <button
-                  onClick={handleNextMonth}
+                  onClick={handleNext}
                   className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
+
+            {punchError && (
+              <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+                {punchError}
+              </div>
+            )}
 
             {/* View Content */}
             {isLoading ? (
@@ -356,8 +377,11 @@ export function AttendanceWorkspace() {
                 <AttendanceWeekView
                   records={currentWeekRecords}
                   onSelectDay={handleOpenDrawer}
+                  onCheckIn={handleCheckIn}
                   onCheckOut={handleCheckOut}
                   onRegularize={handleRegularizeDay}
+                  todayKey={todayKey}
+                  isPunching={isPunching}
                 />
 
                 <MonthlySummaryCard
@@ -382,13 +406,15 @@ export function AttendanceWorkspace() {
                 records={recordsMap}
                 selectedDate={selectedDate}
                 onSelectDate={handleOpenDrawer}
+                monthIndex={currentMonthIndex}
+                year={currentYear}
               />
             )}
           </>
         )}
 
         {/* ── 2. TEAM ATTENDANCE TAB ────────────────────────────────────────── */}
-        {activeTab === "team-attendance" && (
+        {activeTab === "team-attendance" && canManage && (
           <>
             {teamSubView === "team-list" ? (
               <TeamAttendanceView onViewEmployee={handleViewTeamMember} />
@@ -396,6 +422,7 @@ export function AttendanceWorkspace() {
               <EmployeeAttendanceView
                 employee={selectedEmployee}
                 onApplyRegularizationOnBehalf={() => {
+                  setOnBehalfEmployee(selectedEmployee);
                   setActiveTab("regularization");
                   setRegularizationSubView("create");
                 }}
@@ -410,7 +437,10 @@ export function AttendanceWorkspace() {
           <>
             {regularizationSubView === "list" && (
               <RegularizationRequestsList
-                onNewRequest={() => setRegularizationSubView("create")}
+                onNewRequest={() => {
+                  setOnBehalfEmployee(null);
+                  setRegularizationSubView("create");
+                }}
                 onViewRequest={(req) => {
                   setSelectedRequest(req);
                   setRegularizationSubView("details");
@@ -422,7 +452,12 @@ export function AttendanceWorkspace() {
               <RegularizationRequestDetails
                 request={selectedRequest}
                 onBack={() => setRegularizationSubView("list")}
-                onCancelRequest={() => setRegularizationSubView("list")}
+                canReview={canManage}
+                currentUserId={currentUserId}
+                onCancelRequest={() => {
+                  fetchAttendance();
+                  setRegularizationSubView("list");
+                }}
                 onStatusUpdated={() => {
                   fetchAttendance();
                   setRegularizationSubView("list");
@@ -435,8 +470,12 @@ export function AttendanceWorkspace() {
                 onBack={() => setRegularizationSubView("list")}
                 onSubmitSuccess={() => {
                   fetchAttendance();
+                  setOnBehalfEmployee(null);
                   setRegularizationSubView("list");
                 }}
+                initialDate={addDaysToKey(todayKey, -1)}
+                maxDate={todayKey}
+                onBehalfOf={onBehalfEmployee}
               />
             )}
           </>

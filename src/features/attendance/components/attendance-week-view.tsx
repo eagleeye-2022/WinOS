@@ -8,8 +8,10 @@ import {
   Wifi,
   AlertCircle,
   Calendar,
+  LogIn,
   LogOut,
   Umbrella,
+  Hourglass,
   Landmark,
   ArrowRightCircle,
   AlertTriangle,
@@ -20,26 +22,40 @@ import { cn } from "@/lib/utils";
 interface AttendanceWeekViewProps {
   records: AttendanceRecord[];
   onSelectDay: (record: AttendanceRecord) => void;
+  onCheckIn?: (record: AttendanceRecord) => void;
   onCheckOut?: (record: AttendanceRecord) => void;
   onRegularize?: (record: AttendanceRecord) => void;
+  /** "YYYY-MM-DD" in IST — today's card gets the check-in button. */
+  todayKey?: string;
+  /** Disables check-in/out while a punch is in flight. */
+  isPunching?: boolean;
 }
 
 export function AttendanceWeekView({
   records,
   onSelectDay,
+  onCheckIn,
   onCheckOut,
   onRegularize,
+  todayKey,
+  isPunching = false,
 }: AttendanceWeekViewProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
       {records.map((record) => {
         const isWorkingNow = record.status === "WORKING_NOW";
-        const isPresent = record.status === "PRESENT";
+        const isPresent = record.status === "PRESENT" || record.status === "EARLY_LEAVE";
         const isOnLeave = record.status === "ON_LEAVE";
         const isHalfDay = record.status === "HALF_DAY_LEAVE";
         const isActionRequired = record.status === "ACTION_REQUIRED";
         const isWeekend = record.status === "WEEKEND";
         const isHoliday = record.status === "HOLIDAY";
+        const isToday = record.date === todayKey;
+        // Weekends/holidays allow a check-in too, so comp-off work gets recorded.
+        const canCheckIn =
+          isToday && !record.checkInTime && (record.status === "ABSENT" || isWeekend || isHoliday);
+        const isLeavePending = isOnLeave && record.leaveInfo?.status === "PENDING";
+        const missingBoth = isActionRequired && !record.checkInTime;
 
         return (
           <div
@@ -51,6 +67,7 @@ export function AttendanceWeekView({
               isHalfDay && "border-amber-200 dark:border-amber-900/50",
               isActionRequired && "border-rose-200 dark:border-rose-900/50",
               isPresent && "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700",
+              canCheckIn && "border-blue-200 dark:border-blue-900/60",
               (isWeekend || isHoliday) && "border-slate-200/70 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/40"
             )}
           >
@@ -84,7 +101,14 @@ export function AttendanceWeekView({
                 {isOnLeave && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
                     <ArrowRightCircle className="w-3.5 h-3.5" />
-                    On Leave
+                    {isLeavePending ? "Leave Pending" : "On Leave"}
+                  </span>
+                )}
+
+                {canCheckIn && record.status === "ABSENT" && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    Not Checked In
                   </span>
                 )}
 
@@ -179,11 +203,13 @@ export function AttendanceWeekView({
                   {/* Leave Badge Card */}
                   <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40">
                     <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      {record.leaveInfo?.leaveType || "Sick Leave"}
+                      {record.leaveInfo?.leaveType || "Leave"}
                     </div>
-                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
-                      {record.leaveInfo?.session || "First Half"}
-                    </span>
+                    {record.leaveInfo?.session && (
+                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
+                        {record.leaveInfo.session}
+                      </span>
+                    )}
                   </div>
 
                   {/* Timeline for 2nd half */}
@@ -191,7 +217,7 @@ export function AttendanceWeekView({
                     <div className="relative">
                       <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                        {record.checkInTime}
+                        {record.checkInTime || "--:--"}
                       </div>
                       <div className="text-[10px] text-slate-400">Check-in</div>
                     </div>
@@ -199,17 +225,22 @@ export function AttendanceWeekView({
                     <div className="relative">
                       <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                        {record.checkOutTime}
+                        {record.checkOutTime || "--:--"}
                       </div>
                       <div className="text-[10px] text-slate-400">Check-out</div>
                     </div>
                   </div>
 
-                  {/* Mode tag */}
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Office</span>
-                  </div>
+                  {record.checkInTime && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      {record.workMode === "REMOTE" ? (
+                        <Wifi className="w-3.5 h-3.5 text-slate-400" />
+                      ) : (
+                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                      <span>{record.workMode === "REMOTE" ? "Remote" : "Office"}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -234,10 +265,17 @@ export function AttendanceWeekView({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>Check-out missing</span>
-                  </div>
+                  {record.actionRequiredType ? (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>{missingBoth ? "No attendance recorded" : "Check-out missing"}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      <Hourglass className="w-3.5 h-3.5" />
+                      <span>{record.actionRequiredReason || "Regularization pending approval"}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -248,10 +286,10 @@ export function AttendanceWeekView({
                     <Calendar className="w-5 h-5" />
                   </div>
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {record.leaveInfo?.leaveType || "Casual Leave"}
+                    {record.leaveInfo?.leaveType || "Leave"}
                   </h4>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {record.leaveInfo?.duration || "Full Day"}
+                    {isLeavePending ? "Awaiting approval" : record.leaveInfo?.duration || "Full Day"}
                   </p>
                 </div>
               )}
@@ -276,7 +314,7 @@ export function AttendanceWeekView({
                     <Landmark className="w-5 h-5" />
                   </div>
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {record.holidayInfo?.name || "Independence Day"}
+                    {record.holidayInfo?.name || "Holiday"}
                   </h4>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {record.holidayInfo?.type || "National Holiday"}
@@ -290,19 +328,48 @@ export function AttendanceWeekView({
               {isWorkingNow && (
                 <div className="space-y-2">
                   <button
+                    disabled={isPunching}
                     onClick={(e) => {
                       e.stopPropagation();
                       onCheckOut?.(record);
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Check- out</span>
+                    <span>Check-out</span>
                   </button>
                   <p className="text-[10px] text-slate-400 text-center leading-tight">
                     Working hours will update after check-out.
                   </p>
                 </div>
+              )}
+
+              {canCheckIn && onCheckIn && (
+                <button
+                  disabled={isPunching}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCheckIn(record);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Check-in</span>
+                </button>
+              )}
+
+              {isPresent && isToday && onCheckIn && (
+                <button
+                  disabled={isPunching}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCheckIn(record);
+                  }}
+                  className="w-full mb-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Check-in again</span>
+                </button>
               )}
 
               {isPresent && record.workedDuration && (
@@ -319,7 +386,7 @@ export function AttendanceWeekView({
                 </div>
               )}
 
-              {isActionRequired && (
+              {isActionRequired && record.actionRequiredType && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -331,7 +398,7 @@ export function AttendanceWeekView({
                 </button>
               )}
 
-              {(isOnLeave || isWeekend || isHoliday) && (
+              {(isOnLeave || isWeekend || isHoliday) && !canCheckIn && (
                 <div className="text-center text-xs font-bold text-slate-400">
                   -
                 </div>

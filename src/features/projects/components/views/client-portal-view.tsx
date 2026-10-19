@@ -23,6 +23,7 @@ import { Project, TaskItem, UserTimeGroup, isTaskDone } from "../../types";
 import { PhasesTableView } from "./phases-table-view";
 import { ProjectTimeLogsView } from "./project-time-logs-view";
 import { parseDurationMinutes } from "../../utils/time-helpers";
+import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 export function ClientPortalView() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -136,14 +137,14 @@ export function ClientPortalView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">Client Portal Workspace</h1>
+              <PageTitle>Client Portal Workspace</PageTitle>
               <span className="rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 text-[11px] font-bold flex items-center gap-1">
                 <Lock size={12} /> Read-Only Mode
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <PageDescription className="mt-0.5">
               Project Status & Effort Logs Overview
-            </p>
+            </PageDescription>
           </div>
         </div>
 

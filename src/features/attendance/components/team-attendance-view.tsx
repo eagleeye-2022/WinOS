@@ -21,6 +21,7 @@ import {
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { formatShortDate, istDateKey } from "../utils";
 
 interface TeamAttendanceViewProps {
   onViewEmployee?: (member: TeamMemberAttendance) => void;
@@ -31,8 +32,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const [statusFilter, setStatusFilter] = useState("All");
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [workModeFilter, setWorkModeFilter] = useState("All");
-  const [selectedDate, setSelectedDate] = useState("Today, 20 Aug 2026");
-  const [currentDateObj, setCurrentDateObj] = useState(new Date("2026-08-20"));
+  const [selectedDate, setSelectedDate] = useState(() => `Today, ${formatShortDate(istDateKey())}`);
+  const [currentDateObj, setCurrentDateObj] = useState(() => new Date(istDateKey()));
   const [teamMembers, setTeamMembers] = useState<TeamMemberAttendance[]>([]);
   const [counts, setCounts] = useState({ total: 0, workingNow: 0, completed: 0, onLeave: 0, absent: 0 });
   const [isLoading, setIsLoading] = useState(true);

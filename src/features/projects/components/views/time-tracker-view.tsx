@@ -54,6 +54,7 @@ import {
   MAX_LOG_MINUTES,
   MAX_LOG_DURATION_ERROR,
   SAME_DAY_LOG_ERROR,
+  formatMinutesToHHMM,
 } from "../../utils/time-helpers";
 import {
   updateTimeLogAction,
@@ -69,6 +70,7 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 import Link from "next/link";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { PageTitle } from "@/components/shared/page-header";
 
 const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
@@ -316,7 +318,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   const handleStartGlobalTimer = (project: string, taskTitle: string, taskCode?: string) => {
     if (runningTimer) {
-      alert(
+      toast.warning(
         `A timer is already running for "${runningTimer.taskTitle}" in project "${runningTimer.project}". Please stop the active timer before starting a new one.`
       );
       return;
@@ -750,17 +752,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     return parseDurationMinutes(duration);
   };
 
-  const formatMinutes = (totalMinutes: number): string => {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} h`;
-  };
-
-  const formatMinutesShort = (totalMinutes: number): string => {
-    const h = Math.floor(totalMinutes / 60);
-    const m = totalMinutes % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  };
+  const formatMinutes = (totalMinutes: number): string => `${formatMinutesToHHMM(totalMinutes)} h`;
+  const formatMinutesShort = formatMinutesToHHMM;
 
   const normalizeDateStr = (dateStr: string): string => {
     if (!dateStr) return "Today";
@@ -941,9 +934,9 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       {/* ── Top App Title Bar with Role Switcher (Commented out per user request) ────────────────
       <div className="flex items-center justify-between border-b border-border px-6 py-3 bg-card text-card-foreground shadow-2xs">
         <div className="flex items-center gap-3">
-          <h1 className="text-base font-bold tracking-wide text-foreground">
+          <PageTitle>
             Effort Logs
-          </h1>
+          </PageTitle>
           <span className="text-muted-foreground">•</span>
           <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/50 text-xs font-semibold">
             <button

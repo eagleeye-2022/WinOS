@@ -35,6 +35,7 @@ import { AddProjectUsersModal } from "../modals/add-project-users-modal";
 import { UserDetailDrawer } from "../modals/user-detail-drawer";
 import { RemoveUserReassignModal } from "../modals/remove-user-reassign-modal";
 import { toast } from "@/components/shared/toast";
+import { getAvatarColor, getInitials } from "@/lib/avatar";
 
 interface ProjectUsersViewProps {
   projectId: string;
@@ -147,7 +148,7 @@ export function ProjectUsersView({
       setEditingUserId(null);
     } catch (err) {
       console.error("Failed to update user details:", err);
-      alert("Failed to update user details.");
+      toast.error("Failed to update user details.");
     } finally {
       setIsSavingEdit(false);
     }
@@ -229,32 +230,6 @@ export function ProjectUsersView({
         members.reduce((acc, m) => acc + (m.hourlyRate || 0), 0) / members.length
       ).toFixed(1)
       : "0";
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-emerald-600 text-white",
-      "bg-blue-600 text-white",
-      "bg-purple-600 text-white",
-      "bg-amber-600 text-white",
-      "bg-rose-600 text-white",
-      "bg-indigo-600 text-white",
-      "bg-teal-600 text-white",
-      "bg-cyan-600 text-white",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full bg-background text-foreground p-6 gap-4 overflow-hidden">

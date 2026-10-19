@@ -14,9 +14,10 @@ import {
 import { MyMonthlyPayrollItem } from "../types";
 import { getMyPayrollReportData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { istDateKey } from "../utils";
 
 export function MyPayrollReportView() {
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(() => istDateKey().slice(0, 4));
   const [items, setItems] = useState<MyMonthlyPayrollItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();

@@ -8,7 +8,6 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Info,
 } from "lucide-react";
 import { AttendanceRecord, ActionRequiredItem, EmployeeProfile, MonthlySummary } from "../types";
 import { AttendanceWeekView } from "./attendance-week-view";
@@ -16,10 +15,15 @@ import { AttendanceMonthView } from "./attendance-month-view";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { ActionRequiredSection } from "./action-required-section";
 import { AttendanceDetailsDrawer } from "./attendance-details-drawer";
-import { RegularizeAttendanceModal } from "./regularize-attendance-modal";
-import { ApplyLeaveModal } from "./apply-leave-modal";
-import { CompensatoryRequestModal } from "./compensatory-request-modal";
 import { getMyAttendanceData } from "../queries/attendance-queries";
+import {
+  MONTH_NAMES,
+  addDaysToKey,
+  dateFromKey,
+  formatShortDate,
+  istDateKey,
+  weekKeysFor,
+} from "../utils";
 import { cn } from "@/lib/utils";
 
 interface EmployeeAttendanceViewProps {
@@ -33,33 +37,32 @@ export function EmployeeAttendanceView({
   onApplyRegularizationOnBehalf,
   onBackToTeam,
 }: EmployeeAttendanceViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"team" | "regularization">("team");
+  const today = istDateKey();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
-  const [selectedDate, setSelectedDate] = useState<string>("2026-08-12");
+  const [selectedDate, setSelectedDate] = useState<string>(today);
   const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  // Modals
-  const [selectedActionItem, setSelectedActionItem] = useState<ActionRequiredItem | null>(null);
-  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
-  const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = useState(false);
-  const [isCompOffModalOpen, setIsCompOffModalOpen] = useState(false);
-  const [selectedCompOffRecord, setSelectedCompOffRecord] = useState<AttendanceRecord | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [recordsMap, setRecordsMap] = useState<Record<string, AttendanceRecord>>({});
   const [actionItems, setActionItems] = useState<ActionRequiredItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary>({
-    month: "August 2026",
-    totalWorkingDays: 22,
-    presentDays: 20,
-    leavesTaken: 1,
-    absentDays: 1,
+    month: "",
+    totalWorkingDays: 0,
+    presentDays: 0,
+    leavesTaken: 0,
+    absentDays: 0,
   });
 
+  const selected = dateFromKey(selectedDate)!;
+  const monthIndex = selected.getUTCMonth();
+  const year = selected.getUTCFullYear();
+
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await getMyAttendanceData(7, 2026);
+    let cancelled = false;
+    getMyAttendanceData(monthIndex, year, employee.id)
+      .then((data) => {
+        if (cancelled) return;
         const map: Record<string, AttendanceRecord> = {};
         data.records.forEach((r) => {
           map[r.date] = r;
@@ -67,23 +70,29 @@ export function EmployeeAttendanceView({
         setRecordsMap(map);
         setActionItems(data.actionRequired);
         setMonthlySummary(data.summary);
-      } catch (err) {
+        setLoadError(null);
+      })
+      .catch((err) => {
         console.error("Failed to load employee attendance data:", err);
-      }
-    }
-    load();
-  }, [employee]);
+        if (!cancelled) setLoadError("Couldn't load this employee's attendance.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, monthIndex, year]);
 
-  const weekDates = [
-    "2026-08-12",
-    "2026-08-13",
-    "2026-08-14",
-    "2026-08-15",
-    "2026-08-16",
-    "2026-08-17",
-    "2026-08-18",
-  ];
+  const weekDates = weekKeysFor(selectedDate);
   const currentWeekRecords = weekDates.map((d) => recordsMap[d]).filter(Boolean);
+  const monthLabel = `${MONTH_NAMES[monthIndex]} ${year}`;
+  const weekLabel = `${formatShortDate(weekDates[0])} – ${formatShortDate(weekDates[6])}`;
+
+  const shift = (direction: 1 | -1) => {
+    if (viewMode === "week") {
+      setSelectedDate(addDaysToKey(selectedDate, 7 * direction));
+    } else {
+      setSelectedDate(new Date(Date.UTC(year, monthIndex + direction, 1)).toISOString().slice(0, 10));
+    }
+  };
 
   const handleOpenDrawer = (record: AttendanceRecord) => {
     setSelectedRecordForDrawer(record);
@@ -91,33 +100,10 @@ export function EmployeeAttendanceView({
     setIsDrawerOpen(true);
   };
 
-  const handleRegularizeDay = (record: AttendanceRecord) => {
-    const item: ActionRequiredItem = {
-      id: `act-${record.date}`,
-      date: record.date,
-      formattedDate: record.formattedDate,
-      dayName: record.dayOfWeek,
-      issue: record.actionRequiredReason || "Missing Check-out",
-    };
-    setSelectedActionItem(item);
-    setIsRegularizeModalOpen(true);
-  };
-
-  const handleApplyLeaveDay = (record: AttendanceRecord) => {
-    const item: ActionRequiredItem = {
-      id: `act-${record.date}`,
-      date: record.date,
-      formattedDate: record.formattedDate,
-      dayName: record.dayOfWeek,
-      issue: "Apply leave for missing date",
-    };
-    setSelectedActionItem(item);
-    setIsApplyLeaveModalOpen(true);
-  };
-
-  const handleRequestCompOff = (record: AttendanceRecord) => {
-    setSelectedCompOffRecord(record);
-    setIsCompOffModalOpen(true);
+  // Managers fix a member's attendance through the on-behalf form, never the self-service modals.
+  const handleRegularizeDay = () => {
+    setIsDrawerOpen(false);
+    onApplyRegularizationOnBehalf?.();
   };
 
   return (
@@ -144,14 +130,17 @@ export function EmployeeAttendanceView({
       {/* Employee Profile Banner */}
       <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <img
-            src={
-              employee.avatarUrl ||
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
-            }
-            alt={employee.name}
-            className="w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-          />
+          {employee.avatarUrl ? (
+            <img
+              src={employee.avatarUrl}
+              alt={employee.name}
+              className="w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-base font-bold shrink-0">
+              {employee.name.slice(0, 2).toUpperCase()}
+            </div>
+          )}
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
@@ -169,20 +158,24 @@ export function EmployeeAttendanceView({
 
         {/* Contact Info Pills */}
         <div className="flex flex-wrap items-center gap-3">
-          <a
-            href={`mailto:${employee.email}`}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
-          >
-            <Mail className="w-3.5 h-3.5 text-slate-500" />
-            <span>{employee.email}</span>
-          </a>
-          <a
-            href={`tel:${employee.phone}`}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
-          >
-            <Phone className="w-3.5 h-3.5 text-slate-500" />
-            <span>{employee.phone}</span>
-          </a>
+          {employee.email && (
+            <a
+              href={`mailto:${employee.email}`}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 text-slate-500" />
+              <span>{employee.email}</span>
+            </a>
+          )}
+          {employee.phone && employee.phone !== "—" && (
+            <a
+              href={`tel:${employee.phone}`}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5 text-slate-500" />
+              <span>{employee.phone}</span>
+            </a>
+          )}
         </div>
       </div>
 
@@ -224,20 +217,36 @@ export function EmployeeAttendanceView({
             </button>
           </div>
 
-          <button className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs">
+          <button
+            onClick={() => shift(-1)}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs"
+          >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <button className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs">
-            <span>{viewMode === "week" ? "12 Aug – 18 Aug 2026" : "August 2026"}</span>
+          <button
+            onClick={() => setSelectedDate(today)}
+            title="Go to today"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs"
+          >
+            <span>{viewMode === "week" ? weekLabel : monthLabel}</span>
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
           </button>
 
-          <button className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs">
+          <button
+            onClick={() => shift(1)}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs"
+          >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+          {loadError}
+        </div>
+      )}
 
       {/* View Content */}
       {viewMode === "week" ? (
@@ -248,21 +257,12 @@ export function EmployeeAttendanceView({
             onRegularize={handleRegularizeDay}
           />
 
-          <MonthlySummaryCard
-            summary={monthlySummary}
-            selectedMonth="August 2026"
-          />
+          <MonthlySummaryCard summary={monthlySummary} selectedMonth={monthLabel} />
 
           <ActionRequiredSection
             items={actionItems}
-            onRegularize={(it) => {
-              setSelectedActionItem(it);
-              setIsRegularizeModalOpen(true);
-            }}
-            onApplyLeave={(it) => {
-              setSelectedActionItem(it);
-              setIsApplyLeaveModalOpen(true);
-            }}
+            onRegularize={handleRegularizeDay}
+            onApplyLeave={handleRegularizeDay}
           />
         </div>
       ) : (
@@ -270,6 +270,8 @@ export function EmployeeAttendanceView({
           records={recordsMap}
           selectedDate={selectedDate}
           onSelectDate={handleOpenDrawer}
+          monthIndex={monthIndex}
+          year={year}
         />
       )}
 
@@ -279,46 +281,6 @@ export function EmployeeAttendanceView({
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onRegularize={handleRegularizeDay}
-        onApplyLeave={handleApplyLeaveDay}
-        onRequestCompOff={handleRequestCompOff}
-      />
-
-      {/* Regularize Modal */}
-      <RegularizeAttendanceModal
-        isOpen={isRegularizeModalOpen}
-        onClose={() => setIsRegularizeModalOpen(false)}
-        item={selectedActionItem}
-        onSubmitSuccess={() => {
-          if (selectedActionItem) {
-            setActionItems((prev) =>
-              prev.filter((it) => it.id !== selectedActionItem.id)
-            );
-          }
-        }}
-      />
-
-      {/* Apply Leave Modal */}
-      <ApplyLeaveModal
-        isOpen={isApplyLeaveModalOpen}
-        onClose={() => setIsApplyLeaveModalOpen(false)}
-        item={selectedActionItem}
-        onSubmitSuccess={() => {
-          if (selectedActionItem) {
-            setActionItems((prev) =>
-              prev.filter((it) => it.id !== selectedActionItem.id)
-            );
-          }
-        }}
-      />
-
-      {/* Compensatory Request Modal */}
-      <CompensatoryRequestModal
-        isOpen={isCompOffModalOpen}
-        onClose={() => setIsCompOffModalOpen(false)}
-        record={selectedCompOffRecord}
-        onSubmitSuccess={() => {
-          setIsCompOffModalOpen(false);
-        }}
       />
     </div>
   );

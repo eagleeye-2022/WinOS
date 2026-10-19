@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Calendar, Clock, FileText, Check, Loader2, AlertCircle } from "lucide-react";
 import { ActionRequiredItem } from "../types";
 import { submitRegularizationAction } from "../actions/attendance-actions";
+import { SHIFT_END, SHIFT_START, formatWorkedDuration, workedMinutesBetween } from "../utils";
 
 interface RegularizeAttendanceModalProps {
   isOpen: boolean;
@@ -19,20 +20,22 @@ export function RegularizeAttendanceModal({
   onSubmitSuccess,
 }: RegularizeAttendanceModalProps) {
   const [reason, setReason] = useState("Forgot to check out");
-  const [checkInTime, setCheckInTime] = useState("09:00 AM");
-  const [checkOutTime, setCheckOutTime] = useState("06:00 PM");
+  const [checkInTime, setCheckInTime] = useState(SHIFT_START);
+  const [checkOutTime, setCheckOutTime] = useState(SHIFT_END);
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen || !item) return null;
 
+  const worked = formatWorkedDuration(workedMinutesBetween(checkInTime, checkOutTime));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
     try {
-      await submitRegularizationAction({
+      const res = await submitRegularizationAction({
         missingDate: item.date,
         checkInTime,
         checkOutTime,
@@ -40,12 +43,18 @@ export function RegularizeAttendanceModal({
         remarks,
         issueDescription: item.issue,
       });
-      setIsSubmitting(false);
+      if (!res.success) {
+        setError(res.message);
+        return;
+      }
+      setRemarks("");
       onSubmitSuccess?.();
       onClose();
     } catch (err: unknown) {
+      console.error("Failed to submit regularization:", err);
+      setError("Failed to submit regularization request");
+    } finally {
       setIsSubmitting(false);
-      setError(err instanceof Error ? err.message : "Failed to submit regularization request");
     }
   };
 
@@ -113,6 +122,12 @@ export function RegularizeAttendanceModal({
               />
             </div>
           </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Worked duration:{" "}
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{worked ?? "--"}</span>
+            {" · "}Your manager reviews this before attendance is updated.
+          </p>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">

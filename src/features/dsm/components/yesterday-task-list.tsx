@@ -32,7 +32,7 @@ export function YesterdayTaskList({ tasks }: { tasks: YesterdayTaskItem[] }) {
       {tasks.map((t) => (
         <div key={t.id} className="flex items-center gap-2.5 text-sm">
           {t.isCompleted ? (
-            <CheckCircle2 size={18} className="shrink-0 text-primary dark:text-[#3B82F6]" />
+            <CheckCircle2 size={18} className="shrink-0 text-primary" />
           ) : (
             <Circle size={18} className="shrink-0 text-muted-foreground/50" />
           )}

@@ -3,6 +3,22 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { canManageAttendance } from "@/features/attendance/utils";
+
+async function requireManagerSession() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (!canManageAttendance(session.user)) throw new Error("Only managers can do this");
+  return session as typeof session & { user: NonNullable<typeof session.user> & { id: string } };
+}
+
+/** Leave changes what attendance shows for those days, so refresh both modules. */
+function revalidateLeaveAndAttendance() {
+  revalidatePath("/pulse/leave");
+  revalidatePath("/pulse/leave/team");
+  revalidatePath("/pulse/attendance");
+  revalidatePath("/pulse/team-attendance");
+}
 
 // ── 1. APPLY FOR LEAVE ───────────────────────────────────────────────────────
 
@@ -28,6 +44,24 @@ export async function applyLeaveAction(formData: {
   });
 
   if (!leaveType) throw new Error("Invalid Leave Type");
+
+  const from = new Date(formData.fromDate);
+  const to = new Date(formData.toDate);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
+    throw new Error("Invalid leave dates");
+  }
+
+  // A full-day leave can't share a day with any other leave (two partial leaves may).
+  const overlapping = await db.leaveRequest.findFirst({
+    where: {
+      userId,
+      status: { in: ["PENDING", "APPROVED"] },
+      fromDate: { lte: to },
+      toDate: { gte: from },
+      ...(formData.durationType === "FULL_DAY" ? {} : { durationType: "FULL_DAY" as const }),
+    },
+  });
+  if (overlapping) throw new Error("You already have a leave request covering these dates");
 
   const currentYear = new Date(formData.fromDate).getFullYear();
 
@@ -69,8 +103,8 @@ export async function applyLeaveAction(formData: {
       durationType: formData.durationType as any,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       halfDayType: formData.halfDayType as any,
-      fromDate: new Date(formData.fromDate),
-      toDate: new Date(formData.toDate),
+      fromDate: from,
+      toDate: to,
       fromTime: formData.fromTime,
       toTime: formData.toTime,
       durationDays: formData.durationDays,
@@ -122,8 +156,7 @@ export async function applyLeaveAction(formData: {
     },
   });
 
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/leave/team");
+  revalidateLeaveAndAttendance();
 
   return { success: true, requestId: request.id };
 }
@@ -139,31 +172,39 @@ export async function cancelLeaveRequestAction(requestId: string) {
   });
 
   if (!request) throw new Error("Request not found");
+  if (request.userId !== session.user.id && !canManageAttendance(session.user)) {
+    throw new Error("You can only cancel your own leave");
+  }
+  if (request.status !== "PENDING" && request.status !== "APPROVED") {
+    throw new Error(`This request is already ${request.status.toLowerCase()}`);
+  }
 
   await db.leaveRequest.update({
     where: { id: requestId },
     data: { status: "CANCELLED" },
   });
 
-  // If request was pending, deduct pending days
+  // Release whatever the request was holding: pending days, or booked (and LOP) days once approved.
   const year = request.fromDate.getFullYear();
   await db.userLeaveBalance.updateMany({
     where: { userId: request.userId, leaveTypeId: request.leaveTypeId, year },
-    data: {
-      pendingDays: { decrement: request.durationDays },
-    },
+    data:
+      request.status === "APPROVED"
+        ? {
+            bookedDays: { decrement: request.durationDays },
+            lossOfPayDays: request.isLossOfPay ? { decrement: request.lopDaysCount } : undefined,
+          }
+        : { pendingDays: { decrement: request.durationDays } },
   });
 
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/leave/team");
+  revalidateLeaveAndAttendance();
   return { success: true };
 }
 
 // ── 3. APPROVE LEAVE REQUEST (MANAGER ACTION) ────────────────────────────────
 
 export async function approveLeaveRequestAction(requestId: string, comments?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const session = await requireManagerSession();
 
   const request = await db.leaveRequest.findUnique({
     where: { id: requestId },
@@ -171,6 +212,8 @@ export async function approveLeaveRequestAction(requestId: string, comments?: st
   });
 
   if (!request) throw new Error("Request not found");
+  if (request.userId === session.user.id) throw new Error("You can't approve your own leave");
+  if (request.status !== "PENDING") throw new Error(`This request is already ${request.status.toLowerCase()}`);
 
   await db.leaveRequest.update({
     where: { id: requestId },
@@ -202,22 +245,22 @@ export async function approveLeaveRequestAction(requestId: string, comments?: st
     },
   });
 
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/leave/team");
+  revalidateLeaveAndAttendance();
   return { success: true };
 }
 
 // ── 4. REJECT LEAVE REQUEST (MANAGER ACTION) ─────────────────────────────────
 
 export async function rejectLeaveRequestAction(requestId: string, rejectionReason?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const session = await requireManagerSession();
 
   const request = await db.leaveRequest.findUnique({
     where: { id: requestId },
   });
 
   if (!request) throw new Error("Request not found");
+  if (request.userId === session.user.id) throw new Error("You can't reject your own leave");
+  if (request.status !== "PENDING") throw new Error(`This request is already ${request.status.toLowerCase()}`);
 
   await db.leaveRequest.update({
     where: { id: requestId },
@@ -248,8 +291,7 @@ export async function rejectLeaveRequestAction(requestId: string, rejectionReaso
     },
   });
 
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/leave/team");
+  revalidateLeaveAndAttendance();
   return { success: true };
 }
 
@@ -327,14 +369,16 @@ export async function applyCompensatoryAction(data: {
 // ── 6. APPROVE COMPENSATORY OFF ──────────────────────────────────────────────
 
 export async function approveCompensatoryAction(requestId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const session = await requireManagerSession();
 
   const comp = await db.compensatoryRequest.findUnique({
     where: { id: requestId },
   });
 
   if (!comp) throw new Error("Compensatory request not found");
+  if (comp.userId === session.user.id) throw new Error("You can't approve your own comp-off");
+  // Approving twice would credit the balance twice.
+  if (comp.status !== "PENDING") throw new Error("This request has already been reviewed");
 
   await db.compensatoryRequest.update({
     where: { id: requestId },
@@ -376,11 +420,10 @@ export async function approveCompensatoryAction(requestId: string) {
 // ── 7. REJECT COMPENSATORY OFF ──────────────────────────────────────────────
 
 export async function rejectCompensatoryAction(requestId: string, reason?: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  await requireManagerSession();
 
   await db.compensatoryRequest.update({
-    where: { id: requestId },
+    where: { id: requestId, status: "PENDING" },
     data: {
       status: "REJECTED",
       rejectionReason: reason || "Rejected by manager",
@@ -402,8 +445,7 @@ export async function adjustLeaveBalanceAction(data: {
   remarks?: string;
   year?: number;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const session = await requireManagerSession();
   const adjustedById = session.user.id;
   const year = data.year || new Date().getFullYear();
 
@@ -513,8 +555,7 @@ export async function createLeaveTypeAction(data: {
   employeeVisibility?: "COMPLETE_LEAVE_SUMMARY" | "REMAINING_BALANCE_ONLY" | "HIDE_IN_SELF_SERVICE";
   balanceDisplayPref?: "LEAVE_REQUEST_START_DATE" | "CURRENT_DATE" | "YEAR_END_PROJECTION";
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  await requireManagerSession();
 
   const newType = await db.leaveType.create({
     data: {
@@ -598,8 +639,7 @@ export async function createLeaveTypeAction(data: {
 // ── 10. TOGGLE LEAVE TYPE STATUS ─────────────────────────────────────────────
 
 export async function toggleLeaveTypeStatusAction(id: string, isActive: boolean) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  await requireManagerSession();
 
   await db.leaveType.update({
     where: { id },
@@ -618,8 +658,7 @@ export async function createHolidayAction(data: {
   type: "PUBLIC" | "OPTIONAL" | "COMPANY_SPECIAL";
   description?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const session = await requireManagerSession();
 
   const holidayDate = new Date(data.date);
   const dayOfWeek = holidayDate.toLocaleDateString("en-US", { weekday: "long" });
@@ -644,39 +683,11 @@ export async function createHolidayAction(data: {
 }
 
 export async function deleteHolidayAction(id: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  await requireManagerSession();
 
   await db.holiday.delete({ where: { id } });
 
   revalidatePath("/pulse/leave");
   revalidatePath("/pulse/leave/team");
-  return { success: true };
-}
-
-// ── 12. ATTENDANCE REGULARIZATION ────────────────────────────────────────────
-
-export async function submitRegularizationAction(data: {
-  id: string;
-  checkIn: string;
-  checkOut: string;
-  reason: string;
-}) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-
-  await db.attendanceRegularization.update({
-    where: { id: data.id },
-    data: {
-      checkInTime: data.checkIn,
-      checkOutTime: data.checkOut,
-      reason: data.reason,
-      status: "APPROVED",
-      reviewedById: session.user.id,
-      reviewedAt: new Date(),
-    },
-  });
-
-  revalidatePath("/pulse/leave");
   return { success: true };
 }

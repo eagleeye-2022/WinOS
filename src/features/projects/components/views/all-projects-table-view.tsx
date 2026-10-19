@@ -84,6 +84,7 @@ import { BulkProjectActionsBar } from "../bulk-project-actions-bar";
 import { getInitials, getAvatarColor } from "../assignee-picker-popover";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { toast } from "@/components/shared/toast";
+import { PageTitle } from "@/components/shared/page-header";
 
 const ASSIGNEE_ROLE_TO_PROJECT_KEY: Record<ProjectAssigneeField, keyof Project> = {
   PROJECT_LEAD: "projectLead",
@@ -580,7 +581,7 @@ export function AllProjectsTableView({
 
     const result = await bulkShiftProjectDatesAction(ids, deltaDays);
     if (!result.success) {
-      alert(result.error || "Some projects could not be shifted.");
+      toast.error(result.error || "Some projects could not be shifted.");
     }
     clearSelection();
   };
@@ -1291,9 +1292,9 @@ export function AllProjectsTableView({
       <div className="flex flex-col gap-3.5 border-b px-6 py-4 bg-background">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">
+            <PageTitle>
               {userRole === "TEAM_MEMBER" ? "My Assigned Projects" : "All Projects"}
-            </h1>
+            </PageTitle>
             {userRole === "TEAM_MEMBER" && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
                 Assigned to you
@@ -1308,7 +1309,7 @@ export function AllProjectsTableView({
           <button
             type="button"
             onClick={() => setIsTimeLogModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#0077ee] transition-colors"
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors"
           >
             <Plus size={14} />
             <span>Effort Log</span>
