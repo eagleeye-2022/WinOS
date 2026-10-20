@@ -292,17 +292,17 @@ describe("reviewStatus", () => {
       reviewedBy: { name: "Sarah Jenkins" },
     });
     expect(r.kind).toBe("reviewed");
-    expect(r.label).toBe("Reviewed by Sarah");
+    expect(r.label).toBe("Reviewed by Sarah Jenkins");
   });
 
-  it("uses first name only in reviewed label", () => {
+  it("uses the full name in reviewed label", () => {
     const r = reviewStatus({
       status: "REVIEWED",
       date: recentDate,
       reviewedAt: new Date(),
       reviewedBy: { name: "Marcus Wright" },
     });
-    expect(r.label).toBe("Reviewed by Marcus");
+    expect(r.label).toBe("Reviewed by Marcus Wright");
   });
 
   it("falls back to 'Manager' when reviewedBy.name is null", () => {
@@ -498,8 +498,8 @@ describe("sortTeamGroups", () => {
 
 describe("previousDsmDayLabel / previousDsmHeading", () => {
   // 2026-10-19 is a Monday.
-  it("says Yesterday when the previous DSM was the day before", () => {
-    expect(previousDsmHeading("2026-10-18", "2026-10-19")).toBe("What Did You Do Yesterday?");
+  it("names the weekday even when the previous DSM was the day before", () => {
+    expect(previousDsmHeading("2026-10-18", "2026-10-19")).toBe("What Did You Do Sunday?");
   });
 
   it("names the weekday of the user's last DSM (absent days in between)", () => {
@@ -514,7 +514,7 @@ describe("previousDsmDayLabel / previousDsmHeading", () => {
     expect(previousDsmHeading("2026-10-07", "2026-10-19")).toBe("What Did You Do on 7 Oct?");
   });
 
-  it("falls back to Yesterday when there is no previous DSM", () => {
-    expect(previousDsmHeading(null, "2026-10-19")).toBe("What Did You Do Yesterday?");
+  it("falls back to the day before when there is no previous DSM", () => {
+    expect(previousDsmHeading(null, "2026-10-19")).toBe("What Did You Do Sunday?");
   });
 });
