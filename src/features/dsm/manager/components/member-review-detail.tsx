@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn, toTitleCase } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -38,7 +39,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -526,7 +527,7 @@ function EditBlockerRow({
         </div>
         {editedBy && (
           <span className="text-xs text-muted-foreground/70">
-            Edited by {editedBy.name?.split(" ")[0] ?? editedBy.email.split("@")[0]}
+            Edited by {editedBy.name ?? editedBy.email.split("@")[0]}
           </span>
         )}
       </div>
@@ -736,7 +737,7 @@ function EditSupportRow({
         </div>
         {editedBy && (
           <span className="text-xs text-muted-foreground/70">
-            Edited by {editedBy.name?.split(" ")[0] ?? editedBy.email.split("@")[0]}
+            Edited by {editedBy.name ?? editedBy.email.split("@")[0]}
           </span>
         )}
       </div>
@@ -1175,6 +1176,11 @@ function isLearningCarriedOver(
   return prevLines.includes(learningLine.trim().toLowerCase());
 }
 
+/** "Tuesday" — DSM dates are UTC midnight, so the weekday is read in UTC. */
+function weekdayName(date: Date | string = new Date()): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(new Date(date));
+}
+
 // ── Compact entry preview (collapsed state) ───────────────────────────────────
 
 function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEntry; allEntries?: MemberReviewEntry[] }) {
@@ -1188,7 +1194,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
       {yesterdayTasks.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Yesterday&apos;s Tasks
+            {previousDsmDayLabel(getPrevEntry(entry, allEntries)?.date, entry.date).replace(/^on /, "")}&apos;s Tasks
           </p>
           <div className="space-y-1.5">
             {yesterdayTasks.map((task, i) => (
@@ -1216,7 +1222,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
       {todayTasks.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Today&apos;s Task
+            {weekdayName(entry.date)}&apos;s Task
           </p>
           <div className="space-y-1.5">
             {todayTasks.map((task, i) => {
@@ -1268,7 +1274,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                       )}
                       {s.editedBy && (
                         <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
-                          (edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]})
+                          (edited by {s.editedBy.name ?? s.editedBy.email.split("@")[0]})
                         </span>
                       )}
                     </li>
@@ -1299,7 +1305,7 @@ function CompactEntryPreview({ entry, allEntries = [] }: { entry: MemberReviewEn
                       )}
                       {b.editedBy && (
                         <span className="ml-1.5 text-xs text-muted-foreground/70 font-normal">
-                          (edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]})
+                          (edited by {b.editedBy.name ?? b.editedBy.email.split("@")[0]})
                         </span>
                       )}
                     </li>
@@ -3114,7 +3120,7 @@ function EntryExpanded({
                       </div>
                       {b.editedBy && (
                         <span className="text-xs text-muted-foreground/70">
-                          Edited by {b.editedBy.name?.split(" ")[0] ?? b.editedBy.email.split("@")[0]}
+                          Edited by {b.editedBy.name ?? b.editedBy.email.split("@")[0]}
                         </span>
                       )}
                     </div>
@@ -3174,7 +3180,7 @@ function EntryExpanded({
                         </div>
                         {s.editedBy && (
                           <span className="text-xs text-muted-foreground/70">
-                            Edited by {s.editedBy.name?.split(" ")[0] ?? s.editedBy.email.split("@")[0]}
+                            Edited by {s.editedBy.name ?? s.editedBy.email.split("@")[0]}
                           </span>
                         )}
                       </div>
@@ -3247,7 +3253,7 @@ function EntryExpanded({
       {entry.status === "REVIEWED" && (
         <div className="flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success">
           <CheckCheck size={16} />
-          Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name?.split(" ")[0] ?? "manager"}` : ""}
+          Reviewed{entry.reviewedBy ? ` by ${entry.reviewedBy.name ?? "manager"}` : ""}
         </div>
       )}
 
@@ -3324,7 +3330,7 @@ function TodayEntryCard({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">{dateStr}</span>
             <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              Today
+              {weekdayName(entry.date)}
             </span>
           </div>
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
@@ -3415,7 +3421,6 @@ function DayCardCollapsed({
     reviewedAt: entry.reviewedAt,
     reviewedBy: entry.reviewedBy,
   });
-  const dayLabel = relativeDayLabel(entry.date);
   const dateStr = formatShortDate(entry.date);
 
   return (
@@ -3427,9 +3432,9 @@ function DayCardCollapsed({
       >
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{dateStr}</span>
-          {dayLabel && dayLabel !== "Today" && (
-            <span className="text-xs text-muted-foreground">{dayLabel}</span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            {weekdayName(entry.date)}
+          </span>
           {(entry.status === "SUBMITTED" || entry.status === "PENDING_REVIEW" || entry.status === "REVIEWED") && (
             <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
               Submitted
@@ -3565,9 +3570,14 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
         {/* Member header */}
         <div className="flex items-center justify-between rounded-xl border bg-card p-5">
           <div className="flex items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+            <UserAvatar
+              userId={user.id}
+              name={user.name}
+              email={user.email}
+              className="h-16 w-16 bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10"
+            >
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-            </span>
+            </UserAvatar>
             <div>
               <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
