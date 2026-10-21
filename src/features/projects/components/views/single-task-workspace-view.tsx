@@ -255,6 +255,8 @@ export function SingleTaskWorkspaceView({
   }, [isRefetchingMissingTask, taskId]);
 
   const taskNotFound = !isLoading && !foundTask && !isRefetchingMissingTask;
+  // A task still being created (temporary id): no edits until the server has saved it.
+  const isUnsavedTask = Boolean(foundTask && /^t-\d+$/.test(foundTask.id));
 
   // Projects the current user is a project user of (see canStartTimer / canEditTask below).
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
@@ -1176,7 +1178,7 @@ export function SingleTaskWorkspaceView({
     );
   });
 
-  if (isLoading || isRefetchingMissingTask) {
+  if (isLoading || isRefetchingMissingTask || isUnsavedTask) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-background text-foreground dark:bg-[#09090b]">
         <div className="flex flex-col items-center gap-3">

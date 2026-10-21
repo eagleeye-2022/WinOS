@@ -298,11 +298,14 @@ export function ProjectsWorkspace() {
       );
       // …then swapped for the saved task (real id and code).
       setTasks((prev) =>
-        prev.map((t) =>
-          t.id === newTask.id
-            ? { ...newTask, ...created, projectId: newTask.projectId, projectName: newTask.projectName, activities: newTask.activities }
-            : t
-        )
+        // A background reload may already have brought in the saved task — then just drop the copy.
+        prev.some((t) => t.id !== newTask.id && t.code === created.code)
+          ? prev.filter((t) => t.id !== newTask.id)
+          : prev.map((t) =>
+              t.id === newTask.id
+                ? { ...newTask, ...created, projectId: newTask.projectId, projectName: newTask.projectName, activities: newTask.activities }
+                : t
+            )
       );
       toast.success(`Task ${created.code} created in ${newTask.projectName || "the project"}`);
     } catch (err) {

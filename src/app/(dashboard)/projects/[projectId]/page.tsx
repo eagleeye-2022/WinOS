@@ -92,7 +92,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       // …then swapped for the saved task (real id and code). Without this, every edit made before a
       // reload — owner, status, dates — sent the temporary id and failed with "Task not found".
       setTasks((prev) =>
-        prev.map((t) => (t.id === newTask.id ? { ...newTask, ...created, activities: newTask.activities } : t))
+        // A background reload may already have brought in the saved task — then just drop the copy.
+        prev.some((t) => t.id !== newTask.id && t.code === created.code)
+          ? prev.filter((t) => t.id !== newTask.id)
+          : prev.map((t) => (t.id === newTask.id ? { ...newTask, ...created, activities: newTask.activities } : t))
       );
       toast.success(`Task ${created.code} created`);
     } catch (err) {

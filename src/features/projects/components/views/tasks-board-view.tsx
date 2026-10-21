@@ -447,9 +447,9 @@ export function TasksBoardView({
 
     setIsCreatingInlineTask(true);
     try {
-      const codePrefix = projectCode || "TASK";
-      const nextTaskIndex = localTasks.length + 1;
-      const taskCode = `${codePrefix}-T${nextTaskIndex < 10 ? `0${nextTaskIndex}` : nextTaskIndex}`;
+      // Placeholder until the server assigns the real code — a guessed "<prefix>-T<n>" could be an
+      // existing task's code.
+      const taskCode = "Saving…";
 
       let derivedDeptAlias = "digitalproducts@";
       if (phaseCode === "3.1" || phaseCode === "3.2") derivedDeptAlias = "design@";
