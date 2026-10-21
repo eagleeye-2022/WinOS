@@ -40,8 +40,9 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
       hour: "numeric",
       minute: "2-digit",
     });
+    // On time through the whole 10:10 minute (the card shows minutes only); Delayed from 10:11.
     const cutoff = new Date(card.submittedAt);
-    cutoff.setHours(10, 10, 0, 0);
+    cutoff.setHours(10, 10, 59, 999);
     isOnTime = new Date(card.submittedAt) <= cutoff;
   }
 
