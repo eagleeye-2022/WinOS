@@ -69,7 +69,13 @@ export function ProjectWorkspaceProvider({
         const result = await getProjectWorkspaceAction(projectId);
         if (isCancelled()) return;
         setData(result);
-        setTasks(result.tasks);
+        // Keep tasks that are still being created (temporary "t-<timestamp>" id): a load that
+        // started before the save finished doesn't have them yet, and dropping them here meant the
+        // saved task was never swapped in — opening or editing it then hit "Task not found".
+        setTasks((prev) => {
+          const unsaved = prev.filter((t) => /^t-\d+$/.test(t.id));
+          return unsaved.length ? [...unsaved, ...result.tasks] : result.tasks;
+        });
         setError(result.project ? null : `Project "${projectId}" not found.`);
       } catch (err) {
         if (isCancelled()) return;

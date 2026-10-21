@@ -144,7 +144,9 @@ export function AddTaskDrawer({
     else if (selectedPhase.code === "4.1") derivedDeptAlias = "dev@";
     else if (selectedPhase.code === "5.1") derivedDeptAlias = "qa@";
 
-    const taskCode = `WI1-T${Math.floor(40 + Math.random() * 50)}`;
+    // Placeholder until the server assigns the real code (a made-up "WI1-T…" code could match a
+    // real task's code and be opened or edited by mistake).
+    const taskCode = "Saving…";
     const cleanOwners = selectedOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
     const primaryOwner = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
     const assigneesList = cleanOwners.map((oName) => ({

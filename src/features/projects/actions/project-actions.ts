@@ -2512,7 +2512,10 @@ export async function updateTaskAction(
     }),
   ]);
   if (!task) {
-    return { success: false, error: "Task not found." };
+    return {
+      success: false,
+      error: "This task couldn't be found — it may have been deleted or still be saving. Reload the page and try again.",
+    };
   }
 
   // Editable by: the task's own owner(s) — checked against ProjectTaskOwner, the real source of
