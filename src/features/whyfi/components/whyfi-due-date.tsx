@@ -9,7 +9,7 @@ import { toIsoDateStr, toUtcDate } from "@/features/dsm/utils";
 import { getMyWhyfiTasksAction, updateWhyfiTaskAction, type WhyfiPickerTask } from "../actions";
 
 /**
- * Open Whyfi School cards, fetched once per mount: the viewer's own (managers: every list), or —
+ * Open WhyFi School cards, fetched once per mount: the viewer's own (managers: every list), or —
  * with `forUserId`, on a manager's review of a member's DSM — only that member's lists.
  */
 export function useWhyfiTasks(forUserId?: string) {
@@ -29,9 +29,9 @@ export function useWhyfiTasks(forUserId?: string) {
 }
 
 /**
- * "DUE: <date> [Today]" for a DSM learning row linked to a Whyfi School card — same look as the
+ * "DUE: <date> [Today]" for a DSM learning row linked to a WhyFi School card — same look as the
  * DSM task rows. The date is saved straight onto the card (learning rows themselves are plain
- * text), so it also shows on the card in Whyfi School.
+ * text), so it also shows on the card in WhyFi School.
  */
 export function WhyfiDueDate({
   task,

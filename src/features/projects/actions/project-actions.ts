@@ -48,7 +48,10 @@ import {
   effortProjectLabel,
   learningListPrefix,
   nextTaskCode,
+  nextWhyfiTaskCode,
+  WHYFI_TASK_CODE_PREFIX,
 } from "@/features/whyfi/constants";
+import { nextWhyfiTaskCodeFromDb } from "@/features/whyfi/task-code";
 import { findCountry, getCountryCities } from "../location-data";
 
 /**
@@ -618,7 +621,7 @@ export async function getProjectsAction(): Promise<Project[]> {
   }
 
   const dbProjects = await db.project.findMany({
-    // Whyfi School lists live in the Project table but have their own Pulse page.
+    // WhyFi School lists live in the Project table but have their own Pulse page.
     where: { AND: [NOT_LEARNING_PROJECT, whereCondition] },
     include: PROJECT_LIST_INCLUDE,
     orderBy: { createdAt: "desc" },
@@ -2132,7 +2135,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
             ]
           : []),
       ],
-      // Whyfi School cards have their own page under Pulse.
+      // WhyFi School cards have their own page under Pulse.
       NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } },
     },
     include: {
@@ -2282,11 +2285,11 @@ export async function createTaskAction(
 ): Promise<TaskItem> {
   const session = await requireAuth();
 
-  let resolvedProject: { id: string; code: string | null; ownerId: string | null; ownerName: string | null } | null = null;
+  let resolvedProject: { id: string; code: string | null; ownerId: string | null; ownerName: string | null; projectCategory: string | null } | null = null;
   if (projectId) {
     resolvedProject = await db.project.findFirst({
       where: { OR: [{ id: projectId }, { code: projectId }] },
-      select: { id: true, code: true, ownerId: true, ownerName: true },
+      select: { id: true, code: true, ownerId: true, ownerName: true, projectCategory: true },
     });
   }
 
@@ -2295,11 +2298,14 @@ export async function createTaskAction(
     ? await db.projectTask.count({ where: { projectId: resolvedProject.id } })
     : await db.projectTask.count();
   // Next number after the highest existing "<prefix>-T<n>" — a plain count reuses a code once a
-  // task has been deleted (and Whyfi lists number every card, subtasks included, the same way).
+  // task has been deleted (and WhyFi lists number every card, subtasks included, the same way).
   const existingCodes = resolvedProject
     ? (await db.projectTask.findMany({ where: { projectId: resolvedProject.id }, select: { code: true } })).map((t) => t.code)
     : [];
-  const nextCode = nextTaskCode(codePrefix, existingCodes, count);
+  // WhyFi School lists use one running "WIFI<n>" number across all lists.
+  const nextCode = resolvedProject?.projectCategory === LEARNING_PROJECT_CATEGORY
+    ? await nextWhyfiTaskCodeFromDb()
+    : nextTaskCode(codePrefix, existingCodes, count);
 
   // Fix 1: Use the project's ownerId FK directly as the default owner source of truth.
   // This is set before name-resolution so the FK is always the reliable fallback even
@@ -2756,6 +2762,134 @@ export async function updateTaskAction(
   return { success: true };
 }
 
+/**
+ * "Duplicate task" (board ⋮ menu): copies a task — title "(Copy)", description, owners, priority,
+ * dates, tags, task list, billing… — and its subtasks (any depth), as new Open tasks. Time logs,
+ * comments, activity, attachments and timers are NOT copied. Same permission as editing a task.
+ */
+export async function duplicateTaskAction(
+  taskId: string
+): Promise<{ success: true; code: string } | { success: false; error: string }> {
+  const session = await requireAuth();
+  const original = await db.projectTask.findFirst({
+    where: { OR: [{ id: taskId }, { code: taskId }] },
+    include: {
+      owners: { select: { userId: true } },
+      project: { select: { id: true, code: true, projectCategory: true } },
+    },
+  });
+  if (!original || !original.projectId) return { success: false, error: "Task not found." };
+
+  const allowed =
+    (await isPrivilegedViewer(session.user.id, original.projectId)) ||
+    (await isProjectUser(session.user.id, original.projectId));
+  if (!allowed) return { success: false, error: "Only users of this project can duplicate its tasks." };
+
+  const projectId = original.projectId;
+  const isLearning = original.project?.projectCategory === LEARNING_PROJECT_CATEGORY;
+  // Codes already used in the project — kept up to date as copies are created.
+  const usedCodes = (await db.projectTask.findMany({ where: { projectId }, select: { code: true } })).map((t) => t.code);
+  const listPrefix = original.project?.code || learningListPrefix(original.code);
+  // WhyFi School: the running "WIFI<n>" number is shared by all lists, so start from every WIFI code.
+  const whyfiCodes = isLearning
+    ? (await db.projectTask.findMany({
+        where: { code: { startsWith: WHYFI_TASK_CODE_PREFIX, mode: "insensitive" } },
+        select: { code: true },
+      })).map((t) => t.code)
+    : [];
+
+  /** Next free code: "WIFI<n>" for every WhyFi card, "<prefix>-T<n>" for top-level, "<parent>.<n>" for subtasks. */
+  const nextCode = (parentCode: string | null): string => {
+    if (isLearning) {
+      const code = nextWhyfiTaskCode(whyfiCodes);
+      whyfiCodes.push(code);
+      return code;
+    }
+    if (!parentCode) return nextTaskCode(listPrefix, usedCodes, usedCodes.length);
+    const max = usedCodes.reduce((m, c) => {
+      const n = Number(c.startsWith(`${parentCode}.`) ? c.slice(parentCode.length + 1) : NaN);
+      return Number.isInteger(n) && n > m ? n : m;
+    }, 0);
+    return `${parentCode}.${max + 1}`;
+  };
+
+  const actor = await db.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true } });
+  const actorName = actor?.name || session.user.name || actor?.email || "Team Member";
+
+  type Source = typeof original;
+  const copy = async (src: Source | Omit<Source, "project">, parentId: string | null, parentCode: string | null, isRoot: boolean) => {
+    const code = nextCode(parentCode);
+    usedCodes.push(code);
+    const created = await db.projectTask.create({
+      data: {
+        code,
+        title: isRoot ? `${src.title} (Copy)` : src.title,
+        order: src.order,
+        phaseId: src.phaseId,
+        phaseCode: src.phaseCode,
+        phaseName: src.phaseName,
+        taskListId: src.taskListId,
+        taskListName: src.taskListName,
+        isExternal: src.isExternal,
+        status: "Open",
+        authorId: session.user.id,
+        authorName: actorName,
+        associatedTeam: src.associatedTeam,
+        departmentAlias: src.departmentAlias,
+        ownerId: src.ownerId,
+        owner: src.owner,
+        workHours: "00:00", // no time logs are copied
+        startDate: src.startDate,
+        dueDate: src.dueDate,
+        duration: src.duration,
+        completionPercentage: 0,
+        recurrence: src.recurrence,
+        priority: src.priority,
+        tags: src.tags,
+        reminder: src.reminder,
+        billingType: src.billingType,
+        description: src.description,
+        hasReminder: src.hasReminder,
+        hasRecurrence: src.hasRecurrence,
+        projectId,
+        parentTaskId: parentId,
+      },
+      select: { id: true, code: true },
+    });
+    if (src.owners.length > 0) {
+      await db.projectTaskOwner.createMany({
+        data: src.owners.map((o) => ({ taskId: created.id, userId: o.userId, assignedById: session.user.id })),
+        skipDuplicates: true,
+      });
+    }
+    await db.projectTaskActivity.create({
+      data: {
+        userName: actorName,
+        userId: session.user.id,
+        userInitials: toInitials(actorName),
+        actionText: `duplicated this task from ${src.code}`,
+        taskId: created.id,
+      },
+    });
+    // Subtasks, oldest first (any depth).
+    const children = await db.projectTask.findMany({
+      where: { parentTaskId: src.id },
+      include: { owners: { select: { userId: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    for (const child of children) await copy(child, created.id, created.code, false);
+    return created;
+  };
+
+  // A duplicated subtask sits next to the original, under the same parent.
+  const parentCode = original.parentTaskId
+    ? (await db.projectTask.findUnique({ where: { id: original.parentTaskId }, select: { code: true } }))?.code ?? null
+    : null;
+  const root = await copy(original, original.parentTaskId, parentCode, true);
+  revalidatePath("/projects");
+  return { success: true, code: root.code };
+}
+
 export async function deleteTaskAction(taskId: string): Promise<boolean> {
   const session = await requireAuth();
 
@@ -2881,10 +3015,9 @@ export async function createSubtaskAction(
   const parentCode = parentTask.code || taskId;
   let newCode: string;
   if (parentTask.project?.projectCategory === LEARNING_PROJECT_CATEGORY) {
-    // Whyfi School subtask (added from its task page): same "WL-1-T<next>" scheme as the Whyfi
-    // board, so DSM learning rows ("[WL-1-T3] …") can link to it — a dotted "WL-1-T3.1" can't.
-    const rows = await db.projectTask.findMany({ where: { projectId: parentTask.projectId }, select: { code: true } });
-    newCode = nextTaskCode(parentTask.project.code || learningListPrefix(parentCode), rows.map((r) => r.code));
+    // WhyFi School subtask (added from its task page): same "WIFI<n>" scheme as the WhyFi board,
+    // so DSM learning rows ("[WIFI12] …") can link to it — a dotted "WIFI12.1" can't.
+    newCode = await nextWhyfiTaskCodeFromDb();
   } else {
     // Next free suffix after the highest existing one — a plain count would reuse a code after a
     // subtask is deleted (e.g. .1 deleted → count 1 → a second ".2").
@@ -2916,7 +3049,7 @@ export async function createSubtaskAction(
       dueDate: subtaskData.dueDate || "--",
       phaseCode: parentTask.phaseCode || "1.1",
       phaseName: parentTask.phaseName || "General",
-      // Same task list as the parent (Whyfi cards all sit in "Learning Tasks").
+      // Same task list as the parent (WhyFi cards all sit in "Learning Tasks").
       ...(parentTask.taskListName && { taskListName: parentTask.taskListName }),
       projectId: parentTask.projectId,
       parentTaskId: parentTask.id,
@@ -3993,8 +4126,12 @@ async function recalculateTaskWorkHours(taskCodeOrId: string) {
 
 export async function getTimeLogsAction(
   projectId?: string,
-  /** `learningOnly`: just time logged on Whyfi School (learning list) tasks — Pulse → Whyfi Effort Logs. */
-  options?: { learningOnly?: boolean }
+  /**
+   * Which logs, by module: `learningOnly` — WhyFi School (learning list) tasks only (Pulse →
+   * Effort Logs); `excludeLearning` — Srijan project tasks only (Srijan → Effort Logs); neither —
+   * everything (Standup → Effort Log).
+   */
+  options?: { learningOnly?: boolean; excludeLearning?: boolean }
 ): Promise<UserTimeGroup[]> {
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
@@ -4022,7 +4159,9 @@ export async function getTimeLogsAction(
 
   const learningFilter = options?.learningOnly
     ? { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } }
-    : {};
+    : options?.excludeLearning
+      ? { NOT: { project: { is: { projectCategory: LEARNING_PROJECT_CATEGORY } } } }
+      : {};
 
   const dbLogs = await d.projectTimeLog.findMany({
     where: { ...projectFilter, ...ownershipFilter, ...learningFilter },

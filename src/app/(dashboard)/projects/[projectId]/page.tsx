@@ -15,7 +15,7 @@ import { TasksBoardView } from "@/features/projects/components/views/tasks-board
 import { ProjectUsersView } from "@/features/projects/components/views/project-users-view";
 import { ProjectDocumentsView } from "@/features/projects/components/views/project-documents-view";
 import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
-import { ProjectTimeLogsView } from "@/features/projects/components/views/project-time-logs-view";
+import { ProjectEffortLogReport } from "@/features/projects/components/views/project-effort-log-report";
 import { toast } from "@/components/shared/toast";
 
 const PROJECT_TABS = ["TASKS", "USERS", "DOCUMENTS", "TIME_LOGS", "TIMELINE", "INOTES"] as const;
@@ -52,6 +52,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
     myTaskCount: assignedToMeCount,
     isLoading,
     error,
+    refresh: refreshWorkspace,
   } = useProjectWorkspace();
   // In the URL (?tab=) so the tab survives module switches, Back/Forward and shared links.
   const [activeTab, setActiveTab] = useUrlState<ProjectTab>("tab", "TASKS", {
@@ -69,9 +70,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
     totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
   const handleAddTask = async (newTask: TaskItem) => {
+    // Shown straight away with a temporary id ("t-<timestamp>") and a guessed code…
     setTasks((prev) => [newTask, ...prev]);
     try {
-      await createTaskAction(
+      const created = await createTaskAction(
         {
           title: newTask.title,
           phaseCode: newTask.phaseCode,
@@ -87,14 +89,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         },
         projectId
       );
-      toast.success("Task created");
+      // …then swapped for the saved task (real id and code). Without this, every edit made before a
+      // reload — owner, status, dates — sent the temporary id and failed with "Task not found".
+      setTasks((prev) =>
+        prev.map((t) => (t.id === newTask.id ? { ...newTask, ...created, activities: newTask.activities } : t))
+      );
+      toast.success(`Task ${created.code} created`);
     } catch (err) {
       console.error("Failed to persist task in DB:", err);
+      // Don't leave a task on the board that was never saved.
+      setTasks((prev) => prev.filter((t) => t.id !== newTask.id));
       toast.error("Failed to create task");
     }
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
+    // A just-created task still has its temporary id until the save returns.
+    if (/^t-\d+$/.test(updatedTask.id)) {
+      toast.info("Still saving this task — try again in a moment.");
+      return;
+    }
     const previous = tasks.find((t) => t.id === updatedTask.id);
     setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
     const result = await updateTaskAction(updatedTask.id, updatedTask);
@@ -237,6 +251,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             assignedToMeCount={assignedToMeCount}
             projectCode={project.id}
             projectName={project.name}
+            onTasksChanged={refreshWorkspace}
           />
         )}
 
@@ -249,7 +264,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         )}
 
         {activeTab === "TIME_LOGS" && (
-          <ProjectTimeLogsView projectId={project.id} projectName={project.name} />
+          // Same report as Srijan → Effort Logs, filtered to this project.
+          <ProjectEffortLogReport
+            projectId={project.id}
+            projectName={project.name}
+            projectStart={project.startDate}
+            projectEnd={project.deadline}
+          />
         )}
 
         {activeTab === "TIMELINE" && (

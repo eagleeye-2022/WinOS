@@ -492,7 +492,7 @@ function LearningRows({
   teamMembers: TeamMember[];
   onChange: (items: { id: string; text: string; carried?: boolean }[]) => void;
 }) {
-  // Whyfi School cards shared with this user. A row linked to one is stored as
+  // WhyFi School cards shared with this user. A row linked to one is stored as
   // "[WL-1-T3] text" (learning rows are plain text), so the link survives drafts and reloads.
   const { tasks: whyfiTasks, loading: whyfiLoading, setDueDate: setWhyfiDueDate } = useWhyfiTasks();
 
@@ -559,7 +559,7 @@ function LearningRows({
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">WhyFi:</span>
                 {/* Task List → Task → Subtask, same flow as the Srijan pickers on task rows. */}
                 <WhyfiTaskSelectors
                   tasks={whyfiTasks}
@@ -1740,7 +1740,7 @@ export function SubmitDsmForm({
         {/* What will you learn today */}
         <Section
           icon={<GraduationCap size={16} className="text-primary" />}
-          title="What Will You Learn Today (Whyfi School)?"
+          title="What Will You Learn Today (WhyFi School)?"
           required
         >
           <input

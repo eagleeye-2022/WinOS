@@ -13,8 +13,8 @@ import { getWhyfiTasksByCodesAction, type WhyfiPickerTask } from "@/features/why
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
 
 /**
- * "What Will You Learn Today (Whyfi School)?" on a submitted DSM card — laid out like the
- * "Today's Task" table above it: lines linked to a Whyfi School card ("[WL-1-T3] …") show the
+ * "What Will You Learn Today (WhyFi School)?" on a submitted DSM card — laid out like the
+ * "Today's Task" table above it: lines linked to a WhyFi School card ("[WL-1-T3] …") show the
  * list, task ID (ⓘ opens it), status, due date and the start/stop timer (today) or the logged
  * effort (other days). Once reviewed, lines can still be edited, removed and added here.
  */
@@ -47,7 +47,7 @@ export function StandupLearningSection({
     [learningText]
   );
 
-  // Linked Whyfi School cards (open or done) for the lines on this card.
+  // Linked WhyFi School cards (open or done) for the lines on this card.
   const codesKey = lines.map(parseLearningLineCode).filter(Boolean).join(",");
   const [cards, setCards] = useState<Map<string, WhyfiPickerTask>>(new Map());
   useEffect(() => {
@@ -106,7 +106,7 @@ export function StandupLearningSection({
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
 
         <GraduationCap size={14} className="text-primary" />
-        What Will You Learn Today (Whyfi School)?
+        What Will You Learn Today (WhyFi School)?
         <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold normal-case tracking-normal text-primary">
           {lines.length}
         </span>
@@ -276,7 +276,7 @@ export function StandupLearningSection({
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 autoFocus
-                placeholder="Describe what will be learned (Whyfi School)..."
+                placeholder="Describe what will be learned (WhyFi School)..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

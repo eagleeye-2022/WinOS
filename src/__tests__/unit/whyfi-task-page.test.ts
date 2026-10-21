@@ -31,7 +31,7 @@ describe("nextTaskCode", () => {
   });
 });
 
-describe("Whyfi subtask codes stay linkable from DSM learning rows", () => {
+describe("WhyFi subtask codes stay linkable from DSM learning rows", () => {
   it("a subtask code made with nextTaskCode is recognised in a DSM line", () => {
     const code = nextTaskCode(learningListPrefix("WL-1-T3"), ["WL-1-T1", "WL-1-T2", "WL-1-T3"]);
     expect(code).toBe("WL-1-T4");

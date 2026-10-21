@@ -28,7 +28,10 @@ import {
   Eye,
   X,
   Loader2,
+  Copy,
 } from "lucide-react";
+import { AvatarStack } from "@/components/shared/avatar-stack";
+import { taskOwnerPeople } from "../../utils/task-owner-people";
 import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -36,7 +39,6 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
-import { getAvatarColor } from "../assignee-picker-popover";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
 import { ChecklistWorkspaceView } from "./checklist-workspace-view";
 import { PhasesTableView } from "./phases-table-view";
@@ -50,6 +52,8 @@ import {
   getCurrentUserContextAction,
   updateTaskAction,
   deleteTaskAction,
+  duplicateTaskAction,
+  updateSubtaskAction,
   getProjectMembersAction,
   getMyProjectUserProjectIdsAction,
   reorderProjectTasksAction,
@@ -73,7 +77,14 @@ interface TasksBoardViewProps {
    * cards — use this wherever `tasks` already reflects a real, meaningful query result (e.g.
    * the cross-project "My Tasks" page), so a real user is never shown fabricated tasks as theirs. */
   disableDemoFallback?: boolean;
+  /** Re-fetch the board's tasks from the server (e.g. after "Duplicate task" creates new ones). */
+  onTasksChanged?: () => void | Promise<void>;
+  /** All-projects board (no project of its own): projects a new task can be created in. */
+  projectOptions?: { id: string; name: string }[];
 }
+
+/** A task shown before the server has saved it (temporary "t-<timestamp>" id). */
+const isUnsavedTaskId = (id: string) => /^t-\d+$/.test(id);
 
 const BOARD_SUB_TABS = ["TASKS", "DASHBOARD", "PHASES", "TIME_LOGS", "CHECKLIST"] as const;
 type BoardSubTab = (typeof BOARD_SUB_TABS)[number];
@@ -219,6 +230,8 @@ export function TasksBoardView({
   projectCode,
   projectName,
   disableDemoFallback = false,
+  onTasksChanged,
+  projectOptions,
 }: TasksBoardViewProps) {
   // Sub-view, scope and filters live in the URL so they're restored when returning to the board.
   const [activeSubTab, setActiveSubTab] = useUrlState<BoardSubTab>("view", "TASKS", {
@@ -594,6 +607,73 @@ export function TasksBoardView({
     [currentUser, myProjectIds, realProjectId]
   );
 
+  /**
+   * Subtask cards (nested under their parent's card) are built from the parent's lightweight
+   * subtask list, so they must not go through `onUpdateTask`: that replaced the subtask's full row
+   * with this sparse copy, and for older checklist-style subtasks (ProjectSubtask rows, not tasks)
+   * the save failed with "Task not found". Real subtasks save as tasks; checklist ones as subtasks.
+   */
+  const saveSubtaskCard = async (
+    task: TaskItem,
+    changes: { status?: TaskStatus; title?: string; owners?: string[]; ownerLabel?: string; phaseCode?: string; phaseName?: string }
+  ) => {
+    const isRealTask = localTasks.some((t) => t.id === task.id || (task.code && t.code === task.code));
+    if (!isRealTask && changes.phaseCode) {
+      toast.info("This is a checklist item of its task — it moves with its task.");
+      return;
+    }
+    // Shown straight away on the parent's card.
+    setLocalTasks((prev) =>
+      prev.map((p) =>
+        p.id === task.id
+          ? {
+              ...p,
+              ...(changes.status && { status: changes.status }),
+              ...(changes.title && { title: changes.title }),
+              ...(changes.ownerLabel && { owner: changes.ownerLabel }),
+              ...(changes.phaseCode && { phaseCode: changes.phaseCode, phaseName: changes.phaseName ?? p.phaseName }),
+            }
+          : p.id !== task.parentTaskId
+          ? p
+          : {
+              ...p,
+              subtasks: (p.subtasks || []).map((s) =>
+                s.id !== task.id
+                  ? s
+                  : {
+                      ...s,
+                      ...(changes.status && { status: changes.status, completed: isTaskDone(changes.status) }),
+                      ...(changes.title && { title: changes.title }),
+                      ...(changes.ownerLabel && { ownerName: changes.ownerLabel }),
+                    }
+              ),
+            }
+      )
+    );
+    try {
+      if (isRealTask) {
+        const res = await updateTaskAction(task.id, {
+          ...(changes.status && { status: changes.status }),
+          ...(changes.title && { title: changes.title }),
+          ...(changes.owners && { owners: changes.owners, owner: changes.ownerLabel }),
+          ...(changes.phaseCode && { phaseCode: changes.phaseCode, phaseName: changes.phaseName }),
+        });
+        if (!res.success) throw new Error(res.error || "You do not have permission to edit this subtask.");
+      } else {
+        await updateSubtaskAction(task.id, {
+          ...(changes.status && { status: changes.status, completed: isTaskDone(changes.status) }),
+          ...(changes.title && { title: changes.title }),
+          ...(changes.owners && { ownerName: changes.owners[0] || "Unassigned" }),
+        });
+      }
+      toast.success("Subtask updated");
+    } catch (err) {
+      console.error("[TasksBoardView] Error updating subtask:", err);
+      toast.error(err instanceof Error && err.message ? err.message : "Failed to update subtask");
+    }
+    if (onTasksChanged) await onTasksChanged();
+  };
+
   const handleChangeTaskOwners = async (task: TaskItem, nextOwners: string[]) => {
     const cleanOwners = nextOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
     const displayNames = cleanOwners.map((raw) => {
@@ -607,6 +687,14 @@ export function TasksBoardView({
     });
 
     const primaryOwner = displayNames.length > 0 ? displayNames.join(", ") : "Unassigned";
+    if (task.parentTaskId) {
+      await saveSubtaskCard(task, { owners: cleanOwners, ownerLabel: primaryOwner });
+      return;
+    }
+    if (isUnsavedTaskId(task.id)) {
+      toast.info("Still saving this task — try again in a moment.");
+      return;
+    }
     const updatedTask = {
       ...task,
       owner: primaryOwner,
@@ -629,14 +717,12 @@ export function TasksBoardView({
   ) => {
     e.stopPropagation();
     if (phaseCode === task.phaseCode) return;
-    const updatedTask = { ...task, phaseCode, phaseName };
-    onUpdateTask(updatedTask);
-    try {
-      await updateTaskAction(task.id, { phaseCode, phaseName });
-      router.refresh();
-    } catch (err) {
-      console.error("[TasksBoardView] Error moving task to phase:", err);
+    if (task.parentTaskId) {
+      await saveSubtaskCard(task, { phaseCode, phaseName });
+      return;
     }
+    // Saved by the page's onUpdateTask (it used to be saved a second time here as well).
+    onUpdateTask({ ...task, phaseCode, phaseName });
   };
 
   // Inline task-title editing, click-to-edit directly on the card.
@@ -660,31 +746,52 @@ export function TasksBoardView({
     const trimmed = titleDraft.trim();
     setEditingTitleTaskId(null);
     if (!trimmed || trimmed === task.title) return;
+    if (task.parentTaskId) {
+      await saveSubtaskCard(task, { title: trimmed });
+      return;
+    }
     const updatedTask = { ...task, title: trimmed };
     setLocalTasks((prev) => prev.map((t) => (t.id === task.id ? updatedTask : t)));
     if (selectedTask?.id === task.id) setSelectedTask(updatedTask);
+    // Saved by the page's onUpdateTask (it used to be saved a second time here as well).
     onUpdateTask(updatedTask);
-    try {
-      await updateTaskAction(task.id, { title: trimmed });
-      router.refresh();
-    } catch (err) {
-      console.error("[TasksBoardView] Error renaming task:", err);
-    }
   };
 
   const handleChangeTaskStatus = async (task: TaskItem, newStatus: TaskStatus) => {
     if (newStatus === task.status) return;
+    if (task.parentTaskId) {
+      await saveSubtaskCard(task, { status: newStatus });
+      return;
+    }
     const updatedTask = { ...task, status: newStatus };
     setLocalTasks((prev) => prev.map((t) => (t.id === task.id ? updatedTask : t)));
     if (selectedTask?.id === task.id) {
       setSelectedTask(updatedTask);
     }
+    // Saved by the page's onUpdateTask (it used to be saved a second time here as well).
     onUpdateTask(updatedTask);
+  };
+
+  /** ⋮ → Duplicate: server copies the task (+ subtasks, owners, description…; no time logs). */
+  const [duplicatingTaskId, setDuplicatingTaskId] = useState<string | null>(null);
+  const handleDuplicateTask = async (e: React.MouseEvent, task: TaskItem) => {
+    e.stopPropagation();
+    if (duplicatingTaskId) return;
+    setDuplicatingTaskId(task.id);
     try {
-      await updateTaskAction(task.id, { status: newStatus });
-      router.refresh();
+      const res = await duplicateTaskAction(task.id);
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Duplicated ${task.code} as ${res.code}`);
+      if (onTasksChanged) await onTasksChanged();
+      else router.refresh();
     } catch (err) {
-      console.error("[TasksBoardView] Error changing task status:", err);
+      console.error("[TasksBoardView] Error duplicating task:", err);
+      toast.error("Failed to duplicate task");
+    } finally {
+      setDuplicatingTaskId(null);
     }
   };
 
@@ -856,6 +963,16 @@ export function TasksBoardView({
     realTaskCount > 0 ? Math.round((realCompletedCount / realTaskCount) * 100) : 68;
 
   const handleOpenTask = (task: TaskItem) => {
+    // Opening it before the save returns its real id would show "Task Not Found".
+    if (isUnsavedTaskId(task.id)) {
+      toast.info("Still saving this task — open it in a moment.");
+      return;
+    }
+    // Older checklist-style subtasks (ProjectSubtask rows) aren't tasks and have no page of their own.
+    if (!localTasks.some((t) => t.id === task.id || (task.code && t.code === task.code))) {
+      toast.info("This is a checklist item of its task — it has no page of its own.");
+      return;
+    }
     const taskId = task.code || task.id;
     const taskProjectId = task.projectId || realProjectId;
     if (!taskProjectId) return;
@@ -1067,16 +1184,6 @@ export function TasksBoardView({
     const resolvedName = resolveOwnerName(firstOwner);
     const isUnassigned = !resolvedName || resolvedName === "Unassigned";
 
-    const ownerInitials = isUnassigned
-      ? ""
-      : resolvedName
-          .split(" ")
-          .map((n) => n[0])
-          .filter(Boolean)
-          .join("")
-          .substring(0, 2)
-          .toUpperCase();
-
     const statusUpper = (task.status || "OPEN").toUpperCase();
     const isClosed = statusUpper === "CLOSED" || statusUpper === "DONE";
     const isInProgress = statusUpper === "IN PROGRESS" || statusUpper === "IN_PROGRESS";
@@ -1129,10 +1236,12 @@ export function TasksBoardView({
               {task.code}
             </span>
           </div>
-          <div className="flex items-center gap-1 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+          {/* The status pill shrinks (it's sized to the current status, capped); the 👁 / ⋮ / move
+              buttons never do, so they stay visible on narrow columns and nested subtask cards. */}
+          <div className="flex min-w-0 items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
           <div
             className={cn(
-              "relative inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tracking-tight text-white transition-all shadow-2xs",
+              "relative inline-flex min-w-0 max-w-[150px] shrink items-center rounded-md pl-2 pr-1 py-0.5 text-xs font-medium text-white transition-all shadow-2xs",
               task.status === "Done" || task.status === "Closed" || task.status === "Approved"
                 ? "bg-emerald-500 hover:bg-emerald-600"
                 : task.status === "In Progress"
@@ -1156,8 +1265,9 @@ export function TasksBoardView({
               value={task.status}
               onChange={(e) => handleChangeTaskStatus(task, e.target.value as TaskStatus)}
               disabled={!isOwner}
-              title={isOwner ? "Change status" : "Only users of this project can change the status"}
-              className="appearance-none bg-transparent pr-4 outline-none cursor-pointer font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-xs"
+              title={isOwner ? `Status: ${task.status} — click to change` : "Only users of this project can change the status"}
+              // field-sizing: as wide as the current status, not the longest option ("Pending from Client").
+              className="appearance-none [field-sizing:content] min-w-0 max-w-full truncate bg-transparent pr-3.5 outline-none cursor-pointer font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-70 text-xs"
             >
               {PROJECT_TASK_STATUSES.map((s) => (
                 <option key={s} value={s} className="bg-card text-foreground">{s}</option>
@@ -1179,7 +1289,7 @@ export function TasksBoardView({
                 e.stopPropagation();
                 handleOpenTaskDrawer(task);
               }}
-              className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer"
+              className="shrink-0 p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer"
               title="View Details in Drawer"
             >
               <Eye size={13} />
@@ -1192,7 +1302,7 @@ export function TasksBoardView({
                 type="button"
                 onClick={(e) => e.stopPropagation()}
                 disabled={!canEdit}
-                className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                className="shrink-0 p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 title={canEdit ? "More options" : lockedReason}
               >
                 <MoreVertical size={13} />
@@ -1201,9 +1311,19 @@ export function TasksBoardView({
             <PopoverContent
               side="bottom"
               align="end"
-              className="w-36 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+              className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
               onClick={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                onClick={(e) => handleDuplicateTask(e, task)}
+                disabled={duplicatingTaskId === task.id}
+                title="Copy this task with its description, owners, dates and subtasks (not time logs)"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
+              >
+                {duplicatingTaskId === task.id ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+                <span>Duplicate</span>
+              </button>
               <button
                 type="button"
                 onClick={(e) => handleDeleteTask(e, task)}
@@ -1222,7 +1342,7 @@ export function TasksBoardView({
                   type="button"
                   onClick={(e) => e.stopPropagation()}
                   disabled={!canEdit}
-                  className="p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="shrink-0 p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   title={
                     canEdit
                       ? `Move to another phase (currently: ${task.phaseName || task.phaseCode || "Unassigned"})`
@@ -1306,7 +1426,7 @@ export function TasksBoardView({
               taskCode={task.code}
               taskId={task.id}
               projectId={task.projectId || realProjectId}
-              canStart={canEdit}
+              canStart={canEdit && !isUnsavedTaskId(task.id)}
               disabledReason={isLocked ? lockedReason : "You're not a user of this project, so you can't start this timer"}
               onSaveLog={() => router.refresh()}
             />
@@ -1394,23 +1514,16 @@ export function TasksBoardView({
                 <button
                   type="button"
                   onClick={(e) => e.stopPropagation()}
-                  className={cn(
-                    "relative flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ring-2 ring-background shadow-2xs hover:scale-105 transition-transform cursor-pointer",
-                    isUnassigned
-                      ? "bg-slate-100 text-slate-400 border border-slate-200/80 dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
-                      : getAvatarColor(resolvedName)
-                  )}
+                  className="flex shrink-0 items-center rounded-full hover:scale-105 transition-transform cursor-pointer"
                   title={`Owners: ${(task.owners && task.owners.length > 0 ? task.owners : [task.owner || "Unassigned"]).join(", ")} (Click to assign owners)`}
                 >
                   {isUnassigned ? (
-                    <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" />
-                  ) : (
-                    ownerInitials
-                  )}
-                  {task.owners && task.owners.length > 1 && (
-                    <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold ring-2 ring-background">
-                      +{task.owners.length - 1}
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700">
+                      <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" />
                     </span>
+                  ) : (
+                    // Overlapping owner photos (initials when none), then "+N" for the rest.
+                    <AvatarStack people={taskOwnerPeople(task, resolvedName)} />
                   )}
                 </button>
               </PopoverTrigger>
@@ -1887,7 +2000,10 @@ export function TasksBoardView({
                       // Drag its right edge to resize (TableColumnResizer).
                       data-resizable-col
                       data-col-key={`phase-${col.code}`}
-                      className="w-[360px] shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
+                      // Can be dragged wider, never narrower than this — keeps every card's status,
+                      // 👁, ⋮ and move buttons visible (incl. indented subtask cards).
+                      data-min-width={340}
+                      className="w-[360px] min-w-[340px] shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
                     >
                       {/* Column Header matching reference screenshot */}
                       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
@@ -1932,6 +2048,11 @@ export function TasksBoardView({
                           <button
                             type="button"
                             onClick={() => {
+                              // No project here (all-projects board): the drawer asks which one.
+                              if (!realProjectId) {
+                                handleOpenAddTaskForPhase(col.code);
+                                return;
+                              }
                               setInlineAddingPhaseCode((prev) => (prev === col.code ? null : col.code));
                               setInlineTaskTitle("");
                             }}
@@ -2222,6 +2343,7 @@ export function TasksBoardView({
         availablePhases={phaseColumns.map(({ code, name }) => ({ code, name }))}
         initialPhaseCode={selectedAddTaskPhase}
         projectCode={projectCode || realProjectId}
+        projectOptions={realProjectId ? undefined : projectOptions}
       />
 
       {/* New Time Log Modal */}

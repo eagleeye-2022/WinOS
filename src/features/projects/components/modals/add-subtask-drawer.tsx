@@ -11,7 +11,7 @@ interface AddSubtaskDrawerProps {
   onAddSubtask: (subtask: TaskSubtask) => void;
   parentTaskCode: string;
   nextSubtaskNumber: number;
-  /** Hide the "<parent>.<n>" code preview — Whyfi School subtasks get their own "WL-…-T<n>" code. */
+  /** Hide the "<parent>.<n>" code preview — WhyFi School subtasks get their own "WL-…-T<n>" code. */
   hideCodePreview?: boolean;
 }
 

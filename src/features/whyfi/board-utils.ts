@@ -1,7 +1,7 @@
 import type { WhyfiList, WhyfiTask, WhyfiUser, WhyfiWorkspace } from "./actions";
 
 /**
- * Optimistic updates for the Whyfi School board: a new list / card / subtask is put on the board
+ * Optimistic updates for the WhyFi School board: a new list / card / subtask is put on the board
  * straight away with a temporary id, and replaced by the saved one when the board reloads.
  */
 

@@ -24,7 +24,7 @@ export type SaveDsrState = {
   message?: string;
 };
 
-type TaskItem = { id?: string; text: string; priority?: string | null; completed: boolean };
+type TaskItem = { id?: string; text: string; priority?: string | null; completed: boolean; addedAfterReview?: boolean };
 type SimpleItem = { id?: string; text: string; completed?: boolean; resolved?: boolean };
 
 export async function saveDsr(
@@ -148,6 +148,8 @@ export async function saveDsr(
           priority: t.priority?.trim() || null,
           completed: t.completed,
           order: i,
+          // Kept across saves (the rows are re-created), so the "NT" badge doesn't vanish on edit.
+          addedAfterReview: Boolean(t.addedAfterReview),
         })),
       });
     } catch (err: unknown) {
@@ -163,6 +165,7 @@ export async function saveDsr(
               priority: trimmed && VALID_ENUM_PRIORITIES.has(trimmed) ? trimmed : null,
               completed: t.completed,
               order: i,
+              addedAfterReview: Boolean(t.addedAfterReview),
             };
           }),
         });

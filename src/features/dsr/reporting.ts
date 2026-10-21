@@ -127,6 +127,54 @@ export function formatCutoffLabel(cutoff = DEFAULT_REPORT_CUTOFF, dayOffset = DE
   return dayOffset > 0 ? `${time} next day` : time;
 }
 
+export type ReportTaskRow = {
+  id?: string;
+  text: string;
+  priority: string | null;
+  completed: boolean;
+  addedAfterReview?: boolean;
+};
+
+/**
+ * The report's planned tasks kept in step with that day's DSM tasks (matched by trimmed,
+ * case-insensitive text — the two aren't linked by id). The DSM is the source of truth for which
+ * tasks exist and their order; the report keeps its own ticks, ids and priority for tasks it already
+ * had. Tasks added to the DSM since the report was opened / saved are appended (unticked); tasks no
+ * longer in the DSM (deleted or renamed there) are dropped — except rows added after review, which
+ * only live on the report. With no DSM tasks at all, the report is left as is.
+ */
+export function syncReportTasksWithDsm(
+  current: ReportTaskRow[],
+  dsmTasks: { text: string; priority: string | null }[]
+): ReportTaskRow[] {
+  if (dsmTasks.length === 0) return current;
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  const byText = new Map<string, ReportTaskRow>();
+  for (const t of current) {
+    const key = norm(t.text);
+    if (key && !byText.has(key)) byText.set(key, t);
+  }
+
+  const seen = new Set<string>();
+  const synced: ReportTaskRow[] = [];
+  for (const dsm of dsmTasks) {
+    const key = norm(dsm.text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const existing = byText.get(key);
+    synced.push(
+      existing
+        ? { ...existing, priority: existing.priority ?? dsm.priority }
+        : { text: dsm.text, priority: dsm.priority, completed: false }
+    );
+  }
+  for (const t of current) {
+    if (t.addedAfterReview && !seen.has(norm(t.text))) synced.push(t);
+  }
+  return synced;
+}
+
 /**
  * A stored recordingUrl worth showing/pre-filling. Reports saved while the (removed) in-app recorder
  * existed hold an internal "/api/report-recordings/…" path that no longer resolves — treat those as empty.

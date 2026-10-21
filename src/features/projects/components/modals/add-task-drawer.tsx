@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { TaskItem, TaskStatus, PROJECT_TASK_STATUSES } from "../../types";
-import { getOwnersAndTeamsAction } from "../../actions/project-actions";
+import { getOwnersAndTeamsAction, getProjectPhasesAction } from "../../actions/project-actions";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
+import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/rich-description";
 
 interface AddTaskDrawerProps {
   isOpen: boolean;
@@ -13,6 +14,11 @@ interface AddTaskDrawerProps {
   availablePhases: { code: string; name: string }[];
   initialPhaseCode?: string;
   projectCode?: string;
+  /**
+   * Outside a project (the all-projects Tasks board): the projects the task can be created in.
+   * The drawer then asks for one, and its task lists replace `availablePhases`.
+   */
+  projectOptions?: { id: string; name: string }[];
 }
 
 const FALLBACK_PHASE = { code: "1.1", name: "GENERAL" };
@@ -24,7 +30,13 @@ export function AddTaskDrawer({
   availablePhases,
   initialPhaseCode,
   projectCode,
+  projectOptions,
 }: AddTaskDrawerProps) {
+  const choosesProject = !projectCode && Boolean(projectOptions);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [projectPhases, setProjectPhases] = useState<{ code: string; name: string }[] | null>(null);
+  const phases = choosesProject ? projectPhases ?? [] : availablePhases;
+
   const [title, setTitle] = useState("");
   const [phaseCode, setPhaseCode] = useState(
     initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code
@@ -35,8 +47,33 @@ export function AddTaskDrawer({
     setPrevIsOpen(isOpen);
     if (isOpen) {
       setPhaseCode(initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code);
+      setSelectedProjectId("");
+      setProjectPhases(null);
     }
   }
+
+  // The chosen project's own task lists (keeping the column's list when the project has it).
+  useEffect(() => {
+    if (!choosesProject || !selectedProjectId) return;
+    let cancelled = false;
+    getProjectPhasesAction(selectedProjectId)
+      .then((rows) => {
+        if (cancelled) return;
+        const list = rows.map((p) => ({ code: p.code, name: p.name }));
+        setProjectPhases(list);
+        setPhaseCode((prev) =>
+          list.some((p) => p.code === prev) ? prev : list[0]?.code || FALLBACK_PHASE.code
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setProjectPhases([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [choosesProject, selectedProjectId]);
+
+  const ownersProjectCode = projectCode || selectedProjectId || undefined;
   const [status, setStatus] = useState<TaskStatus>("Open");
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
   const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
@@ -53,7 +90,7 @@ export function AddTaskDrawer({
   useEffect(() => {
     async function loadUsers() {
       try {
-        const res = await getOwnersAndTeamsAction(projectCode);
+        const res = await getOwnersAndTeamsAction(ownersProjectCode);
         if (res.owners && res.owners.length > 0) {
           setOwnersList(res.owners);
           if (selectedOwners.length === 0) {
@@ -73,7 +110,7 @@ export function AddTaskDrawer({
     if (isOpen) {
       loadUsers();
     }
-  }, [isOpen, projectCode]);
+  }, [isOpen, ownersProjectCode]);
 
   if (!isOpen) return null;
 
@@ -94,11 +131,13 @@ export function AddTaskDrawer({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    if (choosesProject && !selectedProjectId) return;
 
     setIsSubmitting(true);
 
     const selectedPhase =
-      availablePhases.find((p) => p.code === phaseCode) || FALLBACK_PHASE;
+      phases.find((p) => p.code === phaseCode) || FALLBACK_PHASE;
+    const chosenProject = choosesProject ? projectOptions?.find((p) => p.id === selectedProjectId) : undefined;
 
     let derivedDeptAlias = "digitalproducts@";
     if (selectedPhase.code === "3.1" || selectedPhase.code === "3.2") derivedDeptAlias = "design@";
@@ -135,7 +174,8 @@ export function AddTaskDrawer({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priority: priority as any,
       tags,
-      description,
+      // An emptied rich editor leaves "<p></p>" — store that as no description.
+      description: isEmptyDescription(description) ? "" : description.trim(),
       subtasks: [],
       remarks: [],
       activities: [
@@ -149,6 +189,7 @@ export function AddTaskDrawer({
         },
       ],
       assignees: assigneesList,
+      ...(chosenProject ? { projectId: chosenProject.id, projectName: chosenProject.name } : {}),
     };
 
     onAddTask(newTask);
@@ -193,6 +234,34 @@ export function AddTaskDrawer({
             />
           </div>
 
+          {/* Project — only on the all-projects board, where the task has no project yet */}
+          {choosesProject && (
+            <div className="space-y-1.5">
+              <label className="font-semibold text-muted-foreground">
+                Project <span className="text-destructive">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  required
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+                >
+                  <option value="">Select a project</option>
+                  {(projectOptions ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Phase */}
           <div className="space-y-1.5">
             <label className="font-semibold text-muted-foreground">
@@ -202,12 +271,15 @@ export function AddTaskDrawer({
               <select
                 value={phaseCode}
                 onChange={(e) => setPhaseCode(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+                disabled={choosesProject && !selectedProjectId}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {availablePhases.length === 0 ? (
+                {choosesProject && !selectedProjectId ? (
+                  <option value="">Select a project first</option>
+                ) : phases.length === 0 ? (
                   <option value={FALLBACK_PHASE.code}>{FALLBACK_PHASE.name}</option>
                 ) : (
-                  availablePhases.map((p) => (
+                  phases.map((p) => (
                     <option key={p.code} value={p.code}>
                       {p.name}
                     </option>
@@ -318,13 +390,8 @@ export function AddTaskDrawer({
             <label className="font-semibold text-muted-foreground">
               Description
             </label>
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Task details or specifications..."
-              className="w-full rounded-md border border-input bg-background p-3 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary resize-y"
-            />
+            {/* Same rich editor as the task page, so formatting carries over. */}
+            <RichDescriptionEditor value={description} onChange={setDescription} />
           </div>
 
           {/* Footer Actions */}

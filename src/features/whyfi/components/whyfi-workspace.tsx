@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { AvatarStack } from "@/components/shared/avatar-stack";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowLeftToLine,
@@ -557,11 +558,8 @@ function LearningCard({
           const avatar = (
             <span
               className={cn(
-                "relative flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold shadow-2xs ring-2 ring-background transition-transform",
-                workspace.isManager && "cursor-pointer hover:scale-105",
-                firstOwner
-                  ? getAvatarColor(firstOwner.name)
-                  : "border border-slate-200/80 bg-slate-100 text-slate-400 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500"
+                "flex shrink-0 items-center transition-transform",
+                workspace.isManager && "cursor-pointer hover:scale-105"
               )}
               title={
                 task.owners.length > 0
@@ -570,16 +568,11 @@ function LearningCard({
               }
             >
               {firstOwner ? (
-                // Nested (not replacing the circle) so the "+N" badge isn't clipped by the photo's mask.
-                <UserAvatar userId={firstOwner.id} name={firstOwner.name} title="" className="h-full w-full">
-                  {initials(firstOwner.name)}
-                </UserAvatar>
+                // Overlapping owner photos (initials when none), then "+N" for the rest.
+                <AvatarStack people={task.owners.map((o) => ({ id: o.id, name: o.name, email: o.email }))} />
               ) : (
-                <UserIcon size={12} />
-              )}
-              {task.owners.length > 1 && (
-                <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground ring-2 ring-background">
-                  +{task.owners.length - 1}
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100 text-slate-400 shadow-2xs ring-2 ring-background dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500">
+                  <UserIcon size={12} />
                 </span>
               )}
             </span>
@@ -1254,8 +1247,8 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
             </span>
             <div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-muted-foreground">WL</span>
-                <h1 className="text-base font-bold tracking-tight text-foreground">Whyfi School</h1>
+                <span className="font-mono text-sm font-bold text-muted-foreground">WIFI</span>
+                <h1 className="text-base font-bold tracking-tight text-foreground">WhyFi School</h1>
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {workspace.isManager ? "Manager view" : "Shared with you"} &bull; Lists:{" "}

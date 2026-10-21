@@ -142,7 +142,7 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       { id: sessionUser.id, name: sessionUser.name, email: sessionUser.email }
     ) ||
     // Any project user can run the timer on any task in the project, owned or not — this also
-    // covers EED Core's shared daily tasks and Whyfi School lists shared with the user.
+    // covers EED Core's shared daily tasks and WhyFi School lists shared with the user.
     (await isProjectUser(sessionUser.id, task.projectId));
   if (!isAuthorized) {
     return {

@@ -1,5 +1,5 @@
 /** Shared avatar helpers — use these everywhere so a person gets the same initials and the same
- *  colour on every screen (DSM, Srijan, Whyfi, ...). */
+ *  colour on every screen (DSM, Srijan, WhyFi, ...). */
 
 const AVATAR_COLORS = [
   "bg-amber-500 text-white",
