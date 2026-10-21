@@ -2426,7 +2426,7 @@ function LearningSection({
   const [newText, setNewText] = useState("");
   const [newTaskId, setNewTaskId] = useState("");
   const [editText, setEditText] = useState("");
-  // Whyfi School cards (managers see every list). A line linked to one is stored as
+  // WhyFi School cards (managers see every list). A line linked to one is stored as
   // "[WL-1-T3] text"; the manager can pick/change the card per line (it's then assigned to the
   // member) and set its due date.
   // Only this member's learning lists (not every list the manager can see).
@@ -2471,7 +2471,7 @@ function LearningSection({
     handleSaveAll(updated);
   };
 
-  /** Links (or unlinks, with "") line `index` to a Whyfi card and assigns the card to the member. */
+  /** Links (or unlinks, with "") line `index` to a WhyFi card and assigns the card to the member. */
   const handleLinkLine = (index: number, taskId: string) => {
     const body = stripLearningLineCode(lines[index]);
     const task = whyfiTasks.find((t) => t.id === taskId);
@@ -2498,7 +2498,7 @@ function LearningSection({
       <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-primary">
         <span className="flex items-center gap-2">
           <GraduationCap size={15} className="text-primary" />
-          What Will You Learn Today (Whyfi School)?
+          What Will You Learn Today (WhyFi School)?
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             {lines.length}
           </span>
@@ -2595,10 +2595,10 @@ function LearningSection({
               </div>
             </div>
 
-            {/* Whyfi task picker (assigns the card to the member) + due date */}
+            {/* WhyFi task picker (assigns the card to the member) + due date */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3.5">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">WhyFi:</span>
                 {/* Task List → Task → Subtask; picking one assigns the card to the member. */}
                 <WhyfiTaskSelectors
                   tasks={whyfiTasks}
@@ -2632,7 +2632,7 @@ function LearningSection({
                 value={newText}
                 onChange={(e) => setNewText(e.target.value)}
                 autoFocus
-                placeholder={newTaskId ? "Optional note (defaults to the task title)..." : "Describe what will be learned (Whyfi School)..."}
+                placeholder={newTaskId ? "Optional note (defaults to the task title)..." : "Describe what will be learned (WhyFi School)..."}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -2665,9 +2665,9 @@ function LearningSection({
                 <X size={14} />
               </button>
             </div>
-            {/* Pick a Whyfi School card to assign to the member (optional). */}
+            {/* Pick a WhyFi School card to assign to the member (optional). */}
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 pl-0.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Whyfi:</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">WhyFi:</span>
               <WhyfiTaskSelectors tasks={whyfiTasks} loading={whyfiLoading} value={newTaskId} onChange={setNewTaskId} />
             </div>
           </div>

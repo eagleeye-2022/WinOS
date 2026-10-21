@@ -1,5 +1,5 @@
 /**
- * Pure helpers behind the Whyfi School Task List → Task → Subtask pickers (WhyfiTaskSelectors).
+ * Pure helpers behind the WhyFi School Task List → Task → Subtask pickers (WhyfiTaskSelectors).
  * They work on the flat list of open cards the picker receives (`WhyfiPickerTask[]`).
  */
 

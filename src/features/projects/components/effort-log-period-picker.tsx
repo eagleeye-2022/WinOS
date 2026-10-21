@@ -3,9 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
-export type PeriodMode = "Day" | "Month" | "Range";
+/** "Span" = the whole project (start → end): only offered inside a project's Effort Logs. */
+export type PeriodMode = "Day" | "Month" | "Range" | "Span";
 
-const MODES: PeriodMode[] = ["Day", "Month", "Range"];
+const MODES: Exclude<PeriodMode, "Span">[] = ["Day", "Month", "Range"];
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -38,6 +39,8 @@ export function EffortLogPeriodPicker({
   onDay,
   onMonth,
   onRange,
+  projectSpan,
+  onProjectSpan,
 }: {
   mode: PeriodMode;
   day: Date;
@@ -48,10 +51,14 @@ export function EffortLogPeriodPicker({
   onDay: (d: Date) => void;
   onMonth: (firstOfMonth: Date) => void;
   onRange: (from: Date, to: Date) => void;
+  /** Inside a project: offers "Project Span" (all of the project's logs). */
+  projectSpan?: boolean;
+  onProjectSpan?: () => void;
 }) {
   const today = startOfDay(new Date());
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<PeriodMode>(mode);
+  const [tab, setTab] = useState<Exclude<PeriodMode, "Span">>(mode === "Span" ? "Day" : mode);
+  const isSpan = mode === "Span" && Boolean(projectSpan);
   const [viewMonth, setViewMonth] = useState(() => new Date(day.getFullYear(), day.getMonth(), 1));
   const [viewYear, setViewYear] = useState(month.getFullYear());
   // Range being picked: first click sets the start, second click the end.
@@ -60,7 +67,7 @@ export function EffortLogPeriodPicker({
   const rootRef = useRef<HTMLDivElement>(null);
 
   const openPopover = () => {
-    setTab(mode);
+    setTab(mode === "Span" ? "Day" : mode);
     const anchor = mode === "Month" ? month : mode === "Range" ? rangeFrom : day;
     setViewMonth(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
     setViewYear(month.getFullYear());
@@ -82,8 +89,9 @@ export function EffortLogPeriodPicker({
     };
   }, [open]);
 
-  const label =
-    mode === "Month"
+  const label = isSpan
+    ? "Project Span"
+    : mode === "Month"
       ? month.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
       : mode === "Range"
         ? sameDay(rangeFrom, rangeTo)
@@ -139,9 +147,12 @@ export function EffortLogPeriodPicker({
   return (
     <div ref={rootRef} className="relative">
       <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground shadow-2xs">
-        <button type="button" onClick={() => step(-1)} className={navBtn} title={`Previous ${unit}`}>
-          <ChevronLeft size={14} />
-        </button>
+        {/* No ‹ › for Project Span — there's nothing to step through. */}
+        {!isSpan && (
+          <button type="button" onClick={() => step(-1)} className={navBtn} title={`Previous ${unit}`}>
+            <ChevronLeft size={14} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => (open ? setOpen(false) : openPopover())}
@@ -153,9 +164,11 @@ export function EffortLogPeriodPicker({
           <CalendarIcon size={13} className="text-primary" />
           <span>{label}</span>
         </button>
-        <button type="button" onClick={() => step(1)} className={navBtn} title={`Next ${unit}`}>
-          <ChevronRight size={14} />
-        </button>
+        {!isSpan && (
+          <button type="button" onClick={() => step(1)} className={navBtn} title={`Next ${unit}`}>
+            <ChevronRight size={14} />
+          </button>
+        )}
       </div>
 
       {open && (
@@ -184,6 +197,25 @@ export function EffortLogPeriodPicker({
               </button>
             ))}
           </div>
+
+          {/* Project Span: the project's whole duration — every effort log of the project. */}
+          {projectSpan && onProjectSpan && (
+            <button
+              type="button"
+              onClick={() => {
+                onProjectSpan();
+                setOpen(false);
+              }}
+              title="Show every effort log of this project, from its start to its end"
+              className={`mb-3 flex w-full items-center justify-center rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                isSpan
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-foreground hover:border-primary/50 hover:bg-accent"
+              }`}
+            >
+              Project Span
+            </button>
+          )}
 
           {tab === "Month" ? (
             <>

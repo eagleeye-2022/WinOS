@@ -13,8 +13,8 @@ import {
   LEARNING_PROJECT_CATEGORY,
   LEARNING_TASK_STATUSES,
   normalizeDueDate,
-  nextTaskCode,
 } from "./constants";
+import { nextWhyfiTaskCodeFromDb } from "./task-code";
 
 // Learning data lives in the Projects tables — see constants.ts for the mapping.
 const d = db as any;
@@ -287,7 +287,8 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
 
   const viewingMember = Boolean(forUserId && forUserId !== actor.id);
   if (viewingMember && !actor.isManager) return [];
-  // Restrict to lists shared with this user; a manager viewing their own DSM sees every list.
+  // Restrict to lists shared with this user (and, on a member's review, to that member's cards —
+  // below); a manager viewing their own DSM sees every list.
   const scopeUserId = viewingMember ? forUserId! : actor.isManager ? null : actor.id;
 
   // Cards and their subtasks (learners usually work on the subtasks).
@@ -298,6 +299,11 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
         projectCategory: LEARNING_PROJECT_CATEGORY,
         ...(scopeUserId ? { members: { some: { userId: scopeUserId } } } : {}),
       },
+      // A manager on a member's DSM review (/dsm/member/<id>) sees only that member's cards:
+      // the ones assigned to them, plus unassigned ones (open to everyone on the list).
+      ...(viewingMember
+        ? { OR: [{ owners: { some: { userId: forUserId } } }, { owners: { none: {} } }] }
+        : {}),
     },
     orderBy: [{ projectId: "asc" }, { order: "asc" }, { createdAt: "asc" }],
     select: {
@@ -317,7 +323,7 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
 }
 
 /**
- * Whyfi School cards by code (open or done) — for showing linked DSM learning lines ("[WL-1-T3] …")
+ * WhyFi School cards by code (open or done) — for showing linked DSM learning lines ("[WL-1-T3] …")
  * with their list, status, due date and timer. Same visibility as the picker.
  */
 export async function getWhyfiTasksByCodesAction(codes: string[]): Promise<WhyfiPickerTask[]> {
@@ -350,7 +356,7 @@ export async function getWhyfiTasksByCodesAction(codes: string[]): Promise<Whyfi
 }
 
 /**
- * Manager picks a Whyfi School card for a member from their DSM review: adds the member as an
+ * Manager picks a WhyFi School card for a member from their DSM review: adds the member as an
  * owner of the card (existing owners are kept) and shares the card's list with them if it isn't
  * already, so they can see it, pick it in their DSM and run its timer.
  */
@@ -608,7 +614,7 @@ export async function setWhyfiListMembersAction(projectId: string, userIds: stri
       data: toAdd.map((userId) => ({
         type: "PROJECT_ASSIGNED",
         title: "Learning task list shared with you",
-        message: `${actor.name} shared the Whyfi School list "${list?.name || ""}" with you.`,
+        message: `${actor.name} shared the WhyFi School list "${list?.name || ""}" with you.`,
         userId,
         createdById: actor.id,
         relatedEntryId: projectId,
@@ -622,10 +628,6 @@ export async function setWhyfiListMembersAction(projectId: string, userIds: stri
 
 // ── Cards ─────────────────────────────────────────────────────────────────────
 
-async function nextLearningTaskCode(projectId: string, projectCode: string): Promise<string> {
-  const rows: { code: string }[] = await d.projectTask.findMany({ where: { projectId }, select: { code: true } });
-  return nextTaskCode(projectCode, rows.map((r) => r.code));
-}
 
 /** Managers create cards for anyone; members can add cards to lists shared with them (the card
  *  is then theirs). */
@@ -663,7 +665,7 @@ export async function createWhyfiTaskAction(
 
   const task = await d.projectTask.create({
     data: {
-      code: await nextLearningTaskCode(projectId, list.code || list.id),
+      code: await nextWhyfiTaskCodeFromDb(),
       title,
       description: input.description?.trim() || "",
       phaseId: phase?.id,

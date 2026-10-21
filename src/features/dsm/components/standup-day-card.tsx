@@ -126,7 +126,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
       {/* Expanded content */}
       {open && entry.status !== "MISSED" && (
         <div className="border-t px-4 pb-4 pt-3">
-          {/* Two separate sections: Today's Task, then Whyfi School learning (below). */}
+          {/* Two separate sections: Today's Task, then WhyFi School learning (below). */}
           {(todayTasks.length > 0 || isReviewed) && (
             <section className="mb-3 rounded-lg border bg-card p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">

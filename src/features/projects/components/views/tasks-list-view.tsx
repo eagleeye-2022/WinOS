@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { AvatarStack } from "@/components/shared/avatar-stack";
+import { taskOwnerPeople } from "../../utils/task-owner-people";
 import { useRouter } from "next/navigation";
 import { Trash2, ListChecks, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -248,16 +250,6 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
     const resolvedName = resolveOwnerName(firstOwner);
     const isUnassigned = !resolvedName || resolvedName === "Unassigned";
 
-    const ownerInitials = isUnassigned
-      ? ""
-      : resolvedName
-          .split(" ")
-          .map((n) => n[0])
-          .filter(Boolean)
-          .join("")
-          .substring(0, 2)
-          .toUpperCase();
-
     return (
       <tr
         key={task.id}
@@ -322,14 +314,12 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                 className="flex items-center gap-2 rounded-full pr-1.5 hover:bg-accent transition-colors cursor-pointer"
                 title={`Owner: ${task.owner || "Unassigned"} (Click to assign owner)`}
               >
-                <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold shrink-0">
-                  {ownerInitials}
-                  {task.owners && task.owners.length > 1 && (
-                    <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 px-0.5 leading-none items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold ring-2 ring-background">
-                      +{task.owners.length - 1}
-                    </span>
-                  )}
-                </span>
+                {isUnassigned ? (
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white ring-2 ring-background" />
+                ) : (
+                  // Overlapping owner photos (initials when none), then "+N" for the rest.
+                  <AvatarStack people={taskOwnerPeople(task, resolvedName)} size="h-7 w-7" />
+                )}
                 <span className="text-xs font-medium text-foreground whitespace-nowrap max-w-[100px] truncate">
                   {task.owners && task.owners.length > 1 ? task.owners.join(", ") : task.owner || "Unassigned"}
                 </span>

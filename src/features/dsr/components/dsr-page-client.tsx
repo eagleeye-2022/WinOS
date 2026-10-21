@@ -190,6 +190,7 @@ export function DsrPageClient({
             reportConfig={reportConfig}
             timeSummary={timeSummary}
             memberName={memberName}
+            userId={memberUserId}
           />
         ) : (
           <>

@@ -106,7 +106,7 @@ interface SingleTaskWorkspaceViewProps {
   backHref?: string;
   /** Prefix for task/subtask page links (`${taskHrefBase}/${code}`). Default: Srijan task pages. */
   taskHrefBase?: string;
-  /** The task belongs to a Whyfi School (learning) list. */
+  /** The task belongs to a WhyFi School (learning) list. */
   isLearningList?: boolean;
 }
 
@@ -118,7 +118,7 @@ export function SingleTaskWorkspaceView({
   isLearningList = false,
 }: SingleTaskWorkspaceViewProps) {
   const router = useRouter();
-  // Whyfi School reuses this page under /pulse with its own links (see the whyfi-learning routes).
+  // WhyFi School reuses this page under /pulse with its own links (see the whyfi-learning routes).
   const backHref = backHrefProp ?? `/projects/${projectId}`;
   const taskHrefBase = taskHrefBaseProp ?? `/projects/${projectId}/tasks`;
   const { confirm, ConfirmDialog } = useConfirm();
@@ -329,8 +329,22 @@ export function SingleTaskWorkspaceView({
     setTaskStatus(newStatus);
     if (activeTask && activeTask.id) {
       const updatedTask = { ...activeTask, status: newStatus };
+      // On a subtask's own page, also its entry in the parent's subtask list.
       setTasks((prev) =>
-        prev.map((t) => (t.id === activeTask.id ? updatedTask : t))
+        prev.map((t) =>
+          t.id === activeTask.id
+            ? updatedTask
+            : activeTask.parentTaskId && t.id === activeTask.parentTaskId
+            ? {
+                ...t,
+                subtasks: (t.subtasks || []).map((st) =>
+                  st.id === activeTask.id || st.code === activeTask.code
+                    ? { ...st, status: newStatus, completed: isTaskDone(newStatus) }
+                    : st
+                ),
+              }
+            : t
+        )
       );
       try {
         const result = await updateTaskAction(activeTask.id, { status: newStatus });
@@ -549,7 +563,16 @@ export function SingleTaskWorkspaceView({
       st.id === id ? { ...st, completed: newCompleted, status: newStatus } : st
     );
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
-    setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
+    // The subtask's own row too, so opening it next shows the new status.
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === activeTask.id
+          ? updatedTask
+          : t.id === id || t.code === target.code
+          ? { ...t, status: newStatus, completionPercentage: newCompleted ? 100 : 0 }
+          : t
+      )
+    );
 
     updateSubtaskAction(id, { completed: newCompleted, status: newStatus }).catch((err) =>
       console.error("Failed to update subtask in DB:", err)
@@ -558,6 +581,7 @@ export function SingleTaskWorkspaceView({
 
   const handleSubtaskStatusChange = (id: string, newStatus: TaskStatus) => {
     const isDone = isTaskDone(newStatus);
+    const target = subtasks.find((st) => st.id === id);
     const updatedSubtasks = subtasks.map((st) =>
       st.id === id
         ? {
@@ -568,7 +592,16 @@ export function SingleTaskWorkspaceView({
         : st
     );
     const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
-    setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
+    // The subtask's own row too, so opening it next shows the new status.
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === activeTask.id
+          ? updatedTask
+          : t.id === id || (target && t.code === target.code)
+          ? { ...t, status: newStatus, completionPercentage: isDone ? 100 : 0 }
+          : t
+      )
+    );
 
     updateSubtaskAction(id, { status: newStatus, completed: isDone }).catch(
       (err) => console.error("Failed to update subtask status in DB:", err)
@@ -1902,7 +1935,15 @@ export function SingleTaskWorkspaceView({
                           subtasks.map((st) => (
                             <tr
                               key={st.id}
-                              onClick={() => router.push(`${taskHrefBase}/${st.code}`)}
+                              onClick={() => {
+                                // Older checklist-style subtasks (ProjectSubtask rows) have no page — opening
+                                // one showed "Task Not Found".
+                                if (!leftTaskItems.some((t) => t.id === st.id || t.code === st.code)) {
+                                  toast.info("This is a checklist item of this task — it has no page of its own.");
+                                  return;
+                                }
+                                router.push(`${taskHrefBase}/${st.code}`);
+                              }}
                               className="hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30"
                               title="Open this subtask"
                             >

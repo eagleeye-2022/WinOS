@@ -95,7 +95,7 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Regularization") {
     return pathname.startsWith("/pulse/regularization");
   }
-  if (label === "Whyfi School") {
+  if (label === "WhyFi School") {
     return pathname.startsWith("/pulse/whyfi-learning");
   }
   if (label === "Reports" && (pathname.startsWith("/pulse") || pathname.startsWith("/people"))) {
@@ -168,9 +168,9 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
-          { label: "Whyfi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
-          // Effort logs of Whyfi School tasks only.
-          { label: "Whyfi Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading },
+          { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
+          // Effort logs of WhyFi School tasks only.
+          { label: "Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ]
       : [
@@ -179,7 +179,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
-          { label: "Whyfi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
+          { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {

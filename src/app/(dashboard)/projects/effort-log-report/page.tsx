@@ -14,7 +14,8 @@ export default function TimeTrackerPage() {
     async function loadLogs() {
       setIsLoading(true);
       try {
-        const groups = await getTimeLogsAction();
+        // Srijan → Effort Logs: project tasks only (WhyFi School time is under Pulse → Effort Logs).
+        const groups = await getTimeLogsAction(undefined, { excludeLearning: true });
         setTimeGroups(groups);
       } catch (err) {
         console.error("Failed to load time logs:", err);
@@ -35,7 +36,7 @@ export default function TimeTrackerPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
-      <TimeTrackerView initialGroups={timeGroups} />
+      <TimeTrackerView initialGroups={timeGroups} excludeLearning />
     </div>
   );
 }

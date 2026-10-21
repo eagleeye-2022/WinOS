@@ -21,6 +21,7 @@ import {
   deleteProjectAction,
   getTasksAction,
   updateTaskAction,
+  createTaskAction,
   getTimeLogsAction,
   getUsersAction,
   getCurrentUserRoleAction,
@@ -168,7 +169,8 @@ export function ProjectsWorkspace() {
             getCurrentUserRoleAction(),
             getMyTaskCountAction(),
             needsTasks ? getTasksAction() : Promise.resolve(null),
-            needsTimeLogs ? getTimeLogsAction() : Promise.resolve(null),
+            // Srijan views show project time only (WhyFi School time lives under Pulse).
+            needsTimeLogs ? getTimeLogsAction(undefined, { excludeLearning: true }) : Promise.resolve(null),
           ]);
         if (cancelled) return;
 
@@ -268,12 +270,62 @@ export function ProjectsWorkspace() {
     }
   };
 
-  const handleAddTask = (newTask: TaskItem) => {
+  // All-projects Tasks board: the drawer asks for the project, then the task is saved there.
+  // (It used to only be added on screen — opening it showed "Task Not Found" and a reload lost it.)
+  const handleAddTask = async (newTask: TaskItem) => {
+    if (!newTask.projectId) {
+      toast.error("Pick a project for the task.");
+      return;
+    }
+    // Shown straight away with a temporary id…
     setTasks((prev) => [newTask, ...prev]);
-    toast.success("Task created");
+    try {
+      const created = await createTaskAction(
+        {
+          title: newTask.title,
+          phaseCode: newTask.phaseCode,
+          phaseName: newTask.phaseName,
+          status: newTask.status,
+          owner: newTask.owner,
+          owners: newTask.owners,
+          associatedTeam: newTask.associatedTeam,
+          departmentAlias: newTask.departmentAlias,
+          priority: newTask.priority,
+          tags: newTask.tags,
+          description: newTask.description,
+        },
+        newTask.projectId
+      );
+      // …then swapped for the saved task (real id and code).
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === newTask.id
+            ? { ...newTask, ...created, projectId: newTask.projectId, projectName: newTask.projectName, activities: newTask.activities }
+            : t
+        )
+      );
+      toast.success(`Task ${created.code} created in ${newTask.projectName || "the project"}`);
+    } catch (err) {
+      console.error("Failed to persist task in DB:", err);
+      setTasks((prev) => prev.filter((t) => t.id !== newTask.id));
+      toast.error("Failed to create task");
+    }
+  };
+
+  // Re-fetch after board actions that create tasks server-side (e.g. Duplicate).
+  const refreshTasks = async () => {
+    try {
+      setTasks(await getTasksAction());
+    } catch (err) {
+      console.error("Failed to reload tasks:", err);
+    }
   };
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
+    if (/^t-\d+$/.test(updatedTask.id)) {
+      toast.info("Still saving this task — try again in a moment.");
+      return;
+    }
     const previous = tasks.find((t) => t.id === updatedTask.id);
     setTasks((prev) =>
       prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
@@ -340,11 +392,13 @@ export function ProjectsWorkspace() {
                 tasks={tasks}
                 onAddTask={handleAddTask}
                 onUpdateTask={handleUpdateTask}
+                onTasksChanged={refreshTasks}
+                projectOptions={projects.map((p) => ({ id: p.id, name: p.name }))}
               />
             )}
 
             {activeNav === "TIME_TRACKER" && (
-              <TimeTrackerView initialGroups={timeGroups} />
+              <TimeTrackerView initialGroups={timeGroups} excludeLearning />
             )}
 
             {activeNav === "TIMELINE" && <GanttTimelineView />}

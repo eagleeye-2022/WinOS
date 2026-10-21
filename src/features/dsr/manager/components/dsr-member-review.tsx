@@ -753,7 +753,7 @@ function LearningCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary">
           <Star size={11} className="fill-white text-white" />
         </span>
-        What Will You Learn Today (Whyfi School)?
+        What Will You Learn Today (WhyFi School)?
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {learningItems.filter((l) => l.completed).length}/{learningItems.length} Learned
         </span>

@@ -12,7 +12,7 @@ function Divider() {
 }
 
 /**
- * Shared Task List → Task → Subtask pickers for a Whyfi School (learning) row — the same flow as
+ * Shared Task List → Task → Subtask pickers for a WhyFi School (learning) row — the same flow as
  * the Srijan Project → Task list → Task → Subtask pickers on DSM task rows.
  *
  * `value` is the linked card's id (a task, or a subtask at any depth); `onChange` gets the id of

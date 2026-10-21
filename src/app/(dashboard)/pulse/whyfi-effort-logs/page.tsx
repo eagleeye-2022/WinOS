@@ -7,7 +7,7 @@ import { TimeTrackerView } from "@/features/projects/components/views/time-track
 import { UserTimeGroup } from "@/features/projects/types";
 
 /**
- * Pulse → Whyfi Effort Logs: the effort log report filtered to time logged on Whyfi School
+ * Pulse → WhyFi Effort Logs: the effort log report filtered to time logged on WhyFi School
  * (learning list) tasks only.
  */
 export default function WhyfiEffortLogsPage() {
@@ -17,7 +17,7 @@ export default function WhyfiEffortLogsPage() {
   useEffect(() => {
     getTimeLogsAction(undefined, { learningOnly: true })
       .then(setTimeGroups)
-      .catch((err) => console.error("Failed to load Whyfi School time logs:", err))
+      .catch((err) => console.error("Failed to load WhyFi School time logs:", err))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -33,8 +33,8 @@ export default function WhyfiEffortLogsPage() {
     <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-6 py-3">
         <GraduationCap size={18} className="text-primary" />
-        <h1 className="text-base font-bold text-foreground">Whyfi School Effort Logs</h1>
-        <span className="text-xs text-muted-foreground">Only time logged on Whyfi School tasks</span>
+        <h1 className="text-base font-bold text-foreground">Effort Logs</h1>
+        <span className="text-xs text-muted-foreground">WhyFi School tasks only</span>
       </div>
       <TimeTrackerView initialGroups={timeGroups} learningOnly />
     </div>

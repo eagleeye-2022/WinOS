@@ -4,7 +4,7 @@ import { getWhyfiWorkspaceAction } from "@/features/whyfi/actions";
 import { WhyfiWorkspace } from "@/features/whyfi/components/whyfi-workspace";
 
 export const metadata: Metadata = {
-  title: "Whyfi School | WinOS",
+  title: "WhyFi School | WinOS",
   description: "Learning and training task lists for the team.",
 };
 

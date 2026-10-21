@@ -38,7 +38,7 @@ export function TodayEffortCard({ rows }: { rows: DayEffortRow[] }) {
                   {r.task?.code && <span className="mr-1 font-mono text-xs text-muted-foreground">{r.task.code}</span>}
                   {r.task?.title ?? "Task"}
                 </span>
-                {r.task?.project?.name.startsWith("Whyfi School") && (
+                {r.task?.project?.name.startsWith("WhyFi School") && (
                   <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
                     Learning
                   </span>

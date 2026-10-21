@@ -3,6 +3,7 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { RemarksPopupCell } from "../remarks-popup-cell";
 import { shortProjectName } from "../../utils/project-name";
+import { WHYFI_PROJECT_LABEL, normalizeDueDate } from "@/features/whyfi/constants";
 import { EffortLogPeriodPicker } from "../effort-log-period-picker";
 import React, { useState, useEffect } from "react";
 import {
@@ -49,6 +50,7 @@ import { TimerWidget } from "../timer-widget";
 import { ActiveTeamTimersCard } from "../active-team-timers-card";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { ShareTimesheetModal } from "../modals/share-timesheet-modal";
+import { ShareProjectLogsModal } from "../modals/share-project-logs-modal";
 import {
   parseDurationMinutes,
   formatDurationDisplay,
@@ -79,16 +81,21 @@ import { PageTitle } from "@/components/shared/page-header";
 
 const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
-const PERIOD_MODES = ["Day", "Month", "Range"] as const;
+const PERIOD_MODES = ["Day", "Month", "Range", "Span"] as const;
 
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
   projectId?: string;
   projectName?: string;
   assignedUsers?: string[];
-  /** Only Whyfi School (learning) logs — keeps that filter when the view re-fetches. */
+  /** Only WhyFi School (learning) logs — keeps that filter when the view re-fetches. */
   learningOnly?: boolean;
+  /** Only Srijan project logs (no WhyFi School) — kept when the view re-fetches. */
+  excludeLearning?: boolean;
+  /** Inside a project: its start / end dates (DD/MM/YYYY). Adds "Project Span" — all of the project's logs. */
+  projectSpan?: { start?: string; end?: string };
 }
+
 
 /** Log Title cell text: a link to the logged task (new tab, like the ⓘ task icon elsewhere);
  *  plain text when the log has no task code (`taskCode` falls back to the log id then). */
@@ -160,11 +167,19 @@ function InlineTextCell({
   );
 }
 
-export function TimeTrackerView({ initialGroups, projectId, projectName, assignedUsers, learningOnly = false }: TimeTrackerViewProps) {
-  // Pulse → Whyfi Effort Logs: learning time isn't billed, and its "project" is a Whyfi School list —
-  // so no billing column/filter/split, a single hours total, and "Whyfi School" instead of "Project".
+export function TimeTrackerView({
+  initialGroups,
+  projectId,
+  projectName,
+  assignedUsers,
+  learningOnly = false,
+  excludeLearning = false,
+  projectSpan,
+}: TimeTrackerViewProps) {
+  // Pulse → WhyFi Effort Logs: learning time isn't billed, and its "project" is a WhyFi School list —
+  // so no billing column/filter/split, a single hours total, and "WhyFi School" instead of "Project".
   const showBilling = !learningOnly;
-  const projectLabel = learningOnly ? "Whyfi School" : "Project";
+  const projectLabel = learningOnly ? "WhyFi School" : "Project";
   const { confirm: confirmDialog, ConfirmDialog } = useConfirm();
   const [userGroups, setUserGroups] = useState<UserTimeGroup[]>(initialGroups);
   const [prevInitialGroups, setPrevInitialGroups] = useState(initialGroups);
@@ -252,9 +267,12 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
   // Period mode: a single day (default), a whole month, or a custom from–to range — all kept in
   // the URL (?logPeriod, ?logMonth=YYYY-MM, ?logFrom/?logTo=YYYY-MM-DD) like the other filters.
-  const [periodMode, setPeriodMode] = useUrlState<(typeof PERIOD_MODES)[number]>("logPeriod", "Day", {
+  const [rawPeriodMode, setPeriodMode] = useUrlState<(typeof PERIOD_MODES)[number]>("logPeriod", "Day", {
     allowed: PERIOD_MODES,
   });
+  // "Span" only exists inside a project; a stale ?logPeriod=Span elsewhere falls back to Day.
+  const periodMode = rawPeriodMode === "Span" && !projectSpan ? "Day" : rawPeriodMode;
+  const isProjectSpan = periodMode === "Span";
   const parseYYYYMMDD = (s: string): Date | null => {
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
@@ -274,7 +292,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   // A "to" before "from" is treated as the same single day rather than an empty result.
   const rangeTo = rangeToRaw < rangeFrom ? rangeFrom : rangeToRaw;
 
-  // Inclusive filter bounds for the chosen period.
+  // Inclusive filter bounds for the chosen period (Project Span has none — every log of the project).
   const currentWeekStart = periodMode === "Month" ? selectedMonthStart : periodMode === "Range" ? rangeFrom : selectedDate;
   const currentWeekEnd = periodMode === "Month" ? selectedMonthEnd : periodMode === "Range" ? rangeTo : selectedDate;
 
@@ -738,7 +756,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
     // 3. Re-fetch the full canonical time logs from the server in background to ensure 100% sync
     try {
-      const freshGroups = await getTimeLogsAction(projectId, { learningOnly });
+      const freshGroups = await getTimeLogsAction(projectId, { learningOnly, excludeLearning });
       if (freshGroups && Array.isArray(freshGroups)) {
         setUserGroups(freshGroups);
       }
@@ -761,7 +779,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
 
     // 2. Refresh canonical from server in background
     try {
-      const freshGroups = await getTimeLogsAction(projectId, { learningOnly });
+      const freshGroups = await getTimeLogsAction(projectId, { learningOnly, excludeLearning });
       if (freshGroups && Array.isArray(freshGroups)) {
         setUserGroups(freshGroups);
       }
@@ -803,10 +821,10 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   // Applied Filtering
   const filteredAllLogs = rawAllLogs.filter((l) => {
     const normalizedLogDate = parseDDMMYYYYToDate(normalizeDateStr(l.date));
-    if (normalizedLogDate && (normalizedLogDate < currentWeekStart || normalizedLogDate > currentWeekEnd)) return false;
+    if (!isProjectSpan && normalizedLogDate && (normalizedLogDate < currentWeekStart || normalizedLogDate > currentWeekEnd)) return false;
     if (filterUser !== "ALL" && l.userName.toLowerCase() !== filterUser.toLowerCase()) return false;
     if (filterProject !== "ALL" && l.project.toLowerCase() !== filterProject.toLowerCase()) return false;
-    // (Ignored on the Whyfi page, which has no billing filter to clear a stale ?logBilling.)
+    // (Ignored on the WhyFi page, which has no billing filter to clear a stale ?logBilling.)
     if (showBilling && filterBilling !== "ALL" && l.billingType !== filterBilling) return false;
     if (filterStatus !== "ALL" && (l.approvalStatus || "Pending") !== filterStatus) return false;
     if (searchQuery.trim()) {
@@ -818,6 +836,21 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
     }
     return true;
   }).sort(compareTimeLogsLatestFirst);
+
+  // Inside a project, in Project Span mode: the project's dates, widened to any logs outside them —
+  // prefills the share dialog's date / range inputs.
+  const shareSpanRange = (() => {
+    if (!projectSpan) return undefined;
+    const dates = [
+      normalizeDueDate(projectSpan.start),
+      normalizeDueDate(projectSpan.end),
+      ...rawAllLogs.map((l) => normalizeDueDate(normalizeDateStr(l.date))),
+    ].filter(Boolean).sort();
+    return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : undefined;
+  })();
+  const shareCurrentView = isProjectSpan && shareSpanRange
+    ? shareSpanRange
+    : { from: formatYYYYMMDD(currentWeekStart), to: formatYYYYMMDD(currentWeekEnd) };
 
   const billableMinutes = filteredAllLogs
     .filter((l) => l.billingType === "BILLABLE")
@@ -832,6 +865,27 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
   ).length;
 
   const totalMinutesAll = billableMinutes + nonBillableMinutes;
+
+  // Project Span overview: the whole project's effort at a glance (respects the active filters).
+  const spanOverview = (() => {
+    if (!isProjectSpan) return null;
+    const userIdByName = new Map(userGroups.map((g) => [g.userName, g.userId]));
+    const members = new Map<string, { userId?: string; minutes: number }>();
+    const days = new Set<string>();
+    for (const l of filteredAllLogs) {
+      const minutes = parseDurationMinutes(l.duration);
+      const m = members.get(l.userName) ?? { userId: userIdByName.get(l.userName), minutes: 0 };
+      m.minutes += minutes;
+      members.set(l.userName, m);
+      days.add(normalizeDateStr(l.date));
+    }
+    return {
+      activeDays: days.size,
+      members: [...members.entries()]
+        .map(([name, m]) => ({ name, ...m }))
+        .sort((a, b) => b.minutes - a.minutes),
+    };
+  })();
   const billablePercentage = totalMinutesAll > 0 ? Math.round((billableMinutes / totalMinutesAll) * 100) : 0;
 
   // Real "Group By Date" data
@@ -908,7 +962,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
       { projectKey: string; projectName: string; timeLogs: (TimeLogEntry & { userName: string })[] }
     >();
     for (const log of filteredAllLogs) {
-      const key = log.projectId || log.project;
+      // Every WhyFi School task list is labelled just "WhyFi School", so they form one group.
+      const key = log.project === WHYFI_PROJECT_LABEL ? WHYFI_PROJECT_LABEL : log.projectId || log.project;
       if (!byProject.has(key)) {
         byProject.set(key, { projectKey: key, projectName: log.project, timeLogs: [] });
       }
@@ -1202,6 +1257,8 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             setLogFromParam(formatYYYYMMDD(from));
             setLogToParam(formatYYYYMMDD(to));
           }}
+          projectSpan={Boolean(projectSpan)}
+          onProjectSpan={() => setPeriodMode("Span")}
         />
 
         {/* Right Action Buttons & Batch Operations */}
@@ -1257,7 +1314,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
             type="button"
             onClick={() => setShowShareModal(true)}
             className="flex items-center gap-1.5 rounded border border-border bg-card hover:bg-accent px-3 py-1 text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-2xs"
-            title="Share your effort logs for this day via a link"
+            title={projectId ? "Share this project's effort logs via a link (e.g. with the client)" : "Share your effort logs for this day via a link"}
           >
             <Share2 size={13} className="text-primary" />
             <span>Share</span>
@@ -1383,6 +1440,54 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               Reset Filters
             </button>
           )}
+        </div>
+      )}
+
+      {/* ── Project Span: overall effort for the whole project ─────────────────── */}
+      {spanOverview && (
+        <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-3 space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Total", value: `${formatMinutesShort(totalMinutesAll)} h`, className: "text-foreground" },
+              ...(showBilling
+                ? [
+                    { label: "Billable", value: `${formatMinutesShort(billableMinutes)} h`, className: "text-info" },
+                    { label: "Non-billable", value: `${formatMinutesShort(nonBillableMinutes)} h`, className: "text-warning" },
+                  ]
+                : []),
+              // { label: "Entries", value: String(filteredAllLogs.length), className: "text-foreground" },
+              // { label: "Members", value: String(spanOverview.members.length), className: "text-foreground" },
+              // { label: "Active days", value: String(spanOverview.activeDays), className: "text-foreground" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-lg border border-border bg-card px-3 py-2 shadow-2xs">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{s.label}</span>
+                <span className={`mt-0.5 block font-mono text-base font-bold ${s.className}`}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+          {/* By member — commented out on request.
+          {spanOverview.members.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-semibold text-muted-foreground">By member:</span>
+              {spanOverview.members.map((m) => (
+                <span
+                  key={m.name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-0.5 pl-0.5 pr-2.5"
+                >
+                  <UserAvatar
+                    userId={m.userId}
+                    name={m.name}
+                    title=""
+                    className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0"
+                  >
+                    {m.name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}
+                  </UserAvatar>
+                  <span className="font-medium text-foreground">{m.name}</span>
+                  <span className="font-mono font-bold text-foreground">{formatMinutesShort(m.minutes)} h</span>
+                </span>
+              ))}
+            </div>
+          )} */}
         </div>
       )}
 
@@ -1574,7 +1679,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             </td>
                             */}
 
-                            {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                            {/* Billing Type Column — INLINE EDITABLE (hidden for WhyFi School) */}
                             {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                               <select
                                 value={log.billingType}
@@ -1822,7 +1927,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             {log.date}
                           </td>
 
-                          {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                          {/* Billing Type Column — INLINE EDITABLE (hidden for WhyFi School) */}
                           {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.billingType}
@@ -2049,7 +2154,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
                             {log.date}
                           </td>
 
-                          {/* Billing Type Column — INLINE EDITABLE (hidden for Whyfi School) */}
+                          {/* Billing Type Column — INLINE EDITABLE (hidden for WhyFi School) */}
                           {showBilling && (<td className="py-2 px-3 border-r border-border whitespace-nowrap">
                             <select
                               value={log.billingType}
@@ -2157,13 +2262,23 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
         </div>
       </div>
 
-      {/* Share Timesheet Modal */}
-      <ShareTimesheetModal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        date={formatYYYYMMDD(selectedDate)}
-        dateLabel={formatDDMMYYYY(selectedDate)}
-      />
+      {/* Share: a project's logs for a period (project tab, for the client), else your own day's logs */}
+      {projectId ? (
+        <ShareProjectLogsModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          projectId={projectId}
+          projectName={projectName}
+          currentView={shareCurrentView}
+        />
+      ) : (
+        <ShareTimesheetModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          date={formatYYYYMMDD(selectedDate)}
+          dateLabel={formatDDMMYYYY(selectedDate)}
+        />
+      )}
 
       {/* Add / Edit Time Log Modal Dialog */}
       <NewTimeLogModal
@@ -2191,7 +2306,7 @@ export function TimeTrackerView({ initialGroups, projectId, projectName, assigne
               <div className="flex items-center gap-2">
                 <BarChart3 size={20} className="text-primary" />
                 <h3 className="text-base font-bold text-foreground">
-                  {showBilling ? "Effort Log Productivity & Billing Report" : "Whyfi School Effort Report"}
+                  {showBilling ? "Effort Log Productivity & Billing Report" : "WhyFi School Effort Report"}
                 </h3>
               </div>
               <button

@@ -2,7 +2,7 @@ import React from "react";
 import { ProjectWorkspaceProvider } from "@/features/projects/context/project-workspace-context";
 
 /**
- * A Whyfi School list is a learning `Project` (see whyfi/constants.ts), so its task pages reuse the
+ * A WhyFi School list is a learning `Project` (see whyfi/constants.ts), so its task pages reuse the
  * Srijan task workspace — loaded once here and shared by the list's task/subtask pages, like the
  * `/projects/[projectId]` layout.
  */

@@ -83,7 +83,15 @@ function cellId(el: ResizableEl): string | null {
   return `${tableIndex}:${row.rowIndex}:${el.cellIndex}`;
 }
 
-function applyWidth(el: ResizableEl, width: number | null) {
+/** Narrowest a column may be dragged to: its `data-min-width` (e.g. Kanban task lists), else MIN_WIDTH. */
+function minWidthOf(el: ResizableEl): number {
+  const own = Number(el.dataset.minWidth);
+  return Number.isFinite(own) && own > 0 ? own : MIN_WIDTH;
+}
+
+function applyWidth(el: ResizableEl, rawWidth: number | null) {
+  // Also clamps widths saved before a column had a minimum.
+  const width = rawWidth === null ? null : Math.max(minWidthOf(el), rawWidth);
   const value = width === null ? "" : `${width}px`;
   el.style.width = value;
   el.style.minWidth = value;
@@ -113,7 +121,9 @@ export function TableColumnResizer() {
       if (Object.keys(saved).length === 0) return;
       for (const el of document.querySelectorAll<HTMLElement>(RESIZABLE_SELECTOR)) {
         const id = cellId(el);
-        if (id && saved[id] && el.style.width !== `${saved[id]}px`) applyWidth(el, saved[id]);
+        if (!id || !saved[id]) continue;
+        const target = Math.max(minWidthOf(el), saved[id]);
+        if (el.style.width !== `${target}px`) applyWidth(el, target);
       }
     };
     apply();
@@ -158,7 +168,7 @@ export function TableColumnResizer() {
 
     const onPointerMove = (e: PointerEvent) => {
       if (drag) {
-        const width = Math.max(MIN_WIDTH, drag.startWidth + (e.clientX - drag.startX));
+        const width = Math.max(minWidthOf(drag.th), drag.startWidth + (e.clientX - drag.startX));
         applyWidth(drag.th, width);
         showGuide(drag.th, drag.th.getBoundingClientRect().right);
         return;

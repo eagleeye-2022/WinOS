@@ -7,14 +7,14 @@ import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
 import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
-import { formatMinutes, usableRecordingUrl } from "../reporting";
+import { formatMinutes, syncReportTasksWithDsm, usableRecordingUrl } from "../reporting";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TaskItem = { id?: string; text: string; priority: string | null; completed: boolean };
+type TaskItem = { id?: string; text: string; priority: string | null; completed: boolean; addedAfterReview?: boolean };
 type TextItem = { id?: string; text: string };
 type CheckItem = { id?: string; text: string; completed: boolean };
 
@@ -567,9 +567,11 @@ type Props = {
   reportConfig: ReportConfig;
   timeSummary?: ReportTimeSummary;
   memberName?: string | null;
+  /** The signed-in member — scopes the browser draft so two people on one browser don't share it. */
+  userId?: string;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, userId }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
   const [submitOpen, setSubmitOpen] = useState(false);
 
@@ -580,30 +582,47 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
   const formRef = useRef<HTMLFormElement>(null);
   const isLoadedRef = useRef(false);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
-  const draftKey = `winos_dsr_draft_${todayDateStr}`;
+  // Per user + day. (Drafts used to be keyed by day only — the old key is read once, then dropped.)
+  const draftKey = `winos_dsr_draft_${userId ?? "me"}_${todayDateStr}`;
+  const legacyDraftKey = `winos_dsr_draft_${todayDateStr}`;
 
   // Read saved draft synchronously on initial render
   const savedDraft = typeof window !== "undefined" && !readOnly && !isEditMode ? (() => {
     try {
-      const saved = localStorage.getItem(draftKey);
+      const saved = localStorage.getItem(draftKey) ?? (userId ? localStorage.getItem(legacyDraftKey) : null);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   })() : null;
 
-  // Initialize state from draft, existing entry, or DSM prefill
+  // Initialize state from draft, existing entry, or DSM prefill — then, while it can still be
+  // edited, line it up with the DSM: tasks added there after the report was first opened or saved
+  // now show up, and tasks deleted / renamed there drop out (ticks on the rest are kept).
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
-    if (savedDraft?.tasks?.length) return savedDraft.tasks;
-    if (entry?.plannedTasks.length) {
-      return entry.plannedTasks.map((t) => ({
-        id: t.id, text: t.text, priority: t.priority, completed: t.completed,
+    let initial: TaskItem[];
+    if (savedDraft?.tasks?.length) {
+      initial = savedDraft.tasks;
+    } else if (entry?.plannedTasks.length) {
+      initial = entry.plannedTasks.map((t) => ({
+        id: t.id, text: t.text, priority: t.priority, completed: t.completed, addedAfterReview: t.addedAfterReview,
+      }));
+    } else {
+      initial = prefill.plannedTasks.map((t) => ({
+        text: t.text, priority: t.priority, completed: false,
       }));
     }
-    return prefill.plannedTasks.map((t) => ({
-      text: t.text, priority: t.priority, completed: false,
-    }));
+    return readOnly ? initial : syncReportTasksWithDsm(initial, prefill.plannedTasks);
   });
+
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      localStorage.removeItem(legacyDraftKey);
+    } catch {
+      // Ignore storage error
+    }
+  }, [userId, legacyDraftKey]);
 
   useEffect(() => {
     onRegisterAddTask?.((newTask) => {
@@ -812,7 +831,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
       />
 
       <CheckSection
-        title="What Will You Learn Today (Whyfi School)?"
+        title="What Will You Learn Today (WhyFi School)?"
         badge={`${learningItems.filter((l) => l.completed).length}/${learningItems.length} LEARNED`}
         items={learningItems}
         onChange={setLearningItems}
