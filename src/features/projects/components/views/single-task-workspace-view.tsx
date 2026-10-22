@@ -523,18 +523,21 @@ export function SingleTaskWorkspaceView({
     ]);
   };
 
-  const handleCreateSubtask = async (data: Partial<TaskSubtask>) => {
+  /** Resolves `true` once saved (the drawer's Create button spins until then). */
+  const handleCreateSubtask = async (data: Partial<TaskSubtask>): Promise<boolean> => {
     try {
       const created = await createSubtaskAction(activeTask.id, data);
       if (!created) {
         toast.error("Failed to create subtask — the parent task could not be found.");
-        return;
+        return false;
       }
       addCreatedSubtask(created, data.description);
       toast.success(`Subtask ${created.code} created`);
+      return true;
     } catch (err) {
       console.error("Failed to save subtask:", err);
       toast.error("Failed to create subtask");
+      return false;
     }
   };
 

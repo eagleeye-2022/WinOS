@@ -69,7 +69,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
   const progressPercent =
     totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
-  const handleAddTask = async (newTask: TaskItem) => {
+  /** Resolves `true` once saved (the drawer's Create button spins until then), `false` on failure. */
+  const handleAddTask = async (newTask: TaskItem): Promise<boolean> => {
     // Shown straight away with a temporary id ("t-<timestamp>") and a guessed code…
     setTasks((prev) => [newTask, ...prev]);
     try {
@@ -98,11 +99,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           : prev.map((t) => (t.id === newTask.id ? { ...newTask, ...created, activities: newTask.activities } : t))
       );
       toast.success(`Task ${created.code} created`);
+      return true;
     } catch (err) {
       console.error("Failed to persist task in DB:", err);
       // Don't leave a task on the board that was never saved.
       setTasks((prev) => prev.filter((t) => t.id !== newTask.id));
       toast.error("Failed to create task");
+      return false;
     }
   };
 

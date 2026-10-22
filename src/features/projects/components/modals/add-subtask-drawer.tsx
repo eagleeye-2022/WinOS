@@ -8,7 +8,8 @@ import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/r
 interface AddSubtaskDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddSubtask: (subtask: TaskSubtask) => void;
+  /** Saves the subtask; resolve `false` when the save failed (the drawer then stays open). */
+  onAddSubtask: (subtask: TaskSubtask) => void | Promise<boolean | void>;
   parentTaskCode: string;
   nextSubtaskNumber: number;
   /** Hide the "<parent>.<n>" code preview — WhyFi School subtasks get their own "WL-…-T<n>" code. */
@@ -46,9 +47,9 @@ export function AddSubtaskDrawer({
     return `${day}/${month}/${year}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
 
@@ -65,11 +66,17 @@ export function AddSubtaskDrawer({
       description: isEmptyDescription(description) ? "" : description.trim(),
     };
 
-    onAddSubtask(newSubtask);
+    // The button spins until the subtask is saved; the drawer closes only after that.
+    let saved = true;
+    try {
+      saved = (await onAddSubtask(newSubtask)) !== false;
+    } finally {
+      setIsSubmitting(false);
+    }
+    if (!saved) return;
     onClose();
     setTitle("");
     setDescription("");
-    setIsSubmitting(false);
   };
 
   return (
@@ -199,7 +206,7 @@ export function AddSubtaskDrawer({
               className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-              <span>Add Subtask</span>
+              <span>{isSubmitting ? "Saving…" : "Add Subtask"}</span>
             </button>
 
             <button
