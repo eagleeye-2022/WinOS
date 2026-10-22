@@ -3,7 +3,7 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { RemarksPopupCell } from "../remarks-popup-cell";
 import { shortProjectName } from "../../utils/project-name";
-import { WHYFI_PROJECT_LABEL, normalizeDueDate } from "@/features/whyfi/constants";
+import { WHYFI_PROJECT_LABEL, WHYFI_SHORT_LABEL, normalizeDueDate } from "@/features/whyfi/constants";
 import { EffortLogPeriodPicker } from "../effort-log-period-picker";
 import React, { useState, useEffect } from "react";
 import {
@@ -809,6 +809,8 @@ export function TimeTrackerView({
   const rawAllLogs = userGroups.flatMap((g) =>
     g.timeLogs.map((l) => ({
       ...l,
+      // WhyFi School logs read "WFS" in the Project column, filter and Group By Project.
+      project: l.project === WHYFI_PROJECT_LABEL ? WHYFI_SHORT_LABEL : l.project,
       userName:
         l.userName && l.userName !== "User"
           ? l.userName
@@ -963,7 +965,7 @@ export function TimeTrackerView({
     >();
     for (const log of filteredAllLogs) {
       // Every WhyFi School task list is labelled just "WhyFi School", so they form one group.
-      const key = log.project === WHYFI_PROJECT_LABEL ? WHYFI_PROJECT_LABEL : log.projectId || log.project;
+      const key = log.project === WHYFI_SHORT_LABEL ? WHYFI_SHORT_LABEL : log.projectId || log.project;
       if (!byProject.has(key)) {
         byProject.set(key, { projectKey: key, projectName: log.project, timeLogs: [] });
       }

@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { previousDsmDayLabel, previousDsmHeading } from "@/features/dsm/utils";
+import {
+  SELF_REVIEWED_EVENT,
+  isSelfReviewed,
+  isStandupRoutineTask,
+  previousDsmDayLabel,
+  previousDsmHeading,
+} from "@/features/dsm/utils";
 import {
   toUtcDate,
   isoToUtcDate,
@@ -496,10 +502,44 @@ describe("sortTeamGroups", () => {
   });
 });
 
+describe("isSelfReviewed", () => {
+  it("is true only when the DSM's timeline has a self-review", () => {
+    expect(isSelfReviewed([{ type: "SUBMITTED" }, { type: SELF_REVIEWED_EVENT }])).toBe(true);
+    expect(isSelfReviewed([{ type: "SUBMITTED" }, { type: "APPROVED" }])).toBe(false);
+    expect(isSelfReviewed(undefined)).toBe(false);
+  });
+});
+
+describe("isStandupRoutineTask", () => {
+  it("matches the standup tasks themselves", () => {
+    for (const t of [
+      "DSM",
+      "dsr",
+      "DSMA",
+      "DSMB",
+      "DSM & DSR",
+      "DSR – 21 Oct",
+      " DSM meeting",
+      "DSMs",
+      "Internal Meetings",
+      "internal meeting",
+    ]) {
+      expect(isStandupRoutineTask(t)).toBe(true);
+    }
+  });
+
+  it("leaves real work alone", () => {
+    for (const t of ["Prepare DSM deck", "DSMX tool", "Internal meetings with ALS client", "Design", "", null]) {
+      expect(isStandupRoutineTask(t)).toBe(false);
+    }
+  });
+});
+
 describe("previousDsmDayLabel / previousDsmHeading", () => {
   // 2026-10-19 is a Monday.
-  it("names the weekday even when the previous DSM was the day before", () => {
-    expect(previousDsmHeading("2026-10-18", "2026-10-19")).toBe("What Did You Do Sunday?");
+  it("says Yesterday when the previous DSM was the day before", () => {
+    expect(previousDsmHeading("2026-10-18", "2026-10-19")).toBe("What Did You Do Yesterday?");
+    expect(previousDsmDayLabel("2026-10-18", "2026-10-19")).toBe("Yesterday");
   });
 
   it("names the weekday of the user's last DSM (absent days in between)", () => {
@@ -514,7 +554,11 @@ describe("previousDsmDayLabel / previousDsmHeading", () => {
     expect(previousDsmHeading("2026-10-07", "2026-10-19")).toBe("What Did You Do on 7 Oct?");
   });
 
-  it("falls back to the day before when there is no previous DSM", () => {
-    expect(previousDsmHeading(null, "2026-10-19")).toBe("What Did You Do Sunday?");
+  it("falls back to the day before (Yesterday) when there is no previous DSM", () => {
+    expect(previousDsmHeading(null, "2026-10-19")).toBe("What Did You Do Yesterday?");
+  });
+
+  it("names the weekday when the DSM before was missed (2 days back)", () => {
+    expect(previousDsmHeading("2026-10-17", "2026-10-19")).toBe("What Did You Do Saturday?");
   });
 });

@@ -113,6 +113,23 @@ export function MentionInput({
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Where the (viewport-fixed) dropdown sits: just under the input, kept in place on scroll/resize.
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const place = () => {
+      const r = containerRef.current?.getBoundingClientRect();
+      if (r) setDropPos({ top: r.bottom + 6, left: r.left });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [isOpen]);
+
   const effectiveMembers = teamMembers.length > 0 ? teamMembers : fallbackMembers;
 
   // Hydrate initial content (mentions + free text) once on mount.
@@ -421,9 +438,13 @@ export function MentionInput({
         )}
       />
 
-      {/* Mention Autocomplete Dropdown */}
+      {/* Mention Autocomplete Dropdown — fixed to the viewport (placed under the input), so a
+          scrolling parent (e.g. the DSM task rows' horizontal scroll area) can't clip it. */}
       {isOpen && (
-        <div className="absolute left-0 top-full z-[9999] mt-1.5 w-72 rounded-xl border bg-card p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100">
+        <div
+          style={dropPos ? { top: dropPos.top, left: dropPos.left } : { visibility: "hidden" }}
+          className="fixed z-[9999] w-72 rounded-xl border bg-card p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+        >
           {/* Body List */}
           <div className="max-h-48 overflow-y-auto py-1">
             {mode === "people" ? (

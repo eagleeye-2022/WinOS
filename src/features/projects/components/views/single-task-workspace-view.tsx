@@ -95,6 +95,7 @@ import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
+import { TaskChecklistTab } from "@/features/sop-checklists/components/task-checklist-tab";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 import { ProjectStandupRollup } from "../project-standup-rollup";
 import { toast } from "@/components/shared/toast";
@@ -1804,6 +1805,7 @@ export function SingleTaskWorkspaceView({
                 {[
                   { key: "COMMENTS", label: "Comments" },
                   { key: "SUBTASKS", label: "Subtasks" },
+                  { key: "CHECKLIST", label: "SOP Checklist" },
                   { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                   { key: "DOCUMENTS", label: "Documents" },
                   { key: "STATUS_TIMELINE", label: "Status Timeline" },
@@ -2454,11 +2456,7 @@ export function SingleTaskWorkspaceView({
                 </div>
               )}
 
-              {activeTab === "CHECKLIST" && (
-                <div className="text-xs text-muted-foreground py-4 text-center dark:text-zinc-400">
-                  Checklist items for {activeTask.code}
-                </div>
-              )}
+              {activeTab === "CHECKLIST" && <TaskChecklistTab taskId={activeTask.id} />}
             </div>
           </div>
         </div>

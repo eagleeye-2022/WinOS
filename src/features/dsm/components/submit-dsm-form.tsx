@@ -1586,8 +1586,14 @@ export function SubmitDsmForm({
           icon={<CheckCircle2 size={16} className="text-primary" />}
           title={previousDsmHeading(yesterday.date, todayDateStr)}
         >
-          <YesterdayTaskList tasks={yesterday.tasks} />
-          <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
+          {/* Scrolls sideways (scrollbar) instead of squeezing rows on narrow screens. */}
+          <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
+            <div className="min-w-[640px]">
+              {/* DSM tasks + other time logged that day (WhyFi School, tasks outside the DSM) in one list. */}
+              <YesterdayTaskList tasks={yesterday.tasks} loggedTasks={yesterday.loggedTasks ?? []} />
+              <YesterdayAdditionalWork items={yesterdayAdditionalWork} />
+            </div>
+          </div>
         </Section>
 
         {/* Today's Scheduled Zoho Calendar Meetings Widget */}
@@ -1690,18 +1696,23 @@ export function SubmitDsmForm({
             </div>
           }
         >
-          <TaskRows
-            tasks={tasks}
-            teamMembers={teamMembers}
-            openProjectTasks={openProjectTasks}
-            cascadingProjects={cascadingProjects}
-            projectsLoading={projectsLoading}
-            linkedTimeLogs={linkedTimeLogs}
-            onChange={setTasks}
-            onParkTask={handleParkTask}
-            onProjectsChange={setCascadingProjects}
-            onlyNotAligned={showNotAligned}
-          />
+          {/* Scrolls sideways (scrollbar) instead of squeezing the task rows on narrow screens. */}
+          <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
+            <div className="min-w-[720px]">
+              <TaskRows
+                tasks={tasks}
+                teamMembers={teamMembers}
+                openProjectTasks={openProjectTasks}
+                cascadingProjects={cascadingProjects}
+                projectsLoading={projectsLoading}
+                linkedTimeLogs={linkedTimeLogs}
+                onChange={setTasks}
+                onParkTask={handleParkTask}
+                onProjectsChange={setCascadingProjects}
+                onlyNotAligned={showNotAligned}
+              />
+            </div>
+          </div>
           {showProjectError && tasksWithoutProject > 0 ? (
             <p className="text-xs text-destructive">
               {PROJECT_REQUIRED_MESSAGE} ({tasksWithoutProject} task{tasksWithoutProject === 1 ? "" : "s"} missing a project).

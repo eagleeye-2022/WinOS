@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
+import { toUtcDate, getWeekRange, buildTaskListOptions, isStandupRoutineTask, type TaskListOption } from "./utils";
 import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
-import { DELETED_TASK_LIST_STATUS } from "@/features/projects/types";
+import { DELETED_TASK_LIST_STATUS, isTaskDone } from "@/features/projects/types";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
 import {
   CORE_DAILY_TASKS_CLOSED_STATUSES,
@@ -11,7 +11,13 @@ import {
   CORE_DAILY_TASKS_PROJECT_CODE,
   sortCoreDailyTasks,
 } from "./core-daily-tasks";
-import { LEARNING_PROJECT_CATEGORY, NOT_LEARNING_PROJECT, effortProjectLabel } from "@/features/whyfi/constants";
+import {
+  LEARNING_PROJECT_CATEGORY,
+  NOT_LEARNING_PROJECT,
+  WHYFI_PROJECT_LABEL,
+  WHYFI_SHORT_LABEL,
+  effortProjectLabel,
+} from "@/features/whyfi/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -402,10 +408,54 @@ export type YesterdayTaskItem = {
   loggedMinutes: number | null;
 };
 
+/** A task the member logged time on that day that wasn't one of the day's DSM tasks (e.g. WhyFi School). */
+export type YesterdayLoggedTask = {
+  taskId: string;
+  code: string;
+  title: string;
+  /** "WhyFi School" for learning tasks, else the project's name. */
+  projectLabel: string;
+  /** For the task page link. */
+  projectId: string | null;
+  status: string;
+  isDone: boolean;
+  minutes: number;
+};
+
+/**
+ * Every task `userId` logged time on that day (timer or manual log) other than `dsmTaskIds` —
+ * WhyFi School cards and project tasks outside the DSM — most time first. Callers authorize.
+ */
+export async function getLoggedTasksOutsideDsm(
+  userId: string,
+  dateStr: string,
+  dsmTaskIds: string[]
+): Promise<YesterdayLoggedTask[]> {
+  const inDsm = new Set(dsmTaskIds);
+  const dayEffort = await getDayEffort(userId, dateStr);
+  return dayEffort
+    // Not the day's DSM tasks, and not the standup itself (DSM / DSR / DSMA tasks).
+    .filter((row) => !inDsm.has(row.taskId) && row.task && !isStandupRoutineTask(row.task.title))
+    .map((row) => ({
+      taskId: row.taskId,
+      code: row.task!.code,
+      title: row.task!.title,
+      // WhyFi School tasks read "WFS" in the Project column (getDayEffort labels them "WhyFi School").
+      projectLabel:
+        row.task!.project?.name === WHYFI_PROJECT_LABEL ? WHYFI_SHORT_LABEL : row.task!.project?.name ?? "Project",
+      projectId: row.task!.project?.id ?? null,
+      status: row.task!.status ?? "Open",
+      isDone: isTaskDone(row.task!.status),
+      minutes: row.minutes,
+    }));
+}
+
 export type YesterdaySummary = {
   /** "YYYY-MM-DD" of the previous DSM day, or null when there's none. */
   date: string | null;
   tasks: YesterdayTaskItem[];
+  /** Time logged that day on tasks outside the DSM (WhyFi School, other project tasks). */
+  loggedTasks: YesterdayLoggedTask[];
 };
 
 /**
@@ -414,7 +464,7 @@ export type YesterdaySummary = {
  */
 export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   const session = await auth();
-  const empty: YesterdaySummary = { date: null, tasks: [] };
+  const empty: YesterdaySummary = { date: null, tasks: [], loggedTasks: [] };
   if (!session?.user?.id) return empty;
   const userId = session.user.id;
 
@@ -446,10 +496,14 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   const dsrDone = dsrCompletionMap(dsr?.plannedTasks);
 
   const linkedIds = [...new Set(entry.tasks.map((t: { projectTaskId: string | null }) => t.projectTaskId).filter(Boolean))] as string[];
-  const effort = await getDailyTimeSummaryForTasks(userId, linkedIds, dateStr);
+  const [effort, loggedTasks] = await Promise.all([
+    getDailyTimeSummaryForTasks(userId, linkedIds, dateStr),
+    getLoggedTasksOutsideDsm(userId, dateStr, linkedIds),
+  ]);
 
   return {
     date: dateStr,
+    loggedTasks,
     tasks: entry.tasks.map(
       (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectId: string | null; projectTask: { code: string; projectId: string | null } | null }) => ({
         id: t.id,
@@ -1246,7 +1300,7 @@ function logMatchesDay(logDate: Date, dStr: string): boolean {
 export type DayEffortRow = {
   taskId: string;
   minutes: number;
-  task: { code: string; title: string; project: { id: string; name: string } | null } | null;
+  task: { code: string; title: string; status?: string; project: { id: string; name: string } | null } | null;
 };
 
 /**
@@ -1280,7 +1334,7 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
       duration: true,
       date: true,
       task: {
-        select: { code: true, title: true, project: { select: { id: true, name: true, projectCategory: true } } },
+        select: { code: true, title: true, status: true, project: { select: { id: true, name: true, projectCategory: true } } },
       },
     },
   });
@@ -1293,6 +1347,7 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
       ? {
           code: log.task.code,
           title: log.task.title,
+          status: log.task.status,
           project: log.task.project
             ? {
                 id: log.task.project.id,
@@ -1453,17 +1508,19 @@ export async function getUserProjectsWithTasksAndSubtasks(
               code: true,
               title: true,
               status: true,
+              createdAt: true,
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: { createdAt: "desc" },
           },
+          createdAt: true,
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
       },
     },
     orderBy: { name: "asc" },
   });
 
-  type QuerySubtask = { id: string; code: string | null; title: string; status: string };
+  type QuerySubtask = { id: string; code: string | null; title: string; status: string; createdAt: Date };
   type QueryTask = {
     id: string;
     code: string | null;
@@ -1471,6 +1528,7 @@ export async function getUserProjectsWithTasksAndSubtasks(
     status: string;
     phaseCode: string | null;
     phaseName: string | null;
+    createdAt: Date;
     childTasks?: QuerySubtask[];
   };
   type QueryProject = {
@@ -1482,10 +1540,15 @@ export async function getUserProjectsWithTasksAndSubtasks(
     tasks?: QueryTask[];
   };
 
-  // Order by task code with numeric awareness ("T2" before "T10", unlike a DB string sort);
-  // tasks without a code go last, alphabetically by title.
-  const byCode = (a: { code: string | null; title: string }, b: { code: string | null; title: string }) => {
-    if (a.code && b.code) return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" });
+  // Newest first, so a task added just now is at the top of the picker; same-moment ties fall back
+  // to the task code, numerically and descending ("T10" before "T2").
+  const byCode = (
+    a: { code: string | null; title: string; createdAt: Date },
+    b: { code: string | null; title: string; createdAt: Date }
+  ) => {
+    const byDate = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (byDate !== 0) return byDate;
+    if (a.code && b.code) return b.code.localeCompare(a.code, undefined, { numeric: true, sensitivity: "base" });
     if (a.code) return -1;
     if (b.code) return 1;
     return a.title.localeCompare(b.title);

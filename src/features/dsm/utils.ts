@@ -172,8 +172,8 @@ export function relativeDayLabel(date: Date, today: Date = new Date()): string |
 /**
  * The day in the "What Did You Do …?" heading: the user's own previous DSM day relative to the day
  * being viewed — not the calendar day before — so a member who submitted on Tuesday and was absent
- * after sees "Tuesday". Always the weekday name within the past week (never "Yesterday"; with no
- * previous DSM, the day before the viewed day), and "on 7 Oct" for anything older.
+ * after sees "Tuesday". "Yesterday" when that DSM was the day before (also with no previous DSM),
+ * the weekday name within the past week, and "on 7 Oct" for anything older.
  */
 export function previousDsmDayLabel(
   previousDate: Date | string | null | undefined,
@@ -189,14 +189,32 @@ export function previousDsmDayLabel(
   const current = dayOf(currentDate);
   const prev = previousDate ? dayOf(previousDate) : new Date(current.getTime() - 86400000);
   const diff = Math.round((current.getTime() - prev.getTime()) / 86400000);
-  if (diff >= 1 && diff <= 6) {
+  if (diff === 1) return "Yesterday";
+  if (diff >= 2 && diff <= 6) {
     return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(prev);
   }
   const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(prev);
   return `on ${dayMonth}`;
 }
 
-/** "What Did You Do Tuesday?" — always past tense, named after the user's previous DSM day. */
+/** Timeline event a member adds by self-reviewing their submitted DSM (a mark only — no lock). */
+export const SELF_REVIEWED_EVENT = "SELF_REVIEWED";
+
+/** Whether the DSM has been self-reviewed by its member. */
+export function isSelfReviewed(events: { type: string }[] | null | undefined): boolean {
+  return (events ?? []).some((e) => e.type === SELF_REVIEWED_EVENT);
+}
+
+/**
+ * Routine daily tasks — the standup itself ("DSM", "DSMA", "DSMB", "DSR", "DSM & DSR", "DSR – 21 Oct"…)
+ * and "Internal Meetings" — aren't listed under "What Did You Do Yesterday?" (not work done).
+ */
+export function isStandupRoutineTask(title: string | null | undefined): boolean {
+  const t = title ?? "";
+  return /^\s*(dsma|dsmb|dsm|dsr)s?\b/i.test(t) || /^\s*internal\s+meetings?\s*$/i.test(t);
+}
+
+/** "What Did You Do Yesterday?" / "…Tuesday?" — always past tense, named after the user's previous DSM day. */
 export function previousDsmHeading(previousDate: Date | string | null | undefined, currentDate?: Date | string): string {
   return `What Did You Do ${previousDsmDayLabel(previousDate, currentDate)}?`;
 }

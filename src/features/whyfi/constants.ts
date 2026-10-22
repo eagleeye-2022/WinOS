@@ -26,6 +26,8 @@ export const LEARNING_DONE_STATUSES = ["Done", "Closed", "Approved", "Completed"
 
 /** How a WhyFi School task's "project" reads in effort logs, timers, the DSM effort card and Report. */
 export const WHYFI_PROJECT_LABEL = "WhyFi School";
+/** Short form for tight Project columns (e.g. the DSM "What Did You Do Yesterday?" table). */
+export const WHYFI_SHORT_LABEL = "WFS";
 
 /**
  * Learning time is ordinary project time logs, so it already shows in the Effort Logs, Active

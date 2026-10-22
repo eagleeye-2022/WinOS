@@ -2,9 +2,9 @@
 
 import { db } from "@/lib/db";
 import { CompetencyCategory, CompetencyStatus } from "../../../../../generated/prisma/client";
-import fs from "fs/promises";
 import path from "path";
 import { headers } from "next/headers";
+import { saveUploadFile } from "@/lib/upload-storage";
 
 export interface IcaItem {
   id: string;
@@ -275,10 +275,8 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-  const filePath = path.join(uploadDir, uniqueFileName);
-  await fs.writeFile(filePath, buffer);
+  // UPLOAD_DIR (outside the app) when set, so the file survives deploys — see lib/upload-storage.
+  await saveUploadFile(uniqueFileName, buffer);
 
   const headersList = await headers();
   const host = headersList.get("host") || "localhost:3000";

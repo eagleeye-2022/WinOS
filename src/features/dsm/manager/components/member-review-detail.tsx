@@ -30,7 +30,9 @@ import { setTaskPriority, type SetTaskPriorityState } from "../actions/set-task-
 import { editTask, type EditTaskState } from "../actions/edit-task";
 import { deleteTask, type DeleteTaskState } from "../actions/delete-task";
 import { addTask, type AddTaskState } from "../actions/add-task";
-import { toggleSummaryTask, saveSummaryTask, deleteSummaryTask, getDsrCompletionForDay, type SummaryTaskState, type DsrDayCompletion } from "../actions/yesterday-summary";
+import { toggleSummaryTask, saveSummaryTask, deleteSummaryTask, getDsrCompletionForDay, getMemberLoggedTasksForDay, type SummaryTaskState, type DsrDayCompletion } from "../actions/yesterday-summary";
+import { setLoggedTaskDoneAction } from "@/features/dsm/actions/set-logged-task-done";
+import type { YesterdayLoggedTask } from "@/features/dsm/queries";
 import { updateLearningText, type UpdateLearningState } from "../actions/update-learning";
 import { editBlocker, type EditBlockerState } from "@/features/blockers/actions/edit-blocker";
 import { deleteBlocker, type DeleteBlockerState } from "@/features/blockers/actions/delete-blocker";
@@ -2019,6 +2021,7 @@ function SummaryTaskRow({
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
           <TaskInfoAction task={task} />
+          {/* ⋯ (Edit / Delete) removed from "What Did You Do Yesterday?" by request.
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -2057,7 +2060,86 @@ function SummaryTaskRow({
                 <span>Delete Task</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> */}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/**
+ * A task the member logged time on that day outside that day's DSM (WhyFi School, other project
+ * tasks), shown as an ordinary row of "What Did You Do Yesterday?". Ticking marks the task Done;
+ * unticking puts it back In Progress.
+ */
+function LoggedSummaryRow({
+  task,
+  onToggled,
+}: {
+  task: YesterdayLoggedTask;
+  onToggled: (taskId: string, done: boolean) => void;
+}) {
+  const [toggling, setToggling] = useState(false);
+  const href = projectTaskHref(task.projectId, task.code);
+
+  const toggle = async () => {
+    if (toggling) return;
+    const next = !task.isDone;
+    onToggled(task.taskId, next); // optimistic
+    setToggling(true);
+    try {
+      const res = await setLoggedTaskDoneAction(task.taskId, next);
+      if (!res.success) {
+        onToggled(task.taskId, !next);
+        toast.error(res.error || "Couldn't update the task.");
+      }
+    } catch {
+      onToggled(task.taskId, !next);
+      toast.error("Couldn't update the task.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  return (
+    <tr className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
+      <td className="py-2 pr-2 align-top">
+        <button
+          type="button"
+          disabled={toggling}
+          title={task.isDone ? "Mark as not done (In Progress)" : "Mark as done"}
+          onClick={toggle}
+          className="flex h-6 w-6 items-center justify-center rounded-full transition-colors hover:bg-muted disabled:cursor-wait"
+        >
+          {toggling ? (
+            <Loader2 size={16} className="animate-spin text-primary" />
+          ) : task.isDone ? (
+            <CheckCircle2 size={18} className="text-success" />
+          ) : (
+            <span className="h-4 w-4 rounded-full border-2 border-warning/60" />
+          )}
+        </button>
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <ProjectPill name={task.projectLabel} />
+      </td>
+      {/* Same cells as the DSM rows above: no ⓘ next to the ID — it lives in the Action column. */}
+      <td className="py-2 pr-3 align-top">
+        <TaskIdChip code={task.code} title={task.title} />
+      </td>
+      <td className="py-2 pr-3 align-top">
+        <div className="flex items-center gap-1.5 text-sm text-foreground/90">
+          <WrappedTaskText text={task.title} />
+        </div>
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
+        <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold">
+          {formatEffortMinutes(task.minutes)}
+        </span>
+      </td>
+      <td className="py-2 pr-2 align-top text-center">
+        <div className="flex items-center justify-center gap-0.5">
+          {href && <TaskInfoLink href={href} code={task.code} className="h-7 w-7 rounded-lg hover:bg-muted" />}
         </div>
       </td>
     </tr>
@@ -2128,6 +2210,24 @@ function YesterdayTasksSection({
 
   const isDoneFor = (task: TaskItem) => dsr?.completed[task.text.trim().toLowerCase()] ?? Boolean(task.isCompleted);
 
+  // "Also Worked On": other tasks the member logged time on that day (WhyFi School, tasks outside the DSM).
+  const [loggedTasks, setLoggedTasks] = useState<YesterdayLoggedTask[]>([]);
+  useEffect(() => {
+    if (!prevDateStr || !memberId) {
+      setLoggedTasks([]);
+      return;
+    }
+    let cancelled = false;
+    getMemberLoggedTasksForDay(memberId, prevDateStr, linkedKey ? linkedKey.split(",") : [])
+      .then((res) => {
+        if (!cancelled) setLoggedTasks(res);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [prevDateStr, memberId, linkedKey]);
+
   // Manager check/uncheck of the DSR's additional work — same action as the DSR review page.
   const toggleAdditionalWork = async (item: { id: string }) => {
     const fd = new FormData();
@@ -2147,8 +2247,13 @@ function YesterdayTasksSection({
     );
   };
 
-  const doneCount = rows.filter((r) => isDoneFor(r.task)).length;
-  const totalMinutes = linkedIds.reduce((sum, id) => sum + (logged[id] ?? 0), 0);
+  // One list: the DSM tasks plus the other tasks time was logged on that day.
+  const totalCount = rows.length + loggedTasks.length;
+  const doneCount = rows.filter((r) => isDoneFor(r.task)).length + loggedTasks.filter((t) => t.isDone).length;
+  const totalMinutes =
+    linkedIds.reduce((sum, id) => sum + (logged[id] ?? 0), 0) + loggedTasks.reduce((sum, t) => sum + t.minutes, 0);
+  const setLoggedDone = (taskId: string, done: boolean) =>
+    setLoggedTasks((prev) => prev.map((t) => (t.taskId === taskId ? { ...t, isDone: done } : t)));
 
   // New rows go on the previous entry; with no previous entry they become legacy YESTERDAY rows.
   const addTarget = prevEntry ? { entryId: prevEntry.id, kind: "TODAY" as const } : { entryId: entry.id, kind: "YESTERDAY" as const };
@@ -2161,10 +2266,10 @@ function YesterdayTasksSection({
           {/* Named after the member's own previous DSM day (e.g. "Tuesday" if absent since). */}
           {previousDsmHeading(prevEntry?.date, entry.date)}
           <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-            {rows.length} task{rows.length !== 1 ? "s" : ""}
+            {totalCount} task{totalCount !== 1 ? "s" : ""}
           </span>
         </h3>
-        {rows.length > 0 && (
+        {totalCount > 0 && (
           <div className="flex items-center gap-2 text-xs font-semibold">
             {prevEntry && (
               <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground">
@@ -2172,6 +2277,7 @@ function YesterdayTasksSection({
                 {formatShortDate(prevEntry.date)}
               </span>
             )}
+            {/* "From Report" / "No Report" chip hidden by request.
             {prevEntry && dsr && (
               <span
                 className={cn(
@@ -2182,8 +2288,8 @@ function YesterdayTasksSection({
               >
                 {dsr.hasDsr ? "From Report" : "No Report"}
               </span>
-            )}
-            <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{rows.length} done</span>
+            )} */}
+            <span className="rounded-full bg-success/10 px-2 py-0.5 text-success">{doneCount}/{totalCount} done</span>
             {totalMinutes > 0 && (
               <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{formatEffortMinutes(totalMinutes)} logged</span>
             )}
@@ -2191,9 +2297,9 @@ function YesterdayTasksSection({
         )}
       </div>
 
-      {rows.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+      {totalCount > 0 ? (
+        <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
+          <table className="w-full min-w-[640px] text-left">
             <thead>
               <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 py-2 pr-2">Done</th>
@@ -2215,6 +2321,10 @@ function YesterdayTasksSection({
                   loggedMinutes={r.task.projectTaskId ? logged[r.task.projectTaskId] : undefined}
                   cascadingProjects={cascadingProjects}
                 />
+              ))}
+              {/* Other tasks time was logged on that day (WhyFi School, tasks outside the DSM). */}
+              {loggedTasks.map((t) => (
+                <LoggedSummaryRow key={t.taskId} task={t} onToggled={setLoggedDone} />
               ))}
             </tbody>
           </table>
@@ -2362,8 +2472,9 @@ function TodayTasksSection({
       )}
 
       {tasks.length > 0 ? (
-        <div className={cn("mt-3 overflow-x-auto", showNotAligned && notAlignedCount === 0 && "hidden")}>
-          <table className="w-full border-collapse">
+        // Horizontal scrollbar instead of squeezing the columns on narrow screens.
+        <div className={cn("dsm-columns-scrollbar mt-3 overflow-x-auto pb-1", showNotAligned && notAlignedCount === 0 && "hidden")}>
+          <table className="w-full min-w-[900px] border-collapse">
             <TaskTableHead withAction />
             <tbody>
               {sorted.map((task, i) => showNotAligned && !isNotAligned(task) ? null : (

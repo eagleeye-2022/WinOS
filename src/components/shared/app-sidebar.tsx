@@ -107,6 +107,9 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Users" && pathname.startsWith("/projects")) {
     return pathname === "/projects/users";
   }
+  if (label === "SOP Checklists") {
+    return pathname.startsWith("/projects/sop-checklists");
+  }
   if (label === "My Dashboard" && pathname.startsWith("/projects")) {
     return pathname === "/projects/dashboard";
   }
@@ -188,6 +191,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "All Projects", href: "/projects", icon: FolderKanban },
           // { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
           { label: "Users", href: "/projects/users", icon: Users2 },
+          // { label: "SOP Checklists", href: "/projects/sop-checklists", icon: ClipboardList },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },

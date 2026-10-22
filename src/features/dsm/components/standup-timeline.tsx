@@ -1,8 +1,9 @@
 "use client";
 
+import React from "react";
 import { Clock3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatEventTime } from "../utils";
+import { SELF_REVIEWED_EVENT, formatEventTime } from "../utils";
 import type { EntryTimelineEvent } from "../queries";
 
 const TIMELINE_STEPS = [
@@ -36,7 +37,11 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
   const lastCompletedIndex = isApproved ? 1 : isSubmitted ? 0 : -1;
 
   const fixedTypes = new Set<string>(TIMELINE_STEPS.map((s) => s.type));
-  const extraEvents = safeEvents.filter((e) => !fixedTypes.has(e.type) && e.type !== "OPENED");
+  // The member's self-review sits between "Submitted" and "Manager Reviewed", not at the end.
+  const selfReview = safeEvents.find((e) => e.type === SELF_REVIEWED_EVENT);
+  const extraEvents = safeEvents.filter(
+    (e) => !fixedTypes.has(e.type) && e.type !== "OPENED" && e.type !== SELF_REVIEWED_EVENT
+  );
   const isLastFixed = extraEvents.length === 0;
 
   return (
@@ -75,7 +80,23 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
           }
 
           return (
-            <div key={step.type} className="flex gap-3">
+            <React.Fragment key={step.type}>
+            {/* Self-review step, right before the manager's review. */}
+            {step.type === "APPROVED" && selfReview && (
+              <div className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <span className="mt-0.5 h-3 w-3 shrink-0 rounded-full bg-success" />
+                  <div className="my-1 w-px flex-1 bg-border" style={{ minHeight: "18px" }} />
+                </div>
+                <div className="pb-4">
+                  <p className="text-xs font-semibold leading-tight text-foreground">{selfReview.label}</p>
+                  <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                    {formatEventTime(new Date(selfReview.occurredAt))}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3">
               {/* Dot + vertical connecting line */}
               <div className="flex flex-col items-center">
                 <span
@@ -110,6 +131,7 @@ export function StandupTimeline({ events: propEvents, entry }: StandupTimelinePr
                 )}
               </div>
             </div>
+            </React.Fragment>
           );
         })}
 
