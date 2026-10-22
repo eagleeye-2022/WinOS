@@ -838,7 +838,7 @@ export function TimeTrackerView({
   }).sort(compareTimeLogsLatestFirst);
 
   // Inside a project, in Project Span mode: the project's dates, widened to any logs outside them —
-  // prefills the share dialog's date / range inputs.
+  // the period the Share button shares in that mode.
   const shareSpanRange = (() => {
     if (!projectSpan) return undefined;
     const dates = [
@@ -1445,24 +1445,25 @@ export function TimeTrackerView({
 
       {/* ── Project Span: overall effort for the whole project ─────────────────── */}
       {spanOverview && (
-        <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-3 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
+        <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2 space-y-3">
+          {/* One plain line: "Total 31:19 h · Billable 30:52 h · Non-billable 00:27 h" */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
             {[
               { label: "Total", value: `${formatMinutesShort(totalMinutesAll)} h`, className: "text-foreground" },
               ...(showBilling
                 ? [
                     { label: "Billable", value: `${formatMinutesShort(billableMinutes)} h`, className: "text-info" },
-                    { label: "Non-billable", value: `${formatMinutesShort(nonBillableMinutes)} h`, className: "text-warning" },
+                    { label: "Non Billable", value: `${formatMinutesShort(nonBillableMinutes)} h`, className: "text-warning" },
                   ]
                 : []),
               // { label: "Entries", value: String(filteredAllLogs.length), className: "text-foreground" },
               // { label: "Members", value: String(spanOverview.members.length), className: "text-foreground" },
               // { label: "Active days", value: String(spanOverview.activeDays), className: "text-foreground" },
             ].map((s) => (
-              <div key={s.label} className="rounded-lg border border-border bg-card px-3 py-2 shadow-2xs">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">{s.label}</span>
-                <span className={`mt-0.5 block font-mono text-base font-bold ${s.className}`}>{s.value}</span>
-              </div>
+              <span key={s.label} className="whitespace-nowrap">
+                <span className="text-muted-foreground">{s.label}</span>{" "}
+                <strong className={`font-mono font-bold ${s.className}`}>{s.value}</strong>
+              </span>
             ))}
           </div>
           {/* By member — commented out on request.
@@ -2270,6 +2271,7 @@ export function TimeTrackerView({
           projectId={projectId}
           projectName={projectName}
           currentView={shareCurrentView}
+          periodLabel={isProjectSpan ? "Project Span" : undefined}
         />
       ) : (
         <ShareTimesheetModal

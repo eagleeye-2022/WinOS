@@ -10,7 +10,8 @@ import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/r
 interface AddTaskDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTask: (task: TaskItem) => void;
+  /** Saves the task; resolve `false` when the save failed (the drawer then stays open). */
+  onAddTask: (task: TaskItem) => void | Promise<boolean | void>;
   availablePhases: { code: string; name: string }[];
   initialPhaseCode?: string;
   projectCode?: string;
@@ -128,9 +129,9 @@ export function AddTaskDrawer({
     setTags(tags.filter((tag) => tag !== t));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || isSubmitting) return;
     if (choosesProject && !selectedProjectId) return;
 
     setIsSubmitting(true);
@@ -194,11 +195,17 @@ export function AddTaskDrawer({
       ...(chosenProject ? { projectId: chosenProject.id, projectName: chosenProject.name } : {}),
     };
 
-    onAddTask(newTask);
+    // The button spins until the task is saved; the drawer closes only after that.
+    let saved = true;
+    try {
+      saved = (await onAddTask(newTask)) !== false;
+    } finally {
+      setIsSubmitting(false);
+    }
+    if (!saved) return;
     onClose();
     setTitle("");
     setDescription("");
-    setIsSubmitting(false);
   };
 
   return (
@@ -404,7 +411,7 @@ export function AddTaskDrawer({
               className="flex items-center gap-1.5 rounded-md bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
             >
               {isSubmitting && <Loader2 size={13} className="animate-spin" />}
-              Create Task
+              {isSubmitting ? "Saving…" : "Create Task"}
             </button>
             <button
               type="button"

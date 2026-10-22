@@ -68,7 +68,8 @@ import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
 interface TasksBoardViewProps {
   tasks: TaskItem[];
   phases?: ProjectPhase[];
-  onAddTask: (newTask: TaskItem) => void;
+  /** Saves a new task; resolves `false` when the save failed. */
+  onAddTask: (newTask: TaskItem) => void | Promise<boolean | void>;
   onUpdateTask: (updatedTask: TaskItem) => void;
   assignedToMeCount?: number;
   projectCode?: string;
@@ -496,8 +497,9 @@ export function TasksBoardView({
       setInlineTaskTitle("");
       setInlineAddingPhaseCode(null);
 
-      // Call parent onAddTask which persists to DB via createTaskAction
-      onAddTask(tempTask);
+      // Call parent onAddTask which persists to DB via createTaskAction — the quick-add button
+      // keeps spinning until it's saved.
+      await onAddTask(tempTask);
     } catch (err) {
       console.error("[TasksBoardView] Error creating inline task:", err);
       toast.error("Failed to create task");
@@ -1196,12 +1198,15 @@ export function TasksBoardView({
       : "Only users of this project can edit this task";
 
     const isSelected = selectedTaskIds.has(task.id);
-    const isDraggable = !isSubtask && Boolean(columnCode) && !isLocked;
+    // Still being saved: faded, not clickable, spinner in place of the code.
+    const isSaving = isUnsavedTaskId(task.id);
+    const isDraggable = !isSubtask && Boolean(columnCode) && !isLocked && !isSaving;
     const isBeingDragged = draggedTaskId === task.id;
 
     return (
       <div
         key={task.id}
+        aria-busy={isSaving || undefined}
         onClick={() => handleOpenTask(task)}
         draggable={isDraggable}
         onDragStart={isDraggable ? (e) => handleCardDragStart(e, task) : undefined}
@@ -1211,6 +1216,7 @@ export function TasksBoardView({
           "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
           isDraggable && "cursor-grab active:cursor-grabbing",
           isBeingDragged && "opacity-40",
+          isSaving && "pointer-events-none opacity-60",
           isSelected
             ? "border-primary/70 bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/40 shadow-md"
             : "border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card hover:border-primary/60 hover:shadow-md"
@@ -1232,7 +1238,8 @@ export function TasksBoardView({
               title={isOwner ? "Select task" : "Only users of this project can select this task"}
               className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 accent-primary cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
             />
-            <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">
+            <span className="flex items-center gap-1 font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">
+              {isSaving && <Loader2 size={12} className="animate-spin text-primary" />}
               {task.code}
             </span>
           </div>
@@ -2335,10 +2342,13 @@ export function TasksBoardView({
           setIsAddTaskDrawerOpen(false);
           setSelectedAddTaskPhase(undefined);
         }}
-        onAddTask={(newTask) => {
-          onAddTask(newTask);
+        onAddTask={async (newTask) => {
+          // The drawer's Create button spins until this resolves, then the drawer closes.
+          const saved = await onAddTask(newTask);
+          if (saved === false) return false;
           setIsAddTaskDrawerOpen(false);
           setSelectedAddTaskPhase(undefined);
+          return true;
         }}
         availablePhases={phaseColumns.map(({ code, name }) => ({ code, name }))}
         initialPhaseCode={selectedAddTaskPhase}

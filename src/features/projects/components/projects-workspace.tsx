@@ -272,10 +272,10 @@ export function ProjectsWorkspace() {
 
   // All-projects Tasks board: the drawer asks for the project, then the task is saved there.
   // (It used to only be added on screen — opening it showed "Task Not Found" and a reload lost it.)
-  const handleAddTask = async (newTask: TaskItem) => {
+  const handleAddTask = async (newTask: TaskItem): Promise<boolean> => {
     if (!newTask.projectId) {
       toast.error("Pick a project for the task.");
-      return;
+      return false;
     }
     // Shown straight away with a temporary id…
     setTasks((prev) => [newTask, ...prev]);
@@ -308,10 +308,12 @@ export function ProjectsWorkspace() {
             )
       );
       toast.success(`Task ${created.code} created in ${newTask.projectName || "the project"}`);
+      return true;
     } catch (err) {
       console.error("Failed to persist task in DB:", err);
       setTasks((prev) => prev.filter((t) => t.id !== newTask.id));
       toast.error("Failed to create task");
+      return false;
     }
   };
 

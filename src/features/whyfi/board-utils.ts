@@ -62,6 +62,55 @@ export function withTaskAdded(ws: WhyfiWorkspace, listId: string, task: WhyfiTas
   };
 }
 
+/**
+ * Drag & drop: moves a top-level card to `toIndex` in list `toListId` (the same or another list).
+ * Returns the new workspace and the target list's card ids in their new order (what the server
+ * saves), or null when the card isn't a top-level card on the board.
+ */
+export function withTaskMoved(
+  ws: WhyfiWorkspace,
+  taskId: string,
+  toListId: string,
+  toIndex: number
+): { workspace: WhyfiWorkspace; orderedIds: string[] } | null {
+  const from = ws.lists.find((l) => l.tasks.some((t) => t.id === taskId));
+  const target = ws.lists.find((l) => l.id === toListId);
+  if (!from || !target) return null;
+  const task = from.tasks.find((t) => t.id === taskId)!;
+
+  const targetTasks = target.tasks.filter((t) => t.id !== taskId);
+  const index = Math.max(0, Math.min(toIndex, targetTasks.length));
+  targetTasks.splice(index, 0, task);
+
+  return {
+    workspace: {
+      ...ws,
+      lists: ws.lists.map((l) =>
+        l.id === toListId
+          ? { ...l, tasks: targetTasks }
+          : l.id === from.id
+          ? { ...l, tasks: l.tasks.filter((t) => t.id !== taskId) }
+          : l
+      ),
+    },
+    orderedIds: targetTasks.map((t) => t.id),
+  };
+}
+
+/** Lists in the viewer's saved order (ids); lists not in it keep their place after those, in board order. */
+export function orderLists<L extends { id: string }>(lists: L[], savedOrder: string[]): L[] {
+  const rank = new Map(savedOrder.map((id, i) => [id, i]));
+  const known = lists.filter((l) => rank.has(l.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  return [...known, ...lists.filter((l) => !rank.has(l.id))];
+}
+
+/** `ids` with `id` moved to position `toIndex`. */
+export function moveId(ids: string[], id: string, toIndex: number): string[] {
+  const rest = ids.filter((x) => x !== id);
+  rest.splice(Math.max(0, Math.min(toIndex, rest.length)), 0, id);
+  return rest;
+}
+
 /** Owners the server gives a new card: members own what they add; managers' cards start unassigned. */
 export function newCardOwners(ws: WhyfiWorkspace, list: WhyfiList): WhyfiUser[] {
   if (ws.isManager) return [];
