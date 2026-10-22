@@ -4,12 +4,6 @@ import React, { useEffect, useState } from "react";
 import { X, Link2, Copy, Check, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "@/components/shared/toast";
 import { createProjectEffortShareLinkAction } from "../../actions/timesheet-share-actions";
-import {
-  SHARE_PERIOD_PRESETS,
-  resolveSharePeriod,
-  toYYYYMMDD,
-  type SharePeriodPreset,
-} from "../../utils/share-periods";
 
 type Range = { from: string; to: string };
 
@@ -18,14 +12,14 @@ interface ShareProjectLogsModalProps {
   onClose: () => void;
   projectId: string;
   projectName?: string;
-  /** What the report's date picker currently shows (YYYY-MM-DD) — prefills the date / range inputs. */
+  /**
+   * The period the report's date picker shows (YYYY-MM-DD) — exactly what gets shared: the day,
+   * month or range picked there, or the project's whole duration in Project Span.
+   */
   currentView: Range;
+  /** Shown before the dates, e.g. "Project Span". */
+  periodLabel?: string;
 }
-
-type PeriodChoice = SharePeriodPreset | "custom";
-
-// Only Today, Last week and a custom date / range are offered here.
-const MODAL_PRESETS = SHARE_PERIOD_PRESETS.filter((p) => p.value === "today" || p.value === "last_week");
 
 const RANGE_DATE_FORMAT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -43,46 +37,28 @@ export function ShareProjectLogsModal({
   projectId,
   projectName,
   currentView,
+  periodLabel,
 }: ShareProjectLogsModalProps) {
-  const [choice, setChoice] = useState<PeriodChoice>("today");
-  const [customFrom, setCustomFrom] = useState(currentView.from);
-  const [customTo, setCustomTo] = useState(currentView.to);
   const [link, setLink] = useState<{ url: string; ownOnly: boolean } | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // A new period picked behind the dialog needs a new link.
+  const periodKey = `${currentView.from}|${currentView.to}`;
   useEffect(() => {
     if (!isOpen) return;
     React.startTransition(() => {
-      setChoice("today");
-      setCustomFrom(currentView.from);
-      setCustomTo(currentView.to);
       setLink(null);
       setCopied(false);
     });
-    // Reset only when the dialog opens, not while the report re-renders behind it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, periodKey]);
 
   if (!isOpen) return null;
 
-  const period: Range | null =
-    choice === "custom"
-      ? customFrom && customTo && customFrom <= customTo
-        ? { from: customFrom, to: customTo }
-        : null
-      : resolveSharePeriod(choice, new Date());
-
-  const pick = (next: PeriodChoice) => {
-    setChoice(next);
-    setLink(null);
-  };
-
   const handleCreate = async () => {
-    if (!period) return;
     setIsWorking(true);
-    // Links don't expire (no expiry choice in this dialog).
-    const res = await createProjectEffortShareLinkAction(projectId, period.from, period.to, null);
+    // Links don't expire.
+    const res = await createProjectEffortShareLinkAction(projectId, currentView.from, currentView.to, null);
     setIsWorking(false);
     if (!res.success || !res.data) {
       toast.error(res.error || "Failed to create share link");
@@ -112,24 +88,6 @@ export function ShareProjectLogsModal({
     }
   };
 
-  const chip = (value: PeriodChoice, label: string, disabled = false) => (
-    <button
-      key={value}
-      type="button"
-      disabled={disabled}
-      onClick={() => pick(value)}
-      className={`rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
-        choice === value
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background text-foreground hover:bg-accent"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
-  const today = toYYYYMMDD(new Date());
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
       <div className="w-full max-w-lg rounded-xl border bg-card text-card-foreground shadow-2xl overflow-hidden flex flex-col">
@@ -148,63 +106,20 @@ export function ShareProjectLogsModal({
         </div>
 
         <div className="px-6 py-5 space-y-4 text-xs">
-          {/* <p className="text-muted-foreground leading-relaxed">
-            Anyone with this link — e.g. the client — can view this project&apos;s effort logs for the chosen period,
-            read-only, without signing in. Edits made later show up on the shared page.
-          </p> */}
-
-          <div className="space-y-2">
-            <span className="block font-semibold text-foreground">Period</span>
-            <div className="flex flex-wrap gap-1.5">
-              {MODAL_PRESETS.map((p) => chip(p.value, p.label))}
-              {chip("custom", "Date / range")}
-            </div>
-
-            {choice === "custom" && (
-              <div className="flex items-end gap-2 pt-1">
-                <label className="flex-1 space-y-1">
-                  <span className="block text-muted-foreground">From</span>
-                  <input
-                    type="date"
-                    value={customFrom}
-                    max={today}
-                    onChange={(e) => {
-                      setCustomFrom(e.target.value);
-                      if (!customTo || e.target.value > customTo) setCustomTo(e.target.value);
-                      setLink(null);
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
-                  />
-                </label>
-                <label className="flex-1 space-y-1">
-                  <span className="block text-muted-foreground">To (same day for a single date)</span>
-                  <input
-                    type="date"
-                    value={customTo}
-                    min={customFrom || undefined}
-                    onChange={(e) => {
-                      setCustomTo(e.target.value);
-                      setLink(null);
-                    }}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground"
-                  />
-                </label>
-              </div>
-            )}
-
-            <p className="text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground min-w-0">
               Sharing:{" "}
-              <strong className="text-foreground">{period ? formatRange(period) : "Pick a valid date range"}</strong>
+              <strong className="text-foreground">
+                {periodLabel ? `${periodLabel} · ` : ""}
+                {formatRange(currentView)}
+              </strong>
             </p>
-          </div>
-
-          <div className="flex justify-end">
             {!link && (
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={isWorking || !period}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isWorking}
+                className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isWorking ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
                 Create link
