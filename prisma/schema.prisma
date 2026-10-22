@@ -1158,6 +1158,7 @@ model ProjectTask {
   activeTimers         ActiveTimer[]
   standupTasks         StandupTask[]
   standupBlockers      StandupBlocker[]
+  checklists           TaskChecklist[]
 
   // Postgres doesn't index FK columns automatically — without these, every
   // "tasks of project X" / "children of task Y" lookup is a full table scan.
@@ -1223,6 +1224,97 @@ model ProjectTaskActivity {
   createdAt    DateTime    @default(now())
 
   @@index([taskId])
+}
+
+// ── SOP checklists ────────────────────────────────────────────────────────────
+// A manager-owned SOP template (managed at /projects/sop-checklists) is *copied* onto a task or
+// subtask as a TaskChecklist, so ticks on a task never shift when the SOP is edited later. Edits
+// reach open tasks only through an explicit "push update" sync, which matches task items back to
+// template items by `sourceItemId` (see src/features/sop-checklists/utils.ts).
+
+model SopChecklistTemplate {
+  id             String                     @id @default(cuid())
+  name           String
+  description    String                     @default("")
+  category       String                     @default("General")
+  // The SOP as a TipTap JSON document (text, tables, checkboxes…). Every checkbox (taskItem) in it
+  // carries an `itemId` attr = one SopChecklistTemplateItem row, re-derived on each save. Null for
+  // SOPs saved before rich documents — those render as a plain checkbox list built from `items`.
+  content        Json?
+  // Bumped on every save; a TaskChecklist with a lower templateVersion is "behind" its SOP.
+  version        Int                        @default(1)
+  isArchived     Boolean                    @default(false)
+  createdById    String?
+  createdByName  String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  items          SopChecklistTemplateItem[]
+  taskChecklists TaskChecklist[]
+}
+
+model SopChecklistTemplateItem {
+  id               String               @id @default(cuid())
+  templateId       String
+  text             String
+  position         Int                  @default(0)
+  isRequired       Boolean              @default(false)
+  // Ticking this item needs a proof link (evidenceUrl) on the task item.
+  requiresEvidence Boolean              @default(false)
+  template         SopChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([templateId, position])
+}
+
+model TaskChecklist {
+  id              String                @id @default(cuid())
+  name            String
+  position        Int                   @default(0)
+  taskId          String
+  // Null for a custom checklist, or once its SOP template is deleted.
+  templateId      String?
+  templateVersion Int                   @default(0)
+  // Snapshot of the SOP document at attach/sync time. Ticks are NOT stored in it — they live on
+  // TaskChecklistItem (matched by the doc's taskItem `itemId` = item.sourceItemId). Null for custom
+  // checklists and copies attached before rich documents; those render as a plain list.
+  content         Json?
+  attachedById    String?
+  attachedByName  String?
+  task            ProjectTask           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  template        SopChecklistTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  items           TaskChecklistItem[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  // One copy of a given SOP per task (Postgres allows many NULL templateIds — custom lists).
+  @@unique([taskId, templateId])
+  @@index([templateId])
+}
+
+model TaskChecklistItem {
+  id               String        @id @default(cuid())
+  checklistId      String
+  // The SopChecklistTemplateItem this was copied from; null for items added on the task itself.
+  // Not a FK: the template item can be deleted while a ticked copy must stay.
+  sourceItemId     String?
+  text             String
+  position         Int           @default(0)
+  isRequired       Boolean       @default(false)
+  requiresEvidence Boolean       @default(false)
+  // Ticked before its template item was removed — kept for the record, flagged in the UI.
+  isRemovedFromSop Boolean       @default(false)
+  checked          Boolean       @default(false)
+  checkedById      String?
+  checkedByName    String?
+  checkedAt        DateTime?
+  note             String?
+  evidenceUrl      String?
+  checklist        TaskChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([checklistId, position])
 }
 
 enum BillingType {

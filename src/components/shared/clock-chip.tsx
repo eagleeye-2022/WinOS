@@ -23,14 +23,14 @@ export function ClockChip() {
     return () => clearInterval(id);
   }, []);
 
-  if (!time) return null;
-
   return (
     <>
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium tabular-nums shadow-xs">
-          <Clock size={13} className="text-sky-400" />
-          <span>{time}</span>
+        {/* Fixed width, so the chip (and the module tabs beside it) don't shift as the digits change
+            each second; it's also reserved before the first tick instead of popping in. */}
+        <div className="flex w-[124px] shrink-0 items-center justify-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium tabular-nums shadow-xs">
+          <Clock size={13} className="shrink-0 text-sky-400" />
+          <span className="whitespace-nowrap">{time || "--:--:-- --"}</span>
         </div>
 
         {/* <button

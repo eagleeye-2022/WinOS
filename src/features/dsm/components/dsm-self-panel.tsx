@@ -7,6 +7,8 @@ import { SubmitDsmForm } from "./submit-dsm-form";
 import { WeekHistory } from "./week-history";
 import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
+import { SelfReviewButton } from "./self-review-button";
+import { isSelfReviewed } from "../utils";
 import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask, YesterdaySummary } from "../queries";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import type { AdditionalWorkItem } from "./yesterday-additional-work";
@@ -86,6 +88,10 @@ export function DsmSelfPanel({
             {/* {entry?.status === "REVIEWED" && (
               <AddTaskAfterReviewRow entryId={entry.id} />
             )} */}
+            {/* Self-review: a mark only — the DSM stays editable until the manager's Review. */}
+            {canEdit && entry && (
+              <SelfReviewButton entryId={entry.id} selfReviewed={isSelfReviewed(entry.timelineEvents)} />
+            )}
             {canEdit && (
               <button
                 type="button"

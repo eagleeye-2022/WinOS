@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getLoggedTasksOutsideDsm, type YesterdayLoggedTask } from "../../queries";
 
 /**
  * Manager CRUD for the "What Did You Do Yesterday?" summary on the member review page.
@@ -50,6 +51,20 @@ export type DsrDayCompletion = {
   /** "Additional Work Done Today" items from that day's DSR — work done outside the planned tasks. */
   additionalWorks: { id: string; text: string; completed: boolean }[];
 };
+
+/**
+ * "Also Worked On" for the member's previous DSM day: tasks they logged time on that day outside
+ * that day's DSM tasks (WhyFi School cards, other project tasks). Managers only.
+ */
+export async function getMemberLoggedTasksForDay(
+  memberId: string,
+  dateStr: string,
+  dsmTaskIds: string[]
+): Promise<YesterdayLoggedTask[]> {
+  const manager = await requireManagerUser();
+  if (!manager || !memberId || !dateStr) return [];
+  return getLoggedTasksOutsideDsm(memberId, dateStr.slice(0, 10), dsmTaskIds);
+}
 
 /** The member's DSR ticks for one day, used as the source of truth for "done" in the summary. */
 export async function getDsrCompletionForDay(memberId: string, dateStr: string): Promise<DsrDayCompletion> {

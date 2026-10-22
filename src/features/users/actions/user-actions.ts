@@ -1,9 +1,9 @@
 "use server";
 
-import fs from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { saveUploadFile } from "@/lib/upload-storage";
 import { ROUTES } from "@/constants/routes";
 import { calculateAge } from "@/lib/fmt";
 import { DEPARTMENTS } from "@/features/users/constants";
@@ -372,9 +372,8 @@ async function saveUploadedFile(file: File): Promise<{ url: string; fileName: st
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-  await fs.writeFile(path.join(uploadDir, uniqueFileName), buffer);
+  // UPLOAD_DIR (outside the app) when set, so the file survives deploys — see lib/upload-storage.
+  await saveUploadFile(uniqueFileName, buffer);
 
   return { url: `/api/uploads/${uniqueFileName}`, fileName: file.name };
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
+import { uploadReadDirs } from "@/lib/upload-storage";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -32,26 +33,21 @@ export async function GET(
 
     // Sanitize filename to prevent directory traversal
     const safeFilename = path.basename(filename);
-    
-    // Check primary public/uploads location
-    let filePath = path.join(process.cwd(), "public", "uploads", safeFilename);
-    let fileExists = false;
 
-    try {
-      await fs.access(filePath);
-      fileExists = true;
-    } catch {
-      // Fallback check for root uploads folder
-      filePath = path.join(process.cwd(), "uploads", safeFilename);
+    // UPLOAD_DIR first (where new uploads go), then the older in-app folders.
+    let filePath = "";
+    for (const dir of uploadReadDirs()) {
+      const candidate = path.join(dir, safeFilename);
       try {
-        await fs.access(filePath);
-        fileExists = true;
+        await fs.access(candidate);
+        filePath = candidate;
+        break;
       } catch {
-        fileExists = false;
+        // Not in this folder — try the next one.
       }
     }
 
-    if (!fileExists) {
+    if (!filePath) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
