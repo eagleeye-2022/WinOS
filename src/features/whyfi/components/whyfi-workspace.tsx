@@ -14,6 +14,7 @@ import {
   Clock,
   Eye,
   GraduationCap,
+  GripVertical,
   Layers,
   ListTodo,
   Loader2,
@@ -43,6 +44,7 @@ import {
   deleteWhyfiTaskAction,
   getWhyfiTimelineAction,
   getWhyfiWorkspaceAction,
+  moveWhyfiTaskAction,
   setWhyfiListMembersAction,
   updateWhyfiListAction,
   updateWhyfiTaskAction,
@@ -53,7 +55,16 @@ import {
   type WhyfiWorkspace as WhyfiWorkspaceData,
 } from "../actions";
 import { LEARNING_TASK_STATUSES } from "../constants";
-import { isOptimisticId, newCardOwners, optimisticList, optimisticTask, withTaskAdded } from "../board-utils";
+import {
+  isOptimisticId,
+  moveId,
+  newCardOwners,
+  optimisticList,
+  optimisticTask,
+  orderLists,
+  withTaskAdded,
+  withTaskMoved,
+} from "../board-utils";
 import { isTaskDone } from "@/features/projects/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -63,14 +74,18 @@ type Result = { success: boolean; error?: string };
 /**
  * Runs a mutation, toasts the outcome and reloads the board. With `optimistic`, the board is
  * updated *first* (and `after` runs right away, e.g. to close the form), then the request goes to
- * the server; a failure reloads the real board, undoing the optimistic change.
+ * the server; a failure reloads the real board, undoing the optimistic change. Resolves `true` once
+ * saved (forms that show a loader await it instead of passing `after`).
  */
 type RunFn = (
   fn: () => Promise<Result>,
   okMessage?: string,
   after?: () => void,
   optimistic?: (ws: WhyfiWorkspaceData) => WhyfiWorkspaceData
-) => void;
+) => Promise<boolean>;
+
+/** Per-viewer list order on the board (lists have no order column, so it's kept in this browser). */
+const listOrderKey = (userId: string) => `winos:whyfi:listOrder:${userId}`;
 
 // Optimistic list/card helpers live in ../board-utils (unit-tested).
 
@@ -287,6 +302,7 @@ function LearningCard({
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [subTitle, setSubTitle] = useState("");
+  const [savingSub, setSavingSub] = useState(false);
 
   const me = workspace.currentUserId;
   const ownerIds = task.owners.map((o) => o.id);
@@ -300,19 +316,23 @@ function LearningCard({
   const allSubtasks = flattenTasks(task.subtasks);
   const doneSubtasks = allSubtasks.filter((s) => isTaskDone(s.status)).length;
 
-  const addSubtask = () => {
+  // The Add button spins until the subtask is saved (it's also shown, faded, under the card meanwhile).
+  const addSubtask = async () => {
     const t = subTitle.trim();
-    if (!t) return;
-    run(
+    if (!t || savingSub) return;
+    setSavingSub(true);
+    setShowSubtasks(true);
+    const saved = await run(
       () => createWhyfiTaskAction(list.id, { title: t, parentTaskId: task.id }),
       "Subtask added",
-      () => {
-        setSubTitle("");
-        setAddingSub(false);
-        setShowSubtasks(true);
-      },
+      undefined,
       (ws) => withTaskAdded(ws, list.id, optimisticTask(t, task.id, newCardOwners(ws, list), ws.currentUserId))
     );
+    setSavingSub(false);
+    if (saved) {
+      setSubTitle("");
+      setAddingSub(false);
+    }
   };
 
   const startEdit = () => {
@@ -349,7 +369,8 @@ function LearningCard({
 
       {/* Top row: code, status, details, more */}
       <div className="flex items-center justify-between gap-3">
-        <span className="whitespace-nowrap font-mono text-xs font-bold text-slate-400 dark:text-neutral-500">
+        <span className="flex items-center gap-1 whitespace-nowrap font-mono text-xs font-bold text-slate-400 dark:text-neutral-500">
+          {isSaving && <Loader2 size={12} className="animate-spin text-primary" />}
           {task.code}
         </span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -605,11 +626,12 @@ function LearningCard({
                 autoFocus
                 value={subTitle}
                 onChange={(e) => setSubTitle(e.target.value)}
+                readOnly={savingSub}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     addSubtask();
-                  } else if (e.key === "Escape") {
+                  } else if (e.key === "Escape" && !savingSub) {
                     setAddingSub(false);
                     setSubTitle("");
                   }
@@ -620,10 +642,14 @@ function LearningCard({
               <button
                 type="button"
                 onClick={addSubtask}
-                disabled={!subTitle.trim()}
-                className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-2 py-1 text-xs font-bold text-white hover:bg-[#0077ee] disabled:opacity-50"
+                disabled={!subTitle.trim() || savingSub}
+                className={cn(
+                  "flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-2 py-1 text-xs font-bold text-white hover:bg-[#0077ee]",
+                  savingSub ? "cursor-wait" : "disabled:opacity-50"
+                )}
               >
-                <Plus size={11} /> Add
+                {savingSub ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
+                {savingSub ? "Saving…" : "Add"}
               </button>
               <button
                 type="button"
@@ -652,6 +678,30 @@ function LearningCard({
 
 // ── Column (one shareable learning task list) ────────────────────────────────
 
+/** Drag & drop state and handlers the board hands each column. */
+type BoardDnd = {
+  dragCard: { id: string; fromListId: string } | null;
+  /** Where a dragged card would land: index among the list's cards without the dragged one. */
+  dropAt: { listId: string; index: number } | null;
+  onCardDragStart: (taskId: string, listId: string) => void;
+  onCardDragOver: (listId: string, index: number) => void;
+  onCardDrop: () => void;
+  dragListId: string | null;
+  listOver: { id: string; after: boolean } | null;
+  onListDragStart: (listId: string) => void;
+  onListDragOver: (listId: string, after: boolean) => void;
+  onListDrop: () => void;
+  onDragEnd: () => void;
+};
+
+/** Text fields inside a card stay usable — dragging starts only from the card itself. */
+const startsInField = (target: EventTarget) =>
+  target instanceof HTMLElement && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+
+function DropLine() {
+  return <div className="h-1 rounded-full bg-primary/70" aria-hidden="true" />;
+}
+
 function ListColumn({
   list,
   workspace,
@@ -660,6 +710,7 @@ function ListColumn({
   adding,
   onToggleAdding,
   run,
+  dnd,
 }: {
   list: WhyfiList;
   workspace: WhyfiWorkspaceData;
@@ -668,26 +719,67 @@ function ListColumn({
   adding: boolean;
   onToggleAdding: (open: boolean) => void;
   run: RunFn;
+  dnd: BoardDnd;
 }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [newTitle, setNewTitle] = useState("");
+  const [savingCard, setSavingCard] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(list.name);
 
   const isMember = list.members.some((m) => m.id === workspace.currentUserId);
   const canAddCards = workspace.isManager || isMember;
+  const isSavingList = isOptimisticId(list.id);
+  // Reordering cards: anyone the list is shared with; moving them in from another list: managers.
+  const canDragCards = (workspace.isManager || isMember) && !isSavingList;
+  const acceptsDraggedCard = Boolean(
+    dnd.dragCard && (dnd.dragCard.fromListId === list.id || workspace.isManager) && !isSavingList
+  );
 
-  const addCard = () => {
+  // The Add Task button spins until the card is saved (it's also shown, faded, at the end meanwhile).
+  const addCard = async () => {
     const title = newTitle.trim();
-    if (!title) return;
-    run(
+    if (!title || savingCard) return;
+    setSavingCard(true);
+    const saved = await run(
       () => createWhyfiTaskAction(list.id, { title }),
       "Card added",
-      () => setNewTitle(""),
-      // Appears at the end of the list right away; the reload swaps in the saved card.
+      undefined,
       (ws) => withTaskAdded(ws, list.id, optimisticTask(title, null, newCardOwners(ws, list), ws.currentUserId))
     );
+    setSavingCard(false);
+    if (saved) {
+      // Saved: clear and close the box (it stays open with the text if saving failed).
+      setNewTitle("");
+      onToggleAdding(false);
+    }
   };
+
+  // Lists are reordered by dragging their header (grip); any column (even collapsed) is a drop target.
+  const listDropProps = {
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+      if (dnd.dragListId) {
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        dnd.onListDragOver(list.id, e.clientX > r.left + r.width / 2);
+      } else if (acceptsDraggedCard) {
+        // Over the column but not over a card: drop at the end of the list.
+        e.preventDefault();
+        dnd.onCardDragOver(list.id, list.tasks.filter((t) => t.id !== dnd.dragCard?.id).length);
+      }
+    },
+    onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (dnd.dragListId) dnd.onListDrop();
+      else if (acceptsDraggedCard) dnd.onCardDrop();
+    },
+  };
+  const isListDropTarget = dnd.listOver?.id === list.id && dnd.dragListId !== list.id;
+  const listDropClass = isListDropTarget
+    ? dnd.listOver!.after
+      ? "shadow-[4px_0_0_0_var(--primary)]"
+      : "shadow-[-4px_0_0_0_var(--primary)]"
+    : undefined;
 
   const commitRename = () => {
     setRenaming(false);
@@ -708,7 +800,13 @@ function ListColumn({
 
   if (collapsed) {
     return (
-      <div className="flex h-full w-12 shrink-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-100/70 p-2 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40">
+      <div
+        {...listDropProps}
+        className={cn(
+          "flex h-full w-12 shrink-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-100/70 p-2 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
+          listDropClass
+        )}
+      >
         <button type="button" onClick={onToggleCollapse} className={cn(ICON_BTN, "mb-2")} title={`Expand ${list.name}`}>
           <ArrowRightToLine size={14} />
         </button>
@@ -729,17 +827,37 @@ function ListColumn({
     <div
       data-resizable-col
       data-col-key={`whyfi-list-${list.id}`}
-      aria-busy={isOptimisticId(list.id) || undefined}
+      aria-busy={isSavingList || undefined}
+      {...listDropProps}
       className={cn(
         "flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
         // A list being created: visible straight away, usable once the server has saved it.
-        isOptimisticId(list.id) && "pointer-events-none opacity-60"
+        isSavingList && "pointer-events-none opacity-60",
+        dnd.dragListId === list.id && "opacity-40",
+        listDropClass
       )}
     >
       {ConfirmDialog}
       {/* Column header */}
       <div className="mb-3 flex items-center justify-between border-b border-slate-200/60 pb-3 dark:border-neutral-800">
         <div className="flex items-center gap-2 overflow-hidden">
+          {isSavingList ? (
+            <Loader2 size={14} className="shrink-0 animate-spin text-primary" aria-label="Saving task list" />
+          ) : (
+            <span
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", list.id);
+                dnd.onListDragStart(list.id);
+              }}
+              onDragEnd={dnd.onDragEnd}
+              className="shrink-0 cursor-grab text-slate-400 hover:text-slate-700 active:cursor-grabbing dark:hover:text-slate-200"
+              title="Drag to reorder task lists"
+            >
+              <GripVertical size={14} />
+            </span>
+          )}
           {renaming ? (
             <input
               type="text"
@@ -849,11 +967,12 @@ function ListColumn({
               rows={3}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              readOnly={savingCard}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   addCard();
-                } else if (e.key === "Escape") {
+                } else if (e.key === "Escape" && !savingCard) {
                   onToggleAdding(false);
                   setNewTitle("");
                 }
@@ -866,22 +985,27 @@ function ListColumn({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
+                  disabled={savingCard}
                   onClick={() => {
                     onToggleAdding(false);
                     setNewTitle("");
                   }}
-                  className="cursor-pointer rounded px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                  className="cursor-pointer rounded px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  disabled={!newTitle.trim()}
+                  disabled={!newTitle.trim() || savingCard}
                   onClick={addCard}
-                  className="flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#0077ee] disabled:cursor-not-allowed disabled:opacity-50"
+                  className={cn(
+                    "flex cursor-pointer items-center gap-1 rounded bg-[#0088ff] px-3 py-1 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#0077ee] disabled:cursor-not-allowed",
+                    // Fully visible while saving so the loader reads clearly; dimmed only when empty.
+                    savingCard ? "cursor-wait" : "disabled:opacity-50"
+                  )}
                 >
-                  <Plus size={12} />
-                  <span>Add Task</span>
+                  {savingCard ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                  <span>{savingCard ? "Saving…" : "Add Task"}</span>
                 </button>
               </div>
             </div>
@@ -902,10 +1026,57 @@ function ListColumn({
             )}
           </div>
         ) : (
-          list.tasks.map((task) => (
-            <LearningCard key={task.id} task={task} list={list} workspace={workspace} run={run} />
-          ))
+          (() => {
+            // Drop positions count the list's cards without the one being dragged.
+            const others = list.tasks.filter((t) => t.id !== dnd.dragCard?.id);
+            const dropIndex = dnd.dropAt?.listId === list.id ? dnd.dropAt.index : null;
+            return (
+              <>
+                {list.tasks.map((task) => {
+                  const pos = others.findIndex((t) => t.id === task.id);
+                  const isDragged = dnd.dragCard?.id === task.id;
+                  return (
+                    <div
+                      key={task.id}
+                      draggable={canDragCards && !isOptimisticId(task.id)}
+                      onDragStart={(e) => {
+                        if (startsInField(e.target)) {
+                          e.preventDefault();
+                          return;
+                        }
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", task.id);
+                        dnd.onCardDragStart(task.id, list.id);
+                      }}
+                      onDragEnd={dnd.onDragEnd}
+                      onDragOver={(e) => {
+                        if (!acceptsDraggedCard || isDragged) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        dnd.onCardDragOver(list.id, pos + (e.clientY > r.top + r.height / 2 ? 1 : 0));
+                      }}
+                      onDrop={(e) => {
+                        if (!acceptsDraggedCard) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dnd.onCardDrop();
+                      }}
+                      className={cn("space-y-3", isDragged && "opacity-40", canDragCards && "cursor-grab active:cursor-grabbing")}
+                    >
+                      {dropIndex !== null && dropIndex === pos && !isDragged && <DropLine />}
+                      <LearningCard task={task} list={list} workspace={workspace} run={run} />
+                    </div>
+                  );
+                })}
+                {dropIndex !== null && dropIndex === others.length && <DropLine />}
+              </>
+            );
+          })()
         )}
+        {/* Empty list: still a place to drop a card */}
+        {list.tasks.length === 0 && dnd.dropAt?.listId === list.id && <DropLine />}
       </div>
     </div>
   );
@@ -1195,37 +1366,127 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
         setWorkspace((ws) => optimistic(ws));
         after?.();
       }
-      startTransition(async () => {
-        const res = await fn();
-        if (!res.success) {
-          toast.error(res.error || "Something went wrong");
-          if (optimistic) await reload(); // drop the optimistic change
-          return;
-        }
-        if (okMessage) toast.success(okMessage);
-        if (!optimistic) after?.();
-        await reload();
+      return new Promise<boolean>((resolve) => {
+        startTransition(async () => {
+          const res = await fn();
+          if (!res.success) {
+            toast.error(res.error || "Something went wrong");
+            if (optimistic) await reload(); // drop the optimistic change
+            resolve(false);
+            return;
+          }
+          if (okMessage) toast.success(okMessage);
+          if (!optimistic) after?.();
+          await reload();
+          resolve(true);
+        });
       });
     },
     [reload]
   );
 
-  const createList = () => {
+  // The Create List button spins until the list is saved (it's also shown, faded, on the board).
+  const [creatingList, setCreatingList] = useState(false);
+  const createList = async () => {
     const name = newListName.trim();
-    if (!name) return;
-    run(
+    if (!name || creatingList) return;
+    setCreatingList(true);
+    const saved = await run(
       () => createWhyfiListAction({ name }),
       "Task list created — share it with your team",
-      () => {
-        setNewListName("");
-        setIsAddingList(false);
-      },
-      // Shown at the end of the board right away (lists are ordered by creation).
+      undefined,
+      // Shown at the end of the board right away (new lists go after the ones you've ordered).
       (ws) => ({
         ...ws,
         lists: [...ws.lists, optimisticList(name)],
       })
     );
+    setCreatingList(false);
+    if (saved) {
+      setNewListName("");
+      setIsAddingList(false);
+    }
+  };
+
+  // ── Drag & drop ────────────────────────────────────────────────────────────
+  // List order is per viewer, kept in this browser (lists have no order column in the database).
+  const [listOrder, setListOrder] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(listOrderKey(workspace.currentUserId));
+      if (saved) setListOrder(JSON.parse(saved));
+    } catch {
+      // Storage unavailable — lists keep their creation order.
+    }
+  }, [workspace.currentUserId]);
+  const orderedLists = useMemo(() => orderLists(workspace.lists, listOrder), [workspace.lists, listOrder]);
+
+  const [dragCard, setDragCard] = useState<BoardDnd["dragCard"]>(null);
+  const [dropAt, setDropAt] = useState<BoardDnd["dropAt"]>(null);
+  const [dragListId, setDragListId] = useState<string | null>(null);
+  const [listOver, setListOver] = useState<BoardDnd["listOver"]>(null);
+
+  const endDrag = () => {
+    setDragCard(null);
+    setDropAt(null);
+    setDragListId(null);
+    setListOver(null);
+  };
+
+  const dropCard = () => {
+    const drag = dragCard;
+    const at = dropAt;
+    endDrag();
+    if (!drag || !at) return;
+    const target = workspace.lists.find((l) => l.id === at.listId);
+    if (!target) return;
+    if (drag.fromListId !== at.listId && !workspace.isManager) {
+      toast.error("Only a manager can move cards between task lists.");
+      return;
+    }
+    const moved = withTaskMoved(workspace, drag.id, at.listId, at.index);
+    if (!moved) return;
+    const sameList = drag.fromListId === at.listId;
+    if (sameList && moved.orderedIds.join("|") === target.tasks.map((t) => t.id).join("|")) return;
+    // Moves on screen at once; the save runs behind it (the toolbar spinner shows it's saving).
+    void run(
+      () => moveWhyfiTaskAction(drag.id, at.listId, moved.orderedIds),
+      sameList ? undefined : `Moved to ${target.name}`,
+      undefined,
+      (ws) => withTaskMoved(ws, drag.id, at.listId, at.index)?.workspace ?? ws
+    );
+  };
+
+  const dropList = () => {
+    const id = dragListId;
+    const over = listOver;
+    endDrag();
+    if (!id || !over || over.id === id) return;
+    const ids = orderedLists.map((l) => l.id);
+    const others = ids.filter((x) => x !== id);
+    const next = moveId(ids, id, others.indexOf(over.id) + (over.after ? 1 : 0));
+    setListOrder(next);
+    try {
+      localStorage.setItem(listOrderKey(workspace.currentUserId), JSON.stringify(next));
+    } catch {
+      // Storage unavailable — the new order lasts until the page is reloaded.
+    }
+  };
+
+  const dnd: BoardDnd = {
+    dragCard,
+    dropAt,
+    onCardDragStart: (taskId, listId) => setDragCard({ id: taskId, fromListId: listId }),
+    onCardDragOver: (listId, index) =>
+      setDropAt((prev) => (prev?.listId === listId && prev.index === index ? prev : { listId, index })),
+    onCardDrop: dropCard,
+    dragListId,
+    listOver,
+    onListDragStart: (listId) => setDragListId(listId),
+    onListDragOver: (listId, after) =>
+      setListOver((prev) => (prev?.id === listId && prev.after === after ? prev : { id: listId, after })),
+    onListDrop: dropList,
+    onDragEnd: endDrag,
   };
 
   // Counts include subtasks at every depth, like the project board's totals.
@@ -1306,7 +1567,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                           boardRef.current?.scrollTo({ left: boardRef.current.scrollWidth, behavior: "smooth" })
                         );
                       }}
-                      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-4 py-2 text-xs font-bold text-primary shadow-xs transition-all hover:bg-primary/10 dark:text-sky-400"
+                      className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#0088ff] px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0077ee]"
                     >
                       <Layers size={15} />
                       <span>Create Task List</span>
@@ -1319,9 +1580,10 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               {/* Board */}
               <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-slate-50/50 p-4.5 dark:bg-background/40">
                 <div data-col-scope className="flex h-full items-stretch gap-3.5">
-                  {workspace.lists.map((list) => (
+                  {orderedLists.map((list) => (
                     <ListColumn
                       key={list.id}
+                      dnd={dnd}
                       list={list}
                       workspace={workspace}
                       collapsed={collapsedIds.has(list.id)}
@@ -1352,7 +1614,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                         <button
                           type="button"
                           onClick={() => setIsAddingList(true)}
-                          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-3 py-4 text-xs font-bold text-primary shadow-2xs transition-all hover:bg-primary/10 hover:shadow-xs dark:text-sky-400"
+                          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0088ff] px-3 py-4 text-xs font-bold text-white shadow-2xs transition-all hover:bg-[#0077ee] hover:shadow-xs"
                         >
                           <span>Create Task List</span>
                         </button>
@@ -1385,11 +1647,12 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                             value={newListName}
                             onChange={(e) => setNewListName(e.target.value)}
                             placeholder="e.g. REACT BASICS, SEO FUNDAMENTALS"
+                            readOnly={creatingList}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && newListName.trim()) {
                                 e.preventDefault();
                                 createList();
-                              } else if (e.key === "Escape") {
+                              } else if (e.key === "Escape" && !creatingList) {
                                 setIsAddingList(false);
                               }
                             }}
@@ -1412,12 +1675,15 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                           </button>
                           <button
                             type="button"
-                            disabled={!newListName.trim() || pending}
+                            disabled={!newListName.trim() || creatingList}
                             onClick={createList}
-                            className="flex cursor-pointer items-center gap-1.5 rounded-md bg-[#0088ff] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0077ee] disabled:cursor-not-allowed disabled:opacity-50"
+                            className={cn(
+                              "flex cursor-pointer items-center gap-1.5 rounded-md bg-[#0088ff] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0077ee] disabled:cursor-not-allowed",
+                              creatingList ? "cursor-wait" : "disabled:opacity-50"
+                            )}
                           >
-                            {pending && <Loader2 size={13} className="animate-spin" />}
-                            <span>Create List</span>
+                            {creatingList && <Loader2 size={13} className="animate-spin" />}
+                            <span>{creatingList ? "Saving…" : "Create List"}</span>
                           </button>
                         </div>
                       </div>

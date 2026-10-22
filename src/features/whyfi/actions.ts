@@ -815,3 +815,62 @@ export async function deleteWhyfiTaskAction(taskId: string): Promise<ActionResul
   revalidatePath(WHYFI_PATH);
   return { success: true, data: undefined };
 }
+
+/**
+ * Board drag & drop for a top-level card: `orderedIds` is the target list's top-level cards in
+ * their new order (the dragged card included); each gets `order` = its index. Reordering within a
+ * list is open to anyone the list is shared with (like the project board); moving a card to another
+ * list is for managers, and takes its subtasks, time logs and running timers along.
+ */
+export async function moveWhyfiTaskAction(
+  taskId: string,
+  toListId: string,
+  orderedIds: string[]
+): Promise<ActionResult> {
+  const actor = await getActor();
+  if (!actor) return { success: false, error: "Unauthorized" };
+  const task = await findLearningTask(taskId);
+  if (!task || !(await findVisibleList(task.projectId, actor))) {
+    return { success: false, error: "Card not found or not shared with you." };
+  }
+  const target = await findVisibleList(toListId, actor);
+  if (!target) return { success: false, error: "Task list not found or not shared with you." };
+
+  const row = await d.projectTask.findUnique({ where: { id: task.id }, select: { parentTaskId: true } });
+  if (row?.parentTaskId) return { success: false, error: "Subtasks move with their task." };
+
+  if (task.projectId !== toListId) {
+    if (!actor.isManager) return { success: false, error: "Only a manager can move cards between task lists." };
+    const phase = await d.projectPhase.findFirst({
+      where: { projectId: toListId },
+      orderBy: { order: "asc" },
+      select: { id: true, code: true, name: true },
+    });
+    if (!phase) return { success: false, error: "That task list has no task section to move the card into." };
+
+    // The card and its subtasks, plus their logged time and running timers, all belong to the new list.
+    const ids = await subtreeIds(task.id);
+    await d.projectTask.updateMany({
+      where: { id: { in: ids } },
+      data: { projectId: toListId, phaseId: phase.id, phaseCode: phase.code, phaseName: phase.name },
+    });
+    await d.projectTimeLog.updateMany({ where: { taskId: { in: ids } }, data: { projectId: toListId, phaseId: phase.id } });
+    await d.activeTimer.updateMany({ where: { taskId: { in: ids } }, data: { projectId: toListId, phaseId: phase.id } });
+    await logTaskActivity(task.id, actor, `moved this task to ${target.name}`);
+  }
+
+  // Only this list's top-level cards are renumbered; anything else in the list is ignored.
+  const inList: { id: string }[] = await d.projectTask.findMany({
+    where: { id: { in: orderedIds }, projectId: toListId, parentTaskId: null },
+    select: { id: true },
+  });
+  const valid = new Set(inList.map((t) => t.id));
+  await Promise.all(
+    orderedIds
+      .filter((id) => valid.has(id))
+      .map((id, index) => d.projectTask.update({ where: { id }, data: { order: index } }))
+  );
+
+  revalidatePath(WHYFI_PATH);
+  return { success: true, data: undefined };
+}

@@ -55,7 +55,8 @@ import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-sel
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
 import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selectors";
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
-import { assignWhyfiTaskToMemberAction } from "@/features/whyfi/actions";
+import { assignWhyfiTaskToMemberAction, updateWhyfiTaskAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
+import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-add-row";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
@@ -2422,9 +2423,6 @@ function LearningSection({
   const [, action, pending] = useActionState<UpdateLearningState, FormData>(updateLearningText, {});
   const [, startTransition] = useTransition();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [newText, setNewText] = useState("");
-  const [newTaskId, setNewTaskId] = useState("");
   const [editText, setEditText] = useState("");
   // WhyFi School cards (managers see every list). A line linked to one is stored as
   // "[WL-1-T3] text"; the manager can pick/change the card per line (it's then assigned to the
@@ -2481,16 +2479,17 @@ function LearningSection({
     if (task) assignToMember(task.id);
   };
 
-  const handleAdd = () => {
-    const task = whyfiTasks.find((t) => t.id === newTaskId);
-    const text = newText.trim() || task?.title || "";
+  /** From the "New Learning Task" row: adds the line, assigns the picked card and saves its due date. */
+  const handleAdd = async (text: string, task: WhyfiPickerTask | undefined, dueDate: string) => {
     if (!text) return;
-    const updated = [...lines, task ? formatLearningLine(task.code, text) : text];
-    handleSaveAll(updated);
-    if (task) assignToMember(task.id);
-    setNewText("");
-    setNewTaskId("");
-    setAdding(false);
+    handleSaveAll([...lines, task ? formatLearningLine(task.code, text) : text]);
+    if (!task) return;
+    assignToMember(task.id);
+    if (dueDate !== task.dueDate) {
+      const res = await updateWhyfiTaskAction(task.id, { dueDate });
+      if (res.success) setWhyfiDueDate(task.id, dueDate);
+      else toast.error(res.error || "Couldn't save the due date");
+    }
   };
 
   return (
@@ -2623,64 +2622,8 @@ function LearningSection({
         )}
       </div>
 
-      <div className="mt-2.5">
-        {adding ? (
-          <div className="flex flex-col gap-2 rounded-lg border bg-background p-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                autoFocus
-                placeholder={newTaskId ? "Optional note (defaults to the task title)..." : "Describe what will be learned (WhyFi School)..."}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAdd();
-                  } else if (e.key === "Escape") {
-                    setAdding(false);
-                    setNewText("");
-                    setNewTaskId("");
-                  }
-                }}
-                className="flex-1 rounded border px-2.5 py-1 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-              />
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={pending || (!newText.trim() && !newTaskId)}
-                className="rounded-md bg-success/10 p-1.5 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-              >
-                <Check size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdding(false);
-                  setNewText("");
-                  setNewTaskId("");
-                }}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            {/* Pick a WhyFi School card to assign to the member (optional). */}
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5 pl-0.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">WhyFi:</span>
-              <WhyfiTaskSelectors tasks={whyfiTasks} loading={whyfiLoading} value={newTaskId} onChange={setNewTaskId} />
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
-          >
-            <Plus size={13} /> Add Learning Task
-          </button>
-        )}
-      </div>
+      {/* Same layout as the DSM "New Task" row; picking a card assigns it to the member. */}
+      <WhyfiLearningAddRow tasks={whyfiTasks} loading={whyfiLoading} onAdd={handleAdd} />
     </div>
   );
 }

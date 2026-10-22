@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
-import { Check, GraduationCap, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, GraduationCap, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "@/components/shared/toast";
+import { useWhyfiTasks } from "@/features/whyfi/components/whyfi-due-date";
+import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-add-row";
 import { cn } from "@/lib/utils";
 import { updateLearningText, type UpdateLearningState } from "@/features/dsm/manager/actions/update-learning";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
@@ -9,7 +12,12 @@ import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-t
 import { DueDateCell, WrappedTaskText, ProjectPill, TaskIdChip } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { isTaskDone } from "@/features/projects/types";
-import { getWhyfiTasksByCodesAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
+import {
+  assignWhyfiTaskToMemberAction,
+  getWhyfiTasksByCodesAction,
+  updateWhyfiTaskAction,
+  type WhyfiPickerTask,
+} from "@/features/whyfi/actions";
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
 
 /**
@@ -38,8 +46,6 @@ export function StandupLearningSection({
   const [, action, pending] = useActionState<UpdateLearningState, FormData>(updateLearningText, {});
   const [, startTransition] = useTransition();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [newText, setNewText] = useState("");
   const [editText, setEditText] = useState("");
 
   const lines = useMemo(
@@ -87,11 +93,20 @@ export function StandupLearningSection({
     handleSaveAll(lines.filter((_, i) => i !== index));
   };
 
-  const handleAdd = () => {
-    if (!newText.trim()) return;
-    handleSaveAll([...lines, newText.trim()]);
-    setNewText("");
-    setAdding(false);
+  /** From the "New Learning Task" row: adds the line (linked to the picked card) and saves its due date. */
+  const handleAdd = async (text: string, task: WhyfiPickerTask | undefined, dueDate: string) => {
+    if (!text) return;
+    handleSaveAll([...lines, task ? formatLearningLine(task.code, text) : text]);
+    if (!task) return;
+    // A manager adding to a member's card assigns the card to that member.
+    if (memberId) {
+      const res = await assignWhyfiTaskToMemberAction(task.id, memberId);
+      if (!res.success) toast.error(res.error || "Couldn't assign the learning task");
+    }
+    if (dueDate !== task.dueDate) {
+      const res = await updateWhyfiTaskAction(task.id, { dueDate });
+      if (!res.success) toast.error(res.error || "Couldn't save the due date");
+    }
   };
 
   // If not reviewed and has no lines, don't show an empty box
@@ -267,54 +282,19 @@ export function StandupLearningSection({
         <p className="py-1 text-xs italic text-muted-foreground">No learning items logged for today.</p>
       )}
 
-      {isReviewed && (
-        <div className="mt-2.5">
-          {adding ? (
-            <div className="flex items-center gap-2 rounded-lg border bg-background p-1.5">
-              <input
-                type="text"
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                autoFocus
-                placeholder="Describe what will be learned (WhyFi School)..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAdd();
-                  }
-                }}
-                className="flex-1 rounded border px-2.5 py-1 text-xs outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-              />
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={pending || !newText.trim()}
-                className="rounded-md bg-success/10 p-1.5 text-success transition-colors hover:bg-success/20 disabled:opacity-50"
-              >
-                {pending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdding(false);
-                  setNewText("");
-                }}
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent"
-              >
-                <X size={13} />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
-            >
-              <Plus size={13} /> Add Learning Task
-            </button>
-          )}
-        </div>
-      )}
+      {isReviewed && <LearningAddRow memberId={memberId} onAdd={handleAdd} />}
     </section>
   );
+}
+
+/** The "New Learning Task" row; loads the WhyFi task picker only where it's shown (reviewed cards). */
+function LearningAddRow({
+  memberId,
+  onAdd,
+}: {
+  memberId?: string;
+  onAdd: (text: string, task: WhyfiPickerTask | undefined, dueDate: string) => Promise<void>;
+}) {
+  const { tasks, loading } = useWhyfiTasks(memberId);
+  return <WhyfiLearningAddRow tasks={tasks} loading={loading} onAdd={onAdd} />;
 }
