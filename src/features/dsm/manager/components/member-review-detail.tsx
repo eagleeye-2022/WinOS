@@ -53,7 +53,8 @@ import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-sup
 import type { CalendarEventView } from "@/features/calendar/queries";
 import { MemberTaskTimerBadge } from "./member-task-timer-badge";
 import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
-import { ProjectTaskSelectors } from "@/features/dsm/components/project-task-selectors";
+import { ProjectTaskSelectors, projectSelectOptions } from "@/features/dsm/components/project-task-selectors";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
 import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selectors";
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
@@ -61,6 +62,7 @@ import { assignWhyfiTaskToMemberAction, updateWhyfiTaskAction, type WhyfiPickerT
 import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-add-row";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
@@ -313,6 +315,22 @@ function AddTaskRow({
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
 
+  // Unsent input survives a reload / reopening the app until it's added or cancelled.
+  useFormDraft(
+    `winos_dsm_review_add_task_${entryId}_${kind}`,
+    { selectedProjectId, selectedTaskListCode, selectedTaskId, selectedSubtaskId, text, dueDate },
+    adding,
+    (d) => {
+      setSelectedProjectId(d.selectedProjectId ?? "");
+      setSelectedTaskListCode(d.selectedTaskListCode ?? "");
+      setSelectedTaskId(d.selectedTaskId ?? "");
+      setSelectedSubtaskId(d.selectedSubtaskId ?? "");
+      setText(d.text ?? "");
+      setDueDate(d.dueDate ?? "");
+      setAdding(true);
+    }
+  );
+
   const resetForm = () => {
     setSelectedProjectId("");
     setSelectedTaskListCode("");
@@ -388,6 +406,7 @@ function AddTaskRow({
       <div className="flex items-center gap-2.5 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-xs">New Task:</span>
         <ProjectTaskSelectors
+          shortProjectNames
           projects={cascadingProjects}
           projectsLoading={projectsLoading}
           projectId={selectedProjectId}
@@ -609,6 +628,12 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
   const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
 
+  useFormDraft(`winos_dsm_review_add_blocker_${entryId}`, { text, mentionedUserIds }, adding, (d) => {
+    setText(d.text ?? "");
+    setMentionedUserIds(d.mentionedUserIds ?? []);
+    setAdding(true);
+  });
+
   if (!adding) {
     return (
       <button
@@ -642,6 +667,8 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
       <div className="flex-1 rounded-md border bg-card px-2.5 py-1.5">
         <MentionInput
           name="text"
+          defaultValue={text}
+          defaultMentions={teamMembers.filter((m) => mentionedUserIds.includes(m.id))}
           onChange={(v, ids) => {
             setText(v);
             setMentionedUserIds(ids);
@@ -664,6 +691,7 @@ function AddBlockerRow({ entryId, teamMembers = [] }: { entryId: string; teamMem
         type="button"
         onClick={() => {
           setAdding(false);
+          setText("");
           setMentionedUserIds([]);
         }}
         title="Cancel"
@@ -888,6 +916,18 @@ function AddSupportRow({
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [scheduledEvent, setScheduledEvent] = useState<CalendarEventView | null>(null);
 
+  useFormDraft(`winos_dsm_review_add_support_${entryId}`, { text, mentionedUserIds, scheduledEvent }, adding, (d) => {
+    setText(d.text ?? "");
+    setMentionedUserIds(d.mentionedUserIds ?? []);
+    // Dates come back from localStorage as strings — revive them.
+    setScheduledEvent(
+      d.scheduledEvent
+        ? { ...d.scheduledEvent, start: new Date(d.scheduledEvent.start), end: new Date(d.scheduledEvent.end) }
+        : null
+    );
+    setAdding(true);
+  });
+
   if (!adding) {
     return (
       <button
@@ -923,6 +963,8 @@ function AddSupportRow({
       <div className="rounded-md border bg-background px-2.5 py-1.5">
         <MentionInput
           name="text"
+          defaultValue={text}
+          defaultMentions={teamMembers.filter((m) => mentionedUserIds.includes(m.id))}
           onChange={(v, ids) => {
             setText(v);
             setMentionedUserIds(ids);
@@ -1461,6 +1503,7 @@ function TaskRow({
             <div className="flex items-center gap-2.5 flex-wrap text-xs">
               <span className="font-semibold text-muted-foreground uppercase text-xs">Edit Task:</span>
               <ProjectTaskSelectors
+                shortProjectNames
                 projects={cascadingProjects}
                 projectsLoading={projectsLoading}
                 projectId={selectedProjectId}
@@ -1779,7 +1822,7 @@ function SummaryTaskEditor({
         <SearchableSelect
           value={projectId}
           onChange={(v) => { setProjectId(v); setParentTaskId(""); setSubtaskId(""); }}
-          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          options={projectSelectOptions(cascadingProjects, true)}
           placeholder="Select Project"
           searchPlaceholder="Search projects..."
           className={selectCls}
@@ -2091,7 +2134,11 @@ function LoggedSummaryRow({
       const res = await setLoggedTaskDoneAction(task.taskId, next);
       if (!res.success) {
         onToggled(task.taskId, !next);
-        toast.error(res.error || "Couldn't update the task.");
+        if (res.checklistBlock) {
+          showChecklistGate({ ...res.checklistBlock, status: "Done", onForced: () => onToggled(task.taskId, true) });
+        } else {
+          toast.error(res.error || "Couldn't update the task.");
+        }
       }
     } catch {
       onToggled(task.taskId, !next);
@@ -2734,7 +2781,12 @@ function LearningSection({
       </div>
 
       {/* Same layout as the DSM "New Task" row; picking a card assigns it to the member. */}
-      <WhyfiLearningAddRow tasks={whyfiTasks} loading={whyfiLoading} onAdd={handleAdd} />
+      <WhyfiLearningAddRow
+        tasks={whyfiTasks}
+        loading={whyfiLoading}
+        onAdd={handleAdd}
+        draftKey={`winos_dsm_review_add_learning_${entryId}`}
+      />
     </div>
   );
 }
@@ -2953,7 +3005,7 @@ export function ParkingLotSection({
                     value={tree.projectId}
                     disabled={isLocked && item.persisted}
                     onChange={(v) => handleProjectChange(i, v)}
-                    options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+                    options={projectSelectOptions(cascadingProjects, true)}
                     placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
                     searchPlaceholder="Search projects..."
                     className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px] disabled:opacity-75"

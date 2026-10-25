@@ -21,6 +21,7 @@ import { NavigationStateTracker } from "@/components/shared/navigation-state-tra
 import { TableColumnResizer } from "@/components/shared/table-column-resizer";
 import { getMyModuleAccessAction } from "@/features/users/actions/permission-actions";
 import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
+import { ChecklistGateHost } from "@/features/sop-checklists/components/checklist-gate";
 import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
 import { db } from "@/lib/db";
 
@@ -103,6 +104,8 @@ export default async function DashboardLayout({
       <TableColumnResizer />
       {/* Re-opens the "Timer stopped" log modal if a stopped timer's log was never saved. */}
       <PendingTimerLogRecovery userId={userId} />
+      {/* "Please select / complete the checklist" popup when closing a task is refused. */}
+      <ChecklistGateHost />
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">
         <header className="relative flex h-14 shrink-0 items-center border-b bg-card z-50 mb-2">

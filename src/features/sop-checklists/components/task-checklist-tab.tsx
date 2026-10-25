@@ -11,8 +11,9 @@ import {
   ListPlus,
   Loader2,
   MessageSquare,
+  History,
   MoreVertical,
-  Plus,
+  Pencil,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
   addChecklistItemAction,
   attachSopChecklistAction,
@@ -36,11 +38,13 @@ import {
   setAllChecklistItemsCheckedAction,
   setChecklistItemCheckedAction,
   syncTaskChecklistAction,
+  updateChecklistItemTextAction,
 } from "../actions/task-checklist-actions";
-import { getSopTemplatesAction } from "../actions/template-actions";
-import { SopTemplate, TaskChecklistItemView, TaskChecklistView } from "../types";
+import { getSopPickerOptionsAction } from "../actions/template-actions";
+import { SopPickerOption, TaskChecklistItemView, TaskChecklistView } from "../types";
 import { checklistProgress } from "../utils";
 import { docItemIds } from "../doc";
+import { SopTimelineDrawer } from "./sop-timeline-drawer";
 
 /** TipTap needs the browser — loaded on demand. */
 const SopDocView = dynamic(() => import("../editor/sop-doc-view"), {
@@ -60,8 +64,13 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [templates, setTemplates] = useState<SopTemplate[] | null>(null);
+  // "" = all categories (SearchableSelect's placeholder row clears it).
+  const [category, setCategory] = useState("");
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<SopPickerOption[] | null>(null);
   const [customName, setCustomName] = useState("");
+  // Timeline drawer: the whole task's checklists, or one checklist (checklistId).
+  const [timeline, setTimeline] = useState<{ title: string; checklistId?: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,20 +99,40 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
       prev.map((c) => (c.id === checklistId ? { ...c, items: c.items.map((i) => (i.id === item.id ? item : i)) } : c))
     );
 
-  const openPicker = async () => {
-    setPickerOpen((o) => !o);
-    if (templates === null) {
-      try {
-        setTemplates(await getSopTemplatesAction());
-      } catch (err) {
+  // Anyone who can work on the task gets the Category / Checklist pickers, so load the SOPs up front.
+  useEffect(() => {
+    if (!canCheck || templates !== null) return;
+    let cancelled = false;
+    getSopPickerOptionsAction()
+      .then((res) => {
+        if (!cancelled) setTemplates(res);
+      })
+      .catch((err) => {
         console.error("Failed to load SOPs:", err);
-        setTemplates([]);
-      }
-    }
-  };
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canCheck, templates]);
+
+  // Opened the "Attach an SOP" panel from the (now hidden) "Add checklist" button.
+  // const openPicker = async () => {
+  //   setPickerOpen((o) => !o);
+  //   if (templates === null) {
+  //     try {
+  //       setTemplates(await getSopPickerOptionsAction());
+  //     } catch (err) {
+  //       console.error("Failed to load SOPs:", err);
+  //       setTemplates([]);
+  //     }
+  //   }
+  // };
 
   const handleAttach = async (templateId: string) => {
-    const res = await attachSopChecklistAction(taskId, templateId);
+    if (!templateId || attachingId) return;
+    setAttachingId(templateId);
+    const res = await attachSopChecklistAction(taskId, templateId).finally(() => setAttachingId(null));
     if (!res.success) {
       toast.error(res.error);
       return;
@@ -151,6 +180,18 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
 
   const attachedTemplateIds = new Set(checklists.map((c) => c.templateId).filter(Boolean));
 
+  // Category filter (header picker), shared by the Checklist picker and the "Attach an SOP" list.
+  const categories = Array.from(new Set((templates ?? []).map((t) => t.category))).sort((a, b) => a.localeCompare(b));
+  const shownTemplates = (templates ?? []).filter((t) => !category || t.category === category);
+  const categoryOptions = categories.map((c) => ({
+    value: c,
+    label: `${c} (${(templates ?? []).filter((t) => t.category === c).length})`,
+  }));
+  // Picking a checklist attaches it; ones already on this task aren't offered again.
+  const checklistOptions = shownTemplates
+    .filter((t) => !attachedTemplateIds.has(t.id))
+    .map((t) => ({ value: t.id, label: `${t.name} · ${t.stepCount} steps${category ? "" : ` · ${t.category}`}` }));
+
   if (isLoading) {
     return (
       <div className="flex justify-center p-8">
@@ -163,31 +204,78 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
     <div className="space-y-4 p-1 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 font-bold text-foreground">
-          <ClipboardCheck size={15} className="text-primary" /> SOP Checklists
+          {/* <ClipboardCheck size={15} className="text-primary" /> SOP Checklists */}
+          {/* Task-wide timeline button, hidden by request — each checklist has its own Timeline button.
+          {canCheck && (
+            <button
+              type="button"
+              onClick={() => setTimeline({ title: "All SOP checklists on this task" })}
+              className="ml-1 flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground dark:border-zinc-800"
+              title="Who picked, ticked and changed this task's checklists, and when"
+            >
+              <History size={12} /> Timeline
+            </button>
+          )} */}
         </h3>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openPicker}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus size={13} /> Add checklist
-          </button>
+        {canCheck && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search & pick: Category narrows the Checklist list; picking a checklist attaches it. */}
+            <SearchableSelect
+              value={category}
+              onChange={setCategory}
+              options={categoryOptions}
+              placeholder={templates === null ? "Loading…" : "All categories"}
+              searchPlaceholder="Search categories..."
+              disabled={templates === null}
+              className="flex max-w-[190px] items-center gap-1 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-primary dark:border-zinc-800"
+            />
+            <SearchableSelect
+              value=""
+              onChange={handleAttach}
+              options={checklistOptions}
+              placeholder={
+                attachingId
+                  ? "Attaching…"
+                  : templates === null
+                  ? "Loading…"
+                  : checklistOptions.length === 0
+                  ? "No checklists left"
+                  : "Select checklist"
+              }
+              searchPlaceholder="Search checklists..."
+              disabled={templates === null || !!attachingId || checklistOptions.length === 0}
+              className="flex max-w-[240px] items-center gap-1 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-primary dark:border-zinc-800"
+              contentClassName="w-80"
+            />
+            {attachingId && <Loader2 size={14} className="animate-spin text-primary" />}
+            {/* "Add checklist" button hidden by request — the Category / Checklist pickers above attach SOPs.
+            <button
+              type="button"
+              onClick={openPicker}
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus size={13} /> Add checklist
+            </button> */}
+          </div>
         )}
       </div>
 
-      {pickerOpen && canManage && (
+      {pickerOpen && canCheck && (
         <div className="space-y-3 rounded-lg border bg-card p-3 dark:border-zinc-800">
-          <p className="font-semibold text-foreground">Attach an SOP</p>
+          <p className="font-semibold text-foreground">
+            Attach an SOP{category && <span className="font-normal text-muted-foreground"> · {category}</span>}
+          </p>
           {templates === null ? (
             <Loader2 size={16} className="animate-spin text-primary" />
           ) : templates.length === 0 ? (
             <p className="text-muted-foreground">
               No SOPs yet — create one under Srijan → SOP Checklists.
             </p>
+          ) : shownTemplates.length === 0 ? (
+            <p className="text-muted-foreground">No SOPs in this category.</p>
           ) : (
             <ul className="max-h-56 space-y-1 overflow-y-auto">
-              {templates.map((t) => {
+              {shownTemplates.map((t) => {
                 const attached = attachedTemplateIds.has(t.id);
                 return (
                   <li key={t.id}>
@@ -199,7 +287,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
                     >
                       <span>
                         <span className="font-semibold text-foreground">{t.name}</span>
-                        <span className="text-muted-foreground"> · {t.category} · {t.items.length} items</span>
+                        <span className="text-muted-foreground"> · {t.category} · {t.stepCount} steps</span>
                       </span>
                       {attached && <span className="text-[11px] text-muted-foreground">Attached</span>}
                     </button>
@@ -208,6 +296,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
               })}
             </ul>
           )}
+          {canManage && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -229,6 +318,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
               <ListPlus size={13} /> Create
             </button>
           </form>
+          )}
         </div>
       )}
 
@@ -236,7 +326,11 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
         <div className="space-y-1 rounded-lg border border-dashed p-8 text-center text-muted-foreground dark:border-zinc-800">
           <ClipboardCheck size={28} className="mx-auto opacity-40" />
           <p className="font-semibold text-foreground">No checklist on this task yet.</p>
-          <p>{canManage ? "Add an SOP checklist above." : "A manager can attach an SOP checklist here."}</p>
+          <p>
+            {canCheck
+              ? "Select an SOP checklist above (pick a category to narrow the list). The task can't be closed until its checklist is complete."
+              : "Only this task's owners, project users and managers can add a checklist."}
+          </p>
         </div>
       ) : (
         checklists.map((c) => (
@@ -249,9 +343,16 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
             onChecklistChange={replaceChecklist}
             onDetach={() => handleDetach(c)}
             onSync={() => handleSync(c)}
+            onOpenTimeline={() => setTimeline({ title: c.name, checklistId: c.id })}
           />
         ))
       )}
+      <SopTimelineDrawer
+        open={timeline !== null}
+        onClose={() => setTimeline(null)}
+        title={timeline?.title ?? ""}
+        query={{ taskId, checklistId: timeline?.checklistId }}
+      />
       {ConfirmDialog}
     </div>
   );
@@ -265,6 +366,7 @@ function ChecklistCard({
   onChecklistChange,
   onDetach,
   onSync,
+  onOpenTimeline,
 }: {
   checklist: TaskChecklistView;
   canManage: boolean;
@@ -273,6 +375,7 @@ function ChecklistCard({
   onChecklistChange: (c: TaskChecklistView) => void;
   onDetach: () => void;
   onSync: () => void;
+  onOpenTimeline: () => void;
 }) {
   const [newItem, setNewItem] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -398,9 +501,17 @@ function ChecklistCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="truncate text-sm font-semibold text-foreground">{checklist.name}</h4>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            {/* <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
               {checklist.templateId ? `SOP v${checklist.templateVersion}` : "Custom"}
-            </span>
+            </span> */}
+            <button
+              type="button"
+              onClick={onOpenTimeline}
+              className="flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground dark:border-zinc-800"
+              title="Timeline of this checklist"
+            >
+              <History size={12} /> Timeline
+            </button>
             {progress.requiredOpen > 0 && (
               <span className="text-[11px] font-semibold text-warning">{progress.requiredOpen} required open</span>
             )}
@@ -420,6 +531,16 @@ function ChecklistCard({
           </div>
           <span className="w-5 tabular-nums">{progress.total}</span>
         </div>
+
+        {/* Moved next to the "SOP v1" badge.
+        <button
+          type="button"
+          onClick={onOpenTimeline}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          title="Timeline of this checklist"
+        >
+          <History size={14} />
+        </button> */}
 
         {canManage && (
           <DropdownMenu>
@@ -623,6 +744,27 @@ function ChecklistItemRow({
     }
   };
 
+  // Managers can reword items added on the task itself; SOP steps are edited in the SOP.
+  const canEditText = canManage && !item.sourceItemId;
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [textDraft, setTextDraft] = useState(item.text);
+
+  const saveText = async () => {
+    setIsEditingText(false);
+    const next = textDraft.trim();
+    if (!next || next === item.text) {
+      setTextDraft(item.text);
+      return;
+    }
+    const res = await updateChecklistItemTextAction(item.id, next);
+    if (!res.success) {
+      toast.error(res.error);
+      setTextDraft(item.text);
+      return;
+    }
+    onChange(res.item);
+  };
+
   const handleToggle = () => {
     // A proof-required item opens the details form instead of ticking straight away.
     if (!item.checked && item.requiresEvidence && !item.evidenceUrl) {
@@ -645,9 +787,26 @@ function ChecklistItemRow({
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={cn("text-foreground", item.checked && "text-muted-foreground line-through")}>
-              {item.text}
-            </span>
+            {isEditingText ? (
+              <input
+                autoFocus
+                value={textDraft}
+                onChange={(e) => setTextDraft(e.target.value)}
+                onBlur={saveText}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") {
+                    setTextDraft(item.text);
+                    setIsEditingText(false);
+                  }
+                }}
+                className="min-w-48 flex-1 rounded border bg-background px-1.5 py-0.5 outline-none focus:border-primary dark:border-zinc-800"
+              />
+            ) : (
+              <span className={cn("text-foreground", item.checked && "text-muted-foreground line-through")}>
+                {item.text}
+              </span>
+            )}
             {item.isRequired && (
               <span className="rounded bg-destructive/10 px-1 text-[10px] font-semibold text-destructive">Required</span>
             )}
@@ -693,6 +852,16 @@ function ChecklistItemRow({
               title="Add note / proof link"
             >
               <MessageSquare size={12} />
+            </button>
+          )}
+          {canEditText && !isEditingText && (
+            <button
+              type="button"
+              onClick={() => setIsEditingText(true)}
+              className="rounded p-1 text-muted-foreground hover:bg-accent"
+              title="Edit item"
+            >
+              <Pencil size={12} />
             </button>
           )}
           {canManage && (

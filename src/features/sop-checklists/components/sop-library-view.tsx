@@ -5,7 +5,9 @@ import dynamic from "next/dynamic";
 import {
   Archive,
   ArchiveRestore,
+  History,
   ClipboardCheck,
+  Download,
   Loader2,
   Plus,
   RefreshCw,
@@ -20,12 +22,15 @@ import {
   createSopTemplateAction,
   deleteSopTemplateAction,
   getSopTemplatesAction,
+  importEedSopLibraryAction,
+  previewEedSopLibraryImportAction,
   pushSopTemplateUpdateAction,
   setSopTemplateArchivedAction,
   updateSopTemplateAction,
 } from "../actions/template-actions";
 import { SOP_CATEGORIES, SopTemplate } from "../types";
 import { DocNode } from "../doc";
+import { SopTimelineDrawer } from "./sop-timeline-drawer";
 
 /** TipTap needs the browser — loaded on demand. */
 const SopDocEditor = dynamic(() => import("../editor/sop-doc-editor"), {
@@ -87,6 +92,8 @@ export function SopLibraryView() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,7 +137,12 @@ export function SopLibraryView() {
     if (!draft) return;
     setIsSaving(true);
     try {
-      const input = { name: draft.name, description: draft.description, category: draft.category, content: draft.content };
+      // Plain JSON only: the editor's document can hold non-plain values (editor objects, pasted
+      // files), which reach the server action as client references and fail with "Cannot access
+      // toStringTag on the server". The server validates the document shape itself.
+      const input = JSON.parse(
+        JSON.stringify({ name: draft.name, description: draft.description, category: draft.category, content: draft.content })
+      );
       const res = draft.id ? await updateSopTemplateAction(draft.id, input) : await createSopTemplateAction(input);
       if (!res.success) {
         toast.error(res.error);
@@ -147,6 +159,62 @@ export function SopLibraryView() {
       toast.error("Failed to save SOP");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleImportLibrary = async () => {
+    setIsImporting(true);
+    try {
+      // Dry run first (read-only) so the manager sees exactly what would be created.
+      const preview = await previewEedSopLibraryImportAction();
+      if (!preview.success) {
+        toast.error(preview.error);
+        return;
+      }
+      const { plan } = preview;
+      if (plan.create.length === 0) {
+        toast.info(
+          `Nothing to import — all ${plan.skip.length} SOPs from the sheet already exist` +
+            (plan.invalid.length > 0 ? ` (${plan.invalid.length} invalid)` : "")
+        );
+        return;
+      }
+      const steps = plan.create.reduce((s, c) => s + c.checkboxes, 0);
+      const listed = plan.create
+        .slice(0, 8)
+        .map((c) => c.name)
+        .join(", ");
+      const ok = await confirm({
+        title: "Dry run: import the EED SOP library?",
+        description:
+          `Will create ${plan.create.length} SOP(s) with ${steps} checklist steps: ${listed}` +
+          (plan.create.length > 8 ? ` and ${plan.create.length - 8} more` : "") +
+          `. ` +
+          (plan.skip.length > 0 ? `${plan.skip.length} already exist and will be skipped. ` : "") +
+          (plan.invalid.length > 0 ? `${plan.invalid.length} can't be imported. ` : "") +
+          `Only new SOPs are added — nothing else changes. Nothing has been saved yet; Cancel leaves the database untouched.`,
+        confirmLabel: `Import ${plan.create.length} SOP(s)`,
+        danger: false,
+      });
+      if (!ok) return;
+
+      const res = await importEedSopLibraryAction();
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      setTemplates(await getSopTemplatesAction({ includeArchived: true }));
+      toast.success(
+        `Imported ${res.created} SOP(s)` +
+          (res.skipped > 0 ? ` · ${res.skipped} already existed` : "") +
+          (res.failed.length > 0 ? ` · ${res.failed.length} failed` : "")
+      );
+      if (res.failed.length > 0) console.error("SOP import failures:", res.failed);
+    } catch (err) {
+      console.error("Failed to import the SOP library:", err);
+      toast.error("Failed to import the SOP library");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -219,18 +287,33 @@ export function SopLibraryView() {
           <h1 className="flex items-center gap-2 text-lg font-bold">
             <ClipboardCheck size={20} className="text-primary" /> SOP Checklists
           </h1>
+          {/* Hidden by request.
           <p className="text-xs text-muted-foreground">
             Write SOPs like documents — text, tables pasted from Excel, and checkboxes anywhere. Every checkbox is a step
             people tick on the task.
-          </p>
+          </p> */}
         </div>
-        <button
-          type="button"
-          onClick={() => setDraft(emptyDraft())}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
-        >
-          <Plus size={15} /> New SOP
-        </button>
+        <div className="flex items-center gap-2">
+          {/* "Import EED SOP library" hidden — the library has been imported. Restore to re-run it
+              (it only adds SOPs that don't exist yet).
+          <button
+            type="button"
+            disabled={isImporting}
+            onClick={handleImportLibrary}
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-accent disabled:opacity-60"
+            title="Create the SOPs from the Team EED - SOP, Checklist, Projects sheet that aren't here yet"
+          >
+            {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Import EED SOP library
+          </button> */}
+          <button
+            type="button"
+            onClick={() => setDraft(emptyDraft())}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
+          >
+            <Plus size={15} /> New SOP
+          </button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -273,7 +356,9 @@ export function SopLibraryView() {
               </div>
             ) : visible.length === 0 ? (
               <p className="p-6 text-center text-xs text-muted-foreground">
-                {templates.length === 0 ? "No SOPs yet. Create the first one." : "No SOPs match these filters."}
+                {templates.length === 0
+                  ? "No SOPs yet. Create one, or use “Import EED SOP library” to bring in the team's sheet."
+                  : "No SOPs match these filters."}
               </p>
             ) : (
               <ul className="space-y-1.5">
@@ -317,9 +402,10 @@ export function SopLibraryView() {
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
               <ClipboardCheck size={34} className="text-primary/60" />
               <p className="text-sm font-semibold text-foreground">Select an SOP or create a new one</p>
+              {/* Hidden by request.
               <p className="max-w-sm text-xs">
                 Managers attach SOPs to tasks from the task&apos;s SOP Checklist tab. Task owners then tick the checkboxes.
-              </p>
+              </p> */}
             </div>
           ) : (
             <div className="mx-auto max-w-4xl space-y-4">
@@ -378,11 +464,12 @@ export function SopLibraryView() {
 
               <div className="space-y-1">
                 <p className="text-xs font-semibold">SOP document</p>
+                {/* Hidden by request.
                 <p className="text-[11px] text-muted-foreground">
                   Paste from Excel, Sheets, Word or Docs. Select lines or table cells and click{" "}
                   <b>To checkboxes</b> to make them tickable. Put the cursor on a checkbox to mark it{" "}
                   <b>Required</b> or <b>Proof</b>.
-                </p>
+                </p> */}
                 <SopDocEditor
                   key={draft.editorKey}
                   initialContent={draft.content}
@@ -394,6 +481,14 @@ export function SopLibraryView() {
                 <div className="flex items-center gap-2">
                   {selected && (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => setTimelineOpen(true)}
+                        className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+                        title="Who created, edited and picked this SOP, and everything done with it on tasks"
+                      >
+                        <History size={13} /> Timeline
+                      </button>
                       <button
                         type="button"
                         onClick={handleArchive}
@@ -435,6 +530,15 @@ export function SopLibraryView() {
           )}
         </section>
       </div>
+      {selected && (
+        <SopTimelineDrawer
+          open={timelineOpen}
+          onClose={() => setTimelineOpen(false)}
+          title={selected.name}
+          query={{ templateId: selected.id }}
+          sopScope
+        />
+      )}
       {ConfirmDialog}
     </div>
   );

@@ -8,6 +8,8 @@ import { reviewStatus, relativeDayLabel, formatShortDate } from "../utils";
 import type { EntryWithDetails } from "../queries";
 import { TaskAuditHistoryPopover } from "./task-audit-history-popover";
 import { toggleStandupTask } from "../actions/toggle-standup-task";
+import { toast } from "@/components/shared/toast";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, WrappedTaskText } from "@/components/shared/task-table-parts";
@@ -147,7 +149,12 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                                   type="checkbox"
                                   checked={task.isCompleted ?? false}
                                   onChange={async (e) => {
-                                    await toggleStandupTask(task.id, e.target.checked);
+                                    const res = await toggleStandupTask(task.id, e.target.checked);
+                                    if (!res.success && "checklistBlock" in res && res.checklistBlock) {
+                                      showChecklistGate({ ...res.checklistBlock, status: "Closed" });
+                                    } else if (!res.success) {
+                                      toast.error(res.message || "Couldn't update the task.");
+                                    }
                                   }}
                                   className="h-3.5 w-3.5 rounded border-muted-foreground accent-primary cursor-pointer shrink-0"
                                 />

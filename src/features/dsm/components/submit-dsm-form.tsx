@@ -1240,6 +1240,11 @@ function Section({ icon, title, required, headerAction, children }: {
 
 // ── Main form ─────────────────────────────────────────────────────────────────
 
+/** localStorage key of the unsaved edits to a submitted DSM. */
+export function dsmEditDraftKey(userId: string, dateStr: string) {
+  return `winos_dsm_edit_draft_${userId}_${dateStr}`;
+}
+
 type SubmitDsmFormProps = {
   entry: EntryWithDetails | null;
   /** Previous DSM day's planned tasks with done state, project link and logged effort. */
@@ -1279,17 +1284,23 @@ export function SubmitDsmForm({
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
   const isLoadedRef = useRef(false);
-  const draftKey = `winos_dsm_draft_${todayDateStr}`;
+  // Per user, so a shared browser never loads someone else's draft. Editing a submitted DSM keeps
+  // its own draft (DsmSelfPanel reopens the editor when one exists).
+  const draftKey = isEditMode ? dsmEditDraftKey(currentUserId, todayDateStr) : `winos_dsm_draft_${currentUserId}_${todayDateStr}`;
+  // Drafts saved before keys were per user.
+  const legacyDraftKey = `winos_dsm_draft_${todayDateStr}`;
 
   // Read saved draft synchronously on initial render
-  const savedDraft = typeof window !== "undefined" && !isEditMode ? (() => {
+  const savedDraft = typeof window !== "undefined" ? (() => {
     try {
-      const saved = localStorage.getItem(draftKey);
+      const saved = localStorage.getItem(draftKey) ?? (isEditMode ? null : localStorage.getItem(legacyDraftKey));
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   })() : null;
+  const restoredFromDraftRef = useRef(savedDraft !== null);
+  const baselineRef = useRef<string | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     if (savedDraft?.tasks?.length) {
@@ -1530,24 +1541,44 @@ export function SubmitDsmForm({
 
   useEffect(() => {
     isLoadedRef.current = true;
-  }, []);
+    try {
+      localStorage.removeItem(legacyDraftKey);
+    } catch {
+      // Ignore
+    }
+  }, [legacyDraftKey]);
 
   // Auto-save form draft to localStorage on every change
   useEffect(() => {
-    if (!isLoadedRef.current || isEditMode) return;
-    const draftData = {
+    if (!isLoadedRef.current) return;
+    const draftData = JSON.stringify({
       tasks,
       blockers,
       supports,
       learningItems,
       learningText: learningItems.map((l) => l.text.trim()).filter(Boolean).join("\n"),
-    };
+    });
+    // Editing a submitted DSM: only keep a draft once something changed from what was submitted.
+    if (baselineRef.current === null) baselineRef.current = restoredFromDraftRef.current ? "" : draftData;
     try {
-      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      if (isEditMode && draftData === baselineRef.current) localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey, draftData);
     } catch {
       // Ignore storage error
     }
   }, [draftKey, isEditMode, tasks, blockers, supports, learningItems]);
+
+  // Cancelling an edit discards its draft.
+  const handleCancel = onCancel
+    ? () => {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          // Ignore
+        }
+        onCancel();
+      }
+    : undefined;
 
   // Clear draft upon successful save or submission
   useEffect(() => {
@@ -1566,10 +1597,10 @@ export function SubmitDsmForm({
         <h2 className="text-base font-semibold">
           {isEditMode ? "Edit Today's Standup" : "Submit Today's Standup"}
         </h2>
-        {onCancel && (
+        {handleCancel && (
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             Cancel

@@ -1,6 +1,37 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { planChecklistSync, SyncTaskItem, SyncTemplateItem } from "./utils";
-import type { DocNode } from "./doc";
+import { docFromItems, isDocNode, type DocNode } from "./doc";
+
+/**
+ * Prisma `create` data for a task's copy of an SOP (`template` loaded with its items in order).
+ * Older list-only SOPs get a checkbox-list document, so every attached copy renders the same way.
+ */
+export function sopCopyCreateData(
+  template: any,
+  taskId: string,
+  position: number,
+  user: { id: string; name: string }
+) {
+  return {
+    taskId,
+    templateId: template.id,
+    templateVersion: template.version,
+    content: (isDocNode(template.content) ? template.content : docFromItems(template.items)) as any,
+    name: template.name,
+    position,
+    attachedById: user.id,
+    attachedByName: user.name,
+    items: {
+      create: template.items.map((i: any) => ({
+        sourceItemId: i.id,
+        text: i.text,
+        position: i.position,
+        isRequired: i.isRequired,
+        requiresEvidence: i.requiresEvidence,
+      })),
+    },
+  };
+}
 
 /**
  * Applies `planChecklistSync` to one TaskChecklist inside the caller's transaction (`tx`) and

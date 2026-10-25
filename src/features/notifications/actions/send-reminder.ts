@@ -64,7 +64,7 @@ async function hasSubmittedToday(
   kind: ReminderKind = "dsm"
 ): Promise<boolean> {
   const model = kind === "report" ? d.dsrEntry : d.standupEntry;
-  // With a next-day cut-off, the report still open before ~6 AM is the previous day's.
+  // With a next-day cut-off, the report still open before the cut-off (9 AM) is the previous day's.
   const date = kind === "report"
     ? isoToUtcDate(getOpenReportDateStr(new Date(), getReportCutoff(), getReportCutoffDayOffset()))
     : today;

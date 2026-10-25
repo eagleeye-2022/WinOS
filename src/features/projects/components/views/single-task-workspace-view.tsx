@@ -3,7 +3,7 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { canUserActOnTask } from "../../utils/task-authorization";
 import {
   ArrowLeft,
@@ -96,6 +96,8 @@ import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { TaskDocumentsTab } from "../task-documents-tab";
 import { TaskChecklistTab } from "@/features/sop-checklists/components/task-checklist-tab";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { getChecklistCloseBlockAction } from "@/features/sop-checklists/actions/task-checklist-actions";
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 import { ProjectStandupRollup } from "../project-standup-rollup";
 import { toast } from "@/components/shared/toast";
@@ -354,7 +356,20 @@ export function SingleTaskWorkspaceView({
         if (!result.success) {
           setTaskStatus(previousStatus);
           setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
-          toast.error(result.error || "You do not have permission to edit this task.");
+          if (result.checklistBlock) {
+            // Already on the task: "Select / Open checklist" just switches to its tab.
+            showChecklistGate({
+              ...result.checklistBlock,
+              status: newStatus,
+              onOpenChecklist: () => setActiveTab("CHECKLIST"),
+              onForced: () => {
+                setTaskStatus(newStatus);
+                setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
+              },
+            });
+          } else {
+            toast.error(result.error || "You do not have permission to edit this task.");
+          }
         } else {
           toast.success(`Task status changed to ${newStatus}`);
         }
@@ -433,7 +448,16 @@ export function SingleTaskWorkspaceView({
       const result = await updateTaskAction(taskId, updates);
       if (!result.success) {
         rollback();
-        toast.error(result.error || "You do not have permission to edit this task.");
+        if (result.checklistBlock && updates.status) {
+          showChecklistGate({
+            ...result.checklistBlock,
+            status: updates.status,
+            onOpenChecklist: () => setActiveTab("CHECKLIST"),
+            onForced: () => router.refresh(),
+          });
+        } else {
+          toast.error(result.error || "You do not have permission to edit this task.");
+        }
         return false;
       }
       toast.success("Task updated");
@@ -459,6 +483,8 @@ export function SingleTaskWorkspaceView({
   };
 
   const [taskInfoOpen, setTaskInfoOpen] = useState(false);
+  const searchParams = useSearchParams();
+  // `?tab=checklist` (links from the project's Checklist overview) opens the SOP Checklist tab.
   const [activeTab, setActiveTab] = useState<
     | "COMMENTS"
     | "SUBTASKS"
@@ -471,7 +497,7 @@ export function SingleTaskWorkspaceView({
     | "DRIVE"
     | "CHECKLIST"
     | "STANDUP_ACTIVITY"
-  >("COMMENTS");
+  >(() => (!isLearningList && searchParams.get("tab") === "checklist" ? "CHECKLIST" : "COMMENTS"));
 
   const [commentText, setCommentText] = useState("");
   const [commentsList, setCommentsList] = useState<
@@ -580,9 +606,37 @@ export function SingleTaskWorkspaceView({
       )
     );
 
-    updateSubtaskAction(id, { completed: newCompleted, status: newStatus }).catch((err) =>
-      console.error("Failed to update subtask in DB:", err)
+    updateSubtaskAction(id, { completed: newCompleted, status: newStatus })
+      .then((saved) => {
+        if (!saved) revertSubtaskStatus(target, newStatus);
+      })
+      .catch((err) => console.error("Failed to update subtask in DB:", err));
+  };
+
+  /** Undoes an optimistic subtask status change the server refused (its SOP checklist isn't done). */
+  const revertSubtaskStatus = async (target: TaskSubtask, attemptedStatus: TaskStatus) => {
+    const wasDone = isTaskDone(target.status, target.completed);
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === activeTask.id
+          ? {
+              ...t,
+              subtasks: (t.subtasks || []).map((st) =>
+                st.id === target.id ? { ...st, status: target.status, completed: target.completed } : st
+              ),
+            }
+          : t.id === target.id || t.code === target.code
+          ? { ...t, status: target.status, completionPercentage: wasDone ? 100 : 0 }
+          : t
+      )
     );
+    const block = await getChecklistCloseBlockAction(target.id).catch(() => null);
+    if (block) {
+      // The subtask's own page has its checklist; a manager's "Close anyway" reloads to show it closed.
+      showChecklistGate({ ...block, status: attemptedStatus, onForced: () => router.refresh() });
+    } else {
+      toast.error("Couldn't update the subtask — reload and try again.");
+    }
   };
 
   const handleSubtaskStatusChange = (id: string, newStatus: TaskStatus) => {
@@ -609,9 +663,11 @@ export function SingleTaskWorkspaceView({
       )
     );
 
-    updateSubtaskAction(id, { status: newStatus, completed: isDone }).catch(
-      (err) => console.error("Failed to update subtask status in DB:", err)
-    );
+    updateSubtaskAction(id, { status: newStatus, completed: isDone })
+      .then((saved) => {
+        if (!saved && target) revertSubtaskStatus(target, newStatus);
+      })
+      .catch((err) => console.error("Failed to update subtask status in DB:", err));
   };
 
   const handleDeleteSubtask = async (id: string) => {
@@ -1805,7 +1861,8 @@ export function SingleTaskWorkspaceView({
                 {[
                   { key: "COMMENTS", label: "Comments" },
                   { key: "SUBTASKS", label: "Subtasks" },
-                  { key: "CHECKLIST", label: "SOP Checklist" },
+                  // SOP checklists are for Srijan project tasks — not shown on WhyFi School cards.
+                  ...(isLearningList ? [] : [{ key: "CHECKLIST", label: "SOPs/Checklist" }]),
                   { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                   { key: "DOCUMENTS", label: "Documents" },
                   { key: "STATUS_TIMELINE", label: "Status Timeline" },
@@ -2456,7 +2513,7 @@ export function SingleTaskWorkspaceView({
                 </div>
               )}
 
-              {activeTab === "CHECKLIST" && <TaskChecklistTab taskId={activeTask.id} />}
+              {activeTab === "CHECKLIST" && !isLearningList && <TaskChecklistTab taskId={activeTask.id} />}
             </div>
           </div>
         </div>

@@ -1317,6 +1317,32 @@ model TaskChecklistItem {
   @@index([checklistId, position])
 }
 
+// Timeline of everything that happens to SOP checklists: SOPs created / edited / imported /
+// archived, SOPs picked for or removed from tasks, items ticked / added / edited, tasks closed.
+// Append-only. No foreign keys on purpose: events (with the names copied in) outlive the SOP,
+// task or checklist they're about. Event types: src/features/sop-checklists/event-types.ts.
+model SopChecklistEvent {
+  id           String   @id @default(cuid())
+  type         String
+  templateId   String?
+  templateName String?
+  checklistId  String?
+  taskId       String?
+  taskCode     String?
+  taskTitle    String?
+  // Project code (or id) for links to the task page.
+  projectCode  String?
+  itemText     String?
+  details      Json?
+  actorId      String?
+  actorName    String?
+  createdAt    DateTime @default(now())
+
+  @@index([templateId, createdAt])
+  @@index([taskId, createdAt])
+  @@index([checklistId, createdAt])
+}
+
 enum BillingType {
   BILLABLE
   NON_BILLABLE

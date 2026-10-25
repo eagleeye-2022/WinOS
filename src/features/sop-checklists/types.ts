@@ -70,6 +70,60 @@ export interface TaskChecklistsPayload {
   canCheck: boolean;
 }
 
+/** An SOP as offered in a task's checklist picker (anyone who can work on the task may pick). */
+export interface SopPickerOption {
+  id: string;
+  name: string;
+  category: string;
+  stepCount: number;
+}
+
+/**
+ * Why a task can't be closed yet (Srijan project tasks need a completed SOP checklist):
+ * NO_CHECKLIST → "Please select a checklist", INCOMPLETE → "Please complete the checklist".
+ */
+export interface ChecklistCloseBlock {
+  reason: "NO_CHECKLIST" | "INCOMPLETE";
+  message: string;
+  done: number;
+  total: number;
+  taskId: string;
+  taskCode: string;
+  /** For the task page link; null when the task has no project. */
+  projectCode: string | null;
+  /** Managers may close anyway. */
+  canForce: boolean;
+}
+
+export interface ChecklistSummary {
+  id: string;
+  name: string;
+  templateId: string | null;
+  /** Its SOP has a newer version than this copy. */
+  isBehind: boolean;
+  done: number;
+  total: number;
+  requiredOpen: number;
+}
+
+export interface ProjectChecklistTask {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  phaseName: string | null;
+  isSubtask: boolean;
+  isDone: boolean;
+  checklists: ChecklistSummary[];
+}
+
+export interface ProjectChecklistOverview {
+  /** Code used in task links (`/projects/<code>/tasks/<taskCode>`); null when not visible. */
+  projectCode: string | null;
+  canManage: boolean;
+  tasks: ProjectChecklistTask[];
+}
+
 export const SOP_CATEGORIES = [
   "General",
   "Client Delivery",

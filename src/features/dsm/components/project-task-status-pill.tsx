@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
 import { updateTaskAction } from "@/features/projects/actions/project-actions";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { PROJECT_TASK_STATUSES, getTaskStatusBadgeClasses, type TaskStatus } from "@/features/projects/types";
 
 /**
@@ -47,7 +48,18 @@ export function ProjectTaskStatusPill({
       if (!res.success) {
         setCurrent(previous);
         onStatusChange?.(previous);
-        toast.error(res.error || "Could not update the status.");
+        if (res.checklistBlock) {
+          showChecklistGate({
+            ...res.checklistBlock,
+            status: next,
+            onForced: () => {
+              setCurrent(next);
+              onStatusChange?.(next);
+            },
+          });
+        } else {
+          toast.error(res.error || "Could not update the status.");
+        }
         return;
       }
       toast.success(`Status set to ${next}`);

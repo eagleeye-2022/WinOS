@@ -52,6 +52,7 @@ import { AddProjectDrawer } from "./modals/add-project-drawer";
 import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-modal";
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 import { toast } from "@/components/shared/toast";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 
 /**
  * Last data this workspace showed, kept for the life of the browser tab. Navigating into a
@@ -340,7 +341,15 @@ export function ProjectsWorkspace() {
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      toast.error(result.error || "You do not have permission to edit this task.");
+      if (result.checklistBlock) {
+        showChecklistGate({
+          ...result.checklistBlock,
+          status: updatedTask.status,
+          onForced: () => setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))),
+        });
+      } else {
+        toast.error(result.error || "You do not have permission to edit this task.");
+      }
     } else {
       toast.success("Task updated");
     }

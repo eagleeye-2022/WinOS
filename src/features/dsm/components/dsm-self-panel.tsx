@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
 import { TodaysFocusCard } from "./today-focus-card";
-import { SubmitDsmForm } from "./submit-dsm-form";
+import { SubmitDsmForm, dsmEditDraftKey } from "./submit-dsm-form";
 import { WeekHistory } from "./week-history";
 import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
@@ -52,6 +52,16 @@ export function DsmSelfPanel({
 }: DsmSelfPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const canEdit = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
+
+  // Unsaved edits to the submitted DSM (kept in this browser) → reopen the editor with them.
+  useEffect(() => {
+    if (!canEdit) return;
+    try {
+      if (localStorage.getItem(dsmEditDraftKey(currentUserId, todayDateStr))) setIsEditing(true);
+    } catch {
+      // Storage unavailable — open normally.
+    }
+  }, [canEdit, currentUserId, todayDateStr]);
   const showForm = !entry || entry.status === "DRAFT" || isEditing;
 
   if (showForm) {
