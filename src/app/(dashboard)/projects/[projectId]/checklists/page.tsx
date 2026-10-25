@@ -1,13 +1,11 @@
-"use client";
+import { ProjectChecklistsView } from "@/features/sop-checklists/components/project-checklists-view";
 
-import React from "react";
-import { ChecklistWorkspaceView } from "@/features/projects/components/views/checklist-workspace-view";
+export default async function ChecklistsPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
 
-export default function ChecklistsPage() {
   return (
     <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
-      <ChecklistWorkspaceView />
+      <ProjectChecklistsView projectId={projectId} />
     </div>
   );
 }
-

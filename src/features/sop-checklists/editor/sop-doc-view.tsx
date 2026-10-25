@@ -4,6 +4,12 @@ import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { sopDocExtensions } from "./sop-extensions";
 import { applyChecks, type DocNode } from "../doc";
+// Same look as the editor (and the iNotes editor): shared node styles, then the SOP additions.
+import "@/components/tiptap-node/blockquote-node/blockquote-node.scss";
+import "@/components/tiptap-node/code-block-node/code-block-node.scss";
+import "@/components/tiptap-node/list-node/list-node.scss";
+import "@/components/tiptap-node/heading-node/heading-node.scss";
+import "@/components/tiptap-node/paragraph-node/paragraph-node.scss";
 import "./sop-doc.css";
 
 interface SopDocViewProps {
@@ -41,7 +47,7 @@ export default function SopDocView({ content, checkedById, onToggle }: SopDocVie
       },
     }),
     content: applyChecks(content, checkedById),
-    editorProps: { attributes: { class: "sop-doc" } },
+    editorProps: { attributes: { class: "sop-doc focus:outline-none text-sm leading-snug text-foreground" } },
   });
 
   // A new document (e.g. after "update to latest SOP") replaces the content.

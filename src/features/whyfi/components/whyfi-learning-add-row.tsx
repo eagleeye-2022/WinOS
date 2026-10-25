@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Calendar, Loader2, Plus, X } from "lucide-react";
 import { DueDateInput, TaskInfoLink, TodayDueButton } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import type { WhyfiPickerTask } from "../actions";
 import { WhyfiTaskSelectors } from "./whyfi-task-selectors";
 
@@ -16,17 +17,27 @@ export function WhyfiLearningAddRow({
   tasks,
   loading,
   onAdd,
+  draftKey = null,
 }: {
   tasks: WhyfiPickerTask[];
   loading: boolean;
   /** Saves the line; `task` is the picked card (if any) and `dueDate` ("YYYY-MM-DD" or "") its due date. */
   onAdd: (text: string, task: WhyfiPickerTask | undefined, dueDate: string) => Promise<void> | void;
+  /** localStorage key that keeps unsent input across reloads; none → not kept. */
+  draftKey?: string | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [taskId, setTaskId] = useState("");
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useFormDraft(draftKey, { taskId, text, dueDate }, adding, (d) => {
+    setTaskId(d.taskId ?? "");
+    setText(d.text ?? "");
+    setDueDate(d.dueDate ?? "");
+    setAdding(true);
+  });
 
   const task = tasks.find((t) => t.id === taskId);
   const canAdd = Boolean(text.trim() || task) && !saving;

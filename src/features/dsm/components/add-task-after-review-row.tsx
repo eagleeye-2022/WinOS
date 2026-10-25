@@ -5,6 +5,7 @@ import { Check, Calendar as CalendarIcon, Loader2, Plus, X } from "lucide-react"
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
@@ -42,6 +43,22 @@ export function AddTaskAfterReviewRow({
   const [selectedProjectTaskId, setSelectedProjectTaskId] = useState("");
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState<string>("");
+
+  // Unsent input survives a reload / reopening the app until it's added or cancelled.
+  useFormDraft(
+    `winos_dsm_add_task_${entryId}`,
+    { selectedProjectId, selectedTaskId, selectedSubtaskId, selectedProjectTaskId, text, dueDate },
+    adding,
+    (d) => {
+      setSelectedProjectId(d.selectedProjectId ?? "");
+      setSelectedTaskId(d.selectedTaskId ?? "");
+      setSelectedSubtaskId(d.selectedSubtaskId ?? "");
+      setSelectedProjectTaskId(d.selectedProjectTaskId ?? "");
+      setText(d.text ?? "");
+      setDueDate(d.dueDate ?? "");
+      setAdding(true);
+    }
+  );
 
   const [state, action, pending] = useActionState<AddTaskAfterReviewState, FormData>(
     addTaskAfterReview,

@@ -6,6 +6,7 @@ import { getMyTasksAction, updateTaskAction } from "@/features/projects/actions/
 import { TaskItem } from "@/features/projects/types";
 import { TasksListView } from "@/features/projects/components/views/tasks-list-view";
 import { toast } from "@/components/shared/toast";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { PageTitle } from "@/components/shared/page-header";
 
 export default function MyTasksPage() {
@@ -43,7 +44,15 @@ export default function MyTasksPage() {
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      toast.error(result.error || "You do not have permission to edit this task.");
+      if (result.checklistBlock) {
+        showChecklistGate({
+          ...result.checklistBlock,
+          status: updatedTask.status,
+          onForced: () => setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))),
+        });
+      } else {
+        toast.error(result.error || "You do not have permission to edit this task.");
+      }
     } else {
       toast.success("Task updated");
     }

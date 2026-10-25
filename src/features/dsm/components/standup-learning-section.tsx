@@ -282,19 +282,23 @@ export function StandupLearningSection({
         <p className="py-1 text-xs italic text-muted-foreground">No learning items logged for today.</p>
       )}
 
-      {isReviewed && <LearningAddRow memberId={memberId} onAdd={handleAdd} />}
+      {isReviewed && <LearningAddRow entryId={entryId} memberId={memberId} onAdd={handleAdd} />}
     </section>
   );
 }
 
 /** The "New Learning Task" row; loads the WhyFi task picker only where it's shown (reviewed cards). */
 function LearningAddRow({
+  entryId,
   memberId,
   onAdd,
 }: {
+  entryId: string;
   memberId?: string;
   onAdd: (text: string, task: WhyfiPickerTask | undefined, dueDate: string) => Promise<void>;
 }) {
   const { tasks, loading } = useWhyfiTasks(memberId);
-  return <WhyfiLearningAddRow tasks={tasks} loading={loading} onAdd={onAdd} />;
+  return (
+    <WhyfiLearningAddRow tasks={tasks} loading={loading} onAdd={onAdd} draftKey={`winos_dsm_add_learning_${entryId}`} />
+  );
 }

@@ -3,6 +3,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { checklistCloseBlock } from "@/features/sop-checklists/close-gate";
+import { recordTaskClosed } from "@/features/sop-checklists/events";
+import { isTaskDone } from "@/features/projects/types";
 
 export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
   const session = await auth();
@@ -18,6 +21,25 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
     });
 
     if (!task) return { success: false, message: "Task not found" };
+
+    // Completing it closes the linked Srijan task, which needs a completed SOP checklist first
+    // (unless that task is already closed, e.g. a manager closed it anyway).
+    const linked = isCompleted && task.projectTaskId
+      ? await d.projectTask.findUnique({
+          where: { id: task.projectTaskId },
+          select: { status: true, completionPercentage: true },
+        })
+      : null;
+    if (isCompleted && task.projectTaskId && linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
+      const block = await checklistCloseBlock(task.projectTaskId);
+      if (block) {
+        return {
+          success: false,
+          message: block.message,
+          checklistBlock: { ...block, canForce: session.user.role === "MANAGER" },
+        };
+      }
+    }
 
     await d.standupTask.update({
       where: { id: taskId },
@@ -52,6 +74,11 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
             actionText: `completed standup task: "${task.text}" (synced status to Closed)`,
           },
         });
+
+        // SOP timeline: the linked task was closed (its checklist passed the gate above).
+        if (linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
+          await recordTaskClosed({ id: session.user.id, name: userName }, task.projectTaskId, null);
+        }
       }
     }
 

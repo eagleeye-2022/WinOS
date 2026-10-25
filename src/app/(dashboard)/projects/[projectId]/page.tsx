@@ -17,6 +17,7 @@ import { ProjectDocumentsView } from "@/features/projects/components/views/proje
 import { ProjectStatusTimelineView } from "@/features/projects/components/views/project-status-timeline-view";
 import { ProjectEffortLogReport } from "@/features/projects/components/views/project-effort-log-report";
 import { toast } from "@/components/shared/toast";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 
 const PROJECT_TABS = ["TASKS", "USERS", "DOCUMENTS", "TIME_LOGS", "TIMELINE", "INOTES"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
@@ -122,7 +123,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       if (previous) {
         setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
       }
-      toast.error(result.error || "You do not have permission to edit this task.");
+      if (result.checklistBlock) {
+        showChecklistGate({
+          ...result.checklistBlock,
+          status: updatedTask.status,
+          onForced: () => setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))),
+        });
+      } else {
+        toast.error(result.error || "You do not have permission to edit this task.");
+      }
     } else {
       toast.success("Task updated");
     }

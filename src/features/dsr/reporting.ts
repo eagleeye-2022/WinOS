@@ -5,11 +5,11 @@
 const IST_OFFSET_MINUTES = 5 * 60 + 30;
 
 /**
- * Report cut-off: 6:00 AM IST on the day AFTER the report date (members can submit until early the
- * next morning). Override the time with REPORT_CUTOFF_HHMM and the day with REPORT_CUTOFF_DAY_OFFSET
- * (0 = same day as the report, 1 = next day).
+ * Report cut-off: 9:00 AM IST on the day AFTER the report date (members can submit until the next
+ * morning; a submit after it still goes through, marked Late). Override the time with
+ * REPORT_CUTOFF_HHMM and the day with REPORT_CUTOFF_DAY_OFFSET (0 = same day as the report, 1 = next day).
  */
-export const DEFAULT_REPORT_CUTOFF = "06:00";
+export const DEFAULT_REPORT_CUTOFF = "09:00";
 export const DEFAULT_CUTOFF_DAY_OFFSET = 1;
 
 /**
@@ -45,11 +45,11 @@ export function getAllowedRecordingHosts(): string[] {
 
 /** Server-resolved settings handed to the client-side report form/modal. */
 export type ReportConfig = {
-  /** "06:00" */
+  /** "09:00" */
   cutoff: string;
   /** Days after the report date the cut-off falls on (1 = next day). */
   cutoffDayOffset: number;
-  /** "6:00 AM next day" */
+  /** "9:00 AM next day" */
   cutoffLabel: string;
   allowedHosts: string[];
 };
@@ -105,7 +105,7 @@ export function computeIsLate(
 
 /**
  * The report date (YYYY-MM-DD, IST) a member is filling at `now`. With a next-day cut-off, the
- * previous day's report stays open until the cut-off — e.g. at 1:30 AM on Oct 8 it's still Oct 7's.
+ * previous day's report stays open until the cut-off — e.g. at 8:30 AM on Oct 8 it's still Oct 7's.
  */
 export function getOpenReportDateStr(
   now: Date = new Date(),
@@ -118,7 +118,7 @@ export function getOpenReportDateStr(
   return new Date(now.getTime() + shiftMinutes * 60_000).toISOString().slice(0, 10);
 }
 
-/** ("06:00", 1) → "6:00 AM next day"; ("18:00", 0) → "6:00 PM" */
+/** ("09:00", 1) → "9:00 AM next day"; ("18:00", 0) → "6:00 PM" */
 export function formatCutoffLabel(cutoff = DEFAULT_REPORT_CUTOFF, dayOffset = DEFAULT_CUTOFF_DAY_OFFSET): string {
   const [hh, mm] = cutoff.split(":").map(Number);
   const suffix = hh >= 12 ? "PM" : "AM";

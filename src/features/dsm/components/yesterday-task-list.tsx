@@ -8,6 +8,7 @@ import { formatEffortMinutes } from "../utils";
 import { TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { setLoggedTaskDoneAction } from "../actions/set-logged-task-done";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import type { YesterdayLoggedTask, YesterdayTaskItem } from "../queries";
 
 /**
@@ -48,7 +49,15 @@ export function YesterdayTaskList({
       const res = await setLoggedTaskDoneAction(t.taskId, next);
       if (!res.success) {
         setLoggedDone((prev) => ({ ...prev, [t.taskId]: !next }));
-        toast.error(res.error || "Couldn't update the task");
+        if (res.checklistBlock) {
+          showChecklistGate({
+            ...res.checklistBlock,
+            status: "Done",
+            onForced: () => setLoggedDone((prev) => ({ ...prev, [t.taskId]: true })),
+          });
+        } else {
+          toast.error(res.error || "Couldn't update the task");
+        }
       } else {
         toast.success(next ? `${t.code} marked Done` : `${t.code} moved back to In Progress`);
       }

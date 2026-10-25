@@ -7,11 +7,22 @@ import { toast } from "@/components/shared/toast";
 import { ProjectTaskStatusPill } from "./project-task-status-pill";
 import { createDsmProjectTaskAction } from "../actions/create-project-items";
 import type { CascadingProjectOption, CascadingTaskOption } from "../queries";
+import { shortProjectName } from "@/features/projects/utils/project-name";
 
 const selectCls = "text-xs font-medium text-foreground hover:text-primary transition-colors";
 
 function Divider() {
   return <div className="h-3.5 w-px bg-border shrink-0" />;
+}
+
+/**
+ * Project picker options. With `short`, each shows only the part before the ":" ("MGM : MalavGram"
+ * → "MGM"); the full name stays searchable and shows on hover.
+ */
+export function projectSelectOptions(projects: { id: string; name: string }[], short = false) {
+  return projects.map((p) =>
+    short ? { value: p.id, label: shortProjectName(p.name), searchText: p.name } : { value: p.id, label: p.name }
+  );
 }
 
 /**
@@ -33,9 +44,12 @@ export function ProjectTaskSelectors({
   onSubtaskChange,
   onProjectsChange,
   taskOwnerId,
+  shortProjectNames = false,
 }: {
   /** Owner of tasks created here — set when a manager adds a task for a member. Defaults to the current user. */
   taskOwnerId?: string;
+  /** Show projects by their short name (before the ":") — used on a member's DSM page. */
+  shortProjectNames?: boolean;
   projects: CascadingProjectOption[];
   projectsLoading: boolean;
   projectId: string;
@@ -95,7 +109,7 @@ export function ProjectTaskSelectors({
       <SearchableSelect
         value={projectId}
         onChange={onProjectChange}
-        options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        options={projectSelectOptions(projects, shortProjectNames)}
         placeholder={projectsLoading ? "Loading..." : projects.length === 0 ? "No projects" : "Select Project"}
         searchPlaceholder="Search projects..."
         className={`${selectCls} max-w-[180px]`}

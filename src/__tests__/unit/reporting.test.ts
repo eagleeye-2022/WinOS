@@ -18,9 +18,9 @@ import {
 
 // ── Cut-off / late ────────────────────────────────────────────────────────────
 
-describe("report cut-off: 6:00 AM IST the next day (default)", () => {
-  it("for the Oct 6 report, the cut-off is 6:00 AM IST on Oct 7 (00:30 UTC)", () => {
-    expect(getCutoffInstant("2026-10-06").toISOString()).toBe("2026-10-07T00:30:00.000Z");
+describe("report cut-off: 9:00 AM IST the next day (default)", () => {
+  it("for the Oct 6 report, the cut-off is 9:00 AM IST on Oct 7 (03:30 UTC)", () => {
+    expect(getCutoffInstant("2026-10-06").toISOString()).toBe("2026-10-07T03:30:00.000Z");
   });
 
   it("is not late in the evening of the report day", () => {
@@ -31,12 +31,16 @@ describe("report cut-off: 6:00 AM IST the next day (default)", () => {
     expect(isReportLate("2026-10-06", new Date("2026-10-06T19:30:00.000Z"))).toBe(false); // 1:00 AM IST Oct 7
   });
 
-  it("is not late exactly at 6:00 AM next day", () => {
-    expect(isReportLate("2026-10-06", new Date("2026-10-07T00:30:00.000Z"))).toBe(false);
+  it("is not late early next morning, before 9 AM", () => {
+    expect(isReportLate("2026-10-06", new Date("2026-10-07T01:30:00.000Z"))).toBe(false); // 7:00 AM IST Oct 7
   });
 
-  it("is late at 6:01 AM next day", () => {
-    expect(isReportLate("2026-10-06", new Date("2026-10-07T00:31:00.000Z"))).toBe(true);
+  it("is not late exactly at 9:00 AM next day", () => {
+    expect(isReportLate("2026-10-06", new Date("2026-10-07T03:30:00.000Z"))).toBe(false);
+  });
+
+  it("is late at 9:01 AM next day", () => {
+    expect(isReportLate("2026-10-06", new Date("2026-10-07T03:31:00.000Z"))).toBe(true);
   });
 
   it("still supports a same-day cut-off (day offset 0)", () => {
@@ -45,7 +49,7 @@ describe("report cut-off: 6:00 AM IST the next day (default)", () => {
   });
 
   it("formats the cut-off label", () => {
-    expect(formatCutoffLabel()).toBe("6:00 AM next day");
+    expect(formatCutoffLabel()).toBe("9:00 AM next day");
     expect(formatCutoffLabel("18:00", 0)).toBe("6:00 PM");
     expect(formatCutoffLabel("12:00", 0)).toBe("12:00 PM");
   });
@@ -56,13 +60,14 @@ describe("getOpenReportDateStr (which day's report is open)", () => {
     expect(getOpenReportDateStr(new Date("2026-10-07T09:00:00.000Z"))).toBe("2026-10-07"); // 2:30 PM IST
   });
 
-  it("is still yesterday's report between midnight and 6 AM IST", () => {
+  it("is still yesterday's report between midnight and 9 AM IST", () => {
     expect(getOpenReportDateStr(new Date("2026-10-06T19:00:00.000Z"))).toBe("2026-10-06"); // 12:30 AM IST Oct 7
-    expect(getOpenReportDateStr(new Date("2026-10-07T00:29:00.000Z"))).toBe("2026-10-06"); // 5:59 AM IST Oct 7
+    expect(getOpenReportDateStr(new Date("2026-10-07T01:00:00.000Z"))).toBe("2026-10-06"); // 6:30 AM IST Oct 7
+    expect(getOpenReportDateStr(new Date("2026-10-07T03:29:00.000Z"))).toBe("2026-10-06"); // 8:59 AM IST Oct 7
   });
 
-  it("switches to the new day at 6:00 AM IST", () => {
-    expect(getOpenReportDateStr(new Date("2026-10-07T00:30:00.000Z"))).toBe("2026-10-07");
+  it("switches to the new day at 9:00 AM IST", () => {
+    expect(getOpenReportDateStr(new Date("2026-10-07T03:30:00.000Z"))).toBe("2026-10-07");
   });
 
   it("with a same-day cut-off, switches at midnight IST", () => {
@@ -76,19 +81,19 @@ describe("report config from env", () => {
     process.env = { ...original };
   });
 
-  it("defaults the cut-off to 6:00 AM next day", () => {
+  it("defaults the cut-off to 9:00 AM next day", () => {
     delete process.env.REPORT_CUTOFF_HHMM;
     delete process.env.REPORT_CUTOFF_DAY_OFFSET;
-    expect(getReportCutoff()).toBe("06:00");
+    expect(getReportCutoff()).toBe("09:00");
     expect(getReportCutoffDayOffset()).toBe(1);
-    expect(getReportConfig().cutoffLabel).toBe("6:00 AM next day");
+    expect(getReportConfig().cutoffLabel).toBe("9:00 AM next day");
   });
 
   it("reads REPORT_CUTOFF_HHMM and ignores malformed values", () => {
     process.env.REPORT_CUTOFF_HHMM = "19:15";
     expect(getReportCutoff()).toBe("19:15");
     process.env.REPORT_CUTOFF_HHMM = "7pm";
-    expect(getReportCutoff()).toBe("06:00");
+    expect(getReportCutoff()).toBe("09:00");
   });
 
   it("reads REPORT_CUTOFF_DAY_OFFSET (only 0 or 1)", () => {
@@ -216,12 +221,16 @@ describe("computeIsLate (display uses the current rule, not the stored flag)", (
   // Report dated Oct 7 is stored as UTC midnight; submitted 6:43 PM IST the same day.
   const date = new Date("2026-10-07T00:00:00.000Z");
 
-  it("a 6:43 PM same-day submit is NOT late under the 6 AM next-day rule", () => {
+  it("a 6:43 PM same-day submit is NOT late under the 9 AM next-day rule", () => {
     expect(computeIsLate(date, new Date("2026-10-07T13:13:00.000Z"))).toBe(false);
   });
 
-  it("a submit after 6 AM the next day IS late", () => {
-    expect(computeIsLate(date, new Date("2026-10-08T00:31:00.000Z"))).toBe(true);
+  it("a 7 AM next-day submit is NOT late (it was under the old 6 AM rule)", () => {
+    expect(computeIsLate(date, new Date("2026-10-08T01:30:00.000Z"))).toBe(false);
+  });
+
+  it("a submit after 9 AM the next day IS late", () => {
+    expect(computeIsLate(date, new Date("2026-10-08T03:31:00.000Z"))).toBe(true);
   });
 
   it("is never late when not submitted", () => {

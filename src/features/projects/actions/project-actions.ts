@@ -53,6 +53,9 @@ import {
 } from "@/features/whyfi/constants";
 import { nextWhyfiTaskCodeFromDb } from "@/features/whyfi/task-code";
 import { findCountry, getCountryCities } from "../location-data";
+import { checklistCloseBlock } from "@/features/sop-checklists/close-gate";
+import { recordTaskClosed } from "@/features/sop-checklists/events";
+import type { ChecklistCloseBlock } from "@/features/sop-checklists/types";
 
 /**
  * Display label for each Prisma `ProfileRole` value — backs the "Portal Profile" column.
@@ -2490,11 +2493,18 @@ export async function createTaskAction(
   };
 }
 
-export type UpdateTaskResult = { success: boolean; error?: string };
+export type UpdateTaskResult = {
+  success: boolean;
+  error?: string;
+  /** Set when closing was refused because of the task's SOP checklist — the UI shows the gate popup. */
+  checklistBlock?: ChecklistCloseBlock;
+};
 
 export async function updateTaskAction(
   taskId: string,
-  updates: Partial<TaskItem>
+  updates: Partial<TaskItem>,
+  /** `forceClose`: a manager closes the task even though its SOP checklist isn't complete. */
+  opts?: { forceClose?: boolean }
 ): Promise<UpdateTaskResult> {
   const session = await requireAuth();
 
@@ -2549,6 +2559,37 @@ export async function updateTaskAction(
     (updates.owners !== undefined || updates.owner !== undefined || task.authorId === session.user.id);
   if (!isAuthorized && !isUnownedAssignOrAuthor) {
     return { success: false, error: "Only users of this project can edit or assign its tasks." };
+  }
+
+  // Closing (status → done, or 100%) needs a completed SOP checklist — see checklistCloseBlock.
+  // Managers may override ("Close anyway"); that's noted in the task's activity.
+  const closing =
+    (updates.status !== undefined && isTaskDone(updates.status)) ||
+    (updates.completionPercentage !== undefined && updates.completionPercentage >= 100);
+  // Set when this update closes the task — recorded on the SOP timeline after the save.
+  let closedEvent: { forced: { reason: "NO_CHECKLIST" | "INCOMPLETE"; done: number; total: number } | null } | null =
+    null;
+  if (closing && !isTaskDone(task.status, false, task.completionPercentage)) {
+    const block = await checklistCloseBlock(task.id);
+    closedEvent = { forced: block ? { reason: block.reason, done: block.done, total: block.total } : null };
+    if (block) {
+      if (!(opts?.forceClose && isPrivileged)) {
+        return { success: false, error: block.message, checklistBlock: { ...block, canForce: isPrivileged } };
+      }
+      const actorName = dbUser?.name || session.user.name || "Manager";
+      await db.projectTaskActivity.create({
+        data: {
+          taskId: task.id,
+          userId: session.user.id,
+          userName: actorName,
+          userInitials: toInitials(actorName),
+          actionText:
+            block.reason === "NO_CHECKLIST"
+              ? "closed this task without an SOP checklist (manager override)"
+              : `closed this task with its SOP checklist incomplete (${block.done}/${block.total}, manager override)`,
+        },
+      });
+    }
   }
 
   let ownerNames: string[] = [];
@@ -2757,6 +2798,14 @@ export async function updateTaskAction(
       ownerIdsResolved,
       primaryOwnerId,
     });
+  }
+
+  if (closedEvent) {
+    await recordTaskClosed(
+      { id: session.user.id, name: dbUser?.name || session.user.name || "User" },
+      task.id,
+      closedEvent.forced
+    );
   }
 
   // No revalidatePath here: every /projects view loads its data client-side and applies this
@@ -3125,8 +3174,15 @@ export async function updateSubtaskAction(
 
   const subtask = await db.projectTask.findFirst({
     where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
-    select: { id: true, title: true, phaseName: true, taskListName: true },
+    select: { id: true, title: true, phaseName: true, taskListName: true, status: true, completionPercentage: true },
   });
+
+  // Same rule as updateTaskAction: a completed SOP checklist is needed before closing. Returns false
+  // (nothing saved) — callers fetch the details with getChecklistCloseBlockAction for the popup.
+  const closing = (updates.status !== undefined && isTaskDone(updates.status)) || updates.completed === true;
+  const closesNow = !!subtask && closing && !isTaskDone(subtask.status, false, subtask.completionPercentage);
+  if (closesNow && (await checklistCloseBlock(subtask!.id))) return false;
+
   if (subtask && updates.title && updates.title !== subtask.title) {
     await syncNatTitleToDsm(subtask, updates.title);
   }
@@ -3158,6 +3214,10 @@ export async function updateSubtaskAction(
 
   if (updates.ownerName && ownerUserId && subtask) {
     await syncTaskOwners(subtask.id, [ownerUserId], session.user.id);
+  }
+
+  if (closesNow) {
+    await recordTaskClosed({ id: session.user.id, name: session.user.name || "User" }, subtask!.id, null);
   }
 
   revalidatePath("/projects");

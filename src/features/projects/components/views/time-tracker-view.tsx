@@ -83,6 +83,21 @@ const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] 
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
 const PERIOD_MODES = ["Day", "Month", "Range", "Span"] as const;
 
+/**
+ * Header row of the log tables, pinned while the logs scroll: each cell is sticky with a solid
+ * fill (the same tint as before), its borders drawn as inset shadows (collapsed table borders
+ * don't move with sticky cells), and a page-coloured strip just above it so no row can show
+ * through between the header and the top of the scroll area.
+ */
+const STICKY_HEADER_ROW = [
+  "border-b border-border text-muted-foreground font-semibold",
+  "[&>th]:sticky [&>th]:top-0 [&>th]:z-10",
+  "[&>th]:bg-[color-mix(in_oklab,var(--muted)_60%,var(--card))]",
+  "[&>th]:shadow-[inset_-1px_-1px_0_var(--border),inset_0_1px_0_var(--border)]",
+  "[&>th]:before:pointer-events-none [&>th]:before:absolute [&>th]:before:inset-x-0 [&>th]:before:bottom-full",
+  "[&>th]:before:h-6 [&>th]:before:bg-background [&>th]:before:content-['']",
+].join(" ");
+
 interface TimeTrackerViewProps {
   initialGroups: UserTimeGroup[];
   projectId?: string;
@@ -1495,11 +1510,13 @@ export function TimeTrackerView({
       )}
 
       {/* ── Main Data Table (Group By Date View) ─────────────────────────────────── */}
-      <div className="dsm-columns-scrollbar flex-1 overflow-x-auto overflow-y-auto p-4">
+      {/* No top padding here (a spacer instead), so the sticky column headers pin flush to the top. */}
+      <div className="dsm-columns-scrollbar flex-1 overflow-x-auto overflow-y-auto px-4 pb-4">
+        <div className="h-4" aria-hidden />
         {groupBy === "Group By Date" ? (
-          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg border border-border bg-card shadow-2xs">
             <thead>
-              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+              <tr className={STICKY_HEADER_ROW}>
                 <th className="py-2.5 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>
@@ -1782,9 +1799,9 @@ export function TimeTrackerView({
           </table>
         ) : groupBy === "Group By Project" ? (
           /* Mode: Group By Project */
-          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg border border-border bg-card shadow-2xs">
             <thead>
-              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+              <tr className={STICKY_HEADER_ROW}>
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>
@@ -2005,9 +2022,9 @@ export function TimeTrackerView({
           </table>
         ) : (
           /* Mode: Group By User */
-          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg overflow-hidden border border-border bg-card shadow-2xs">
+          <table className="w-full min-w-[1300px] text-left text-xs border-collapse rounded-lg border border-border bg-card shadow-2xs">
             <thead>
-              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+              <tr className={STICKY_HEADER_ROW}>
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>

@@ -7,8 +7,9 @@ import { TimeTrackerView } from "@/features/projects/components/views/time-track
 import { UserTimeGroup } from "@/features/projects/types";
 
 /**
- * Standup → Effort Log: the same report as Srijan → Effort Logs, opened from the DSM sidebar so a
- * manager can check the team's effort logs without leaving the Standup module.
+ * Standup → Effort Log: the same report as Srijan → Effort Logs, opened from the DSM sidebar — all
+ * effort (every project and WhyFi School). Managers see the whole team's logs; members only their
+ * own (getTimeLogsAction scopes it on the server).
  */
 export default function DsmEffortLogsPage() {
   const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);

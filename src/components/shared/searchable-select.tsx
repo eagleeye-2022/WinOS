@@ -8,6 +8,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export type SearchableSelectOption = {
   value: string;
   label: string;
+  /** Extra text the search also matches, shown as the hover title — e.g. a project's full name
+   *  when `label` is its short name ("MGM" for "MGM : MalavGram"). */
+  searchText?: string;
 };
 
 type SearchableSelectProps = {
@@ -64,7 +67,9 @@ export function SearchableSelect({
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+    return q
+      ? options.filter((o) => o.label.toLowerCase().includes(q) || !!o.searchText?.toLowerCase().includes(q))
+      : options;
   }, [options, query]);
 
   const createName = query.trim();
@@ -123,7 +128,7 @@ export function SearchableSelect({
       <PopoverTrigger asChild disabled={disabled}>
         <button
           type="button"
-          title={selected?.label}
+          title={selected?.searchText ?? selected?.label}
           className={cn(
             "inline-flex min-w-0 cursor-pointer items-center gap-1 text-left outline-none disabled:cursor-not-allowed disabled:opacity-50",
             className
@@ -202,7 +207,7 @@ export function SearchableSelect({
                 )}
               >
                 <Check size={12} className={cn("shrink-0", isSelected ? "text-primary" : "invisible")} />
-                <span className="truncate" title={row.label}>
+                <span className="truncate" title={row.searchText ?? row.label}>
                   {row.label}
                 </span>
               </li>

@@ -8,8 +8,10 @@ import { revalidatePath } from "next/cache";
 import { isTaskDone } from "@/features/projects/types";
 import { ActingUser, loadActingUser } from "../access";
 import { applyChecklistSync } from "../sync";
+import { recordSopEvent, recordSopEvents } from "../events";
 import { docFromItems, DocChecklistItem, DocNode, extractChecklistItems, isDocNode, MAX_DOC_BYTES, MAX_DOC_ITEMS } from "../doc";
-import { SopTemplate, SopTemplateInput } from "../types";
+import { SopPickerOption, SopTemplate, SopTemplateInput } from "../types";
+import EED_SOP_LIBRARY from "../data/eed-sop-library.json";
 
 const d = db as any;
 
@@ -94,7 +96,22 @@ function toSopTemplate(row: any): SopTemplate {
   };
 }
 
-/** Managers only — powers the SOP library and the "attach SOP" picker on tasks. */
+/**
+ * The SOP picker on a task: active SOPs with their category and step count, for anyone signed in
+ * (attaching still checks the user may work on that task).
+ */
+export async function getSopPickerOptionsAction(): Promise<SopPickerOption[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const rows = await d.sopChecklistTemplate.findMany({
+    where: { isArchived: false },
+    select: { id: true, name: true, category: true, _count: { select: { items: true } } },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+  return rows.map((r: any) => ({ id: r.id, name: r.name, category: r.category, stepCount: r._count.items }));
+}
+
+/** Managers only — powers the SOP library and the project "Attach SOP to tasks" panel. */
 export async function getSopTemplatesAction(opts?: { includeArchived?: boolean }): Promise<SopTemplate[]> {
   const user = await requireManager();
   if ("error" in user) return [];
@@ -107,14 +124,8 @@ export async function getSopTemplatesAction(opts?: { includeArchived?: boolean }
   return rows.map(toSopTemplate);
 }
 
-export async function createSopTemplateAction(input: SopTemplateInput): Promise<Result<{ template: SopTemplate }>> {
-  const user = await requireManager();
-  if ("error" in user) return { success: false, error: user.error };
-  const parsed = validateInput(input, new Set());
-  if ("error" in parsed) return { success: false, error: parsed.error };
-  const v = parsed.value;
-
-  const row = await d.sopChecklistTemplate.create({
+async function createTemplateRow(user: ActingUser, v: ValidInput) {
+  return d.sopChecklistTemplate.create({
     data: {
       name: v.name,
       description: v.description,
@@ -134,9 +145,103 @@ export async function createSopTemplateAction(input: SopTemplateInput): Promise<
     },
     include: TEMPLATE_INCLUDE,
   });
+}
 
+export async function createSopTemplateAction(input: SopTemplateInput): Promise<Result<{ template: SopTemplate }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+  const parsed = validateInput(input, new Set());
+  if ("error" in parsed) return { success: false, error: parsed.error };
+
+  const row = await createTemplateRow(user, parsed.value);
+  await recordSopEvent(user, {
+    type: "TEMPLATE_CREATED",
+    templateId: row.id,
+    templateName: row.name,
+    details: { steps: parsed.value.items.length, category: row.category },
+  });
   revalidatePath(SOP_PATH);
   return { success: true, template: toSopTemplate(row) };
+}
+
+type LibraryEntry = { name: string; category: string; description: string; content: DocNode };
+
+export interface SopLibraryImportPlan {
+  create: { name: string; category: string; checkboxes: number }[];
+  skip: string[];
+  invalid: string[];
+}
+
+/**
+ * Works out what importing the EED library would do — read-only: one SELECT of the existing SOP
+ * names, everything else in memory. Shared by the dry run and the real import.
+ */
+async function planLibraryImport(): Promise<{ plan: SopLibraryImportPlan; toCreate: ValidInput[] }> {
+  const existing: { name: string }[] = await d.sopChecklistTemplate.findMany({ select: { name: true } });
+  const taken = new Set(existing.map((t) => t.name.trim().toLowerCase()));
+
+  const plan: SopLibraryImportPlan = { create: [], skip: [], invalid: [] };
+  const toCreate: ValidInput[] = [];
+  for (const entry of EED_SOP_LIBRARY as LibraryEntry[]) {
+    const key = entry.name.trim().toLowerCase();
+    if (taken.has(key)) {
+      plan.skip.push(entry.name);
+      continue;
+    }
+    const parsed = validateInput(
+      { name: entry.name, description: entry.description, category: entry.category, content: entry.content },
+      new Set()
+    );
+    if ("error" in parsed) {
+      plan.invalid.push(`${entry.name}: ${parsed.error}`);
+      continue;
+    }
+    taken.add(key);
+    toCreate.push(parsed.value);
+    plan.create.push({ name: entry.name, category: entry.category, checkboxes: parsed.value.items.length });
+  }
+  return { plan, toCreate };
+}
+
+/** Dry run of "Import EED SOP library": what would be created / skipped. Writes nothing. */
+export async function previewEedSopLibraryImportAction(): Promise<Result<{ plan: SopLibraryImportPlan }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+  const { plan } = await planLibraryImport();
+  return { success: true, plan };
+}
+
+/**
+ * Creates the SOPs of the team's "Team EED - SOP, Checklist, Projects" sheet (converted into
+ * data/eed-sop-library.json) that don't exist yet — matched by name, ignoring case, so running it
+ * again only adds what's missing and never touches SOPs managers already edited. Only INSERTs into
+ * SopChecklistTemplate / SopChecklistTemplateItem.
+ */
+export async function importEedSopLibraryAction(): Promise<Result<{ created: number; skipped: number; failed: string[] }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+
+  const { plan, toCreate } = await planLibraryImport();
+  let created = 0;
+  const failed = [...plan.invalid];
+  for (const v of toCreate) {
+    try {
+      const row = await createTemplateRow(user, v);
+      created++;
+      await recordSopEvent(user, {
+        type: "TEMPLATE_IMPORTED",
+        templateId: row.id,
+        templateName: row.name,
+        details: { steps: v.items.length, category: row.category },
+      });
+    } catch (err) {
+      console.error(`[importEedSopLibraryAction] Failed to create "${v.name}":`, err);
+      failed.push(v.name);
+    }
+  }
+
+  revalidatePath(SOP_PATH);
+  return { success: true, created, skipped: plan.skip.length, failed };
 }
 
 /**
@@ -202,6 +307,26 @@ export async function updateSopTemplateAction(
   });
 
   const row = await d.sopChecklistTemplate.findUnique({ where: { id }, include: TEMPLATE_INCLUDE });
+  const changed = v.items.filter((i) => {
+    const old = existingById.get(i.id);
+    return old && (old.text !== i.text || old.isRequired !== i.isRequired || old.requiresEvidence !== i.requiresEvidence);
+  }).length;
+  const metaChanged =
+    existing.name !== v.name || existing.category !== v.category || existing.description !== v.description;
+  if (itemsChanged || contentChanged || metaChanged) {
+    await recordSopEvent(user, {
+      type: "TEMPLATE_UPDATED",
+      templateId: id,
+      templateName: v.name,
+      details: {
+        version: row.version,
+        added: v.items.filter((i) => !existingById.has(i.id)).length,
+        removed: removed.length,
+        changed,
+        ...(existing.name !== v.name ? { renamedFrom: existing.name } : {}),
+      },
+    });
+  }
   revalidatePath(SOP_PATH);
   return { success: true, template: toSopTemplate(row) };
 }
@@ -210,7 +335,8 @@ export async function setSopTemplateArchivedAction(id: string, archived: boolean
   const user = await requireManager();
   if ("error" in user) return { success: false, error: user.error };
 
-  await d.sopChecklistTemplate.update({ where: { id }, data: { isArchived: archived } });
+  const row = await d.sopChecklistTemplate.update({ where: { id }, data: { isArchived: archived } });
+  await recordSopEvent(user, { type: archived ? "TEMPLATE_ARCHIVED" : "TEMPLATE_RESTORED", templateId: id, templateName: row.name });
   revalidatePath(SOP_PATH);
   return { success: true };
 }
@@ -220,7 +346,8 @@ export async function deleteSopTemplateAction(id: string): Promise<Result> {
   const user = await requireManager();
   if ("error" in user) return { success: false, error: user.error };
 
-  await d.sopChecklistTemplate.delete({ where: { id } });
+  const row = await d.sopChecklistTemplate.delete({ where: { id } });
+  await recordSopEvent(user, { type: "TEMPLATE_DELETED", templateId: id, templateName: row.name });
   revalidatePath(SOP_PATH);
   return { success: true };
 }
@@ -241,7 +368,12 @@ export async function pushSopTemplateUpdateAction(
     include: {
       items: { orderBy: { position: "asc" } },
       taskChecklists: {
-        select: { id: true, templateVersion: true, task: { select: { status: true, completionPercentage: true } } },
+        select: {
+          id: true,
+          taskId: true,
+          templateVersion: true,
+          task: { select: { status: true, completionPercentage: true } },
+        },
       },
     },
   });
@@ -255,6 +387,22 @@ export async function pushSopTemplateUpdateAction(
     await d.$transaction((tx: any) => applyChecklistSync(tx, c.id, template.items, template.version, content));
   }
 
+  await recordSopEvents(user, [
+    {
+      type: "TEMPLATE_PUSHED",
+      templateId: id,
+      templateName: template.name,
+      details: { version: template.version, updated: open.length, skippedClosed: outdated.length - open.length },
+    },
+    ...open.map((c: any) => ({
+      type: "CHECKLIST_SYNCED" as const,
+      templateId: id,
+      templateName: template.name,
+      checklistId: c.id,
+      taskId: c.taskId,
+      details: { version: template.version, via: "push" },
+    })),
+  ]);
   revalidatePath(SOP_PATH);
   return { success: true, updated: open.length, skippedClosed: outdated.length - open.length };
 }

@@ -5,10 +5,12 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { ActingUser, getTaskAccess, loadActingUser, logTaskActivity, TaskAccess } from "../access";
-import { applyChecklistSync } from "../sync";
+import { applyChecklistSync, sopCopyCreateData } from "../sync";
+import { recordSopEvent } from "../events";
 import { normalizeEvidenceUrl } from "../utils";
 import { docFromItems, isDocNode } from "../doc";
-import { TaskChecklistsPayload, TaskChecklistView } from "../types";
+import { ChecklistCloseBlock, TaskChecklistItemView, TaskChecklistsPayload, TaskChecklistView } from "../types";
+import { checklistCloseBlock } from "../close-gate";
 
 const d = db as any;
 
@@ -46,6 +48,11 @@ async function accessForItem(itemId: string) {
   return { ...res, item };
 }
 
+/** Timeline context for events on one task checklist. */
+function onChecklist(checklist: { id: string; name: string; templateId: string | null; taskId: string }) {
+  return { templateId: checklist.templateId, templateName: checklist.name, checklistId: checklist.id, taskId: checklist.taskId };
+}
+
 function toView(row: any): TaskChecklistView {
   return {
     id: row.id,
@@ -55,20 +62,24 @@ function toView(row: any): TaskChecklistView {
     latestTemplateVersion: row.template ? row.template.version : null,
     content: isDocNode(row.content) ? row.content : null,
     attachedByName: row.attachedByName,
-    items: (row.items || []).map((i: any) => ({
-      id: i.id,
-      sourceItemId: i.sourceItemId,
-      text: i.text,
-      position: i.position,
-      isRequired: i.isRequired,
-      requiresEvidence: i.requiresEvidence,
-      isRemovedFromSop: i.isRemovedFromSop,
-      checked: i.checked,
-      checkedByName: i.checkedByName,
-      checkedAt: i.checkedAt ? new Date(i.checkedAt).toISOString() : null,
-      note: i.note,
-      evidenceUrl: i.evidenceUrl,
-    })),
+    items: (row.items || []).map(toItemView),
+  };
+}
+
+function toItemView(i: any): TaskChecklistItemView {
+  return {
+    id: i.id,
+    sourceItemId: i.sourceItemId,
+    text: i.text,
+    position: i.position,
+    isRequired: i.isRequired,
+    requiresEvidence: i.requiresEvidence,
+    isRemovedFromSop: i.isRemovedFromSop,
+    checked: i.checked,
+    checkedByName: i.checkedByName,
+    checkedAt: i.checkedAt ? new Date(i.checkedAt).toISOString() : null,
+    note: i.note,
+    evidenceUrl: i.evidenceUrl,
   };
 }
 
@@ -77,12 +88,23 @@ const CHECKLIST_INCLUDE = {
   template: { select: { version: true } },
 } as const;
 
+/** Why this task can't be closed yet (for the gate popup), or null when it can. */
+export async function getChecklistCloseBlockAction(taskId: string): Promise<ChecklistCloseBlock | null> {
+  const user = await currentUser();
+  if (!user) return null;
+  const access = await getTaskAccess(taskId, user);
+  if (!access) return null;
+  const block = await checklistCloseBlock(access.task.id);
+  return block ? { ...block, canForce: user.isManager } : null;
+}
+
 export async function getTaskChecklistsAction(taskId: string): Promise<TaskChecklistsPayload> {
   const empty: TaskChecklistsPayload = { checklists: [], canManage: false, canCheck: false };
   const user = await currentUser();
   if (!user) return empty;
   const access = await getTaskAccess(taskId, user);
-  if (!access) return empty;
+  // Only people who may work on the task (managers included) see its checklists.
+  if (!access || !access.canCheck) return empty;
 
   const rows = await d.taskChecklist.findMany({
     where: { taskId: access.task.id },
@@ -101,7 +123,8 @@ export async function attachSopChecklistAction(
   if (!user) return { success: false, error: "Unauthorized" };
   const access = await getTaskAccess(taskId, user);
   if (!access) return { success: false, error: "Task not found" };
-  if (!access.canManage) return { success: false, error: "Only managers can attach SOP checklists" };
+  // Anyone who works on the task picks its SOP (removing one stays manager-only).
+  if (!access.canCheck) return { success: false, error: "You can't add checklists to this task" };
 
   const template = await d.sopChecklistTemplate.findUnique({
     where: { id: templateId },
@@ -113,31 +136,24 @@ export async function attachSopChecklistAction(
   if (already) return { success: false, error: `"${template.name}" is already attached to this task` };
 
   const count = await d.taskChecklist.count({ where: { taskId: access.task.id } });
-  const row = await d.taskChecklist.create({
-    data: {
-      taskId: access.task.id,
-      templateId,
-      templateVersion: template.version,
-      // Older list-only SOPs get a checkbox-list document, so every attached copy renders the same way.
-      content: (isDocNode(template.content) ? template.content : docFromItems(template.items)) as any,
-      name: template.name,
-      position: count,
-      attachedById: user.id,
-      attachedByName: user.name,
-      items: {
-        create: template.items.map((i: any) => ({
-          sourceItemId: i.id,
-          text: i.text,
-          position: i.position,
-          isRequired: i.isRequired,
-          requiresEvidence: i.requiresEvidence,
-        })),
-      },
-    },
-    include: CHECKLIST_INCLUDE,
-  });
+  let row;
+  try {
+    row = await d.taskChecklist.create({
+      data: sopCopyCreateData(template, access.task.id, count, user),
+      include: CHECKLIST_INCLUDE,
+    });
+  } catch (err: any) {
+    // Two managers attaching the same SOP at once — the unique (taskId, templateId) index wins.
+    if (err?.code === "P2002") return { success: false, error: `"${template.name}" is already attached to this task` };
+    throw err;
+  }
 
   await logTaskActivity(access.task.id, user, `attached the SOP checklist "${template.name}"`);
+  await recordSopEvent(user, {
+    type: "CHECKLIST_ATTACHED",
+    ...onChecklist({ id: row.id, name: template.name, templateId, taskId: access.task.id }),
+    details: { version: template.version, steps: template.items.length, via: "task" },
+  });
   revalidatePath(SOP_PATH);
   return { success: true, checklist: toView(row) };
 }
@@ -168,6 +184,11 @@ export async function createCustomChecklistAction(
   });
 
   await logTaskActivity(access.task.id, user, `added the checklist "${trimmed}"`);
+  await recordSopEvent(user, {
+    type: "CHECKLIST_CUSTOM_CREATED",
+    ...onChecklist({ id: row.id, name: trimmed, templateId: null, taskId: access.task.id }),
+    details: { name: trimmed },
+  });
   return { success: true, checklist: toView(row) };
 }
 
@@ -176,8 +197,18 @@ export async function detachChecklistAction(checklistId: string): Promise<Result
   if ("error" in res) return { success: false, error: res.error };
   if (!res.access.canManage) return { success: false, error: "Only managers can remove checklists" };
 
+  const items: { checked: boolean; isRemovedFromSop: boolean }[] = await d.taskChecklistItem.findMany({
+    where: { checklistId },
+    select: { checked: true, isRemovedFromSop: true },
+  });
   await d.taskChecklist.delete({ where: { id: checklistId } });
   await logTaskActivity(res.access.task.id, res.user, `removed the checklist "${res.checklist.name}"`);
+  const counted = items.filter((i) => !i.isRemovedFromSop);
+  await recordSopEvent(res.user, {
+    type: "CHECKLIST_REMOVED",
+    ...onChecklist(res.checklist),
+    details: { done: counted.filter((i) => i.checked).length, total: counted.length },
+  });
   revalidatePath(SOP_PATH);
   return { success: true };
 }
@@ -200,6 +231,11 @@ export async function syncTaskChecklistAction(checklistId: string): Promise<Resu
   const row = await d.taskChecklist.findUnique({ where: { id: checklistId }, include: CHECKLIST_INCLUDE });
 
   await logTaskActivity(res.access.task.id, res.user, `updated the checklist "${res.checklist.name}" to the latest SOP`);
+  await recordSopEvent(res.user, {
+    type: "CHECKLIST_SYNCED",
+    ...onChecklist(res.checklist),
+    details: { version: template.version, via: "task" },
+  });
   revalidatePath(SOP_PATH);
   return { success: true, checklist: toView(row) };
 }
@@ -225,9 +261,39 @@ export async function addChecklistItemAction(
   await d.taskChecklistItem.create({
     data: { checklistId, text: trimmed, position: (last?.position ?? -1) + 1, isRequired: !!opts?.isRequired },
   });
+  await recordSopEvent(res.user, { type: "ITEM_ADDED", ...onChecklist(res.checklist), itemText: trimmed });
 
   const row = await d.taskChecklist.findUnique({ where: { id: checklistId }, include: CHECKLIST_INCLUDE });
   return { success: true, checklist: toView(row) };
+}
+
+/**
+ * Renames an item added on the task itself. Items copied from an SOP are edited in the SOP (and
+ * reach the task through "update to latest"), so a task's copy never silently drifts from it.
+ */
+export async function updateChecklistItemTextAction(
+  itemId: string,
+  text: string
+): Promise<Result<{ item: TaskChecklistView["items"][number] }>> {
+  const res = await accessForItem(itemId);
+  if ("error" in res) return { success: false, error: res.error as string };
+  if (!res.access.canManage) return { success: false, error: "Only managers can edit checklist items" };
+  if (res.item.sourceItemId) return { success: false, error: "Edit this step in its SOP, then update the task to it" };
+
+  const trimmed = (text || "").trim();
+  if (!trimmed) return { success: false, error: "The item can't be empty" };
+  if (trimmed.length > 500) return { success: false, error: "The item is too long (max 500 characters)" };
+
+  const updated = await d.taskChecklistItem.update({ where: { id: itemId }, data: { text: trimmed } });
+  if (trimmed !== res.item.text) {
+    await recordSopEvent(res.user, {
+      type: "ITEM_EDITED",
+      ...onChecklist(res.checklist),
+      itemText: trimmed,
+      details: { from: res.item.text },
+    });
+  }
+  return { success: true, item: toItemView(updated) };
 }
 
 export async function deleteChecklistItemAction(itemId: string): Promise<Result> {
@@ -236,6 +302,7 @@ export async function deleteChecklistItemAction(itemId: string): Promise<Result>
   if (!res.access.canManage) return { success: false, error: "Only managers can remove checklist items" };
 
   await d.taskChecklistItem.delete({ where: { id: itemId } });
+  await recordSopEvent(res.user, { type: "ITEM_REMOVED", ...onChecklist(res.checklist), itemText: res.item.text });
   return { success: true };
 }
 
@@ -267,6 +334,11 @@ export async function setAllChecklistItemsCheckedAction(
       res.user,
       `${checked ? "ticked" : "unticked"} ${targets.length} item(s) in ${res.checklist.name}`
     );
+    await recordSopEvent(res.user, {
+      type: checked ? "ITEMS_ALL_CHECKED" : "ITEMS_ALL_UNCHECKED",
+      ...onChecklist(res.checklist),
+      details: { count: targets.length, skippedForProof: blocked.length },
+    });
   }
 
   const row = await d.taskChecklist.findUnique({ where: { id: checklistId }, include: CHECKLIST_INCLUDE });
@@ -318,22 +390,18 @@ export async function setChecklistItemCheckedAction(
       `${checked ? "ticked" : "unticked"} "${item.text}" in ${res.checklist.name}`
     );
   }
+  const noteChanged = note !== item.note || evidenceUrl !== item.evidenceUrl;
+  if (checked !== item.checked || noteChanged) {
+    await recordSopEvent(user, {
+      type: checked !== item.checked ? (checked ? "ITEM_CHECKED" : "ITEM_UNCHECKED") : "ITEM_NOTE_UPDATED",
+      ...onChecklist(res.checklist),
+      itemText: item.text,
+      details: noteChanged ? { note, evidenceUrl } : null,
+    });
+  }
 
   return {
     success: true,
-    item: {
-      id: updated.id,
-      sourceItemId: updated.sourceItemId,
-      text: updated.text,
-      position: updated.position,
-      isRequired: updated.isRequired,
-      requiresEvidence: updated.requiresEvidence,
-      isRemovedFromSop: updated.isRemovedFromSop,
-      checked: updated.checked,
-      checkedByName: updated.checkedByName,
-      checkedAt: updated.checkedAt ? new Date(updated.checkedAt).toISOString() : null,
-      note: updated.note,
-      evidenceUrl: updated.evidenceUrl,
-    },
+    item: toItemView(updated),
   };
 }

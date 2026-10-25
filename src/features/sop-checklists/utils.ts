@@ -2,6 +2,59 @@
  * Pure helpers for SOP checklists — no server-only imports, safe from client and server.
  */
 
+import { isStandupRoutineTask, NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
+import { LEARNING_PROJECT_CATEGORY } from "@/features/whyfi/constants";
+
+/**
+ * Tasks that close without an SOP checklist: anything outside a Srijan project, WhyFi School
+ * cards (LEARNING projects), NAT tasks, and the daily standup tasks (DSM / DSR / …).
+ */
+export function isChecklistExemptTask(task: {
+  title?: string | null;
+  taskListName?: string | null;
+  phaseName?: string | null;
+  projectId?: string | null;
+  projectCategory?: string | null;
+}): boolean {
+  if (!task.projectId) return true;
+  if (task.projectCategory === LEARNING_PROJECT_CATEGORY) return true;
+  const nat = NAT_TASK_LIST_NAME.toLowerCase();
+  if ([task.taskListName, task.phaseName].some((n) => (n || "").trim().toLowerCase() === nat)) return true;
+  return isStandupRoutineTask(task.title);
+}
+
+/**
+ * Closing rule for a (non-exempt) task, given each of its checklists' items: it needs at least one
+ * checklist item, and every one ticked. Items removed from their SOP don't count.
+ */
+export function evaluateCloseGate(
+  checklists: { checked: boolean; isRemovedFromSop?: boolean }[][]
+): { reason: "NO_CHECKLIST" | "INCOMPLETE"; message: string; done: number; total: number } | null {
+  const items = checklists.flat().filter((i) => !i.isRemovedFromSop);
+  const done = items.filter((i) => i.checked).length;
+  const total = items.length;
+  if (total === 0) {
+    return {
+      reason: "NO_CHECKLIST",
+      message:
+        checklists.length === 0
+          ? "Please select an SOP checklist for this task before closing it."
+          : "This task's checklist has no items — select an SOP checklist before closing it.",
+      done,
+      total,
+    };
+  }
+  if (done < total) {
+    return {
+      reason: "INCOMPLETE",
+      message: `Please complete the task checklist before closing it (${done}/${total} done).`,
+      done,
+      total,
+    };
+  }
+  return null;
+}
+
 export interface SyncTemplateItem {
   id: string;
   text: string;

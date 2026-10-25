@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { updateTaskAction } from "@/features/projects/actions/project-actions";
 import { updateWhyfiTaskAction } from "@/features/whyfi/actions";
 import { LEARNING_PROJECT_CATEGORY } from "@/features/whyfi/constants";
+import type { ChecklistCloseBlock } from "@/features/sop-checklists/types";
 
 /**
  * Tick / untick on "What Did You Do Yesterday?" for a task the member logged time on outside
@@ -16,7 +17,7 @@ import { LEARNING_PROJECT_CATEGORY } from "@/features/whyfi/constants";
 export async function setLoggedTaskDoneAction(
   taskId: string,
   done: boolean
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; checklistBlock?: ChecklistCloseBlock }> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
 
@@ -33,7 +34,11 @@ export async function setLoggedTaskDoneAction(
       ? await updateWhyfiTaskAction(task.id, { status })
       : await updateTaskAction(task.id, { status });
   if (!res.success) {
-    return { success: false, error: ("error" in res && res.error) || "Couldn't update the task." };
+    return {
+      success: false,
+      error: ("error" in res && res.error) || "Couldn't update the task.",
+      checklistBlock: "checklistBlock" in res ? res.checklistBlock : undefined,
+    };
   }
 
   revalidatePath("/dsm");

@@ -6,6 +6,7 @@ import { CellSelection } from "@tiptap/pm/tables";
 import {
   Asterisk,
   Bold,
+  Code,
   Columns3,
   Heading1,
   Heading2,
@@ -20,25 +21,62 @@ import {
   ListTodo,
   Loader2,
   Paperclip,
+  Quote,
   Redo2,
   Rows3,
   Strikethrough,
   Table as TableIcon,
+  Terminal,
   Trash2,
   Underline as UnderlineIcon,
   Undo2,
+  Unlink,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
 import { sopDocExtensions } from "./sop-extensions";
 import type { DocNode } from "../doc";
+// Same node styles as the iNotes editor (RichTextEditor), then the SOP-only additions.
+import "@/components/tiptap-node/blockquote-node/blockquote-node.scss";
+import "@/components/tiptap-node/code-block-node/code-block-node.scss";
+import "@/components/tiptap-node/list-node/list-node.scss";
+import "@/components/tiptap-node/heading-node/heading-node.scss";
+import "@/components/tiptap-node/paragraph-node/paragraph-node.scss";
 import "./sop-doc.css";
+
+/** Editor text area — the iNotes editor's classes, taller for long SOPs, plus the SOP scope. */
+export const SOP_DOC_CLASS = "sop-doc focus:outline-none p-3 text-sm leading-snug text-foreground";
 
 interface SopDocEditorProps {
   /** Initial document — the editor is uncontrolled; remount it (key) to load another SOP. */
   initialContent: DocNode;
   onChange: (doc: DocNode) => void;
 }
+
+const NO_TOOLBAR_STATE = {
+  canUndo: false,
+  canRedo: false,
+  h1: false,
+  h2: false,
+  h3: false,
+  bold: false,
+  italic: false,
+  underline: false,
+  strike: false,
+  code: false,
+  codeBlock: false,
+  blockquote: false,
+  highlight: false,
+  bulletList: false,
+  orderedList: false,
+  taskList: false,
+  inTaskItem: false,
+  required: false,
+  proof: false,
+  inTable: false,
+  link: false,
+};
 
 async function uploadImage(file: File): Promise<string | null> {
   try {
@@ -99,7 +137,7 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
     extensions: sopDocExtensions({ editable: true }),
     content: initialContent,
     editorProps: {
-      attributes: { class: "sop-doc min-h-[320px] p-4" },
+      attributes: { class: `${SOP_DOC_CLASS} min-h-[320px]` },
       handlePaste: (_view, event) => {
         const data = event.clipboardData;
         // Excel/Sheets put both an HTML table and a picture of the range on the clipboard — keep
@@ -122,7 +160,10 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
     onUpdate: ({ editor }) => onChange(editor.getJSON() as DocNode),
   });
 
-  const state = useEditorState({
+  // Toolbar active/disabled flags. useEditorState only re-reads after the editor's first
+  // transaction, so until then it returns null — fall back to NO_TOOLBAR_STATE rather than
+  // waiting on it (the editor must render to ever get that first transaction).
+  const editorState = useEditorState({
     editor,
     selector: ({ editor: e }) => {
       if (!e) return null;
@@ -136,6 +177,9 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
         italic: e.isActive("italic"),
         underline: e.isActive("underline"),
         strike: e.isActive("strike"),
+        code: e.isActive("code"),
+        codeBlock: e.isActive("codeBlock"),
+        blockquote: e.isActive("blockquote"),
         highlight: e.isActive("highlight"),
         bulletList: e.isActive("bulletList"),
         orderedList: e.isActive("orderedList"),
@@ -149,9 +193,10 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
     },
   });
 
-  if (!editor || !state) {
+  if (!editor) {
     return <div className="h-[360px] animate-pulse rounded-md border bg-muted/40" />;
   }
+  const state = editorState ?? NO_TOOLBAR_STATE;
 
   const setLink = () => {
     const previous = editor.getAttributes("link").href as string | undefined;
@@ -165,16 +210,17 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
     editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
   };
 
+  // Toolbar look = the iNotes editor's (RichTextEditor): same button, separator and bar classes.
   const btn = (active: boolean) =>
     cn(
-      "rounded p-1.5 transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent",
-      active ? "bg-primary/10 text-primary" : "text-muted-foreground"
+      "p-1.5 rounded transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent",
+      active ? "bg-primary/10 text-primary font-bold" : "text-muted-foreground"
     );
-  const sep = <div className="mx-1 h-5 w-px bg-border" />;
+  const sep = <div className="w-px h-5 bg-border mx-1" />;
 
   return (
-    <div className="overflow-hidden rounded-md border bg-background">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b bg-muted/60 p-1.5 backdrop-blur">
+    <div className="flex w-full flex-col overflow-hidden rounded-md border">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border-b bg-muted/40 backdrop-blur">
         <button type="button" className={btn(false)} disabled={!state.canUndo} onClick={() => editor.chain().focus().undo().run()} title="Undo">
           <Undo2 size={14} />
         </button>
@@ -204,11 +250,27 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
         <button type="button" className={btn(state.strike)} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough">
           <Strikethrough size={14} />
         </button>
+        {/* Same formatting tools as the iNotes editor (RichTextEditor), plus the SOP tools below. */}
+        <button type="button" className={btn(state.code)} onClick={() => editor.chain().focus().toggleCode().run()} title="Inline Code">
+          <Code size={14} />
+        </button>
         <button type="button" className={btn(state.highlight)} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Highlight">
           <Highlighter size={14} />
         </button>
+        <button type="button" className={btn(state.codeBlock)} onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code Block">
+          <Terminal size={14} />
+        </button>
+        {sep}
         <button type="button" className={btn(state.link)} onClick={setLink} title="Link">
           <Link2 size={14} />
+        </button>
+        {state.link && (
+          <button type="button" className={btn(false)} onClick={() => editor.chain().focus().unsetLink().run()} title="Unlink">
+            <Unlink size={14} />
+          </button>
+        )}
+        <button type="button" className={btn(state.blockquote)} onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Quote">
+          <Quote size={14} />
         </button>
         {sep}
         <button type="button" className={btn(state.bulletList)} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
@@ -286,11 +348,24 @@ export default function SopDocEditor({ initialContent, onChange }: SopDocEditorP
             e.target.value = "";
           }}
         />
-        <button type="button" className={btn(false)} disabled={isUploading} onClick={() => fileInputRef.current?.click()} title="Insert image">
+        <button type="button" className={btn(false)} disabled={isUploading} onClick={() => fileInputRef.current?.click()} title="Upload or Paste Image">
           {isUploading ? <Loader2 size={14} className="animate-spin text-primary" /> : <ImageIcon size={14} />}
         </button>
+        <button
+          type="button"
+          className={btn(false)}
+          onClick={() => {
+            const url = window.prompt("Enter Image URL:");
+            if (url?.trim()) editor.chain().focus().setImage({ src: url.trim() }).run();
+          }}
+          title="Insert Image by URL"
+        >
+          <Upload size={14} />
+        </button>
       </div>
-      <EditorContent editor={editor} />
+      <div className="bg-background">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

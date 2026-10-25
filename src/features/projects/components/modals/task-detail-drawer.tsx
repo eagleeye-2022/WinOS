@@ -33,7 +33,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { TaskItem, TaskRemark, TaskStatus, TaskSubtask, PROJECT_TASK_STATUSES } from "../../types";
-import { PickTemplateModal } from "./pick-template-modal";
+import { TaskChecklistTab } from "@/features/sop-checklists/components/task-checklist-tab";
 import { NewTimeLogModal } from "./new-time-log-modal";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import {
@@ -41,7 +41,6 @@ import {
   getCurrentUserContextAction,
   getMyProjectUserProjectIdsAction,
 } from "../../actions/project-actions";
-import { toast } from "@/components/shared/toast";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -63,7 +62,6 @@ export function TaskDetailDrawer({
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [taskInfoOpen, setTaskInfoOpen] = useState(true);
   const [showAiSummary, setShowAiSummary] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
 
   // Left split-pane task list
@@ -186,40 +184,6 @@ export function TaskDetailDrawer({
   const [reminder, setReminder] = useState("None");
   const [billingType, setBillingType] = useState(task?.billingType || "None");
 
-  // Checklist Tab States (Matching Image 3 & 4)
-  const [unsectionedChecklist, setUnsectionedChecklist] = useState([
-    { id: "c1", label: "T&C", checked: false },
-    { id: "c2", label: "Refund Policy", checked: false },
-    { id: "c3", label: "Common/All Pages: Blog", checked: false },
-    { id: "c4", label: "Common/All Pages: Location", checked: false },
-  ]);
-
-  const [sopSchedules, setSopSchedules] = useState([
-    {
-      id: "sop-1",
-      title: "Keyword Research Outcome SOP",
-      count: 11,
-      expanded: false,
-      items: [
-        { id: "kr-1", label: "Verify primary keywords", checked: false },
-        { id: "kr-2", label: "Check competitor search volume", checked: false },
-      ],
-    },
-    {
-      id: "sop-2",
-      title: "Ui UX After Dev Testing SOP",
-      count: 21,
-      expanded: true,
-      items: [
-        { id: "ux-1", label: "No spelling/grammar mistakes", checked: false },
-        { id: "ux-2", label: "Design matches approved Figma/layout", checked: false },
-        { id: "ux-3", label: "Fonts, colors, spacing correct", checked: false },
-        { id: "ux-4", label: "All sections aligned properly", checked: false },
-        { id: "ux-5", label: "Mobile responsiveness verified", checked: false },
-      ],
-    },
-  ]);
-
   const [newRemarkText, setNewRemarkText] = useState("");
   const [remarks, setRemarks] = useState<TaskRemark[]>(
     task?.remarks && task.remarks.length > 0
@@ -319,54 +283,6 @@ export function TaskDetailDrawer({
     setRemarks(updatedRemarks);
     setNewRemarkText("");
     onUpdateTask({ ...task, remarks: updatedRemarks });
-  };
-
-  const handleToggleCheckitem = (id: string) => {
-    setUnsectionedChecklist((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, checked: !item.checked } : item
-      )
-    );
-  };
-
-  const handleToggleSopItem = (sopId: string, itemId: string) => {
-    setSopSchedules((prev) =>
-      prev.map((sop) => {
-        if (sop.id !== sopId) return sop;
-        return {
-          ...sop,
-          items: sop.items.map((it) =>
-            it.id === itemId ? { ...it, checked: !it.checked } : it
-          ),
-        };
-      })
-    );
-  };
-
-  const handleSelectAllSop = (sopId: string, currentVal: boolean) => {
-    setSopSchedules((prev) =>
-      prev.map((sop) => {
-        if (sop.id !== sopId) return sop;
-        return {
-          ...sop,
-          items: sop.items.map((it) => ({ ...it, checked: !currentVal })),
-        };
-      })
-    );
-  };
-
-  const handleAddTemplate = (titles: string[]) => {
-    const newSops = titles.map((title, idx) => ({
-      id: `sop-new-${Date.now()}-${idx}`,
-      title,
-      count: 10,
-      expanded: true,
-      items: [
-        { id: `ni-1-${idx}`, label: "Initial setup step", checked: false },
-        { id: `ni-2-${idx}`, label: "Quality verification check", checked: false },
-      ],
-    }));
-    setSopSchedules((prev) => [...prev, ...newSops]);
   };
 
   return (
@@ -634,168 +550,14 @@ export function TaskDetailDrawer({
               </button>
             </div>
 
-            {/* Checklist Tab (Matching Images 3 & 4) */}
             {activeTab === "CHECKLIST" && (
-              <div className="space-y-4 pt-2">
-                {/* Header Action Button */}
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                    <ChevronDown size={16} className="text-muted-foreground" />
-                    <span>Checklist</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsTemplateModalOpen(true)}
-                    className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-2xs hover:bg-primary/90 transition-colors"
-                  >
-                    Add Template
-                  </button>
-                </div>
-
-                {/* Unsectioned Items List (Matching Image 3 & 4) */}
-                <div className="border-t border-b py-3 space-y-2.5 pl-2">
-                  {unsectionedChecklist.map((item) => (
-                    <label key={item.id} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => handleToggleCheckitem(item.id)}
-                        className="rounded border-input text-primary h-4 w-4"
-                      />
-                      <span className={`text-xs ${item.checked ? "line-through text-muted-foreground" : "text-foreground font-medium"}`}>
-                        {item.label}
-                      </span>
-                    </label>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const label = prompt("Enter new checklist item label:");
-                      if (label && label.trim()) {
-                        setUnsectionedChecklist([
-                          ...unsectionedChecklist,
-                          { id: `c-${Date.now()}`, label: label.trim(), checked: false },
-                        ]);
-                      }
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-info pt-1 hover:underline"
-                  >
-                    + Create Item
-                  </button>
-                </div>
-
-                {/* SOP Accordions (Matching Image 3 & 4) */}
-                <div className="space-y-3 pt-1">
-                  {sopSchedules.map((sop) => (
-                    <div key={sop.id} className="rounded-lg border bg-card overflow-hidden shadow-2xs">
-                      {/* Accordion Header */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSopSchedules((prev) =>
-                            prev.map((s) =>
-                              s.id === sop.id ? { ...s, expanded: !s.expanded } : s
-                            )
-                          )
-                        }
-                        className="flex w-full items-center justify-between p-3 bg-muted/20 hover:bg-accent/40 font-bold text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <ChevronDown
-                            size={16}
-                            className={`text-muted-foreground transition-transform ${
-                              sop.expanded ? "" : "-rotate-90"
-                            }`}
-                          />
-                          <span>{sop.title}</span>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {sop.count}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {/* Progress bar */}
-                          <div className="w-24 bg-muted rounded-full h-2 overflow-hidden">
-                            <div
-                              className="bg-primary h-full rounded-full transition-all duration-300"
-                              style={{
-                                width: `${
-                                  (sop.items.filter((i) => i.checked).length /
-                                    (sop.items.length || 1)) *
-                                  100
-                                }%`,
-                              }}
-                            />
-                          </div>
-                          <MoreHorizontal size={14} className="text-muted-foreground" />
-                        </div>
-                      </button>
-
-                      {/* Accordion Content */}
-                      {sop.expanded && (
-                        <div className="p-4 border-t space-y-3 bg-background">
-                          {/* Select All */}
-                          <label className="flex items-center gap-3 font-bold text-info cursor-pointer border-b pb-2">
-                            <input
-                              type="checkbox"
-                              checked={sop.items.length > 0 && sop.items.every((i) => i.checked)}
-                              onChange={() =>
-                                handleSelectAllSop(
-                                  sop.id,
-                                  sop.items.every((i) => i.checked)
-                                )
-                              }
-                              className="rounded border-input text-primary h-4 w-4"
-                            />
-                            <span>Select All</span>
-                          </label>
-
-                          {/* Item List */}
-                          <div className="space-y-2.5 pl-1">
-                            {sop.items.map((it) => (
-                              <label key={it.id} className="flex items-center gap-3 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={it.checked}
-                                  onChange={() => handleToggleSopItem(sop.id, it.id)}
-                                  className="rounded border-input text-primary h-4 w-4"
-                                />
-                                <span className={`text-xs ${it.checked ? "line-through text-muted-foreground" : "text-foreground font-medium"}`}>
-                                  {it.label}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Save All Progress Button */}
-                <div className="flex justify-end pt-3">
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Saving checklist progress isn't available yet.")}
-                    className="rounded-md bg-primary px-6 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors"
-                  >
-                    Save All Progress
-                  </button>
-                </div>
+              <div className="pt-2">
+                <TaskChecklistTab taskId={task.id} />
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Pick Template Modal */}
-      <PickTemplateModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => setIsTemplateModalOpen(false)}
-        onAddTemplates={handleAddTemplate}
-      />
 
       {/* New Time Log Modal */}
       <NewTimeLogModal

@@ -40,7 +40,10 @@ import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, Workspa
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
-import { ChecklistWorkspaceView } from "./checklist-workspace-view";
+import { ProjectChecklistsView } from "@/features/sop-checklists/components/project-checklists-view";
+import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
+import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { getTaskChecklistSummariesAction } from "@/features/sop-checklists/actions/project-checklist-actions";
 import { PhasesTableView } from "./phases-table-view";
 import { TimeTrackerView } from "./time-tracker-view";
 import { TimerWidget } from "../timer-widget";
@@ -278,6 +281,24 @@ export function TasksBoardView({
   const { confirm, ConfirmDialog } = useConfirm();
   const params = useParams();
   const realProjectId = (params?.projectId as string | undefined) || projectCode;
+
+  // SOP checklist progress per task id, for the ☑ chip on each card. Reloaded when the task list
+  // changes (a status change or a new task), since ticking happens on the task page.
+  const [checklistSummaries, setChecklistSummaries] = useState<
+    Record<string, { done: number; total: number; requiredOpen: number }>
+  >({});
+  useEffect(() => {
+    if (!realProjectId) return;
+    let cancelled = false;
+    getTaskChecklistSummariesAction(realProjectId)
+      .then((res) => {
+        if (!cancelled) setChecklistSummaries(res);
+      })
+      .catch((err) => console.error("[TasksBoardView] Failed to load checklist progress:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [realProjectId, tasks]);
 
   // Custom task lists / phases created on the board
   const [customPhases, setCustomPhases] = useState<{ code: string; name: string }[]>([]);
@@ -660,6 +681,11 @@ export function TasksBoardView({
           ...(changes.owners && { owners: changes.owners, owner: changes.ownerLabel }),
           ...(changes.phaseCode && { phaseCode: changes.phaseCode, phaseName: changes.phaseName }),
         });
+        if (!res.success && res.checklistBlock && changes.status) {
+          showChecklistGate({ ...res.checklistBlock, status: changes.status, onForced: () => onTasksChanged?.() });
+          if (onTasksChanged) await onTasksChanged();
+          return;
+        }
         if (!res.success) throw new Error(res.error || "You do not have permission to edit this subtask.");
       } else {
         await updateSubtaskAction(task.id, {
@@ -1437,6 +1463,9 @@ export function TasksBoardView({
               disabledReason={isLocked ? lockedReason : "You're not a user of this project, so you can't start this timer"}
               onSaveLog={() => router.refresh()}
             />
+            {checklistSummaries[task.id]?.total > 0 && (
+              <ChecklistChip summary={checklistSummaries[task.id]} isClosed={isClosed} />
+            )}
             {isSubtask && (
               <button
                 type="button"
@@ -1717,7 +1746,11 @@ export function TasksBoardView({
           </div>
         </div>
       ) : activeSubTab === "CHECKLIST" ? (
-        <ChecklistWorkspaceView />
+        realProjectId ? (
+          <ProjectChecklistsView projectId={realProjectId} />
+        ) : (
+          <p className="p-10 text-center text-xs text-muted-foreground">Open a project to see its SOP checklists.</p>
+        )
       ) : activeSubTab === "PHASES" ? (
         <PhasesTableView onOpenAddModal={() => setIsAddTaskDrawerOpen(true)} />
       ) : activeSubTab === "TIME_LOGS" ? (

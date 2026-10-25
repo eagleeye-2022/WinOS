@@ -25,8 +25,8 @@ export default async function ReportPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  // The report day stays open until the cut-off (6:00 AM next day), so just after midnight this is
-  // still yesterday's report.
+  // The report day stays open until the cut-off (9:00 AM next day), so until then in the morning
+  // this is still yesterday's report.
   const reportConfig = getReportConfig();
   const todayDateStr = getOpenReportDateStr(new Date(), reportConfig.cutoff, reportConfig.cutoffDayOffset);
 
