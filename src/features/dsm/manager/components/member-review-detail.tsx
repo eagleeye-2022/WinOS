@@ -406,7 +406,6 @@ function AddTaskRow({
       <div className="flex items-center gap-2.5 flex-wrap text-xs">
         <span className="font-semibold text-muted-foreground uppercase text-xs">New Task:</span>
         <ProjectTaskSelectors
-          shortProjectNames
           projects={cascadingProjects}
           projectsLoading={projectsLoading}
           projectId={selectedProjectId}
@@ -1503,7 +1502,6 @@ function TaskRow({
             <div className="flex items-center gap-2.5 flex-wrap text-xs">
               <span className="font-semibold text-muted-foreground uppercase text-xs">Edit Task:</span>
               <ProjectTaskSelectors
-                shortProjectNames
                 projects={cascadingProjects}
                 projectsLoading={projectsLoading}
                 projectId={selectedProjectId}
@@ -1822,7 +1820,7 @@ function SummaryTaskEditor({
         <SearchableSelect
           value={projectId}
           onChange={(v) => { setProjectId(v); setParentTaskId(""); setSubtaskId(""); }}
-          options={projectSelectOptions(cascadingProjects, true)}
+          options={projectSelectOptions(cascadingProjects)}
           placeholder="Select Project"
           searchPlaceholder="Search projects..."
           className={selectCls}
@@ -3005,7 +3003,7 @@ export function ParkingLotSection({
                     value={tree.projectId}
                     disabled={isLocked && item.persisted}
                     onChange={(v) => handleProjectChange(i, v)}
-                    options={projectSelectOptions(cascadingProjects, true)}
+                    options={projectSelectOptions(cascadingProjects)}
                     placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
                     searchPlaceholder="Search projects..."
                     className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[180px] disabled:opacity-75"

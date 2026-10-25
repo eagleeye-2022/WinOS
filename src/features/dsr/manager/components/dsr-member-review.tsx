@@ -29,6 +29,7 @@ import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, T
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
+import { projectSelectOptions } from "@/features/dsm/components/project-task-selectors";
 import type { CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
 import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
 
@@ -337,7 +338,7 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
         <SearchableSelect
           value={selectedProjectId}
           onChange={(v) => handleProjectChange(v)}
-          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          options={projectSelectOptions(cascadingProjects)}
           placeholder={cascadingProjects.length === 0 ? "Loading..." : "Select Project"}
           searchPlaceholder="Search projects..."
           className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"

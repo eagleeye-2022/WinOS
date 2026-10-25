@@ -16,13 +16,11 @@ function Divider() {
 }
 
 /**
- * Project picker options. With `short`, each shows only the part before the ":" ("MGM : MalavGram"
- * → "MGM"); the full name stays searchable and shows on hover.
+ * Project picker options: each shows only the short name, the part before the ":" ("MGM : MalavGram"
+ * → "MGM"); the full name stays searchable.
  */
-export function projectSelectOptions(projects: { id: string; name: string }[], short = false) {
-  return projects.map((p) =>
-    short ? { value: p.id, label: shortProjectName(p.name), searchText: p.name } : { value: p.id, label: p.name }
-  );
+export function projectSelectOptions(projects: { id: string; name: string }[]) {
+  return projects.map((p) => ({ value: p.id, label: shortProjectName(p.name), searchText: p.name }));
 }
 
 /**
@@ -44,12 +42,9 @@ export function ProjectTaskSelectors({
   onSubtaskChange,
   onProjectsChange,
   taskOwnerId,
-  shortProjectNames = false,
 }: {
   /** Owner of tasks created here — set when a manager adds a task for a member. Defaults to the current user. */
   taskOwnerId?: string;
-  /** Show projects by their short name (before the ":") — used on a member's DSM page. */
-  shortProjectNames?: boolean;
   projects: CascadingProjectOption[];
   projectsLoading: boolean;
   projectId: string;
@@ -109,7 +104,7 @@ export function ProjectTaskSelectors({
       <SearchableSelect
         value={projectId}
         onChange={onProjectChange}
-        options={projectSelectOptions(projects, shortProjectNames)}
+        options={projectSelectOptions(projects)}
         placeholder={projectsLoading ? "Loading..." : projects.length === 0 ? "No projects" : "Select Project"}
         searchPlaceholder="Search projects..."
         className={`${selectCls} max-w-[180px]`}
