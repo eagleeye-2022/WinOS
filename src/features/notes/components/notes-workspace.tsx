@@ -24,6 +24,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
+import { shortProjectName } from "@/features/projects/utils/project-name";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
@@ -1520,7 +1521,7 @@ export function NotesWorkspace({
                             >
                               <FolderKanban size={11} className="shrink-0" />
                               <span className="truncate">
-                                {note.projectShares![0].project?.name || "Project"}
+                                {shortProjectName(note.projectShares![0].project?.name) || "Project"}
                                 {note.projectShares!.length > 1 ? ` +${note.projectShares!.length - 1}` : ""}
                               </span>
                             </div>
@@ -2314,7 +2315,9 @@ export function NotesWorkspace({
                           className="cursor-pointer"
                         />
                         {p.code && <span className="font-mono text-xs text-muted-foreground">{p.code}</span>}
-                        <span className="truncate font-medium text-foreground">{p.name}</span>
+                        <span className="truncate font-medium text-foreground" title={p.name}>
+                          {shortProjectName(p.name)}
+                        </span>
                       </label>
                     );
                   })

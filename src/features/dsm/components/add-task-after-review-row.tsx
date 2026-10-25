@@ -6,6 +6,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
+import { projectSelectOptions } from "./project-task-selectors";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
@@ -153,7 +154,7 @@ export function AddTaskAfterReviewRow({
         <SearchableSelect
           value={selectedProjectId}
           onChange={handleProjectChange}
-          options={cascadingProjects.map((p) => ({ value: p.id, label: p.name }))}
+          options={projectSelectOptions(cascadingProjects)}
           placeholder="Select Project"
           searchPlaceholder="Search projects..."
           className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[170px]"

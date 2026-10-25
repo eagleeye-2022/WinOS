@@ -7,6 +7,7 @@ import { toast } from "@/components/shared/toast";
 import { formatEffortMinutes } from "../utils";
 import { TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
+import { shortProjectName } from "@/features/projects/utils/project-name";
 import { setLoggedTaskDoneAction } from "../actions/set-logged-task-done";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import type { YesterdayLoggedTask, YesterdayTaskItem } from "../queries";
@@ -158,8 +159,11 @@ export function YesterdayTaskList({
               {t.code}
             </span>
             {href && <TaskInfoLink href={href} code={t.code} />}
-            <span className="shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {t.projectLabel}
+            <span
+              title={t.projectLabel}
+              className="shrink-0 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground"
+            >
+              {shortProjectName(t.projectLabel)}
             </span>
             <span className={cn("min-w-0 flex-1", !done && "text-muted-foreground")}>{t.title}</span>
             <span

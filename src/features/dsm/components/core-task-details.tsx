@@ -9,6 +9,7 @@ import { fetchDailyTimeSummaryAction } from "../actions/get-user-project-tasks";
 import { formatEffortMinutes, toIsoDateStr, toUtcDate } from "../utils";
 import type { CoreDailyTask, DailyTimeSummary } from "../queries";
 import { getInitials } from "@/lib/avatar";
+import { shortProjectName } from "@/features/projects/utils/project-name";
 
 function displayName(user: { name: string | null; email: string }): string {
   return user.name?.trim() || user.email.split("@")[0];
@@ -78,8 +79,8 @@ export function CoreTaskDetails({
 
       <div className="flex items-center gap-1.5">
         <FolderGit2 size={12} className="shrink-0 text-muted-foreground" />
-        <span className="truncate text-muted-foreground">
-          {task.project?.name ?? "—"} · {task.taskListName ?? "—"}
+        <span className="truncate text-muted-foreground" title={task.project?.name}>
+          {task.project?.name ? shortProjectName(task.project.name) : "—"} · {task.taskListName ?? "—"}
         </span>
         <span className="ml-auto shrink-0 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
           {task.status}
