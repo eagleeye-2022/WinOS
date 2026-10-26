@@ -687,6 +687,30 @@ model BoardNote {
   shares         BoardNoteShare[]
   projectShares  BoardNoteProjectShare[]
   activities     BoardNoteActivity[]
+  versions       BoardNoteVersion[]
+}
+
+/// A copy of an iNotes card as it was after each create / edit — the card timeline's "View" shows
+/// it and what changed from the version before. Written best-effort next to the timeline event.
+model BoardNoteVersion {
+  id         String    @id @default(cuid())
+  noteId     String
+  version    Int
+  title      String?
+  content    String
+  color      String?
+  deadline   DateTime?
+  /// [{ text, checked }] in order.
+  checklist  Json?
+  /// The timeline event (BoardNoteActivity) this version belongs to.
+  activityId String?   @unique
+  userId     String?
+  userName   String
+  createdAt  DateTime  @default(now())
+  note       BoardNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, version])
+  @@index([noteId, createdAt])
 }
 
 /// Card timeline: who did what to an iNotes card and when (not the content of the change).

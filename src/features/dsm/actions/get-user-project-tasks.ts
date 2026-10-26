@@ -9,6 +9,7 @@ import {
   getProjectStandupRollup,
   getUserProjectsWithTasksAndSubtasks,
   getDailyTimeSummaryForTasks,
+  getTaskTotalMinutes,
   type OpenProjectTaskOption,
   type ProjectStandupRollupItem,
   type CascadingProjectOption,
@@ -55,4 +56,27 @@ export async function fetchDailyTimeSummaryAction(
 
   if (taskIds.length === 0) return {};
   return await getDailyTimeSummaryForTasks(targetUserId, taskIds, date);
+}
+
+/**
+ * Total effort (all days, minutes) per task for the viewer — or, for a manager, for `userId`.
+ * Same access rule as fetchDailyTimeSummaryAction.
+ */
+export async function fetchTaskTotalEffortAction(taskIds: string[], userId?: string): Promise<Record<string, number>> {
+  const session = await auth();
+  if (!session?.user?.id) return {};
+
+  let targetUserId = session.user.id;
+  if (userId && userId !== session.user.id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const viewer = await (db as any).user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    if (viewer?.role !== "MANAGER") return {};
+    targetUserId = userId;
+  }
+
+  if (taskIds.length === 0) return {};
+  return await getTaskTotalMinutes(targetUserId, taskIds);
 }

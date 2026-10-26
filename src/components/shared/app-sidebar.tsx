@@ -146,6 +146,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
 
   const isManager = userRole === "MANAGER";
   const iNotesHref = userId ? `/notes/member/${userId}` : ROUTES.notes;
+  // iNotes is a Standup route; `?module=` keeps the Pulse / Srijan sidebar when opened from there.
+  const iNotesIn = (module: "pulse" | "projects") => `${iNotesHref}?module=${module}`;
 
   const searchParams = useSearchParams();
   const activeModuleId = resolveNavModule(pathname, searchParams);
@@ -191,6 +193,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
             children: [{ label: "Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading }],
           },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ]
       : [
           { label: "Home", href: "/people", icon: Home },
@@ -200,6 +203,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {
     navItems = isManager
@@ -209,6 +213,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Users", href: "/projects/users", icon: Users2 },
           { label: "SOPs/Checklists", href: "/projects/sop-checklists", icon: ClipboardList },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
+          { label: "iNotes", href: iNotesIn("projects"), icon: FileText },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
@@ -216,7 +221,10 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
       : [
           { label: "All Projects", href: "/projects", icon: FolderKanban },
           // { label: "My Dashboard", href: "/projects/dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
+          // Read-only for team members (managers create / edit SOPs there).
+          { label: "SOPs/Checklists", href: "/projects/sop-checklists", icon: ClipboardList },
           { label: "Collaboration", href: `${ROUTES.calendar}?module=projects`, icon: Calendar },
+          { label: "iNotes", href: iNotesIn("projects"), icon: FileText },
           { label: "My Tasks", href: "/projects/my-tasks", icon: CheckSquare, section: "OVERVIEW" },
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },

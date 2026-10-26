@@ -36,7 +36,8 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
         return {
           success: false,
           message: block.message,
-          checklistBlock: { ...block, canForce: session.user.role === "MANAGER" },
+          // No "Close anyway" for anyone — managers complete the checklist like team members.
+          checklistBlock: { ...block, canForce: false },
         };
       }
     }

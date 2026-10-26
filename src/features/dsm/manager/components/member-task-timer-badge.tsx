@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Timer } from "lucide-react";
 import { getMemberActiveTimerAction } from "@/features/projects/actions/active-timer-actions";
 import { fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
@@ -94,6 +94,7 @@ export function MemberTaskTimerBadge({
   memberId,
   dateStr,
   liveOnly = false,
+  idleFallback,
 }: {
   taskId: string;
   taskCode?: string;
@@ -103,6 +104,8 @@ export function MemberTaskTimerBadge({
    *  (or "No active timer") and never the day's accumulated/historical total.
    *  Historical daily totals belong to the DSR pages, not this DSM view. */
   liveOnly?: boolean;
+  /** liveOnly: shown instead of "Inactive" when the timer isn't running (e.g. the overall effort). */
+  idleFallback?: ReactNode;
 }) {
   const [runningSince, setRunningSince] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -221,6 +224,8 @@ export function MemberTaskTimerBadge({
   }
 
   if (liveOnly) {
+    // Not running: the caller's fallback (e.g. the task's overall effort), else "Inactive".
+    if (idleFallback !== undefined) return <>{idleFallback}</>;
     return (
       <div
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"

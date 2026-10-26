@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   SELF_REVIEWED_EVENT,
+  formatEffortSpan,
   isSelfReviewed,
   isStandupRoutineTask,
   previousDsmDayLabel,
@@ -499,6 +500,19 @@ describe("sortTeamGroups", () => {
       "Tech Team",
       "SMM Team",
     ]);
+  });
+});
+
+describe("formatEffortSpan", () => {
+  it("shows first start – last stop", () => {
+    expect(formatEffortSpan("10:05 AM", "11:30 AM")).toBe("10:05 AM – 11:30 AM");
+    expect(formatEffortSpan("10:05 AM", "10:05 AM")).toBe("10:05 AM");
+  });
+
+  it("shows what's known, or nothing", () => {
+    expect(formatEffortSpan("10:05 AM", null)).toBe("10:05 AM");
+    expect(formatEffortSpan(null, "11:30 AM")).toBe("11:30 AM");
+    expect(formatEffortSpan(null, undefined)).toBe("");
   });
 });
 

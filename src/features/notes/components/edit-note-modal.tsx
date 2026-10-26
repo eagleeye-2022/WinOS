@@ -308,6 +308,12 @@ export function EditNoteModal<T extends EditNoteModalData>({
           noteId={note.id}
           cardTitle={note.title}
           onClose={() => setTimelineOpen(false)}
+          canRestore={canEdit}
+          onRestored={async () => {
+            // The card on screen is now out of date — close it and reload the board.
+            onClose();
+            await onSaved?.();
+          }}
         />
       )}
     </div>

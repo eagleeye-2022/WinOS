@@ -10,6 +10,7 @@ import { projectSelectOptions } from "./project-task-selectors";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
+import { subtaskOptionLabel } from "../utils";
 
 function findSelectedTaskMeta(
   cascadingProjects: CascadingProjectOption[],
@@ -180,7 +181,7 @@ export function AddTaskAfterReviewRow({
             onChange={handleSubtaskChange}
             options={currentTask.subtasks.map((st) => ({
               value: st.id,
-              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+              label: subtaskOptionLabel(st),
             }))}
             placeholder="Select Subtask"
             searchPlaceholder="Search subtasks..."

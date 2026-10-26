@@ -2503,8 +2503,8 @@ export type UpdateTaskResult = {
 export async function updateTaskAction(
   taskId: string,
   updates: Partial<TaskItem>,
-  /** `forceClose`: a manager closes the task even though its SOP checklist isn't complete. */
-  opts?: { forceClose?: boolean }
+  /** `forceClose` is no longer honoured — nobody, managers included, can close past the SOP checklist. */
+  _?: { forceClose?: boolean }
 ): Promise<UpdateTaskResult> {
   const session = await requireAuth();
 
@@ -2562,7 +2562,7 @@ export async function updateTaskAction(
   }
 
   // Closing (status → done, or 100%) needs a completed SOP checklist — see checklistCloseBlock.
-  // Managers may override ("Close anyway"); that's noted in the task's activity.
+  // Everyone follows it, managers included: no override ("Close anyway" was removed by request).
   const closing =
     (updates.status !== undefined && isTaskDone(updates.status)) ||
     (updates.completionPercentage !== undefined && updates.completionPercentage >= 100);
@@ -2571,25 +2571,11 @@ export async function updateTaskAction(
     null;
   if (closing && !isTaskDone(task.status, false, task.completionPercentage)) {
     const block = await checklistCloseBlock(task.id);
-    closedEvent = { forced: block ? { reason: block.reason, done: block.done, total: block.total } : null };
     if (block) {
-      if (!(opts?.forceClose && isPrivileged)) {
-        return { success: false, error: block.message, checklistBlock: { ...block, canForce: isPrivileged } };
-      }
-      const actorName = dbUser?.name || session.user.name || "Manager";
-      await db.projectTaskActivity.create({
-        data: {
-          taskId: task.id,
-          userId: session.user.id,
-          userName: actorName,
-          userInitials: toInitials(actorName),
-          actionText:
-            block.reason === "NO_CHECKLIST"
-              ? "closed this task without an SOP checklist (manager override)"
-              : `closed this task with its SOP checklist incomplete (${block.done}/${block.total}, manager override)`,
-        },
-      });
+      // Same for a manager as for a team member: select an SOP checklist and tick every item first.
+      return { success: false, error: block.message, checklistBlock: { ...block, canForce: false } };
     }
+    closedEvent = { forced: null };
   }
 
   let ownerNames: string[] = [];

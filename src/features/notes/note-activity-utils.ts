@@ -50,6 +50,8 @@ export type TimelineEvent = {
   userName: string;
   role: string | null;
   createdAt: string;
+  /** Set on create / edit events that saved a copy of the card — the timeline's "View". */
+  version?: number;
 };
 
 type RawEvent = {

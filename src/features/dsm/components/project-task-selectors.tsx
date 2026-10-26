@@ -7,6 +7,7 @@ import { toast } from "@/components/shared/toast";
 import { ProjectTaskStatusPill } from "./project-task-status-pill";
 import { createDsmProjectTaskAction } from "../actions/create-project-items";
 import type { CascadingProjectOption, CascadingTaskOption } from "../queries";
+import { subtaskOptionLabel } from "../utils";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 
 const selectCls = "text-xs font-medium text-foreground hover:text-primary transition-colors";
@@ -146,7 +147,7 @@ export function ProjectTaskSelectors({
             onChange={(v) => onSubtaskChange(v, task)}
             options={task.subtasks.map((st) => ({
               value: st.id,
-              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+              label: subtaskOptionLabel(st),
             }))}
             placeholder="Select Subtask"
             searchPlaceholder="Search subtasks..."

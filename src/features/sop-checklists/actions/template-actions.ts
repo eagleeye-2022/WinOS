@@ -28,6 +28,15 @@ async function requireManager(): Promise<ActingUser | { error: string }> {
   return user;
 }
 
+/** Any signed-in user — creating an SOP is open to everyone; editing, archiving and deleting stay manager-only. */
+async function requireSignedIn(): Promise<ActingUser | { error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const user = await loadActingUser(session.user.id);
+  if (!user) return { error: "Your account could not be found. Please sign in again." };
+  return user;
+}
+
 interface ValidInput {
   name: string;
   description: string;
@@ -111,6 +120,23 @@ export async function getSopPickerOptionsAction(): Promise<SopPickerOption[]> {
   return rows.map((r: any) => ({ id: r.id, name: r.name, category: r.category, stepCount: r._count.items }));
 }
 
+/**
+ * Read-only SOP library for any signed-in user (team members browse it at Srijan → SOPs/Checklists):
+ * active SOPs with their documents. Creating, editing and archiving stay manager-only below.
+ */
+export async function getSopLibraryForViewerAction(): Promise<SopTemplate[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const user = await loadActingUser(session.user.id);
+  if (!user) return [];
+  const rows = await d.sopChecklistTemplate.findMany({
+    where: { isArchived: false },
+    include: TEMPLATE_INCLUDE,
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+  return rows.map(toSopTemplate);
+}
+
 /** Managers only — powers the SOP library and the project "Attach SOP to tasks" panel. */
 export async function getSopTemplatesAction(opts?: { includeArchived?: boolean }): Promise<SopTemplate[]> {
   const user = await requireManager();
@@ -148,7 +174,7 @@ async function createTemplateRow(user: ActingUser, v: ValidInput) {
 }
 
 export async function createSopTemplateAction(input: SopTemplateInput): Promise<Result<{ template: SopTemplate }>> {
-  const user = await requireManager();
+  const user = await requireSignedIn();
   if ("error" in user) return { success: false, error: user.error };
   const parsed = validateInput(input, new Set());
   if ("error" in parsed) return { success: false, error: parsed.error };
@@ -329,6 +355,28 @@ export async function updateSopTemplateAction(
   }
   revalidatePath(SOP_PATH);
   return { success: true, template: toSopTemplate(row) };
+}
+
+/** Moves the SOP to another list (category) on the library board. Only the category changes — no new version. */
+export async function moveSopTemplateAction(id: string, category: string): Promise<Result> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+
+  const next = (category || "").trim().slice(0, 60);
+  if (!next) return { success: false, error: "Choose a list" };
+  const existing = await d.sopChecklistTemplate.findUnique({ where: { id }, select: { name: true, category: true } });
+  if (!existing) return { success: false, error: "SOP not found" };
+  if (existing.category === next) return { success: true };
+
+  await d.sopChecklistTemplate.update({ where: { id }, data: { category: next } });
+  await recordSopEvent(user, {
+    type: "TEMPLATE_UPDATED",
+    templateId: id,
+    templateName: existing.name,
+    details: { movedFrom: existing.category, movedTo: next },
+  });
+  revalidatePath(SOP_PATH);
+  return { success: true };
 }
 
 export async function setSopTemplateArchivedAction(id: string, archived: boolean): Promise<Result> {

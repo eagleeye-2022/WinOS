@@ -590,7 +590,10 @@ function ChecklistCard({
 
       {isOpen && (
         <div className="space-y-3 border-t px-4 pb-4 pt-3 dark:border-zinc-800">
-          {canCheck && progress.total > 0 && (
+          {/* "Select All" removed by request — every step is ticked on its own. Restore by
+              dropping `false &&`.
+          */}
+          {false && canCheck && progress.total > 0 && (
             <label className="flex w-fit cursor-pointer items-center gap-2 text-xs font-semibold text-foreground">
               <input
                 type="checkbox"

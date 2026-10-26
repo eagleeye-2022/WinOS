@@ -5,24 +5,24 @@ import dynamic from "next/dynamic";
 import {
   Archive,
   ArchiveRestore,
+  ArrowLeft,
   History,
   ClipboardCheck,
-  Download,
   Loader2,
-  Plus,
   RefreshCw,
   Save,
   Search,
   Trash2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import {
   createSopTemplateAction,
   deleteSopTemplateAction,
+  getSopLibraryForViewerAction,
   getSopTemplatesAction,
   importEedSopLibraryAction,
+  moveSopTemplateAction,
   previewEedSopLibraryImportAction,
   pushSopTemplateUpdateAction,
   setSopTemplateArchivedAction,
@@ -31,12 +31,48 @@ import {
 import { SOP_CATEGORIES, SopTemplate } from "../types";
 import { DocNode } from "../doc";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
+import { SopBoard } from "./sop-board";
+
+/** Empty lists made with "Create List" — kept on this browser until their first SOP is saved. */
+const LOCAL_LISTS_KEY = "sop-board-lists";
+
+const readLocalLists = (): string[] => {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(LOCAL_LISTS_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalLists = (lists: string[]) => {
+  try {
+    window.localStorage.setItem(LOCAL_LISTS_KEY, JSON.stringify(lists));
+  } catch {
+    // Storage unavailable (private window) — the list still shows until the page reloads.
+  }
+};
+
+/** Keeps `?sop=<id>` in the address bar in step with the open SOP, so the URL itself can be shared. */
+const setUrlSop = (id: string | null) => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("list");
+  if (id) url.searchParams.set("sop", id);
+  else url.searchParams.delete("sop");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search);
+};
 
 /** TipTap needs the browser — loaded on demand. */
 const SopDocEditor = dynamic(() => import("../editor/sop-doc-editor"), {
   ssr: false,
   loading: () => <div className="h-[360px] animate-pulse rounded-md border bg-muted/40" />,
 });
+/** Read-only render of an SOP (team members' view of the library). */
+const SopDocView = dynamic(() => import("../editor/sop-doc-view"), {
+  ssr: false,
+  loading: () => <div className="h-[360px] animate-pulse rounded-md border bg-muted/40" />,
+});
+const NO_TICKS = new Map<string, boolean>();
 
 const STARTER_DOC: DocNode = {
   type: "doc",
@@ -82,24 +118,48 @@ const draftFrom = (t: SopTemplate): Draft => ({
   content: t.content,
 });
 
-export function SopLibraryView() {
+/**
+ * `canEdit` (managers): create, edit, move, archive, delete and push SOPs. Without it (team members)
+ * the library is browse/read plus creating new SOPs — existing SOPs stay read-only for them.
+ */
+export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const [templates, setTemplates] = useState<SopTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [showArchived, setShowArchived] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [localLists, setLocalLists] = useState<string[]>([]);
+  const [highlightList, setHighlightList] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getSopTemplatesAction({ includeArchived: true })
+    (canEdit ? getSopTemplatesAction({ includeArchived: true }) : getSopLibraryForViewerAction())
       .then((rows) => {
-        if (!cancelled) setTemplates(rows);
+        if (cancelled) return;
+        setTemplates(rows);
+        if (canEdit) setLocalLists(readLocalLists());
+        // Shared links: ?sop=<id> opens that SOP, ?list=<name> highlights that list.
+        const params = new URLSearchParams(window.location.search);
+        const sopId = params.get("sop");
+        const list = params.get("list");
+        if (sopId) {
+          const t = rows.find((r) => r.id === sopId);
+          if (t) setDraft(draftFrom(t));
+          else toast.error("That SOP wasn't found — it may have been archived or deleted");
+        } else if (list) {
+          setHighlightList(list);
+          setTimeout(() => {
+            document
+              .getElementById(`sop-list-${encodeURIComponent(list)}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          }, 100);
+        }
       })
       .catch((err) => {
         console.error("Failed to load SOP checklists:", err);
@@ -111,11 +171,11 @@ export function SopLibraryView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canEdit]);
 
   const categories = useMemo(
-    () => Array.from(new Set([...SOP_CATEGORIES, ...templates.map((t) => t.category)])),
-    [templates]
+    () => Array.from(new Set([...SOP_CATEGORIES, ...templates.map((t) => t.category), ...localLists])),
+    [templates, localLists]
   );
 
   const visible = useMemo(() => {
@@ -123,15 +183,87 @@ export function SopLibraryView() {
     return templates.filter(
       (t) =>
         (showArchived || !t.isArchived) &&
-        (categoryFilter === "ALL" || t.category === categoryFilter) &&
         (!q || t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
     );
-  }, [templates, search, categoryFilter, showArchived]);
+  }, [templates, search, showArchived]);
+
+  // Board columns — every list, so team members can add an SOP to an empty one too.
+  const boardLists = categories;
 
   const selected = draft?.id ? templates.find((t) => t.id === draft.id) ?? null : null;
 
+  // Unsaved edits in the open SOP (the editor only replaces `content` when the document changes).
+  const isDirty =
+    !!draft &&
+    (canEdit || !draft.id) &&
+    (selected
+      ? draft.name !== selected.name ||
+        draft.description !== selected.description ||
+        draft.category !== selected.category ||
+        draft.content !== selected.content
+      : !!draft.name.trim() || !!draft.description.trim() || draft.content !== STARTER_DOC);
+
   const upsertTemplate = (t: SopTemplate) =>
     setTemplates((prev) => (prev.some((p) => p.id === t.id) ? prev.map((p) => (p.id === t.id ? t : p)) : [...prev, t]));
+
+  const openSop = (t: SopTemplate) => {
+    setHighlightList(null);
+    setDraft(draftFrom(t));
+    setUrlSop(t.id);
+  };
+
+  const backToBoard = async () => {
+    if (isDirty) {
+      const ok = await confirm({
+        title: "Discard unsaved changes?",
+        description: "This SOP has changes that haven't been saved.",
+        confirmLabel: "Discard",
+      });
+      if (!ok) return;
+    }
+    setDraft(null);
+    setUrlSop(null);
+  };
+
+  const handleCreateList = (name: string) => {
+    const trimmed = name.trim().slice(0, 60);
+    if (!trimmed) return false;
+    if (categories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`A list called "${trimmed}" already exists`);
+      return false;
+    }
+    const next = [...localLists, trimmed];
+    setLocalLists(next);
+    writeLocalLists(next);
+    toast.success(`List "${trimmed}" created — add its first SOP with +`);
+    return true;
+  };
+
+  const handleRemoveLocalList = (name: string) => {
+    const next = localLists.filter((l) => l !== name);
+    setLocalLists(next);
+    writeLocalLists(next);
+  };
+
+  const handleMove = async (t: SopTemplate, list: string) => {
+    setMovingId(t.id);
+    upsertTemplate({ ...t, category: list });
+    try {
+      const res = await moveSopTemplateAction(t.id, list);
+      if (!res.success) {
+        upsertTemplate(t);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Moved to ${list}`);
+    } catch (err) {
+      console.error("Failed to move SOP:", err);
+      upsertTemplate(t);
+      toast.error("Failed to move SOP");
+    } finally {
+      setMovingId(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!draft) return;
@@ -151,6 +283,7 @@ export function SopLibraryView() {
       upsertTemplate(res.template);
       // Reload the editor from the saved document — it now carries the checkbox ids.
       setDraft(draftFrom(res.template));
+      setUrlSop(res.template.id);
       toast.success(
         `${draft.id ? "SOP saved" : "SOP created"} · ${res.template.items.length} checkbox${res.template.items.length === 1 ? "" : "es"}`
       );
@@ -276,6 +409,7 @@ export function SopLibraryView() {
     }
     setTemplates((prev) => prev.filter((t) => t.id !== selected.id));
     setDraft(null);
+    setUrlSop(null);
     toast.success("SOP deleted");
   };
 
@@ -306,106 +440,83 @@ export function SopLibraryView() {
             {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Import EED SOP library
           </button> */}
-          <button
-            type="button"
-            onClick={() => setDraft(emptyDraft())}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
-          >
-            <Plus size={15} /> New SOP
-          </button>
+          {!draft && (
+            <>
+              <div className="relative">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search SOPs"
+                  className="w-56 rounded-md border bg-background py-1.5 pl-8 pr-2 text-xs outline-none focus:border-primary"
+                />
+              </div>
+              {canEdit && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+                  Archived
+                </label>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {/* Library list */}
-        <aside className="flex max-h-72 min-h-0 w-full shrink-0 flex-col border-b md:max-h-none md:w-80 md:border-b-0 md:border-r">
-          <div className="space-y-2 p-3">
-            <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search SOPs"
-                className="w-full rounded-md border bg-background py-1.5 pl-8 pr-2 text-xs outline-none focus:border-primary"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="flex-1 rounded-md border bg-background px-2 py-1.5 text-xs"
+      {!draft ? (
+        // Board: one column per list (category), like the WhyFi School board.
+        <SopBoard
+          lists={boardLists}
+          templates={visible}
+          canEdit={canEdit}
+          isLoading={isLoading}
+          localLists={localLists}
+          highlightList={highlightList}
+          movingId={movingId}
+          onOpen={openSop}
+          onCreateIn={(list) => {
+            setHighlightList(null);
+            setDraft({ ...emptyDraft(), category: list });
+          }}
+          onMove={handleMove}
+          onCreateList={handleCreateList}
+          onRemoveLocalList={handleRemoveLocalList}
+        />
+      ) : (
+        <section className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto mb-4 flex max-w-4xl items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={backToBoard}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft size={14} /> Back to board
+            </button>
+            {selected && canEdit && (
+              <button
+                type="button"
+                onClick={() => setTimelineOpen(true)}
+                className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+                title="Who created, edited and picked this SOP, and everything done with it on tasks"
               >
-                <option value="ALL">All categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-                Archived
-              </label>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 size={20} className="animate-spin text-primary" />
-              </div>
-            ) : visible.length === 0 ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">
-                {templates.length === 0
-                  ? "No SOPs yet. Create one, or use “Import EED SOP library” to bring in the team's sheet."
-                  : "No SOPs match these filters."}
-              </p>
-            ) : (
-              <ul className="space-y-1.5">
-                {visible.map((t) => (
-                  <li key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => setDraft(draftFrom(t))}
-                      className={cn(
-                        "w-full rounded-lg border p-3 text-left transition-colors",
-                        draft?.id === t.id ? "border-primary bg-primary/5" : "hover:bg-accent/50",
-                        t.isArchived && "opacity-60"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold">{t.name}</span>
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                          v{t.version}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>{t.category}</span>
-                        <span>· {t.items.length} checkboxes</span>
-                        <span>· on {t.attachedCount} task(s)</span>
-                        {t.isArchived && <span className="font-semibold">· Archived</span>}
-                        {t.outdatedCount > 0 && (
-                          <span className="font-semibold text-warning">· {t.outdatedCount} outdated</span>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                <History size={13} /> Timeline
+              </button>
             )}
           </div>
-        </aside>
-
-        {/* Editor */}
-        <section className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-          {!draft ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-              <ClipboardCheck size={34} className="text-primary/60" />
-              <p className="text-sm font-semibold text-foreground">Select an SOP or create a new one</p>
-              {/* Hidden by request.
-              <p className="max-w-sm text-xs">
-                Managers attach SOPs to tasks from the task&apos;s SOP Checklist tab. Task owners then tick the checkboxes.
-              </p> */}
+          {!canEdit && draft.id ? (
+            // Team members: a saved SOP as a read-only document (its checkboxes are ticked on tasks).
+            // A new SOP (no id yet) falls through to the editor below so they can create it.
+            <div className="mx-auto max-w-4xl space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-foreground">{draft.name}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {draft.category}
+                  {selected && ` · ${selected.items.length} checkboxes · v${selected.version}`}
+                </p>
+                {draft.description && <p className="text-sm text-muted-foreground">{draft.description}</p>}
+              </div>
+              <div className="rounded-md border bg-background p-3">
+                <SopDocView key={draft.editorKey} content={draft.content} checkedById={NO_TICKS} onToggle={() => false} />
+              </div>
             </div>
           ) : (
             <div className="mx-auto max-w-4xl space-y-4">
@@ -483,14 +594,6 @@ export function SopLibraryView() {
                     <>
                       <button
                         type="button"
-                        onClick={() => setTimelineOpen(true)}
-                        className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
-                        title="Who created, edited and picked this SOP, and everything done with it on tasks"
-                      >
-                        <History size={13} /> Timeline
-                      </button>
-                      <button
-                        type="button"
                         onClick={handleArchive}
                         className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
                       >
@@ -529,8 +632,8 @@ export function SopLibraryView() {
             </div>
           )}
         </section>
-      </div>
-      {selected && (
+      )}
+      {selected && canEdit && (
         <SopTimelineDrawer
           open={timelineOpen}
           onClose={() => setTimelineOpen(false)}
