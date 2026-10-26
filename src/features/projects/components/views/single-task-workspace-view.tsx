@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Minus,
   MoreHorizontal,
   UserPlus,
   Maximize2,
@@ -316,6 +317,14 @@ export function SingleTaskWorkspaceView({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(activeTask.description || "");
 
+  // SOPs/Checklist sits right under the description, open by default.
+  const [checklistOpen, setChecklistOpen] = useState(true);
+  const checklistSectionRef = React.useRef<HTMLDivElement>(null);
+  const openChecklistSection = useCallback(() => {
+    setChecklistOpen(true);
+    setTimeout(() => checklistSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, []);
+
   // Synchronize local form states when activeTask loads or changes
   useEffect(() => {
     if (activeTask) {
@@ -357,11 +366,11 @@ export function SingleTaskWorkspaceView({
           setTaskStatus(previousStatus);
           setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
           if (result.checklistBlock) {
-            // Already on the task: "Select / Open checklist" just switches to its tab.
+            // Already on the task: "Select / Open checklist" just opens and scrolls to its section.
             showChecklistGate({
               ...result.checklistBlock,
               status: newStatus,
-              onOpenChecklist: () => setActiveTab("CHECKLIST"),
+              onOpenChecklist: openChecklistSection,
               onForced: () => {
                 setTaskStatus(newStatus);
                 setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
@@ -452,7 +461,7 @@ export function SingleTaskWorkspaceView({
           showChecklistGate({
             ...result.checklistBlock,
             status: updates.status,
-            onOpenChecklist: () => setActiveTab("CHECKLIST"),
+            onOpenChecklist: openChecklistSection,
             onForced: () => router.refresh(),
           });
         } else {
@@ -484,7 +493,7 @@ export function SingleTaskWorkspaceView({
 
   const [taskInfoOpen, setTaskInfoOpen] = useState(false);
   const searchParams = useSearchParams();
-  // `?tab=checklist` (links from the project's Checklist overview) opens the SOP Checklist tab.
+  // Subtasks is the default tab. SOPs/Checklist is its own section under the description.
   const [activeTab, setActiveTab] = useState<
     | "COMMENTS"
     | "SUBTASKS"
@@ -495,9 +504,14 @@ export function SingleTaskWorkspaceView({
     | "BUGS"
     | "ACTIVITY"
     | "DRIVE"
-    | "CHECKLIST"
     | "STANDUP_ACTIVITY"
-  >(() => (!isLearningList && searchParams.get("tab") === "checklist" ? "CHECKLIST" : "COMMENTS"));
+  >("SUBTASKS");
+
+  // `?tab=checklist` (links from the project's Checklist overview) scrolls to the SOPs/Checklist section.
+  const openChecklistFromUrl = !isLearningList && searchParams.get("tab") === "checklist";
+  useEffect(() => {
+    if (openChecklistFromUrl) openChecklistSection();
+  }, [openChecklistFromUrl, openChecklistSection]);
 
   const [commentText, setCommentText] = useState("");
   const [commentsList, setCommentsList] = useState<
@@ -519,6 +533,62 @@ export function SingleTaskWorkspaceView({
       code: st.code || `${activeTask.code}.${i + 1}`,
     }));
   }, [activeTask.subtasks, activeTask.code]);
+
+  // Subtasks as a tree: a subtask's own subtasks sit indented under it, any depth. Each row with
+  // children has a ⊟/⊞ box to fold them.
+  const [collapsedSubtaskIds, setCollapsedSubtaskIds] = useState<Set<string>>(() => new Set());
+  // Left task list: per-task fold choice (true = open). Unset follows the default (see leftTaskRows).
+  const [leftToggles, setLeftToggles] = useState<Map<string, boolean>>(() => new Map());
+  const toggleSubtaskCollapsed = (id: string) =>
+    setCollapsedSubtaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const subtaskRows = React.useMemo(() => {
+    const byId = new Map(leftTaskItems.map((t) => [t.id, t]));
+    // Children by parent link (a task's parentTaskId holds its parent's id or code), so a subtask's
+    // own subtasks show even when its pre-built `subtasks` list is missing them.
+    const byParent = new Map<string, TaskItem[]>();
+    for (const t of leftTaskItems) {
+      if (!t.parentTaskId) continue;
+      const list = byParent.get(t.parentTaskId);
+      if (list) list.push(t);
+      else byParent.set(t.parentTaskId, [t]);
+    }
+    const childrenOf = (st: TaskSubtask): TaskSubtask[] => {
+      const own = byId.get(st.id)?.subtasks || [];
+      const linked = [...(byParent.get(st.id) ?? []), ...(st.code ? byParent.get(st.code) ?? [] : [])]
+        .filter((t) => !own.some((o) => o.id === t.id))
+        .map(
+          (t): TaskSubtask => ({
+            id: t.id,
+            code: t.code,
+            title: t.title,
+            status: t.status,
+            ownerName: t.owner,
+            startDate: t.startDate,
+            dueDate: t.dueDate,
+            completed: isTaskDone(t.status),
+          })
+        );
+      return [...own, ...linked];
+    };
+    const rows: { st: TaskSubtask; depth: number; hasChildren: boolean }[] = [];
+    const seen = new Set<string>([activeTask.id]);
+    const walk = (list: TaskSubtask[], depth: number) => {
+      for (const st of list) {
+        if (seen.has(st.id)) continue; // guards against a loop in bad data
+        seen.add(st.id);
+        const children = childrenOf(st).filter((c) => !seen.has(c.id));
+        rows.push({ st, depth, hasChildren: children.length > 0 });
+        if (children.length > 0 && !collapsedSubtaskIds.has(st.id)) walk(children, depth + 1);
+      }
+    };
+    walk(subtasks, 0);
+    return rows;
+  }, [leftTaskItems, subtasks, activeTask.id, collapsedSubtaskIds]);
 
   // A subtask is a full ProjectTask with its own detail page, so besides listing it under the
   // parent it must also be in the workspace task list — otherwise opening it right after
@@ -584,27 +654,38 @@ export function SingleTaskWorkspaceView({
     });
   };
 
+  // A subtask at any depth: this task's own, or a subtask of one of them (from the project's task list).
+  const findSubtask = (id: string): TaskSubtask | undefined =>
+    subtasks.find((st) => st.id === id) ??
+    leftTaskItems.flatMap((t) => t.subtasks || []).find((st) => st.id === id);
+
+  // Sets a subtask's status in its parent's list (whichever task that is) and on its own task row,
+  // so opening it next shows the new status.
+  const setSubtaskStatusLocally = (target: TaskSubtask, status: TaskStatus, completed: boolean) =>
+    setTasks((prev) =>
+      prev.map((t) => {
+        let next = t.id === activeTask.id ? { ...t, subtasks: subtasks } : t;
+        if ((next.subtasks || []).some((st) => st.id === target.id)) {
+          next = {
+            ...next,
+            subtasks: (next.subtasks || []).map((st) => (st.id === target.id ? { ...st, status, completed } : st)),
+          };
+        }
+        if (t.id === target.id || t.code === target.code) {
+          next = { ...next, status, completionPercentage: completed ? 100 : 0 };
+        }
+        return next;
+      })
+    );
+
   const handleToggleSubtask = (id: string) => {
-    const target = subtasks.find((st) => st.id === id);
+    const target = findSubtask(id);
     if (!target) return;
     const isCurrentlyDone = isTaskDone(target.status, target.completed);
     const newCompleted = !isCurrentlyDone;
     const newStatus: TaskStatus = newCompleted ? "Done" : "Open";
 
-    const updatedSubtasks = subtasks.map((st) =>
-      st.id === id ? { ...st, completed: newCompleted, status: newStatus } : st
-    );
-    const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
-    // The subtask's own row too, so opening it next shows the new status.
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === activeTask.id
-          ? updatedTask
-          : t.id === id || t.code === target.code
-          ? { ...t, status: newStatus, completionPercentage: newCompleted ? 100 : 0 }
-          : t
-      )
-    );
+    setSubtaskStatusLocally(target, newStatus, newCompleted);
 
     updateSubtaskAction(id, { completed: newCompleted, status: newStatus })
       .then((saved) => {
@@ -615,21 +696,7 @@ export function SingleTaskWorkspaceView({
 
   /** Undoes an optimistic subtask status change the server refused (its SOP checklist isn't done). */
   const revertSubtaskStatus = async (target: TaskSubtask, attemptedStatus: TaskStatus) => {
-    const wasDone = isTaskDone(target.status, target.completed);
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === activeTask.id
-          ? {
-              ...t,
-              subtasks: (t.subtasks || []).map((st) =>
-                st.id === target.id ? { ...st, status: target.status, completed: target.completed } : st
-              ),
-            }
-          : t.id === target.id || t.code === target.code
-          ? { ...t, status: target.status, completionPercentage: wasDone ? 100 : 0 }
-          : t
-      )
-    );
+    setSubtaskStatusLocally(target, target.status as TaskStatus, isTaskDone(target.status, target.completed));
     const block = await getChecklistCloseBlockAction(target.id).catch(() => null);
     if (block) {
       // The subtask's own page has its checklist; a manager's "Close anyway" reloads to show it closed.
@@ -641,27 +708,9 @@ export function SingleTaskWorkspaceView({
 
   const handleSubtaskStatusChange = (id: string, newStatus: TaskStatus) => {
     const isDone = isTaskDone(newStatus);
-    const target = subtasks.find((st) => st.id === id);
-    const updatedSubtasks = subtasks.map((st) =>
-      st.id === id
-        ? {
-            ...st,
-            status: newStatus,
-            completed: isDone,
-          }
-        : st
-    );
-    const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
-    // The subtask's own row too, so opening it next shows the new status.
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === activeTask.id
-          ? updatedTask
-          : t.id === id || (target && t.code === target.code)
-          ? { ...t, status: newStatus, completionPercentage: isDone ? 100 : 0 }
-          : t
-      )
-    );
+    const target = findSubtask(id);
+    if (!target) return;
+    setSubtaskStatusLocally(target, newStatus, isDone);
 
     updateSubtaskAction(id, { status: newStatus, completed: isDone })
       .then((saved) => {
@@ -677,9 +726,13 @@ export function SingleTaskWorkspaceView({
     });
     if (!ok) return;
 
-    const updatedSubtasks = subtasks.filter((st) => st.id !== id);
-    const updatedTask = { ...activeTask, subtasks: updatedSubtasks };
-    setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? updatedTask : t)));
+    // Out of whichever task holds it (this one, or a subtask of it).
+    setTasks((prev) =>
+      prev.map((t) => {
+        const list = t.id === activeTask.id ? subtasks : t.subtasks || [];
+        return list.some((st) => st.id === id) ? { ...t, subtasks: list.filter((st) => st.id !== id) } : t;
+      })
+    );
 
     deleteSubtaskAction(id).catch((err) => console.error("Failed to delete subtask in DB:", err));
   };
@@ -1222,9 +1275,9 @@ export function SingleTaskWorkspaceView({
     }
   };
 
-  // Filter sidebar task cards by selected phase — subtasks live under their parent's Subtasks
-  // tab, not as their own card in this list (leftTaskItems still includes them so a subtask's
-  // own URL resolves to real data via `foundTask` above).
+  // Filter sidebar task cards by selected phase. Top-level tasks only here — subtasks are shown
+  // nested under their parent below (leftTaskItems still includes them so a subtask's own URL
+  // resolves to real data via `foundTask` above).
   const filteredLeftTasks = leftTaskItems.filter((item) => {
     if (item.parentTaskId) return false;
     if (selectedPhase === "ALL") return true;
@@ -1237,6 +1290,59 @@ export function SingleTaskWorkspaceView({
       `${item.phaseCode || ""} ${item.phaseName || ""}`.trim().toLowerCase() === targetPhase
     );
   });
+
+  // Sidebar tree: each task's subtasks (any depth) indented under it. A branch starts folded,
+  // except along the path to the open task; the ⊟/⊞ box overrides that per task.
+  const leftChildrenByParent = new Map<string, TaskItem[]>();
+  for (const t of leftTaskItems) {
+    if (!t.parentTaskId) continue;
+    const list = leftChildrenByParent.get(t.parentTaskId);
+    if (list) list.push(t);
+    else leftChildrenByParent.set(t.parentTaskId, [t]);
+  }
+  const leftChildrenOf = (t: TaskItem): TaskItem[] => {
+    const byId = leftChildrenByParent.get(t.id) ?? [];
+    const byCode = t.code && t.code !== t.id ? leftChildrenByParent.get(t.code) ?? [] : [];
+    return byCode.length ? [...byId, ...byCode.filter((c) => !byId.includes(c))] : byId;
+  };
+  const autoOpenLeftIds = new Set<string>();
+  {
+    let cur: TaskItem | undefined = foundTask;
+    while (cur && !autoOpenLeftIds.has(cur.id)) {
+      autoOpenLeftIds.add(cur.id);
+      const parentKey: string | undefined = cur.parentTaskId;
+      cur = parentKey ? leftTaskItems.find((t) => t.id === parentKey || t.code === parentKey) : undefined;
+    }
+  }
+  const isLeftOpen = (id: string) => leftToggles.get(id) ?? autoOpenLeftIds.has(id);
+  const leftTaskRows: { item: TaskItem; depth: number; hasChildren: boolean }[] = [];
+  {
+    const seen = new Set<string>();
+    const walk = (list: TaskItem[], depth: number) => {
+      for (const item of list) {
+        if (seen.has(item.id)) continue; // guards against a loop in bad data
+        seen.add(item.id);
+        const children = leftChildrenOf(item);
+        leftTaskRows.push({ item, depth, hasChildren: children.length > 0 });
+        if (children.length > 0 && isLeftOpen(item.id)) walk(children, depth + 1);
+      }
+    };
+    walk(filteredLeftTasks, 0);
+    // A subtask whose parent isn't in this project's list (deleted parent, or a parent loop) would
+    // otherwise never show — list it at the top level instead.
+    const reached = new Set<string>();
+    const reach = (t: TaskItem) => {
+      if (reached.has(t.id)) return;
+      reached.add(t.id);
+      leftChildrenOf(t).forEach(reach);
+    };
+    leftTaskItems.filter((t) => !t.parentTaskId).forEach(reach);
+    for (const t of leftTaskItems) {
+      if (reached.has(t.id) || seen.has(t.id)) continue;
+      reach(t);
+      if (selectedPhase === "ALL") walk([t], 0);
+    }
+  }
 
   if (isLoading || isRefetchingMissingTask || isUnsavedTask) {
     return (
@@ -1341,15 +1447,17 @@ export function SingleTaskWorkspaceView({
                 No tasks found in this phase.
               </div>
             ) : (
-              filteredLeftTasks.map((item) => {
+              leftTaskRows.map(({ item, depth, hasChildren }) => {
                 const isSelected =
                   item.code.toLowerCase() === taskId.toLowerCase() ||
                   item.id.toLowerCase() === taskId.toLowerCase();
+                const isOpen = isLeftOpen(item.id);
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => handleSelectTaskCard(item.code)}
+                    style={depth ? { marginLeft: Math.min(depth, 6) * 16 } : undefined}
                     className={`rounded-xl border p-3 cursor-pointer transition-all duration-150 relative ${
                       isSelected
                         ? "border-primary bg-primary/10 ring-1 ring-primary/30 shadow-2xs dark:border-zinc-600 dark:bg-zinc-800/90 dark:ring-zinc-600/30"
@@ -1358,7 +1466,20 @@ export function SingleTaskWorkspaceView({
                   >
                     {/* Top Badge Row */}
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-xs font-mono text-muted-foreground dark:text-zinc-400">
+                      <span className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground dark:text-zinc-400">
+                        {hasChildren && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLeftToggles((prev) => new Map(prev).set(item.id, !isOpen));
+                            }}
+                            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border border-muted-foreground/50 text-muted-foreground hover:border-foreground hover:text-foreground"
+                            title={isOpen ? "Hide its subtasks" : "Show its subtasks"}
+                          >
+                            {isOpen ? <Minus size={9} strokeWidth={3} /> : <Plus size={9} strokeWidth={3} />}
+                          </button>
+                        )}
                         {item.code}
                       </span>
                       <span
@@ -1713,6 +1834,30 @@ export function SingleTaskWorkspaceView({
             )}
           </div>
 
+          {/* SOPs/Checklist Collapsible Section — open by default. Srijan tasks only, not WhyFi School cards. */}
+          {!isLearningList && (
+            <div
+              ref={checklistSectionRef}
+              className="scroll-mt-4 border border-border rounded-xl bg-card overflow-hidden dark:border-zinc-800 dark:bg-[#121215]"
+            >
+              <button
+                type="button"
+                onClick={() => setChecklistOpen(!checklistOpen)}
+                className="flex w-full items-center justify-between p-3.5 hover:bg-accent/40 text-xs font-bold text-foreground transition-colors dark:hover:bg-zinc-800/40 dark:text-zinc-200"
+              >
+                <span className="flex items-center gap-2">
+                  {checklistOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  SOPs/Checklist
+                </span>
+              </button>
+              {checklistOpen && (
+                <div className="border-t border-border/60 dark:border-zinc-800/60">
+                  <TaskChecklistTab taskId={activeTask.id} />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Task Information Collapsible Section */}
           <div className="border border-border rounded-xl bg-card dark:border-zinc-800 dark:bg-[#121215]">
             <button
@@ -1859,10 +2004,8 @@ export function SingleTaskWorkspaceView({
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-zinc-800">
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
-                  { key: "COMMENTS", label: "Comments" },
                   { key: "SUBTASKS", label: "Subtasks" },
-                  // SOP checklists are for Srijan project tasks — not shown on WhyFi School cards.
-                  ...(isLearningList ? [] : [{ key: "CHECKLIST", label: "SOPs/Checklist" }]),
+                  { key: "COMMENTS", label: "Comments" },
                   { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                   { key: "DOCUMENTS", label: "Documents" },
                   { key: "STATUS_TIMELINE", label: "Status Timeline" },
@@ -1996,7 +2139,7 @@ export function SingleTaskWorkspaceView({
                             </td>
                           </tr>
                         ) : (
-                          subtasks.map((st) => (
+                          subtaskRows.map(({ st, depth, hasChildren }) => (
                             <tr
                               key={st.id}
                               onClick={() => {
@@ -2015,7 +2158,22 @@ export function SingleTaskWorkspaceView({
                                 {st.code}
                               </td>
                               <td className="py-2 px-4 border-r border-border font-medium text-foreground dark:border-zinc-800 dark:text-zinc-200">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2" style={{ paddingLeft: depth * 22 }}>
+                                  {hasChildren ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSubtaskCollapsed(st.id);
+                                      }}
+                                      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border border-muted-foreground/50 text-muted-foreground hover:border-foreground hover:text-foreground"
+                                      title={collapsedSubtaskIds.has(st.id) ? "Show its subtasks" : "Hide its subtasks"}
+                                    >
+                                      {collapsedSubtaskIds.has(st.id) ? <Plus size={9} strokeWidth={3} /> : <Minus size={9} strokeWidth={3} />}
+                                    </button>
+                                  ) : (
+                                    <span className="w-3.5 shrink-0" />
+                                  )}
                                   <input
                                     type="checkbox"
                                     checked={isTaskDone(st.status, st.completed)}
@@ -2513,7 +2671,6 @@ export function SingleTaskWorkspaceView({
                 </div>
               )}
 
-              {activeTab === "CHECKLIST" && !isLearningList && <TaskChecklistTab taskId={activeTask.id} />}
             </div>
           </div>
         </div>

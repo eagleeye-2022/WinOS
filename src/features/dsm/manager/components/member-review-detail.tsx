@@ -8,15 +8,10 @@ import {
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
-  MoreHorizontal,
+  Timer,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+// (MoreHorizontal + DropdownMenu* were for the ⋯ task menus, now inline buttons — re-import them
+// if the commented-out "What Did You Do Yesterday?" menu is restored.)
 import { cn, toTitleCase } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { ROUTES } from "@/constants/routes";
@@ -41,7 +36,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -63,7 +58,7 @@ import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
-import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
+import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction, fetchTaskTotalEffortAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
@@ -1402,6 +1397,7 @@ function TaskRow({
   projectsLoading = false,
   onProjectsChange,
   onPriorityChange,
+  overallMinutes,
 }: {
   task: TaskItem;
   rank: number;
@@ -1416,6 +1412,8 @@ function TaskRow({
   /** Receives task lists / tasks created in place from the edit form, same as the /dsm form. */
   onProjectsChange: (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
   onPriorityChange?: (taskId: string, newPriority: string | null) => void;
+  /** The member's total effort on the linked task, all days (minutes); undefined while loading. */
+  overallMinutes?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
@@ -1677,12 +1675,14 @@ function TaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         {task.projectTask && memberUser?.id ? (
+          // Live timer while it runs; otherwise the member's overall effort on the task (all days).
           <MemberTaskTimerBadge
             taskId={task.projectTaskId || task.projectTask.id}
             taskCode={task.projectTask.code}
             memberId={memberUser.id}
             dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
             liveOnly
+            idleFallback={<OverallEffortChip minutes={overallMinutes} />}
           />
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
@@ -1690,47 +1690,34 @@ function TaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         {!isLocked ? (
-          <div className="flex items-center justify-center gap-0.5">
-            <TaskInfoAction task={task} />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus:outline-none cursor-pointer"
-                  title="Task Actions"
-                >
-                  <MoreHorizontal size={15} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 p-1">
-                <DropdownMenuItem
-                  onClick={handleStartEdit}
-                  className="flex items-center gap-2 cursor-pointer text-xs font-medium"
-                >
-                  <Pencil size={13} className="text-muted-foreground" />
-                  <span>Edit Task</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (confirm(`Remove "${task.text}"?`)) {
-                      const fd = new FormData();
-                      fd.set("taskId", task.id);
-                      startTransition(() => deleteAction(fd));
-                    }
-                  }}
-                  disabled={deleting}
-                  className="flex items-center gap-2 cursor-pointer text-xs font-medium text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                  {deleting ? (
-                    <Loader2 size={13} className="animate-spin text-destructive" />
-                  ) : (
-                    <Trash2 size={13} className="text-destructive" />
-                  )}
-                  <span>Delete Task</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          // Info · Edit · Delete in a line (no ⋯ menu), packed close together.
+          <div className="flex items-center justify-center">
+            <TaskInfoAction task={task} compact />
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              title="Edit task"
+              aria-label="Edit task"
+              className="flex h-7 w-5 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Remove "${task.text}"?`)) {
+                  const fd = new FormData();
+                  fd.set("taskId", task.id);
+                  startTransition(() => deleteAction(fd));
+                }
+              }}
+              disabled={deleting}
+              title="Delete task"
+              aria-label="Delete task"
+              className="flex h-7 w-5 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-wait"
+            >
+              {deleting ? <Loader2 size={13} className="animate-spin text-destructive" /> : <Trash2 size={13} />}
+            </button>
           </div>
         ) : (
           // Reviewed rows: open the linked task (ⓘ) or edit the row — editing the text also
@@ -1849,7 +1836,7 @@ function SummaryTaskEditor({
             onChange={setSubtaskId}
             options={currentTask.subtasks.map((st) => ({
               value: st.id,
-              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+              label: subtaskOptionLabel(st),
             }))}
             placeholder="Select Subtask"
             searchPlaceholder="Search subtasks..."
@@ -1949,14 +1936,14 @@ function taskItemHref(task: TaskItem): string | null {
 }
 
 /** ⓘ in a row's Action column that opens the linked Srijan task in a new tab (nothing when unlinked). */
-function TaskInfoAction({ task }: { task: TaskItem }) {
+function TaskInfoAction({ task, compact = false }: { task: TaskItem; compact?: boolean }) {
   const href = taskItemHref(task);
   if (!href || !task.projectTask?.code) return null;
   return (
     <TaskInfoLink
       href={href}
       code={task.projectTask.code}
-      className="h-7 w-7 rounded-lg hover:bg-muted"
+      className={cn(compact ? "h-7 w-5" : "h-7 w-7", "rounded-lg hover:bg-muted")}
     />
   );
 }
@@ -1967,6 +1954,7 @@ function SummaryTaskRow({
   entryId,
   kind,
   loggedMinutes,
+  effortSpan,
   cascadingProjects,
 }: {
   task: TaskItem;
@@ -1975,6 +1963,8 @@ function SummaryTaskRow({
   entryId: string;
   kind: "TODAY" | "YESTERDAY";
   loggedMinutes: number | undefined;
+  /** Effort time that day, "10:05 AM – 11:30 AM" (first start – last stop). */
+  effortSpan: string | undefined;
   cascadingProjects: CascadingProjectOption[];
 }) {
   const [editing, setEditing] = useState(false);
@@ -1988,7 +1978,7 @@ function SummaryTaskRow({
   if (editing) {
     return (
       <tr className="border-b bg-muted/20">
-        <td colSpan={6} className="p-2">
+        <td colSpan={7} className="p-2">
           <SummaryTaskEditor task={task} isDone={done} entryId={entryId} kind={kind} cascadingProjects={cascadingProjects} onDone={() => setEditing(false)} />
         </td>
       </tr>
@@ -2035,6 +2025,9 @@ function SummaryTaskRow({
             </span>
           )} */}
         </div>
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
+        <EffortSpanCell span={effortSpan} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         {loggedMinutes ? (
@@ -2108,6 +2101,36 @@ function SummaryTaskRow({
   );
 }
 
+/** "Effort Logs" on "What Will You Do Today?": the member's total on the task, all days. */
+function OverallEffortChip({ minutes }: { minutes: number | undefined }) {
+  if (minutes === undefined) return <span className="text-xs text-muted-foreground/60">…</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold dark:border-white/10 dark:bg-[#121316]",
+        minutes > 0 ? "text-foreground" : "text-muted-foreground/60"
+      )}
+      title="Total effort logged on this task (all days)"
+    >
+      <Timer size={13} className={minutes > 0 ? "shrink-0 text-info" : "shrink-0 text-muted-foreground/60"} />
+      {formatEffortMinutes(minutes) || "0m"}
+    </span>
+  );
+}
+
+/** "Effort Time" cell: when the task was worked on that day (first start – last stop), or —. */
+function EffortSpanCell({ span }: { span: string | undefined }) {
+  if (!span) return <span className="text-xs text-muted-foreground/60">—</span>;
+  return (
+    <span
+      className="inline-flex items-center rounded-md border border-border/60 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground"
+      title="First start – last stop that day"
+    >
+      {span}
+    </span>
+  );
+}
+
 /**
  * A task the member logged time on that day outside that day's DSM (WhyFi School, other project
  * tasks), shown as an ordinary row of "What Did You Do Yesterday?". Ticking marks the task Done;
@@ -2178,6 +2201,9 @@ function LoggedSummaryRow({
         </div>
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
+        <EffortSpanCell span={formatEffortSpan(task.effortFrom, task.effortTo)} />
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
         <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold">
           {formatEffortMinutes(task.minutes)}
         </span>
@@ -2220,15 +2246,19 @@ function YesterdayTasksSection({
   const linkedIds = Array.from(new Set(prevTasks.map((t) => t.projectTaskId).filter(Boolean) as string[]));
   const linkedKey = linkedIds.join(",");
   const [logged, setLogged] = useState<Record<string, number>>({});
+  // Effort time per linked task: "10:05 AM – 11:30 AM" (first start – last stop that day).
+  const [spans, setSpans] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!prevDateStr || !linkedKey) {
       setLogged({});
+      setSpans({});
       return;
     }
     let cancelled = false;
     fetchDailyTimeSummaryAction(linkedKey.split(","), prevDateStr, memberId).then((res) => {
       if (cancelled || !res) return;
       setLogged(Object.fromEntries(Object.entries(res).map(([id, s]) => [id, s.totalMinutes])));
+      setSpans(Object.fromEntries(Object.entries(res).map(([id, s]) => [id, formatEffortSpan(s.firstStart, s.lastStop)])));
     });
     return () => {
       cancelled = true;
@@ -2351,6 +2381,7 @@ function YesterdayTasksSection({
                 <th className="py-2 pr-3">Project</th>
                 <th className="py-2 pr-3">Task ID</th>
                 <th className="py-2 pr-3">Task / Subtask</th>
+                <th className="py-2 pr-3">Effort Time</th>
                 <th className="py-2 pr-3">Effort Logs</th>
                 <th className="py-2 pr-2 text-center">Action</th>
               </tr>
@@ -2364,6 +2395,7 @@ function YesterdayTasksSection({
                   entryId={r.entryId}
                   kind={r.kind}
                   loggedMinutes={r.task.projectTaskId ? logged[r.task.projectTaskId] : undefined}
+                  effortSpan={r.task.projectTaskId ? spans[r.task.projectTaskId] : undefined}
                   cascadingProjects={cascadingProjects}
                 />
               ))}
@@ -2467,6 +2499,29 @@ function TodayTasksSection({
       .filter((p): p is string => !!p);
   }
 
+  // Effort Logs column: the member's total on each linked task, all days.
+  const overallKey = Array.from(
+    new Set(tasks.map((t) => t.projectTaskId || t.projectTask?.id).filter(Boolean) as string[])
+  ).join(",");
+  const [overall, setOverall] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!overallKey || !memberUser?.id) {
+      setOverall({});
+      return;
+    }
+    let cancelled = false;
+    fetchTaskTotalEffortAction(overallKey.split(","), memberUser.id)
+      .then((res) => {
+        if (!cancelled) setOverall(res);
+      })
+      .catch(() => {
+        if (!cancelled) setOverall({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [overallKey, memberUser?.id]);
+
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-1 flex items-center justify-between gap-3 flex-wrap">
@@ -2537,6 +2592,9 @@ function TodayTasksSection({
                   projectsLoading={projectsLoading}
                   onProjectsChange={setCascadingProjects}
                   onPriorityChange={handlePriorityChange}
+                  overallMinutes={
+                    overall === null ? undefined : overall[task.projectTaskId || task.projectTask?.id || ""] ?? 0
+                  }
                 />
               ))}
             </tbody>
@@ -3036,7 +3094,7 @@ export function ParkingLotSection({
                         onChange={(v) => handleSubtaskChange(i, v, tree.currentTask)}
                         options={tree.currentTask.subtasks.map((st) => ({
                           value: st.id,
-                          label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+                          label: subtaskOptionLabel(st),
                         }))}
                         placeholder="Select Subtask"
                         searchPlaceholder="Search subtasks..."

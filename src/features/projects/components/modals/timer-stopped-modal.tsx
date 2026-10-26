@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Info, Edit2, Trash2, X, AlertCircle } from "lucide-react";
 
 interface TimerStoppedModalProps {
@@ -147,8 +148,11 @@ export function TimerStoppedModal({
     setIsEditingTimes(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent) => {
+    // Never a native form submit: the timer often sits inside another form (the DSM form), and a
+    // browser submit there reloaded the page as "?billable=on" without saving the log.
     e.preventDefault();
+    e.stopPropagation();
 
     if (isSubmitting) return;
 
@@ -192,7 +196,9 @@ export function TimerStoppedModal({
     onClose();
   };
 
-  return (
+  // Rendered at the page root (portal), so the modal's form is never nested inside the page's own
+  // form — nested forms make the browser submit the wrong one.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-0 duration-200">
       <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card text-card-foreground shadow-2xl overflow-hidden font-sans dark:border-zinc-800 dark:bg-[#121215]">
         
@@ -369,7 +375,8 @@ export function TimerStoppedModal({
           {/* Modal Footer */}
           <div className="flex items-center justify-between pt-3 border-t border-border dark:border-zinc-800">
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={isSubmitting}
               className="rounded-lg bg-primary px-6 py-2 text-xs font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -388,6 +395,7 @@ export function TimerStoppedModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

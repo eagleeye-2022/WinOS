@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange, buildTaskListOptions, isStandupRoutineTask, type TaskListOption } from "./utils";
+import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
 import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { DELETED_TASK_LIST_STATUS, isTaskDone } from "@/features/projects/types";
@@ -406,6 +406,9 @@ export type YesterdayTaskItem = {
   taskProjectId: string | null;
   /** Effort the member logged on the linked project task that day; null when not linked. */
   loggedMinutes: number | null;
+  /** Effort time that day — first start / last stop of its logs ("10:05 AM"), null when unknown. */
+  effortFrom: string | null;
+  effortTo: string | null;
 };
 
 /** A task the member logged time on that day that wasn't one of the day's DSM tasks (e.g. WhyFi School). */
@@ -420,11 +423,15 @@ export type YesterdayLoggedTask = {
   status: string;
   isDone: boolean;
   minutes: number;
+  /** Effort time that day — first start / last stop of its logs ("10:05 AM"), null when unknown. */
+  effortFrom: string | null;
+  effortTo: string | null;
 };
 
 /**
- * Every task `userId` logged time on that day (timer or manual log) other than `dsmTaskIds` —
- * WhyFi School cards and project tasks outside the DSM — most time first. Callers authorize.
+ * Every task `userId` logged time on that day (timer or manual log) other than `dsmTaskIds` — all
+ * of them: WhyFi School cards, Srijan tasks and the daily ones (DSM, DSMA, DSMB, Internal
+ * Meetings…) — most time first, with each one's effort time. Callers authorize.
  */
 export async function getLoggedTasksOutsideDsm(
   userId: string,
@@ -432,10 +439,9 @@ export async function getLoggedTasksOutsideDsm(
   dsmTaskIds: string[]
 ): Promise<YesterdayLoggedTask[]> {
   const inDsm = new Set(dsmTaskIds);
-  const dayEffort = await getDayEffort(userId, dateStr);
+  const dayEffort = (await getDayEffort(userId, dateStr)).filter((row) => !inDsm.has(row.taskId) && row.task);
+  const spans = await getDailyTimeSummaryForTasks(userId, dayEffort.map((row) => row.taskId), dateStr);
   return dayEffort
-    // Not the day's DSM tasks, and not the standup itself (DSM / DSR / DSMA tasks).
-    .filter((row) => !inDsm.has(row.taskId) && row.task && !isStandupRoutineTask(row.task.title))
     .map((row) => ({
       taskId: row.taskId,
       code: row.task!.code,
@@ -447,6 +453,8 @@ export async function getLoggedTasksOutsideDsm(
       status: row.task!.status ?? "Open",
       isDone: isTaskDone(row.task!.status),
       minutes: row.minutes,
+      effortFrom: spans[row.taskId]?.firstStart ?? null,
+      effortTo: spans[row.taskId]?.lastStop ?? null,
     }));
 }
 
@@ -514,6 +522,8 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
         code: t.projectTask?.code ?? null,
         taskProjectId: t.projectTask?.projectId ?? null,
         loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
+        effortFrom: t.projectTaskId ? effort[t.projectTaskId]?.firstStart ?? null : null,
+        effortTo: t.projectTaskId ? effort[t.projectTaskId]?.lastStop ?? null : null,
       })
     ),
   };
@@ -1277,6 +1287,23 @@ export async function getLinkedTimeLogsYesterday(
   return result;
 }
 
+/**
+ * `userId`'s total effort on each task, all days (minutes) — the "overall" Effort Logs figure on
+ * "What Will You Do Today?". Callers authorize.
+ */
+export async function getTaskTotalMinutes(userId: string, taskIds: string[]): Promise<Record<string, number>> {
+  if (!userId || taskIds.length === 0) return {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (db as any).projectTimeLog.groupBy({
+    by: ["taskId"],
+    where: { userId, taskId: { in: taskIds } },
+    _sum: { duration: true },
+  });
+  return Object.fromEntries(
+    (rows as { taskId: string; _sum: { duration: number | null } }[]).map((r) => [r.taskId, r._sum.duration ?? 0])
+  );
+}
+
 export type DailyTimeSummary = {
   totalMinutes: number;
   firstStart: string | null;
@@ -1424,6 +1451,8 @@ export type CascadingSubtaskOption = {
   code: string | null;
   title: string;
   status: string;
+  /** 0 = a direct subtask of the task, 1 = a subtask of that subtask, and so on. */
+  depth?: number;
 };
 
 export type CascadingTaskOption = {
@@ -1499,19 +1528,6 @@ export async function getUserProjectsWithTasksAndSubtasks(
           status: true,
           phaseCode: true,
           phaseName: true,
-          childTasks: {
-            where: {
-              status: { notIn: ["Closed", "Closed/Done", "Completed"] },
-            },
-            select: {
-              id: true,
-              code: true,
-              title: true,
-              status: true,
-              createdAt: true,
-            },
-            orderBy: { createdAt: "desc" },
-          },
           createdAt: true,
         },
         orderBy: { createdAt: "desc" },
@@ -1520,7 +1536,14 @@ export async function getUserProjectsWithTasksAndSubtasks(
     orderBy: { name: "asc" },
   });
 
-  type QuerySubtask = { id: string; code: string | null; title: string; status: string; createdAt: Date };
+  type QuerySubtask = {
+    id: string;
+    code: string | null;
+    title: string;
+    status: string;
+    createdAt: Date;
+    parentTaskId: string | null;
+  };
   type QueryTask = {
     id: string;
     code: string | null;
@@ -1529,7 +1552,6 @@ export async function getUserProjectsWithTasksAndSubtasks(
     phaseCode: string | null;
     phaseName: string | null;
     createdAt: Date;
-    childTasks?: QuerySubtask[];
   };
   type QueryProject = {
     id: string;
@@ -1554,6 +1576,43 @@ export async function getUserProjectsWithTasksAndSubtasks(
     return a.title.localeCompare(b.title);
   };
 
+  // Every subtask level (A → B → C → D): all subtask rows of these projects in one query, so
+  // picking task A offers B, C and D in its one Subtask list. Closed ones are walked through (an
+  // open D under a closed C still shows) but not offered.
+  const subtaskRows: QuerySubtask[] =
+    projects.length === 0
+      ? []
+      : await d.projectTask.findMany({
+          where: { projectId: { in: (projects as QueryProject[]).map((p) => p.id) }, parentTaskId: { not: null } },
+          select: { id: true, code: true, title: true, status: true, createdAt: true, parentTaskId: true },
+        });
+  // parentTaskId holds the parent's id (or, on older rows, its code).
+  const childrenByParent = new Map<string, QuerySubtask[]>();
+  for (const st of subtaskRows) {
+    const list = childrenByParent.get(st.parentTaskId as string);
+    if (list) list.push(st);
+    else childrenByParent.set(st.parentTaskId as string, [st]);
+  }
+  const CLOSED = new Set(["Closed", "Closed/Done", "Completed"]);
+  const descendantsOf = (task: { id: string; code: string | null }): CascadingSubtaskOption[] => {
+    const out: CascadingSubtaskOption[] = [];
+    const seen = new Set<string>([task.id]);
+    const walk = (parent: { id: string; code: string | null }, depth: number) => {
+      const kids = [
+        ...(childrenByParent.get(parent.id) ?? []),
+        ...(parent.code && parent.code !== parent.id ? childrenByParent.get(parent.code) ?? [] : []),
+      ].sort(byCode);
+      for (const st of kids) {
+        if (seen.has(st.id)) continue; // guards against a loop in bad data
+        seen.add(st.id);
+        if (!CLOSED.has(st.status)) out.push({ id: st.id, code: st.code, title: st.title, status: st.status, depth });
+        walk(st, depth + 1);
+      }
+    };
+    walk(task, 0);
+    return out;
+  };
+
   return (projects as QueryProject[]).map((p) => ({
     id: p.id,
     code: p.code,
@@ -1567,12 +1626,7 @@ export async function getUserProjectsWithTasksAndSubtasks(
       title: t.title,
       status: t.status,
       phaseCode: t.phaseCode,
-      subtasks: [...(t.childTasks || [])].sort(byCode).map((st) => ({
-        id: st.id,
-        code: st.code,
-        title: st.title,
-        status: st.status,
-      })),
+      subtasks: descendantsOf(t),
     })),
   }));
 }

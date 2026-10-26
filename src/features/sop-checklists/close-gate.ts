@@ -9,7 +9,7 @@ const d = db as any;
  * A Srijan project task (or subtask) can't be moved to a done status until it has an SOP checklist
  * and every item of it is ticked. WhyFi School cards, NAT tasks and the daily DSM/DSR tasks are
  * exempt (isChecklistExemptTask). Returns why closing is blocked, or null when it's allowed.
- * `canForce` is left false — callers that know the user is a manager set it.
+ * `canForce` is always false: managers follow the same rule as team members (no override).
  *
  * Plain server module (not a Server Action) — called from the task status write paths
  * (updateTaskAction, updateSubtaskAction, the DSM standup toggle).

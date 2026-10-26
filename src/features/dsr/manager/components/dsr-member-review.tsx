@@ -16,7 +16,7 @@ import { toggleDsrLearning, type ToggleDsrLearningState } from "../actions/toggl
 import { toggleDsrAdditionalWork, type ToggleDsrAdditionalWorkState } from "../actions/toggle-dsr-additional-work";
 import { addDsrTask, type AddDsrTaskState } from "../actions/add-dsr-task";
 import { formatEventTime, dsrReviewStatus } from "@/features/dsr/utils";
-import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange } from "@/features/dsm/utils";
+import { relativeDayLabel, getWeekRange, formatShortDate, formatWeekRange, subtaskOptionLabel } from "@/features/dsm/utils";
 import { DsrHistoryCard, ReportRecordingBlock } from "@/features/dsr/components/dsr-history-card";
 import { ReportTimeSection } from "@/features/dsr/components/dsr-form";
 import type { ReportTimeSummary } from "@/features/dsr/queries";
@@ -364,7 +364,7 @@ function AddDsrTaskRow({ entryId, memberId }: { entryId: string; memberId?: stri
             onChange={(v) => handleSubtaskChange(v)}
             options={currentTask.subtasks.map((st) => ({
               value: st.id,
-              label: `${st.code ? `[${st.code}] ` : ""}${st.title}`,
+              label: subtaskOptionLabel(st),
             }))}
             placeholder="Select Subtask"
             searchPlaceholder="Search subtasks..."

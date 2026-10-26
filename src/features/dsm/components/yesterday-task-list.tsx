@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Circle, Clock, Link2Off, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Clock, Link2Off, Loader2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
-import { formatEffortMinutes } from "../utils";
+import { formatEffortMinutes, formatEffortSpan } from "../utils";
 import { TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { shortProjectName } from "@/features/projects/utils/project-name";
@@ -14,10 +14,25 @@ import type { YesterdayLoggedTask, YesterdayTaskItem } from "../queries";
 
 /**
  * "What Did You Do <previous DSM day>?" — one list: that day's planned DSM tasks (read-only done
- * state; unfinished ones are carried into today) followed by the other tasks time was logged on
- * that day (WhyFi School, tasks outside the DSM; DSM/DSR tasks are left out). Those extra rows can
- * be ticked: Done / back to In Progress. Counts and the logged total cover both.
+ * state; unfinished ones are carried into today) followed by every other task time was logged on
+ * that day (WhyFi School, Srijan, DSM / DSMA / DSMB, Internal Meetings…). Those extra rows can be
+ * ticked: Done / back to In Progress. Each row shows its effort time (first start – last stop) and
+ * hours; counts and the logged total cover both.
  */
+
+/** "🕘 10:05 AM – 11:30 AM" — when the task was worked on that day. */
+function EffortSpanChip({ from, to }: { from: string | null; to: string | null }) {
+  const span = formatEffortSpan(from, to);
+  if (!span) return null;
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-muted/50 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground"
+      title="Effort time — first start to last stop that day"
+    >
+      <Timer size={11} /> {span}
+    </span>
+  );
+}
 export function YesterdayTaskList({
   tasks,
   loggedTasks = [],
@@ -106,6 +121,7 @@ export function YesterdayTaskList({
               Carried
             </span>
           )}
+          <EffortSpanChip from={t.effortFrom} to={t.effortTo} />
           {t.loggedMinutes !== null && t.loggedMinutes > 0 && (
             <span
               className="flex shrink-0 items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-xs font-semibold text-info"
@@ -172,6 +188,7 @@ export function YesterdayTaskList({
             >
               Logged
             </span>
+            <EffortSpanChip from={t.effortFrom} to={t.effortTo} />
             <span
               className="flex shrink-0 items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-xs font-semibold text-info"
               title="Effort logged on this task that day"

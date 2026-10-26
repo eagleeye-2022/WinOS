@@ -110,6 +110,8 @@ export function ChecklistGateHost() {
           >
             Cancel
           </button>
+          {/* "Close anyway" (manager override) — never offered now: canForce is always false, and
+              the server refuses a forced close too. Managers select / complete the checklist. */}
           {req.canForce && (
             <button
               type="button"

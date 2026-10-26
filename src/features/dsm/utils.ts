@@ -29,6 +29,16 @@ export function countTasksWithoutProject(
 export const PROJECT_REQUIRED_MESSAGE = "Select a project for every task before submitting";
 
 /**
+ * Label for a Subtask picker option. The list holds every level under the task (B, its subtask C,
+ * C's subtask D…), so deeper levels are indented with "↳" to show the hierarchy.
+ */
+export function subtaskOptionLabel(st: { code: string | null; title: string; depth?: number }): string {
+  const depth = st.depth ?? 0;
+  const indent = depth > 0 ? `${"   ".repeat(depth - 1)}↳ ` : "";
+  return `${indent}${st.code ? `[${st.code}] ` : ""}${st.title}`;
+}
+
+/**
  * The catch-all task list every project has for work not yet aligned to a real task. Found by
  * name, not code — its hidden code differs per project (7.9, 7.10, 8.1, …). Starting a timer on a
  * DSM row that has a project but no task creates the task here (see ensureNatTaskForTimerAction);
@@ -212,6 +222,12 @@ export function isSelfReviewed(events: { type: string }[] | null | undefined): b
 export function isStandupRoutineTask(title: string | null | undefined): boolean {
   const t = title ?? "";
   return /^\s*(dsma|dsmb|dsm|dsr)s?\b/i.test(t) || /^\s*internal\s+meetings?\s*$/i.test(t);
+}
+
+/** Effort time "10:05 AM – 11:30 AM" from a task's first start / last stop that day; "" when unknown. */
+export function formatEffortSpan(from: string | null | undefined, to: string | null | undefined): string {
+  if (from && to) return from === to ? from : `${from} – ${to}`;
+  return from || to || "";
 }
 
 /** "What Did You Do Yesterday?" / "…Tuesday?" — always past tense, named after the user's previous DSM day. */

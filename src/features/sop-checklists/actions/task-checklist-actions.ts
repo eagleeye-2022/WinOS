@@ -95,7 +95,8 @@ export async function getChecklistCloseBlockAction(taskId: string): Promise<Chec
   const access = await getTaskAccess(taskId, user);
   if (!access) return null;
   const block = await checklistCloseBlock(access.task.id);
-  return block ? { ...block, canForce: user.isManager } : null;
+  // No "Close anyway" for anyone — managers complete the checklist like team members.
+  return block ? { ...block, canForce: false } : null;
 }
 
 export async function getTaskChecklistsAction(taskId: string): Promise<TaskChecklistsPayload> {
