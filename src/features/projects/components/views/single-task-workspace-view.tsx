@@ -560,7 +560,8 @@ export function SingleTaskWorkspaceView({
     const childrenOf = (st: TaskSubtask): TaskSubtask[] => {
       const own = byId.get(st.id)?.subtasks || [];
       const linked = [...(byParent.get(st.id) ?? []), ...(st.code ? byParent.get(st.code) ?? [] : [])]
-        .filter((t) => !own.some((o) => o.id === t.id))
+        // Same subtask by id or code (a just-created one can carry either) — never listed twice.
+        .filter((t) => !own.some((o) => o.id === t.id || (!!o.code && o.code === t.code)))
         .map(
           (t): TaskSubtask => ({
             id: t.id,
@@ -596,7 +597,9 @@ export function SingleTaskWorkspaceView({
   const addCreatedSubtask = (created: TaskSubtask, description?: string) => {
     const subtaskItem: TaskItem = {
       ...activeTask,
-      id: created.code,
+      // Its real id (not the code), so it's the same row the parent's subtask list points at —
+      // the Subtasks tree joins the two by id. Its page still opens by code.
+      id: created.id || created.code,
       code: created.code,
       title: created.title,
       status: created.status,
