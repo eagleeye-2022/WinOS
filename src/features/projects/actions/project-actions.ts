@@ -34,6 +34,7 @@ import {
 import {
   DEFAULT_PROJECT_TEMPLATES,
   DIGITAL_PROJECT_TEMPLATES,
+  SMM_PROJECT_TEMPLATE,
   scaffoldPhasesFromTemplate,
   scaffoldTaskListsFromTemplate,
   scaffoldTasksFromTemplate,
@@ -157,7 +158,7 @@ async function findProjectTemplate(templateId: string): Promise<ProjectTemplate 
       phases: row.phases,
     };
   }
-  return DEFAULT_PROJECT_TEMPLATES.find((t) => t.id === templateId);
+  return [...DEFAULT_PROJECT_TEMPLATES, SMM_PROJECT_TEMPLATE].find((t) => t.id === templateId);
 }
 
 async function findDefaultProjectTemplate(): Promise<ProjectTemplate> {
@@ -957,6 +958,43 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
         })),
       });
       createdTaskCount = scaffoldedTasks.length;
+
+      // Template subtasks (e.g. SMM's "October Month" → its monthly steps), numbered <task>.1, .2…
+      const withSubtasks = scaffoldedTasks.filter((t) => t.code && t.subtaskTitles && t.subtaskTitles.length > 0);
+      if (withSubtasks.length > 0) {
+        const parents: { id: string; code: string }[] = await db.projectTask.findMany({
+          where: { projectId: newProject.id, code: { in: withSubtasks.map((t) => t.code as string) } },
+          select: { id: true, code: true },
+        });
+        const parentIdByCode = new Map(parents.map((p) => [p.code, p.id]));
+        const subtaskRows = withSubtasks.flatMap((t) => {
+          const parentId = parentIdByCode.get(t.code as string);
+          if (!parentId) return [];
+          return (t.subtaskTitles as string[]).map((title, i) => ({
+            code: `${t.code}.${i + 1}`,
+            title,
+            phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
+            phaseCode: t.phaseCode,
+            phaseName: t.phaseName,
+            taskListName: t.taskListName,
+            isExternal: t.isExternal ?? true,
+            status: "Open",
+            authorId: session.user.id,
+            authorName: session.user.name || "System",
+            departmentAlias: t.departmentAlias,
+            duration: t.duration,
+            priority: t.priority,
+            ownerId: null,
+            owner: "Unassigned",
+            projectId: newProject.id,
+            parentTaskId: parentId,
+          }));
+        });
+        if (subtaskRows.length > 0) {
+          await db.projectTask.createMany({ data: subtaskRows });
+          createdTaskCount += subtaskRows.length;
+        }
+      }
     }
   }
 

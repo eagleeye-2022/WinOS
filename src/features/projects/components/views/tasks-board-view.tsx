@@ -29,7 +29,9 @@ import {
   X,
   Loader2,
   Copy,
+  CalendarDays,
 } from "lucide-react";
+import { SMM_PROJECT_TEMPLATE } from "../../data/sop-templates";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { taskOwnerPeople } from "../../utils/task-owner-people";
 import { toast } from "@/components/shared/toast";
@@ -1056,8 +1058,11 @@ export function TasksBoardView({
   const phaseMap: Record<string, { code: string; name: string; tasks: TaskItem[] }> = {};
   // Projects with their own phase scheme (e.g. EED Core's milestone phases "ECO", "GEN")
   // get only their own columns; the SOP template columns would otherwise push them off-screen.
+  // SMM projects too: their lists reuse codes 1.1–6.1, so they're recognised by the SMM list names.
+  const isSmmTemplateProject = dbPhases.some((p) => SMM_PROJECT_TEMPLATE.phases.some((s) => s.name === p.name));
   const usesOwnPhaseScheme =
-    dbPhases.length > 0 && !dbPhases.some((p) => DEFAULT_KANBAN_PHASES.some((d) => d.code === p.code));
+    dbPhases.length > 0 &&
+    (isSmmTemplateProject || !dbPhases.some((p) => DEFAULT_KANBAN_PHASES.some((d) => d.code === p.code)));
   if (!usesOwnPhaseScheme) {
     DEFAULT_KANBAN_PHASES.forEach((p) => {
       phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
@@ -1545,6 +1550,15 @@ export function TasksBoardView({
           </div>
 
           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {/* Due date, left of the owner avatar */}
+            {task.dueDate && task.dueDate !== "--" && (
+              <span
+                className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
+                title={`Due ${task.dueDate}`}
+              >
+                <CalendarDays size={12} /> {task.dueDate}
+              </span>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <button

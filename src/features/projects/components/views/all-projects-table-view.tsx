@@ -1731,7 +1731,8 @@ export function AllProjectsTableView({
               actions column keep fixed widths. Previous fixed-width layout, kept for easy revert:
               className="table-fixed ..." style={{ width: CHECKBOX + Σ EXPANDED_COL_WIDTH[id] + ACTIONS }}
               with <col style={{ width: EXPANDED_COL_WIDTH[id] }} /> per leaf column. */}
-          <table className="table-auto w-max min-w-full text-left text-xs border-collapse">
+          {/* data-col-guide="header": the resize guide line spans the header cell only, not the whole table. */}
+          <table data-col-guide="header" className="table-auto w-max min-w-full text-left text-xs border-collapse">
             <colgroup>
               {canEditAssignments && <col style={{ width: CHECKBOX_COL_WIDTH }} />}
               {LEAF_COL_ORDER.map((id) => (

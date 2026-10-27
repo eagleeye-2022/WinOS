@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_PROJECT_TEMPLATES,
   DIGITAL_PROJECT_TEMPLATES,
+  SMM_PROJECT_TEMPLATE,
   scaffoldPhasesFromTemplate,
 } from "../../data/sop-templates";
 import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
@@ -378,7 +379,7 @@ export function AddProjectDrawer({
                 onClick={() => {
                   setProjectCategory("SMM");
                   setDepartmentAlias("smm@");
-                  applyTemplate(DEFAULT_PROJECT_TEMPLATES[0]);
+                  applyTemplate(SMM_PROJECT_TEMPLATE);
                 }}
                 className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
                   projectCategory === "SMM"

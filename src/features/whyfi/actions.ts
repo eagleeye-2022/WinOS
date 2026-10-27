@@ -93,12 +93,20 @@ function toInitials(name: string): string {
     .toUpperCase();
 }
 
+/**
+ * A list deleted after time was logged on it: hidden from the board and the DSM pickers, but the
+ * row (and so its cards and their effort logs) is kept — the logs still show in Effort Logs.
+ */
+const DELETED_LIST_STATUS = "DELETED";
+const LIVE_LIST = { status: { not: DELETED_LIST_STATUS } };
+
 /** A learning list the actor may see: managers see every list, members only lists shared with them. */
 async function findVisibleList(projectId: string, actor: { id: string; isManager: boolean }) {
   return d.project.findFirst({
     where: {
       id: projectId,
       projectCategory: LEARNING_PROJECT_CATEGORY,
+      ...LIVE_LIST,
       ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
     },
     select: { id: true, code: true, name: true },
@@ -140,6 +148,7 @@ export async function getWhyfiWorkspaceAction(): Promise<WhyfiWorkspace | null> 
   const projects = await d.project.findMany({
     where: {
       projectCategory: LEARNING_PROJECT_CATEGORY,
+      ...LIVE_LIST,
       ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
     },
     orderBy: { createdAt: "asc" },
@@ -297,6 +306,7 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
       status: { notIn: LEARNING_DONE_STATUSES },
       project: {
         projectCategory: LEARNING_PROJECT_CATEGORY,
+        ...LIVE_LIST,
         ...(scopeUserId ? { members: { some: { userId: scopeUserId } } } : {}),
       },
       // A manager on a member's DSM review (/dsm/member/<id>) sees only that member's cards:
@@ -561,8 +571,11 @@ export async function updateWhyfiListAction(
   return { success: true, data: undefined };
 }
 
-/** Deletes a list and its cards. Refused once anyone has logged time on it, since deleting
- *  would also delete that effort from their logs. */
+/**
+ * Deletes a list and its cards. Once anyone has logged time on it (or a timer is running on it),
+ * deleting the row would also erase that effort, so the list is hidden instead (status DELETED):
+ * gone from the board and pickers, while its effort logs stay saved and keep showing in Effort Logs.
+ */
 export async function deleteWhyfiListAction(projectId: string): Promise<ActionResult> {
   const actor = await getActor();
   if (!actor) return { success: false, error: "Unauthorized" };
@@ -574,10 +587,9 @@ export async function deleteWhyfiListAction(projectId: string): Promise<ActionRe
     d.activeTimer.count({ where: { projectId } }),
   ]);
   if (logCount > 0 || timerCount > 0) {
-    return {
-      success: false,
-      error: "Time has already been logged on this list, so it can't be deleted (that would erase the effort log).",
-    };
+    await d.project.update({ where: { id: projectId }, data: { status: DELETED_LIST_STATUS } });
+    revalidatePath(WHYFI_PATH);
+    return { success: true, data: undefined };
   }
 
   await d.project.delete({ where: { id: projectId } });
