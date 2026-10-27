@@ -1,4 +1,4 @@
-import { ProjectPhase, ProjectTemplate, SOPPhaseTemplate, TaskItem, TaskList } from "../types";
+import { ProjectPhase, ProjectTemplate, SOPPhaseTemplate, SOPTaskSeed, TaskItem, TaskList } from "../types";
 
 export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
   id: "template-t2t-7phase",
@@ -1031,6 +1031,73 @@ export const ENTERPRISE_PROJECT_TEMPLATE: ProjectTemplate = {
   phases: [...DIGITAL_PRODUCT_DELIVERY_PHASES, ...buildMaintenancePhases(MSO_PHASES)],
 };
 
+/** In a template task title, replaced by the month the project is created in ("October"). */
+export const TEMPLATE_MONTH_PLACEHOLDER = "{MONTH}";
+
+/** Posts per month in the SMM template's Content Production / Scheduling & Publishing lists. */
+const SMM_POSTS_PER_MONTH = 3;
+
+const smmTask = (title: string, subtasks?: string[]): SOPTaskSeed => ({
+  title,
+  duration: "1 day",
+  priority: "Medium",
+  departmentAlias: "smm@",
+  ...(subtasks ? { subtasks } : {}),
+});
+
+const smmPhase = (code: string, name: string, defaultTasks: SOPTaskSeed[]): SOPPhaseTemplate => ({
+  code,
+  name: `${code} ${name}`,
+  departmentAlias: "smm@",
+  taskLists: [{ name: `${code} ${name}`, flag: "external", sequence: parseInt(code, 10), defaultTasks }],
+});
+
+const smmPosts = (action: string) =>
+  Array.from({ length: SMM_POSTS_PER_MONTH }, (_, i) => `Post ${String(i + 1).padStart(2, "0")} ${action}`);
+
+const SMM_MONTH = `${TEMPLATE_MONTH_PLACEHOLDER} Month`;
+
+/**
+ * SMM projects: setup, then the monthly cycle. Each monthly list has one "<Month> Month" task
+ * (the month the project is created in) whose steps are its subtasks.
+ */
+export const SMM_PROJECT_TEMPLATE: ProjectTemplate = {
+  id: "template-smm",
+  name: "SMM",
+  description:
+    "Social media management: project setup, then each month's content planning, shoot & assets, production, publishing and reporting.",
+  category: "Client Delivery",
+  phases: [
+    smmPhase("1.1", "Project Setup & Deliverables", [
+      smmTask("WhatsApp Group Creation"),
+      smmTask("Scope & Deliverables Setup"),
+      smmTask("Project Meeting"),
+      smmTask("Account & Access Setup"),
+    ]),
+    smmPhase("2.1", "Monthly Content Planning", [
+      smmTask(SMM_MONTH, [
+        "Monthly Strategy Creation",
+        "Content Calendar Creation",
+        "Content Brief Preparation",
+        "Calendar Review & Approval",
+      ]),
+    ]),
+    smmPhase("3.1", "Content Shoot & Asset Collection", [
+      smmTask(SMM_MONTH, ["Shoot Planning", "Content Shoot", "Client Asset Collection", "Asset Finalization"]),
+    ]),
+    smmPhase("4.1", "Content Production", [smmTask(SMM_MONTH, smmPosts("Design"))]),
+    smmPhase("5.1", "Scheduling & Publishing", [smmTask(SMM_MONTH, smmPosts("Publishing"))]),
+    smmPhase("6.1", "Reporting & Analysis", [
+      smmTask(SMM_MONTH, [
+        "Performance Analysis",
+        "Deliverable Completion Review",
+        "Monthly Performance Report",
+        "Client Reporting",
+      ]),
+    ]),
+  ],
+};
+
 /** Templates offered when the project category is "Digital Project" in the Add Project drawer. */
 export const DIGITAL_PROJECT_TEMPLATES: ProjectTemplate[] = [
   ECOMMERCE_PROJECT_TEMPLATE,
@@ -1078,14 +1145,19 @@ export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskLi
   return lists;
 }
 
+/** A scaffolded task plus the titles of the subtasks to create under it (see SOPTaskSeed.subtasks). */
+export type ScaffoldedTask = Partial<TaskItem> & { subtaskTitles?: string[] };
+
 export function scaffoldTasksFromTemplate(
   template: ProjectTemplate,
   projectCode: string,
   defaultOwnerName?: string,
   defaultOwnerId?: string
-): Partial<TaskItem>[] {
-  const tasks: Partial<TaskItem>[] = [];
+): ScaffoldedTask[] {
+  const tasks: ScaffoldedTask[] = [];
   let taskCounter = 1;
+  const monthName = new Date().toLocaleString("en-US", { month: "long" });
+  const withMonth = (s: string) => s.split(TEMPLATE_MONTH_PLACEHOLDER).join(monthName);
   const ownerName = defaultOwnerName || "Unassigned";
   const ownersList = defaultOwnerName && defaultOwnerName !== "Unassigned" ? [defaultOwnerName] : [];
   const ownerIdsList = defaultOwnerId ? [defaultOwnerId] : [];
@@ -1098,7 +1170,8 @@ export function scaffoldTasksFromTemplate(
       const codeNum = String(taskCounter).padStart(2, "0");
       tasks.push({
         code: `${projectCode}-T${codeNum}`,
-        title: dt.title,
+        title: withMonth(dt.title),
+        ...(dt.subtasks && dt.subtasks.length > 0 ? { subtaskTitles: dt.subtasks.map(withMonth) } : {}),
         phaseCode: p.code,
         phaseName: p.name,
         taskListName: p.name,

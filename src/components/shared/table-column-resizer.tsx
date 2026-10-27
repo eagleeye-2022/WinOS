@@ -156,7 +156,11 @@ export function TableColumnResizer() {
     let suppressClick = false;
 
     const showGuide = (el: ResizableEl, x: number) => {
-      const area = (scopeOf(el) ?? el).getBoundingClientRect();
+      // Full height of the table by default; a table marked data-col-guide="header" gets a guide
+      // as tall as the header cell only.
+      const scope = scopeOf(el);
+      const headerOnly = scope?.getAttribute("data-col-guide") === "header";
+      const area = (headerOnly ? el : scope ?? el).getBoundingClientRect();
       guide.style.left = `${x - 1}px`;
       guide.style.top = `${area.top}px`;
       guide.style.height = `${Math.min(area.height, window.innerHeight - area.top)}px`;

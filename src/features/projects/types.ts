@@ -54,6 +54,8 @@ export interface SOPTaskSeed {
   priority: ProjectPriority;
   departmentAlias: string;
   description?: string;
+  /** Titles of subtasks created under this task when a project is created from the template. */
+  subtasks?: string[];
 }
 
 export interface SOPTaskListTemplate {

@@ -575,6 +575,16 @@ function LearningCard({
           )}
         </div>
 
+        <div className="flex shrink-0 items-center gap-2">
+        {/* Due date, left of the avatar */}
+        {task.dueDate && task.dueDate !== "--" && (
+          <span
+            className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
+            title={`Due ${task.dueDate}`}
+          >
+            <CalendarDays size={12} /> {task.dueDate}
+          </span>
+        )}
         {(() => {
           const avatar = (
             <span
@@ -615,6 +625,7 @@ function LearningCard({
             avatar
           );
         })()}
+        </div>
       </div>
 
       {/* Nested subtasks — same card, indented like the project board */}
@@ -791,7 +802,8 @@ function ListColumn({
   const handleDelete = async () => {
     const ok = await confirm({
       title: `Delete "${list.name}"?`,
-      description: "The task list and all its cards will be deleted. This can't be undone.",
+      description:
+        "The task list and all its cards will be removed from the board. Time already logged on it stays saved in Effort Logs. This can't be undone.",
       confirmLabel: "Delete list",
       danger: true,
     });
