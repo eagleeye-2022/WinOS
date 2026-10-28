@@ -13,7 +13,8 @@ import {
 // (MoreHorizontal + DropdownMenu* were for the ⋯ task menus, now inline buttons — re-import them
 // if the commented-out "What Did You Do Yesterday?" menu is restored.)
 import { cn, toTitleCase } from "@/lib/utils";
-import { TaskDetailToggle, TaskDetailRow } from "./task-detail-panel";
+// TaskDetailToggle (the ▸ button) is commented out below for now — re-import it when restoring.
+import { TaskDetailRow } from "./task-detail-panel";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
@@ -1698,7 +1699,8 @@ function TaskRow({
         {!isLocked ? (
           // Details ▸ · Info · Edit · Delete in a line (no ⋯ menu), packed close together.
           <div className="flex items-center justify-center">
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+            {/* ▸ task details — hidden for now; restore to bring the panel back.
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
             <TaskInfoAction task={task} compact />
             <button
               type="button"
@@ -1730,7 +1732,8 @@ function TaskRow({
           // Reviewed rows: open the linked task (ⓘ) or edit the row — editing the text also
           // renames the linked Srijan task when it's a NAT task (see editTask).
           <div className="flex items-center justify-center gap-0.5">
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+            {/* ▸ task details — hidden for now.
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
             <TaskInfoAction task={task} />
             <button
               type="button"
@@ -2068,7 +2071,8 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+          {/* ▸ task details — hidden for now.
+          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
           <TaskInfoAction task={task} />
           {/* ⋯ (Edit / Delete) removed from "What Did You Do Yesterday?" by request.
           <DropdownMenu>
@@ -2229,7 +2233,8 @@ function LoggedSummaryRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />
+          {/* ▸ task details — hidden for now.
+          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} /> */}
           {href && <TaskInfoLink href={href} code={task.code} className="h-7 w-7 rounded-lg hover:bg-muted" />}
         </div>
       </td>
