@@ -136,11 +136,8 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
             {detail.recentLogs.map((l) => (
               <li
                 key={l.id}
-                className={cn(
-                  // Billing shown by colour (Effort Logs report style): blue billable, amber non-billable.
-                  "grid grid-cols-[minmax(90px,140px)_60px_minmax(120px,auto)_56px_1fr] items-center gap-2 border-l-2 px-2 py-1.5",
-                  l.billable ? "border-l-info" : "border-l-warning"
-                )}
+                // Billing shown by the duration's colour (Effort Logs report style): blue billable, amber non-billable.
+                className="grid grid-cols-[minmax(90px,140px)_60px_minmax(120px,auto)_56px_1fr] items-center gap-2 px-2 py-1.5"
                 title={l.billable ? "Billable" : "Non-billable"}
               >
                 <span className="truncate font-semibold text-foreground" title={l.userName}>
@@ -155,11 +152,6 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
               </li>
             ))}
           </ul>
-        )}
-        {detail.logCount > detail.recentLogs.length && (
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Showing the latest {detail.recentLogs.length} of {detail.logCount} logs — open the task (ⓘ) for all.
-          </p>
         )}
       </div>
 
