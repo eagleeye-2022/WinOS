@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { effortProjectLabel } from "@/features/whyfi/constants";
 import { isProjectUser } from "../project-user";
+import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -150,6 +151,12 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       code: "NOT_PROJECT_USER" as const,
       error: `You're not a user of this project, so you can't start a timer on task ${task.code || ""}. Ask a manager to add you to the project.`,
     };
+  }
+
+  // A task with open subtasks (any depth) can't be timed — work is logged on the subtasks.
+  const openSubs = await openSubtasksOf(task.id);
+  if (openSubs.length > 0) {
+    return { success: false, code: "SUBTASKS_OPEN" as const, error: openSubtasksMessage(openSubs, "timer") };
   }
 
   const rawProjectId = params.projectId || params.project || task.projectId;

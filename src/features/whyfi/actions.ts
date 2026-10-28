@@ -4,6 +4,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toTitleText } from "@/lib/utils";
+import { openSubtasksOf, openSubtasksMessage } from "@/features/projects/subtask-gate";
 import { isTaskDone } from "@/features/projects/types";
 import {
   LEARNING_CODE_PREFIX,
@@ -652,7 +654,7 @@ export async function createWhyfiTaskAction(
   const list = await findVisibleList(projectId, actor);
   if (!list) return { success: false, error: "Task list not found or not shared with you." };
 
-  const title = input.title.trim();
+  const title = toTitleText(input.title);
   if (!title) return { success: false, error: "Give the card a title." };
 
   if (input.parentTaskId) {
@@ -739,6 +741,11 @@ export async function updateWhyfiTaskAction(
     if (!LEARNING_TASK_STATUSES.includes(input.status)) {
       return { success: false, error: "Unknown status." };
     }
+    // A card can't be marked done while any of its subtasks (any depth) is still open.
+    if (isTaskDone(input.status)) {
+      const openSubs = await openSubtasksOf(task.id);
+      if (openSubs.length > 0) return { success: false, error: openSubtasksMessage(openSubs, "close") };
+    }
     data.status = input.status;
     data.completionPercentage = isTaskDone(input.status) ? 100 : 0;
     changes.push(`changed status to ${input.status}`);
@@ -746,7 +753,7 @@ export async function updateWhyfiTaskAction(
   if (input.title !== undefined || input.description !== undefined) {
     if (!canEditDetails) return { success: false, error: "Only a manager or the card's author can edit it." };
     if (input.title !== undefined) {
-      const title = input.title.trim();
+      const title = toTitleText(input.title);
       if (!title) return { success: false, error: "Give the card a title." };
       data.title = title;
       changes.push("renamed this task");

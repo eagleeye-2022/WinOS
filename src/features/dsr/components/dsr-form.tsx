@@ -11,6 +11,8 @@ import { formatMinutes, syncReportTasksWithDsm, usableRecordingUrl } from "../re
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
+import { TimerWidget } from "@/features/projects/components/timer-widget";
+import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -225,6 +227,8 @@ function PlannedTasksSection({
   }, [tasks.map((t) => t.text).join("|"), dateStr]);
 
   return (
+    // One shared active-timer poll for every row's timer (see TimerWidget).
+    <ActiveTimerProvider>
     <div className="rounded-xl border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Today&apos;s Planned Tasks Completed</h3>
@@ -284,7 +288,21 @@ function PlannedTasksSection({
                   </td>
                   {hasProjectsAccess && (
                     <td className="py-2 pr-3 align-top">
-                      {link?.projectTask ? (
+                      {link?.projectTask && !memberId ? (
+                        // Own report: start/stop the timer on the linked task right here, with the
+                        // time already logged today next to it.
+                        <div className="flex items-center gap-2">
+                          <TimerWidget
+                            instanceId={`report-task-${i}`}
+                            taskId={link.projectTaskId || link.projectTask.id}
+                            taskCode={link.projectTask.code}
+                            taskTitle={link.projectTask.title || task.text}
+                            projectId={link.projectTask.project?.id}
+                            defaultExpanded={true}
+                          />
+                          <TimeTrackedBadge totalMinutes={link.timeSummary.totalMinutes} />
+                        </div>
+                      ) : link?.projectTask ? (
                         <MemberTaskTimerBadge
                           taskId={link.projectTaskId || link.projectTask.id}
                           taskCode={link.projectTask.code}
@@ -308,6 +326,7 @@ function PlannedTasksSection({
         )}
       </div>
     </div>
+    </ActiveTimerProvider>
   );
 }
 

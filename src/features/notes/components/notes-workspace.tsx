@@ -23,7 +23,7 @@ import {
   FolderKanban,
   Search,
 } from "lucide-react";
-import { cn, toTitleCase } from "@/lib/utils";
+import { cn, toTitleText } from "@/lib/utils";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 import dynamic from "next/dynamic";
 
@@ -1145,7 +1145,7 @@ export function NotesWorkspace({
                         </p>
                       )}
                       <p className="text-sm font-bold line-clamp-1 group-hover:text-primary shrink-0">
-                        {toTitleCase(note.title || note.thread?.title || "Untitled Note")}
+                        {note.title || note.thread?.title || "Untitled Note"}
                       </p>
                       {note.checklistItems && note.checklistItems.length > 0 ? (
                         <div className="flex flex-col gap-0.5 my-0.5 overflow-hidden">
@@ -1155,7 +1155,7 @@ export function NotesWorkspace({
                                 {item.checked ? "☑" : "☐"}
                               </span>
                               <span className={cn("truncate leading-tight", item.checked && "line-through text-muted-foreground/60")}>
-                                {toTitleCase(item.text)}
+                                {toTitleText(item.text)}
                               </span>
                             </div>
                           ))}
@@ -1414,7 +1414,7 @@ export function NotesWorkspace({
                           {/* Note Card Top Header (Title + Actions Pill) */}
                           <div className="flex items-start justify-between gap-2 shrink-0 mb-2">
                             <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug tracking-tight pr-1">
-                              {note.title ? toTitleCase(note.title) : "Untitled Note"}
+                              {note.title || "Untitled Note"}
                             </h4>
                             {note.authorId === userId && (
                               <div className="flex items-center gap-1.5 bg-slate-900/10 dark:bg-slate-100/10 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-slate-900/10 dark:border-slate-100/10 shrink-0">
@@ -1500,7 +1500,7 @@ export function NotesWorkspace({
                                         item.checked ? "text-slate-500 dark:text-slate-400 line-through font-normal" : "text-slate-900 dark:text-slate-100 font-semibold"
                                       )}
                                     >
-                                      {toTitleCase(item.text)}
+                                      {toTitleText(item.text)}
                                     </span>
                                   </div>
                                 ))}

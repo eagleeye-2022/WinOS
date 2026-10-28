@@ -7,7 +7,6 @@ import {
   Columns,
   RotateCw,
   Plus,
-  CheckSquare,
   AlertCircle,
   Layers,
   // AlertTriangle, // used by the hidden stale-task banner
@@ -30,6 +29,7 @@ import {
   Loader2,
   Copy,
   CalendarDays,
+  ListTree,
 } from "lucide-react";
 import { SMM_PROJECT_TEMPLATE } from "../../data/sop-templates";
 import { AvatarStack } from "@/components/shared/avatar-stack";
@@ -44,6 +44,8 @@ import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
 import { ProjectChecklistsView } from "@/features/sop-checklists/components/project-checklists-view";
 import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
+import { isChecklistExemptTask } from "@/features/sop-checklists/utils";
+import { MoveTaskToProjectDialog } from "../modals/move-task-to-project-dialog";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { getTaskChecklistSummariesAction } from "@/features/sop-checklists/actions/project-checklist-actions";
 import { PhasesTableView } from "./phases-table-view";
@@ -283,12 +285,22 @@ export function TasksBoardView({
   const { confirm, ConfirmDialog } = useConfirm();
   const params = useParams();
   const realProjectId = (params?.projectId as string | undefined) || projectCode;
+  // Card picked for "Move to Another Project" (managers) — the dialog is open while it's set.
+  const [moveToProjectTask, setMoveToProjectTask] = useState<TaskItem | null>(null);
 
   // SOP checklist progress per task id, for the ☑ chip on each card. Reloaded when the task list
   // changes (a status change or a new task), since ticking happens on the task page.
   const [checklistSummaries, setChecklistSummaries] = useState<
     Record<string, { done: number; total: number; requiredOpen: number }>
   >({});
+  // Bumped when an SOP may have been selected elsewhere (task drawer closed, tab focused again),
+  // so the card's ☑ turns green without a reload.
+  const [checklistRefreshKey, setChecklistRefreshKey] = useState(0);
+  useEffect(() => {
+    const onFocus = () => setChecklistRefreshKey((k) => k + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
   useEffect(() => {
     if (!realProjectId) return;
     let cancelled = false;
@@ -300,7 +312,7 @@ export function TasksBoardView({
     return () => {
       cancelled = true;
     };
-  }, [realProjectId, tasks]);
+  }, [realProjectId, tasks, checklistRefreshKey]);
 
   // Custom task lists / phases created on the board
   const [customPhases, setCustomPhases] = useState<{ code: string; name: string }[]>([]);
@@ -1415,6 +1427,19 @@ export function TasksBoardView({
                     </button>
                   ))}
                 </div>
+                {/* Managers: move it (with subtasks and time logs) into another project's list. */}
+                {currentUser?.role === "ADMIN" && !isUnsavedTaskId(task.id) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMoveToProjectTask(task);
+                    }}
+                    className="mt-1 flex w-full items-center gap-1.5 rounded-md border-t px-2 py-1.5 pt-2 text-left text-xs font-semibold text-primary hover:bg-accent cursor-pointer"
+                  >
+                    <ArrowRightLeft size={12} /> Move to Another Project…
+                  </button>
+                )}
               </PopoverContent>
             </Popover>
           )}
@@ -1468,9 +1493,13 @@ export function TasksBoardView({
               disabledReason={isLocked ? lockedReason : "You're not a user of this project, so you can't start this timer"}
               onSaveLog={() => router.refresh()}
             />
-            {checklistSummaries[task.id]?.total > 0 && (
-              <ChecklistChip summary={checklistSummaries[task.id]} isClosed={isClosed} />
-            )}
+            {/* SOP: green when an SOP checklist is aligned to the task, red when not (exempt tasks: none). */}
+            {!isChecklistExemptTask({
+              title: task.title,
+              taskListName: task.taskListName,
+              phaseName: task.phaseName,
+              projectId: task.projectId || realProjectId,
+            }) && <ChecklistChip summary={checklistSummaries[task.id]} />}
             {isSubtask && (
               <button
                 type="button"
@@ -1538,7 +1567,8 @@ export function TasksBoardView({
                   expandedSubtaskCardIds.has(task.id) ? "hide" : "view"
                 })`}
               >
-                <CheckSquare size={13} />
+                {/* Tree icon: distinct from the ☑ SOP checklist chip next to it. */}
+                <ListTree size={13} />
                 <span className="text-xs font-bold">{task.subtasks.length}</span>
                 {expandedSubtaskCardIds.has(task.id) ? (
                   <ChevronDown size={11} />
@@ -2374,7 +2404,11 @@ export function TasksBoardView({
       <TaskDetailDrawer
         task={drawerTask ?? selectedTask}
         isOpen={isDetailDrawerOpen}
-        onClose={() => writeSearchParam("task", null, "push")}
+        onClose={() => {
+          writeSearchParam("task", null, "push");
+          // An SOP may have been selected in the drawer — refresh the cards' ☑ colour.
+          setChecklistRefreshKey((k) => k + 1);
+        }}
         onUpdateTask={(updated) => {
           setLocalTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
           setSelectedTask(updated);
@@ -2413,6 +2447,23 @@ export function TasksBoardView({
       />
 
       {ConfirmDialog}
+      {moveToProjectTask && (
+        <MoveTaskToProjectDialog
+          open
+          onClose={() => setMoveToProjectTask(null)}
+          taskId={moveToProjectTask.id}
+          taskCode={moveToProjectTask.code}
+          taskTitle={moveToProjectTask.title}
+          currentProjectId={realProjectId}
+          onMoved={async () => {
+            const movedId = moveToProjectTask.id;
+            setMoveToProjectTask(null);
+            // It left this project — drop the card (and its subtasks) here, then reload.
+            setLocalTasks((prev) => prev.filter((t) => t.id !== movedId && t.parentTaskId !== movedId));
+            if (onTasksChanged) await onTasksChanged();
+          }}
+        />
+      )}
     </div>
     </ActiveTimerProvider>
   );

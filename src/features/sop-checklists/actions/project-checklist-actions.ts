@@ -94,14 +94,23 @@ export async function getProjectChecklistOverviewAction(projectIdOrCode: string)
 export async function getTaskChecklistSummariesAction(
   projectIdOrCode: string
 ): Promise<Record<string, { done: number; total: number; requiredOpen: number }>> {
+  // Only task ids and step counts — shown to anyone signed in who can open the board. The board
+  // is visible to more people than "project users" (task owners/authors, the owner by name…); with
+  // the stricter check those viewers saw every card's ☑ red even when an SOP was selected.
   const access = await projectAccess(projectIdOrCode);
-  if (!access || !access.canView) return {};
+  if (!access) return {};
 
   const rows = await d.taskChecklist.findMany({
     where: { task: { projectId: access.project.id } },
-    select: { taskId: true, items: { select: { checked: true, isRequired: true, isRemovedFromSop: true } } },
+    select: {
+      taskId: true,
+      task: { select: { code: true } },
+      items: { select: { checked: true, isRequired: true, isRemovedFromSop: true } },
+    },
   });
 
+  // Keyed by the task's id AND its code: the board's task list uses the code as the card id
+  // (loadTasks sets `id: code || id`), so keying by id alone never matched any card.
   const out: Record<string, { done: number; total: number; requiredOpen: number }> = {};
   for (const r of rows) {
     const p = checklistProgress(r.items.filter((i: any) => !i.isRemovedFromSop));
@@ -109,6 +118,7 @@ export async function getTaskChecklistSummariesAction(
     acc.done += p.done;
     acc.total += p.total;
     acc.requiredOpen += p.requiredOpen;
+    if (r.task?.code) out[r.task.code] = acc;
   }
   return out;
 }

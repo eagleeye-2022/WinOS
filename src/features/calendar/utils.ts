@@ -2,6 +2,8 @@
 // Calendar times are wall-clock (local timezone), unlike dsm/utils.ts which
 // is UTC-anchored for pure date (no time-of-day) comparisons.
 
+import { toTitleText } from "@/lib/utils";
+
 export const CALENDAR_TIMEZONE = "Asia/Kolkata";
 
 /** Monday–Sunday days containing `anchor`. */
@@ -172,13 +174,9 @@ export function validateEventDateTime(start: Date, end: Date, now: Date = new Da
   return errors;
 }
 
+/** Event titles: same title case as task / iNotes titles (keeps "TTG", "iNote" as typed). */
 export function toTitleCase(str: string): string {
-  if (!str) return "";
-  return str
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+  return toTitleText(str);
 }
 
 

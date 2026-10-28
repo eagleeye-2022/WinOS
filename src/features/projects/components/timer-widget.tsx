@@ -399,7 +399,11 @@ export function TimerWidget({
       // ever being saved.
       setIsExpanded(defaultExpanded);
       showCannotStart(
-        "code" in res && res.code === "NOT_PROJECT_USER" ? "You're not a user of this project" : "Couldn't start the timer",
+        "code" in res && res.code === "NOT_PROJECT_USER"
+          ? "You're not a user of this project"
+          : "code" in res && res.code === "SUBTASKS_OPEN"
+            ? "Subtasks not done"
+            : "Couldn't start the timer",
         res.error || "Something went wrong starting the timer. Please try again."
       );
       return;
