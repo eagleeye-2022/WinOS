@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toTitleText } from "@/lib/utils";
 import { hasModuleAccess } from "@/features/users/actions/module-guard";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { DELETED_TASK_LIST_STATUS, isTaskDone } from "@/features/projects/types";
@@ -75,7 +76,7 @@ export async function createDsmProjectTaskAction(
   projectId: string,
   input: { title: string; taskListCode: string; ownerUserId?: string }
 ): Promise<{ success: true; task: CascadingTaskOption } | Failure> {
-  const title = input.title.trim();
+  const title = toTitleText(input.title);
   if (!title) return { success: false, error: "Task title is required." };
   if (title.length > MAX_TASK_TITLE) {
     return { success: false, error: `Task title must be ${MAX_TASK_TITLE} characters or fewer.` };

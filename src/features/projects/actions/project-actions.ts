@@ -3,9 +3,11 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { toTitleText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { isProjectUser, projectUserWhere } from "../project-user";
+import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
 import {
   Project,
   TaskItem,
@@ -2435,7 +2437,7 @@ export async function createTaskAction(
   const createdTask = await db.projectTask.create({
     data: {
       code: nextCode,
-      title: taskData.title || "New Task",
+      title: toTitleText(taskData.title) || "New Task",
       phaseCode: taskData.phaseCode || "1.1",
       phaseName: taskData.phaseName || "CLIENT ONBOARDING",
       taskListId: taskData.taskListId || undefined,
@@ -2545,6 +2547,8 @@ export async function updateTaskAction(
   _?: { forceClose?: boolean }
 ): Promise<UpdateTaskResult> {
   const session = await requireAuth();
+  // Titles are saved in title case (see toTitleText), same as on create.
+  if (updates.title) updates = { ...updates, title: toTitleText(updates.title) };
 
   // These three reads are independent — run them concurrently rather than as back-to-back
   // round trips to the DB (each one is a network hop to Neon, which dominated save latency).
@@ -2608,6 +2612,9 @@ export async function updateTaskAction(
   let closedEvent: { forced: { reason: "NO_CHECKLIST" | "INCOMPLETE"; done: number; total: number } | null } | null =
     null;
   if (closing && !isTaskDone(task.status, false, task.completionPercentage)) {
+    // Every subtask (any depth) must be done first — managers included.
+    const openSubs = await openSubtasksOf(task.id);
+    if (openSubs.length > 0) return { success: false, error: openSubtasksMessage(openSubs, "close") };
     const block = await checklistCloseBlock(task.id);
     if (block) {
       // Same for a manager as for a team member: select an SOP checklist and tick every item first.
@@ -2966,6 +2973,171 @@ export async function duplicateTaskAction(
   return { success: true, code: root.code };
 }
 
+/** Why a task can't be closed because of its own open subtasks (any depth), or null. */
+export async function getOpenSubtasksReasonAction(taskId: string): Promise<string | null> {
+  await requireAuth();
+  const open = await openSubtasksOf(taskId);
+  return open.length > 0 ? openSubtasksMessage(open, "close") : null;
+}
+
+export type MoveTaskTarget ={ id: string; code: string | null; name: string; lists: { code: string; name: string }[] };
+
+/** Projects (and their task lists) a task can be moved to — managers only (see moveTaskToProjectAction). */
+export async function getMoveTaskTargetsAction(): Promise<MoveTaskTarget[]> {
+  const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id))) return [];
+  const projects = await db.project.findMany({
+    where: { status: "ACTIVE", AND: [{ OR: [{ projectCategory: null }, { projectCategory: { not: LEARNING_PROJECT_CATEGORY } }] }] },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phases: { select: { code: true, name: true }, orderBy: { order: "asc" } },
+      taskLists: { where: { status: DELETED_TASK_LIST_STATUS }, select: { phaseCode: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+  return projects.map((p) => {
+    const deleted = new Set(p.taskLists.map((l) => l.phaseCode));
+    return {
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      lists: p.phases.filter((ph) => !deleted.has(ph.code)).map((ph) => ({ code: ph.code, name: ph.name })),
+    };
+  });
+}
+
+export type MoveTaskResult = { success: true; projectId: string; code: string } | { success: false; error: string };
+
+/**
+ * Moves a task — with all its subtasks, at any depth — into a task list of another project.
+ * Managers only. The task gets the target project's next code (its subtasks follow it:
+ * TTG-T14.1, TTG-T14.1.1…); its time logs and any running timer move with it, so both projects'
+ * effort totals stay right; DSM rows linked to it stay linked and show the new project.
+ * A subtask that's moved becomes a top-level task there. One transaction: all or nothing.
+ */
+export async function moveTaskToProjectAction(
+  taskId: string,
+  targetProjectId: string,
+  targetListCode: string
+): Promise<MoveTaskResult> {
+  const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    return { success: false, error: "Only a manager can move a task to another project." };
+  }
+
+  const task = await db.projectTask.findFirst({
+    where: { OR: [{ id: taskId }, { code: taskId }] },
+    select: { id: true, code: true, title: true, projectId: true, project: { select: { name: true } } },
+  });
+  if (!task) return { success: false, error: "Task not found." };
+
+  const target = await db.project.findFirst({
+    where: { OR: [{ id: targetProjectId }, { code: targetProjectId }] },
+    select: { id: true, code: true, name: true, projectCategory: true },
+  });
+  if (!target) return { success: false, error: "Project not found." };
+  if (target.projectCategory === LEARNING_PROJECT_CATEGORY) {
+    return { success: false, error: "Tasks can't be moved into a WhyFi School list." };
+  }
+  if (target.id === task.projectId) {
+    return { success: false, error: "The task is already in this project — use Move to Phase to change its list." };
+  }
+
+  const [phase, taskList] = await Promise.all([
+    db.projectPhase.findFirst({ where: { projectId: target.id, code: targetListCode }, select: { id: true, name: true } }),
+    db.projectTaskList.findFirst({
+      where: { projectId: target.id, phaseCode: targetListCode },
+      select: { id: true, name: true, status: true },
+    }),
+  ]);
+  if (!phase || taskList?.status === DELETED_TASK_LIST_STATUS) {
+    return { success: false, error: "That task list doesn't exist in the project." };
+  }
+
+  // Every subtask under it, any depth (children point at their parent's id, or on older rows its code).
+  const descendants: { id: string; code: string }[] = [];
+  let frontier = [task.id, task.code];
+  const seen = new Set<string>([task.id]);
+  while (frontier.length > 0) {
+    const children = await db.projectTask.findMany({
+      where: { parentTaskId: { in: frontier } },
+      select: { id: true, code: true },
+    });
+    const fresh = children.filter((c) => !seen.has(c.id));
+    fresh.forEach((c) => seen.add(c.id));
+    descendants.push(...fresh);
+    frontier = fresh.flatMap((c) => [c.id, c.code]);
+  }
+
+  const existingCodes = (
+    await db.projectTask.findMany({ where: { projectId: target.id }, select: { code: true } })
+  ).map((t) => t.code);
+  const newCode = nextTaskCode(target.code || target.id, existingCodes, existingCodes.length);
+  // A subtask keeps its position under the task: OLD-T5.2.1 → NEW-T14.2.1.
+  let fallback = 0;
+  const codeFor = (oldCode: string) =>
+    oldCode.startsWith(`${task.code}.`) ? `${newCode}${oldCode.slice(task.code.length)}` : `${newCode}.${++fallback}`;
+
+  const allIds = [task.id, ...descendants.map((d) => d.id)];
+  const placement = {
+    projectId: target.id,
+    phaseId: phase.id,
+    phaseCode: targetListCode,
+    phaseName: phase.name,
+    taskListId: taskList?.id ?? null,
+    taskListName: taskList?.name ?? phase.name,
+  };
+
+  await db.$transaction([
+    db.projectTask.update({
+      where: { id: task.id },
+      data: { ...placement, code: newCode, parentTaskId: null, order: 0 },
+    }),
+    ...descendants.map((d) => db.projectTask.update({ where: { id: d.id }, data: { ...placement, code: codeFor(d.code) } })),
+    db.projectTimeLog.updateMany({ where: { taskId: { in: allIds } }, data: { projectId: target.id, phaseId: phase.id } }),
+    db.activeTimer.updateMany({ where: { taskId: { in: allIds } }, data: { projectId: target.id, phaseId: phase.id } }),
+    db.standupTask.updateMany({ where: { projectTaskId: { in: allIds } }, data: { projectId: target.id } }),
+  ]);
+
+  const fromName = task.project?.name || "another project";
+  const actorName = session.user.name || "User";
+  await db.projectTaskActivity
+    .create({
+      data: {
+        taskId: task.id,
+        userId: session.user.id,
+        userName: actorName,
+        userInitials: actorName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase(),
+        actionText: `moved this task from ${fromName} (${task.code}) to ${target.name} → ${phase.name} (${newCode})`,
+      },
+    })
+    .catch((err) => console.error("[moveTaskToProjectAction] activity log failed:", err));
+  if (task.projectId) {
+    await logProjectActivity({
+      projectId: task.projectId,
+      userId: session.user.id,
+      userName: actorName,
+      action: `moved task ${task.code} "${task.title}" to ${target.name}`,
+    });
+  }
+  await logProjectActivity({
+    projectId: target.id,
+    userId: session.user.id,
+    userName: actorName,
+    action: `moved task "${task.title}" in from ${fromName} as ${newCode}`,
+  });
+
+  if (task.projectId) await recalculateProjectTimeTotals(task.projectId);
+  await recalculateProjectTimeTotals(target.id);
+
+  if (task.projectId) revalidatePath(`/projects/${task.projectId}`);
+  revalidatePath(`/projects/${target.id}`);
+  revalidatePath("/projects/effort-log-report");
+  return { success: true, projectId: target.id, code: newCode };
+}
+
 export async function deleteTaskAction(taskId: string): Promise<boolean> {
   const session = await requireAuth();
 
@@ -3115,7 +3287,7 @@ export async function createSubtaskAction(
   const created = await db.projectTask.create({
     data: {
       code: newCode,
-      title: subtaskData.title || "New Subtask",
+      title: toTitleText(subtaskData.title) || "New Subtask",
       ...(subtaskData.description && { description: subtaskData.description }),
       status: subtaskData.status || "Open",
       completionPercentage: subtaskData.completed ? 100 : 0,
@@ -3187,6 +3359,7 @@ export async function updateSubtaskAction(
   updates: Partial<TaskSubtask>
 ): Promise<boolean> {
   const session = await requireAuth();
+  if (updates.title) updates = { ...updates, title: toTitleText(updates.title) };
 
   let ownerUserId: string | undefined;
   if (updates.ownerName) {
@@ -3205,6 +3378,7 @@ export async function updateSubtaskAction(
   // (nothing saved) — callers fetch the details with getChecklistCloseBlockAction for the popup.
   const closing = (updates.status !== undefined && isTaskDone(updates.status)) || updates.completed === true;
   const closesNow = !!subtask && closing && !isTaskDone(subtask.status, false, subtask.completionPercentage);
+  if (closesNow && (await openSubtasksOf(subtask!.id)).length > 0) return false;
   if (closesNow && (await checklistCloseBlock(subtask!.id))) return false;
 
   if (subtask && updates.title && updates.title !== subtask.title) {

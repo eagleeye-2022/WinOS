@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { canUserActOnTask } from "../../utils/task-authorization";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   X,
   Loader2,
   ChevronDown,
@@ -64,6 +65,7 @@ import { TimerWidget } from "../timer-widget";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import { AddSubtaskDrawer } from "../modals/add-subtask-drawer";
+import { MoveTaskToProjectDialog } from "../modals/move-task-to-project-dialog";
 import { TimerStoppedModal } from "../modals/timer-stopped-modal";
 import {
   clearPendingTimerLog,
@@ -73,6 +75,7 @@ import {
 import { useProjectWorkspace } from "../../context/project-workspace-context";
 import {
   updateTaskAction,
+  getOpenSubtasksReasonAction,
   createTaskAction,
   deleteTaskAction,
   getTaskActivitiesAction,
@@ -526,6 +529,7 @@ export function SingleTaskWorkspaceView({
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [isAddSubtaskDrawerOpen, setIsAddSubtaskDrawerOpen] = useState(false);
+  const [moveToProjectOpen, setMoveToProjectOpen] = useState(false);
 
   const subtasks = React.useMemo(() => {
     return (activeTask.subtasks || []).map((st, i) => ({
@@ -548,6 +552,7 @@ export function SingleTaskWorkspaceView({
     });
   const subtaskRows = React.useMemo(() => {
     const byId = new Map(leftTaskItems.map((t) => [t.id, t]));
+    const byCodeRow = new Map(leftTaskItems.map((t) => [t.code, t]));
     // Children by parent link (a task's parentTaskId holds its parent's id or code), so a subtask's
     // own subtasks show even when its pre-built `subtasks` list is missing them.
     const byParent = new Map<string, TaskItem[]>();
@@ -558,7 +563,8 @@ export function SingleTaskWorkspaceView({
       else byParent.set(t.parentTaskId, [t]);
     }
     const childrenOf = (st: TaskSubtask): TaskSubtask[] => {
-      const own = byId.get(st.id)?.subtasks || [];
+      // Rows use the code as their id; a subtask entry carries the DB id — so look up by either.
+      const own = (byId.get(st.id) ?? byCodeRow.get(st.code))?.subtasks || [];
       const linked = [...(byParent.get(st.id) ?? []), ...(st.code ? byParent.get(st.code) ?? [] : [])]
         // Same subtask by id or code (a just-created one can carry either) — never listed twice.
         .filter((t) => !own.some((o) => o.id === t.id || (!!o.code && o.code === t.code)))
@@ -597,9 +603,9 @@ export function SingleTaskWorkspaceView({
   const addCreatedSubtask = (created: TaskSubtask, description?: string) => {
     const subtaskItem: TaskItem = {
       ...activeTask,
-      // Its real id (not the code), so it's the same row the parent's subtask list points at —
-      // the Subtasks tree joins the two by id. Its page still opens by code.
-      id: created.id || created.code,
+      // The code as its id, like every row the workspace loads (loadTasks: `id: code || id`). The
+      // Subtasks tree matches a row to its entry in the parent's list by code, so it isn't doubled.
+      id: created.code,
       code: created.code,
       title: created.title,
       status: created.status,
@@ -700,6 +706,12 @@ export function SingleTaskWorkspaceView({
   /** Undoes an optimistic subtask status change the server refused (its SOP checklist isn't done). */
   const revertSubtaskStatus = async (target: TaskSubtask, attemptedStatus: TaskStatus) => {
     setSubtaskStatusLocally(target, target.status as TaskStatus, isTaskDone(target.status, target.completed));
+    // Its own subtasks come first (they must be done before it can be), then its SOP checklist.
+    const subtasksReason = await getOpenSubtasksReasonAction(target.id).catch(() => null);
+    if (subtasksReason) {
+      toast.error(subtasksReason);
+      return;
+    }
     const block = await getChecklistCloseBlockAction(target.id).catch(() => null);
     if (block) {
       // The subtask's own page has its checklist; a manager's "Close anyway" reloads to show it closed.
@@ -1089,7 +1101,11 @@ export function SingleTaskWorkspaceView({
         setActiveTimerStatus(previousStatus);
         setActiveTimerStartTime(previousStartTime);
         showTimerNotice(
-          "code" in res && res.code === "NOT_PROJECT_USER" ? "You're not a user of this project" : "Couldn't start the timer",
+          "code" in res && res.code === "NOT_PROJECT_USER"
+            ? "You're not a user of this project"
+            : "code" in res && res.code === "SUBTASKS_OPEN"
+              ? "Subtasks not done"
+              : "Couldn't start the timer",
           res.error || "Something went wrong starting the timer. Please try again."
         );
       }
@@ -1296,25 +1312,22 @@ export function SingleTaskWorkspaceView({
 
   // Sidebar tree: each task's subtasks (any depth) indented under it. A branch starts folded,
   // except along the path to the open task; the ⊟/⊞ box overrides that per task.
-  const leftChildrenByParent = new Map<string, TaskItem[]>();
-  for (const t of leftTaskItems) {
-    if (!t.parentTaskId) continue;
-    const list = leftChildrenByParent.get(t.parentTaskId);
-    if (list) list.push(t);
-    else leftChildrenByParent.set(t.parentTaskId, [t]);
-  }
-  const leftChildrenOf = (t: TaskItem): TaskItem[] => {
-    const byId = leftChildrenByParent.get(t.id) ?? [];
-    const byCode = t.code && t.code !== t.id ? leftChildrenByParent.get(t.code) ?? [] : [];
-    return byCode.length ? [...byId, ...byCode.filter((c) => !byId.includes(c))] : byId;
-  };
+  // Rows in this list use the task code as their id, while `parentTaskId` holds the parent's DB id
+  // — so children are found through each task's own `subtasks` (DB id + code), matched by code.
+  const leftRowByCode = new Map(leftTaskItems.map((t) => [t.code, t]));
+  const leftChildrenOf = (t: TaskItem): TaskItem[] =>
+    (t.subtasks || [])
+      .map((st) => leftRowByCode.get(st.code))
+      .filter((row): row is TaskItem => !!row && row.id !== t.id);
+  // Parent of a row = the task whose subtask list contains its code.
+  const leftParentOf = new Map<string, TaskItem>();
+  for (const t of leftTaskItems) for (const st of t.subtasks || []) if (st.code) leftParentOf.set(st.code, t);
   const autoOpenLeftIds = new Set<string>();
   {
     let cur: TaskItem | undefined = foundTask;
     while (cur && !autoOpenLeftIds.has(cur.id)) {
       autoOpenLeftIds.add(cur.id);
-      const parentKey: string | undefined = cur.parentTaskId;
-      cur = parentKey ? leftTaskItems.find((t) => t.id === parentKey || t.code === parentKey) : undefined;
+      cur = leftParentOf.get(cur.code);
     }
   }
   const isLeftOpen = (id: string) => leftToggles.get(id) ?? autoOpenLeftIds.has(id);
@@ -1529,6 +1542,19 @@ export function SingleTaskWorkspaceView({
         <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-card shrink-0 dark:border-zinc-800 dark:bg-[#0c0d10]">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2">
+              {/* Back: the previous page (e.g. the parent task or the board); the project when opened from a link. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) router.back();
+                  else router.push(backHref);
+                }}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground dark:border-zinc-700"
+                title="Back"
+                aria-label="Back"
+              >
+                <ArrowLeft size={14} />
+              </button>
               <span className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-bold text-foreground border border-border dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700">
                 <CheckSquare size={12} /> Task
               </span>
@@ -1652,6 +1678,20 @@ export function SingleTaskWorkspaceView({
                     <CopyCheck size={14} className="text-info" />
                     <span>Duplicate Task</span>
                   </button>
+                  {/* Managers: move the task (with its subtasks and time logs) into another project's list. */}
+                  {currentUser?.role === "ADMIN" && !isLearningList && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreMenuOpen(false);
+                        setMoveToProjectOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-zinc-200"
+                    >
+                      <ArrowRightLeft size={14} className="text-primary" />
+                      <span>Move to Another Project</span>
+                    </button>
+                  )}
                   <div className="my-1 border-t border-border dark:border-zinc-800" />
                   <button
                     type="button"
@@ -2692,6 +2732,19 @@ export function SingleTaskWorkspaceView({
       />
 
       {/* Add Subtask Drawer */}
+      <MoveTaskToProjectDialog
+        open={moveToProjectOpen}
+        onClose={() => setMoveToProjectOpen(false)}
+        taskId={activeTask.id}
+        taskCode={activeTask.code}
+        taskTitle={activeTask.title}
+        currentProjectId={projectId}
+        onMoved={({ projectId: movedTo, code }) => {
+          setMoveToProjectOpen(false);
+          // The task now lives in the other project — open it there.
+          router.push(`/projects/${movedTo}/tasks/${code}`);
+        }}
+      />
       <AddSubtaskDrawer
         isOpen={isAddSubtaskDrawerOpen}
         onClose={() => setIsAddSubtaskDrawerOpen(false)}

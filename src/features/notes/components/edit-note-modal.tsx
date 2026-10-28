@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { X, Plus, Loader2, History } from "lucide-react";
 import dynamic from "next/dynamic";
-import { cn, toTitleCase } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { updateBoardNote } from "../actions/update-board-note";
 import { NoteTimelineDrawer } from "./note-timeline";
 
@@ -144,7 +144,7 @@ export function EditNoteModal<T extends EditNoteModalData>({
                 {/* Card Title */}
                 {isReadOnly ? (
                   note.title && (
-                    <h3 className="text-base font-bold text-foreground mb-1.5">{toTitleCase(note.title)}</h3>
+                    <h3 className="text-base font-bold text-foreground mb-1.5">{note.title}</h3>
                   )
                 ) : (
                   <div className="flex flex-col gap-1">

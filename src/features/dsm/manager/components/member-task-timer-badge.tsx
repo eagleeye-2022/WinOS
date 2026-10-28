@@ -205,7 +205,7 @@ export function MemberTaskTimerBadge({
   if (runningSince) {
     return (
       <div
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40"
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/20 dark:border-sky-500/40 whitespace-nowrap"
         title={
           liveOnly
             ? `● Running — started at ${new Date(runningSince).toLocaleTimeString()}`
@@ -216,7 +216,7 @@ export function MemberTaskTimerBadge({
           size={13}
           className="shrink-0 text-sky-500 dark:text-sky-400 animate-pulse"
         />
-        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-sky-600 dark:text-sky-300">
+        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-sky-600 dark:text-sky-300 whitespace-nowrap">
           {formatTime(totalDaySeconds)}
         </span>
       </div>
@@ -228,11 +228,11 @@ export function MemberTaskTimerBadge({
     if (idleFallback !== undefined) return <>{idleFallback}</>;
     return (
       <div
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10 whitespace-nowrap"
         title="Inactive"
       >
         <Timer size={13} className="shrink-0 text-muted-foreground/60" />
-        <span className="text-xs font-medium select-none cursor-default text-muted-foreground/60">
+        <span className="text-xs font-medium select-none cursor-default text-muted-foreground/60 whitespace-nowrap">
           Inactive
         </span>
       </div>
@@ -242,11 +242,11 @@ export function MemberTaskTimerBadge({
   if (summary && summary.totalMinutes > 0) {
     return (
       <div
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10 whitespace-nowrap"
         title={summary.firstStart && summary.lastStop ? `${summary.firstStart} – ${summary.lastStop}` : `${Math.floor(summary.totalMinutes / 60)}h ${summary.totalMinutes % 60}m logged on ${dateStr}`}
       >
         <Timer size={13} className="shrink-0 text-info" />
-        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-foreground dark:text-neutral-100">
+        <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-foreground dark:text-neutral-100 whitespace-nowrap">
           {formatTime(summary.totalMinutes * 60)}
         </span>
       </div>
@@ -255,11 +255,11 @@ export function MemberTaskTimerBadge({
 
   return (
     <div
-      className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10"
+      className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 select-none pointer-events-none transition-all border border-border/60 bg-muted/60 dark:bg-[#121316] dark:border-white/10 whitespace-nowrap"
       title={`No effort logged for this task on ${dateStr}`}
     >
       <Timer size={13} className="shrink-0 text-muted-foreground/60" />
-      <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-muted-foreground/60">
+      <span className="font-mono text-xs font-bold tracking-tight select-none cursor-default text-muted-foreground/60 whitespace-nowrap">
         00:00:00
       </span>
     </div>

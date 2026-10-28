@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { checklistCloseBlock } from "@/features/sop-checklists/close-gate";
 import { recordTaskClosed } from "@/features/sop-checklists/events";
 import { isTaskDone } from "@/features/projects/types";
+import { openSubtasksOf, openSubtasksMessage } from "@/features/projects/subtask-gate";
 
 export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
   const session = await auth();
@@ -31,6 +32,9 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
         })
       : null;
     if (isCompleted && task.projectTaskId && linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
+      // Its subtasks (any depth) must be done first.
+      const openSubs = await openSubtasksOf(task.projectTaskId);
+      if (openSubs.length > 0) return { success: false, message: openSubtasksMessage(openSubs, "close") };
       const block = await checklistCloseBlock(task.projectTaskId);
       if (block) {
         return {
