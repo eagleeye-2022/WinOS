@@ -238,7 +238,12 @@ function PlannedTasksSection({
         <table className="w-full border-collapse">
           <TaskTableHead withCheckbox withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
           <tbody>
-            {tasks.map((task, i) => {
+            {/* Completed (ticked) tasks first, then the rest — each group keeps its DSM order. `i` is
+                the task's index in `tasks` (toggling uses it); `pos` is its place in this list. */}
+            {tasks
+              .map((task, i) => ({ task, i }))
+              .sort((a, b) => Number(b.task.completed) - Number(a.task.completed))
+              .map(({ task, i }, pos) => {
               const link = projectLinks[task.text];
               return (
                 <tr key={i} className="border-b last:border-b-0">
@@ -262,7 +267,7 @@ function PlannedTasksSection({
                       )}
                     </button>
                   </td>
-                  <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
+                  <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{pos + 1}</td>
                   {hasProjectsAccess && (
                     <td className="py-2 pr-3 align-top">
                       {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}

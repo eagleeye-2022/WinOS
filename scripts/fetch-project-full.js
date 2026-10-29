@@ -49,19 +49,13 @@ const path   = require("path");
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const PORTAL_ID     = "60039342589";
-const PROJECT_ID    = process.argv[2];
-const OUT_DIR       = process.argv[3] || path.join(process.cwd(), "exports");
-const CLIENT_ID     = "1000.HLH2SGIJ0LMLYEY7OORTNE6UW3L1DS";
+const CLIENT_ID    = "1000.HLH2SGIJ0LMLYEY7OORTNE6UW3L1DS";
 const CLIENT_SECRET = "e73cc44e42174ae800e57dbf17c3495a7ce8097cfa";
 const REFRESH_TOKEN = "1000.cf9038d5cca45ce159b7f80a2a180683.dd259b226eb76a70de0f21d85b36e168";
 
 const RATE_LIMIT_MS = 1000;   // ms between API calls (Zoho allows ~100 req/min)
 const PAGE_SIZE     = 100;    // tasks per page (Zoho max is 100)
 
-if (!PROJECT_ID) {
-  console.error("❌  Usage: node scripts/fetch-project-full.js <PROJECT_ID> [output-dir]");
-  process.exit(1);
-}
 if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
   console.error("❌  Missing env vars: ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_PROJECTS_REFRESH_TOKEN");
   process.exit(1);
@@ -113,8 +107,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 let token = "";
+let tokenAt = 0;
+const TOKEN_TTL_MS = 50 * 60 * 1000;   // Zoho access tokens last 60 min; refresh a bit early
 
 async function refreshToken() {
+  tokenAt = Date.now();
   const body = new URLSearchParams({
     refresh_token: REFRESH_TOKEN,
     client_id:     CLIENT_ID,
@@ -129,11 +126,12 @@ async function refreshToken() {
 // ─── Zoho API wrapper ─────────────────────────────────────────────────────────
 
 async function zoho(path, params = {}) {
+  if (!token || Date.now() - tokenAt > TOKEN_TTL_MS) await refreshToken();
   const url = new URL(`https://projectsapi.zoho.in/restapi${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await get(url.toString(), { Authorization: `Zoho-oauthtoken ${token}` });
   // Zoho doesn't always use HTTP status codes for errors; check body
-  if (res.error_code || res.errorCode) {
+  if (res.error_code || res.errorCode || res.error) {
     throw new Error(`Zoho API error on ${path}: ${JSON.stringify(res)}`);
   }
   return res;
@@ -186,18 +184,11 @@ function skipped(label, reason) {
   console.log(`    ⚠️   ${label}: ${reason}`);
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Export one project ───────────────────────────────────────────────────────
 
-async function main() {
-  console.log("\n══════════════════════════════════════════════════════════════");
-  console.log("  Zoho Full Project Exporter");
-  console.log("══════════════════════════════════════════════════════════════\n");
-
-  // Auth
-  process.stdout.write("  🔑  Refreshing token... ");
-  await refreshToken();
-  console.log("done");
-
+/** Fetches everything for one project and writes <outDir>/project-<id>.json. Needs a token —
+ *  call refreshToken() first. Returns a small summary for callers exporting many projects. */
+async function exportProject(PROJECT_ID, OUT_DIR) {
   const BASE = `/portal/${PORTAL_ID}/projects/${PROJECT_ID}`;
   const result = {
     meta: {
@@ -221,7 +212,7 @@ async function main() {
   await sleep(RATE_LIMIT_MS);
   const projRes = await zoho(`${BASE}/`);
   const proj = projRes.projects?.[0];
-  if (!proj) { console.error("  ❌  Project not found"); process.exit(1); }
+  if (!proj) throw new Error(`Project ${PROJECT_ID} not found`);
   result.project = proj;
   console.log(`    📁  ${proj.name} (${proj.key ?? PROJECT_ID})  |  status: ${proj.status?.name ?? "—"}`);
 
@@ -367,9 +358,43 @@ async function main() {
   console.log(`  Issues   : ${result.issues.length}`);
   console.log(`  Output   : ${outFile}`);
   console.log("══════════════════════════════════════════════════════════════\n");
+
+  return {
+    name: proj.name,
+    tasks: parentTasks.length,
+    subtasks: rawSubtasks.length,
+    comments: totalComments,
+    timelogs: result.allTimelogs.length + totalTaskLogs,
+    file: outFile,
+  };
 }
 
-main().catch((e) => {
-  console.error("\n❌  Fatal error:", e.message);
-  process.exit(1);
-});
+// ─── CLI ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  const projectId = process.argv[2];
+  const outDir = process.argv[3] || path.join(process.cwd(), "exports");
+  if (!projectId) {
+    console.error("❌  Usage: node scripts/fetch-project-full.js <PROJECT_ID> [output-dir]");
+    process.exit(1);
+  }
+
+  console.log("\n══════════════════════════════════════════════════════════════");
+  console.log("  Zoho Full Project Exporter");
+  console.log("══════════════════════════════════════════════════════════════\n");
+
+  process.stdout.write("  🔑  Refreshing token... ");
+  await refreshToken();
+  console.log("done");
+
+  await exportProject(projectId, outDir);
+}
+
+if (require.main === module) {
+  main().catch((e) => {
+    console.error("\n❌  Fatal error:", e.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { PORTAL_ID, RATE_LIMIT_MS, refreshToken, zoho, sleep, exportProject };

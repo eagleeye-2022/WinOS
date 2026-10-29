@@ -640,6 +640,13 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
           title={selected.name}
           query={{ templateId: selected.id }}
           sopScope
+          onRestored={(t) => {
+            // A version was restored (Timeline → Versions): show the SOP as saved now.
+            upsertTemplate(t);
+            setDraft(draftFrom(t));
+            setTimelineOpen(false);
+            toast.success(`Version restored — saved as v${t.version}`);
+          }}
         />
       )}
       {ConfirmDialog}

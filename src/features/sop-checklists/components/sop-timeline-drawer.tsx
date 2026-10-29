@@ -9,6 +9,8 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { getSopTimelineAction, type SopTimelineQuery } from "../actions/timeline-actions";
 import { describeSopEvent, SOP_EVENT_GROUPS, type SopEventGroup, type SopEventView } from "../event-types";
+import type { SopTemplate } from "../types";
+import { SopVersionsPanel } from "./sop-versions-panel";
 
 const GROUP_STYLES: Record<SopEventGroup, string> = {
   SOP: "bg-primary",
@@ -43,10 +45,15 @@ interface SopTimelineDrawerProps {
   query: Omit<SopTimelineQuery, "before">;
   /** In one SOP's timeline, SOP events read "this SOP" and the task filter is offered. */
   sopScope?: boolean;
+  /** One SOP's timeline: a version was restored (the Versions tab) — the SOP as saved now. */
+  onRestored?: (template: SopTemplate) => void;
 }
 
 /** Timeline of an SOP (or of one task's checklists), in a drawer from the right. */
-export function SopTimelineDrawer({ open, onClose, title, query, sopScope = false }: SopTimelineDrawerProps) {
+export function SopTimelineDrawer({ open, onClose, title, query, sopScope = false, onRestored }: SopTimelineDrawerProps) {
+  // One SOP's timeline also offers its saved versions (Activity | Versions).
+  const versionsFor = sopScope && query.templateId && !query.taskId ? query.templateId : null;
+  const [view, setView] = useState<"ACTIVITY" | "VERSIONS">("ACTIVITY");
   const [events, setEvents] = useState<SopEventView[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -153,6 +160,35 @@ export function SopTimelineDrawer({ open, onClose, title, query, sopScope = fals
           </button>
         </header>
 
+        {versionsFor && (
+          <div className="flex gap-1 border-b px-5 py-2 text-xs font-semibold">
+            {(
+              [
+                ["ACTIVITY", "Activity"],
+                ["VERSIONS", "Versions"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setView(key)}
+                className={cn(
+                  "rounded-md px-2.5 py-1",
+                  view === key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {versionsFor && view === "VERSIONS" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-xs">
+            <SopVersionsPanel templateId={versionsFor} onRestored={onRestored} />
+          </div>
+        ) : (
+        <>
         <div className="space-y-2 border-b px-5 py-3 text-xs">
           {/* Event-type filter chips, hidden by request:
           <div className="flex flex-wrap gap-1.5">
@@ -231,6 +267,8 @@ export function SopTimelineDrawer({ open, onClose, title, query, sopScope = fals
             </div>
           )}
         </div>
+        </>
+        )}
       </aside>
     </div>
   );

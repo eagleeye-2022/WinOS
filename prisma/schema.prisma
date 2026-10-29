@@ -1274,6 +1274,30 @@ model SopChecklistTemplate {
   updatedAt      DateTime                   @updatedAt
   items          SopChecklistTemplateItem[]
   taskChecklists TaskChecklist[]
+  versions       SopChecklistTemplateVersion[]
+}
+
+/// A copy of an SOP at each of its versions (same number as SopChecklistTemplate.version) — the
+/// SOP Timeline's Versions tab shows it and what changed from the version before; managers can
+/// restore one (saved as a new version). Written best-effort on create / save.
+model SopChecklistTemplateVersion {
+  id          String               @id @default(cuid())
+  templateId  String
+  version     Int
+  name        String
+  description String               @default("")
+  category    String
+  /// The SOP document (TipTap JSON), as on the template.
+  content     Json?
+  /// [{ text, isRequired, requiresEvidence }] in order.
+  items       Json
+  userId      String?
+  userName    String
+  createdAt   DateTime             @default(now())
+  template    SopChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@index([templateId, createdAt])
 }
 
 model SopChecklistTemplateItem {
