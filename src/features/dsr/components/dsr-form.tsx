@@ -8,7 +8,8 @@ import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-link
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
 import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
 import { formatMinutes, syncReportTasksWithDsm, usableRecordingUrl } from "../reporting";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, PriorityBadge, ExpandableTaskText, TASK_TABLE_SCROLL, TaskCodeChip, TaskRowCard, TaskRowCardFooter, TaskRowCardLabel } from "@/components/shared/task-table-parts";
+import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
@@ -89,6 +90,126 @@ function MentionableInput({
           className
         )}
       />
+    </div>
+  );
+}
+
+// ── Done checkbox ─────────────────────────────────────────────────────────────
+
+function DoneCheckbox({ checked, readOnly, onToggle }: { checked: boolean; readOnly?: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={readOnly}
+      onClick={onToggle}
+      className={cn(
+        "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+        checked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
+        readOnly && "cursor-not-allowed opacity-80"
+      )}
+    >
+      {checked && (
+        <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
+          <polyline points="1,4 3,6 7,2" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ── WhyFi School learning section ─────────────────────────────────────────────
+
+/**
+ * "What Will You Learn Today (WhyFi School)?" — each learning item as the same card as the DSM
+ * task rows (L1, L2…). A line linked to a WhyFi card ("[WL-1-T3] text") shows the code as a chip;
+ * edits keep that prefix, so the saved text is the same as before.
+ */
+function LearningSection({
+  items,
+  onChange,
+  readOnly,
+}: {
+  items: CheckItem[];
+  onChange: (items: CheckItem[]) => void;
+  readOnly?: boolean;
+}) {
+  const toggle = (i: number) => {
+    if (readOnly) return;
+    onChange(items.map((item, j) => (j === i ? { ...item, completed: !item.completed } : item)));
+  };
+  const add = () => {
+    if (readOnly) return;
+    onChange([...items, { text: "", completed: true }]);
+  };
+  const update = (i: number, body: string) => {
+    if (readOnly) return;
+    const code = parseLearningLineCode(items[i].text);
+    onChange(items.map((item, j) => (j === i ? { ...item, text: code ? formatLearningLine(code, body) : body } : item)));
+  };
+  const remove = (i: number) => {
+    if (readOnly) return;
+    onChange(items.filter((_, j) => j !== i));
+  };
+
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">What Will You Learn Today (WhyFi School)?</h3>
+        <span className="text-xs text-muted-foreground">
+          {items.filter((l) => l.completed).length}/{items.length} LEARNED
+        </span>
+      </div>
+      <div className="flex flex-col gap-3">
+        {items.map((item, i) => {
+          const code = parseLearningLineCode(item.text);
+          const body = stripLearningLineCode(item.text);
+          return (
+            <TaskRowCard
+              key={i}
+              label={`L${i + 1}`}
+              trailing={
+                !readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => remove(i)}
+                    title="Remove learning item"
+                    className="shrink-0 p-1 text-muted-foreground transition-colors hover:text-destructive"
+                  >
+                    <X size={18} />
+                  </button>
+                ) : undefined
+              }
+            >
+              <div className="flex w-full items-center gap-2 text-sm">
+                <DoneCheckbox checked={item.completed} readOnly={readOnly} onToggle={() => toggle(i)} />
+                {code && <TaskCodeChip code={code} />}
+                {readOnly ? (
+                  <span className={cn("min-w-0 flex-1 leading-snug", !item.completed && "text-muted-foreground")}>
+                    {renderTextWithMentions(body)}
+                  </span>
+                ) : (
+                  <MentionableInput
+                    value={body}
+                    onChange={(val) => update(i, val)}
+                    onEnterSubmit={i === items.length - 1 && item.text.trim() ? add : undefined}
+                    placeholder="Add learning item..."
+                    className={cn(!item.completed && "opacity-70")}
+                  />
+                )}
+              </div>
+            </TaskRowCard>
+          );
+        })}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={add}
+            className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            <PlusCircle size={13} /> Add Learning Item
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -234,11 +355,9 @@ function PlannedTasksSection({
         <h3 className="text-sm font-semibold">Today&apos;s Planned Tasks Completed</h3>
         <span className="text-xs text-muted-foreground">{completed}/{tasks.length} TASKS PLANNED</span>
       </div>
-      {/* Same look as the DSM task tables: DSM scrollbar, Project column pinned while scrolling. */}
+      {/* Same cards as the DSM "What Will You Do Today?" rows, with the DSM scrollbar. */}
       <div className={TASK_TABLE_SCROLL}>
-        <table className={cn("w-full min-w-[900px] border-collapse", hasProjectsAccess && STICKY_PROJECT_COL_3)}>
-          <TaskTableHead withCheckbox withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
-          <tbody>
+        <div className="flex min-w-[720px] flex-col gap-3">
             {/* Completed (ticked) tasks first, then the rest — each group keeps its DSM order. `i` is
                 the task's index in `tasks` (toggling uses it); `pos` is its place in this list. */}
             {tasks
@@ -247,57 +366,49 @@ function PlannedTasksSection({
               .map(({ task, i }, pos) => {
               const link = projectLinks[task.text];
               return (
-                <tr key={i} className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
-                  <td className="py-2 pr-2 align-top">
-                    <button
-                      type="button"
-                      disabled={readOnly}
-                      onClick={() => toggle(i)}
-                      className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                        task.completed
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background",
-                        readOnly && "cursor-not-allowed opacity-80"
-                      )}
-                    >
-                      {task.completed && (
-                        <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-                          <polyline points="1,4 3,6 7,2" />
-                        </svg>
-                      )}
-                    </button>
-                  </td>
-                  <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{pos + 1}</td>
-                  {hasProjectsAccess && (
-                    <td className="py-2 pr-3 align-top">
-                      {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-                    </td>
-                  )}
-                  {hasProjectsAccess && (
-                    <td className="py-2 pr-3 align-top">
-                      {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} href={projectTaskHref(link.projectTask.project?.id, link.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
-                    </td>
-                  )}
-                  <td className="py-2 pr-3 align-top">
-                    <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                      <span className={cn(!task.completed && "text-muted-foreground")}>
-                        <ExpandableTaskText text={task.text} />
-                      </span>
+                <TaskRowCard key={i} label={`T${pos + 1}`}>
+                  {/* Line 1: Done checkbox + Task ID (Code Chip) + Text */}
+                  <div className="flex w-full items-center gap-2 text-sm">
+                    <DoneCheckbox checked={task.completed} readOnly={readOnly} onToggle={() => toggle(i)} />
+                    {hasProjectsAccess && link?.projectTask && (
+                      <TaskCodeChip
+                        code={link.projectTask.code}
+                        title={link.projectTask.title || task.text}
+                        href={projectTaskHref(link.projectTask.project?.id, link.projectTask.code)}
+                      />
+                    )}
+                    <span className={cn("min-w-0 flex-1", !task.completed && "text-muted-foreground")}>
+                      <ExpandableTaskText text={task.text} />
+                    </span>
+                  </div>
+
+                  {/* Line 2: Project */}
+                  {hasProjectsAccess && link?.projectTask?.project && (
+                    <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+                      <ProjectPill name={link.projectTask.project.name} />
                     </div>
-                  </td>
-                  <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
-                    <PriorityBadge priority={task.priority} />
-                  </td>
-                  <td className="py-2 pr-3 align-top whitespace-nowrap">
-                    <DueDateCell dueDate={link?.dueDate} />
-                  </td>
-                  {hasProjectsAccess && (
-                    <td className="py-2 pr-3 align-top">
-                      {link?.projectTask && !memberId ? (
+                  )}
+
+                  {/* Line 3: Priority + Due Date on left, Time Tracked / Live Timer on right */}
+                  <TaskRowCardFooter
+                    left={
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <TaskRowCardLabel>Priority:</TaskRowCardLabel>
+                          <PriorityBadge priority={task.priority} />
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1">
+                          <TaskRowCardLabel>Due:</TaskRowCardLabel>
+                          <DueDateCell dueDate={link?.dueDate} />
+                        </div>
+                      </>
+                    }
+                    right={
+                      hasProjectsAccess &&
+                      (link?.projectTask && !memberId ? (
                         // Own report: start/stop the timer on the linked task right here, with the
                         // time already logged today next to it.
-                        <div className="flex items-center gap-2">
+                        <>
                           <TimerWidget
                             instanceId={`report-task-${i}`}
                             taskId={link.projectTaskId || link.projectTask.id}
@@ -307,7 +418,7 @@ function PlannedTasksSection({
                             defaultExpanded={true}
                           />
                           <TimeTrackedBadge totalMinutes={link.timeSummary.totalMinutes} />
-                        </div>
+                        </>
                       ) : link?.projectTask ? (
                         <MemberTaskTimerBadge
                           taskId={link.projectTaskId || link.projectTask.id}
@@ -317,14 +428,13 @@ function PlannedTasksSection({
                         />
                       ) : (
                         <TimeTrackedBadge totalMinutes={link?.timeSummary.totalMinutes ?? 0} />
-                      )}
-                    </td>
-                  )}
-                </tr>
+                      ))
+                    }
+                  />
+                </TaskRowCard>
               );
             })}
-          </tbody>
-        </table>
+        </div>
         {tasks.length === 0 && (
           <p className="text-sm text-muted-foreground/60">
             No Planned Tasks from Today&apos;s DSM. Add Tasks in the Blockers Section or Submit Anyway.
@@ -855,15 +965,7 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
         readOnly={readOnly}
       />
 
-      <CheckSection
-        title="What Will You Learn Today (WhyFi School)?"
-        badge={`${learningItems.filter((l) => l.completed).length}/${learningItems.length} LEARNED`}
-        items={learningItems}
-        onChange={setLearningItems}
-        allowAdd
-        addLabel="Add Learning Item"
-        readOnly={readOnly}
-      />
+      <LearningSection items={learningItems} onChange={setLearningItems} readOnly={readOnly} />
 
       <DayReflection
         sentiment={sentiment}

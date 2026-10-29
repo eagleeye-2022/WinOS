@@ -1,14 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { GraduationCap, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { getTimeLogsAction } from "@/features/projects/actions/project-actions";
 import { TimeTrackerView } from "@/features/projects/components/views/time-tracker-view";
 import { UserTimeGroup } from "@/features/projects/types";
 
 /**
  * Pulse → WhyFi Effort Logs: the effort log report filtered to time logged on WhyFi School
- * (learning list) tasks only.
+ * (learning list) tasks only. Same layout as Standup → Effort Log and Srijan → Effort Logs (no
+ * extra title bar); the report itself labels the list column "WhyFi School" and drops billing.
  */
 export default function WhyfiEffortLogsPage() {
   const [timeGroups, setTimeGroups] = useState<UserTimeGroup[]>([]);
@@ -31,11 +32,6 @@ export default function WhyfiEffortLogsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full bg-background overflow-hidden">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-6 py-3">
-        <GraduationCap size={18} className="text-primary" />
-        <h1 className="text-base font-bold text-foreground">Effort Logs</h1>
-        <span className="text-xs text-muted-foreground">WhyFi School tasks only</span>
-      </div>
       <TimeTrackerView initialGroups={timeGroups} learningOnly />
     </div>
   );
