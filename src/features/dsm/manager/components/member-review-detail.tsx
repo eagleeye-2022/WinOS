@@ -56,19 +56,11 @@ import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selec
 import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
 import { assignWhyfiTaskToMemberAction, updateWhyfiTaskAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
 import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-add-row";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_2 } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction, fetchTaskTotalEffortAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
-
-/**
- * Task tables: the Project column (2nd cell) stays pinned at the left while the table scrolls
- * sideways. Full-width rows (the ▸ task-detail panel, colSpan) have no 2nd cell, so they scroll.
- */
-const STICKY_PROJECT_COL =
-  "[&>thead>tr>th:nth-child(2)]:sticky [&>thead>tr>th:nth-child(2)]:left-0 [&>thead>tr>th:nth-child(2)]:z-[2] [&>thead>tr>th:nth-child(2)]:bg-card " +
-  "[&>tbody>tr>td:nth-child(2)]:sticky [&>tbody>tr>td:nth-child(2)]:left-0 [&>tbody>tr>td:nth-child(2)]:z-[1] [&>tbody>tr>td:nth-child(2)]:bg-card";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -2404,7 +2396,7 @@ function YesterdayTasksSection({
 
       {totalCount > 0 ? (
         <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
-          <table className={cn(STICKY_PROJECT_COL, "w-full min-w-[640px] text-left")}>
+          <table className={cn(STICKY_PROJECT_COL_2, "w-full min-w-[640px] text-left")}>
             <thead>
               <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 py-2 pr-2">Done</th>
@@ -2614,7 +2606,7 @@ function TodayTasksSection({
       {tasks.length > 0 ? (
         // Horizontal scrollbar instead of squeezing the columns on narrow screens.
         <div className={cn("dsm-columns-scrollbar mt-3 overflow-x-auto pb-1", showNotAligned && notAlignedCount === 0 && "hidden")}>
-          <table className={cn(STICKY_PROJECT_COL, "w-full min-w-[900px] border-collapse")}>
+          <table className={cn(STICKY_PROJECT_COL_2, "w-full min-w-[900px] border-collapse")}>
             <TaskTableHead withAction />
             <tbody>
               {sorted.map((task, i) => showNotAligned && !isNotAligned(task) ? null : (

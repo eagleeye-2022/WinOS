@@ -14,7 +14,8 @@ describe("resolveNavModule", () => {
     ["/projects", "projects"],
     ["/projects/P-1/tasks/T-9", "projects"],
     ["/settings/users", "users"],
-    ["/sales", "sales"],
+    ["/setu", "setu"],
+    ["/setu/pipeline", "setu"],
     ["/somewhere-new", "standup"],
   ])("%s → %s", (path, expected) => {
     expect(resolveNavModule(path)).toBe(expected);

@@ -25,7 +25,9 @@ import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, SortFilterButton, TaskCreatedAtLabel } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
+import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/components/task-detail-panel";
+import { ReportLearningTable } from "@/features/dsr/components/report-learning-table";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-user-project-tasks";
@@ -167,9 +169,15 @@ function TaskItemRow({
 }) {
   const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
   const [, startTransition] = useTransition();
+  const [detailOpen, setDetailOpen] = useState(false);
+  const linkedTaskId = projectLink?.projectTask ? projectLink.projectTaskId || projectLink.projectTask.id : null;
+  const infoHref = projectLink?.projectTask
+    ? projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)
+    : null;
 
   return (
-    <tr className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+    <>
+    <tr className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
       <td className="py-2 pr-2 align-top">
         <form
           action={(fd) => {
@@ -206,7 +214,7 @@ function TaskItemRow({
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className={cn("select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-            <ExpandableTaskText text={task.text} />
+            <WrappedTaskText text={task.text} />
           </span>
           {task.addedAfterReview && (
             <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
@@ -219,7 +227,7 @@ function TaskItemRow({
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         <PriorityBadge priority={task.priority} />
       </td>
-      <td className="py-2 pr-3 align-top">
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
         <DueDateCell dueDate={projectLink?.dueDate} />
       </td>
       <td className="py-2 pr-3 align-top">
@@ -234,7 +242,19 @@ function TaskItemRow({
           <TimeTrackedBadge totalMinutes={projectLink?.timeSummary.totalMinutes ?? 0} />
         )}
       </td>
+      <td className="py-2 pr-2 align-top text-center">
+        {/* ▸ task details (same panel as the DSM review) · ⓘ open the task. */}
+        <div className="flex items-center justify-center gap-0.5">
+          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+          {infoHref && projectLink?.projectTask && (
+            <TaskInfoLink href={infoHref} code={projectLink.projectTask.code} className="h-7 w-7 rounded-lg hover:bg-muted" />
+          )}
+          {!linkedTaskId && <span className="text-xs text-muted-foreground/60">—</span>}
+        </div>
+      </td>
     </tr>
+    {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={9} />}
+    </>
   );
 }
 
@@ -520,9 +540,10 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
           style={{ width: `${percent}%` }}
         />
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <TaskTableHead withCheckbox />
+      {/* Same look as the DSM task tables: DSM scrollbar, Project column pinned while scrolling. */}
+      <div className={TASK_TABLE_SCROLL}>
+        <table className={cn("w-full min-w-[900px] border-collapse", STICKY_PROJECT_COL_3)}>
+          <TaskTableHead withCheckbox withAction />
           <tbody>
             {sortedTasks.map((task, i) => (
               <TaskItemRow
@@ -708,7 +729,8 @@ function BlockersSupportCard({ entry }: { entry: DsrEntryData }) {
 
 // ── Learning card ──────────────────────────────────────────────────────────────
 
-function LearningItemRow({ item, locked }: { item: DsrEntryData["learningItems"][number]; locked?: boolean }) {
+/** The Done cell of a learning row: the manager's learned / not-learned toggle (unchanged behaviour). */
+function LearningDoneToggle({ item, locked }: { item: DsrEntryData["learningItems"][number]; locked?: boolean }) {
   const [, action, pending] = useActionState<ToggleDsrLearningState, FormData>(toggleDsrLearning, {});
   const [, startTransition] = useTransition();
 
@@ -717,7 +739,7 @@ function LearningItemRow({ item, locked }: { item: DsrEntryData["learningItems"]
       action={(fd) => {
         startTransition(() => action(fd));
       }}
-      className="flex items-center gap-2.5"
+      className="flex items-center"
     >
       <input type="hidden" name="itemId" value={item.id} />
       <button
@@ -737,14 +759,11 @@ function LearningItemRow({ item, locked }: { item: DsrEntryData["learningItems"]
           </svg>
         ) : null}
       </button>
-      <span className={cn("flex-1 text-xs select-none", item.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-        {item.text}
-      </span>
     </form>
   );
 }
 
-function LearningCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
+function LearningCard({ entry, locked, memberId }: { entry: DsrEntryData; locked?: boolean; memberId?: string }) {
   const learningItems = entry.learningItems ?? [];
   if (learningItems.length === 0) return null;
 
@@ -759,11 +778,12 @@ function LearningCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean
           {learningItems.filter((l) => l.completed).length}/{learningItems.length} Learned
         </span>
       </h3>
-      <div className="flex flex-col gap-2">
-        {learningItems.map((l) => (
-          <LearningItemRow key={l.id} item={l} locked={locked} />
-        ))}
-      </div>
+      <ReportLearningTable
+        items={learningItems}
+        memberId={memberId || entry.userId}
+        dateStr={new Date(entry.date).toISOString().slice(0, 10)}
+        renderDone={(l) => <LearningDoneToggle item={learningItems.find((x) => x.id === l.id)!} locked={locked} />}
+      />
     </div>
   );
 }
@@ -1128,8 +1148,9 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             />
             {timeSummary && <ReportTimeSection summary={timeSummary} />}
             <AdditionalWorkCard entry={activeEntry} />
+            {/* Learning sits above Support Needed / meetings. */}
+            <LearningCard entry={activeEntry} memberId={user.id} />
             <BlockersSupportCard entry={activeEntry} />
-            <LearningCard entry={activeEntry} />
             <ReviewerActionsCard
               entryId={activeEntry.id}
               userId={user.id}

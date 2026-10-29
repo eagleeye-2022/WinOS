@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
       { source: "/dsr", destination: "/report", permanent: false },
       { source: "/dsr/manage", destination: "/report/all", permanent: false },
       { source: "/dsr/:path*", destination: "/report/:path*", permanent: false },
+      // The "Sales" placeholder module became Setu (BNI networking CRM).
+      { source: "/sales", destination: "/setu", permanent: false },
     ];
   },
 };

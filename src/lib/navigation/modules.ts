@@ -2,7 +2,7 @@
 // Adding a module here is all that's needed for it to get per-module navigation-state
 // persistence (last URL, scroll restore, reset) — see NavigationStateTracker.
 
-export type NavModuleId = "standup" | "people" | "projects" | "users" | "sales";
+export type NavModuleId = "standup" | "people" | "projects" | "setu" | "users";
 
 export interface NavModule {
   id: NavModuleId;
@@ -45,6 +45,16 @@ export const NAV_MODULES: readonly NavModule[] = [
     moduleParams: ["projects"],
   },
   {
+    // BNI networking CRM (replaces the old "Sales" placeholder; /sales redirects here).
+    id: "setu",
+    label: "Setu",
+    homeHref: "/setu",
+    // No module-access gate yet — the key has no PermissionModule row, so the switcher shows it.
+    moduleKey: "SETU",
+    prefixes: ["/setu"],
+    moduleParams: ["setu"],
+  },
+  {
     id: "users",
     label: "User Management",
     homeHref: "/settings/users",
@@ -54,8 +64,9 @@ export const NAV_MODULES: readonly NavModule[] = [
   },
 ];
 
-/** Modules shown in the header switcher (Sales is registered for routing but not yet exposed). */
-export const SWITCHER_MODULE_IDS: readonly NavModuleId[] = ["standup", "people", "projects", "users"];
+/** Modules shown in the header switcher. */
+// Setu hidden from the header for now — add "setu" back after "projects" to show it again.
+export const SWITCHER_MODULE_IDS: readonly NavModuleId[] = ["standup", "people", "projects", /* "setu", */ "users"];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -72,7 +83,6 @@ export function resolveNavModule(pathname: string, search: string | URLSearchPar
     const pinned = NAV_MODULES.find((m) => m.moduleParams.includes(moduleParam));
     if (pinned) return pinned.id;
   }
-  if (matchesPrefix(pathname, "/sales")) return "sales";
   const owner = NAV_MODULES.find((m) => m.id !== "standup" && m.prefixes.some((p) => matchesPrefix(pathname, p)));
   return owner?.id ?? "standup";
 }
