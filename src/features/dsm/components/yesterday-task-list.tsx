@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Clock, Link2Off, Loader2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
-import { formatEffortMinutes, formatEffortSpan } from "../utils";
+import { effortStartMinutes, formatEffortMinutes, formatEffortSpan } from "../utils";
 import { TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { shortProjectName } from "@/features/projects/utils/project-name";
@@ -96,7 +96,12 @@ export function YesterdayTaskList({
         )}
       </div>
 
-      {tasks.map((t) => (
+      {/* DSM tasks and the other tasks time was logged on that day, as one list, by Effort Time —
+          earliest start first; rows without an effort time keep their order at the bottom. */}
+      {[
+        ...tasks.map((t) => ({
+          start: effortStartMinutes(t.effortFrom),
+          node: (
         <div key={t.id} className="flex items-center gap-2.5 text-sm">
           {t.isCompleted ? (
             <CheckCircle2 size={18} className="shrink-0 text-primary" />
@@ -147,13 +152,16 @@ export function YesterdayTaskList({
             </span>
           )}
         </div>
-      ))}
+          ),
+        })),
 
-      {/* Other tasks time was logged on that day — tick = Done, untick = In Progress. */}
-      {loggedTasks.map((t) => {
+      // Other tasks time was logged on that day — tick = Done, untick = In Progress.
+        ...loggedTasks.map((t) => {
         const done = isLoggedDone(t);
         const href = projectTaskHref(t.projectId, t.code);
-        return (
+        return {
+          start: effortStartMinutes(t.effortFrom),
+          node: (
           <div key={t.taskId} className="flex items-center gap-2.5 text-sm">
             <button
               type="button"
@@ -196,8 +204,12 @@ export function YesterdayTaskList({
               <Clock size={11} /> {formatEffortMinutes(t.minutes)}
             </span>
           </div>
-        );
-      })}
+          ),
+        };
+      }),
+      ]
+        .sort((a, b) => a.start - b.start)
+        .map((r) => r.node)}
     </div>
   );
 }

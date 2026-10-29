@@ -125,6 +125,23 @@ export function compareTimeLogsLatestFirst(
 }
 
 /**
+ * Sort comparator for the Effort Log reports: newest day first, and inside a day in the order the
+ * work happened (earliest start first). Logs without a time period come last in their day.
+ */
+export function compareTimeLogsDayNewestTimeEarliest(
+  a: { date: string; timePeriod?: string },
+  b: { date: string; timePeriod?: string }
+): number {
+  const dayKey = (d: string) => {
+    const dmy = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return dmy ? `${dmy[3]}-${dmy[2]}-${dmy[1]}` : d;
+  };
+  const startMinutes = (tp?: string) => parseTimeToMinutes((tp ?? "").split(/[-–]/)[0]) ?? Number.MAX_SAFE_INTEGER;
+  const byDay = dayKey(b.date).localeCompare(dayKey(a.date));
+  return byDay !== 0 ? byDay : startMinutes(a.timePeriod) - startMinutes(b.timePeriod);
+}
+
+/**
  * Standardizes a start & end time range into 12-hour AM/PM format, e.g. "6:00 PM – 6:00 AM".
  */
 export function formatTimePeriodRange(startTimeStr: string, endTimeStr: string): string {

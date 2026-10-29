@@ -3,8 +3,12 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadActingUser } from "@/features/sop-checklists/access";
-import { subtaskCountsOf } from "@/features/projects/subtask-gate";
-import { decodeDescriptionWithTimePeriod, resolveLogTimePeriod } from "@/features/projects/utils/time-helpers";
+import { isTaskDone } from "@/features/projects/types";
+import {
+  decodeDescriptionWithTimePeriod,
+  resolveLogTimePeriod,
+  toISTDateString,
+} from "@/features/projects/utils/time-helpers";
 
 export type DsmTaskDetailLog = {
   id: string;
@@ -16,6 +20,21 @@ export type DsmTaskDetailLog = {
   minutes: number;
   billable: boolean;
   remarks: string;
+};
+
+export type DsmSubtaskRow = {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  done: boolean;
+  /** 0 = direct child of the task. */
+  depth: number;
+  owners: string[];
+  dueDate: string | null;
+  priority: string | null;
+  /** Everyone's time logged on the subtask itself. */
+  minutes: number;
 };
 
 export type DsmTaskDetail = {
@@ -31,12 +50,31 @@ export type DsmTaskDetail = {
   logCount: number;
   recentLogs: DsmTaskDetailLog[];
   subtasks: { done: number; total: number };
+  /** Every subtask (any depth), in tree order — parent, then its children. */
+  subtaskRows: DsmSubtaskRow[];
   sop: { attached: boolean; done: number; total: number };
   /** Timers running on the task right now, by whom. */
   runningTimers: { userName: string; startedAt: string }[];
+  /** Closed / done — an overdue due date only matters while this is false. */
+  isDone: boolean;
+  /** Everyone's time on the task, most first. */
+  contributors: { name: string; minutes: number }[];
+  /** Time logged on the task today (IST), everyone. */
+  todayMinutes: number;
+  /** Logs still waiting for approval. */
+  pendingApprovals: number;
+  /** ISO time of the latest change or time log on the task. */
+  lastActivityAt: string | null;
+  latestComment: { author: string; text: string; createdAt: string } | null;
 };
 
 const RECENT_LOGS = 5;
+const COMMENT_CHARS = 200;
+
+/** Remarks can be HTML (rich-text editor) — keep the words only. */
+function plainText(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
 
 /**
  * Everything about one linked task for the manager's DSM review (/dsm/member/[userId]) — the
@@ -61,15 +99,22 @@ export async function getDsmTaskDetailAction(
       code: true,
       title: true,
       status: true,
+      completionPercentage: true,
       dueDate: true,
       owner: true,
+      updatedAt: true,
+      lastActivityDate: true,
       project: { select: { name: true } },
       owners: { select: { user: { select: { name: true, email: true } } } },
     },
   });
   if (!task) return { success: false, error: "Task not found." };
 
-  const [byBilling, recent, checklists, timers, subtasks] = await Promise.all([
+  // Today's logs: a ±14h window around the IST day, then exact IST-day matching below.
+  const todayIst = toISTDateString(new Date());
+  const todayStartUtc = new Date(`${todayIst}T00:00:00.000Z`);
+
+  const [byBilling, recent, checklists, timers, subtaskRows, byUser, todayLogs, pendingApprovals, comment] = await Promise.all([
     d.projectTimeLog.groupBy({
       by: ["billingType"],
       where: { taskId: task.id },
@@ -98,8 +143,50 @@ export async function getDsmTaskDetailAction(
       where: { taskId: task.id },
       select: { startedAt: true, user: { select: { name: true, email: true } } },
     }),
-    subtaskCountsOf(task.id),
+    subtaskRowsOf(task.id, task.code),
+    d.projectTimeLog.groupBy({
+      by: ["userId"],
+      where: { taskId: task.id },
+      _sum: { duration: true },
+    }),
+    d.projectTimeLog.findMany({
+      where: {
+        taskId: task.id,
+        date: {
+          gte: new Date(todayStartUtc.getTime() - 14 * 3600 * 1000),
+          lte: new Date(todayStartUtc.getTime() + (24 + 14) * 3600 * 1000),
+        },
+      },
+      select: { date: true, duration: true },
+    }),
+    d.projectTimeLog.count({ where: { taskId: task.id, approvalStatus: "PENDING" } }),
+    d.projectTaskRemark.findFirst({
+      where: { taskId: task.id },
+      orderBy: { createdAt: "desc" },
+      select: { authorName: true, content: true, createdAt: true },
+    }),
   ]);
+
+  const userTotals = (byUser as { userId: string; _sum: { duration: number | null } }[]).filter((g) => g.userId);
+  const loggers: { id: string; name: string | null; email: string }[] = userTotals.length
+    ? await d.user.findMany({
+        where: { id: { in: userTotals.map((g) => g.userId) } },
+        select: { id: true, name: true, email: true },
+      })
+    : [];
+  const loggerById = new Map(loggers.map((u) => [u.id, u]));
+
+  const todayMinutes = (todayLogs as { date: Date; duration: number }[])
+    .filter((l) => toISTDateString(l.date) === todayIst)
+    .reduce((s, l) => s + l.duration, 0);
+
+  // Latest of: the task's own last change, its last activity, its newest time log.
+  const activityTimes = [task.updatedAt, task.lastActivityDate, recent[0]?.createdAt]
+    .filter(Boolean)
+    .map((t: Date) => new Date(t).getTime());
+  const lastActivityAt = activityTimes.length ? new Date(Math.max(...activityTimes)).toISOString() : null;
+
+  const commentText = comment ? plainText(comment.content ?? "") : "";
 
   let billableMinutes = 0;
   let nonBillableMinutes = 0;
@@ -160,7 +247,23 @@ export async function getDsmTaskDetailAction(
           };
         }
       ),
-      subtasks,
+      subtasks: { done: subtaskRows.filter((s) => s.done).length, total: subtaskRows.length },
+      subtaskRows,
+      isDone: isTaskDone(task.status, false, task.completionPercentage),
+      contributors: userTotals
+        .map((g) => ({ name: nameOf(loggerById.get(g.userId)), minutes: g._sum.duration ?? 0 }))
+        .sort((a, b) => b.minutes - a.minutes),
+      todayMinutes,
+      pendingApprovals,
+      lastActivityAt,
+      latestComment:
+        comment && commentText
+          ? {
+              author: comment.authorName,
+              text: commentText.length > COMMENT_CHARS ? `${commentText.slice(0, COMMENT_CHARS).trimEnd()}…` : commentText,
+              createdAt: new Date(comment.createdAt).toISOString(),
+            }
+          : null,
       sop: { attached: checklists.length > 0, done: items.filter((i) => i.checked).length, total: items.length },
       runningTimers: (timers as { startedAt: Date; user: { name: string | null; email: string } | null }[]).map((t) => ({
         userName: nameOf(t.user),
@@ -168,4 +271,92 @@ export async function getDsmTaskDetailAction(
       })),
     },
   };
+}
+
+const MAX_SUBTASK_ROWS = 50;
+
+/**
+ * The task's subtasks at every depth, in tree order, with status / owners / due date / effort.
+ * Children point at their parent's id or, on older rows, its code — same walk as subtask-gate.
+ */
+async function subtaskRowsOf(rootId: string, rootCode: string): Promise<DsmSubtaskRow[]> {
+  type Row = {
+    id: string;
+    code: string;
+    title: string;
+    status: string;
+    completionPercentage: number;
+    parentTaskId: string | null;
+    dueDate: string | null;
+    priority: string | null;
+    owner: string | null;
+    owners: { user: { name: string | null; email: string } }[];
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const byParent = new Map<string, Row[]>();
+  const seen = new Set<string>([rootId]);
+  let frontier = [rootId, rootCode];
+  while (frontier.length > 0 && seen.size <= MAX_SUBTASK_ROWS) {
+    const children: Row[] = await d.projectTask.findMany({
+      where: { parentTaskId: { in: frontier } },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        status: true,
+        completionPercentage: true,
+        parentTaskId: true,
+        dueDate: true,
+        priority: true,
+        owner: true,
+        owners: { select: { user: { select: { name: true, email: true } } } },
+      },
+    });
+    const fresh = children.filter((c) => !seen.has(c.id));
+    for (const c of fresh) {
+      seen.add(c.id);
+      const list = byParent.get(c.parentTaskId!) ?? [];
+      list.push(c);
+      byParent.set(c.parentTaskId!, list);
+    }
+    frontier = fresh.flatMap((c) => [c.id, c.code]);
+  }
+
+  const ordered: { row: Row; depth: number }[] = [];
+  const visit = (id: string, code: string, depth: number) => {
+    const kids = [...(byParent.get(id) ?? []), ...(code !== id ? byParent.get(code) ?? [] : [])];
+    for (const c of kids) {
+      ordered.push({ row: c, depth });
+      visit(c.id, c.code, depth + 1);
+    }
+  };
+  visit(rootId, rootCode, 0);
+  if (ordered.length === 0) return [];
+
+  const effort: { taskId: string; _sum: { duration: number | null } }[] = await d.projectTimeLog.groupBy({
+    by: ["taskId"],
+    where: { taskId: { in: ordered.map((o) => o.row.id) } },
+    _sum: { duration: true },
+  });
+  const minutesById = new Map(effort.map((e) => [e.taskId, e._sum.duration ?? 0]));
+
+  return ordered.slice(0, MAX_SUBTASK_ROWS).map(({ row: c, depth }) => ({
+    id: c.id,
+    code: c.code,
+    title: c.title,
+    status: c.status,
+    done: isTaskDone(c.status, false, c.completionPercentage),
+    depth,
+    owners:
+      c.owners.length > 0
+        ? c.owners.map((o) => o.user.name || o.user.email.split("@")[0])
+        : c.owner && c.owner !== "Unassigned"
+          ? [c.owner]
+          : [],
+    dueDate: c.dueDate && c.dueDate !== "--" ? c.dueDate : null,
+    priority: c.priority && c.priority !== "None" ? c.priority : null,
+    minutes: minutesById.get(c.id) ?? 0,
+  }));
 }

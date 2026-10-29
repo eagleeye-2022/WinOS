@@ -56,7 +56,7 @@ import {
   formatDurationDisplay,
   formatTimePeriodRange,
   calculateMinutesFromTimeRange,
-  compareTimeLogsLatestFirst,
+  compareTimeLogsDayNewestTimeEarliest,
   toLocalDateString,
   MAX_LOG_MINUTES,
   MAX_LOG_DURATION_ERROR,
@@ -852,7 +852,8 @@ export function TimeTrackerView({
       if (!matchTitle && !matchCode && !matchRemarks) return false;
     }
     return true;
-  }).sort(compareTimeLogsLatestFirst);
+    // Newest day first; inside a day, in the order the work happened (earliest start first).
+  }).sort(compareTimeLogsDayNewestTimeEarliest);
 
   // Inside a project, in Project Span mode: the project's dates, widened to any logs outside them —
   // the period the Share button shares in that mode.
@@ -917,7 +918,7 @@ export function TimeTrackerView({
       byDate.get(normalizedDate)!.logs.push({ ...log, date: normalizedDate });
     }
     return Array.from(byDate.values())
-      .sort(compareTimeLogsLatestFirst)
+      .sort(compareTimeLogsDayNewestTimeEarliest)
       .map((g) => {
         const billable = g.logs
           .filter((l) => l.billingType === "BILLABLE")

@@ -13,8 +13,7 @@ import {
 // (MoreHorizontal + DropdownMenu* were for the ⋯ task menus, now inline buttons — re-import them
 // if the commented-out "What Did You Do Yesterday?" menu is restored.)
 import { cn, toTitleCase } from "@/lib/utils";
-// TaskDetailToggle (the ▸ button) is commented out below for now — re-import it when restoring.
-import { TaskDetailRow } from "./task-detail-panel";
+import { TaskDetailRow, TaskDetailToggle } from "./task-detail-panel";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
@@ -38,7 +37,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel, effortStartMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
 import { MentionInput } from "@/components/shared/mention-input";
@@ -62,6 +61,14 @@ import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction, fetchTaskTotalEffortAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
+
+/**
+ * Task tables: the Project column (2nd cell) stays pinned at the left while the table scrolls
+ * sideways. Full-width rows (the ▸ task-detail panel, colSpan) have no 2nd cell, so they scroll.
+ */
+const STICKY_PROJECT_COL =
+  "[&>thead>tr>th:nth-child(2)]:sticky [&>thead>tr>th:nth-child(2)]:left-0 [&>thead>tr>th:nth-child(2)]:z-[2] [&>thead>tr>th:nth-child(2)]:bg-card " +
+  "[&>tbody>tr>td:nth-child(2)]:sticky [&>tbody>tr>td:nth-child(2)]:left-0 [&>tbody>tr>td:nth-child(2)]:z-[1] [&>tbody>tr>td:nth-child(2)]:bg-card";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -1699,8 +1706,7 @@ function TaskRow({
         {!isLocked ? (
           // Details ▸ · Info · Edit · Delete in a line (no ⋯ menu), packed close together.
           <div className="flex items-center justify-center">
-            {/* ▸ task details — hidden for now; restore to bring the panel back.
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
             <TaskInfoAction task={task} compact />
             <button
               type="button"
@@ -1732,8 +1738,7 @@ function TaskRow({
           // Reviewed rows: open the linked task (ⓘ) or edit the row — editing the text also
           // renames the linked Srijan task when it's a NAT task (see editTask).
           <div className="flex items-center justify-center gap-0.5">
-            {/* ▸ task details — hidden for now.
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
             <TaskInfoAction task={task} />
             <button
               type="button"
@@ -2071,8 +2076,7 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          {/* ▸ task details — hidden for now.
-          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />} */}
+          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
           <TaskInfoAction task={task} />
           {/* ⋯ (Edit / Delete) removed from "What Did You Do Yesterday?" by request.
           <DropdownMenu>
@@ -2233,8 +2237,7 @@ function LoggedSummaryRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          {/* ▸ task details — hidden for now.
-          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} /> */}
+          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />
           {href && <TaskInfoLink href={href} code={task.code} className="h-7 w-7 rounded-lg hover:bg-muted" />}
         </div>
       </td>
@@ -2401,7 +2404,7 @@ function YesterdayTasksSection({
 
       {totalCount > 0 ? (
         <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
-          <table className="w-full min-w-[640px] text-left">
+          <table className={cn(STICKY_PROJECT_COL, "w-full min-w-[640px] text-left")}>
             <thead>
               <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 py-2 pr-2">Done</th>
@@ -2414,22 +2417,32 @@ function YesterdayTasksSection({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <SummaryTaskRow
-                  key={r.task.id}
-                  task={r.task}
-                  isDone={isDoneFor(r.task)}
-                  entryId={r.entryId}
-                  kind={r.kind}
-                  loggedMinutes={r.task.projectTaskId ? logged[r.task.projectTaskId] : undefined}
-                  effortSpan={r.task.projectTaskId ? spans[r.task.projectTaskId] : undefined}
-                  cascadingProjects={cascadingProjects}
-                />
-              ))}
-              {/* Other tasks time was logged on that day (WhyFi School, tasks outside the DSM). */}
-              {loggedTasks.map((t) => (
-                <LoggedSummaryRow key={t.taskId} task={t} onToggled={setLoggedDone} />
-              ))}
+              {/* DSM tasks and the other tasks time was logged on that day (WhyFi School, tasks
+                  outside the DSM) as one list, by Effort Time — earliest start first; rows without an
+                  effort time keep their order at the bottom (stable sort). */}
+              {[
+                ...rows.map((r) => ({
+                  start: effortStartMinutes(r.task.projectTaskId ? spans[r.task.projectTaskId] : undefined),
+                  node: (
+                    <SummaryTaskRow
+                      key={r.task.id}
+                      task={r.task}
+                      isDone={isDoneFor(r.task)}
+                      entryId={r.entryId}
+                      kind={r.kind}
+                      loggedMinutes={r.task.projectTaskId ? logged[r.task.projectTaskId] : undefined}
+                      effortSpan={r.task.projectTaskId ? spans[r.task.projectTaskId] : undefined}
+                      cascadingProjects={cascadingProjects}
+                    />
+                  ),
+                })),
+                ...loggedTasks.map((t) => ({
+                  start: effortStartMinutes(t.effortFrom),
+                  node: <LoggedSummaryRow key={t.taskId} task={t} onToggled={setLoggedDone} />,
+                })),
+              ]
+                .sort((a, b) => a.start - b.start)
+                .map((r) => r.node)}
             </tbody>
           </table>
         </div>
@@ -2601,7 +2614,7 @@ function TodayTasksSection({
       {tasks.length > 0 ? (
         // Horizontal scrollbar instead of squeezing the columns on narrow screens.
         <div className={cn("dsm-columns-scrollbar mt-3 overflow-x-auto pb-1", showNotAligned && notAlignedCount === 0 && "hidden")}>
-          <table className="w-full min-w-[900px] border-collapse">
+          <table className={cn(STICKY_PROJECT_COL, "w-full min-w-[900px] border-collapse")}>
             <TaskTableHead withAction />
             <tbody>
               {sorted.map((task, i) => showNotAligned && !isNotAligned(task) ? null : (
@@ -3714,6 +3727,8 @@ type Props = {
 export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr, currentUserId, parkedTasks = [] }: Props) {
   const router = useRouter();
   const { user, entries } = review;
+  // Hidden date input behind the week label — its calendar jumps to a date.
+  const datePickerRef = useRef<HTMLInputElement>(null);
 
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
 
@@ -3773,7 +3788,8 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
             </div>
           </div>
 
-          {/* Week navigation */}
+          {/* Week navigation + date picker in one chip: ‹ week › ; clicking the week opens a calendar
+              to jump to a date (its week, with that day's DSM open). */}
           <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
             <Link
               href={`/dsm/member/${user.id}?w=${weekOffset - 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}`}
@@ -3781,7 +3797,42 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
             >
               <ChevronLeft size={16} />
             </Link>
-            <span className="min-w-16 text-center text-sm font-medium">{weekLabel}</span>
+            <span className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const input = datePickerRef.current;
+                  if (!input) return;
+                  try {
+                    input.showPicker();
+                  } catch {
+                    input.focus();
+                  }
+                }}
+                title="Pick a date to view"
+                className="flex min-w-16 items-center justify-center gap-1.5 rounded-full px-2 py-0.5 text-sm font-medium transition-colors hover:bg-accent"
+              >
+                <Calendar size={14} className="text-muted-foreground" />
+                {weekLabel}
+              </button>
+              {/* Invisible date input under the label — only its calendar popup is used. */}
+              <input
+                ref={datePickerRef}
+                type="date"
+                tabIndex={-1}
+                aria-hidden="true"
+                value={selectedDateStr ?? ""}
+                max={toIsoDateStr(toUtcDate())}
+                onChange={(e) => {
+                  const picked = e.target.value;
+                  if (!picked) return;
+                  const mondayOf = (d: Date) => getWeekRange(0, d).start.getTime();
+                  const offset = Math.round((mondayOf(new Date(`${picked}T00:00:00`)) - mondayOf(new Date())) / (7 * 86_400_000));
+                  router.push(`/dsm/member/${user.id}?w=${offset}&date=${picked}`);
+                }}
+                className="pointer-events-none absolute bottom-0 left-1/2 h-0 w-0 opacity-0 [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </span>
             <Link
               href={canGoForward ? `/dsm/member/${user.id}?w=${weekOffset + 1}${selectedDateStr ? `&date=${selectedDateStr}` : ""}` : `/dsm/member/${user.id}`}
               className={cn(

@@ -11,6 +11,7 @@ import { applyChecklistSync } from "../sync";
 import { recordSopEvent, recordSopEvents } from "../events";
 import { docFromItems, DocChecklistItem, DocNode, extractChecklistItems, isDocNode, MAX_DOC_BYTES, MAX_DOC_ITEMS } from "../doc";
 import { SopPickerOption, SopTemplate, SopTemplateInput } from "../types";
+import { toSopSnapshot, type SopVersionSnapshot } from "../sop-versions";
 import EED_SOP_LIBRARY from "../data/eed-sop-library.json";
 
 const d = db as any;
@@ -150,6 +151,71 @@ export async function getSopTemplatesAction(opts?: { includeArchived?: boolean }
   return rows.map(toSopTemplate);
 }
 
+/**
+ * Saves the SOP as it is now under its current version number (see SopChecklistTemplateVersion).
+ * A save that doesn't bump the version (a rename) updates that version's copy. Best-effort: a
+ * failure is logged and never breaks the save itself.
+ */
+async function saveSopVersion(user: { id: string; name: string } | null, templateId: string): Promise<void> {
+  try {
+    const row = await d.sopChecklistTemplate.findUnique({
+      where: { id: templateId },
+      include: { items: { orderBy: { position: "asc" } } },
+    });
+    if (!row) return;
+    const data = {
+      name: row.name,
+      description: row.description ?? "",
+      category: row.category,
+      content: row.content ?? undefined,
+      items: (row.items || []).map((i: any) => ({
+        text: i.text,
+        isRequired: i.isRequired,
+        requiresEvidence: i.requiresEvidence,
+      })),
+      userId: user?.id ?? row.createdById ?? null,
+      userName: user?.name ?? row.createdByName ?? "Unknown",
+    };
+    await d.sopChecklistTemplateVersion.upsert({
+      where: { templateId_version: { templateId, version: row.version } },
+      create: { templateId, version: row.version, ...data },
+      update: data,
+    });
+  } catch (err) {
+    console.error("[saveSopVersion] failed for SOP", templateId, err);
+  }
+}
+
+/**
+ * Copy of a version from before version copies existed, made from the SOP as it was then (`row`,
+ * read before an edit, or the SOP as it is now). Only creates it when it's missing. Best-effort.
+ */
+async function ensureSopVersionCopy(
+  templateId: string,
+  row: { version: number; name: string; description?: string | null; category: string; content?: unknown; createdById?: string | null; createdByName?: string | null; items: any[] }
+): Promise<void> {
+  try {
+    await d.sopChecklistTemplateVersion.createMany({
+      data: [
+        {
+          templateId,
+          version: row.version,
+          name: row.name,
+          description: row.description ?? "",
+          category: row.category,
+          content: row.content ?? undefined,
+          items: row.items.map((i: any) => ({ text: i.text, isRequired: i.isRequired, requiresEvidence: i.requiresEvidence })),
+          userId: row.createdById ?? null,
+          userName: row.createdByName || "Earlier version",
+        },
+      ],
+      skipDuplicates: true,
+    });
+  } catch (err) {
+    console.error("[ensureSopVersionCopy] failed for SOP", templateId, err);
+  }
+}
+
 async function createTemplateRow(user: ActingUser, v: ValidInput) {
   return d.sopChecklistTemplate.create({
     data: {
@@ -180,6 +246,7 @@ export async function createSopTemplateAction(input: SopTemplateInput): Promise<
   if ("error" in parsed) return { success: false, error: parsed.error };
 
   const row = await createTemplateRow(user, parsed.value);
+  await saveSopVersion(user, row.id);
   await recordSopEvent(user, {
     type: "TEMPLATE_CREATED",
     templateId: row.id,
@@ -254,6 +321,7 @@ export async function importEedSopLibraryAction(): Promise<Result<{ created: num
     try {
       const row = await createTemplateRow(user, v);
       created++;
+      await saveSopVersion(user, row.id);
       await recordSopEvent(user, {
         type: "TEMPLATE_IMPORTED",
         templateId: row.id,
@@ -332,6 +400,11 @@ export async function updateSopTemplateAction(
     });
   });
 
+  // Before the edit, make sure the version being replaced has its copy (SOPs saved before version
+  // copies existed) — so "what changed" can compare against it. Then save the new state.
+  if (itemsChanged || contentChanged) await ensureSopVersionCopy(id, existing);
+  await saveSopVersion(user, id);
+
   const row = await d.sopChecklistTemplate.findUnique({ where: { id }, include: TEMPLATE_INCLUDE });
   const changed = v.items.filter((i) => {
     const old = existingById.get(i.id);
@@ -377,6 +450,86 @@ export async function moveSopTemplateAction(id: string, category: string): Promi
   });
   revalidatePath(SOP_PATH);
   return { success: true };
+}
+
+export type SopVersionListItem = { version: number; userName: string; createdAt: string };
+
+/**
+ * The SOP's saved versions, newest first — the Versions tab of its Timeline (managers). Saves the
+ * SOP's current state first if it has no copy yet (SOPs from before version history).
+ */
+export async function getSopVersionsAction(
+  templateId: string
+): Promise<Result<{ currentVersion: number; versions: SopVersionListItem[] }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+  try {
+    const row = await d.sopChecklistTemplate.findUnique({
+      where: { id: templateId },
+      include: { items: { orderBy: { position: "asc" } } },
+    });
+    if (!row) return { success: false, error: "This SOP no longer exists" };
+    await ensureSopVersionCopy(templateId, row);
+
+    const versions = await d.sopChecklistTemplateVersion.findMany({
+      where: { templateId },
+      orderBy: { version: "desc" },
+      select: { version: true, userName: true, createdAt: true },
+    });
+    return {
+      success: true,
+      currentVersion: row.version,
+      versions: versions.map((v: any) => ({
+        version: v.version,
+        userName: v.userName,
+        createdAt: new Date(v.createdAt).toISOString(),
+      })),
+    };
+  } catch (err) {
+    console.error("[getSopVersionsAction] failed for SOP", templateId, err);
+    return { success: false, error: "Couldn't load the versions. Please try again." };
+  }
+}
+
+/** One saved version of an SOP plus the one before it ("what changed") — managers. */
+export async function getSopVersionAction(
+  templateId: string,
+  version: number
+): Promise<
+  Result<{
+    version: number;
+    currentVersion: number;
+    userName: string;
+    createdAt: string;
+    snapshot: SopVersionSnapshot;
+    previous: SopVersionSnapshot | null;
+  }>
+> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+  try {
+    const [row, previous, template] = await Promise.all([
+      d.sopChecklistTemplateVersion.findUnique({ where: { templateId_version: { templateId, version } } }),
+      d.sopChecklistTemplateVersion.findFirst({
+        where: { templateId, version: { lt: version } },
+        orderBy: { version: "desc" },
+      }),
+      d.sopChecklistTemplate.findUnique({ where: { id: templateId }, select: { version: true } }),
+    ]);
+    if (!row) return { success: false, error: "That version wasn't found" };
+    return {
+      success: true,
+      version: row.version,
+      currentVersion: template?.version ?? row.version,
+      userName: row.userName,
+      createdAt: new Date(row.createdAt).toISOString(),
+      snapshot: toSopSnapshot(row),
+      previous: previous ? toSopSnapshot(previous) : null,
+    };
+  } catch (err) {
+    console.error("[getSopVersionAction] failed for SOP", templateId, version, err);
+    return { success: false, error: "Couldn't load that version. Please try again." };
+  }
 }
 
 export async function setSopTemplateArchivedAction(id: string, archived: boolean): Promise<Result> {

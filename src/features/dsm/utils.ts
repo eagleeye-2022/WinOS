@@ -1,5 +1,7 @@
 // Pure helpers — no server imports, fully unit-testable.
 
+import { parseTimeToMinutes } from "@/features/projects/utils/time-helpers";
+
 /** Normalize a Date to UTC midnight so it matches seed/DB date values. */
 export function toUtcDate(d: Date = new Date()): Date {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -225,6 +227,16 @@ export function isStandupRoutineTask(title: string | null | undefined): boolean 
 }
 
 /** Effort time "10:05 AM – 11:30 AM" from a task's first start / last stop that day; "" when unknown. */
+/**
+ * Sort key for the Effort Time column: minutes after midnight of the start ("10:05 AM", or the
+ * start of "10:05 AM – 11:30 AM"). No effort time → Infinity, so those rows sort last.
+ */
+export function effortStartMinutes(spanOrStart: string | null | undefined): number {
+  const start = (spanOrStart ?? "").split(/[-–]/)[0].trim();
+  const minutes = start ? parseTimeToMinutes(start) : null;
+  return minutes ?? Number.POSITIVE_INFINITY;
+}
+
 export function formatEffortSpan(from: string | null | undefined, to: string | null | undefined): string {
   if (from && to) return from === to ? from : `${from} – ${to}`;
   return from || to || "";
