@@ -399,6 +399,8 @@ export type YesterdayTaskItem = {
   id: string;
   text: string;
   isCompleted: boolean;
+  /** Priority the member gave it that day ("P1", "P2"…); null when none was picked. */
+  priority: string | null;
   projectTaskId: string | null;
   projectId: string | null;
   code: string | null;
@@ -489,7 +491,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
       tasks: {
         where: { kind: "TODAY" },
         orderBy: { order: "asc" },
-        select: { id: true, text: true, isCompleted: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true, projectId: true } } },
+        select: { id: true, text: true, isCompleted: true, priority: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true, projectId: true } } },
       },
     },
     orderBy: { date: "desc" },
@@ -513,10 +515,11 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
     date: dateStr,
     loggedTasks,
     tasks: entry.tasks.map(
-      (t: { id: string; text: string; isCompleted: boolean; projectTaskId: string | null; projectId: string | null; projectTask: { code: string; projectId: string | null } | null }) => ({
+      (t: { id: string; text: string; isCompleted: boolean; priority: string | null; projectTaskId: string | null; projectId: string | null; projectTask: { code: string; projectId: string | null } | null }) => ({
         id: t.id,
         text: t.text,
         isCompleted: isYesterdayTaskDone(t, dsrDone),
+        priority: t.priority || null,
         projectTaskId: t.projectTaskId,
         projectId: t.projectId,
         code: t.projectTask?.code ?? null,

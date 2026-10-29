@@ -4,6 +4,28 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange } from "@/features/attendance/attendance-data";
 import { addDaysToKey, formatShortDate, fullDayName, istDateKey } from "@/features/attendance/utils";
+import { accruedAllocation, checkEligibility } from "../leave-rules";
+import { effectiveAvailable } from "../balance";
+import { canManageAttendance } from "@/features/attendance/utils";
+import { canManageUser, managedUserIds, scopeWhere } from "@/features/attendance/team-scope";
+
+/** Fresh role data for the signed-in user (the JWT may be stale). */
+async function currentViewer(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true, profileRole: true, isActive: true },
+  });
+  return user?.isActive ? user : null;
+}
+
+/** Manager-only reads: the viewer plus the people they're responsible for (null = everyone). */
+async function requireLeaveManager() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const viewer = await currentViewer(session.user.id);
+  if (!viewer || !canManageAttendance(viewer)) throw new Error("Forbidden");
+  return { viewer, scope: await managedUserIds(viewer) };
+}
 
 const ACTION_LOOKBACK_DAYS = 30;
 
@@ -99,12 +121,20 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     orderBy: { leaveType: { name: "asc" } },
   });
 
-  const balances: FormattedBalance[] = userBalances.map((b) => ({
+  // Balances as of today for the current year, as of year end for a past year.
+  const nowKey = istDateKey();
+  const asOfKey = String(year) === nowKey.slice(0, 4) ? nowKey : `${year}-12-31`;
+  const available = await Promise.all(
+    userBalances.map((b) => effectiveAvailable(db, { userId, type: b.leaveType, balance: b, onKey: asOfKey }))
+  );
+
+  const balances: FormattedBalance[] = userBalances.map((b, i) => ({
     id: b.id,
     leaveTypeId: b.leaveTypeId,
     code: b.leaveType.code,
     name: b.leaveType.name,
-    remainingDays: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
+    // What can still be applied for (accrual, pending requests, comp-off expiry) — same as applying.
+    remainingDays: available[i],
     bookedDays: b.bookedDays,
     allocatedDays: b.allocatedDays,
     unit: b.leaveType.allowHourly ? "Hour(s)" : "Day(s)",
@@ -293,11 +323,10 @@ export async function getTeamLeaveRequestsAction(filters?: {
   leaveTypeCode?: string;
   department?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const { scope } = await requireLeaveManager();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = {};
+  const whereClause: any = { ...scopeWhere(scope) };
 
   if (filters?.status && filters.status !== "ALL") {
     whereClause.status = filters.status;
@@ -373,11 +402,10 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
   search?: string;
   status?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const { scope } = await requireLeaveManager();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = {};
+  const whereClause: any = { ...scopeWhere(scope) };
   if (filters?.status && filters.status !== "ALL") {
     whereClause.status = filters.status;
   }
@@ -430,7 +458,54 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
 
 // ── 4. GET LEAVE TYPES & POLICIES ────────────────────────────────────────────
 
+/**
+ * Active leave types the signed-in user can apply for on `dateKey`, with what they can still apply
+ * against in that year (used by the quick Apply Leave popup on attendance / home).
+ */
+export async function getApplicableLeaveTypesAction(dateKey: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const year = Number((dateKey || istDateKey()).slice(0, 4)) || Number(istDateKey().slice(0, 4));
+
+  const userId = session.user.id;
+  const onKey = dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : istDateKey();
+  const [types, balances, facts] = await Promise.all([
+    db.leaveType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    db.userLeaveBalance.findMany({ where: { userId: session.user.id, year } }),
+    db.user.findUnique({
+      where: { id: session.user.id },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+    }),
+  ]);
+  const byType = new Map(balances.map((b) => [b.leaveTypeId, b]));
+
+  const usable = types.filter(
+    (t) => (t.allowFullDay || t.allowHalfDay) && (!facts || checkEligibility(t, facts, onKey) === null)
+  );
+  return Promise.all(
+    usable.map(async (t) => {
+      const b = byType.get(t.id);
+      return {
+        code: t.code,
+        name: t.name,
+        allowFullDay: t.allowFullDay,
+        allowHalfDay: t.allowHalfDay,
+        // Same figure the apply action checks against (accrual, pending days, comp-off expiry).
+        // No balance row yet → applying opens one with the yearly entitlement.
+        available: b
+          ? await effectiveAvailable(db, { userId, type: t, balance: b, onKey })
+          : t.code === "COMP"
+          ? 0
+          : accruedAllocation(t.allocationFrequency, t.annualEntitlement, t.annualEntitlement, onKey),
+      };
+    })
+  );
+}
+
 export async function getLeaveTypesAction() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
   const types = await db.leaveType.findMany({
     orderBy: { name: "asc" },
   });
@@ -462,7 +537,7 @@ export async function getLeaveTypesAction() {
 
 // ── 5. GET HOLIDAYS ──────────────────────────────────────────────────────────
 
-export async function getHolidaysAction(year = 2025) {
+export async function getHolidaysAction(year = Number(istDateKey().slice(0, 4))) {
   const holidays = await db.holiday.findMany({
     where: { year },
     orderBy: { date: "asc" },
@@ -495,9 +570,10 @@ export async function getHolidaysAction(year = 2025) {
 // ── 6. GET EMPLOYEES FOR BALANCE ADJUSTMENT ──────────────────────────────────
 
 export async function getEmployeesForAdjustmentAction() {
+  const { scope } = await requireLeaveManager();
   const [users, allLeaveTypes] = await Promise.all([
     db.user.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...scopeWhere(scope, "id") },
       select: {
         id: true,
         name: true,
@@ -587,6 +663,11 @@ export async function getLeaveRequestByIdAction(requestId: string) {
   });
 
   if (!request) return null;
+  // Only the requester, or a manager responsible for them, may open a request.
+  if (request.userId !== session.user.id) {
+    const viewer = await currentViewer(session.user.id);
+    if (!viewer || !(await canManageUser(viewer, request.userId))) return null;
+  }
 
   const fromStr = request.fromDate.toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -682,8 +763,8 @@ export async function getLeaveRequestByIdAction(requestId: string) {
 // ── 8. GET TEAM CALENDAR EVENTS (DYNAMIC FOR SELECTED MONTH/YEAR) ─────────────
 
 export async function getTeamCalendarEventsAction(year: number, month: number) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  // Shows leave reasons, so it's limited to the manager's own team.
+  const { scope } = await requireLeaveManager();
 
   // Calculate start and end of month
   const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
@@ -692,6 +773,7 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
   // Fetch all leave requests that overlap with this month
   const leaveRequests = await db.leaveRequest.findMany({
     where: {
+      ...scopeWhere(scope),
       status: { in: ["APPROVED", "PENDING"] },
       fromDate: { lte: endOfMonth },
       toDate: { gte: startOfMonth },

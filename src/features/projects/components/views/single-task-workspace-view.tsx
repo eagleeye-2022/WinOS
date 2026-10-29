@@ -33,7 +33,6 @@ import {
   Quote,
   Send,
   Mail,
-  FileText,
   Layers,
   Bug,
   Activity,
@@ -44,7 +43,6 @@ import {
   Paperclip,
   Share2,
   SlidersHorizontal,
-  Timer,
   CheckSquare,
   User,
   Sparkles,
@@ -58,6 +56,7 @@ import {
   Copy,
   CopyCheck,
 } from "lucide-react";
+import { TaskSidebarTree } from "../task-sidebar-tree";
 import { TaskItem, TaskStatus, TaskActivityLog, TaskSubtask, TimeLogEntry, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusBadgeClasses, getTaskStatusSelectClasses } from "../../types";
 import { parseDurationMinutes, formatTimePeriodRange } from "../../utils/time-helpers";
 import { cn } from "@/lib/utils";
@@ -105,6 +104,8 @@ import { getChecklistCloseBlockAction } from "@/features/sop-checklists/actions/
 import { TaskStatusTimelineTab } from "../task-status-timeline-tab";
 import { ProjectStandupRollup } from "../project-standup-rollup";
 import { toast } from "@/components/shared/toast";
+import { InlineTextCell, STICKY_HEADER_ROW } from "./time-tracker-view";
+import { RemarksPopupCell } from "../remarks-popup-cell";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -150,9 +151,6 @@ export function SingleTaskWorkspaceView({
     email: string;
     role: "ADMIN" | "TEAM_MEMBER";
   } | null;
-
-  // Selected phase filter for left sidebar task list
-  const [selectedPhase, setSelectedPhase] = useState("ALL");
 
   // Header Actions States & Handlers
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -496,7 +494,7 @@ export function SingleTaskWorkspaceView({
 
   const [taskInfoOpen, setTaskInfoOpen] = useState(false);
   const searchParams = useSearchParams();
-  // Subtasks is the default tab. SOPs/Checklist is its own section under the description.
+  // Comments is the default tab. SOPs/Checklist is its own section under the description.
   const [activeTab, setActiveTab] = useState<
     | "COMMENTS"
     | "SUBTASKS"
@@ -508,7 +506,7 @@ export function SingleTaskWorkspaceView({
     | "ACTIVITY"
     | "DRIVE"
     | "STANDUP_ACTIVITY"
-  >("SUBTASKS");
+  >("COMMENTS");
 
   // `?tab=checklist` (links from the project's Checklist overview) scrolls to the SOPs/Checklist section.
   const openChecklistFromUrl = !isLearningList && searchParams.get("tab") === "checklist";
@@ -541,8 +539,6 @@ export function SingleTaskWorkspaceView({
   // Subtasks as a tree: a subtask's own subtasks sit indented under it, any depth. Each row with
   // children has a ⊟/⊞ box to fold them.
   const [collapsedSubtaskIds, setCollapsedSubtaskIds] = useState<Set<string>>(() => new Set());
-  // Left task list: per-task fold choice (true = open). Unset follows the default (see leftTaskRows).
-  const [leftToggles, setLeftToggles] = useState<Map<string, boolean>>(() => new Map());
   const toggleSubtaskCollapsed = (id: string) =>
     setCollapsedSubtaskIds((prev) => {
       const next = new Set(prev);
@@ -686,22 +682,6 @@ export function SingleTaskWorkspaceView({
         return next;
       })
     );
-
-  const handleToggleSubtask = (id: string) => {
-    const target = findSubtask(id);
-    if (!target) return;
-    const isCurrentlyDone = isTaskDone(target.status, target.completed);
-    const newCompleted = !isCurrentlyDone;
-    const newStatus: TaskStatus = newCompleted ? "Done" : "Open";
-
-    setSubtaskStatusLocally(target, newStatus, newCompleted);
-
-    updateSubtaskAction(id, { completed: newCompleted, status: newStatus })
-      .then((saved) => {
-        if (!saved) revertSubtaskStatus(target, newStatus);
-      })
-      .catch((err) => console.error("Failed to update subtask in DB:", err));
-  };
 
   /** Undoes an optimistic subtask status change the server refused (its SOP checklist isn't done). */
   const revertSubtaskStatus = async (target: TaskSubtask, attemptedStatus: TaskStatus) => {
@@ -957,6 +937,8 @@ export function SingleTaskWorkspaceView({
   };
 
   const formattedTotalTaskHours = formatTaskMinutesShort(totalTaskMinutes);
+  // WhyFi School time isn't billed — no Billing Type column/totals, same as Pulse → WhyFi Effort Logs.
+  const showBilling = !isLearningList;
 
   const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
 
@@ -1152,19 +1134,6 @@ export function SingleTaskWorkspaceView({
     return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
   };
 
-  // Helper to format phase label cleanly without duplicate code prefix
-  const formatPhaseLabel = (phaseCode?: string, phaseName?: string): string => {
-    const code = (phaseCode || "").trim();
-    const name = (phaseName || "").trim();
-    if (!code && !name) return "General";
-    if (!code) return name;
-    if (!name) return code;
-    // Avoid duplicate prefixes like "1.2 1.2 Requirement..."
-    if (name.toLowerCase().startsWith(code.toLowerCase())) return name;
-    if (/^\d+(\.\d+)*\s+/.test(name)) return name;
-    return `${code} ${name}`;
-  };
-
   // Convert DD/MM/YYYY, ISO, or other string into YYYY-MM-DD for <input type="date">
   const parseDateForInput = (dateStr?: string): string => {
     if (!dateStr || dateStr === "--" || dateStr.startsWith("-") || !/\d/.test(dateStr)) return "";
@@ -1231,24 +1200,6 @@ export function SingleTaskWorkspaceView({
     return "--";
   };
 
-  // Dynamically compute list of unique phases from all available tasks and project phases
-  const availablePhases = React.useMemo(() => {
-    const phaseMap = new Map<string, string>();
-    (project?.phases || []).forEach((p) => {
-      const label = formatPhaseLabel(p.code, p.name);
-      if (label && !phaseMap.has(label)) {
-        phaseMap.set(label, label);
-      }
-    });
-    leftTaskItems.forEach((t) => {
-      const label = formatPhaseLabel(t.phaseCode, t.phaseName);
-      if (label && !phaseMap.has(label)) {
-        phaseMap.set(label, label);
-      }
-    });
-    return Array.from(phaseMap.values());
-  }, [leftTaskItems, project?.phases]);
-
   // Auto-sync status to match the active task when navigating to a new taskId
   const [prevTaskId, setPrevTaskId] = useState(taskId);
   if (taskId !== prevTaskId) {
@@ -1294,26 +1245,11 @@ export function SingleTaskWorkspaceView({
     }
   };
 
-  // Filter sidebar task cards by selected phase. Top-level tasks only here — subtasks are shown
-  // nested under their parent below (leftTaskItems still includes them so a subtask's own URL
-  // resolves to real data via `foundTask` above).
-  const filteredLeftTasks = leftTaskItems.filter((item) => {
-    if (item.parentTaskId) return false;
-    if (selectedPhase === "ALL") return true;
-    const formattedItemPhase = formatPhaseLabel(item.phaseCode, item.phaseName).toLowerCase();
-    const targetPhase = selectedPhase.toLowerCase();
-    return (
-      formattedItemPhase === targetPhase ||
-      item.phaseName?.toLowerCase() === targetPhase ||
-      item.phaseCode?.toLowerCase() === targetPhase ||
-      `${item.phaseCode || ""} ${item.phaseName || ""}`.trim().toLowerCase() === targetPhase
-    );
-  });
-
-  // Sidebar tree: each task's subtasks (any depth) indented under it. A branch starts folded,
-  // except along the path to the open task; the ⊟/⊞ box overrides that per task.
-  // Rows in this list use the task code as their id, while `parentTaskId` holds the parent's DB id
-  // — so children are found through each task's own `subtasks` (DB id + code), matched by code.
+  // Sidebar: only the open task's card — the same card as on the project board — with all its
+  // subtasks (any depth) expanded underneath. Opening a subtask shows its top-level parent's tree
+  // with that subtask highlighted.
+  // Rows use the task code as their id, while `parentTaskId` holds the parent's DB id — so children
+  // are found through each task's own `subtasks` (DB id + code), matched by code.
   const leftRowByCode = new Map(leftTaskItems.map((t) => [t.code, t]));
   const leftChildrenOf = (t: TaskItem): TaskItem[] =>
     (t.subtasks || [])
@@ -1322,43 +1258,18 @@ export function SingleTaskWorkspaceView({
   // Parent of a row = the task whose subtask list contains its code.
   const leftParentOf = new Map<string, TaskItem>();
   for (const t of leftTaskItems) for (const st of t.subtasks || []) if (st.code) leftParentOf.set(st.code, t);
-  const autoOpenLeftIds = new Set<string>();
+  let sidebarRootTask: TaskItem | undefined = foundTask;
   {
-    let cur: TaskItem | undefined = foundTask;
-    while (cur && !autoOpenLeftIds.has(cur.id)) {
-      autoOpenLeftIds.add(cur.id);
-      cur = leftParentOf.get(cur.code);
+    const seen = new Set<string>(); // guards against a parent loop in bad data
+    while (sidebarRootTask && !seen.has(sidebarRootTask.id)) {
+      seen.add(sidebarRootTask.id);
+      const parent = leftParentOf.get(sidebarRootTask.code);
+      if (!parent || seen.has(parent.id)) break;
+      sidebarRootTask = parent;
     }
   }
-  const isLeftOpen = (id: string) => leftToggles.get(id) ?? autoOpenLeftIds.has(id);
-  const leftTaskRows: { item: TaskItem; depth: number; hasChildren: boolean }[] = [];
-  {
-    const seen = new Set<string>();
-    const walk = (list: TaskItem[], depth: number) => {
-      for (const item of list) {
-        if (seen.has(item.id)) continue; // guards against a loop in bad data
-        seen.add(item.id);
-        const children = leftChildrenOf(item);
-        leftTaskRows.push({ item, depth, hasChildren: children.length > 0 });
-        if (children.length > 0 && isLeftOpen(item.id)) walk(children, depth + 1);
-      }
-    };
-    walk(filteredLeftTasks, 0);
-    // A subtask whose parent isn't in this project's list (deleted parent, or a parent loop) would
-    // otherwise never show — list it at the top level instead.
-    const reached = new Set<string>();
-    const reach = (t: TaskItem) => {
-      if (reached.has(t.id)) return;
-      reached.add(t.id);
-      leftChildrenOf(t).forEach(reach);
-    };
-    leftTaskItems.filter((t) => !t.parentTaskId).forEach(reach);
-    for (const t of leftTaskItems) {
-      if (reached.has(t.id) || seen.has(t.id)) continue;
-      reach(t);
-      if (selectedPhase === "ALL") walk([t], 0);
-    }
-  }
+  const isOpenTask = (item: TaskItem) =>
+    item.code.toLowerCase() === taskId.toLowerCase() || item.id.toLowerCase() === taskId.toLowerCase();
 
   if (isLoading || isRefetchingMissingTask || isUnsavedTask) {
     return (
@@ -1434,103 +1345,36 @@ export function SingleTaskWorkspaceView({
       {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
       {!isExpandedView && (
         <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-zinc-800 dark:bg-[#0c0d10] h-full min-h-0">
-          {/* Phase Header Selector */}
-          <div className="flex items-center justify-between border-b border-border p-3.5 dark:border-zinc-800">
-            <div className="relative flex-1 mr-2">
-              <select
-                value={selectedPhase}
-                onChange={(e) => setSelectedPhase(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-border bg-card px-3 py-1.5 pr-8 text-xs font-bold text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer dark:border-zinc-700 dark:bg-[#141519] dark:text-zinc-200"
-              >
-                {availablePhases.map((phaseLabel) => (
-                  <option key={phaseLabel} value={phaseLabel}>
-                    {phaseLabel}
-                  </option>
-                ))}
-                <option value="ALL">All Phases</option>
-              </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none dark:text-zinc-400"
-              />
-            </div>
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-3 dark:border-zinc-800">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Current Task</span>
+            <Link href={backHref} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              <ArrowLeft size={12} /> All Tasks
+            </Link>
           </div>
 
-          {/* Task Cards Stack */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-            {filteredLeftTasks.length === 0 ? (
-              <div className="py-8 text-center text-xs text-muted-foreground dark:text-zinc-400">
-                No tasks found in this phase.
-              </div>
+          {/* Open task's card with all its subtasks */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {sidebarRootTask ? (
+              <TaskSidebarTree
+                rootTask={sidebarRootTask}
+                childrenOf={leftChildrenOf}
+                isOpenTask={isOpenTask}
+                projectId={projectId}
+                phases={project?.phases || []}
+                currentUser={currentUser}
+                isProjectMember={isProjectOwner || isUserOfThisProject}
+                setTasks={setTasks}
+                onOpen={handleSelectTaskCard}
+                onOpenTaskStatusChange={handleStatusChange}
+                onOpenTaskPhaseChange={(phaseCode, phaseName) => handleUpdateTaskField({ phaseCode, phaseName })}
+                onOpenTaskDelete={handleDeleteTask}
+                onOpenTaskLogSaved={refreshTaskTimeLogs}
+              />
             ) : (
-              leftTaskRows.map(({ item, depth, hasChildren }) => {
-                const isSelected =
-                  item.code.toLowerCase() === taskId.toLowerCase() ||
-                  item.id.toLowerCase() === taskId.toLowerCase();
-                const isOpen = isLeftOpen(item.id);
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleSelectTaskCard(item.code)}
-                    style={depth ? { marginLeft: Math.min(depth, 6) * 16 } : undefined}
-                    className={`rounded-xl border p-3 cursor-pointer transition-all duration-150 relative ${
-                      isSelected
-                        ? "border-primary bg-primary/10 ring-1 ring-primary/30 shadow-2xs dark:border-zinc-600 dark:bg-zinc-800/90 dark:ring-zinc-600/30"
-                        : "border-border bg-card hover:border-border/80 hover:bg-accent/40 dark:border-zinc-800/80 dark:bg-[#131418] dark:hover:border-zinc-700 dark:hover:bg-[#191a20]"
-                    }`}
-                  >
-                    {/* Top Badge Row */}
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground dark:text-zinc-400">
-                        {hasChildren && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setLeftToggles((prev) => new Map(prev).set(item.id, !isOpen));
-                            }}
-                            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border border-muted-foreground/50 text-muted-foreground hover:border-foreground hover:text-foreground"
-                            title={isOpen ? "Hide its subtasks" : "Show its subtasks"}
-                          >
-                            {isOpen ? <Minus size={9} strokeWidth={3} /> : <Plus size={9} strokeWidth={3} />}
-                          </button>
-                        )}
-                        {item.code}
-                      </span>
-                      <span
-                        className={cn("rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider", getTaskStatusBadgeClasses(item.status))}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h4
-                      className={`text-xs font-semibold leading-snug line-clamp-2 ${
-                        isTaskDone(item.status)
-                          ? "line-through text-muted-foreground dark:text-zinc-400"
-                          : "text-foreground dark:text-zinc-100"
-                      }`}
-                    >
-                      {item.title}
-                    </h4>
-
-                    {/* Footer Owner & Badges */}
-                    <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground dark:border-zinc-800/80 dark:text-zinc-400">
-                      <span className="truncate max-w-[170px]">
-                        {item.owner || "Unassigned"}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isSelected && (
-                          <Timer size={12} className="text-primary animate-pulse dark:text-zinc-300" />
-                        )}
-                        <AlertCircle size={12} className="text-muted-foreground/60 dark:text-zinc-500" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              <div className="py-8 text-center text-xs text-muted-foreground dark:text-zinc-400">
+                This task isn&apos;t in the project&apos;s task list.
+              </div>
             )}
           </div>
         </aside>
@@ -2047,8 +1891,8 @@ export function SingleTaskWorkspaceView({
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-zinc-800">
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
-                  { key: "SUBTASKS", label: "Subtasks" },
                   { key: "COMMENTS", label: "Comments" },
+                  { key: "SUBTASKS", label: "Subtasks" },
                   { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                   { key: "DOCUMENTS", label: "Documents" },
                   { key: "STATUS_TIMELINE", label: "Status Timeline" },
@@ -2217,13 +2061,6 @@ export function SingleTaskWorkspaceView({
                                   ) : (
                                     <span className="w-3.5 shrink-0" />
                                   )}
-                                  <input
-                                    type="checkbox"
-                                    checked={isTaskDone(st.status, st.completed)}
-                                    onChange={() => handleToggleSubtask(st.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
-                                  />
                                   <span className={isTaskDone(st.status, st.completed) ? "line-through text-muted-foreground dark:text-zinc-500" : "hover:underline"}>
                                     {st.title}
                                   </span>
@@ -2366,56 +2203,59 @@ export function SingleTaskWorkspaceView({
                     </div>
                   )}
 
-                  {/* Date-Grouped Time Logs Table */}
-                  <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-2xs dark:border-zinc-800 dark:bg-[#121215]">
-                    <table className="w-full text-left text-xs border-collapse font-sans">
+                  {/* Date-Grouped Time Logs Table — same look as the Effort Logs report (TimeTrackerView,
+                      Group By Date): header, date rows, inline cells, Task Notes popup and footer bar. */}
+                  <div className="dsm-columns-scrollbar overflow-x-auto rounded-lg border border-border bg-card shadow-2xs">
+                    <table className="w-full min-w-[900px] text-left text-xs border-collapse">
                       <thead>
-                        <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-400">
-                          <th className="py-2.5 px-3 border-r border-border w-10 text-center dark:border-zinc-800">
+                        <tr className={STICKY_HEADER_ROW}>
+                          <th className="py-2.5 px-3 border-r border-border w-10 text-center">
                             <ChevronDown size={13} className="text-muted-foreground mx-auto" />
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                             <div className="flex items-center gap-1.5">
                               <User size={13} className="text-muted-foreground" />
-                              <span>User</span>
+                              <span>USER</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Clock size={13} className="text-muted-foreground" />
-                              <span>Daily Log Hours</span>
+                              <span>DAILY LOG HOURS</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border min-w-[180px] dark:border-zinc-800">
-                            Task Notes
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                            TASK NOTES
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Clock size={13} className="text-muted-foreground" />
-                              <span>Time Period</span>
+                              <span>TIME PERIOD</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
+                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <Calendar size={13} className="text-muted-foreground" />
-                              <span>Date</span>
+                              <span>DATE</span>
                             </div>
                           </th>
-                          <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
-                            Billing Type
-                          </th>
+                          {showBilling && (
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                              BILLING TYPE
+                            </th>
+                          )}
                           {/* Approval Status column hidden by request (header + cell below; colSpans adjusted).
                           <th className="py-2.5 px-4 border-r border-border whitespace-nowrap dark:border-zinc-800">
                             Approval Status
                           </th>
                           */}
-                          <th className="py-2.5 px-4 whitespace-nowrap text-right">Actions</th>
+                          <th className="py-2.5 px-4 whitespace-nowrap text-right">ACTIONS</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/60 dark:divide-zinc-800/60">
+                      <tbody className="divide-y divide-border">
                         {dateGroupsData.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="py-8 text-center text-muted-foreground italic dark:text-zinc-400">
+                            <td colSpan={showBilling ? 8 : 7} className="py-8 text-center text-muted-foreground italic">
                               No effort logs recorded for this task yet. Click &quot;Add Effort Log&quot; to log work hours.
                             </td>
                           </tr>
@@ -2425,162 +2265,117 @@ export function SingleTaskWorkspaceView({
                             return (
                               <React.Fragment key={group.date}>
                                 {/* Date Group Header Row */}
-                                <tr className="bg-muted/80 font-bold border-b border-border text-foreground hover:bg-muted transition-colors dark:bg-[#141519] dark:border-zinc-800">
-                                  <td className="py-2 px-3 border-r border-border text-center dark:border-zinc-800">
+                                <tr className="bg-muted/80 font-bold border-b border-border text-foreground hover:bg-muted transition-colors">
+                                  <td className="py-2.5 px-3 border-r border-border text-center">
                                     <button
                                       type="button"
                                       onClick={() => toggleDateCollapse(group.date)}
-                                      className="text-muted-foreground hover:text-foreground p-0.5"
+                                      className="text-muted-foreground hover:text-foreground"
                                     >
                                       {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                                     </button>
                                   </td>
-                                  <td colSpan={1} className="py-2 px-4 border-r border-border font-bold text-foreground whitespace-nowrap dark:border-zinc-800">
+                                  <td className="py-2.5 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
                                     <div className="flex items-center gap-2">
                                       <Calendar size={14} className="text-muted-foreground" />
-                                      <span className="font-bold text-foreground dark:text-zinc-100">{group.date}</span>
+                                      <span className="text-foreground font-bold">{group.date}</span>
                                     </div>
                                   </td>
-                                  <td className="py-2 px-4 border-r border-border font-mono font-bold whitespace-nowrap dark:border-zinc-800">
-                                    <div className="flex items-center gap-2 text-xs font-mono font-bold">
-                                      <span className="text-foreground dark:text-zinc-100">{group.totalHours}</span>
-                                      <span className="text-primary dark:text-zinc-200">{group.billableHours}</span>
-                                      <span className="text-warning dark:text-amber-400">{group.nonBillableHours}</span>
+                                  <td className="py-2.5 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="text-foreground font-bold">{group.totalHours}</span>
+                                      {showBilling && <span className="text-info font-bold">{group.billableHours}</span>}
+                                      {showBilling && <span className="text-warning font-bold">{group.nonBillableHours}</span>}
                                     </div>
                                   </td>
-                                  <td colSpan={5} className="py-2 px-4" />
+                                  <td colSpan={showBilling ? 5 : 4} className="py-2.5 px-4" />
                                 </tr>
 
                                 {!isCollapsed &&
                                   group.logs.map((log) => (
                                     <tr
                                       key={log.id}
-                                      className="border-b border-border/60 hover:bg-accent/30 transition-colors dark:border-zinc-800/60 dark:hover:bg-zinc-800/30 group"
+                                      className="hover:bg-accent/20 transition-colors border-b border-border bg-card text-foreground"
                                     >
-                                      <td className="py-2 px-3 border-r border-border text-center dark:border-zinc-800">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <input
-                                            type="checkbox"
-                                            className="rounded border-input text-primary h-3.5 w-3.5 cursor-pointer"
-                                            onClick={(e) => e.stopPropagation()}
-                                          />
-                                          <FileText size={13} className="text-muted-foreground/70" />
-                                        </div>
+                                      <td className="py-2.5 px-3 border-r border-border text-center">
+                                        <input
+                                          type="checkbox"
+                                          className="rounded border-input bg-background text-primary h-3.5 w-3.5 cursor-pointer"
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
                                       </td>
 
                                       {/* User Name (Read-Only User Attribution) */}
-                                      <td className="py-2 px-4 border-r border-border font-semibold text-foreground whitespace-nowrap dark:border-zinc-800 dark:text-zinc-200">
+                                      <td className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-muted-foreground text-xs">↑</span>
-                                          <span>{log.userName && log.userName !== "User" ? log.userName : (currentUser?.name && currentUser.name !== "User" ? currentUser.name : "System User")}</span>
+                                          <span className="font-semibold text-foreground">
+                                            {log.userName && log.userName !== "User" ? log.userName : (currentUser?.name && currentUser.name !== "User" ? currentUser.name : "System User")}
+                                          </span>
                                         </div>
                                       </td>
 
-                                      {/* Duration Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
-                                        <input
-                                          type="text"
-                                          defaultValue={log.duration}
-                                          key={`duration-${log.id}-${log.duration}`}
-                                          onBlur={(e) => {
-                                            if (e.target.value !== log.duration) {
-                                              handleAutoSaveField(log.id, { duration: e.target.value });
-                                            }
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                          className="w-20 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-foreground font-mono focus:bg-background focus:outline-hidden transition-colors dark:text-zinc-100"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title="Click to edit duration. Auto-saves on Enter or blur."
+                                      {/* Daily Log Hours — inline editable, auto-saves on Enter or blur */}
+                                      <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                                        <InlineTextCell
+                                          value={log.duration}
+                                          onSave={(v) => handleAutoSaveField(log.id, { duration: v })}
+                                          mono
+                                          placeholder="00:00"
+                                          className="font-mono text-foreground min-w-[70px]"
+                                          title="Click to edit Daily Log Hours inline"
                                         />
                                       </td>
 
-                                      {/* Task Notes Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border dark:border-zinc-800">
-                                        <input
-                                          type="text"
-                                          defaultValue={log.remarks || log.title || ""}
-                                          key={`remarks-${log.id}-${log.remarks}`}
-                                          onBlur={(e) => {
-                                            const currentText = log.remarks || log.title || "";
-                                            if (e.target.value !== currentText) {
-                                              handleAutoSaveField(log.id, { remarks: e.target.value });
-                                            }
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                          className="w-full px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-muted-foreground focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-zinc-300"
-                                          onClick={(e) => e.stopPropagation()}
-                                          placeholder="Task Notes"
-                                          title="Click to edit task notes. Auto-saves on Enter or blur."
+                                      {/* Task Notes — opens a popup to read/edit, as in the report */}
+                                      <td className="py-2 px-3 border-r border-border whitespace-nowrap max-w-[260px]">
+                                        <RemarksPopupCell
+                                          value={log.remarks || log.title || ""}
+                                          onSave={(v) => handleAutoSaveField(log.id, { remarks: v })}
+                                          subtitle={[activeTask.code, activeTask.title].filter(Boolean).join(" — ")}
                                         />
                                       </td>
 
-                                      {/* Time Period Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
-                                        <input
-                                          type="text"
-                                          defaultValue={log.timePeriod}
-                                          key={`timePeriod-${log.id}-${log.timePeriod}`}
-                                          onBlur={(e) => {
-                                            if (e.target.value !== log.timePeriod) {
-                                              handleAutoSaveField(log.id, { timePeriod: e.target.value });
-                                            }
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                          className="w-48 min-w-[175px] px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-muted-foreground font-mono focus:bg-background focus:text-foreground focus:outline-hidden transition-colors dark:text-zinc-400"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title="Click to edit time period. Auto-saves on Enter or blur."
+                                      {/* Time Period — inline editable */}
+                                      <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                                        <InlineTextCell
+                                          value={log.timePeriod}
+                                          onSave={(v) => handleAutoSaveField(log.id, { timePeriod: v })}
+                                          mono
+                                          placeholder="00:00 - 00:00"
+                                          className="text-xs text-muted-foreground min-w-[110px]"
+                                          title="Click to edit Time Period inline"
                                         />
                                       </td>
 
-                                      {/* Date Auto-Save Input */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
-                                        <input
-                                          type="text"
-                                          defaultValue={log.date}
-                                          key={`date-${log.id}-${log.date}`}
-                                          onBlur={(e) => {
-                                            if (e.target.value !== log.date) {
-                                              handleAutoSaveField(log.id, { date: e.target.value });
-                                            }
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                              (e.target as HTMLInputElement).blur();
-                                            }
-                                          }}
-                                          className="w-28 px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent text-foreground font-mono font-medium focus:bg-background focus:outline-hidden transition-colors dark:text-zinc-200"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title="Click to edit date. Auto-saves on Enter or blur."
+                                      {/* Date — inline editable */}
+                                      <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                                        <InlineTextCell
+                                          value={log.date}
+                                          onSave={(v) => handleAutoSaveField(log.id, { date: v })}
+                                          mono
+                                          placeholder="DD/MM/YYYY"
+                                          className="text-xs text-foreground min-w-[90px]"
+                                          title="Click to edit Date inline"
                                         />
                                       </td>
 
-                                      {/* Billing Type Auto-Save Select */}
-                                      <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
-                                        <select
-                                          value={log.billingType}
-                                          onChange={(e) => handleAutoSaveField(log.id, { billingType: e.target.value as "BILLABLE" | "NON BILLABLE" })}
-                                          className={`px-2 py-1 text-xs border border-transparent hover:border-border focus:border-primary rounded bg-transparent font-semibold focus:bg-background focus:outline-hidden cursor-pointer transition-colors ${
-                                            log.billingType === "BILLABLE" ? "text-primary dark:text-zinc-200" : "text-warning dark:text-amber-400"
-                                          }`}
-                                          onClick={(e) => e.stopPropagation()}
-                                          title="Click to change billing type. Auto-saves automatically."
-                                        >
-                                          <option value="BILLABLE" className="text-primary dark:bg-zinc-900 dark:text-zinc-100">Billable</option>
-                                          <option value="NON BILLABLE" className="text-warning dark:bg-zinc-900 dark:text-zinc-100">Non Billable</option>
-                                        </select>
-                                      </td>
+                                      {/* Billing Type — inline editable (hidden for WhyFi School, as in its report) */}
+                                      {showBilling && (
+                                        <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                                          <select
+                                            value={log.billingType}
+                                            onChange={(e) => handleAutoSaveField(log.id, { billingType: e.target.value as "BILLABLE" | "NON BILLABLE" })}
+                                            className={`rounded border border-transparent hover:border-input bg-transparent px-2 py-0.5 text-xs font-semibold cursor-pointer outline-hidden transition-all ${
+                                              log.billingType === "BILLABLE" ? "text-info font-bold" : "text-warning font-bold"
+                                            }`}
+                                            title="Click to edit Billing Type inline"
+                                          >
+                                            <option value="BILLABLE" className="bg-card text-info font-bold">BILLABLE</option>
+                                            <option value="NON BILLABLE" className="bg-card text-warning font-bold">NON BILLABLE</option>
+                                          </select>
+                                        </td>
+                                      )}
 
                                       {/* Approval Status Auto-Save Select — hidden by request.
                                       <td className="py-1.5 px-3 border-r border-border whitespace-nowrap dark:border-zinc-800">
@@ -2600,8 +2395,8 @@ export function SingleTaskWorkspaceView({
                                       */}
 
                                       {/* Actions & Auto-Save Indicator */}
-                                      <td className="py-2 px-4 text-right whitespace-nowrap">
-                                        <div className="flex items-center justify-end gap-2">
+                                      <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                                        <div className="flex items-center justify-end gap-1">
                                           {savingLogId === log.id && (
                                             <span className="text-xs font-bold text-emerald-500 flex items-center gap-1 animate-in fade-in-0 duration-150">
                                               <Check size={12} /> Saved
@@ -2625,7 +2420,7 @@ export function SingleTaskWorkspaceView({
                                                 }
                                               }
                                             }}
-                                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                                             title="Delete Effort Log"
                                           >
                                             <Trash2 size={13} />
@@ -2642,24 +2437,34 @@ export function SingleTaskWorkspaceView({
                     </table>
 
                     {/* Table Footer Bar */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-card border-t border-border font-sans text-xs dark:border-zinc-800 dark:bg-[#141519]">
-                      <div className="flex items-center gap-5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground font-semibold">Billable</span>
-                          <span className="text-primary font-mono font-extrabold dark:text-zinc-200">{formattedTaskBillableHours} h</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground font-semibold">Non Billable</span>
-                          <span className="text-warning font-mono font-extrabold dark:text-amber-400">{formattedTaskNonBillableHours} h</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground font-semibold">Total</span>
-                          <span className="text-foreground font-mono font-extrabold dark:text-zinc-100">{formattedTotalTaskHours} h</span>
+                    <div className="flex items-center justify-between border-t border-border px-4 py-2.5 bg-muted/40 text-xs font-semibold text-foreground">
+                      <div className="flex items-center gap-6">
+                        {showBilling && (
+                          <>
+                            <div>
+                              <span className="text-muted-foreground font-normal">Billable</span>{" "}
+                              <strong className="text-info ml-1 font-bold">{formattedTaskBillableHours} h</strong>
+                            </div>
+
+                            <div className="h-4 w-px bg-border" />
+
+                            <div>
+                              <span className="text-muted-foreground font-normal">Non Billable</span>{" "}
+                              <strong className="text-warning ml-1 font-bold">{formattedTaskNonBillableHours} h</strong>
+                            </div>
+
+                            <div className="h-4 w-px bg-border" />
+                          </>
+                        )}
+
+                        <div>
+                          <span className="text-muted-foreground font-normal">Total</span>{" "}
+                          <strong className="text-foreground ml-1 font-bold">{formattedTotalTaskHours} h</strong>
                         </div>
                       </div>
 
-                      <div className="text-muted-foreground font-semibold dark:text-zinc-400 font-mono">
-                        Total Count: {taskTimeLogs.length}
+                      <div className="text-muted-foreground font-normal">
+                        Total Count: <strong className="text-foreground font-semibold">{taskTimeLogs.length}</strong>
                       </div>
                     </div>
                   </div>

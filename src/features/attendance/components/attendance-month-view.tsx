@@ -40,13 +40,13 @@ export function AttendanceMonthView({
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-card rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
       {/* Calendar Header Row */}
-      <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center bg-slate-50/50 dark:bg-slate-800/30">
+      <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 text-center bg-zinc-50/50 dark:bg-zinc-800/30">
         {daysOfWeek.map((day) => (
           <div
             key={day}
-            className="py-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0"
+            className="py-3 text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 border-r border-zinc-100 dark:border-zinc-800/60 last:border-r-0"
           >
             {day}
           </div>
@@ -54,7 +54,7 @@ export function AttendanceMonthView({
       </div>
 
       {/* Calendar Grid Cells */}
-      <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="grid grid-cols-7 divide-x divide-y divide-zinc-100 dark:divide-zinc-800">
         {calendarCells.map((cell, idx) => {
           const record = records[cell.dateStr];
           const isSelected = cell.dateStr === selectedDate;
@@ -69,9 +69,9 @@ export function AttendanceMonthView({
               className={cn(
                 "min-h-[105px] p-2.5 transition-colors cursor-pointer flex flex-col justify-between relative",
                 cell.isCurrentMonth
-                  ? "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                  : "bg-slate-50/40 dark:bg-slate-900/30 text-slate-300 dark:text-slate-600",
-                isHoliday && "bg-blue-50/40 dark:bg-blue-950/20",
+                  ? "bg-white dark:bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                  : "bg-zinc-50/40 dark:bg-card/30 text-zinc-300 dark:text-zinc-600",
+                isHoliday && "bg-blue-50/40 dark:bg-accent",
                 isSelected &&
                   "ring-2 ring-blue-600 dark:ring-blue-500 ring-inset z-10 rounded-lg"
               )}
@@ -82,8 +82,8 @@ export function AttendanceMonthView({
                   className={cn(
                     "text-xs font-bold",
                     cell.isCurrentMonth
-                      ? "text-slate-700 dark:text-slate-200"
-                      : "text-slate-300 dark:text-slate-600"
+                      ? "text-zinc-700 dark:text-zinc-200"
+                      : "text-zinc-300 dark:text-zinc-600"
                   )}
                 >
                   {cell.day}
@@ -115,7 +115,7 @@ export function AttendanceMonthView({
                         <span>Present</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-slate-400 pl-4 font-medium">
+                        <div className="text-xs text-zinc-400 pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -132,7 +132,7 @@ export function AttendanceMonthView({
                         <span>Half Day</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-slate-400 pl-3.5 font-medium">
+                        <div className="text-xs text-zinc-400 pl-3.5 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -147,7 +147,7 @@ export function AttendanceMonthView({
                         <span>Early Leave</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-slate-400 pl-4 font-medium">
+                        <div className="text-xs text-zinc-400 pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -161,7 +161,7 @@ export function AttendanceMonthView({
                         <ArrowRightCircle className="w-3 h-3" />
                         <span>{record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave"}</span>
                       </div>
-                      <div className="text-xs text-slate-400 pl-4">
+                      <div className="text-xs text-zinc-400 pl-4">
                         {record.leaveInfo?.leaveType || "Leave"}
                       </div>
                     </div>
@@ -197,8 +197,8 @@ export function AttendanceMonthView({
 
                   {/* Weekend */}
                   {record.status === "WEEKEND" && (
-                    <div className="flex items-center gap-1 text-xs text-slate-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    <div className="flex items-center gap-1 text-xs text-zinc-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
                       <span>Weekend</span>
                     </div>
                   )}
@@ -211,7 +211,7 @@ export function AttendanceMonthView({
       </div>
 
       {/* Bottom Legend */}
-      <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-300">
+      <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-wrap items-center gap-6 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
         <div className="flex items-center gap-1.5">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span>Present</span>
@@ -233,7 +233,7 @@ export function AttendanceMonthView({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-slate-400" />
+          <span className="w-2 h-2 rounded-full bg-zinc-400" />
           <span>Weekend</span>
         </div>
       </div>

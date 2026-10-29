@@ -115,29 +115,29 @@ export function RegularizationRequestDetails({
         {/* Left Column (2 Cols wide) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Employee Header Card */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               {request.employee.avatarUrl ? (
                 <img
                   src={request.employee.avatarUrl}
                   alt={request.employee.name}
-                  className="w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                  className="w-14 h-14 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
                 />
               ) : (
-                <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-base font-bold shrink-0">
+                <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-300 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-base font-bold shrink-0">
                   {request.employee.name.slice(0, 2).toUpperCase()}
                 </div>
               )}
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100">
+                  <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100">
                     {request.employee.name}
                   </h2>
                   <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                     {request.employee.status}
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {request.employee.designation} • ID: {request.employee.employeeId} •{" "}
                   {request.employee.department}
                 </div>
@@ -170,100 +170,100 @@ export function RegularizationRequestDetails({
           {/* 3 Summary Blocks */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Attendance Date */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 shrink-0">
+            <div className="p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-600 shrink-0">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-medium">Attendance Date</div>
-                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                <div className="text-xs text-zinc-400 font-medium">Attendance Date</div>
+                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
                   {request.attendanceDate}
                 </div>
-                <div className="text-xs text-slate-400">{request.attendanceDay}</div>
+                <div className="text-xs text-zinc-400">{request.attendanceDay}</div>
               </div>
             </div>
 
             {/* Application Date */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+            <div className="p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
               <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 shrink-0">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-medium">Applied On</div>
-                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                <div className="text-xs text-zinc-400 font-medium">Applied On</div>
+                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
                   {request.appliedOn}
                 </div>
-                <div className="text-xs text-slate-400">{request.appliedDay}</div>
+                <div className="text-xs text-zinc-400">{request.appliedDay}</div>
               </div>
             </div>
 
             {/* Reason */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+            <div className="p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
               <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 shrink-0">
                 <Info className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-medium">Reason</div>
-                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5 truncate max-w-[130px]">
+                <div className="text-xs text-zinc-400 font-medium">Reason</div>
+                <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-0.5 truncate max-w-[130px]">
                   {request.reason}
                 </div>
-                <div className="text-xs text-slate-400">Regularization</div>
+                <div className="text-xs text-zinc-400">Regularization</div>
               </div>
             </div>
           </div>
 
           {/* Timings Comparison Card */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+          <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
               <Clock className="w-4 h-4 text-blue-600" />
               <span>Timing Details Comparison</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Existing Timing */}
-              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2 text-xs">
-                <div className="font-bold text-slate-700 dark:text-slate-300 pb-1 border-b border-slate-200/60 dark:border-slate-700">
+              <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 space-y-2 text-xs">
+                <div className="font-bold text-zinc-700 dark:text-zinc-300 pb-1 border-b border-zinc-200/60 dark:border-zinc-700">
                   Existing Recorded Timing
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Check-in</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                  <span className="text-zinc-500">Check-in</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
                     {request.existingAttendance.checkIn || "--:--"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Check-out</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                  <span className="text-zinc-500">Check-out</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
                     {request.existingAttendance.checkOut || "--:--"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Worked Duration</span>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                  <span className="text-zinc-500">Worked Duration</span>
+                  <span className="font-bold text-zinc-700 dark:text-zinc-300">
                     {request.existingAttendance.workedDuration || "--"}
                   </span>
                 </div>
               </div>
 
               {/* Requested Timing */}
-              <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 space-y-2 text-xs">
-                <div className="font-bold text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-100 dark:border-blue-900/40">
+              <div className="p-4 rounded-xl border border-blue-200 dark:border-zinc-700/60 bg-blue-50/30 dark:bg-accent space-y-2 text-xs">
+                <div className="font-bold text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-100 dark:border-zinc-700/40">
                   Requested Correction Timing
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Check-in</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                  <span className="text-zinc-500">Check-in</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
                     {request.requestedAttendance.checkIn}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Check-out</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
+                  <span className="text-zinc-500">Check-out</span>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
                     {request.requestedAttendance.checkOut}
                   </span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Worked Duration</span>
+                <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                  <span className="text-zinc-500">Worked Duration</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {request.requestedAttendance.workedDuration}
                   </span>
@@ -273,14 +273,14 @@ export function RegularizationRequestDetails({
           </div>
 
           {/* Employee Remarks Box */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2">
-            <div className="flex items-center gap-2.5 text-xs font-bold text-slate-900 dark:text-slate-100">
-              <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600">
+          <div className="p-5 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-2">
+            <div className="flex items-center gap-2.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
+              <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-accent text-blue-600">
                 <MessageSquare className="w-3.5 h-3.5" />
               </div>
               <span>Employee Remarks</span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 pl-8 leading-relaxed">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 pl-8 leading-relaxed">
               {request.remarks || "No remarks provided."}
             </p>
           </div>
@@ -293,7 +293,7 @@ export function RegularizationRequestDetails({
 
           {/* Bottom Actions: owner can withdraw, a manager (not the owner) can review */}
           {currentStatus === "Pending" && (isOwn || showReview) && (
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-3">
               {showReview && isRejecting && (
                 <textarea
                   rows={2}
@@ -301,7 +301,7 @@ export function RegularizationRequestDetails({
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Reason for rejection (shared with the employee)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
                 />
               )}
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -309,7 +309,7 @@ export function RegularizationRequestDetails({
                   <button
                     disabled={isProcessing}
                     onClick={handleCancel}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-slate-900 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors shadow-2xs disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-card text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors shadow-2xs disabled:opacity-50"
                   >
                     <XCircle className="w-4 h-4" />
                     <span>Withdraw Request</span>
@@ -348,21 +348,21 @@ export function RegularizationRequestDetails({
 
         {/* Right Column: Request Timeline */}
         <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
-              <Clock className="w-4 h-4 text-slate-400" />
+          <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-6">
+            <div className="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              <Clock className="w-4 h-4 text-zinc-400" />
               <span>Request Timeline</span>
             </div>
 
             {/* Timeline Steps */}
-            <div className="relative pl-6 border-l-2 border-slate-100 dark:border-slate-800 space-y-6 py-1">
+            <div className="relative pl-6 border-l-2 border-zinc-100 dark:border-zinc-800 space-y-6 py-1">
               {request.timeline.map((step, idx) => (
                 <div key={idx} className="relative">
                   <div className={cn(
                     "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-xs",
                     step.status === "completed" ? "bg-blue-600 text-white" :
                     step.status === "current" ? "bg-amber-500 text-white" :
-                    "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                    "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
                   )}>
                     {step.status === "completed" ? "✓" : "•"}
                   </div>
@@ -370,17 +370,17 @@ export function RegularizationRequestDetails({
                     <h5 className={cn(
                       "text-xs font-bold",
                       step.status === "current" ? "text-amber-700 dark:text-amber-300" :
-                      "text-slate-900 dark:text-slate-100"
+                      "text-zinc-900 dark:text-zinc-100"
                     )}>
                       {step.title}
                     </h5>
                     {step.timestamp && (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-zinc-400">
                         {step.timestamp}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                     {step.subtitle}
                   </p>
                 </div>
@@ -389,7 +389,7 @@ export function RegularizationRequestDetails({
           </div>
 
           {/* Info Callout */}
-          <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
+          <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
             <span>
               Once approved, the requested timings replace the attendance record for that day.

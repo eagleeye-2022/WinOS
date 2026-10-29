@@ -23,7 +23,7 @@ import { getDsmTaskDetailAction, type DsmTaskDetail } from "@/features/dsm/actio
 // One copy per task for the page's lifetime, so closing and reopening a row is instant.
 const detailCache = new Map<string, DsmTaskDetail>();
 
-/** ▸ / ▾ in a row's Action cell — opens the task's details under the row. */
+/** ▸ / ▾ before a row's Task ID — opens the task's details under the row. */
 export function TaskDetailToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <button

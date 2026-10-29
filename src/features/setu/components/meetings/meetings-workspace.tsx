@@ -1,38 +1,21 @@
 "use client";
 
-import { Download, Handshake, Plus, Users2 } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { toast } from "@/components/shared/toast";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 import { useSetuStore } from "../../store";
-import { EmptyState, FilterChips, IconTile, SearchInput, SetuButton, SetuPage } from "../setu-ui";
+import { IconTile, SetuButton, SetuSection } from "../setu-ui";
 import { LogMeetingDialog } from "./log-meeting-dialog";
 import { MeetingCard } from "./meeting-card";
 import { MeetingDetailDialog } from "./meeting-detail-dialog";
 
-type MeetingFilter = "all" | "pending" | "converted" | "bot";
-const FILTERS: readonly MeetingFilter[] = ["all", "pending", "converted", "bot"];
-
 export function MeetingsWorkspace() {
   const meetings = useSetuStore((s) => s.meetings);
   const convertReferrals = useSetuStore((s) => s.convertReferrals);
-  const [q, setQ] = useUrlState("q", "");
-  const [filter, setFilter] = useUrlState<MeetingFilter>("filter", "all", { allowed: FILTERS });
   const [openId, setOpenId] = useUrlState("open", "", { history: "push" });
   const [isNew, setIsNew] = useUrlState("new", "", { history: "push" });
 
-  const matches = {
-    all: () => true,
-    pending: (m: (typeof meetings)[number]) => m.pendingReferralNames.length > 0,
-    converted: (m: (typeof meetings)[number]) => m.prospectIds.length > 0,
-    bot: (m: (typeof meetings)[number]) => m.capturedViaBot,
-  } satisfies Record<MeetingFilter, (m: (typeof meetings)[number]) => boolean>;
-
-  const needle = q.trim().toLowerCase();
-  const visible = [...meetings]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .filter(matches[filter])
-    .filter((m) => !needle || `${m.memberName} ${m.business} ${m.connectedVia} ${m.phone}`.toLowerCase().includes(needle));
-
+  const sorted = [...meetings].sort((a, b) => b.date.localeCompare(a.date));
   const openMeeting = meetings.find((m) => m.id === openId) ?? null;
 
   const convert = (id: string) => {
@@ -41,40 +24,22 @@ export function MeetingsWorkspace() {
   };
 
   return (
-    <SetuPage
-      icon={Handshake}
-      title="121 Meetings"
-      description="One-on-ones with BNI members. Referrals received here become Prospects in the Sales Pipeline."
-      actions={
-        <>
-          <SetuButton onClick={() => toast.info("Export will be available with the backend")}>
-            <Download /> Export
-          </SetuButton>
-          <SetuButton variant="primary" onClick={() => setIsNew("1")}>
-            <Plus /> Log 121 Meeting
-          </SetuButton>
-        </>
-      }
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchInput value={q} onChange={setQ} placeholder="Search member, business, phone…" />
-        <FilterChips
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: "All", count: meetings.length },
-            { value: "pending", label: "Refs to convert", count: meetings.filter(matches.pending).length },
-            { value: "converted", label: "In pipeline", count: meetings.filter(matches.converted).length },
-            { value: "bot", label: "Via WhatsApp bot", count: meetings.filter(matches.bot).length },
-          ]}
-        />
-      </div>
-
-      {visible.length === 0 ? (
-        <EmptyState icon={Users2} text="No meetings match these filters." />
-      ) : (
+    <div className="space-y-6">
+      <SetuSection
+        title="121 Meeting Log"
+        actions={
+          <>
+            <SetuButton onClick={() => setIsNew("1")}>
+              <Plus /> Add 121
+            </SetuButton>
+            <SetuButton variant="primary" onClick={() => toast.info("Export will be available with the backend")}>
+              <Download /> Export
+            </SetuButton>
+          </>
+        }
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {visible.map((m) => (
+          {sorted.map((m) => (
             <MeetingCard key={m.id} meeting={m} onOpen={() => setOpenId(m.id)} onConvert={() => convert(m.id)} />
           ))}
           <button
@@ -86,10 +51,10 @@ export function MeetingsWorkspace() {
             Log 121 Meeting
           </button>
         </div>
-      )}
+      </SetuSection>
 
       <MeetingDetailDialog meeting={openMeeting} onClose={() => setOpenId("")} />
       <LogMeetingDialog open={isNew === "1"} onClose={() => setIsNew("")} />
-    </SetuPage>
+    </div>
   );
 }

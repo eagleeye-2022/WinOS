@@ -29,7 +29,7 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { fetchUserOpenProjectTasksAction, fetchLinkedTimeLogsAction, fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { OpenProjectTaskOption, CascadingProjectOption } from "../queries";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
-import { SortFilterButton, DueDateInput, TaskInfoLink } from "@/components/shared/task-table-parts";
+import { SortFilterButton, DueDateInput, TaskInfoLink, TaskCodeChip, TaskRowCard, TaskRowCardFooter, TaskRowCardLabel } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { ProjectTaskSelectors } from "./project-task-selectors";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
@@ -279,31 +279,39 @@ function TaskRows({
         const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
 
         return (
-          <div key={task.id} className={cn("flex items-center gap-3", onlyNotAligned && !isNotAlignedTask(task, cascadingProjects) && "hidden")}>
-            {/* Left index label: T1, T2, T3 */}
-            <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">
-              T{i + 1}
-            </span>
+          <TaskRowCard
+            key={task.id}
+            label={`T${i + 1}`}
+            className={cn(onlyNotAligned && !isNotAlignedTask(task, cascadingProjects) && "hidden")}
+            trailing={
+              (tasks.length > 1 || task.carried) ? (
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  title="Remove task"
+                  className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              ) : (
+                <div className="w-6 shrink-0" />
+              )
+            }
+          >
             <input type="hidden" name="taskProjectTaskId" value={projectTaskId} />
             <input type="hidden" name="taskProjectId" value={tree.projectId} />
             {/* Task list picked without a task: on submit, a task is created there from the text. */}
             <input type="hidden" name="taskListCode" value={tree.taskListCode} />
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
 
-            {/* Main Card */}
-            <div className="flex-1 rounded-xl border border-border bg-card p-3 shadow-2xs hover:border-primary/40 focus-within:border-primary/50 transition-all flex flex-col gap-2">
               {/* Line 1: Task ID (Code Chip) + Text Input */}
               <div className="flex items-center gap-2 w-full">
-                {showProjectFeatures && selectedMeta?.code && (
-                  <span
-                    title={selectedMeta.title || selectedMeta.code}
-                    className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 cursor-default"
-                  >
-                    {selectedMeta.code}
-                  </span>
-                )}
                 {selectedMeta?.code && (
-                  <TaskInfoLink href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)!} code={selectedMeta.code} />
+                  <TaskCodeChip
+                    code={selectedMeta.code}
+                    title={selectedMeta.title}
+                    href={projectTaskHref(selectedMeta.projectId, selectedMeta.code)}
+                  />
                 )}
                 <div className="flex-1 min-w-0">
                   <MentionInput
@@ -451,22 +459,7 @@ function TaskRows({
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Far Right: Delete button */}
-            {(tasks.length > 1 || task.carried) ? (
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                title="Remove task"
-                className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <X size={18} />
-              </button>
-            ) : (
-              <div className="w-6 shrink-0" />
-            )}
-          </div>
+          </TaskRowCard>
         );
       })}
 
@@ -514,88 +507,108 @@ function LearningRows({
   const add = () => onChange([...items, { id: crypto.randomUUID(), text: "" }]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {items.map((item, i) => {
         const linkedCode = parseLearningLineCode(item.text);
         const linkedTask = linkedCode ? whyfiTasks.find((t) => t.code === linkedCode) : undefined;
+        const showWhyfi = whyfiTasks.length > 0 || !!linkedCode;
         return (
-        <div key={item.id} className="flex flex-col gap-2 rounded-md border bg-background p-2.5 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded text-xs font-bold",
-            item.text ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-          )}>
-            L{i + 1}
-          </span>
-          {linkedCode && (
-            <span
-              title={linkedTask ? `${linkedTask.title} · ${linkedTask.listName}` : linkedCode}
-              className="shrink-0 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary"
-            >
-              {linkedCode}
-            </span>
-          )}
+        // Same card as the "What Will You Do Today?" rows.
+        <TaskRowCard
+          key={item.id}
+          label={`L${i + 1}`}
+          trailing={
+            (items.length > 1 || item.carried) ? (
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                title="Remove learning task"
+                className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X size={18} />
+              </button>
+            ) : (
+              <div className="w-6 shrink-0" />
+            )
+          }
+        >
           <input type="hidden" name="learningItemText" value={item.text} />
-          <MentionInput
-            key={`${item.id}-${linkedCode ?? ""}`}
-            defaultValue={stripLearningLineCode(item.text)}
-            onChange={(v) => updateText(i, v)}
-            onEnterSubmit={i === items.length - 1 && item.text.trim() ? add : undefined}
-            placeholder="Add learning task details..."
-            teamMembers={teamMembers}
-          />
-          {item.carried && (
-            <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning" title="Carried Over">
-              CO
-            </span>
-          )}
-          {(items.length > 1 || item.carried) && (
-            <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-        {(whyfiTasks.length > 0 || linkedCode) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/50 pt-2 pl-8">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">WhyFi:</span>
-                {/* Task List → Task → Subtask, same flow as the Srijan pickers on task rows. */}
-                <WhyfiTaskSelectors
-                  tasks={whyfiTasks}
-                  loading={whyfiLoading}
-                  value={linkedTask?.id ?? ""}
-                  onChange={(v) => linkTask(i, v)}
-                />
-                {linkedCode && !linkedTask && !whyfiLoading && (
-                  <span className="text-xs text-muted-foreground" title="Linked card is closed or no longer shared">
-                    ({linkedCode})
-                  </span>
-                )}
-              </div>
-              {linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
+
+          {/* Line 1: Task ID (Code Chip) + Text Input */}
+          <div className="flex w-full items-center gap-2">
+            {linkedCode && (
+              <TaskCodeChip
+                code={linkedCode}
+                title={linkedTask ? `${linkedTask.title} · ${linkedTask.listName}` : linkedCode}
+                href={linkedTask ? projectTaskHref(linkedTask.projectId, linkedCode) : null}
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <MentionInput
+                key={`${item.id}-${linkedCode ?? ""}`}
+                defaultValue={stripLearningLineCode(item.text)}
+                onChange={(v) => updateText(i, v)}
+                onEnterSubmit={i === items.length - 1 && item.text.trim() ? add : undefined}
+                placeholder="Add learning task details..."
+                teamMembers={teamMembers}
+                className="border-0 bg-transparent px-0 py-0 focus:ring-0 focus:border-transparent text-sm placeholder:text-muted-foreground/60 w-full"
+              />
             </div>
-            {/* Full start/stop timer, same as the DSM task rows. */}
-            <TimerWidget
-              instanceId={`dsm-learning-${item.id}`}
-              taskId={linkedTask?.id}
-              taskCode={linkedCode ?? undefined}
-              taskTitle={linkedTask?.title ?? stripLearningLineCode(item.text)}
-              projectId={linkedTask?.projectId}
-              canStart={Boolean(linkedCode)}
-              disabledReason="Select a learning task to start the timer"
-              disabledTitle="No learning task selected"
-              defaultExpanded={true}
-            />
           </div>
-        )}
-        </div>
+
+          {/* Line 2: Carryover Badge + WhyFi Task List → Task → Subtask pickers */}
+          {(item.carried || showWhyfi) && (
+            <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+              {item.carried && (
+                <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400" title="Carried Over">
+                  CO
+                </span>
+              )}
+              {showWhyfi && (
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <TaskRowCardLabel>WhyFi:</TaskRowCardLabel>
+                  <WhyfiTaskSelectors
+                    tasks={whyfiTasks}
+                    loading={whyfiLoading}
+                    value={linkedTask?.id ?? ""}
+                    onChange={(v) => linkTask(i, v)}
+                  />
+                  {linkedCode && !linkedTask && !whyfiLoading && (
+                    <span className="text-xs text-muted-foreground" title="Linked card is closed or no longer shared">
+                      ({linkedCode})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Line 3: Due Date on left, Live Timer on right */}
+          {showWhyfi && (
+            <TaskRowCardFooter
+              left={linkedTask && <WhyfiDueDate task={linkedTask} onSaved={setWhyfiDueDate} />}
+              right={
+                <TimerWidget
+                  instanceId={`dsm-learning-${item.id}`}
+                  taskId={linkedTask?.id}
+                  taskCode={linkedCode ?? undefined}
+                  taskTitle={linkedTask?.title ?? stripLearningLineCode(item.text)}
+                  projectId={linkedTask?.projectId}
+                  canStart={Boolean(linkedCode)}
+                  disabledReason="Select a learning task to start the timer"
+                  disabledTitle="No learning task selected"
+                  defaultExpanded={true}
+                />
+              }
+            />
+          )}
+        </TaskRowCard>
         );
       })}
       <button
         type="button"
         onClick={add}
-        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        className="flex items-center justify-center gap-1.5 rounded-md border border-dashed py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
       >
         <Plus size={13} /> Add learning task
       </button>

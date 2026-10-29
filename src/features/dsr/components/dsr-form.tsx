@@ -7,7 +7,7 @@ import { saveDsr, type SaveDsrState } from "../actions/save-dsr";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
 import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
-import { formatMinutes, syncReportTasksWithDsm, usableRecordingUrl } from "../reporting";
+import { formatMinutes, projectLinkKeys, syncReportTasksWithDsm, usableRecordingUrl } from "../reporting";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
@@ -207,6 +207,7 @@ function PlannedTasksSection({
   dateStr?: string;
 }) {
   const completed = tasks.filter((t) => t.completed).length;
+  const linkKeys = projectLinkKeys(tasks.map((t) => t.text));
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
   const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
   const toggle = (i: number) => {
@@ -245,7 +246,7 @@ function PlannedTasksSection({
               .map((task, i) => ({ task, i }))
               .sort((a, b) => Number(b.task.completed) - Number(a.task.completed))
               .map(({ task, i }, pos) => {
-              const link = projectLinks[task.text];
+              const link = projectLinks[linkKeys[i]];
               return (
                 <tr key={i} className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
                   <td className="py-2 pr-2 align-top">
@@ -651,18 +652,9 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
 
   useEffect(() => {
     onRegisterAddTask?.((newTask) => {
-      setTasks((prev) => {
-        const norm = (s: string) => s.trim().toLowerCase();
-        const existingIndex = prev.findIndex((t) => norm(t.text) === norm(newTask.text));
-        if (existingIndex >= 0) {
-          return prev.map((t, idx) =>
-            idx === existingIndex
-              ? { ...t, completed: true, ...(newTask.priority ? { priority: newTask.priority } : {}) }
-              : t
-          );
-        }
-        return [...prev, newTask];
-      });
+      // A task moved here is a new DSM task, so it gets its own row — even when another task has the
+      // same text. Only the very same task (same id, e.g. a repeated callback) isn't added twice.
+      setTasks((prev) => (newTask.id && prev.some((t) => t.id === newTask.id) ? prev : [...prev, newTask]));
     });
   }, [onRegisterAddTask]);
 

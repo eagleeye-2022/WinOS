@@ -127,6 +127,26 @@ export function formatCutoffLabel(cutoff = DEFAULT_REPORT_CUTOFF, dayOffset = DE
   return dayOffset > 0 ? `${time} next day` : time;
 }
 
+/**
+ * Key of a report row in the project-link map (`getDsrProjectTaskLinks`): the task text for its
+ * first occurrence, the text plus "#n" for a repeat — so two DSM rows with the same text (e.g. two
+ * subtasks both called "Manokalp") each keep their own task ID, due date and timer.
+ */
+export function projectLinkKey(text: string, occurrence: number): string {
+  return occurrence === 0 ? text : `${text}#${occurrence + 1}`;
+}
+
+/** `projectLinkKey` for each of `texts` in order (occurrences counted case/space-insensitively). */
+export function projectLinkKeys(texts: string[]): string[] {
+  const seen: Record<string, number> = {};
+  return texts.map((text) => {
+    const key = text.trim().toLowerCase();
+    const occurrence = seen[key] ?? 0;
+    seen[key] = occurrence + 1;
+    return projectLinkKey(text, occurrence);
+  });
+}
+
 export type ReportTaskRow = {
   id?: string;
   text: string;
@@ -141,7 +161,8 @@ export type ReportTaskRow = {
  * tasks exist and their order; the report keeps its own ticks, ids and priority for tasks it already
  * had. Tasks added to the DSM since the report was opened / saved are appended (unticked); tasks no
  * longer in the DSM (deleted or renamed there) are dropped — except rows added after review, which
- * only live on the report. With no DSM tasks at all, the report is left as is.
+ * only live on the report. DSM tasks sharing a text each get their own row (the nth DSM one pairs
+ * with the nth report one). With no DSM tasks at all, the report is left as is.
  */
 export function syncReportTasksWithDsm(
   current: ReportTaskRow[],
@@ -150,19 +171,22 @@ export function syncReportTasksWithDsm(
   if (dsmTasks.length === 0) return current;
   const norm = (s: string) => s.trim().toLowerCase();
 
-  const byText = new Map<string, ReportTaskRow>();
+  // Report rows per text, in order; each DSM task takes the next unused one.
+  const byText = new Map<string, ReportTaskRow[]>();
   for (const t of current) {
     const key = norm(t.text);
-    if (key && !byText.has(key)) byText.set(key, t);
+    if (!key) continue;
+    if (!byText.has(key)) byText.set(key, []);
+    byText.get(key)!.push(t);
   }
 
-  const seen = new Set<string>();
+  const used = new Set<ReportTaskRow>();
   const synced: ReportTaskRow[] = [];
   for (const dsm of dsmTasks) {
     const key = norm(dsm.text);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    const existing = byText.get(key);
+    if (!key) continue;
+    const existing = byText.get(key)?.find((t) => !used.has(t));
+    if (existing) used.add(existing);
     synced.push(
       existing
         ? { ...existing, priority: existing.priority ?? dsm.priority }
@@ -170,7 +194,7 @@ export function syncReportTasksWithDsm(
     );
   }
   for (const t of current) {
-    if (t.addedAfterReview && !seen.has(norm(t.text))) synced.push(t);
+    if (t.addedAfterReview && !used.has(t)) synced.push(t);
   }
   return synced;
 }

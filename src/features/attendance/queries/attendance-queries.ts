@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange, type UserDay } from "../attendance-data";
+import { canManageUser, managedUserIds, scopeWhere } from "../team-scope";
 import {
   addDaysToKey,
   canManageAttendance,
@@ -46,10 +47,26 @@ async function requireSession() {
   return session as typeof session & { user: NonNullable<typeof session.user> & { id: string } };
 }
 
+/** Fresh role data for the signed-in user (the JWT may be stale). */
+async function viewerOf(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true, profileRole: true, isActive: true },
+  });
+  return user?.isActive ? user : null;
+}
+
+/** Manager-only reads, limited to the people the manager is responsible for (null = everyone). */
 async function requireManager() {
   const session = await requireSession();
-  if (!canManageAttendance(session.user)) throw new Error("Forbidden");
-  return session;
+  const viewer = await viewerOf(session.user.id);
+  if (!viewer || !canManageAttendance(viewer)) throw new Error("Forbidden");
+  return { session, viewer, scope: await managedUserIds(viewer) };
+}
+
+/** TEAM_USERS_WHERE narrowed to the manager's team. */
+function teamUsersWhere(scope: Set<string> | null) {
+  return { ...TEAM_USERS_WHERE, ...scopeWhere(scope, "id") };
 }
 
 function currentMonth(): { monthIndex: number; year: number } {
@@ -151,7 +168,8 @@ export async function getMyAttendanceData(monthIndex?: number, year?: number, fo
   const session = await requireSession();
   let userId = session.user.id!;
   if (forUserId && forUserId !== userId) {
-    if (!canManageAttendance(session.user)) throw new Error("Forbidden");
+    const viewer = await viewerOf(userId);
+    if (!viewer || !(await canManageUser(viewer, forUserId))) throw new Error("Forbidden");
     userId = forUserId;
   }
 
@@ -218,12 +236,12 @@ export async function getTeamAttendanceData(
   selectedDateStr?: string,
   filters?: { search?: string; status?: string; workMode?: string }
 ) {
-  await requireManager();
+  const { scope } = await requireManager();
 
   const key = selectedDateStr && dateFromKey(selectedDateStr) ? selectedDateStr : istDateKey();
 
   const users = await db.user.findMany({
-    where: TEAM_USERS_WHERE,
+    where: teamUsersWhere(scope),
     select: teamUserSelect,
     orderBy: { name: "asc" },
   });
@@ -374,10 +392,17 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
 
 export async function getRegularizationRequestsData(filters?: { status?: string; search?: string }) {
   const session = await requireSession();
-  const isManager = canManageAttendance(session.user);
+  const viewer = await viewerOf(session.user.id);
+  const isManager = canManageAttendance(viewer);
+  const scope = isManager && viewer ? await managedUserIds(viewer) : null;
 
   const raw = await db.attendanceRegularization.findMany({
-    where: isManager ? {} : { userId: session.user.id },
+    // Managers: their own requests plus their team's. Everyone else: their own.
+    where: isManager
+      ? scope === null
+        ? {}
+        : { userId: { in: [session.user.id, ...scope] } }
+      : { userId: session.user.id },
     include: regularizationInclude,
     orderBy: { createdAt: "desc" },
   });
@@ -416,7 +441,10 @@ export async function getRegularizationRequestById(id: string) {
     include: regularizationInclude,
   });
   if (!r) return null;
-  if (r.userId !== session.user.id && !canManageAttendance(session.user)) return null;
+  if (r.userId !== session.user.id) {
+    const viewer = await viewerOf(session.user.id);
+    if (!viewer || !(await canManageUser(viewer, r.userId))) return null;
+  }
 
   return toRegularizationRequest(r);
 }
@@ -474,12 +502,12 @@ export async function getMyShiftSummaryData(monthIndex?: number, year?: number) 
 // ── 6. GET TEAM SHIFT SUMMARY DATA ───────────────────────────────────────────
 
 export async function getTeamShiftSummaryData(selectedDateStr?: string) {
-  await requireManager();
+  const { scope } = await requireManager();
 
   const key = selectedDateStr && dateFromKey(selectedDateStr) ? selectedDateStr : istDateKey();
 
   const users = await db.user.findMany({
-    where: TEAM_USERS_WHERE,
+    where: teamUsersWhere(scope),
     select: teamUserSelect,
     orderBy: { name: "asc" },
   });
@@ -537,14 +565,14 @@ export async function getMyPayrollReportData(year?: number) {
 }
 
 export async function getTeamPayrollReportData(monthIndex?: number, year?: number) {
-  await requireManager();
+  const { scope } = await requireManager();
   const fallback = currentMonth();
   const m = monthIndex ?? fallback.monthIndex;
   const y = year ?? fallback.year;
   const { all, elapsed } = payrollKeys(m, y);
 
   const users = await db.user.findMany({
-    where: TEAM_USERS_WHERE,
+    where: teamUsersWhere(scope),
     select: teamUserSelect,
     orderBy: { name: "asc" },
   });
@@ -570,14 +598,14 @@ export async function getTeamPayrollReportData(monthIndex?: number, year?: numbe
 }
 
 export async function getTeamLeavePayrollData(monthIndex?: number, year?: number) {
-  await requireManager();
+  const { scope } = await requireManager();
   const fallback = currentMonth();
   const m = monthIndex ?? fallback.monthIndex;
   const y = year ?? fallback.year;
   const { all, elapsed } = payrollKeys(m, y);
 
   const users = await db.user.findMany({
-    where: TEAM_USERS_WHERE,
+    where: teamUsersWhere(scope),
     select: teamUserSelect,
     orderBy: { name: "asc" },
   });
@@ -586,6 +614,8 @@ export async function getTeamLeavePayrollData(monthIndex?: number, year?: number
   return users.map((u): LeavePayrollRecord => {
     const monthDays = range.daysFor(u.id, all);
     const nonWorking = monthDays.filter((d) => !d.resolved.isWorkingDay).length;
+    // Days before joining aren't payable, but they aren't weekends/holidays either.
+    const weekend = monthDays.filter((d) => !d.resolved.isWorkingDay && !d.resolved.beforeJoining).length;
     const payableDays = all.length - nonWorking;
 
     // LOP comes from approved unpaid leave across the whole month (future leave is already booked),
@@ -609,7 +639,7 @@ export async function getTeamLeavePayrollData(monthIndex?: number, year?: number
       name: u.name || "Employee",
       avatarGradient: "from-blue-500 to-indigo-600",
       totalDays: all.length,
-      weekend: nonWorking,
+      weekend,
       payableDays,
       lossOfPay,
       paidDays: Math.max(0, Math.round((payableDays - lossOfPay) * 100) / 100),

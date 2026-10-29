@@ -38,7 +38,7 @@ import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/shared/confirm-dialog";
-import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
+import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusPillClasses } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
 import { TaskMultiOwnerSelect } from "../task-multi-owner-select";
 import { AddTaskDrawer } from "../modals/add-task-drawer";
@@ -1292,23 +1292,7 @@ export function TasksBoardView({
           <div
             className={cn(
               "relative inline-flex min-w-0 max-w-[150px] shrink items-center rounded-md pl-2 pr-1 py-0.5 text-xs font-medium text-white transition-all shadow-2xs",
-              task.status === "Done" || task.status === "Closed" || task.status === "Approved"
-                ? "bg-emerald-500 hover:bg-emerald-600"
-                : task.status === "In Progress"
-                ? "bg-amber-500 hover:bg-amber-600"
-                : task.status === "In Review" || task.status === "Under Review"
-                ? "bg-purple-500 hover:bg-purple-600"
-                : task.status === "Follow Up 1"
-                ? "bg-cyan-500 hover:bg-cyan-600"
-                : task.status === "Follow Up 2"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : task.status === "Pending from Client"
-                ? "bg-orange-500 hover:bg-orange-600"
-                : task.status === "On Hold"
-                ? "bg-slate-500 hover:bg-slate-600"
-                : task.status === "Delayed"
-                ? "bg-rose-500 hover:bg-rose-600"
-                : "bg-primary hover:bg-primary/90"
+              getTaskStatusPillClasses(task.status)
             )}
           >
             <select

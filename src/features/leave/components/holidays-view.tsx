@@ -35,6 +35,8 @@ import {
   createHolidayAction,
   deleteHolidayAction,
 } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
+import { istDateKey } from "@/features/attendance/utils";
 
 interface HolidayRecord {
   id: string;
@@ -48,8 +50,12 @@ interface HolidayRecord {
   iconType?: string;
 }
 
+const CURRENT_YEAR = Number(istDateKey().slice(0, 4));
+/** Last year, this year and next year. */
+const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(String);
+
 export function HolidaysView() {
-  const [selectedYear, setSelectedYear] = useState("2025");
+  const [selectedYear, setSelectedYear] = useState(String(CURRENT_YEAR));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,12 +98,14 @@ export function HolidaysView() {
     setIsSubmitting(true);
 
     try {
-      await createHolidayAction({
-        name: newHolidayName,
-        date: newHolidayDate,
-        type: newHolidayType,
-        description: newHolidayDesc,
-      });
+      unwrap(
+        await createHolidayAction({
+          name: newHolidayName,
+          date: newHolidayDate,
+          type: newHolidayType,
+          description: newHolidayDesc,
+        })
+      );
 
       setIsAddModalOpen(false);
       setNewHolidayName("");
@@ -105,7 +113,7 @@ export function HolidaysView() {
       setNewHolidayDesc("");
       loadHolidays();
     } catch (err) {
-      console.error("Failed to create holiday:", err);
+      alert(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -114,10 +122,11 @@ export function HolidaysView() {
   const handleDeleteHoliday = async (id: string) => {
     try {
       setHolidayList((prev) => prev.filter((h) => h.id !== id));
-      await deleteHolidayAction(id);
+      unwrap(await deleteHolidayAction(id));
       loadHolidays();
     } catch (err) {
-      console.error("Failed to delete holiday:", err);
+      alert(errorMessage(err));
+      loadHolidays();
     }
   };
 
@@ -184,7 +193,7 @@ export function HolidaysView() {
 
         {/* Special Holiday */}
         <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-400">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -207,9 +216,11 @@ export function HolidaysView() {
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2024">2024</SelectItem>
-              <SelectItem value="2025">2025</SelectItem>
-              <SelectItem value="2026">2026</SelectItem>
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={y}>
+                  {y}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -261,7 +272,7 @@ export function HolidaysView() {
                         className={cn(
                           "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
                           holiday.type === "PUBLIC"
-                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-accent dark:text-blue-300"
                             : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
                         )}
                       >

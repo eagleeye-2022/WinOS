@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  LayoutDashboard,
   Home,
   ClipboardList,
   LayoutGrid,
@@ -28,11 +27,6 @@ import {
   Timer,
   GraduationCap,
   ChevronDown,
-  Handshake,
-  SquareKanban,
-  Contact,
-  GitMerge,
-  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -40,7 +34,7 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
 import { useNavigationStore } from "@/stores/navigation-store";
 import { shortProjectName } from "@/features/projects/utils/project-name";
-
+import { SETU_TABS } from "@/features/setu/components/setu-shell";
 /**
  * Active sidebar item: a plain neutral fill that follows the theme — a soft grey in light mode, a
  * slightly lighter shade than the sidebar in dark mode — so it stands out without any blue tint,
@@ -55,7 +49,11 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (href.startsWith(ROUTES.setu)) {
     return href === ROUTES.setu ? pathname === ROUTES.setu : pathname.startsWith(href);
   }
-  if (label === "Home" || label === "Dashboard") {
+  // Each module's "Home" is active on its own page (Standup → /dashboard, Pulse → /people/home).
+  if (label === "Home") {
+    return pathname === href;
+  }
+  if (label === "Dashboard") {
     return pathname === ROUTES.dashboard;
   }
   if (label === "All DSM") {
@@ -184,7 +182,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   if (activeModuleTitle === "Pulse") {
     navItems = isManager
       ? [
-          { label: "Home", href: "/people", icon: Home },
+          { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
@@ -198,16 +196,18 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
             children: [{ label: "Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading }],
           },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "RTD Documents", href: "/people", icon: ClipboardList },
           { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ]
       : [
-          { label: "Home", href: "/people", icon: Home },
+          { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "RTD Documents", href: "/people", icon: ClipboardList },
           { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {
@@ -235,14 +235,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Setu") {
-    navItems = [
-      { label: "Dashboard", href: ROUTES.setu, icon: LayoutDashboard },
-      { label: "121 Meetings", href: ROUTES.setuMeetings, icon: Handshake },
-      { label: "Sales Pipeline", href: ROUTES.setuPipeline, icon: SquareKanban },
-      { label: "Contacts", href: ROUTES.setuContacts, icon: Contact },
-      { label: "Referrals", href: ROUTES.setuReferrals, icon: GitMerge },
-      { label: "WhatsApp Bot", href: ROUTES.setuWhatsAppBot, icon: Bot },
-    ];
+    // Same items, order and icons as Setu's tab bar.
+    navItems = SETU_TABS.map((t) => ({ label: t.label, href: t.href, icon: t.icon }));
   } else if (activeModuleTitle === "User Management") {
     navItems = [
       { label: "Users", href: ROUTES.settingsUsers, icon: User },

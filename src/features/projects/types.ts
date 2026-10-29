@@ -290,6 +290,33 @@ export function getTaskStatusBadgeClasses(status?: string | null): string {
   }
 }
 
+/** Solid status pill on task cards (project board, task page sidebar). */
+export function getTaskStatusPillClasses(status?: string | null): string {
+  switch (status) {
+    case "Done":
+    case "Closed":
+    case "Approved":
+      return "bg-emerald-500 hover:bg-emerald-600";
+    case "In Progress":
+      return "bg-amber-500 hover:bg-amber-600";
+    case "In Review":
+    case "Under Review":
+      return "bg-purple-500 hover:bg-purple-600";
+    case "Follow Up 1":
+      return "bg-cyan-500 hover:bg-cyan-600";
+    case "Follow Up 2":
+      return "bg-blue-600 hover:bg-blue-700";
+    case "Pending from Client":
+      return "bg-orange-500 hover:bg-orange-600";
+    case "On Hold":
+      return "bg-slate-500 hover:bg-slate-600";
+    case "Delayed":
+      return "bg-rose-500 hover:bg-rose-600";
+    default:
+      return "bg-primary hover:bg-primary/90";
+  }
+}
+
 export function getTaskStatusSelectClasses(status?: string | null): string {
   switch (status) {
     case "Done":

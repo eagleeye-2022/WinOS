@@ -48,7 +48,8 @@ export const NAV_MODULES: readonly NavModule[] = [
     // BNI networking CRM (replaces the old "Sales" placeholder; /sales redirects here).
     id: "setu",
     label: "Setu",
-    homeHref: "/setu",
+    // First tab — /setu itself just redirects here.
+    homeHref: "/setu/meetings",
     // No module-access gate yet — the key has no PermissionModule row, so the switcher shows it.
     moduleKey: "SETU",
     prefixes: ["/setu"],

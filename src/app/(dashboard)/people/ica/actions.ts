@@ -1,10 +1,29 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { CompetencyCategory, CompetencyStatus } from "../../../../../generated/prisma/client";
 import path from "path";
 import { headers } from "next/headers";
 import { saveUploadFile } from "@/lib/upload-storage";
+import { canManageUser } from "@/features/attendance/team-scope";
+
+/**
+ * Who may touch a person's ICA profile: the person themselves, or a manager responsible for them.
+ * `managerOnly` (coaching notes) excludes the person themselves.
+ */
+async function requireIcaAccess(targetUserId: string, { managerOnly = false } = {}) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const viewer = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true, profileRole: true, isActive: true },
+  });
+  if (!viewer?.isActive) throw new Error("Unauthorized");
+  if (!managerOnly && viewer.id === targetUserId) return viewer;
+  if (await canManageUser(viewer, targetUserId)) return viewer;
+  throw new Error("Forbidden");
+}
 
 export interface IcaItem {
   id: string;
@@ -80,6 +99,7 @@ const GENERAL_TEMPLATE = {
 };
 
 export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
+  await requireIcaAccess(userId);
   const user = await db.user.findUnique({
     where: { id: userId },
     include: {
@@ -220,6 +240,7 @@ export async function getIcaProfile(userId: string): Promise<IcaProfileData> {
 }
 
 export async function saveCoachingNotes(userId: string, notes: string): Promise<void> {
+  await requireIcaAccess(userId, { managerOnly: true });
   await db.icebergProfile.upsert({
     where: { userId },
     update: { coachingNotes: notes },
@@ -233,6 +254,7 @@ export async function saveIcaFile(
   fileUrl: string, 
   comment?: string
 ): Promise<void> {
+  await requireIcaAccess(userId);
   await db.icaDocument.create({
     data: {
       userId,
@@ -262,6 +284,7 @@ export async function saveIcaFile(
 }
 
 export async function uploadIcaFileAction(userId: string, formData: FormData): Promise<void> {
+  await requireIcaAccess(userId);
   const file = formData.get("file") as File;
   if (!file) throw new Error("No file uploaded");
 
@@ -317,6 +340,9 @@ export async function uploadIcaFileAction(userId: string, formData: FormData): P
 
 export async function deleteIcaFileAction(documentId: string): Promise<void> {
   if (documentId.startsWith("legacy-")) return;
+  const doc = await db.icaDocument.findUnique({ where: { id: documentId }, select: { userId: true } });
+  if (!doc) return;
+  await requireIcaAccess(doc.userId);
   await db.icaDocument.delete({
     where: { id: documentId },
   });
@@ -328,6 +354,7 @@ export async function createAttribute(
   name: string,
   status: "Matched" | "Extra" | "Missing"
 ): Promise<IcaItem> {
+  await requireIcaAccess(userId);
   const dbCat = category as CompetencyCategory;
   const dbStatus = toDbStatus(status);
 
@@ -371,6 +398,9 @@ export async function updateAttributeStatus(
   status: "Matched" | "Extra" | "Missing"
 ): Promise<void> {
   const dbStatus = toDbStatus(status);
+  const attr = await db.competencyAttribute.findUnique({ where: { id: attributeId }, select: { userId: true } });
+  if (!attr) throw new Error("Attribute not found");
+  await requireIcaAccess(attr.userId);
   await db.competencyAttribute.update({
     where: { id: attributeId },
     data: { status: dbStatus }
@@ -378,6 +408,9 @@ export async function updateAttributeStatus(
 }
 
 export async function deleteAttribute(attributeId: string): Promise<void> {
+  const attr = await db.competencyAttribute.findUnique({ where: { id: attributeId }, select: { userId: true } });
+  if (!attr) return;
+  await requireIcaAccess(attr.userId);
   await db.competencyAttribute.delete({
     where: { id: attributeId }
   });

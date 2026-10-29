@@ -16,12 +16,7 @@ import { MyPayrollReportView } from "./my-payroll-report-view";
 import { TeamLeavePayrollView } from "./team-leave-payroll-view";
 import { cn } from "@/lib/utils";
 
-type ReportType =
-  | "team-shift"
-  | "my-shift"
-  | "team-payroll"
-  | "team-leave-payroll"
-  | "my-payroll";
+import type { ReportType } from "../types";
 
 interface AttendanceReportsHubProps {
   initialReport?: ReportType;
@@ -43,7 +38,7 @@ export function AttendanceReportsHub({
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
       <div className="max-w-[1600px] w-full mx-auto space-y-6">
         {/* Top Report Type Nav Tabs */}
-        <div className="flex flex-wrap items-center border-b border-slate-200 dark:border-slate-800 gap-6">
+        <div className="flex flex-wrap items-center border-b border-zinc-200 dark:border-zinc-800 gap-6">
           {canManage && (
             <button
               onClick={() => setActiveReport("team-shift")}
@@ -51,7 +46,7 @@ export function AttendanceReportsHub({
                 "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
                 activeReport === "team-shift"
                   ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
               )}
             >
               <Users className="w-4 h-4" />
@@ -65,7 +60,7 @@ export function AttendanceReportsHub({
               "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
               activeReport === "my-shift"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
             )}
           >
             <Clock className="w-4 h-4" />
@@ -79,7 +74,7 @@ export function AttendanceReportsHub({
                 "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
                 activeReport === "team-payroll"
                   ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
               )}
             >
               <Briefcase className="w-4 h-4" />
@@ -94,7 +89,7 @@ export function AttendanceReportsHub({
                 "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
                 activeReport === "team-leave-payroll"
                   ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
               )}
             >
               <CalendarCheck className="w-4 h-4" />
@@ -108,7 +103,7 @@ export function AttendanceReportsHub({
               "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
               activeReport === "my-payroll"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
             )}
           >
             <FileSpreadsheet className="w-4 h-4" />

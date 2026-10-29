@@ -54,14 +54,14 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
       </button>
 
       {isLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+        <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-400">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
           <span className="text-xs font-semibold">Loading profile...</span>
         </div>
       ) : (
         <>
           {/* Profile Header Card */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <img
                 src={
@@ -69,13 +69,13 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
                   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=140&auto=format&fit=crop&q=80"
                 }
                 alt={userProfile?.name || "User"}
-                className="w-16 h-16 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-md shrink-0"
+                className="w-16 h-16 rounded-full object-cover border-2 border-white dark:border-zinc-800 shadow-md shrink-0"
               />
               <div className="space-y-1">
-                <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                <h2 className="text-xl font-extrabold text-zinc-900 dark:text-zinc-100">
                   {userProfile?.name || "Employee"}
                 </h2>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {userProfile?.title || "Senior Software Engineer"}
                 </div>
                 <div className="flex items-center gap-3 pt-1 text-xs">
@@ -83,14 +83,14 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     {userProfile?.isActive ? "Active" : "Inactive"}
                   </span>
-                  <span className="text-slate-400 font-mono">
+                  <span className="text-zinc-400 font-mono">
                     Employee ID: {userProfile?.employeeId || `WIN-${userProfile?.id?.slice(-4)?.toUpperCase() || "1023"}`}
                   </span>
                 </div>
               </div>
             </div>
 
-            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 shadow-xs transition-colors">
+            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 shadow-xs transition-colors">
               <Edit className="w-3.5 h-3.5" />
               <span>Edit Profile</span>
             </button>
@@ -99,54 +99,54 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
           {/* Details 2-Column Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Primary Details */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4">
-              <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 shadow-xs space-y-4">
+              <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
                 <User className="w-4 h-4 text-blue-600" />
                 <span>Personal & Employment Information</span>
               </div>
 
               <div className="space-y-3.5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-2">
+                  <span className="text-zinc-500 flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5" /> Official Email
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile?.email || "employee@eagleeyedigital.io"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-2">
+                  <span className="text-zinc-500 flex items-center gap-2">
                     <Phone className="w-3.5 h-3.5" /> Work Phone
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile?.workMobile || "+91 98765 43210"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-2">
+                  <span className="text-zinc-500 flex items-center gap-2">
                     <Building className="w-3.5 h-3.5" /> Department
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile?.department || "Engineering & Product"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-2">
+                  <span className="text-zinc-500 flex items-center gap-2">
                     <Briefcase className="w-3.5 h-3.5" /> Employment Type
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile?.employmentType || "Full-time (Permanent)"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 flex items-center gap-2">
+                  <span className="text-zinc-500 flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5" /> Date of Joining
                   </span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {userProfile?.dateOfJoining
                       ? new Date(userProfile.dateOfJoining).toLocaleDateString("en-GB", {
                           day: "2-digit",
@@ -160,31 +160,31 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
             </div>
 
             {/* Reporting & Security */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4 flex flex-col justify-between">
+            <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 shadow-xs space-y-4 flex flex-col justify-between">
               <div>
-                <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
                   <Briefcase className="w-4 h-4 text-blue-600" />
                   <span>Reporting Structure & Security</span>
                 </div>
 
                 <div className="space-y-3.5 text-xs mt-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Primary Reporting Manager</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    <span className="text-zinc-500">Primary Reporting Manager</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                       {userProfile?.reportingTo?.name || "Mohit (Manager)"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Work Location</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    <span className="text-zinc-500">Work Location</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                       {userProfile?.location || "Gurgaon HQ - Cyber City"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Profile Role</span>
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    <span className="text-zinc-500">Profile Role</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                       {userProfile?.profileRole || "EMPLOYEE"}
                     </span>
                   </div>
@@ -192,7 +192,7 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
               </div>
 
               {/* Sign Out Button */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
                 <button
                   onClick={() => logoutAction()}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100/70 transition-colors shadow-2xs"

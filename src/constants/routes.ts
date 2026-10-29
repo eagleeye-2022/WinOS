@@ -24,6 +24,7 @@ export const ROUTES = {
   settingsUsersNew: "/settings/users/member/new",
   settingsUsersEdit: (userId: string) => `/settings/users/member/${userId}/edit` as const,
   settingsProfileAccess: "/settings/profile-access",
+  pulseHome: "/people/home",
   pulseLeave: "/pulse/leave",
   pulseLeaveApply: "/pulse/leave/apply",
   pulseAttendance: "/pulse/attendance",

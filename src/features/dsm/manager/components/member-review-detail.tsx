@@ -1627,7 +1627,12 @@ function TaskRow({
         {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? (
+          <div className="flex items-start gap-0.5">
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+            <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} />
+          </div>
+        ) : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
@@ -1696,9 +1701,8 @@ function TaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         {!isLocked ? (
-          // Details ▸ · Info · Edit · Delete in a line (no ⋯ menu), packed close together.
+          // Info · Edit · Delete in a line (no ⋯ menu), packed close together. Details ▸ sits before the Task ID.
           <div className="flex items-center justify-center">
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
             <TaskInfoAction task={task} compact />
             <button
               type="button"
@@ -1730,7 +1734,6 @@ function TaskRow({
           // Reviewed rows: open the linked task (ⓘ) or edit the row — editing the text also
           // renames the linked Srijan task when it's a NAT task (see editTask).
           <div className="flex items-center justify-center gap-0.5">
-            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
             <TaskInfoAction task={task} />
             <button
               type="button"
@@ -1989,7 +1992,7 @@ function SummaryTaskRow({
   if (editing) {
     return (
       <tr className="border-b bg-muted/20">
-        <td colSpan={7} className="p-2">
+        <td colSpan={8} className="p-2">
           <SummaryTaskEditor task={task} isDone={done} entryId={entryId} kind={kind} cascadingProjects={cascadingProjects} onDone={() => setEditing(false)} />
         </td>
       </tr>
@@ -2028,7 +2031,12 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         {/* Status pill hidden in "What Did You Do Yesterday?" — pass showStatus (or remove the prop) to restore */}
-        {task.projectTask ? <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} showStatus={false} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {task.projectTask ? (
+          <div className="flex items-start gap-0.5">
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+            <LinkedTaskCell projectTask={task.projectTask} fallbackTitle={task.text} showStatus={false} />
+          </div>
+        ) : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
@@ -2039,6 +2047,9 @@ function SummaryTaskRow({
             </span>
           )} */}
         </div>
+      </td>
+      <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+        <PriorityBadge priority={task.managerPriority ?? task.priority} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         <EffortSpanCell span={effortSpan} />
@@ -2068,7 +2079,6 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
           <TaskInfoAction task={task} />
           {/* ⋯ (Edit / Delete) removed from "What Did You Do Yesterday?" by request.
           <DropdownMenu>
@@ -2113,7 +2123,7 @@ function SummaryTaskRow({
         </div>
       </td>
     </tr>
-    {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={7} />}
+    {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={8} />}
     </>
   );
 }
@@ -2212,12 +2222,19 @@ function LoggedSummaryRow({
       </td>
       {/* Same cells as the DSM rows above: no ⓘ next to the ID — it lives in the Action column. */}
       <td className="py-2 pr-3 align-top">
-        <TaskIdChip code={task.code} title={task.title} />
+        <div className="flex items-start gap-0.5">
+          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />
+          <TaskIdChip code={task.code} title={task.title} />
+        </div>
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex items-center gap-1.5 text-sm text-foreground/90">
           <WrappedTaskText text={task.title} />
         </div>
+      </td>
+      {/* Not one of that day's DSM tasks, so it has no DSM priority. */}
+      <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
+        <PriorityBadge priority={null} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         <EffortSpanCell span={formatEffortSpan(task.effortFrom, task.effortTo)} />
@@ -2229,12 +2246,11 @@ function LoggedSummaryRow({
       </td>
       <td className="py-2 pr-2 align-top text-center">
         <div className="flex items-center justify-center gap-0.5">
-          <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />
           {href && <TaskInfoLink href={href} code={task.code} className="h-7 w-7 rounded-lg hover:bg-muted" />}
         </div>
       </td>
     </tr>
-    {detailOpen && <TaskDetailRow taskId={task.taskId} colSpan={7} />}
+    {detailOpen && <TaskDetailRow taskId={task.taskId} colSpan={8} />}
     </>
   );
 }
@@ -2403,6 +2419,7 @@ function YesterdayTasksSection({
                 <th className="py-2 pr-3">Project</th>
                 <th className="py-2 pr-3">Task ID</th>
                 <th className="py-2 pr-3">Task / Subtask</th>
+                <th className="w-20 py-2 pr-3">Priority</th>
                 <th className="py-2 pr-3">Effort Time</th>
                 <th className="py-2 pr-3">Effort Logs</th>
                 <th className="py-2 pr-2 text-center">Action</th>

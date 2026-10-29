@@ -34,6 +34,7 @@ import {
   getLeaveRequestByIdAction,
 } from "../queries/leave-queries";
 import { cancelLeaveRequestAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
 import { submitRegularizationAction } from "@/features/attendance/actions/attendance-actions";
 
 type ActiveTab =
@@ -180,10 +181,10 @@ export function LeaveWorkspace({
 
   const handleCancelRequest = async (requestId: string) => {
     try {
-      await cancelLeaveRequestAction(requestId);
+      unwrap(await cancelLeaveRequestAction(requestId));
       loadData();
     } catch (err) {
-      console.error("Failed to cancel request:", err);
+      alert(errorMessage(err));
     }
   };
 

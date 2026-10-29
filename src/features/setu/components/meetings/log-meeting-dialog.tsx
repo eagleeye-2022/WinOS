@@ -12,13 +12,19 @@ import { useSetuStore } from "../../store";
 import type { MeetingType } from "../../types";
 import { Field, IconTile, SetuButton } from "../setu-ui";
 
+const TYPE_OPTION_LABEL: Record<MeetingType, string> = {
+  ONE_TO_ONE: "121 Meeting (member talk)",
+  CHAPTER: MEETING_TYPE_LABEL.CHAPTER,
+  EVENT: MEETING_TYPE_LABEL.EVENT,
+};
+
 const EMPTY = {
   memberName: "",
-  business: "",
   connectedVia: "",
   phone: "",
   date: new Date().toISOString().slice(0, 10),
   type: "ONE_TO_ONE" as MeetingType,
+  refsReceived: "0",
   refsGiven: "0",
   referralNames: "",
   notes: "",
@@ -37,22 +43,18 @@ export function LogMeetingDialog({ open, onClose }: { open: boolean; onClose: ()
     .filter(Boolean);
 
   const save = (convert: boolean) => {
-    if (!form.memberName.trim()) {
-      setError("Member name is required.");
-      return;
-    }
-    if (form.phone && !/^\d{10}$/.test(form.phone)) {
-      setError("Phone must be a 10-digit mobile number.");
-      return;
-    }
+    if (!form.memberName.trim()) return setError("Member name is required.");
+    if (form.phone && !/^\d{10}$/.test(form.phone)) return setError("Phone must be a 10-digit mobile number.");
+    if (convert && referralNames.length === 0) return setError("Add the referral names to convert them into Prospects.");
     const meeting = addMeeting({
       memberName: form.memberName.trim(),
-      business: form.business.trim(),
+      business: "BNI Member",
       connectedVia: form.connectedVia.trim(),
       phone: form.phone,
       date: form.date,
       type: form.type,
-      refsReceived: referralNames.length,
+      // Named referrals always count, even if the number field was left at 0.
+      refsReceived: Math.max(Number(form.refsReceived) || 0, referralNames.length),
       refsGiven: Math.max(0, Number(form.refsGiven) || 0),
       followUps: 0,
       pendingReferralNames: referralNames,
@@ -70,7 +72,7 @@ export function LogMeetingDialog({ open, onClose }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="setu-scope setu-dialog max-h-[90vh] max-w-lg overflow-y-auto p-7">
+      <DialogContent className="setu-scope setu-dialog max-h-[90vh] max-w-md overflow-y-auto p-7">
         <DialogHeader className="flex-row items-center gap-4 space-y-0">
           <IconTile icon={Handshake} size={44} glow iconClassName="setu-accent-text" />
           <div className="text-left">
@@ -82,80 +84,84 @@ export function LogMeetingDialog({ open, onClose }: { open: boolean; onClose: ()
         </DialogHeader>
 
         <div className="space-y-3">
+          <Field label="Member name">
+            <Input className="setu-input" value={form.memberName} onChange={(e) => set("memberName", e.target.value)} placeholder="e.g. Rajesh Mehta Ji" />
+          </Field>
+          <Field label="Connected via (Co.)">
+            <Input
+              className="setu-input"
+              value={form.connectedVia}
+              onChange={(e) => set("connectedVia", e.target.value)}
+              placeholder="e.g. Ankur Ji — blank if direct BNI"
+            />
+          </Field>
+          <Field label="Phone">
+            <Input
+              className="setu-input"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+              placeholder="10-digit mobile"
+            />
+          </Field>
+          <Field label="Meeting date">
+            <Input className="setu-input" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
+          </Field>
+          <Field label="Meeting type">
+            <Select value={form.type} onValueChange={(v) => set("type", v as MeetingType)}>
+              <SelectTrigger className="setu-input">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TYPE_OPTION_LABEL) as MeetingType[]).map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {TYPE_OPTION_LABEL[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Member name *">
-              <Input className="setu-input"value={form.memberName} onChange={(e) => set("memberName", e.target.value)} placeholder="e.g. Rajesh Mehta Ji" />
-            </Field>
-            <Field label="Business">
-              <Input className="setu-input"value={form.business} onChange={(e) => set("business", e.target.value)} placeholder="e.g. CA firm" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Connected via (Co.)">
-              <Input className="setu-input"value={form.connectedVia} onChange={(e) => set("connectedVia", e.target.value)} placeholder="Blank if direct BNI" />
-            </Field>
-            <Field label="Phone">
-              <Input
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
-                placeholder="10-digit mobile"
-              />
-            </Field>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Meeting date">
-              <Input className="setu-input"type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
-            </Field>
-            <Field label="Type">
-              <Select value={form.type} onValueChange={(v) => set("type", v as MeetingType)}>
-                <SelectTrigger className="setu-input">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(MEETING_TYPE_LABEL) as MeetingType[]).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {MEETING_TYPE_LABEL[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Field label="Refs received">
+              <Input className="setu-input" type="number" min={0} value={form.refsReceived} onChange={(e) => set("refsReceived", e.target.value)} />
             </Field>
             <Field label="Refs given">
-              <Input className="setu-input"type="number" min={0} value={form.refsGiven} onChange={(e) => set("refsGiven", e.target.value)} />
+              <Input className="setu-input" type="number" min={0} value={form.refsGiven} onChange={(e) => set("refsGiven", e.target.value)} />
             </Field>
           </div>
-          <Field label={`Referrals received — one name per line${referralNames.length ? ` (${referralNames.length})` : ""}`}>
+          <Field label={`Referral names — optional, one per line${referralNames.length ? ` (${referralNames.length})` : ""}`}>
             <Textarea
-              rows={3}
+              className="setu-input"
+              rows={2}
               value={form.referralNames}
               onChange={(e) => set("referralNames", e.target.value)}
               placeholder={"Rohit Malviya Ji\nKavya Jain Ji"}
             />
           </Field>
           <Field label="Meeting notes">
-            <Textarea className="setu-input"rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="What was discussed, follow-ups…" />
+            <Textarea
+              className="setu-input"
+              rows={3}
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              placeholder="What was discussed, follow-ups, referral names…"
+            />
           </Field>
 
           <div className="setu-chip setu-text-2 flex items-center gap-2 px-3 py-2.5 text-xs">
-            <Bot size={14} className="shrink-0 text-emerald-500" /> Or send a photo of your notes to the Setu WhatsApp bot — it
-            creates this entry for you.
+            <Bot size={14} className="shrink-0 text-emerald-500" /> Or log via the WhatsApp Bot — a photo of your notes auto-creates
+            this entry.
           </div>
           {error && <p className="text-xs font-medium text-red-500">{error}</p>}
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <SetuButton variant="ghost" onClick={onClose}>
-            Cancel
-          </SetuButton>
-          <SetuButton onClick={() => save(true)} disabled={referralNames.length === 0}>
-            Save & convert refs
-          </SetuButton>
+        <div className="flex flex-wrap gap-2 pt-2">
           <SetuButton variant="primary" onClick={() => save(false)}>
             Save meeting
           </SetuButton>
+          <SetuButton onClick={() => save(true)}>Save & convert refs → Prospects</SetuButton>
         </div>
       </DialogContent>
     </Dialog>

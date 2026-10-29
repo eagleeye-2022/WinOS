@@ -1,5 +1,4 @@
-import { PIPELINE_STAGES } from "./constants";
-import type { Meeting121, PipelineStageId, Prospect, Referral, SetuContact, SetuStats } from "./types";
+import type { Meeting121, Prospect, SetuContact, SetuStats } from "./types";
 
 /** Share (0–100) of prospects that are still moving — everything except Lost and On Hold. */
 export function pipelineHealth(prospects: Prospect[]): number {
@@ -17,25 +16,6 @@ export function computeStats(meetings: Meeting121[], prospects: Prospect[]): Set
     refsGiven: meetings.reduce((n, m) => n + m.refsGiven, 0),
     won: prospects.filter((p) => p.stage === "WON").length,
   };
-}
-
-export function countByStage(prospects: Prospect[]): Record<PipelineStageId, number> {
-  const counts = Object.fromEntries(PIPELINE_STAGES.map((s) => [s.id, 0])) as Record<PipelineStageId, number>;
-  for (const p of prospects) counts[p.stage] += 1;
-  return counts;
-}
-
-/** Sum of `value` for won deals, in INR. */
-export function wonValue(prospects: Prospect[]): number {
-  return prospects.filter((p) => p.stage === "WON").reduce((n, p) => n + (p.value ?? 0), 0);
-}
-
-/** Sum of `value` for deals still in the active funnel (not closed, not an "opportunity" idea). */
-export function openPipelineValue(prospects: Prospect[]): number {
-  const closed = new Set(PIPELINE_STAGES.filter((s) => s.closed).map((s) => s.id));
-  return prospects
-    .filter((p) => !closed.has(p.stage) && p.stage !== "OPPORTUNITY")
-    .reduce((n, p) => n + (p.value ?? 0), 0);
 }
 
 /**
@@ -119,15 +99,4 @@ export function formatInrShort(value: number): string {
   if (value >= 100000) return `₹${+(value / 100000).toFixed(1)}L`;
   if (value >= 1000) return `₹${Math.round(value / 1000)}k`;
   return `₹${value}`;
-}
-
-export function referralBalance(referrals: Referral[]) {
-  const received = referrals.filter((r) => r.direction === "RECEIVED");
-  const given = referrals.filter((r) => r.direction === "GIVEN");
-  return {
-    received: received.length,
-    given: given.length,
-    converted: received.filter((r) => r.status === "CONVERTED" || r.status === "WON").length,
-    won: referrals.filter((r) => r.status === "WON").length,
-  };
 }

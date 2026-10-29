@@ -5,8 +5,9 @@ import type { ActionRequiredType, AttendanceStatus } from "./types";
 
 // ── Shift configuration ───────────────────────────────────────────────────────
 
-export const SHIFT_START = "09:30 AM";
-export const SHIFT_END = "06:30 PM";
+// Configurable per deployment (there is no shift table): NEXT_PUBLIC_ so client components agree.
+export const SHIFT_START = process.env.NEXT_PUBLIC_SHIFT_START?.trim() || "09:30 AM";
+export const SHIFT_END = process.env.NEXT_PUBLIC_SHIFT_END?.trim() || "06:30 PM";
 
 const IST_OFFSET_MINUTES = 330;
 
@@ -233,6 +234,8 @@ export interface ResolveDayInput {
   hasPendingLeave: boolean;
   /** Latest regularization for this day, if any. */
   regularizationStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+  /** The day is before the employee joined: nothing is expected, nothing counts. */
+  beforeJoining?: boolean;
 }
 
 export interface ResolvedDay {
@@ -247,12 +250,25 @@ export interface ResolvedDay {
   action?: { type: ActionRequiredType; issue: string };
   /** Shown on the day even when no action is offered (e.g. regularization pending). */
   note?: string;
+  /** Set on days before the employee joined (not a working day, but not a weekend either). */
+  beforeJoining?: boolean;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
 export function resolveDay(input: ResolveDayInput): ResolvedDay {
   const { key, todayKey, attendance, regularizationStatus } = input;
+
+  // Before joining there is no working day to miss — unless there's real attendance for it.
+  if (input.beforeJoining && !attendance?.checkInTime) {
+    return {
+      status: "ABSENT",
+      isWorkingDay: false,
+      present: 0, paidLeave: 0, lopLeave: 0, absent: 0,
+      note: "Before joining",
+      beforeJoining: true,
+    };
+  }
 
   if (input.isHoliday || isWeekendKey(key)) {
     // Working on a day off (comp-off) still needs a live check-out today; it never counts toward payroll.

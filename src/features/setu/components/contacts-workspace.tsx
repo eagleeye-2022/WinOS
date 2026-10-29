@@ -9,18 +9,25 @@ import { useSetuStore } from "../store";
 import type { SetuContact } from "../types";
 import { buildContacts } from "../utils";
 import { AddProspectDialog } from "./pipeline/prospect-dialogs";
-import { EmptyState, FilterChips, Pill, SearchInput, SetuAvatar, SetuButton, SetuPage, SourceBadge, StageBadge } from "./setu-ui";
+import { EmptyState, FilterChips, Pill, SearchInput, SetuAvatar, SetuButton, SetuSection, SourceBadge, StageBadge } from "./setu-ui";
 
-type ContactFilter = "all" | "members" | "prospects" | "won" | "lost";
-const FILTERS: readonly ContactFilter[] = ["all", "members", "prospects", "won", "lost"];
-const FILTER_LABEL: Record<ContactFilter, string> = { all: "All", members: "BNI Members", prospects: "Prospects", won: "Won", lost: "Lost" };
+type ContactFilter = "all" | "prospects" | "members" | "referrals" | "won";
+const FILTERS: readonly ContactFilter[] = ["all", "prospects", "members", "referrals", "won"];
+const FILTER_LABEL: Record<ContactFilter, string> = {
+  all: "All",
+  prospects: "Prospects",
+  members: "Members",
+  referrals: "Referrals",
+  won: "Won",
+};
 
 const MATCH: Record<ContactFilter, (c: SetuContact) => boolean> = {
   all: () => true,
+  prospects: (c) => c.kind === "PROSPECT",
   members: (c) => c.kind === "MEMBER",
-  prospects: (c) => c.kind === "PROSPECT" && c.stage !== "WON" && c.stage !== "LOST",
+  // Prospects that came in as a referral from a 121 meeting.
+  referrals: (c) => c.source === "MEETING_121",
   won: (c) => c.stage === "WON",
-  lost: (c) => c.stage === "LOST",
 };
 
 export function ContactsWorkspace() {
@@ -37,52 +44,42 @@ export function ContactsWorkspace() {
     .filter((c) => !needle || `${c.name} ${c.business} ${c.phone} ${c.connectedVia}`.toLowerCase().includes(needle));
 
   return (
-    <SetuPage
-      icon={Contact}
-      title="Contacts"
-      description="Everyone in your BNI network — chapter members you've met and the prospects they sent your way."
+    <SetuSection
+      title="BNI Contacts"
       actions={
         <>
           <SetuButton onClick={() => toast.info("vCard import will be available with the backend")}>
             <Upload /> Import vCard
           </SetuButton>
           <SetuButton variant="primary" onClick={() => setAdding(true)}>
-            <Plus /> Add Prospect
+            <Plus /> Add Contact
           </SetuButton>
         </>
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchInput value={q} onChange={setQ} placeholder="Search by name, business, phone…" />
-        <FilterChips
-          value={filter}
-          onChange={setFilter}
-          options={FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: contacts.filter(MATCH[f]).length }))}
-        />
-      </div>
+      <SearchInput value={q} onChange={setQ} placeholder="Search by name, business, phone…" />
+      <FilterChips
+        value={filter}
+        onChange={setFilter}
+        options={FILTERS.map((f) => ({ value: f, label: FILTER_LABEL[f], count: contacts.filter(MATCH[f]).length }))}
+      />
 
       {visible.length === 0 ? (
         <EmptyState icon={Contact} text="No contacts match these filters." />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {visible.map((c) => (
-            <Link key={c.id} href={c.href} className="setu-card setu-card-hover flex flex-col items-center p-6 text-center">
-              <span className="setu-tile p-1.5">
-                <SetuAvatar name={c.name} size="lg" />
-              </span>
-              <div className="mt-4 w-full truncate text-[15px] font-semibold tracking-tight">{c.name}</div>
-              <div className="setu-text-3 w-full truncate text-xs">{c.business || c.connectedVia || "—"}</div>
-              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+            <Link key={c.id} href={c.href} className="setu-card setu-card-hover flex flex-col rounded-2xl p-5">
+              <SetuAvatar name={c.name} />
+              <div className="mt-3 truncate text-sm font-semibold tracking-tight">{c.name}</div>
+              <div className="setu-text-2 truncate text-xs">{c.business || c.connectedVia || "—"}</div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {c.kind === "MEMBER" ? <Pill dot="bg-pink-500">BNI Member</Pill> : c.stage && <StageBadge stage={c.stage} />}
                 {c.refsReceived ? <Pill dot="bg-green-500">{c.refsReceived} refs</Pill> : null}
+                {c.source === "WHATSAPP_BOT" && <SourceBadge source={c.source} label="Via Bot" />}
               </div>
-              <div className="mt-auto w-full pt-5">
-                <div className="setu-text-2 flex items-center justify-between gap-2 border-t border-[var(--setu-line)] pt-3 text-xs">
-                  <span className="flex items-center gap-1">
-                    <Phone size={11} /> {c.phone || "—"}
-                  </span>
-                  {c.source && <SourceBadge source={c.source} />}
-                </div>
+              <div className="setu-text-3 mt-auto flex items-center gap-1 pt-3 text-xs">
+                <Phone size={11} /> {c.phone || "—"}
               </div>
             </Link>
           ))}
@@ -90,6 +87,6 @@ export function ContactsWorkspace() {
       )}
 
       <AddProspectDialog stage={adding ? "PROSPECT" : null} onClose={() => setAdding(false)} />
-    </SetuPage>
+    </SetuSection>
   );
 }

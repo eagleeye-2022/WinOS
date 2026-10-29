@@ -133,7 +133,7 @@ function statusPillClass(status: string): string {
     case "Pending from Client":
       return "bg-orange-500 hover:bg-orange-600";
     case "On Hold":
-      return "bg-slate-500 hover:bg-slate-600";
+      return "bg-zinc-500 hover:bg-zinc-600";
     case "Delayed":
       return "bg-rose-500 hover:bg-rose-600";
     default:
@@ -159,7 +159,7 @@ const TAB_CLASS = (active: boolean) =>
   );
 
 const ICON_BTN =
-  "p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors cursor-pointer";
+  "p-1 rounded text-zinc-500 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer";
 
 function Avatar({ user, className }: { user: WhyfiUser; className?: string }) {
   return (
@@ -361,7 +361,7 @@ function LearningCard({
     <div
       aria-busy={isSaving || undefined}
       className={cn(
-        "group relative space-y-2.5 overflow-hidden rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs transition-all hover:border-primary/60 hover:shadow-md dark:border-neutral-800 dark:bg-card",
+        "group relative space-y-2.5 overflow-hidden rounded-xl border border-zinc-200/90 bg-white p-3.5 shadow-2xs transition-all hover:border-primary/60 hover:shadow-md dark:border-neutral-800 dark:bg-card",
         isSaving && "pointer-events-none opacity-60"
       )}
     >
@@ -369,7 +369,7 @@ function LearningCard({
 
       {/* Top row: code, status, details, more */}
       <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1 whitespace-nowrap font-mono text-xs font-bold text-slate-400 dark:text-neutral-500">
+        <span className="flex items-center gap-1 whitespace-nowrap font-mono text-xs font-bold text-zinc-400 dark:text-neutral-500">
           {isSaving && <Loader2 size={12} className="animate-spin text-primary" />}
           {task.code}
         </span>
@@ -404,7 +404,7 @@ function LearningCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="cursor-pointer rounded-full p-1 text-slate-400 transition-all duration-150 hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800"
+            className="cursor-pointer rounded-full p-1 text-zinc-400 transition-all duration-150 hover:bg-zinc-200 hover:text-foreground dark:hover:bg-zinc-800"
             title={expanded ? "Hide details" : "View details"}
           >
             <Eye size={13} />
@@ -415,7 +415,7 @@ function LearningCard({
               <button
                 type="button"
                 disabled={!canEdit && !canAddSubtask}
-                className="cursor-pointer rounded-full p-1 text-slate-400 transition-all duration-150 hover:bg-slate-200 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-slate-800"
+                className="cursor-pointer rounded-full p-1 text-zinc-400 transition-all duration-150 hover:bg-zinc-200 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-800"
                 title={canEdit || canAddSubtask ? "More options" : "This learning task list hasn't been shared with you"}
               >
                 <MoreVertical size={13} />
@@ -509,8 +509,8 @@ function LearningCard({
           className={cn(
             "-mx-1 block cursor-pointer rounded-md px-1 text-xs font-semibold leading-snug transition-colors hover:underline group-hover:text-primary",
             isDone
-              ? "text-slate-400 line-through decoration-slate-400/80 dark:text-neutral-500"
-              : "text-slate-800 dark:text-neutral-200"
+              ? "text-zinc-400 line-through decoration-zinc-400/80 dark:text-neutral-500"
+              : "text-zinc-800 dark:text-neutral-200"
           )}
         >
           {task.title}
@@ -541,8 +541,8 @@ function LearningCard({
       )}
 
       {/* Footer: timer + owner avatar */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-400 dark:border-neutral-800/80">
-        <div className="flex items-center gap-2 text-slate-400">
+      <div className="flex items-center justify-between border-t border-zinc-100 pt-2 text-xs text-zinc-400 dark:border-neutral-800/80">
+        <div className="flex items-center gap-2 text-zinc-400">
           <TimerWidget
             instanceId={`whyfi-card-${task.id}`}
             taskId={task.id}
@@ -563,7 +563,7 @@ function LearningCard({
             <button
               type="button"
               onClick={() => setShowSubtasks((v) => !v)}
-              className="flex cursor-pointer items-center gap-1 rounded-full p-1 text-slate-400 transition-all hover:bg-slate-200 hover:text-foreground dark:hover:bg-slate-800"
+              className="flex cursor-pointer items-center gap-1 rounded-full p-1 text-zinc-400 transition-all hover:bg-zinc-200 hover:text-foreground dark:hover:bg-zinc-800"
               title={`${task.subtasks.length} subtask${task.subtasks.length > 1 ? "s" : ""} — ${doneSubtasks}/${allSubtasks.length} done incl. nested (click to ${showSubtasks ? "hide" : "view"})`}
             >
               <CheckSquare size={13} />
@@ -602,7 +602,7 @@ function LearningCard({
                 // Overlapping owner photos (initials when none), then "+N" for the rest.
                 <AvatarStack people={task.owners.map((o) => ({ id: o.id, name: o.name, email: o.email }))} />
               ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200/80 bg-slate-100 text-slate-400 shadow-2xs ring-2 ring-background dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200/80 bg-zinc-100 text-zinc-400 shadow-2xs ring-2 ring-background dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-500">
                   <UserIcon size={12} />
                 </span>
               )}
@@ -815,7 +815,7 @@ function ListColumn({
       <div
         {...listDropProps}
         className={cn(
-          "flex h-full w-12 shrink-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-slate-100/70 p-2 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
+          "flex h-full w-12 shrink-0 flex-col items-center rounded-2xl border border-zinc-200/80 bg-zinc-100/70 p-2 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
           listDropClass
         )}
       >
@@ -824,7 +824,7 @@ function ListColumn({
         </button>
         <div className="flex flex-1 items-start justify-center">
           <span
-            className="whitespace-nowrap text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300"
+            className="whitespace-nowrap text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-300"
             style={{ writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" }}
           >
             {list.name}
@@ -842,7 +842,7 @@ function ListColumn({
       aria-busy={isSavingList || undefined}
       {...listDropProps}
       className={cn(
-        "flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
+        "flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
         // A list being created: visible straight away, usable once the server has saved it.
         isSavingList && "pointer-events-none opacity-60",
         dnd.dragListId === list.id && "opacity-40",
@@ -851,7 +851,7 @@ function ListColumn({
     >
       {ConfirmDialog}
       {/* Column header */}
-      <div className="mb-3 flex items-center justify-between border-b border-slate-200/60 pb-3 dark:border-neutral-800">
+      <div className="mb-3 flex items-center justify-between border-b border-zinc-200/60 pb-3 dark:border-neutral-800">
         <div className="flex items-center gap-2 overflow-hidden">
           {isSavingList ? (
             <Loader2 size={14} className="shrink-0 animate-spin text-primary" aria-label="Saving task list" />
@@ -864,7 +864,7 @@ function ListColumn({
                 dnd.onListDragStart(list.id);
               }}
               onDragEnd={dnd.onDragEnd}
-              className="shrink-0 cursor-grab text-slate-400 hover:text-slate-700 active:cursor-grabbing dark:hover:text-slate-200"
+              className="shrink-0 cursor-grab text-zinc-400 hover:text-zinc-700 active:cursor-grabbing dark:hover:text-zinc-200"
               title="Drag to reorder task lists"
             >
               <GripVertical size={14} />
@@ -894,7 +894,7 @@ function ListColumn({
               title={workspace.isManager ? "Click to rename task list" : list.name}
               className={cn(
                 "-mx-1 max-w-[200px] truncate rounded-md px-1 text-xs font-extrabold uppercase tracking-wide text-foreground transition-colors",
-                workspace.isManager && "cursor-text hover:bg-slate-200/60 dark:hover:bg-neutral-800/60"
+                workspace.isManager && "cursor-text hover:bg-zinc-200/60 dark:hover:bg-neutral-800/60"
               )}
             >
               {list.name}
@@ -917,7 +917,7 @@ function ListColumn({
                 "cursor-pointer rounded p-1 transition-colors",
                 adding
                   ? "bg-primary text-primary-foreground"
-                  : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white"
+                  : "text-zinc-500 hover:bg-zinc-200/50 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-white"
               )}
               title="Add Task"
             >
@@ -941,7 +941,7 @@ function ListColumn({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="cursor-pointer rounded p-1 text-slate-500 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="cursor-pointer rounded p-1 text-zinc-500 transition-colors hover:bg-destructive/10 hover:text-destructive"
                 title={`Delete ${list.name}`}
               >
                 <Trash2 size={14} />
@@ -973,7 +973,7 @@ function ListColumn({
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl pr-1">
         {adding && (
           // Theme colours (it was always dark, even in light mode); dark mode keeps the old look.
-          <div className="animate-in fade-in zoom-in-95 space-y-2.5 rounded-xl border border-border bg-card p-3 shadow-md duration-150 dark:border-slate-700/80 dark:bg-[#16181d]">
+          <div className="animate-in fade-in zoom-in-95 space-y-2.5 rounded-xl border border-border bg-card p-3 shadow-md duration-150 dark:border-zinc-700/80 dark:bg-[#16181d]">
             <textarea
               autoFocus
               rows={3}
@@ -1025,7 +1025,7 @@ function ListColumn({
         )}
 
         {list.tasks.length === 0 && !adding ? (
-          <div className="flex h-36 flex-col items-center justify-center space-y-2 rounded-xl border border-dashed border-slate-300/70 p-6 text-center text-muted-foreground/60 dark:border-neutral-800">
+          <div className="flex h-36 flex-col items-center justify-center space-y-2 rounded-xl border border-dashed border-zinc-300/70 p-6 text-center text-muted-foreground/60 dark:border-neutral-800">
             <span className="text-xs font-medium">No learning tasks in this list</span>
             {canAddCards && (
               <button
@@ -1590,7 +1590,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               </div>
 
               {/* Board */}
-              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-slate-50/50 p-4.5 dark:bg-background/40">
+              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-4.5 dark:bg-background/40">
                 <div data-col-scope className="flex h-full items-stretch gap-3.5">
                   {orderedLists.map((list) => (
                     <ListColumn
@@ -1622,7 +1622,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   {/* Create Task List column (managers) */}
                   {workspace.isManager &&
                     (!isAddingList ? (
-                      <div className="flex h-full w-[300px] shrink-0 flex-col justify-start rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-3.5 shadow-2xs transition-all duration-200 hover:border-primary/50 dark:border-neutral-800 dark:bg-neutral-900/30">
+                      <div className="flex h-full w-[300px] shrink-0 flex-col justify-start rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/60 p-3.5 shadow-2xs transition-all duration-200 hover:border-primary/50 dark:border-neutral-800 dark:bg-neutral-900/30">
                         <button
                           type="button"
                           onClick={() => setIsAddingList(true)}
@@ -1632,7 +1632,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex h-full w-[340px] shrink-0 flex-col space-y-3 rounded-2xl border border-slate-300 bg-card p-4 shadow-md transition-all duration-200 dark:border-neutral-700 dark:bg-[#16181d]">
+                      <div className="flex h-full w-[340px] shrink-0 flex-col space-y-3 rounded-2xl border border-zinc-300 bg-card p-4 shadow-md transition-all duration-200 dark:border-neutral-700 dark:bg-[#16181d]">
                         <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                             <Layers size={14} className="text-[#0088ff]" />

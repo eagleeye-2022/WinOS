@@ -43,6 +43,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { applyLeaveAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
+import { uploadAttachment } from "../upload-attachment";
+import {
+  EXPECTED_SHIFT_MINUTES,
+  SHIFT_END,
+  formatTime12h,
+  istDateKey,
+  parseTime12h,
+  workedMinutesBetween,
+} from "@/features/attendance/utils";
 import {
   Select,
   SelectContent,
@@ -67,7 +77,8 @@ export function ApplyLeaveForm({
 }: ApplyLeaveFormProps) {
   const router = useRouter();
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // The team works in IST — a UTC date would show yesterday before 05:30 AM.
+  const todayStr = istDateKey();
 
   // Form State
   const [selectedTypeCode, setSelectedTypeCode] = useState<string>(
@@ -78,10 +89,13 @@ export function ApplyLeaveForm({
   const [fromDate, setFromDate] = useState<string>(initialDate || todayStr);
   const [toDate, setToDate] = useState<string>(initialDate || todayStr);
   const [session, setSession] = useState<HalfDaySession>("FIRST_HALF");
-  const [fromTime, setFromTime] = useState<string>("03:30 PM");
-  const [toTime, setToTime] = useState<string>("06:00 PM");
+  // Early leave defaults to the last two hours of the configured shift.
+  const [fromTime, setFromTime] = useState<string>(() => formatTime12h((parseTime12h(SHIFT_END) ?? 1110) - 120));
+  const [toTime, setToTime] = useState<string>(SHIFT_END);
   const [reason, setReason] = useState<string>("");
   const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
+  /** The picked files, by attachment id — uploaded on submit. */
+  const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File>>({});
   const [previewAttachment, setPreviewAttachment] = useState<LeaveAttachment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -111,10 +125,19 @@ export function ApplyLeaveForm({
   // Calculate duration & summary text
   const durationInfo = useMemo(() => {
     if (isEarlyLeave) {
+      // Hours from the chosen times; days as a share of the configured shift length.
+      const minutes = workedMinutesBetween(fromTime, toTime) ?? 0;
+      const hours = Math.round((minutes / 60) * 100) / 100;
+      const days = EXPECTED_SHIFT_MINUTES > 0 ? Math.round((minutes / EXPECTED_SHIFT_MINUTES) * 100) / 100 : 0;
+      const label = minutes > 0 ? `${hours} Hour${hours === 1 ? "" : "s"}` : "—";
       return {
-        text: "2.5 Hours",
-        days: 0.25,
-        summary: `You have selected early leave from ${fromTime} to ${toTime} (2.5 Hours)`,
+        text: label,
+        days,
+        hours,
+        summary:
+          minutes > 0
+            ? `You have selected early leave from ${fromTime} to ${toTime} (${label})`
+            : "Pick a leaving time before the end time",
       };
     }
     if (dayType === "HALF_DAY") {
@@ -165,6 +188,7 @@ export function ApplyLeaveForm({
         type: file.type || "application/octet-stream",
       };
       setAttachments((prev) => [...prev, newAtt]);
+      setAttachmentFiles((prev) => ({ ...prev, [newAtt.id]: file }));
       e.target.value = "";
     }
   };
@@ -201,13 +225,20 @@ export function ApplyLeaveForm({
       alert("Please enter a reason for your leave request.");
       return;
     }
+    if (isEarlyLeave && !(durationInfo.days > 0)) {
+      alert("The leaving time must be before the end time.");
+      return;
+    }
     setIsSubmitting(true);
 
     const actualFromDate = dayType === "MULTIPLE_DAYS" ? fromDate : date;
     const actualToDate = dayType === "MULTIPLE_DAYS" ? toDate : date;
 
     try {
-      const res = await applyLeaveAction({
+      const uploaded = await Promise.all(
+        attachments.filter((a) => attachmentFiles[a.id]).map((a) => uploadAttachment(attachmentFiles[a.id]))
+      );
+      const res = unwrap(await applyLeaveAction({
         leaveTypeCode: selectedType.code,
         durationType: isEarlyLeave
           ? "EARLY_LEAVE"
@@ -222,13 +253,14 @@ export function ApplyLeaveForm({
         fromTime: isEarlyLeave ? fromTime : undefined,
         toTime: isEarlyLeave ? toTime : undefined,
         durationDays: durationInfo.days,
-        durationHours: isEarlyLeave ? 2.5 : undefined,
+        durationHours: isEarlyLeave ? durationInfo.hours : undefined,
         reason,
-        attachmentFileName: attachments.length > 0 ? attachments[0].name : undefined,
-      });
+        attachments: uploaded,
+      }));
+      if (res.isLossOfPay) alert(`Leave applied. ${res.lopDays} day(s) exceed your balance and will be loss of pay.`);
 
       const newRequest: LeaveRequest = {
-        id: res?.requestId || `lr-${Date.now()}`,
+        id: res.requestId,
         leaveTypeCode: selectedType.code,
         leaveTypeName: `${selectedType.name} (${selectedType.code})`,
         dayType: isEarlyLeave ? "EARLY_LEAVE" : dayType,
@@ -243,8 +275,8 @@ export function ApplyLeaveForm({
         session: dayType === "HALF_DAY" ? session : undefined,
         fromTime: isEarlyLeave ? fromTime : undefined,
         toTime: isEarlyLeave ? toTime : undefined,
-        durationText: durationInfo.text,
-        durationDays: durationInfo.days,
+        durationText: res.durationDays === durationInfo.days ? durationInfo.text : `${res.durationDays} Day(s)`,
+        durationDays: res.durationDays,
         reason,
         status: "PENDING",
         leaveTypeIcon: selectedType.iconName || "Calendar",
@@ -283,7 +315,7 @@ export function ApplyLeaveForm({
       setSubmittedSuccess(true);
       onSubmitLeave(newRequest);
     } catch (err) {
-      console.error("Failed to submit leave request:", err);
+      alert(errorMessage(err, "Failed to submit leave request."));
       setIsSubmitting(false);
     }
   };
@@ -603,7 +635,7 @@ export function ApplyLeaveForm({
               )}
 
               {/* Blue Selection Info Banner */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>{durationInfo.summary}</span>
               </div>
@@ -794,7 +826,7 @@ export function ApplyLeaveForm({
                             "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
                             isEarlyLeave
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                              : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-accent dark:text-blue-300"
                           )}
                         >
                           {durationInfo.text}
@@ -839,7 +871,7 @@ export function ApplyLeaveForm({
             <div className="grid grid-cols-2 gap-2.5">
               {/* Casual Leave */}
               <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-500">
+                <div className="p-1.5 rounded-full bg-blue-50 dark:bg-accent text-blue-500">
                   <Calendar className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-xs text-muted-foreground font-medium">Casual Leave</div>
@@ -933,7 +965,7 @@ export function ApplyLeaveForm({
             </div>
 
             {/* Policy notice */}
-            <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+            <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
               <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>Negative balance is allowed as per company policy.</span>
             </div>

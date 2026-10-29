@@ -45,6 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getLeaveTypesAction } from "../queries/leave-queries";
 import { toggleLeaveTypeStatusAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
 
 export interface LeaveTypePolicyItem {
   id: string;
@@ -147,10 +148,11 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
       setLeavePolicies((prev) =>
         prev.map((p) => (p.id === id ? { ...p, isActive: newStatus } : p))
       );
-      await toggleLeaveTypeStatusAction(id, newStatus);
+      unwrap(await toggleLeaveTypeStatusAction(id, newStatus));
       loadPolicies();
     } catch (err) {
-      console.error("Failed to toggle leave type status:", err);
+      alert(errorMessage(err));
+      loadPolicies();
     }
   };
 
@@ -212,7 +214,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* Total Leave Types */}
         <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500">
+          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
             <Calendar className="w-4 h-4" />
           </div>
           <div>
@@ -384,7 +386,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
 
                   {/* Unit */}
                   <td className="py-3 px-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-accent dark:text-blue-300">
                       {item.unit}
                     </span>
                   </td>

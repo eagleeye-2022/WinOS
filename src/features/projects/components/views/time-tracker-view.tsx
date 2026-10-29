@@ -89,7 +89,7 @@ const PERIOD_MODES = ["Day", "Month", "Range", "Span"] as const;
  * don't move with sticky cells), and a page-coloured strip just above it so no row can show
  * through between the header and the top of the scroll area.
  */
-const STICKY_HEADER_ROW = [
+export const STICKY_HEADER_ROW = [
   "border-b border-border text-muted-foreground font-semibold",
   "[&>th]:sticky [&>th]:top-0 [&>th]:z-10",
   "[&>th]:bg-[color-mix(in_oklab,var(--muted)_60%,var(--card))]",
@@ -132,7 +132,7 @@ function LogTitleLink({ log }: { log: TimeLogEntry }) {
   );
 }
 
-function InlineTextCell({
+export function InlineTextCell({
   value,
   onSave,
   className = "",

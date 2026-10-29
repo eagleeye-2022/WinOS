@@ -404,6 +404,63 @@ export const STICKY_PROJECT_COL_3 =
 /** Scroll box around a task table — the DSM one: always-visible horizontal scrollbar. */
 export const TASK_TABLE_SCROLL = "dsm-columns-scrollbar overflow-x-auto pb-1";
 
+/**
+ * One task as a card — the "What Will You Do Today?" look, shared by the DSM and Report task lists
+ * so they all read the same: index label (T1, L1…) on the left, the card, then an optional
+ * trailing control (e.g. remove). Put a TaskRowCardFooter last inside for priority / due / timer.
+ */
+export function TaskRowCard({
+  label,
+  trailing,
+  className,
+  children,
+}: {
+  label: string;
+  trailing?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("flex items-center gap-3", className)}>
+      <span className="w-6 shrink-0 text-sm font-bold text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-2xs transition-all hover:border-primary/40 focus-within:border-primary/50">
+        {children}
+      </div>
+      {trailing}
+    </div>
+  );
+}
+
+/** Bottom line of a TaskRowCard: details (priority, due…) on the left, timer / time on the right. */
+export function TaskRowCardFooter({ left, right }: { left?: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-2">
+      <div className="flex flex-wrap items-center gap-3">{left}</div>
+      {right && <div className="flex items-center gap-2">{right}</div>}
+    </div>
+  );
+}
+
+/** "PRIORITY:" / "DUE:" style caption used in a TaskRowCardFooter. */
+export function TaskRowCardLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{children}</span>;
+}
+
+/** Blue mono code chip of a TaskRowCard, followed by the ⓘ link when `href` is given. */
+export function TaskCodeChip({ code, title, href }: { code: string; title?: string; href?: string | null }) {
+  return (
+    <>
+      <span
+        title={title || code}
+        className="shrink-0 cursor-default rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-xs font-bold text-blue-600 dark:text-blue-400"
+      >
+        {code}
+      </span>
+      {href && <TaskInfoLink href={href} code={code} />}
+    </>
+  );
+}
+
 /** Shared table header row for the "Today's Task(s)" tables. */
 export function TaskTableHead({
   withCheckbox,

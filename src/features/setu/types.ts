@@ -108,16 +108,6 @@ export interface SetuContact {
   href: string;
 }
 
-export interface BotCapture {
-  id: string;
-  /** ISO datetime. */
-  at: string;
-  kind: "CARD" | "NOTES" | "COMMAND";
-  summary: string;
-  routedTo: "MEETING" | "PROSPECT" | "NONE";
-  ok: boolean;
-}
-
 export interface SetuStats {
   pipelineHealth: number;
   prospects: number;

@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { errorMessage, unwrap } from "../action-result";
 import { HolidaysView } from "./holidays-view";
 import { LeaveBalanceAdjustmentView } from "./leave-balance-adjustment-view";
 import { TeamCalendarView } from "./team-calendar-view";
@@ -176,37 +177,39 @@ export function TeamLeaveWorkspace({
   // Actions
   const handleQuickApprove = async (id: string) => {
     try {
-      await approveLeaveRequestAction(id);
+      const res = unwrap(await approveLeaveRequestAction(id));
+      if (!res.completed) alert(`Approved. It now needs ${res.nextStep ?? "the next approval"}.`);
+      else if (res.isLossOfPay) alert(`Approved. ${res.lopDays} day(s) exceed the balance and are marked as loss of pay.`);
       loadData();
     } catch (err) {
-      console.error("Failed to approve request:", err);
+      alert(errorMessage(err));
     }
   };
 
   const handleQuickReject = async (id: string) => {
     try {
-      await rejectLeaveRequestAction(id);
+      unwrap(await rejectLeaveRequestAction(id));
       loadData();
     } catch (err) {
-      console.error("Failed to reject request:", err);
+      alert(errorMessage(err));
     }
   };
 
   const handleQuickCompApprove = async (id: string) => {
     try {
-      await approveCompensatoryAction(id);
+      unwrap(await approveCompensatoryAction(id));
       loadData();
     } catch (err) {
-      console.error("Failed to approve comp request:", err);
+      alert(errorMessage(err));
     }
   };
 
   const handleQuickCompReject = async (id: string) => {
     try {
-      await rejectCompensatoryAction(id);
+      unwrap(await rejectCompensatoryAction(id));
       loadData();
     } catch (err) {
-      console.error("Failed to reject comp request:", err);
+      alert(errorMessage(err));
     }
   };
 
@@ -445,7 +448,7 @@ export function TeamLeaveWorkspace({
 
             {/* Total Requests */}
             <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500">
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
                 <Calendar className="w-4 h-4" />
               </div>
               <div>
@@ -747,7 +750,7 @@ export function TeamLeaveWorkspace({
             </div>
 
             <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500">
+              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
                 <Calendar className="w-4 h-4" />
               </div>
               <div>
@@ -827,7 +830,7 @@ export function TeamLeaveWorkspace({
                       <tr key={comp.id} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 font-bold flex items-center justify-center text-xs shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-accent text-blue-600 font-bold flex items-center justify-center text-xs shrink-0">
                               {comp.avatarText}
                             </div>
                             <div>

@@ -24,6 +24,7 @@ import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
 import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
+import { projectLinkKeys } from "@/features/dsr/reporting";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/components/task-detail-panel";
@@ -209,7 +210,12 @@ function TaskItemRow({
         {projectLink?.projectTask?.project ? <ProjectPill name={projectLink.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
-        {projectLink?.projectTask ? <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} href={projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
+        {projectLink?.projectTask ? (
+          <div className="flex items-start gap-0.5">
+            {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
+            <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} href={projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)} />
+          </div>
+        ) : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -243,9 +249,8 @@ function TaskItemRow({
         )}
       </td>
       <td className="py-2 pr-2 align-top text-center">
-        {/* ▸ task details (same panel as the DSM review) · ⓘ open the task. */}
+        {/* ⓘ open the task (the ▸ task details toggle sits before the Task ID). */}
         <div className="flex items-center justify-center gap-0.5">
-          {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
           {infoHref && projectLink?.projectTask && (
             <TaskInfoLink href={infoHref} code={projectLink.projectTask.code} className="h-7 w-7 rounded-lg hover:bg-muted" />
           )}
@@ -492,9 +497,13 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
 
+  // Link per task id — tasks sharing a text each get their own (see projectLinkKey).
+  const keys = projectLinkKeys(plannedTasks.map((t) => t.text));
+  const linkById = Object.fromEntries(plannedTasks.map((t, i) => [t.id, projectLinks[keys[i]]]));
+
   const cmpDeadline = (a: DsrEntryData["plannedTasks"][number], b: DsrEntryData["plannedTasks"][number]) => {
-    const ad = projectLinks[a.text]?.dueDate ? new Date(projectLinks[a.text]!.dueDate!).getTime() : null;
-    const bd = projectLinks[b.text]?.dueDate ? new Date(projectLinks[b.text]!.dueDate!).getTime() : null;
+    const ad = linkById[a.id]?.dueDate ? new Date(linkById[a.id]!.dueDate!).getTime() : null;
+    const bd = linkById[b.id]?.dueDate ? new Date(linkById[b.id]!.dueDate!).getTime() : null;
     if (ad === null && bd === null) return 0;
     if (ad === null) return 1;
     if (bd === null) return -1;
@@ -551,7 +560,7 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
                 index={i}
                 task={task}
                 locked={locked}
-                projectLink={projectLinks[task.text]}
+                projectLink={linkById[task.id]}
                 memberId={memberId}
                 dateStr={dateStr}
               />
