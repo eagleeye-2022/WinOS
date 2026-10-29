@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowRight, Bot, Camera, CheckCheck, NotebookPen, ScanText, Terminal, TriangleAlert } from "lucide-react";
-import { MOCK_BOT_CAPTURES } from "../data/mock-setu";
-import { IconTile, Pill, SectionLabel, SetuPage, SetuPanel } from "./setu-ui";
+import { Bot, Brain, Camera, CheckCheck, Database, NotebookPen, Radio, Zap } from "lucide-react";
+import { IconTile, Pill, SectionLabel, SetuPanel, SetuSection } from "./setu-ui";
 
 const COMMANDS = [
   { cmd: "note [member]", desc: "Add a text note to a 121 meeting" },
@@ -12,26 +11,26 @@ const COMMANDS = [
   { cmd: "move [name] [stage]", desc: "Move a prospect to a stage" },
 ];
 
-const ROUTED_LABEL = { MEETING: "121 Meetings", PROSPECT: "Pipeline", NONE: "—" } as const;
+const TECH = [
+  { icon: Radio, text: "Meta Cloud API (no BSP)" },
+  { icon: Brain, text: "GPT-4o Vision" },
+  { icon: Zap, text: "Next.js /api/setu/whatsapp/webhook" },
+  { icon: Database, text: "Neon DB · whatsapp_sessions" },
+];
 
 export function WhatsAppBotView() {
   return (
-    <SetuPage
-      icon={Bot}
-      title="WhatsApp Bot"
-      description="Capture BNI contacts and meeting notes from the field — the bot files them into Setu for you."
-      actions={<Pill dot="bg-green-500">Live · Meta Cloud API</Pill>}
-    >
+    <SetuSection title="WhatsApp Bot — BNI Field Capture" actions={<Pill dot="bg-green-500">Live · Meta Cloud API · No BSP</Pill>}>
       <div className="grid gap-4 md:grid-cols-2">
         <Responsibility
           icon={Camera}
-          title="Visiting card capture"
-          text="Send a card photo → OCR reads it → the bot asks 121 Meeting or Prospect? → saved to the right Setu feature."
+          title="Responsibility 1 — Visiting card capture"
+          text="Send a card photo → OCR → the bot asks 121 Meeting or Prospect? → routes to the correct Setu feature automatically."
         />
         <Responsibility
           icon={NotebookPen}
-          title="Meeting notes capture"
-          text="Send a photo of handwritten 121 notes → refs received / given and member details are extracted → saved to 121 Meetings."
+          title="Responsibility 2 — Meeting notes capture"
+          text="Upload a photo of handwritten notes → extract refs received, refs given, member details → auto-saved to 121 Meetings in WinOS."
         />
       </div>
 
@@ -40,7 +39,7 @@ export function WhatsAppBotView() {
           <Steps
             steps={[
               { title: "Send card photo", desc: "Any visiting card photo in the Setu WhatsApp chat." },
-              { title: "OCR extracts details", desc: "Name, phone, email, business, address." },
+              { title: "GPT-4o OCR", desc: "Extracts name, phone, email, business, address." },
             ]}
           />
           <div className="setu-chip my-4 p-4">
@@ -56,7 +55,18 @@ export function WhatsAppBotView() {
               </div>
             </div>
           </div>
-          <Steps start={3} steps={[{ title: "Route & save", desc: "→ 121 Meetings, or a Stage-1 Prospect in the Sales Pipeline." }]} />
+          <Steps start={3} steps={[{ title: "Route & save", desc: "→ 121 Meetings feature, or a Prospect in the Sales Pipeline." }]} />
+
+          <div className="setu-chip mt-6 p-4">
+            <SectionLabel>Tech</SectionLabel>
+            <ul className="space-y-2">
+              {TECH.map(({ icon: Icon, text }) => (
+                <li key={text} className="setu-text-2 flex items-center gap-2 text-xs">
+                  <Icon size={13} className="setu-text-3 shrink-0" /> {text}
+                </li>
+              ))}
+            </ul>
+          </div>
         </SetuPanel>
 
         <PhoneMockup />
@@ -65,17 +75,19 @@ export function WhatsAppBotView() {
           <Steps
             steps={[
               { title: "Send notes photo", desc: "Photo of your handwritten 121 meeting notes." },
-              { title: "Details extracted", desc: "Member name, refs received / given, next actions, prospect names." },
-              { title: "Saved to Setu", desc: "121 meeting created or updated; original photo attached." },
-              { title: "Referrals → Prospects", desc: "Referral names extracted are added to the Sales Pipeline." },
+              { title: "GPT-4o extracts", desc: "Member name, refs received / given, next actions, any prospect names." },
+              { title: "Auto-saved to Setu", desc: "121 meeting note created / updated in WinOS. Original photo attached." },
+              { title: "Referrals → Prospects", desc: "Any referral names extracted are added as Prospects in the Sales Pipeline." },
             ]}
           />
-          <div className="mt-6">
+          <div className="setu-chip mt-6 p-4">
             <SectionLabel>Commands</SectionLabel>
             <ul className="space-y-2">
               {COMMANDS.map((c) => (
                 <li key={c.cmd} className="flex flex-wrap items-center gap-2 text-xs">
-                  <code className="setu-chip setu-accent-text px-2 py-1 font-mono text-[11px] font-semibold">{c.cmd}</code>
+                  <code className="setu-accent-text rounded-md border border-[var(--setu-line-strong)] bg-[var(--setu-canvas)] px-2 py-1 font-mono text-[11px] font-semibold">
+                    {c.cmd}
+                  </code>
                   <span className="setu-text-3">{c.desc}</span>
                 </li>
               ))}
@@ -84,40 +96,7 @@ export function WhatsAppBotView() {
         </SetuPanel>
       </div>
 
-      <SetuPanel title="Recent bot activity" description="What the bot captured and where it filed it.">
-        <ul className="setu-divide -my-3">
-          {MOCK_BOT_CAPTURES.map((c) => {
-            const Icon = c.kind === "CARD" ? ScanText : c.kind === "NOTES" ? NotebookPen : Terminal;
-            return (
-              <li key={c.id} className="flex items-center gap-4 py-3.5 text-sm">
-                <IconTile icon={c.ok ? Icon : TriangleAlert} size={36} iconClassName={c.ok ? "setu-text-2" : "text-red-500"} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate">{c.summary}</div>
-                  <div className="setu-text-3 text-xs">
-                    {new Date(c.at).toLocaleString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      timeZone: "Asia/Kolkata",
-                    })}
-                  </div>
-                </div>
-                {c.ok ? (
-                  c.routedTo !== "NONE" && (
-                    <Pill>
-                      <ArrowRight size={11} /> {ROUTED_LABEL[c.routedTo]}
-                    </Pill>
-                  )
-                ) : (
-                  <Pill dot="bg-red-500">Needs retry</Pill>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </SetuPanel>
-    </SetuPage>
+    </SetuSection>
   );
 }
 

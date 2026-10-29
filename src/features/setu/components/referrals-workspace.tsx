@@ -2,117 +2,87 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowRight, ArrowUpRight, GitMerge, Plus, Trophy } from "lucide-react";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, GitMerge, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/shared/toast";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { STAGE_BY_ID } from "../constants";
 import { useSetuStore } from "../store";
-import type { ReferralDirection, ReferralStatus } from "../types";
-import { formatDate, referralBalance } from "../utils";
-import { EmptyState, Field, FilterChips, IconTile, Pill, SetuAvatar, SetuButton, SetuPage, StatTile } from "./setu-ui";
+import type { Referral, ReferralDirection } from "../types";
+import { formatDate } from "../utils";
+import { EmptyState, Field, IconTile, Pill, SetuAvatar, SetuButton, SetuSection } from "./setu-ui";
 
-type DirectionFilter = "all" | "received" | "given";
-const FILTERS: readonly DirectionFilter[] = ["all", "received", "given"];
-
-const STATUS: Record<ReferralStatus, { label: string; dot: string }> = {
-  OPEN: { label: "Open", dot: "bg-amber-500" },
-  CONVERTED: { label: "In pipeline", dot: "bg-primary" },
-  WON: { label: "Won", dot: "bg-green-500" },
-  LOST: { label: "Lost", dot: "bg-red-500" },
-};
+/** Status pill: received referrals by how far they got; given ones are simply "Given". */
+function statusOf(r: Referral): { label: string; dot: string } {
+  if (r.direction === "GIVEN") return r.status === "WON" ? { label: "Given · Won", dot: "bg-green-500" } : { label: "Given", dot: "bg-orange-500" };
+  if (r.status === "WON") return { label: "Received ✓", dot: "bg-green-500" };
+  if (r.status === "LOST") return { label: "Lost", dot: "bg-red-500" };
+  return { label: "Received", dot: r.status === "CONVERTED" ? "bg-[var(--setu-accent)]" : "bg-amber-500" };
+}
 
 export function ReferralsWorkspace() {
   const referrals = useSetuStore((s) => s.referrals);
-  const [filter, setFilter] = useUrlState<DirectionFilter>("filter", "all", { allowed: FILTERS });
+  const prospects = useSetuStore((s) => s.prospects);
   const [logOpen, setLogOpen] = useState(false);
 
-  const balance = referralBalance(referrals);
-  const visible = [...referrals]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .filter((r) => filter === "all" || r.direction === (filter === "received" ? "RECEIVED" : "GIVEN"));
+  const sorted = [...referrals].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <SetuPage
-      icon={GitMerge}
-      title="Referrals"
-      description="Track referrals you receive from and give to fellow BNI members — givers gain."
+    <SetuSection
+      title="Referrals Tracker"
       actions={
         <SetuButton variant="primary" onClick={() => setLogOpen(true)}>
           <Plus /> Log Referral
         </SetuButton>
       }
     >
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile icon={ArrowDownLeft} tone="green" value={balance.received} label="Received" />
-        <StatTile icon={ArrowUpRight} tone="violet" value={balance.given} label="Given" />
-        <StatTile icon={GitMerge} tone="primary" value={balance.converted} label="Received → pipeline" />
-        <StatTile icon={Trophy} tone="emerald" value={balance.won} label="Turned into business" />
-      </div>
-
-      <FilterChips
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: "all", label: "All", count: referrals.length },
-          { value: "received", label: "Received", count: balance.received },
-          { value: "given", label: "Given", count: balance.given },
-        ]}
-      />
-
-      {visible.length === 0 ? (
+      {sorted.length === 0 ? (
         <EmptyState icon={GitMerge} text="No referrals logged yet." />
       ) : (
-        <div className="setu-card px-2 py-1">
-          <ul className="setu-divide">
-            {visible.map((r) => {
-              const received = r.direction === "RECEIVED";
-              const status = STATUS[r.status];
-              return (
-                <li key={r.id} className="flex flex-wrap items-center gap-4 px-4 py-4">
-                  <IconTile
-                    icon={received ? ArrowDownLeft : ArrowUpRight}
-                    size={34}
-                    iconClassName={received ? "text-green-500" : "text-violet-500"}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                      {received ? r.memberName : "You"}
-                      <ArrowRight size={13} className="setu-text-3" />
-                      {received ? r.referralName : `${r.referralName} for ${r.memberName}`}
-                    </div>
-                    <div className="setu-text-3 mt-0.5 text-xs">
-                      {r.service} · {formatDate(r.date)}
-                      {r.meetingId && (
-                        <>
-                          {" · "}
-                          <Link href={`/setu/meetings?open=${r.meetingId}`} className="setu-accent-text hover:underline">
-                            121 meeting
-                          </Link>
-                        </>
-                      )}
-                      {r.prospectId && (
-                        <>
-                          {" · "}
-                          <Link href={`/setu/pipeline?open=${r.prospectId}`} className="setu-accent-text hover:underline">
-                            prospect
-                          </Link>
-                        </>
-                      )}
-                    </div>
+        <ul className="space-y-2.5">
+          {sorted.map((r) => {
+            const received = r.direction === "RECEIVED";
+            const status = statusOf(r);
+            const prospect = r.prospectId ? prospects.find((p) => p.id === r.prospectId) : undefined;
+            return (
+              <li key={r.id} className="setu-card flex items-center gap-4 rounded-2xl px-5 py-4">
+                <SetuAvatar name={received ? r.memberName : "You"} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
+                    {received ? r.memberName : "You"}
+                    <ArrowRight size={13} className="setu-text-3" />
+                    {received ? r.referralName : `gave ref to ${r.memberName}`}
                   </div>
-                  <Pill dot={status.dot}>{received || r.status !== "CONVERTED" ? status.label : "Passed on"}</Pill>
-                  <SetuAvatar name={r.memberName} size="sm" className="rounded-full" />
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                  <div className="setu-text-2 mt-0.5 text-xs">
+                    {received ? r.service : `${r.referralName} · ${r.service}`} · {formatDate(r.date, true)}
+                    {prospect && (
+                      <>
+                        {" · "}
+                        <Link href={`/setu/pipeline?open=${prospect.id}`} className="setu-accent-text hover:underline">
+                          {STAGE_BY_ID[prospect.stage].label} stage
+                        </Link>
+                      </>
+                    )}
+                    {!prospect && r.meetingId && (
+                      <>
+                        {" · "}
+                        <Link href={`/setu/meetings?open=${r.meetingId}`} className="setu-accent-text hover:underline">
+                          121 meeting
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Pill dot={status.dot}>{status.label}</Pill>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <LogReferralDialog open={logOpen} onClose={() => setLogOpen(false)} />
-    </SetuPage>
+    </SetuSection>
   );
 }
 
@@ -166,7 +136,7 @@ function LogReferralDialog({ open, onClose }: { open: boolean; onClose: () => vo
                     : "setu-text-3 hover:text-[var(--setu-text)]"
                 )}
               >
-                {d === "RECEIVED" ? <ArrowDownLeft size={15} className="text-green-500" /> : <ArrowUpRight size={15} className="text-violet-500" />}
+                {d === "RECEIVED" ? <ArrowDownLeft size={15} className="text-green-500" /> : <ArrowUpRight size={15} className="text-orange-500" />}
                 {d === "RECEIVED" ? "Received" : "Given"}
               </button>
             ))}

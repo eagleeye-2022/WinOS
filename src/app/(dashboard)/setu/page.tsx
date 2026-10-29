@@ -1,11 +1,7 @@
-import { Metadata } from "next";
-import { SetuDashboard } from "@/features/setu/components/setu-dashboard";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
 
-export const metadata: Metadata = {
-  title: "Dashboard | Setu | WinOS",
-  description: "BNI networking CRM — 121 meetings, referrals and the sales pipeline at a glance.",
-};
-
-export default function SetuDashboardPage() {
-  return <SetuDashboard />;
+// Setu opens on its first tab.
+export default function SetuIndexPage() {
+  redirect(ROUTES.setuMeetings);
 }

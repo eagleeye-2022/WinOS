@@ -42,7 +42,3 @@ export const SOURCE_LABEL: Record<ProspectSource, string> = {
   MEETING_121: "121 Meeting",
   MANUAL: "Manual",
 };
-
-
-/** The BNI chapter shown in the Setu sidebar / page headers. */
-export const SETU_CHAPTER = { name: "Indore Pinnacle", membership: "Active Member" };

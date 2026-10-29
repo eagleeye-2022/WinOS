@@ -1,5 +1,5 @@
 // Design-phase dummy data for Setu. Replaced by Prisma queries once the backend lands.
-import type { BotCapture, Meeting121, Prospect, Referral } from "../types";
+import type { Meeting121, Prospect, Referral } from "../types";
 
 export const MOCK_MEETINGS: Meeting121[] = [
   {
@@ -214,13 +214,4 @@ export const MOCK_REFERRALS: Referral[] = [
   { id: "r10", direction: "GIVEN", memberName: "Raj Pagariya Ji", referralName: "Nikhil Tiwari Ji", service: "GST filing", date: "2026-10-27", status: "OPEN", meetingId: "m-raj" },
   { id: "r11", direction: "GIVEN", memberName: "Shreshtha Goyal Ji", referralName: "Anjali Mehta Ji", service: "Interior design", date: "2026-10-24", status: "WON", meetingId: "m-shreshtha" },
   { id: "r12", direction: "GIVEN", memberName: "Gangwal Food Ji", referralName: "Hotel Shreemaya", service: "Bulk snacks supply", date: "2026-10-15", status: "OPEN", meetingId: "m-gangwal" },
-];
-
-export const MOCK_BOT_CAPTURES: BotCapture[] = [
-  { id: "b1", at: "2026-10-27T10:33:00+05:30", kind: "CARD", summary: "Antra Raje · Finance Consulting · 8827483933", routedTo: "PROSPECT", ok: true },
-  { id: "b2", at: "2026-10-27T10:30:00+05:30", kind: "CARD", summary: "Raj Pagariya · Chartered Accountant", routedTo: "MEETING", ok: true },
-  { id: "b3", at: "2026-10-26T18:04:00+05:30", kind: "CARD", summary: "Pooja Sethi · Sethi Dental Clinic", routedTo: "PROSPECT", ok: true },
-  { id: "b4", at: "2026-10-24T11:15:00+05:30", kind: "NOTES", summary: "Shreshtha Goyal Ji · 5 refs received · 2 given", routedTo: "MEETING", ok: true },
-  { id: "b5", at: "2026-10-23T09:42:00+05:30", kind: "COMMAND", summary: "status", routedTo: "NONE", ok: true },
-  { id: "b6", at: "2026-10-22T16:20:00+05:30", kind: "CARD", summary: "Blurry photo — could not read phone number", routedTo: "NONE", ok: false },
 ];

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  LayoutDashboard,
   Home,
   ClipboardList,
   LayoutGrid,
@@ -28,11 +27,6 @@ import {
   Timer,
   GraduationCap,
   ChevronDown,
-  Handshake,
-  SquareKanban,
-  Contact,
-  GitMerge,
-  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -40,7 +34,7 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
 import { useNavigationStore } from "@/stores/navigation-store";
 import { shortProjectName } from "@/features/projects/utils/project-name";
-
+import { SETU_TABS } from "@/features/setu/components/setu-shell";
 /**
  * Active sidebar item: a plain neutral fill that follows the theme — a soft grey in light mode, a
  * slightly lighter shade than the sidebar in dark mode — so it stands out without any blue tint,
@@ -235,14 +229,8 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Setu") {
-    navItems = [
-      { label: "Dashboard", href: ROUTES.setu, icon: LayoutDashboard },
-      { label: "121 Meetings", href: ROUTES.setuMeetings, icon: Handshake },
-      { label: "Sales Pipeline", href: ROUTES.setuPipeline, icon: SquareKanban },
-      { label: "Contacts", href: ROUTES.setuContacts, icon: Contact },
-      { label: "Referrals", href: ROUTES.setuReferrals, icon: GitMerge },
-      { label: "WhatsApp Bot", href: ROUTES.setuWhatsAppBot, icon: Bot },
-    ];
+    // Same items, order and icons as Setu's tab bar.
+    navItems = SETU_TABS.map((t) => ({ label: t.label, href: t.href, icon: t.icon }));
   } else if (activeModuleTitle === "User Management") {
     navItems = [
       { label: "Users", href: ROUTES.settingsUsers, icon: User },
