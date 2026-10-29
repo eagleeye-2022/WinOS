@@ -388,6 +388,22 @@ export function TaskCreatedAtLabel({ date }: { date: Date | string | null | unde
   );
 }
 
+/**
+ * Task tables (DSM / Report): the Project column stays pinned at the left while the table scrolls
+ * sideways. Pick the one matching the Project column's place — 2nd (after #) or 3rd (after the
+ * checkbox and #). Full-width rows (colSpan) have no such cell, so they scroll. Written out in full
+ * so Tailwind generates them.
+ */
+export const STICKY_PROJECT_COL_2 =
+  "[&>thead>tr>th:nth-child(2)]:sticky [&>thead>tr>th:nth-child(2)]:left-0 [&>thead>tr>th:nth-child(2)]:z-[2] [&>thead>tr>th:nth-child(2)]:bg-card " +
+  "[&>tbody>tr>td:nth-child(2)]:sticky [&>tbody>tr>td:nth-child(2)]:left-0 [&>tbody>tr>td:nth-child(2)]:z-[1] [&>tbody>tr>td:nth-child(2)]:bg-card";
+export const STICKY_PROJECT_COL_3 =
+  "[&>thead>tr>th:nth-child(3)]:sticky [&>thead>tr>th:nth-child(3)]:left-0 [&>thead>tr>th:nth-child(3)]:z-[2] [&>thead>tr>th:nth-child(3)]:bg-card " +
+  "[&>tbody>tr>td:nth-child(3)]:sticky [&>tbody>tr>td:nth-child(3)]:left-0 [&>tbody>tr>td:nth-child(3)]:z-[1] [&>tbody>tr>td:nth-child(3)]:bg-card";
+
+/** Scroll box around a task table — the DSM one: always-visible horizontal scrollbar. */
+export const TASK_TABLE_SCROLL = "dsm-columns-scrollbar overflow-x-auto pb-1";
+
 /** Shared table header row for the "Today's Task(s)" tables. */
 export function TaskTableHead({
   withCheckbox,

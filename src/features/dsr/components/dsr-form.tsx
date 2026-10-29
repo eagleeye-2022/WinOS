@@ -8,7 +8,7 @@ import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-link
 import type { DsrEntryData, DsrStandupPrefill, ProjectLinkSummary, ReportTimeSummary } from "../queries";
 import { SubmitReportModal, type ReportConfig } from "./submit-report-modal";
 import { formatMinutes, syncReportTasksWithDsm, usableRecordingUrl } from "../reporting";
-import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
@@ -234,8 +234,9 @@ function PlannedTasksSection({
         <h3 className="text-sm font-semibold">Today&apos;s Planned Tasks Completed</h3>
         <span className="text-xs text-muted-foreground">{completed}/{tasks.length} TASKS PLANNED</span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+      {/* Same look as the DSM task tables: DSM scrollbar, Project column pinned while scrolling. */}
+      <div className={TASK_TABLE_SCROLL}>
+        <table className={cn("w-full min-w-[900px] border-collapse", hasProjectsAccess && STICKY_PROJECT_COL_3)}>
           <TaskTableHead withCheckbox withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
           <tbody>
             {/* Completed (ticked) tasks first, then the rest — each group keeps its DSM order. `i` is
@@ -246,7 +247,7 @@ function PlannedTasksSection({
               .map(({ task, i }, pos) => {
               const link = projectLinks[task.text];
               return (
-                <tr key={i} className="border-b last:border-b-0">
+                <tr key={i} className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
                   <td className="py-2 pr-2 align-top">
                     <button
                       type="button"
@@ -288,7 +289,7 @@ function PlannedTasksSection({
                   <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
                     <PriorityBadge priority={task.priority} />
                   </td>
-                  <td className="py-2 pr-3 align-top">
+                  <td className="py-2 pr-3 align-top whitespace-nowrap">
                     <DueDateCell dueDate={link?.dueDate} />
                   </td>
                   {hasProjectsAccess && (

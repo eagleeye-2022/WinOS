@@ -28,6 +28,11 @@ import {
   Timer,
   GraduationCap,
   ChevronDown,
+  Handshake,
+  SquareKanban,
+  Contact,
+  GitMerge,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -46,6 +51,10 @@ const SIDEBAR_ACTIVE = "bg-black/[0.07] text-foreground font-semibold dark:bg-wh
 // ── Active route helper ───────────────────────────────────────────────────────
 
 function isSubItemActive(pathname: string, href: string, label: string): boolean {
+  // Setu first — its "Dashboard" label would otherwise hit the Standup Dashboard rule below.
+  if (href.startsWith(ROUTES.setu)) {
+    return href === ROUTES.setu ? pathname === ROUTES.setu : pathname.startsWith(href);
+  }
   if (label === "Home" || label === "Dashboard") {
     return pathname === ROUTES.dashboard;
   }
@@ -133,9 +142,6 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Projects Dashboard") {
     return pathname.startsWith("/projects");
   }
-  if (label === "Sales Hub") {
-    return pathname.startsWith("/sales");
-  }
   return pathname === href;
 }
 
@@ -168,8 +174,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   }, [pathname]);
 
   // Determine active module title based on path (shared registry with the ModuleSwitcher)
-  const activeModuleTitle =
-    activeModuleId === "sales" ? "Sales" : (getNavModule(activeModuleId)?.label ?? "Standup");
+  const activeModuleTitle = getNavModule(activeModuleId)?.label ?? "Standup";
 
   // Dynamic items based on active module & user role. `children` makes an item a drop-down
   // (e.g. WhyFi School → Effort Logs); it opens on its own when one of its pages is active.
@@ -229,10 +234,14 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Active Timers", href: "/projects/active-timers", icon: AlarmClock, section: "OVERVIEW" },
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
-  } else if (activeModuleTitle === "Sales") {
+  } else if (activeModuleTitle === "Setu") {
     navItems = [
-      { label: "Sales Hub", href: "/sales", icon: BarChart2 },
-      { label: "Calendar", href: ROUTES.calendar, icon: Calendar },
+      { label: "Dashboard", href: ROUTES.setu, icon: LayoutDashboard },
+      { label: "121 Meetings", href: ROUTES.setuMeetings, icon: Handshake },
+      { label: "Sales Pipeline", href: ROUTES.setuPipeline, icon: SquareKanban },
+      { label: "Contacts", href: ROUTES.setuContacts, icon: Contact },
+      { label: "Referrals", href: ROUTES.setuReferrals, icon: GitMerge },
+      { label: "WhatsApp Bot", href: ROUTES.setuWhatsAppBot, icon: Bot },
     ];
   } else if (activeModuleTitle === "User Management") {
     navItems = [

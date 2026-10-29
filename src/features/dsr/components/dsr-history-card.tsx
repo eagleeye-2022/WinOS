@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, CheckCircle2, ExternalLink, Video, VideoOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
@@ -8,12 +8,14 @@ import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
 import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
 import type { ProjectLinkSummary } from "../queries";
-import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, ExpandableTaskText } from "@/components/shared/task-table-parts";
+import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, TaskInfoLink, STICKY_PROJECT_COL_2, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
+import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/components/task-detail-panel";
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
+import { LearnedTick, ReportLearningTable } from "./report-learning-table";
 import { formatMinutes, usableRecordingUrl } from "../reporting";
 
 /** Zoho Cliq recording link, time logged, "how was the day" and suggestions from the submit modal. */
@@ -78,6 +80,9 @@ export function DsrHistoryCard({
   const [open, setOpen] = useState(defaultOpen);
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
   const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
+  const [openDetailId, setOpenDetailId] = useState<string | null>(null);
+  // Manager review only (memberId set): Action column with the task-details ▸ and ⓘ.
+  const withDetails = !!memberId && hasProjectsAccess;
 
   useEffect(() => {
     const texts = entry.plannedTasks.map((t) => t.text).filter(Boolean);
@@ -241,14 +246,19 @@ export function DsrHistoryCard({
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Today&apos;s Task Completed
               </p>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <TaskTableHead withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} />
+              {/* Same look as the DSM task tables: DSM scrollbar, Project column pinned while scrolling. */}
+              <div className={TASK_TABLE_SCROLL}>
+                <table className={cn("w-full min-w-[900px] border-collapse", hasProjectsAccess && STICKY_PROJECT_COL_2)}>
+                  <TaskTableHead withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} withAction={withDetails} />
                   <tbody>
                     {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
                       const link = projectLinks[task.text];
+                      const linkedTaskId = link?.projectTask ? link.projectTaskId || link.projectTask.id : null;
+                      const infoHref = link?.projectTask ? projectTaskHref(link.projectTask.project?.id, link.projectTask.code) : null;
+                      const detailOpen = openDetailId === task.id;
                       return (
-                        <tr key={task.id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                        <Fragment key={task.id}>
+                        <tr className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
                           <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
@@ -257,12 +267,13 @@ export function DsrHistoryCard({
                           )}
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
-                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} href={projectTaskHref(link.projectTask.project?.id, link.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}
+                              {/* No ⓘ here — the task opens from the Action column. */}
+                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} /> :<span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                           )}
                           <td className="py-2 pr-3 align-top">
                             <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                              <ExpandableTaskText text={task.text} />
+                              <WrappedTaskText text={task.text} />
                               {task.addedAfterReview && (
                                 <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
                                   NT
@@ -273,7 +284,7 @@ export function DsrHistoryCard({
                           <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
                             <PriorityBadge priority={task.priority} />
                           </td>
-                          <td className="py-2 pr-3 align-top">
+                          <td className="py-2 pr-3 align-top whitespace-nowrap">
                             <DueDateCell dueDate={link?.dueDate} />
                           </td>
                           {hasProjectsAccess && (
@@ -290,7 +301,26 @@ export function DsrHistoryCard({
                               )}
                             </td>
                           )}
+                          {withDetails && (
+                            // ▸ task details (same panel as the DSM review) · ⓘ open the task.
+                            <td className="py-2 pr-2 align-top text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                {linkedTaskId && (
+                                  <TaskDetailToggle
+                                    open={detailOpen}
+                                    onToggle={() => setOpenDetailId(detailOpen ? null : task.id)}
+                                  />
+                                )}
+                                {infoHref && link?.projectTask && (
+                                  <TaskInfoLink href={infoHref} code={link.projectTask.code} className="h-7 w-7 rounded-lg hover:bg-muted" />
+                                )}
+                                {!linkedTaskId && <span className="text-xs text-muted-foreground/60">—</span>}
+                              </div>
+                            </td>
+                          )}
                         </tr>
+                        {withDetails && detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={8} />}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -322,6 +352,21 @@ export function DsrHistoryCard({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Learning — above Support Needed / Blockers */}
+          {(entry.learningItems ?? []).length > 0 && (
+            <div className="mb-3 rounded-lg border bg-muted/30 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                What Will You Learn Today (WhyFi School)? ({entry.learningItems.filter((l) => l.completed).length}/{entry.learningItems.length} Learned)
+              </p>
+              <ReportLearningTable
+                items={entry.learningItems}
+                memberId={memberId || entry.userId}
+                dateStr={new Date(entry.date).toISOString().slice(0, 10)}
+                renderDone={(l) => <LearnedTick done={l.completed} />}
+              />
             </div>
           )}
 
@@ -365,21 +410,6 @@ export function DsrHistoryCard({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {(entry.learningItems ?? []).length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/30 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                What Will You Learn Today (WhyFi School)? ({entry.learningItems.filter((l) => l.completed).length}/{entry.learningItems.length} Learned)
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {entry.learningItems.map((l) => (
-                  <p key={l.id} className={cn("text-xs leading-relaxed", l.completed ? "text-foreground" : "text-muted-foreground line-through")}>
-                    {renderTextWithMentions(l.text)}
-                  </p>
-                ))}
-              </div>
             </div>
           )}
 

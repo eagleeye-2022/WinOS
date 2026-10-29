@@ -31,6 +31,12 @@ export const ROUTES = {
   pulseRegularization: "/pulse/regularization",
   pulseReports: "/pulse/reports",
   pulseProfile: "/pulse/profile",
+  setu: "/setu",
+  setuMeetings: "/setu/meetings",
+  setuPipeline: "/setu/pipeline",
+  setuContacts: "/setu/contacts",
+  setuReferrals: "/setu/referrals",
+  setuWhatsAppBot: "/setu/whatsapp-bot",
   restricted: "/restricted",
 } as const;
 
