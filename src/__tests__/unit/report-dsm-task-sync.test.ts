@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { syncReportTasksWithDsm, type ReportTaskRow } from "@/features/dsr/reporting";
+import { projectLinkKeys, syncReportTasksWithDsm, type ReportTaskRow } from "@/features/dsr/reporting";
 
 const dsm = (...texts: string[]) => texts.map((text) => ({ text, priority: null }));
 
@@ -44,9 +44,29 @@ describe("syncReportTasksWithDsm", () => {
     expect(syncReportTasksWithDsm(report, [])).toBe(report);
   });
 
-  it("doesn't duplicate a task listed twice in the DSM", () => {
-    expect(syncReportTasksWithDsm([], dsm("Task A", "task a"))).toEqual([
-      { text: "Task A", priority: null, completed: false },
+  it("gives DSM tasks that share a text a row each", () => {
+    expect(syncReportTasksWithDsm([], dsm("Manokalp", "manokalp"))).toEqual([
+      { text: "Manokalp", priority: null, completed: false },
+      { text: "manokalp", priority: null, completed: false },
+    ]);
+  });
+
+  it("adds the second same-text task to a report that only had one, keeping the first one's tick", () => {
+    const report: ReportTaskRow[] = [{ id: "a", text: "Manokalp", priority: null, completed: true }];
+    expect(syncReportTasksWithDsm(report, dsm("Manokalp", "Manokalp"))).toEqual([
+      { id: "a", text: "Manokalp", priority: null, completed: true },
+      { text: "Manokalp", priority: null, completed: false },
+    ]);
+  });
+});
+
+describe("projectLinkKeys", () => {
+  it("keys repeats of a text by occurrence", () => {
+    expect(projectLinkKeys(["Manokalp", "ISPL", "manokalp ", "Manokalp"])).toEqual([
+      "Manokalp",
+      "ISPL",
+      "manokalp #2",
+      "Manokalp#3",
     ]);
   });
 });

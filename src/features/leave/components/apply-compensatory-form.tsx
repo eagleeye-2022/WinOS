@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { CompDurationType, CompensatoryRequest, LeaveAttachment } from "../types";
 import { applyCompensatoryAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
+import { uploadAttachment } from "../upload-attachment";
+import { addDaysToKey, istDateKey } from "@/features/attendance/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,20 +44,14 @@ export function ApplyCompensatoryForm({
 }: ApplyCompensatoryFormProps) {
   const router = useRouter();
 
-  const [workDate, setWorkDate] = useState("2025-05-18");
+  const [workDate, setWorkDate] = useState(() => addDaysToKey(istDateKey(), -1));
   const [fromTime, setFromTime] = useState("09:00 AM");
   const [toTime, setToTime] = useState("06:00 PM");
   const [durationType, setDurationType] = useState<CompDurationType>("FULL_DAY");
-  const [reason, setReason] = useState(
-    "Worked on weekend for product release and issue fixes."
-  );
-  const [attachments, setAttachments] = useState<LeaveAttachment[]>([
-    {
-      id: "att-comp-demo",
-      name: "Doctor_Appointment_Proof.pdf",
-      size: "245 KB",
-    },
-  ]);
+  const [reason, setReason] = useState("");
+  const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
+  /** The picked files, by attachment id — uploaded on submit. */
+  const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Format date helper
@@ -108,6 +105,8 @@ export function ApplyCompensatoryForm({
         size: `${Math.round(file.size / 1024)} KB`,
       };
       setAttachments((prev) => [...prev, newAtt]);
+      setAttachmentFiles((prev) => ({ ...prev, [newAtt.id]: file }));
+      e.target.value = "";
     }
   };
 
@@ -120,14 +119,21 @@ export function ApplyCompensatoryForm({
     setIsSubmitting(true);
 
     try {
-      await applyCompensatoryAction({
-        workDate,
-        fromTime,
-        toTime,
-        hoursWorked: 8.0,
-        duration: durationType,
-        reason,
-      });
+      const uploaded = await Promise.all(
+        attachments.filter((a) => attachmentFiles[a.id]).map((a) => uploadAttachment(attachmentFiles[a.id]))
+      );
+      const res = unwrap(
+        await applyCompensatoryAction({
+          workDate,
+          fromTime,
+          toTime,
+          duration: durationType,
+          reason,
+          attachments: uploaded,
+        })
+      );
+      const hours = Math.floor(res.hoursWorked);
+      const mins = Math.round((res.hoursWorked - hours) * 60);
 
       const d = new Date(workDate);
       const day = d.getDate();
@@ -136,10 +142,10 @@ export function ApplyCompensatoryForm({
       const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
 
       const newComp: CompensatoryRequest = {
-        id: `comp-${Date.now()}`,
+        id: res.id,
         workDate: `${day} ${month} ${year}`,
         workDayOfWeek: weekday,
-        hoursWorkedDisplay: `${fromTime} - ${toTime}\n8h 00m`,
+        hoursWorkedDisplay: `${fromTime} - ${toTime}\n${hours}h ${String(mins).padStart(2, "0")}m`,
         fromTime,
         toTime,
         durationType,
@@ -163,7 +169,7 @@ export function ApplyCompensatoryForm({
         router.push("/pulse/leave");
       }
     } catch (err) {
-      console.error("Failed to submit compensatory request:", err);
+      alert(errorMessage(err, "Failed to submit compensatory request."));
       setIsSubmitting(false);
     }
   };
@@ -531,7 +537,7 @@ export function ApplyCompensatoryForm({
               {/* Full Day */}
               <div className="flex items-center justify-between p-3 rounded-xl border bg-background">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-500">
+                  <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-accent text-blue-500">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
@@ -555,7 +561,7 @@ export function ApplyCompensatoryForm({
                     <div className="text-xs text-muted-foreground">Up to 5 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300 border border-blue-200 dark:border-zinc-700">
                   0.5 Day
                 </span>
               </div>
@@ -581,7 +587,7 @@ export function ApplyCompensatoryForm({
           </div>
 
           {/* Note Card */}
-          <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-start gap-2.5 text-xs text-blue-700 dark:text-blue-300">
+          <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 flex items-start gap-2.5 text-xs text-blue-700 dark:text-blue-300">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
             <span>You can use this compensatory leave before the expiry date.</span>
           </div>

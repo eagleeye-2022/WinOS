@@ -1,12 +1,12 @@
 "use client";
 
 import { Fragment, useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2, ExternalLink, Video, VideoOff } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Circle, ExternalLink, Video, VideoOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dsrReviewStatus } from "../utils";
 import { formatShortDate, relativeDayLabel } from "@/features/dsm/utils";
 import type { DsrEntryData } from "../queries";
-import { fetchDsrProjectTaskLinksAction } from "../actions/get-project-task-links";
+import { fetchDsrProjectTaskLinksAction, fetchDsmTasksForReportAction } from "../actions/get-project-task-links";
 import type { ProjectLinkSummary } from "../queries";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, TaskInfoLink, STICKY_PROJECT_COL_2, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
@@ -16,7 +16,7 @@ import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/componen
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { LearnedTick, ReportLearningTable } from "./report-learning-table";
-import { formatMinutes, usableRecordingUrl } from "../reporting";
+import { formatMinutes, projectLinkKeys, usableRecordingUrl } from "../reporting";
 
 /** Zoho Cliq recording link, time logged, "how was the day" and suggestions from the submit modal. */
 export function ReportRecordingBlock({ entry, showCliqStatus = false }: { entry: DsrEntryData; showCliqStatus?: boolean }) {
@@ -81,21 +81,59 @@ export function DsrHistoryCard({
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
   const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
+  // That day's DSM tasks the saved report doesn't have (added to the DSM after the report was
+  // saved — e.g. by the manager after review). Listed as not done so the report shows every task.
+  const [missingDsmTasks, setMissingDsmTasks] = useState<{ text: string; priority: string | null }[]>([]);
   // Manager review only (memberId set): Action column with the task-details ▸ and ⓘ.
   const withDetails = !!memberId && hasProjectsAccess;
 
   useEffect(() => {
-    const texts = entry.plannedTasks.map((t) => t.text).filter(Boolean);
-    if (texts.length === 0) return;
+    let cancelled = false;
     const dateStr = new Date(entry.date).toISOString().slice(0, 10);
-    fetchDsrProjectTaskLinksAction(texts, dateStr, memberId).then((res) => {
-      if (res) {
+    (async () => {
+      const norm = (s: string) => s.trim().toLowerCase();
+      // How many report rows each text has; a DSM task beyond that count is missing (so two DSM
+      // tasks with the same text need two report rows).
+      const inReport: Record<string, number> = {};
+      for (const t of entry.plannedTasks) inReport[norm(t.text)] = (inReport[norm(t.text)] ?? 0) + 1;
+      const dsmTasks = await fetchDsmTasksForReportAction(dateStr, memberId).catch(() => []);
+      const missing = dsmTasks.filter((t) => {
+        const key = norm(t.text);
+        if (!key) return false;
+        if ((inReport[key] ?? 0) > 0) {
+          inReport[key] -= 1;
+          return false;
+        }
+        return true;
+      });
+      if (cancelled) return;
+      setMissingDsmTasks(missing);
+
+      const texts = [...entry.plannedTasks.map((t) => t.text), ...missing.map((t) => t.text)].filter(Boolean);
+      if (texts.length === 0) return;
+      const res = await fetchDsrProjectTaskLinksAction(texts, dateStr, memberId);
+      if (res && !cancelled) {
         setProjectLinks(res.links);
         setHasProjectsAccess(res.hasProjectsAccess);
       }
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
+
+  // Every task of the day: the report's own rows (done and not done), then the missing DSM ones.
+  const allTasks = [
+    ...entry.plannedTasks,
+    ...missingDsmTasks.map((t, i) => ({
+      id: `dsm-${i}`,
+      text: t.text,
+      priority: t.priority,
+      completed: false,
+      addedAfterReview: false,
+    })),
+  ];
 
   const review = dsrReviewStatus({
     status: entry.status,
@@ -107,8 +145,9 @@ export function DsrHistoryCard({
   const dayLabel = relativeDayLabel(entry.date);
   const dateStr = formatShortDate(entry.date);
   const blockerCount = entry.resolvedBlockers.length;
-  const completedCount = entry.completedTaskCount;
-  const totalCount = entry.plannedTaskCount;
+  const linkKeys = projectLinkKeys(allTasks.map((t) => t.text));
+  const completedCount = allTasks.filter((t) => t.completed).length;
+  const totalCount = allTasks.length;
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
@@ -240,26 +279,35 @@ export function DsrHistoryCard({
 
           <ReportRecordingBlock entry={entry} showCliqStatus={!!memberId} />
 
-          {/* Completed tasks */}
-          {entry.plannedTasks.filter((t) => t.completed).length > 0 && (
+          {/* All of the day's tasks — done (✓) and not done (○) */}
+          {allTasks.length > 0 && (
             <div className="mb-4">
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Today&apos;s Task Completed
+                Today&apos;s Tasks ({completedCount}/{totalCount} Completed)
               </p>
               {/* Same look as the DSM task tables: DSM scrollbar, Project column pinned while scrolling. */}
               <div className={TASK_TABLE_SCROLL}>
                 <table className={cn("w-full min-w-[900px] border-collapse", hasProjectsAccess && STICKY_PROJECT_COL_2)}>
                   <TaskTableHead withProject={hasProjectsAccess} withTimeTracked={hasProjectsAccess} withAction={withDetails} />
                   <tbody>
-                    {entry.plannedTasks.filter((t) => t.completed).map((task, i) => {
-                      const link = projectLinks[task.text];
+                    {allTasks.map((task, i) => {
+                      const link = projectLinks[linkKeys[i]];
                       const linkedTaskId = link?.projectTask ? link.projectTaskId || link.projectTask.id : null;
                       const infoHref = link?.projectTask ? projectTaskHref(link.projectTask.project?.id, link.projectTask.code) : null;
                       const detailOpen = openDetailId === task.id;
                       return (
                         <Fragment key={task.id}>
                         <tr className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
-                          <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">T{i + 1}</td>
+                          <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">
+                            <span className="flex items-center gap-1" title={task.completed ? "Completed" : "Not completed"}>
+                              {task.completed ? (
+                                <CheckCircle2 size={14} className="shrink-0 text-success" />
+                              ) : (
+                                <Circle size={14} className="shrink-0 text-muted-foreground/50" />
+                              )}
+                              T{i + 1}
+                            </span>
+                          </td>
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
                               {link?.projectTask?.project ? <ProjectPill name={link.projectTask.project.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
@@ -267,12 +315,22 @@ export function DsrHistoryCard({
                           )}
                           {hasProjectsAccess && (
                             <td className="py-2 pr-3 align-top">
-                              {/* No ⓘ here — the task opens from the Action column. */}
-                              {link?.projectTask ? <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} /> :<span className="text-xs text-muted-foreground/60">—</span>}
+                              {/* No ⓘ here — the task opens from the Action column. ▸ details (manager review) before the ID. */}
+                              {link?.projectTask ? (
+                                <div className="flex items-start gap-0.5">
+                                  {withDetails && linkedTaskId && (
+                                    <TaskDetailToggle
+                                      open={detailOpen}
+                                      onToggle={() => setOpenDetailId(detailOpen ? null : task.id)}
+                                    />
+                                  )}
+                                  <TaskIdChip code={link.projectTask.code} title={link.projectTask.title || task.text} />
+                                </div>
+                              ) : <span className="text-xs text-muted-foreground/60">—</span>}
                             </td>
                           )}
                           <td className="py-2 pr-3 align-top">
-                            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                            <div className={cn("flex flex-wrap items-center gap-1.5 text-sm", !task.completed && "text-muted-foreground")}>
                               <WrappedTaskText text={task.text} />
                               {task.addedAfterReview && (
                                 <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
@@ -302,15 +360,9 @@ export function DsrHistoryCard({
                             </td>
                           )}
                           {withDetails && (
-                            // ▸ task details (same panel as the DSM review) · ⓘ open the task.
+                            // ⓘ open the task (the ▸ task details toggle sits before the Task ID).
                             <td className="py-2 pr-2 align-top text-center">
                               <div className="flex items-center justify-center gap-0.5">
-                                {linkedTaskId && (
-                                  <TaskDetailToggle
-                                    open={detailOpen}
-                                    onToggle={() => setOpenDetailId(detailOpen ? null : task.id)}
-                                  />
-                                )}
                                 {infoHref && link?.projectTask && (
                                   <TaskInfoLink href={infoHref} code={link.projectTask.code} className="h-7 w-7 rounded-lg hover:bg-muted" />
                                 )}

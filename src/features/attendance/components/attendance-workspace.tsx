@@ -26,6 +26,7 @@ import { ActionRequiredSection } from "./action-required-section";
 import { AttendanceDetailsDrawer } from "./attendance-details-drawer";
 import { RegularizeAttendanceModal } from "./regularize-attendance-modal";
 import { ApplyLeaveModal } from "./apply-leave-modal";
+import { CheckInCaptureModal } from "./check-in-capture-modal";
 import { CompensatoryRequestModal } from "./compensatory-request-modal";
 import { RegularizationRequestsList } from "./regularization-requests-list";
 import { RegularizationRequestDetails } from "./regularization-request-details";
@@ -77,8 +78,10 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
   const [currentYear, setCurrentYear] = useState(initialDate.getUTCFullYear());
   const [selectedDate, setSelectedDate] = useState<string>(initialToday);
   const [todayKey, setTodayKey] = useState<string>(initialToday);
-  const [isPunching, setIsPunching] = useState(false);
   const [punchError, setPunchError] = useState<string | null>(null);
+  /** The day being checked into while the capture modal is open. */
+  const [checkInRecord, setCheckInRecord] = useState<AttendanceRecord | null>(null);
+  const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [onBehalfEmployee, setOnBehalfEmployee] = useState<EmployeeProfile | null>(null);
   const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -169,25 +172,12 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
     setIsDrawerOpen(true);
   };
 
-  const punch = async (run: () => Promise<{ success: boolean; message?: string }>) => {
-    setIsPunching(true);
-    setPunchError(null);
-    try {
-      const res = await run();
-      if (!res.success) setPunchError(res.message || "Something went wrong. Please try again.");
-      fetchAttendance();
-    } catch (err) {
-      console.error("Attendance punch error:", err);
-      setPunchError("Something went wrong. Please try again.");
-    } finally {
-      setIsPunching(false);
-    }
-  };
 
-  const handleCheckIn = (record: AttendanceRecord) =>
-    punch(() => checkInAction({ workMode: record.workMode || "OFFICE", source: "Web" }));
+  // Check-in needs a selfie and the GPS location, so it goes through the capture modal.
+  const handleCheckIn = (record: AttendanceRecord) => setCheckInRecord(record);
 
-  const handleCheckOut = () => punch(() => checkOutAction({ source: "Web" }));
+  // Check-out also needs a selfie and the GPS location.
+  const handleCheckOut = () => setIsCheckOutOpen(true);
 
   const handleRegularizeDay = (record: AttendanceRecord) => {
     const item: ActionRequiredItem = {
@@ -246,14 +236,14 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
       <div className="max-w-[1600px] w-full mx-auto space-y-6">
         {/* Top Main Navigation Tabs */}
-        <div className="flex items-center border-b border-slate-200 dark:border-slate-800 gap-8">
+        <div className="flex items-center border-b border-zinc-200 dark:border-zinc-800 gap-8">
           <button
             onClick={() => setActiveTab("my-attendance")}
             className={cn(
               "pb-3 text-sm font-bold border-b-2 transition-colors relative",
               activeTab === "my-attendance"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
             )}
           >
             Attendance Records
@@ -269,7 +259,7 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
                 "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
                 activeTab === "team-attendance"
                   ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                  : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
               )}
             >
               Team Attendance
@@ -285,7 +275,7 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
               "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
               activeTab === "regularization"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
             )}
           >
             Regularization Request
@@ -298,24 +288,24 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
             {/* Header Row: Title & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+                <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
                   My Attendance
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                   Track your daily attendance and work hours
                 </p>
               </div>
 
               {/* View Switcher & Date Navigation */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60">
                   <button
                     onClick={() => setViewMode("week")}
                     className={cn(
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "week"
-                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                     )}
                   >
                     Week
@@ -325,8 +315,8 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
                     className={cn(
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "month"
-                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                        ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
+                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                     )}
                   >
                     Month
@@ -335,7 +325,7 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
 
                 <button
                   onClick={handlePrev}
-                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs transition-colors"
+                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -343,17 +333,17 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
                 <button
                   onClick={() => goToDate(todayKey)}
                   title="Go to today"
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs"
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200 shadow-xs"
                 >
                   <span>
                     {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
                   </span>
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <Calendar className="w-3.5 h-3.5 text-zinc-500" />
                 </button>
 
                 <button
                   onClick={handleNext}
-                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 shadow-xs transition-colors"
+                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -368,7 +358,7 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
 
             {/* View Content */}
             {isLoading ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+              <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-400">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                 <span className="text-xs font-semibold">Loading attendance data...</span>
               </div>
@@ -381,7 +371,6 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
                   onCheckOut={handleCheckOut}
                   onRegularize={handleRegularizeDay}
                   todayKey={todayKey}
-                  isPunching={isPunching}
                 />
 
                 <MonthlySummaryCard
@@ -480,6 +469,37 @@ export function AttendanceWorkspace({ canManage = false, currentUserId }: Attend
             )}
           </>
         )}
+
+        <CheckInCaptureModal
+          isOpen={checkInRecord !== null}
+          onClose={() => setCheckInRecord(null)}
+          title={checkInRecord?.checkInTime ? "Check-in again" : "Check-in"}
+          onConfirm={async ({ photo, location }) => {
+            const res = await checkInAction({
+              workMode: checkInRecord?.workMode || "OFFICE",
+              source: "Web",
+              photo,
+              location,
+            });
+            if (!res.success) return res.message || "Check-in failed. Please try again.";
+            setPunchError(null);
+            fetchAttendance();
+            return null;
+          }}
+        />
+
+        <CheckInCaptureModal
+          isOpen={isCheckOutOpen}
+          onClose={() => setIsCheckOutOpen(false)}
+          mode="check-out"
+          onConfirm={async ({ photo, location }) => {
+            const res = await checkOutAction({ source: "Web", photo, location });
+            if (!res.success) return res.message || "Check-out failed. Please try again.";
+            setPunchError(null);
+            fetchAttendance();
+            return null;
+          }}
+        />
 
         {/* Slide-over Drawer for Attendance Details */}
         <AttendanceDetailsDrawer

@@ -62,22 +62,22 @@ export function AttendanceWeekView({
             key={record.id}
             onClick={() => onSelectDay(record)}
             className={cn(
-              "group relative bg-white dark:bg-slate-900 rounded-2xl border transition-all duration-200 p-4 flex flex-col justify-between cursor-pointer min-h-[380px] shadow-xs hover:shadow-md",
-              isWorkingNow && "border-blue-300 dark:border-blue-700/70 ring-1 ring-blue-400/30",
+              "group relative bg-white dark:bg-card rounded-2xl border transition-all duration-200 p-4 flex flex-col justify-between cursor-pointer min-h-[380px] shadow-xs hover:shadow-md",
+              isWorkingNow && "border-blue-300 dark:border-zinc-700/70 ring-1 ring-blue-400/30",
               isHalfDay && "border-amber-200 dark:border-amber-900/50",
               isActionRequired && "border-rose-200 dark:border-rose-900/50",
-              isPresent && "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700",
-              canCheckIn && "border-blue-200 dark:border-blue-900/60",
-              (isWeekend || isHoliday) && "border-slate-200/70 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/40"
+              isPresent && "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700",
+              canCheckIn && "border-blue-200 dark:border-zinc-700/60",
+              (isWeekend || isHoliday) && "border-zinc-200/70 dark:border-zinc-800/60 bg-zinc-50/40 dark:bg-card/40"
             )}
           >
             {/* Top Date & Day Header */}
             <div>
               <div className="mb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
                   {record.dayOfWeek}
                 </span>
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">
                   {record.formattedDate.split(" ").slice(0, 2).join(" ")}
                 </p>
               </div>
@@ -106,8 +106,8 @@ export function AttendanceWeekView({
                 )}
 
                 {canCheckIn && record.status === "ABSENT" && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
-                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                    <span className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600" />
                     Not Checked In
                   </span>
                 )}
@@ -129,8 +129,8 @@ export function AttendanceWeekView({
                 )}
 
                 {isWeekend && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 dark:text-slate-500">
-                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                    <span className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600" />
                     Weekend
                   </span>
                 )}
@@ -148,7 +148,7 @@ export function AttendanceWeekView({
               {(isWorkingNow || isPresent) && (
                 <div className="space-y-4">
                   {/* Timeline */}
-                  <div className="relative pl-5 border-l-2 border-slate-100 dark:border-slate-800 space-y-4 py-1">
+                  <div className="relative pl-5 border-l-2 border-zinc-100 dark:border-zinc-800 space-y-4 py-1">
                     {/* Check In Dot & Time */}
                     <div className="relative">
                       <span
@@ -157,10 +157,10 @@ export function AttendanceWeekView({
                           isWorkingNow ? "bg-blue-500" : "bg-emerald-500"
                         )}
                       />
-                      <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                      <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                         {record.checkInTime}
                       </div>
-                      <div className="text-xs text-slate-400">Check-in</div>
+                      <div className="text-xs text-zinc-400">Check-in</div>
                     </div>
 
                     {/* Check Out Dot & Time */}
@@ -169,27 +169,27 @@ export function AttendanceWeekView({
                         className={cn(
                           "absolute -left-[25px] top-1 w-2 h-2 rounded-full",
                           isWorkingNow
-                            ? "bg-slate-300 dark:bg-slate-700"
+                            ? "bg-zinc-300 dark:bg-zinc-700"
                             : "bg-emerald-500"
                         )}
                       />
-                      <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                      <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                         {record.checkOutTime || "--:--"}
                       </div>
-                      <div className="text-xs text-slate-400">Check-out</div>
+                      <div className="text-xs text-zinc-400">Check-out</div>
                     </div>
                   </div>
 
                   {/* Mode tag */}
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                     {record.workMode === "REMOTE" ? (
                       <>
-                        <Wifi className="w-3.5 h-3.5 text-slate-400" />
+                        <Wifi className="w-3.5 h-3.5 text-zinc-400" />
                         <span>Remote</span>
                       </>
                     ) : (
                       <>
-                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <Building2 className="w-3.5 h-3.5 text-zinc-400" />
                         <span>Office</span>
                       </>
                     )}
@@ -213,30 +213,30 @@ export function AttendanceWeekView({
                   </div>
 
                   {/* Timeline for 2nd half */}
-                  <div className="relative pl-5 border-l-2 border-slate-100 dark:border-slate-800 space-y-3 py-1">
+                  <div className="relative pl-5 border-l-2 border-zinc-100 dark:border-zinc-800 space-y-3 py-1">
                     <div className="relative">
                       <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      <div className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
                         {record.checkInTime || "--:--"}
                       </div>
-                      <div className="text-xs text-slate-400">Check-in</div>
+                      <div className="text-xs text-zinc-400">Check-in</div>
                     </div>
 
                     <div className="relative">
                       <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      <div className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
                         {record.checkOutTime || "--:--"}
                       </div>
-                      <div className="text-xs text-slate-400">Check-out</div>
+                      <div className="text-xs text-zinc-400">Check-out</div>
                     </div>
                   </div>
 
                   {record.checkInTime && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                       {record.workMode === "REMOTE" ? (
-                        <Wifi className="w-3.5 h-3.5 text-slate-400" />
+                        <Wifi className="w-3.5 h-3.5 text-zinc-400" />
                       ) : (
-                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <Building2 className="w-3.5 h-3.5 text-zinc-400" />
                       )}
                       <span>{record.workMode === "REMOTE" ? "Remote" : "Office"}</span>
                     </div>
@@ -247,21 +247,21 @@ export function AttendanceWeekView({
               {/* 3. Action Required (e.g. Missing Checkout) */}
               {isActionRequired && (
                 <div className="space-y-4">
-                  <div className="relative pl-5 border-l-2 border-slate-100 dark:border-slate-800 space-y-4 py-1">
+                  <div className="relative pl-5 border-l-2 border-zinc-100 dark:border-zinc-800 space-y-4 py-1">
                     <div className="relative">
                       <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-rose-500" />
-                      <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                      <div className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                         {record.checkInTime || "--:--"}
                       </div>
-                      <div className="text-xs text-slate-400">Check-in</div>
+                      <div className="text-xs text-zinc-400">Check-in</div>
                     </div>
 
                     <div className="relative">
-                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-                      <div className="text-sm font-bold text-slate-400 dark:text-slate-500">
+                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                      <div className="text-sm font-bold text-zinc-400 dark:text-zinc-500">
                         --:--
                       </div>
-                      <div className="text-xs text-slate-400">Check-out</div>
+                      <div className="text-xs text-zinc-400">Check-out</div>
                     </div>
                   </div>
 
@@ -285,10 +285,10 @@ export function AttendanceWeekView({
                   <div className="w-12 h-12 rounded-full bg-amber-100/80 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
                     <Calendar className="w-5 h-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                     {record.leaveInfo?.leaveType || "Leave"}
                   </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-zinc-400 mt-0.5">
                     {isLeavePending ? "Awaiting approval" : record.leaveInfo?.duration || "Full Day"}
                   </p>
                 </div>
@@ -297,26 +297,26 @@ export function AttendanceWeekView({
               {/* 5. Weekend Center Graphic */}
               {isWeekend && (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-3">
+                  <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 flex items-center justify-center mb-3">
                     <Umbrella className="w-5 h-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <h4 className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
                     Weekend
                   </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">No working day</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">No working day</p>
                 </div>
               )}
 
               {/* 6. Holiday Center Graphic */}
               {isHoliday && (
                 <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
                     <Landmark className="w-5 h-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
                     {record.holidayInfo?.name || "Holiday"}
                   </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-zinc-400 mt-0.5">
                     {record.holidayInfo?.type || "National Holiday"}
                   </p>
                 </div>
@@ -324,7 +324,7 @@ export function AttendanceWeekView({
             </div>
 
             {/* Bottom Actions / Duration Footer */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-2">
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 mt-2">
               {isWorkingNow && (
                 <div className="space-y-2">
                   <button
@@ -338,7 +338,7 @@ export function AttendanceWeekView({
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Check-out</span>
                   </button>
-                  <p className="text-xs text-slate-400 text-center leading-tight">
+                  <p className="text-xs text-zinc-400 text-center leading-tight">
                     Working hours will update after check-out.
                   </p>
                 </div>
@@ -365,7 +365,7 @@ export function AttendanceWeekView({
                     e.stopPropagation();
                     onCheckIn(record);
                   }}
-                  className="w-full mb-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
+                  className="w-full mb-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-blue-200 dark:border-zinc-700 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Check-in again</span>
@@ -392,14 +392,14 @@ export function AttendanceWeekView({
                     e.stopPropagation();
                     onRegularize?.(record);
                   }}
-                  className="w-full py-1.5 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition-colors"
+                  className="w-full py-1.5 px-3 rounded-xl bg-blue-50 dark:bg-accent hover:bg-blue-100 text-blue-600 dark:text-blue-400 text-xs font-bold transition-colors"
                 >
                   Regularize
                 </button>
               )}
 
               {(isOnLeave || isWeekend || isHoliday) && !canCheckIn && (
-                <div className="text-center text-xs font-bold text-slate-400">
+                <div className="text-center text-xs font-bold text-zinc-400">
                   -
                 </div>
               )}

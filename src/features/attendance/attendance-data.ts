@@ -66,7 +66,7 @@ export async function loadAttendanceRange(
   const endExclusive = dateFromKey(endKey)!;
   endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
 
-  const [attendances, holidays, leaves, regularizations] = await Promise.all([
+  const [attendances, holidays, leaves, regularizations, joiners] = await Promise.all([
     db.dailyAttendance.findMany({
       where: { userId: { in: userIds }, date: { gte: start, lt: endExclusive } },
     }),
@@ -86,7 +86,15 @@ export async function loadAttendanceRange(
       where: { userId: { in: userIds }, missingDate: { gte: start, lt: endExclusive } },
       orderBy: { createdAt: "asc" },
     }),
+    db.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, dateOfJoining: true, createdAt: true },
+    }),
   ]);
+
+  // First day each person can be expected at work: their joining date, else the day their account
+  // was created (users are provisioned on first login, and attendance can't predate the account).
+  const joinedKeyByUser = new Map(joiners.map((u) => [u.id, istDateKey(u.dateOfJoining ?? u.createdAt)]));
 
   const attMap = new Map<string, AttendanceRow>();
   for (const a of attendances) attMap.set(`${a.userId}|${dateKeyFromUtc(a.date)}`, a);
@@ -111,6 +119,7 @@ export async function loadAttendanceRange(
     todayKey,
     daysFor(userId, keys) {
       const userLeaves = leavesByUser.get(userId) ?? [];
+      const joinedKey = joinedKeyByUser.get(userId);
       return keys.map((key) => {
         const attendance = attMap.get(`${userId}|${key}`) ?? null;
         const holiday = holidayMap.get(key) ?? null;
@@ -134,6 +143,7 @@ export async function loadAttendanceRange(
           approvedLeaves: approved.map(toSpan),
           hasPendingLeave: pending.length > 0,
           regularizationStatus: regularization?.status ?? null,
+          beforeJoining: joinedKey !== undefined && key < joinedKey,
         });
 
         return {

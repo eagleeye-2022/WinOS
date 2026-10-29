@@ -22,6 +22,7 @@ import {
   approveCompensatoryAction,
   rejectCompensatoryAction,
 } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -53,10 +54,10 @@ export function CompensatoryDetailsView({
   const handleApprove = async () => {
     setIsProcessing(true);
     try {
-      await approveCompensatoryAction(request.id);
+      unwrap(await approveCompensatoryAction(request.id));
       setStatus("APPROVED");
     } catch (err) {
-      console.error("Failed to approve compensatory request:", err);
+      alert(errorMessage(err));
     } finally {
       setIsProcessing(false);
     }
@@ -65,10 +66,10 @@ export function CompensatoryDetailsView({
   const handleReject = async () => {
     setIsProcessing(true);
     try {
-      await rejectCompensatoryAction(request.id);
+      unwrap(await rejectCompensatoryAction(request.id));
       setStatus("REJECTED");
     } catch (err) {
-      console.error("Failed to reject compensatory request:", err);
+      alert(errorMessage(err));
     } finally {
       setIsProcessing(false);
     }

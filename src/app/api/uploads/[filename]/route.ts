@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { uploadReadDirs } from "@/lib/upload-storage";
+import { auth } from "@/lib/auth";
 
 const MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -26,6 +27,12 @@ export async function GET(
   { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
+    // Uploads include check-in selfies, leave documents and profile photos — signed-in users only.
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { filename } = await params;
     if (!filename) {
       return NextResponse.json({ error: "Filename is required" }, { status: 400 });
@@ -60,7 +67,8 @@ export async function GET(
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${safeFilename}"`,
-        "Cache-Control": "public, max-age=86400, must-revalidate",
+        // private: shared caches/CDNs must not keep a copy that skips the login check.
+        "Cache-Control": "private, max-age=86400, must-revalidate",
       },
     });
   } catch (error) {

@@ -88,7 +88,7 @@ export function ActionRequiredBanner({
                   variant="outline"
                   size="sm"
                   onClick={() => onApplyLeave(item)}
-                  className="h-8 px-3 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-300 dark:border-blue-800"
+                  className="h-8 px-3 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-300 dark:border-zinc-700"
                 >
                   <Calendar className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                   Apply Leave

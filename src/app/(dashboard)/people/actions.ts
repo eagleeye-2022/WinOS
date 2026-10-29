@@ -4,6 +4,9 @@ import path from "path";
 import { db } from "@/lib/db";
 import { saveUploadFile } from "@/lib/upload-storage";
 import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { canManageAttendance } from "@/features/attendance/utils";
+import { canManageUser, managedUserIds } from "@/features/attendance/team-scope";
 
 export interface RTDDocument {
   id: string;
@@ -31,50 +34,29 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
-export async function getRtdDocumentsAction(currentUserId: string, isManager: boolean): Promise<RTDDocument[]> {
-  // 1. Fetch team members to check if we need to auto-initialize default documents
-  const teamMembers = await db.user.findMany({
-    where: { role: "TEAM_MEMBER" },
-    include: { roleTaskDocuments: true }
+/** The signed-in user, re-read from the DB (never trust ids/roles sent by the browser). */
+async function requireViewer() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const viewer = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, role: true, profileRole: true, isActive: true },
   });
+  if (!viewer?.isActive) throw new Error("Unauthorized");
+  return viewer;
+}
 
-  // 2. Initialize default documents if a team member doesn't have any documents yet
-  for (const member of teamMembers) {
-    if (member.roleTaskDocuments.length === 0) {
-      const isDev = member.title?.toLowerCase().includes("developer") || member.title?.toLowerCase().includes("engineer");
-      const isDesigner = member.title?.toLowerCase().includes("designer") || member.title?.toLowerCase().includes("creative");
-      
-      let taskName = "Q3 Marketing & Growth Strategy";
-      let fileName = "growth_objectives.pdf";
-      let comment = "Mapping out social media management channels and newsletter schedules for team review.";
+/**
+ * RTD documents the signed-in user may see: their own, plus their team's for managers.
+ * The arguments are ignored (kept for the existing caller) — identity comes from the session.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getRtdDocumentsAction(_currentUserId?: string, _isManager?: boolean): Promise<RTDDocument[]> {
+  const viewer = await requireViewer();
+  const scope = canManageAttendance(viewer) ? await managedUserIds(viewer) : new Set<string>();
 
-      if (isDev) {
-        taskName = "Q3 Backend Infrastructure & Performance";
-        fileName = "infrastructure_scaling_proposal.pdf";
-        comment = "Standardizing backend API routes and scaling Prisma connections for the upcoming Q3 release.";
-      } else if (isDesigner) {
-        taskName = "Design Tokens & Style Guide Refactor";
-        fileName = "design_tokens_v2.pdf";
-        comment = "Aligning brand guidelines and export definitions for Figma-to-code components.";
-      }
-
-      await db.roleTaskDocument.create({
-        data: {
-          taskName,
-          fileName,
-          fileUrl: "",
-          fileType: "document",
-          userId: member.id,
-          comment,
-          managerNotes: "Looks solid. Proceed with scheduling alignment review."
-        }
-      });
-    }
-  }
-
-  // 3. Fetch RTD documents from the database
   const dbDocs = await db.roleTaskDocument.findMany({
-    where: isManager ? {} : { userId: currentUserId },
+    where: scope === null ? {} : { userId: { in: [viewer.id, ...scope] } },
     include: { user: true },
     orderBy: { createdAt: "desc" }
   });
@@ -117,6 +99,9 @@ export async function getRtdDocumentsAction(currentUserId: string, isManager: bo
 }
 
 export async function uploadRtdFileAction(userId: string, formData: FormData): Promise<string> {
+  // Upload for yourself, or (managers) for someone in your team.
+  const viewer = await requireViewer();
+  if (userId !== viewer.id && !(await canManageUser(viewer, userId))) throw new Error("Forbidden");
   const file = formData.get("file") as File;
   if (!file) throw new Error("No file uploaded");
 
@@ -157,6 +142,11 @@ export async function uploadRtdFileAction(userId: string, formData: FormData): P
 }
 
 export async function saveRtdManagerNotesAction(docId: string, managerNotes: string): Promise<void> {
+  // Only a manager responsible for the document's owner writes notes on it.
+  const viewer = await requireViewer();
+  const doc = await db.roleTaskDocument.findUnique({ where: { id: docId }, select: { userId: true } });
+  if (!doc) throw new Error("Document not found");
+  if (!(await canManageUser(viewer, doc.userId))) throw new Error("Forbidden");
   await db.roleTaskDocument.update({
     where: { id: docId },
     data: { managerNotes },

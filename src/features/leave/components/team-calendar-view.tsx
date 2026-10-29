@@ -325,7 +325,7 @@ export function TeamCalendarView() {
                     onClick={() => setSelectedDay(day)}
                     className={cn(
                       "min-h-[85px] p-1.5 text-xs transition-all cursor-pointer flex flex-col justify-between hover:bg-muted/30",
-                      isToday && "bg-blue-50/40 dark:bg-blue-950/20",
+                      isToday && "bg-blue-50/40 dark:bg-accent",
                       isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
                     )}
                   >
@@ -374,7 +374,7 @@ export function TeamCalendarView() {
                       {/* Leaves */}
                       {dayLeaves.length === 1 && (
                         <div
-                          className="px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate"
+                          className="px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-accent dark:text-blue-300 truncate"
                           title={`${dayLeaves[0].employeeName} - ${dayLeaves[0].leaveType}`}
                         >
                           {dayLeaves[0].employeeName.split(" ")[0]} ({dayLeaves[0].leaveTypeCode})
@@ -382,7 +382,7 @@ export function TeamCalendarView() {
                       )}
 
                       {dayLeaves.length > 1 && (
-                        <div className="inline-flex items-center gap-1 w-full px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 truncate">
+                        <div className="inline-flex items-center gap-1 w-full px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-accent dark:text-blue-300 truncate">
                           <span>{dayLeaves.length} on leave</span>
                           <Users className="w-2.5 h-2.5 ml-auto shrink-0" />
                         </div>

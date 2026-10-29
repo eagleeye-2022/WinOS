@@ -230,3 +230,24 @@ describe("canManageAttendance", () => {
     expect(canManageAttendance(null)).toBe(false);
   });
 });
+
+describe("resolveDay before joining", () => {
+  it("is a non-working day with nothing to count or action", () => {
+    const r = resolveDay(day({ beforeJoining: true }));
+    expect(r).toMatchObject({ isWorkingDay: false, present: 0, absent: 0, paidLeave: 0, lopLeave: 0 });
+    expect(r.action).toBeUndefined();
+  });
+
+  it("still counts real attendance recorded before the joining date", () => {
+    const r = resolveDay(day({ beforeJoining: true, attendance: punched("09:30 AM", "06:30 PM") }));
+    expect(r).toMatchObject({ status: "PRESENT", isWorkingDay: true, present: 1 });
+  });
+
+  it("rolls up a mid-month joiner without absences before joining", () => {
+    const before = resolveDay(day({ key: "2026-10-13", beforeJoining: true }));
+    const after = resolveDay(day({ key: "2026-10-14" }));
+    const r = rollupMonth([before, after]);
+    expect(r.companyWorkingDays).toBe(1);
+    expect(r.absentDays).toBe(1);
+  });
+});

@@ -49,7 +49,11 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (href.startsWith(ROUTES.setu)) {
     return href === ROUTES.setu ? pathname === ROUTES.setu : pathname.startsWith(href);
   }
-  if (label === "Home" || label === "Dashboard") {
+  // Each module's "Home" is active on its own page (Standup → /dashboard, Pulse → /people/home).
+  if (label === "Home") {
+    return pathname === href;
+  }
+  if (label === "Dashboard") {
     return pathname === ROUTES.dashboard;
   }
   if (label === "All DSM") {
@@ -178,7 +182,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   if (activeModuleTitle === "Pulse") {
     navItems = isManager
       ? [
-          { label: "Home", href: "/people", icon: Home },
+          { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
@@ -192,16 +196,18 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
             children: [{ label: "Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading }],
           },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "RTD Documents", href: "/people", icon: ClipboardList },
           { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ]
       : [
-          { label: "Home", href: "/people", icon: Home },
+          { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
+          { label: "RTD Documents", href: "/people", icon: ClipboardList },
           { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },
         ];
   } else if (activeModuleTitle === "Srijan" || activeModuleTitle === "Projects") {

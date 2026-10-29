@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, isoToUtcDate, getWeekRange } from "./utils";
 import { getDailyTimeSummaryForTasks, getDayEffort, type DailyTimeSummary, type DayEffortRow } from "@/features/dsm/queries";
-import { computeIsLate, getReportCutoff, getReportCutoffDayOffset } from "./reporting";
+import { computeIsLate, getReportCutoff, getReportCutoffDayOffset, projectLinkKey } from "./reporting";
 
 /**
  * Replaces the stored `isLate` (frozen at submit time) with one computed from the CURRENT cut-off
@@ -266,13 +266,15 @@ export async function getDsrProjectTaskLinks(
   const wanted = new Set(plannedTaskTexts.map(norm));
 
   const linkedTaskIds: string[] = [];
+  // Every DSM row per text, in DSM order — two rows can share a text (e.g. two subtasks both
+  // called "Manokalp"), and each report row is matched to its own one by occurrence.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const byNormalizedText: Record<string, { projectTaskId: string | null; projectTask: any; dueDate: Date | null }> = {};
+  const byNormalizedText: Record<string, { projectTaskId: string | null; projectTask: any; dueDate: Date | null }[]> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const t of standup.tasks as any[]) {
     const key = norm(t.text);
     if (!wanted.has(key)) continue;
-    byNormalizedText[key] = { projectTaskId: t.projectTaskId, projectTask: t.projectTask, dueDate: t.dueDate };
+    (byNormalizedText[key] ??= []).push({ projectTaskId: t.projectTaskId, projectTask: t.projectTask, dueDate: t.dueDate });
     if (t.projectTaskId) linkedTaskIds.push(t.projectTaskId);
   }
   if (Object.keys(byNormalizedText).length === 0) return {};
@@ -282,10 +284,14 @@ export async function getDsrProjectTaskLinks(
     : {};
 
   const result: Record<string, ProjectLinkSummary> = {};
+  const seen: Record<string, number> = {};
   for (const text of plannedTaskTexts) {
-    const match = byNormalizedText[norm(text)];
+    const key = norm(text);
+    const occurrence = seen[key] ?? 0;
+    seen[key] = occurrence + 1;
+    const match = byNormalizedText[key]?.[occurrence];
     if (!match) continue;
-    result[text] = {
+    result[projectLinkKey(text, occurrence)] = {
       dueDate: match.dueDate,
       projectTaskId: match.projectTaskId,
       projectTask: match.projectTask,

@@ -43,6 +43,7 @@ import {
   rejectLeaveRequestAction,
   cancelLeaveRequestAction,
 } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
 import { getLeaveRequestByIdAction } from "../queries/leave-queries";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -157,6 +158,17 @@ export function LeaveRequestDetailsView({
     window.print();
   };
 
+  /** Replaces optimistic state with what the server has (after success, and to undo it on failure). */
+  const syncFromServer = async () => {
+    const freshData = await getLeaveRequestByIdAction(request.id);
+    if (freshData) {
+      if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
+      if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
+    }
+  };
+
   const handleApprove = async () => {
     setIsProcessing(true);
     const nowStr = `${new Date().toLocaleDateString("en-GB", {
@@ -187,17 +199,14 @@ export function LeaveRequestDetailsView({
     );
 
     try {
-      await approveLeaveRequestAction(request.id);
-      const freshData = await getLeaveRequestByIdAction(request.id);
-      if (freshData) {
-        if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
-        if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
-      }
+      const res = unwrap(await approveLeaveRequestAction(request.id));
+      if (!res.completed) alert(`Approved. It now needs ${res.nextStep ?? "the next approval"}.`);
+      else if (res.isLossOfPay) alert(`Approved. ${res.lopDays} day(s) exceed the balance and are marked as loss of pay.`);
+      await syncFromServer();
       router.refresh();
     } catch (err) {
-      console.error("Failed to approve leave request:", err);
+      alert(errorMessage(err));
+      await syncFromServer().catch(() => {});
     } finally {
       setIsProcessing(false);
     }
@@ -222,17 +231,12 @@ export function LeaveRequestDetailsView({
     );
 
     try {
-      await rejectLeaveRequestAction(request.id);
-      const freshData = await getLeaveRequestByIdAction(request.id);
-      if (freshData) {
-        if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
-        if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
-      }
+      unwrap(await rejectLeaveRequestAction(request.id));
+      await syncFromServer();
       router.refresh();
     } catch (err) {
-      console.error("Failed to reject leave request:", err);
+      alert(errorMessage(err));
+      await syncFromServer().catch(() => {});
     } finally {
       setIsProcessing(false);
     }
@@ -245,18 +249,13 @@ export function LeaveRequestDetailsView({
       if (onCancelRequest) {
         onCancelRequest(request.id);
       } else {
-        await cancelLeaveRequestAction(request.id);
+        unwrap(await cancelLeaveRequestAction(request.id));
       }
-      const freshData = await getLeaveRequestByIdAction(request.id);
-      if (freshData) {
-        if (freshData.request?.status) setStatus(freshData.request.status as LeaveStatus);
-        if (freshData.request?.approvalFlow) setApprovalFlow(freshData.request.approvalFlow);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (freshData.balances && freshData.balances.length > 0) setBalances(freshData.balances as any);
-      }
+      await syncFromServer();
       router.refresh();
     } catch (err) {
-      console.error("Failed to cancel request:", err);
+      alert(errorMessage(err));
+      await syncFromServer().catch(() => {});
     } finally {
       setIsProcessing(false);
     }

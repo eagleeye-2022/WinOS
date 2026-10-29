@@ -148,65 +148,65 @@ function IcebergGraphic({ profile, counts }: IcebergGraphicProps) {
 
       {/* 1. Skills Badge */}
       <div className="absolute top-[14%] left-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-emerald-500 dark:hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Skills</span>
           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20 px-1 text-xs text-emerald-700 dark:text-emerald-300 font-bold">
             {counts.skills}
           </span>
         </div>
-        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-zinc-700/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.skills, "Skills")}
         </div>
       </div>
 
       {/* 2. Knowledge Badge */}
       <div className="absolute top-[19%] right-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-cyan-500 dark:hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-zinc-700 hover:border-cyan-500 dark:hover:border-cyan-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Knowledge</span>
           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-500/20 px-1 text-xs text-cyan-700 dark:text-cyan-300 font-bold">
             {counts.knowledge}
           </span>
         </div>
-        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-zinc-700/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.knowledge, "Knowledge")}
         </div>
       </div>
 
       {/* 3. Traits Badge */}
       <div className="absolute top-[47%] left-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-sky-500 dark:hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-zinc-700 hover:border-sky-500 dark:hover:border-sky-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Traits</span>
           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-500/20 px-1 text-xs text-sky-700 dark:text-sky-300 font-bold">
             {counts.traits}
           </span>
         </div>
-        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] left-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-zinc-700/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.traits, "Traits")}
         </div>
       </div>
 
       {/* 4. Self-Image Badge */}
       <div className="absolute top-[59%] right-[6%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-indigo-500 dark:hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-zinc-700 hover:border-indigo-500 dark:hover:border-indigo-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Self-Image</span>
           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20 px-1 text-xs text-indigo-700 dark:text-indigo-300 font-bold">
             {counts.selfImage}
           </span>
         </div>
-        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute top-[110%] right-0 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-zinc-700/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.selfImage, "Self-Image")}
         </div>
       </div>
 
       {/* 5. Motives Badge */}
       <div className="absolute top-[79%] left-[9%] z-20 group/badge select-none">
-        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-sky-800 hover:border-fuchsia-500 dark:hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
+        <div className="flex items-center gap-1.5 rounded-xl bg-card/90 hover:bg-card border border-sky-200 dark:border-zinc-700 hover:border-fuchsia-500 dark:hover:border-fuchsia-500 px-3 py-1.5 text-xs font-bold text-foreground shadow-md transition-all duration-300 hover:scale-105 cursor-pointer">
           <span>Motives</span>
           <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-fuchsia-100 dark:bg-fuchsia-500/20 px-1 text-xs text-fuchsia-700 dark:text-fuchsia-300 font-bold">
             {counts.motives}
           </span>
         </div>
-        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-sky-800/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
+        <div className="absolute bottom-[110%] left-0 mb-2 z-30 hidden group-hover/badge:block w-48 bg-card border border-sky-100 dark:border-zinc-700/60 rounded-xl p-3 shadow-xl animate-in fade-in duration-200">
           {renderTooltipItems(profile.motives, "Motives")}
         </div>
       </div>

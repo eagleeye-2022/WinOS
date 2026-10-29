@@ -474,28 +474,20 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       Document Ref: RTD-{activeDoc.id.toUpperCase()} &bull; Submitted by: {activeDoc.submittedBy.name}
                     </p>
 
-                    <div className="text-xs space-y-3.5 text-neutral-600 flex-1">
-                      <p className="font-bold text-neutral-900 font-sans text-xs">Roles & Responsibilities Overview</p>
-                      
-                      <p>
-                        This documentation establishes the operational alignment and metrics mapping associated with the corresponding standup objectives and dashboard delivery.
+                    {/* No file to render — show only what was actually submitted. */}
+                    <div className="text-xs space-y-3.5 text-neutral-600 flex-1 font-sans">
+                      <p className="text-neutral-500">
+                        {activeDoc.fileUrl
+                          ? "This file type can't be previewed here — open it from Uploaded File."
+                          : "No file is attached to this document."}
                       </p>
 
-                      <div className="bg-neutral-50 border-l border-neutral-400 p-2.5 rounded my-2 font-sans text-xs">
-                        <p className="font-bold text-neutral-800 mb-0.5">Submitter Comment / Focus Summary:</p>
+                      <div className="bg-neutral-50 border-l border-neutral-400 p-2.5 rounded my-2 text-xs">
+                        <p className="font-bold text-neutral-800 mb-0.5">Submitter comment</p>
                         <p className="italic text-neutral-600">
-                          &quot;{activeDoc.comment || "No comment was submitted with this file."}&quot;
+                          {activeDoc.comment || "No comment was submitted with this file."}
                         </p>
                       </div>
-
-                      <p className="font-bold text-neutral-900 font-sans text-xs uppercase tracking-wider pt-2 border-t border-neutral-100">
-                        Operational Directives:
-                      </p>
-                      <ul className="list-disc pl-4 space-y-1 text-neutral-600 font-sans text-xs">
-                        <li>Coordinate daily standup (DSM) deliverables and align task priority tags.</li>
-                        <li>Address customer feedback reports and check-in blockers.</li>
-                        <li>Manage engineering resources and optimize local db connectivity.</li>
-                      </ul>
                     </div>
 
                     {/* Signature Block */}
@@ -508,9 +500,9 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                       </div>
                       <div>
                         <div className="h-6 flex items-end border-b border-neutral-300 font-sans italic text-neutral-400">
-                          {activeDoc.managerNotes ? "Sarah Jenkins (EED)" : "(Awaiting Review)"}
+                          {activeDoc.managerNotes ? "Reviewed" : "(Awaiting Review)"}
                         </div>
-                        <p className="text-xs text-neutral-400 mt-1 uppercase tracking-wider">Reviewing Manager</p>
+                        <p className="text-xs text-neutral-400 mt-1 uppercase tracking-wider">Manager Review</p>
                       </div>
                     </div>
                   </div>

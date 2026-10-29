@@ -11,6 +11,10 @@ export type AttendanceStatus =
 
 export type WorkMode = "OFFICE" | "REMOTE";
 
+/** Reports in the Pulse Reports hub; `/pulse/reports?report=<type>` opens one directly. */
+export const REPORT_TYPES = ["team-shift", "my-shift", "team-payroll", "team-leave-payroll", "my-payroll"] as const;
+export type ReportType = (typeof REPORT_TYPES)[number];
+
 export type AttendanceSource = "Fingerprint" | "Web" | "Mobile App";
 
 export type ActionRequiredType =

@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
 import { adjustLeaveBalanceAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
 
 interface AdjustmentRow {
   id: string;
@@ -193,18 +194,19 @@ export function LeaveBalanceAdjustmentView({
       for (const row of rows) {
         if (!row.leaveTypeId) continue;
         const adjustmentDays = row.adjustmentType === "ADD" ? (Number(row.days) || 0) : -(Number(row.days) || 0);
-        await adjustLeaveBalanceAction({
-          employeeId: currentEmployee.id,
-          leaveTypeId: row.leaveTypeId,
-          adjustmentDays,
-          reason,
-          remarks,
-        });
+        unwrap(
+          await adjustLeaveBalanceAction({
+            employeeId: currentEmployee.id,
+            leaveTypeId: row.leaveTypeId,
+            adjustmentDays,
+            reason,
+            remarks,
+          })
+        );
       }
       setIsSuccessModalOpen(true);
     } catch (err) {
-      console.error("Failed to adjust balance:", err);
-      alert("Failed to adjust balance: " + (err instanceof Error ? err.message : String(err)));
+      alert("Failed to adjust balance: " + errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

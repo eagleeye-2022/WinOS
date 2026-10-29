@@ -38,7 +38,7 @@ export async function ensureLeaveDataSeeded() {
             code: "SL",
             description: "For illness or medical reasons",
             icon: "Heart",
-            iconBgColor: "bg-blue-50 text-blue-600 dark:bg-blue-950/40",
+            iconBgColor: "bg-blue-50 text-blue-600 dark:bg-accent",
             iconTextColor: "text-blue-600",
             category: "PAID",
             allocationFrequency: "MONTHLY",

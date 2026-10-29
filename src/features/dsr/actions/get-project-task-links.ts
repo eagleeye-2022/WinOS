@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasModuleAccess } from "@/features/users/actions/module-guard";
 import { getDsrProjectTaskLinks, type ProjectLinkSummary } from "../queries";
+import { isoToUtcDate } from "../utils";
 
 export interface DsrProjectTaskLinksResult {
   hasProjectsAccess: boolean;
@@ -43,4 +44,35 @@ export async function fetchDsrProjectTaskLinksAction(
 
   const links = await getDsrProjectTaskLinks(targetUserId, new Date(date), plannedTaskTexts);
   return { hasProjectsAccess: true, links };
+}
+
+/**
+ * That day's DSM tasks ("What Will You Do Today?" — added before or after review, by the member or
+ * the manager), so a saved report can list the ones it doesn't have yet. Same viewer guard as above.
+ */
+export async function fetchDsmTasksForReportAction(
+  date: string, // "YYYY-MM-DD"
+  userId?: string
+): Promise<{ text: string; priority: string | null }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  let targetUserId = session.user.id;
+  if (userId && userId !== session.user.id) {
+    const viewer = await d.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    if (viewer?.role !== "MANAGER") return [];
+    targetUserId = userId;
+  }
+
+  const tasks = await d.standupTask.findMany({
+    where: { kind: "TODAY", entry: { userId: targetUserId, date: isoToUtcDate(date) } },
+    orderBy: { order: "asc" },
+    select: { text: true, priority: true, managerPriority: true },
+  });
+  return tasks.map((t: { text: string; priority: string | null; managerPriority: string | null }) => ({
+    text: t.text,
+    priority: t.managerPriority ?? t.priority ?? null,
+  }));
 }

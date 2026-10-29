@@ -56,6 +56,74 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { createLeaveTypeAction } from "../actions/leave-actions";
+import { errorMessage, unwrap } from "../action-result";
+
+// Wizard labels → the enum values createLeaveTypeAction stores.
+const CATEGORY_MAP: Record<string, "PAID" | "UNPAID" | "PARTIALLY_PAID"> = {
+  Paid: "PAID",
+  Unpaid: "UNPAID",
+  "Partially Paid": "PARTIALLY_PAID",
+};
+const ALLOCATION_MAP: Record<string, "YEARLY" | "MONTHLY" | "QUARTERLY" | "ON_DEMAND"> = {
+  Monthly: "MONTHLY",
+  Quarterly: "QUARTERLY",
+  Yearly: "YEARLY",
+  "On-Demand": "ON_DEMAND",
+};
+const RESET_RULE_MAP: Record<string, "CARRY_FORWARD_UP_TO_LIMIT" | "ENCASH_UNUSED" | "LAPSE_ALL"> = {
+  "Carry forward up to a limit": "CARRY_FORWARD_UP_TO_LIMIT",
+  "Encash unused balance": "ENCASH_UNUSED",
+  "Lapse all unused balance": "LAPSE_ALL",
+};
+const EXCESS_MAP: Record<string, "DO_NOT_ALLOW" | "ALLOW_WITHOUT_LIMIT" | "ALLOW_UNTIL_YEAR_END" | "MARK_AS_LOP"> = {
+  DO_NOT_ALLOW: "DO_NOT_ALLOW",
+  WITHOUT_LIMIT: "ALLOW_WITHOUT_LIMIT",
+  YEAR_END: "ALLOW_UNTIL_YEAR_END",
+  LOP: "MARK_AS_LOP",
+};
+const AUDIENCE_MAP: Record<string, "ALL_EMPLOYEES" | "FULL_TIME_ONLY" | "PROBATIONARY" | "CONTRACTORS"> = {
+  "All Employees": "ALL_EMPLOYEES",
+  "Full Time Only": "FULL_TIME_ONLY",
+  Probationary: "PROBATIONARY",
+  Contractors: "CONTRACTORS",
+};
+type TimeUnitValue = "DAYS" | "WEEKS" | "MONTHS" | "YEARS" | "HOURS";
+const UNIT_MAP: Record<string, TimeUnitValue | undefined> = {
+  Days: "DAYS",
+  Weeks: "WEEKS",
+  Months: "MONTHS",
+  Years: "YEARS",
+  Hours: "HOURS",
+};
+const REQUEST_PERIOD_MAP: Record<string, TimeUnitValue | undefined> = { Month: "MONTHS", Year: "YEARS" };
+const DOC_POLICY_MAP = {
+  NOT_REQUIRED: "NOT_REQUIRED",
+  ALWAYS: "ALWAYS_REQUIRED",
+  EXCEEDS: "REQUIRED_WHEN_EXCEEDS",
+} as const;
+const APPROVAL_FLOW_MAP: Record<string, "DIRECT_MANAGER" | "DEPARTMENT_HEAD" | "HR_ADMIN" | "CUSTOM_TWO_STEP"> = {
+  "Employee's Direct Manager": "DIRECT_MANAGER",
+  "Department Head": "DEPARTMENT_HEAD",
+  "HR Admin": "HR_ADMIN",
+  "Custom 2-Step Approval": "CUSTOM_TWO_STEP",
+};
+const VISIBILITY_MAP: Record<string, "COMPLETE_LEAVE_SUMMARY" | "REMAINING_BALANCE_ONLY" | "HIDE_IN_SELF_SERVICE"> = {
+  "Complete Leave Summary": "COMPLETE_LEAVE_SUMMARY",
+  "Remaining Balance Only": "REMAINING_BALANCE_ONLY",
+  "Hide in Self Service": "HIDE_IN_SELF_SERVICE",
+};
+const BALANCE_DISPLAY_MAP: Record<string, "LEAVE_REQUEST_START_DATE" | "CURRENT_DATE" | "YEAR_END_PROJECTION"> = {
+  "Leave request's start date": "LEAVE_REQUEST_START_DATE",
+  "Current date": "CURRENT_DATE",
+  "Year end projection": "YEAR_END_PROJECTION",
+};
+const CLUBBING_CODE_MAP: Record<string, string> = {
+  "Sick Leave": "SL",
+  "Casual Leave": "CL",
+  "Compensatory Off": "COMP",
+  "Paid Leave": "PL",
+  "Maternity Leave": "ML",
+};
 
 const AVAILABLE_ICONS = [
   { name: "Thermometer", label: "Medical / Sick", component: Thermometer },
@@ -80,13 +148,13 @@ const AVAILABLE_ICONS = [
 
 const COLOR_THEMES = [
   { id: "emerald", label: "Emerald", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
-  { id: "blue", label: "Blue", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800" },
+  { id: "blue", label: "Blue", bg: "bg-blue-50 dark:bg-accent", text: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-zinc-700" },
   { id: "purple", label: "Purple", bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-600 dark:text-purple-400", border: "border-purple-200 dark:border-purple-800" },
   { id: "orange", label: "Amber / Orange", bg: "bg-orange-50 dark:bg-orange-950/40", text: "text-orange-600 dark:text-orange-400", border: "border-orange-200 dark:border-orange-800" },
   { id: "rose", label: "Rose / Red", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800" },
   { id: "cyan", label: "Cyan", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-200 dark:border-cyan-800" },
-  { id: "indigo", label: "Indigo", bg: "bg-indigo-50 dark:bg-indigo-950/40", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-200 dark:border-indigo-800" },
-  { id: "slate", label: "Slate", bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700" },
+  { id: "indigo", label: "Indigo", bg: "bg-indigo-50 dark:bg-accent", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-200 dark:border-zinc-700" },
+  { id: "slate", label: "Slate", bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-700 dark:text-zinc-300", border: "border-zinc-200 dark:border-zinc-700" },
 ];
 
 const PRESET_LEAVE_TYPES = [
@@ -351,48 +419,75 @@ export function CreateLeaveTypeWizard({
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleNext = async () => {
     if (currentStep < 6) {
       setCurrentStep(currentStep + 1);
     } else {
       setIsSubmitting(true);
+      setSubmitError(null);
       try {
-        await createLeaveTypeAction({
-          name: leaveTypeName,
-          code: leaveCode,
-          description,
-          icon: selectedIcon,
-          iconBgColor: currentColor.bg,
-          iconTextColor: currentColor.text,
-          isActive: status === "Active",
-          effectiveDate,
-          expiryDate: expiryDate || undefined,
-          category: leaveCategory === "Paid" ? "PAID" : "UNPAID",
-          allocationFrequency: allocationFreq === "Monthly" ? "MONTHLY" : "YEARLY",
-          annualEntitlement,
-          allowCarryForward,
-          carryForwardLimit,
-          allowFullDay: durations.fullDay,
-          allowHalfDay: durations.halfDay,
-          allowQuarterDay: durations.quarterDay,
-          allowHourly: durations.hourly,
-          allowPastDays,
-          pastDaysLimit,
-          allowAdvanceDays,
-          advanceDaysLimit,
-          minAdvanceNotice,
-          minLeavePerRequest,
-          maxLeavePerRequest,
-          maxConsecutiveDays,
-          minGapBetweenRequests,
-          sandwichPolicy,
-          sandwichWeekends,
-          sandwichHolidays,
-          docExceedsDays,
-          acceptedFileTypes,
-          managerApprovalRequired,
-        });
+        unwrap(
+          await createLeaveTypeAction({
+            name: leaveTypeName,
+            code: leaveCode,
+            description,
+            icon: selectedIcon,
+            iconBgColor: currentColor.bg,
+            iconTextColor: currentColor.text,
+            isActive: status === "Active",
+            effectiveDate,
+            expiryDate: expiryDate || undefined,
+            category: CATEGORY_MAP[leaveCategory] ?? "PAID",
+            allocationFrequency: ALLOCATION_MAP[allocationFreq] ?? "YEARLY",
+            annualEntitlement,
+            allowCarryForward,
+            carryForwardLimit,
+            balanceResetRule: RESET_RULE_MAP[balanceResetRule] ?? "CARRY_FORWARD_UP_TO_LIMIT",
+            exceededRule: EXCESS_MAP[excessOption] ?? "MARK_AS_LOP",
+            yearEndDate: excessOption === "YEAR_END" ? yearEndDate : undefined,
+            applicableTo: AUDIENCE_MAP[applicableTo] ?? "ALL_EMPLOYEES",
+            departments: department === "All Departments" ? [] : [department],
+            employmentTypes: employmentType === "All Employment Types" ? [] : [employmentType],
+            minServicePeriod,
+            minServiceUnit: UNIT_MAP[minServiceUnit],
+            allowFullDay: durations.fullDay,
+            allowHalfDay: durations.halfDay,
+            allowQuarterDay: durations.quarterDay,
+            allowHourly: durations.hourly,
+            allowPastDays,
+            pastDaysLimit,
+            pastDaysUnit: UNIT_MAP[pastDaysUnit],
+            allowAdvanceDays,
+            advanceDaysLimit,
+            advanceDaysUnit: UNIT_MAP[advanceDaysUnit],
+            minAdvanceNotice,
+            minAdvanceNoticeUnit: UNIT_MAP[minAdvanceUnit],
+            minLeavePerRequest,
+            maxLeavePerRequest,
+            maxConsecutiveDays,
+            minGapBetweenRequests,
+            maxRequestsCount,
+            // TimeUnit has no quarter, so a per-quarter limit keeps the default period.
+            maxRequestsPeriod: REQUEST_PERIOD_MAP[maxRequestsPeriod],
+            applicableDays,
+            sandwichPolicy,
+            sandwichWeekends,
+            sandwichHolidays,
+            clubbingRestrictedCodes: clubbingLeaveTypes.map((t) => CLUBBING_CODE_MAP[t] ?? t),
+            supportingDocPolicy: DOC_POLICY_MAP[supportingDocPolicy],
+            // The threshold is a leave amount; hours are converted at 8 working hours per day.
+            docExceedsDays: docExceedsUnit === "Hours" ? Math.round((docExceedsDays / 8) * 100) / 100 : docExceedsDays,
+            acceptedFileTypes,
+            maxFileSizeMb: parseInt(maxFileSize, 10) || 5,
+            managerApprovalRequired,
+            approvalFlow: APPROVAL_FLOW_MAP[approvalFlow] ?? "DIRECT_MANAGER",
+            allowAdminApplyOnBehalf,
+            employeeVisibility: VISIBILITY_MAP[employeeVisibility] ?? "COMPLETE_LEAVE_SUMMARY",
+            balanceDisplayPref: BALANCE_DISPLAY_MAP[balanceDisplayPreference] ?? "LEAVE_REQUEST_START_DATE",
+          })
+        );
 
         if (onSuccess) {
           onSuccess();
@@ -400,7 +495,7 @@ export function CreateLeaveTypeWizard({
           router.push("/pulse/leave/team");
         }
       } catch (err) {
-        console.error("Failed to create leave type:", err);
+        setSubmitError(errorMessage(err, "Failed to create leave type."));
       } finally {
         setIsSubmitting(false);
       }
@@ -1015,7 +1110,7 @@ export function CreateLeaveTypeWizard({
               </div>
 
               {/* Info Notice Banner */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
                   Employees can apply beyond their balance. Excess days will be marked as Loss of Pay.
@@ -1268,7 +1363,7 @@ export function CreateLeaveTypeWizard({
               </div>
 
               {/* Info Notice */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
                   Employees will be able to request leave only in the selected duration types.
@@ -1702,7 +1797,7 @@ export function CreateLeaveTypeWizard({
                   {clubbingLeaveTypes.map((type) => (
                     <span
                       key={type}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300 border border-blue-200 dark:border-zinc-700"
                     >
                       <span>{type}</span>
                       <button
@@ -1839,7 +1934,7 @@ export function CreateLeaveTypeWizard({
                 </div>
 
                 {/* Banner notice */}
-                <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+                <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>
                     Employees must upload a supporting document if the applied leave period exceeds the specified number of days.
@@ -1866,7 +1961,7 @@ export function CreateLeaveTypeWizard({
                     {acceptedFileTypes.map((type) => (
                       <span
                         key={type}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300 border border-blue-200 dark:border-zinc-700"
                       >
                         <span>{type}</span>
                         <button
@@ -2063,7 +2158,7 @@ export function CreateLeaveTypeWizard({
                 </div>
 
                 {/* Right: Blue Callout Card */}
-                <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 space-y-2 flex flex-col justify-center">
+                <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 space-y-2 flex flex-col justify-center">
                   <div className="flex items-center gap-2 text-primary font-bold text-xs">
                     <Info className="w-4 h-4 text-primary shrink-0" />
                     <span>About Balance Display</span>
@@ -2078,6 +2173,12 @@ export function CreateLeaveTypeWizard({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {submitError && (
+        <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+          {submitError}
         </div>
       )}
 
