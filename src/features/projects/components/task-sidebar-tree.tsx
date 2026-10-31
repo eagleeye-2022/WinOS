@@ -244,7 +244,8 @@ export function TaskSidebarTree({
           onClick={() => onOpen(item.code)}
           aria-current={isSelected ? "page" : undefined}
           className={cn(
-            "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
+            // Same width at every depth — deeper levels move right and the panel scrolls sideways.
+            "relative w-[272px] overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
             "bg-white dark:bg-[#111214]",
             isSelected
               ? "border-primary/70 ring-1 ring-primary/40 shadow-md"
@@ -405,7 +406,6 @@ export function TaskSidebarTree({
                 >
                   <ListTree size={13} />
                   <span className="text-xs font-bold">{children.length}</span>
-                  <ChevronDown size={11} />
                 </span>
               )}
             </div>
@@ -448,7 +448,8 @@ export function TaskSidebarTree({
 
   return (
     <>
-      {renderCard(rootTask, null, new Set())}
+      {/* As wide as the deepest level needs; the panel around it scrolls sideways. */}
+      <div className="w-max min-w-full">{renderCard(rootTask, null, new Set())}</div>
       {ConfirmDialog}
     </>
   );

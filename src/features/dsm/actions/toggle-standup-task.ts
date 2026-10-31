@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { checklistCloseBlock } from "@/features/sop-checklists/close-gate";
+import { canCloseWithoutSop, checklistCloseBlock, forcedCloseOf } from "@/features/sop-checklists/close-gate";
 import { recordTaskClosed } from "@/features/sop-checklists/events";
 import { isTaskDone } from "@/features/projects/types";
 import { openSubtasksOf, openSubtasksMessage } from "@/features/projects/subtask-gate";
@@ -23,25 +23,26 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
 
     if (!task) return { success: false, message: "Task not found" };
 
-    // Completing it closes the linked Srijan task, which needs a completed SOP checklist first
-    // (unless that task is already closed, e.g. a manager closed it anyway).
+    // Completing it closes the linked Srijan task, which needs a completed SOP checklist first —
+    // managers may skip it (recorded as forced) — unless that task is already closed.
     const linked = isCompleted && task.projectTaskId
       ? await d.projectTask.findUnique({
           where: { id: task.projectTaskId },
           select: { status: true, completionPercentage: true },
         })
       : null;
+    let sopBlock: Awaited<ReturnType<typeof checklistCloseBlock>> = null;
     if (isCompleted && task.projectTaskId && linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
       // Its subtasks (any depth) must be done first.
       const openSubs = await openSubtasksOf(task.projectTaskId);
       if (openSubs.length > 0) return { success: false, message: openSubtasksMessage(openSubs, "close") };
-      const block = await checklistCloseBlock(task.projectTaskId);
-      if (block) {
+      sopBlock = await checklistCloseBlock(task.projectTaskId);
+      if (sopBlock && !(await canCloseWithoutSop(session.user.id))) {
         return {
           success: false,
-          message: block.message,
-          // No "Close anyway" for anyone — managers complete the checklist like team members.
-          checklistBlock: { ...block, canForce: false },
+          message: sopBlock.message,
+          // No "Close anyway" for team members.
+          checklistBlock: { ...sopBlock, canForce: false },
         };
       }
     }
@@ -80,9 +81,13 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
           },
         });
 
-        // SOP timeline: the linked task was closed (its checklist passed the gate above).
+        // SOP timeline: the linked task was closed (forced when a manager skipped the checklist).
         if (linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
-          await recordTaskClosed({ id: session.user.id, name: userName }, task.projectTaskId, null);
+          await recordTaskClosed(
+            { id: session.user.id, name: userName },
+            task.projectTaskId,
+            sopBlock ? forcedCloseOf(sopBlock) : null
+          );
         }
       }
     }

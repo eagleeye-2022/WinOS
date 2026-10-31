@@ -1,15 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "@/lib/db";
 import { evaluateCloseGate, isChecklistExemptTask } from "./utils";
+import { loadActingUser } from "./access";
 import type { ChecklistCloseBlock } from "./types";
 
 const d = db as any;
 
 /**
+ * Managers may close a task without selecting or completing its SOP checklist; the close is
+ * recorded on the SOP timeline as forced. Everyone else must complete the checklist first.
+ */
+export async function canCloseWithoutSop(userId: string): Promise<boolean> {
+  try {
+    return (await loadActingUser(userId))?.isManager ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/** The SOP timeline's "forced" note for a close that skipped the checklist. */
+export function forcedCloseOf(block: ChecklistCloseBlock) {
+  return { reason: block.reason, done: block.done, total: block.total };
+}
+
+/**
  * A Srijan project task (or subtask) can't be moved to a done status until it has an SOP checklist
  * and every item of it is ticked. WhyFi School cards, NAT tasks and the daily DSM/DSR tasks are
  * exempt (isChecklistExemptTask). Returns why closing is blocked, or null when it's allowed.
- * `canForce` is always false: managers follow the same rule as team members (no override).
+ * Managers skip the block at the write paths (canCloseWithoutSop); `canForce` stays false since
+ * no one else can override it.
  *
  * Plain server module (not a Server Action) — called from the task status write paths
  * (updateTaskAction, updateSubtaskAction, the DSM standup toggle).

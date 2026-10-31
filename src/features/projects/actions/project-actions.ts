@@ -56,7 +56,7 @@ import {
 } from "@/features/whyfi/constants";
 import { nextWhyfiTaskCodeFromDb } from "@/features/whyfi/task-code";
 import { findCountry, getCountryCities } from "../location-data";
-import { checklistCloseBlock } from "@/features/sop-checklists/close-gate";
+import { canCloseWithoutSop, checklistCloseBlock, forcedCloseOf } from "@/features/sop-checklists/close-gate";
 import { recordTaskClosed } from "@/features/sop-checklists/events";
 import type { ChecklistCloseBlock } from "@/features/sop-checklists/types";
 
@@ -2604,7 +2604,7 @@ export async function updateTaskAction(
   }
 
   // Closing (status → done, or 100%) needs a completed SOP checklist — see checklistCloseBlock.
-  // Everyone follows it, managers included: no override ("Close anyway" was removed by request).
+  // Managers may close without it (recorded on the SOP timeline as forced); everyone else follows it.
   const closing =
     (updates.status !== undefined && isTaskDone(updates.status)) ||
     (updates.completionPercentage !== undefined && updates.completionPercentage >= 100);
@@ -2616,11 +2616,11 @@ export async function updateTaskAction(
     const openSubs = await openSubtasksOf(task.id);
     if (openSubs.length > 0) return { success: false, error: openSubtasksMessage(openSubs, "close") };
     const block = await checklistCloseBlock(task.id);
-    if (block) {
-      // Same for a manager as for a team member: select an SOP checklist and tick every item first.
+    if (block && !(await canCloseWithoutSop(session.user.id))) {
+      // Team members: select an SOP checklist and tick every item first.
       return { success: false, error: block.message, checklistBlock: { ...block, canForce: false } };
     }
-    closedEvent = { forced: null };
+    closedEvent = { forced: block ? forcedCloseOf(block) : null };
   }
 
   let ownerNames: string[] = [];
@@ -3374,12 +3374,14 @@ export async function updateSubtaskAction(
     select: { id: true, title: true, phaseName: true, taskListName: true, status: true, completionPercentage: true },
   });
 
-  // Same rule as updateTaskAction: a completed SOP checklist is needed before closing. Returns false
-  // (nothing saved) — callers fetch the details with getChecklistCloseBlockAction for the popup.
+  // Same rule as updateTaskAction: a completed SOP checklist is needed before closing (managers may
+  // skip it). Returns false (nothing saved) — callers fetch the details with
+  // getChecklistCloseBlockAction for the popup.
   const closing = (updates.status !== undefined && isTaskDone(updates.status)) || updates.completed === true;
   const closesNow = !!subtask && closing && !isTaskDone(subtask.status, false, subtask.completionPercentage);
   if (closesNow && (await openSubtasksOf(subtask!.id)).length > 0) return false;
-  if (closesNow && (await checklistCloseBlock(subtask!.id))) return false;
+  const subBlock = closesNow ? await checklistCloseBlock(subtask!.id) : null;
+  if (subBlock && !(await canCloseWithoutSop(session.user.id))) return false;
 
   if (subtask && updates.title && updates.title !== subtask.title) {
     await syncNatTitleToDsm(subtask, updates.title);
@@ -3415,7 +3417,11 @@ export async function updateSubtaskAction(
   }
 
   if (closesNow) {
-    await recordTaskClosed({ id: session.user.id, name: session.user.name || "User" }, subtask!.id, null);
+    await recordTaskClosed(
+      { id: session.user.id, name: session.user.name || "User" },
+      subtask!.id,
+      subBlock ? forcedCloseOf(subBlock) : null
+    );
   }
 
   revalidatePath("/projects");
