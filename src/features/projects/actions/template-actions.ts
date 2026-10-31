@@ -5,9 +5,12 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { ProjectTemplate, SOPPhaseTemplate } from "../types";
-import { DEFAULT_PROJECT_TEMPLATES } from "../data/sop-templates";
+import { BUILT_IN_PROJECT_TEMPLATES, TemplateDraft, buildTemplateFromDraft } from "../template-utils";
 
 const d = db as any;
+
+/** Only rows saved from the Project Template tab, which always record who created them. */
+const CUSTOM_TEMPLATE_WHERE = { createdByUserId: { not: null } };
 
 function toProjectTemplate(row: {
   id: string;
@@ -57,88 +60,91 @@ async function requireManager(): Promise<{ userId: string } | { error: string }>
   return { userId: session.user.id };
 }
 
-/**
- * Ensures the ProjectTemplate table has at least the built-in SOP templates. Runs once —
- * subsequent calls see `count() > 0` and skip straight to the read.
- */
-async function ensureSeeded(): Promise<void> {
-  const count = await d.projectTemplate.count();
-  if (count > 0) return;
-
-  await d.projectTemplate.createMany({
-    data: DEFAULT_PROJECT_TEMPLATES.map((tmpl) => ({
-      id: tmpl.id,
-      name: tmpl.name,
-      description: tmpl.description,
-      category: tmpl.category,
-      isDefault: !!tmpl.isDefault,
-      phases: tmpl.phases as any,
-    })),
-    skipDuplicates: true,
-  });
-}
-
-export async function getProjectTemplatesAction(): Promise<ProjectTemplate[]> {
+/** Templates created by managers, plus their saved edits of the built-in ones (same id as the built-in). */
+export async function getCustomProjectTemplatesAction(): Promise<ProjectTemplate[]> {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  await ensureSeeded();
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, profileRole: true },
+  });
+  if (!user || user.profileRole === "CLIENT" || String(user.role).toUpperCase() === "CLIENT") return [];
 
-  const rows = await d.projectTemplate.findMany({ orderBy: { createdAt: "asc" } });
+  const rows = await d.projectTemplate.findMany({ where: CUSTOM_TEMPLATE_WHERE, orderBy: { createdAt: "asc" } });
   return rows.map(toProjectTemplate);
 }
 
-export interface ProjectTemplateInput {
-  name: string;
-  description: string;
-  category: ProjectTemplate["category"];
-  isDefault: boolean;
-  phases: SOPPhaseTemplate[];
+async function otherCustomTemplateNames(excludeId?: string): Promise<string[]> {
+  const rows: { name: string }[] = await d.projectTemplate.findMany({
+    where: { ...CUSTOM_TEMPLATE_WHERE, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { name: true },
+  });
+  return rows.map((r) => r.name);
+}
+
+function revalidateTemplatePages() {
+  revalidatePath("/projects");
+  revalidatePath("/projects/settings");
 }
 
 export async function createProjectTemplateAction(
-  input: ProjectTemplateInput
+  draft: TemplateDraft
 ): Promise<{ success: boolean; template?: ProjectTemplate; error?: string }> {
   const auth_ = await requireManager();
   if ("error" in auth_) return { success: false, error: auth_.error };
 
+  const { template, error } = buildTemplateFromDraft(draft, await otherCustomTemplateNames());
+  if (!template) return { success: false, error };
+
   const row = await d.projectTemplate.create({
     data: {
-      name: input.name,
-      description: input.description,
-      category: input.category,
-      isDefault: input.isDefault,
-      phases: input.phases as any,
+      name: template.name,
+      description: template.description,
+      category: template.category,
+      isDefault: false,
+      phases: template.phases as any,
       createdByUserId: auth_.userId,
     },
   });
 
-  revalidatePath("/projects");
-  revalidatePath("/projects/settings");
+  revalidateTemplatePages();
 
   return { success: true, template: toProjectTemplate(row) };
 }
 
 export async function updateProjectTemplateAction(
   id: string,
-  input: ProjectTemplateInput
+  draft: TemplateDraft
 ): Promise<{ success: boolean; template?: ProjectTemplate; error?: string }> {
   const auth_ = await requireManager();
   if ("error" in auth_) return { success: false, error: auth_.error };
 
-  const row = await d.projectTemplate.update({
-    where: { id },
-    data: {
-      name: input.name,
-      description: input.description,
-      category: input.category,
-      isDefault: input.isDefault,
-      phases: input.phases as any,
-    },
-  });
+  const builtIn = BUILT_IN_PROJECT_TEMPLATES.find((t) => t.id === id);
+  if (!builtIn) {
+    const existing = await d.projectTemplate.findFirst({ where: { id, ...CUSTOM_TEMPLATE_WHERE }, select: { id: true } });
+    if (!existing) return { success: false, error: "Template not found." };
+  }
 
-  revalidatePath("/projects");
-  revalidatePath("/projects/settings");
+  const { template, error } = buildTemplateFromDraft(draft, await otherCustomTemplateNames(id), builtIn);
+  if (!template) return { success: false, error };
+
+  const data = {
+    name: template.name,
+    description: template.description,
+    category: template.category,
+    phases: template.phases as any,
+  };
+  // A built-in template has no row until its first edit is saved.
+  const row = builtIn
+    ? await d.projectTemplate.upsert({
+        where: { id },
+        create: { id, ...data, isDefault: false, createdByUserId: auth_.userId },
+        update: { ...data, createdByUserId: auth_.userId },
+      })
+    : await d.projectTemplate.update({ where: { id }, data });
+
+  revalidateTemplatePages();
 
   return { success: true, template: toProjectTemplate(row) };
 }
@@ -149,10 +155,10 @@ export async function deleteProjectTemplateAction(
   const auth_ = await requireManager();
   if ("error" in auth_) return { success: false, error: auth_.error };
 
-  await d.projectTemplate.delete({ where: { id } });
+  const { count } = await d.projectTemplate.deleteMany({ where: { id, ...CUSTOM_TEMPLATE_WHERE } });
+  if (count === 0) return { success: false, error: "Template not found." };
 
-  revalidatePath("/projects");
-  revalidatePath("/projects/settings");
+  revalidateTemplatePages();
 
   return { success: true };
 }

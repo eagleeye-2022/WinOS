@@ -145,7 +145,16 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
 
 // ── Sidebar Component ─────────────────────────────────────────────────────────
 
-export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: string }) {
+export function AppSidebar({
+  userRole,
+  userId,
+  canManagePulse = false,
+}: {
+  userRole?: string;
+  userId?: string;
+  /** Pulse has its own manager rule (canManageAttendance), which the Pulse pages also enforce. */
+  canManagePulse?: boolean;
+}) {
   const pathname = usePathname();
 
   const isManager = userRole === "MANAGER";
@@ -180,7 +189,7 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
   let navItems: Array<NavLeaf & { section?: string; children?: NavLeaf[] }> = [];
 
   if (activeModuleTitle === "Pulse") {
-    navItems = isManager
+    navItems = canManagePulse
       ? [
           { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
@@ -203,7 +212,6 @@ export function AppSidebar({ userRole, userId }: { userRole?: string; userId?: s
           { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
-          { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },

@@ -81,9 +81,9 @@ export function ApplyLeaveForm({
   const todayStr = istDateKey();
 
   // Form State
-  const [selectedTypeCode, setSelectedTypeCode] = useState<string>(
-    leaveTypes.length > 0 ? leaveTypes[0].code : "CL"
-  );
+  // Empty until picked: the list can still be loading when the form mounts, and `selectedType`
+  // falls back to the first leave type.
+  const [selectedTypeCode, setSelectedTypeCode] = useState<string>("");
   const [dayType, setDayType] = useState<DayType>("FULL_DAY");
   const [date, setDate] = useState<string>(initialDate || todayStr);
   const [fromDate, setFromDate] = useState<string>(initialDate || todayStr);
@@ -105,7 +105,7 @@ export function ApplyLeaveForm({
     return leaveTypes.find((lt) => lt.code === selectedTypeCode) || leaveTypes[0];
   }, [leaveTypes, selectedTypeCode]);
 
-  const isEarlyLeave = selectedTypeCode === "EL";
+  const isEarlyLeave = selectedType?.code === "EL";
 
   // Formatted date string (e.g. 21 Aug 2026 (Fri))
   const formatDateDisplay = (dStr: string) => {
@@ -175,7 +175,7 @@ export function ApplyLeaveForm({
   const currentBooking = durationInfo.days;
   const balanceAfterBooking = availableBalance - currentBooking;
 
-  // Handle Attachment upload simulation
+  // Keeps the picked file for preview; it's uploaded on submit.
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -194,24 +194,14 @@ export function ApplyLeaveForm({
   };
 
   const handleDownload = (att: LeaveAttachment) => {
-    if (att.url) {
-      const link = document.createElement("a");
-      link.href = att.url;
-      link.download = att.name;
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      const blob = new Blob([`Document Content for ${att.name}`], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = att.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    if (!att.url) return;
+    const link = document.createElement("a");
+    link.href = att.url;
+    link.download = att.name;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRemoveAttachment = (id: string) => {
@@ -401,7 +391,7 @@ export function ApplyLeaveForm({
                   Leave type <span className="text-red-500">*</span>
                 </label>
                 <Select
-                  value={selectedTypeCode}
+                  value={selectedType?.code ?? ""}
                   onValueChange={(val) => {
                     setSelectedTypeCode(val);
                     if (val === "EL") {
@@ -428,6 +418,11 @@ export function ApplyLeaveForm({
                     })}
                   </SelectContent>
                 </Select>
+                {leaveTypes.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No leave types are available to you. Ask your manager to set them up under Leave Policy.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -789,7 +784,7 @@ export function ApplyLeaveForm({
                           ? "Early Leave (EL)"
                           : dayType === "HALF_DAY"
                           ? "Half Day Leave (HD)"
-                          : selectedType.name}
+                          : selectedType?.name ?? "—"}
                       </td>
 
                       {isEarlyLeave ? (
@@ -850,7 +845,7 @@ export function ApplyLeaveForm({
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !selectedType}
                   className="h-10 px-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                 >
                   {isSubmitting ? "Applying..." : "Apply Leave"}

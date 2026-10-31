@@ -129,4 +129,8 @@ export interface CompensatoryRequest {
   designation?: string;
   avatarText?: string;
   creditedDays?: number;
+  employeeCode?: string;
+  /** Set by the server when the viewer is a manager responsible for this person. */
+  canReview?: boolean;
+  approvalSteps?: { id: string; title: string; actorName: string; dateStr?: string; status: string }[];
 }

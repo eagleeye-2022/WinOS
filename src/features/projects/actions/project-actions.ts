@@ -40,7 +40,10 @@ import {
   scaffoldPhasesFromTemplate,
   scaffoldTaskListsFromTemplate,
   scaffoldTasksFromTemplate,
+  type ScaffoldedTask,
 } from "../data/sop-templates";
+import { sopCopyCreateData } from "@/features/sop-checklists/sync";
+import { recordSopEvents, type SopEventInput } from "@/features/sop-checklists/events";
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
 import { joinIndustries, parseIndustries } from "../data/industries";
 import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
@@ -144,9 +147,8 @@ async function isPrivilegedViewer(userId: string, projectId?: string): Promise<b
 }
 
 /**
- * Looks up a project template by id from the DB (managers can edit templates there — see
- * template-actions.ts), falling back to the built-in static templates if the DB row doesn't
- * exist yet (e.g. before the lazy seed in getProjectTemplatesAction has ever run).
+ * Looks up a project template by id from the DB (managers' custom templates and saved edits of
+ * built-in ones — see template-actions.ts), falling back to the original built-in templates.
  */
 async function findProjectTemplate(templateId: string): Promise<ProjectTemplate | undefined> {
   const row = await (db as any).projectTemplate.findUnique({ where: { id: templateId } });
@@ -798,6 +800,72 @@ function incrementProjectCode(code: string): string {
   return `EEDP-${n + 1}`;
 }
 
+/**
+ * Gives a new project's tasks the owners and SOP checklists set on their template tasks. Owners also
+ * become project users, since only project users can work on a project's tasks. The project and
+ * its tasks already exist by now, so a failure is logged and leaves those tasks to be set by hand.
+ */
+async function applyTemplateTaskDefaults(
+  projectId: string,
+  tasks: ScaffoldedTask[],
+  activeOwnerIdsOf: (task: ScaffoldedTask) => string[],
+  actor: { id: string; name: string }
+): Promise<void> {
+  const withDefaults = tasks.filter((t) => t.code && (activeOwnerIdsOf(t).length > 0 || t.sopChecklists?.length));
+  if (withDefaults.length === 0) return;
+
+  try {
+    const rows = await db.projectTask.findMany({
+      where: { projectId, code: { in: withDefaults.map((t) => t.code as string) } },
+      select: { id: true, code: true },
+    });
+    const taskIdByCode = new Map(rows.map((r) => [r.code, r.id]));
+
+    const ownerRows = withDefaults.flatMap((t) => {
+      const taskId = taskIdByCode.get(t.code as string);
+      return taskId ? activeOwnerIdsOf(t).map((userId) => ({ taskId, userId, assignedById: actor.id })) : [];
+    });
+    if (ownerRows.length > 0) {
+      await db.projectTaskOwner.createMany({ data: ownerRows, skipDuplicates: true });
+      await db.projectMember.createMany({
+        data: [...new Set(ownerRows.map((o) => o.userId))].map((userId) => ({ projectId, userId })),
+        skipDuplicates: true,
+      });
+    }
+
+    const sopIds = [...new Set(withDefaults.flatMap((t) => (t.sopChecklists ?? []).map((s) => s.id)))];
+    if (sopIds.length === 0) return;
+
+    // Archived or deleted SOPs are skipped: the task just starts without them.
+    const sops: any[] = await (db as any).sopChecklistTemplate.findMany({
+      where: { id: { in: sopIds }, isArchived: false },
+      include: { items: { orderBy: { position: "asc" } } },
+    });
+    const sopById = new Map(sops.map((s) => [s.id, s]));
+
+    const events: SopEventInput[] = [];
+    for (const task of withDefaults) {
+      const taskId = taskIdByCode.get(task.code as string);
+      if (!taskId) continue;
+      const taskSops = (task.sopChecklists ?? []).flatMap((s) => sopById.get(s.id) ?? []);
+      for (const [position, sop] of taskSops.entries()) {
+        const checklist = await (db as any).taskChecklist.create({ data: sopCopyCreateData(sop, taskId, position, actor) });
+        events.push({
+          type: "CHECKLIST_ATTACHED",
+          templateId: sop.id,
+          templateName: sop.name,
+          checklistId: checklist.id,
+          taskId,
+          details: { version: sop.version, steps: sop.items.length, via: "template" },
+        });
+      }
+    }
+    await recordSopEvents(actor, events);
+  } catch (err) {
+    console.error(`Failed to apply template task defaults to project ${projectId}:`, err);
+  }
+}
+
 export async function createProjectAction(data: NewProjectFormData): Promise<Project> {
   const session = await requireAuth();
   if (!(await isPrivilegedViewer(session.user.id))) {
@@ -938,28 +1006,53 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
       });
       const phaseIdMap = new Map(createdDbPhases.map((p) => [p.code, p.id]));
 
+      // A default owner may have left since the template was saved: only active users are assigned.
+      const defaultOwnerIds = [...new Set(scaffoldedTasks.flatMap((t) => (t.defaultOwners ?? []).map((o) => o.id)))];
+      const activeOwners = new Map(
+        defaultOwnerIds.length > 0
+          ? (
+              await db.user.findMany({
+                where: { id: { in: defaultOwnerIds }, isActive: true },
+                select: { id: true, name: true },
+              })
+            ).map((u) => [u.id, u.name || "Unassigned"] as const)
+          : []
+      );
+      const activeOwnerIdsOf = (t: ScaffoldedTask) =>
+        (t.defaultOwners ?? []).map((o) => o.id).filter((id) => activeOwners.has(id));
+
       await db.projectTask.createMany({
-        data: scaffoldedTasks.map((t) => ({
-          code: t.code || `${newProject.code || newProject.id}-T01`,
-          title: t.title || "Untitled Task",
-          phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
-          phaseCode: t.phaseCode,
-          phaseName: t.phaseName,
-          taskListName: t.taskListName,
-          isExternal: t.isExternal ?? true,
-          status: "Open",
-          authorId: session.user.id,
-          authorName: session.user.name || "System",
-          departmentAlias: t.departmentAlias,
-          duration: t.duration,
-          priority: t.priority,
-          description: t.description,
-          ownerId: null,
-          owner: "Unassigned",
-          projectId: newProject.id,
-        })),
+        data: scaffoldedTasks.map((t) => {
+          const ownerIds = activeOwnerIdsOf(t);
+          return {
+            code: t.code || `${newProject.code || newProject.id}-T01`,
+            title: t.title || "Untitled Task",
+            phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
+            phaseCode: t.phaseCode,
+            phaseName: t.phaseName,
+            taskListName: t.taskListName,
+            isExternal: t.isExternal ?? true,
+            status: t.status || "Open",
+            authorId: session.user.id,
+            authorName: session.user.name || "System",
+            departmentAlias: t.departmentAlias,
+            duration: t.duration,
+            priority: t.priority,
+            description: t.description,
+            startDate: t.defaultStartDate,
+            dueDate: t.defaultDueDate,
+            ownerId: ownerIds[0] ?? null,
+            owner: ownerIds.length > 0 ? ownerIds.map((id) => activeOwners.get(id)).join(", ") : "Unassigned",
+            projectId: newProject.id,
+          };
+        }),
       });
       createdTaskCount = scaffoldedTasks.length;
+
+      await applyTemplateTaskDefaults(newProject.id, scaffoldedTasks, activeOwnerIdsOf, {
+        id: session.user.id,
+        name: session.user.name || "System",
+      });
 
       // Template subtasks (e.g. SMM's "October Month" → its monthly steps), numbered <task>.1, .2…
       const withSubtasks = scaffoldedTasks.filter((t) => t.code && t.subtaskTitles && t.subtaskTitles.length > 0);
@@ -5727,7 +5820,12 @@ export async function updateProjectDetailsAction(
   });
 
   if (switchTemplate) {
-    await switchProjectPhasesToTemplate(project.id, fromTemplate!, toTemplate!);
+    // Use a manager's saved edits of these templates when there are any.
+    await switchProjectPhasesToTemplate(
+      project.id,
+      (await findProjectTemplate(fromTemplate!.id)) ?? fromTemplate!,
+      (await findProjectTemplate(toTemplate!.id)) ?? toTemplate!
+    );
     await logProjectActivity({
       projectId: project.id,
       userId: session.user.id,

@@ -223,6 +223,10 @@ describe("rollupMonth", () => {
 });
 
 describe("canManageAttendance", () => {
+  it("includes portal owners", () => {
+    expect(canManageAttendance({ role: "TEAM_MEMBER", profileRole: "PORTAL_OWNER" })).toBe(true);
+  });
+
   it("allows managers and admins only", () => {
     expect(canManageAttendance({ role: "MANAGER" })).toBe(true);
     expect(canManageAttendance({ role: "TEAM_MEMBER", profileRole: "ADMIN" })).toBe(true);

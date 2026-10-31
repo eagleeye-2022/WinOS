@@ -1,7 +1,8 @@
 import { Metadata } from "next";
 import { auth } from "@/lib/auth";
+import { ROUTES } from "@/constants/routes";
 import { AttendanceWorkspace } from "@/features/attendance/components/attendance-workspace";
-import { canManageAttendance } from "@/features/attendance/utils";
+import { requirePulseManagerPage } from "@/features/attendance/page-guards";
 
 export const metadata: Metadata = {
   title: "Team Attendance | WinOS",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamAttendancePage() {
+  await requirePulseManagerPage(ROUTES.pulseAttendance);
   const session = await auth();
-  return <AttendanceWorkspace canManage={canManageAttendance(session?.user)} currentUserId={session?.user?.id} />;
+  return <AttendanceWorkspace canManage initialTab="team-attendance" currentUserId={session?.user?.id} />;
 }

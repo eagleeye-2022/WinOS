@@ -262,24 +262,14 @@ export function LeaveRequestDetailsView({
   };
 
   const handleDownload = (att: LeaveAttachment) => {
-    if (att.url) {
-      const link = document.createElement("a");
-      link.href = att.url;
-      link.download = att.name;
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      const blob = new Blob([`Document Content for ${att.name}`], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = att.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    if (!att.url) return;
+    const link = document.createElement("a");
+    link.href = att.url;
+    link.download = att.name;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -445,21 +435,13 @@ export function LeaveRequestDetailsView({
             <div className="flex items-center gap-2 pb-2 border-b border-border/60">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Attachments ({request.attachments?.length || 1})
+                Attachments ({request.attachments?.length ?? 0})
               </h3>
             </div>
 
             <div className="space-y-2">
-              {(request.attachments && request.attachments.length > 0
-                ? request.attachments
-                : [
-                    {
-                      id: "att-default",
-                      name: "Doctor_Appointment_Proof.pdf",
-                      size: "245 KB",
-                    },
-                  ]
-              ).map((att) => (
+              {!request.attachments?.length && <p className="text-xs text-muted-foreground">No attachments.</p>}
+              {request.attachments?.map((att) => (
                 <div
                   key={att.id}
                   className="flex items-center justify-between p-3 bg-background border rounded-xl"

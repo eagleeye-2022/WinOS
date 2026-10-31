@@ -43,9 +43,22 @@ export function CompensatoryDetailsView({
 
   const employee = {
     name: request.employeeName || "Employee",
-    empId: "EMP00123",
+    empId: request.employeeCode,
     role: request.designation || "Team Member",
   };
+  const attachments = request.attachments ?? [];
+  const workingHours = request.fromTime
+    ? `${request.fromTime} – ${request.toTime}`
+    : request.hoursWorked?.split("\n")[0];
+  // Comp-offs from before approval steps were recorded have none, so show the status itself.
+  const approvalSteps = request.approvalSteps?.length
+    ? request.approvalSteps
+    : [
+        { id: "requested", title: "Requested", actorName: employee.name, dateStr: request.requestedOn, status: "APPROVED" },
+        { id: "manager", title: "Manager Approval", actorName: "Reporting Manager", status: "PENDING" },
+      ];
+  /** A step still waiting takes the request's outcome once it has been reviewed here. */
+  const stepStatus = (s: string) => (s === "PENDING" && status !== "PENDING" ? status : s);
 
   const handlePrint = () => {
     window.print();
@@ -120,7 +133,7 @@ export function CompensatoryDetailsView({
           </div>
 
           <p className="text-xs text-muted-foreground mt-0.5">
-            Requested on 18 Aug 2025 at 09:15 AM
+            Requested on {request.requestedOn}
           </p>
         </div>
 
@@ -150,14 +163,15 @@ export function CompensatoryDetailsView({
             {/* Employee Row */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
-                <span>VR</span>
+                <span>{request.avatarText}</span>
               </div>
               <div>
                 <div className="font-bold text-foreground text-sm">
                   {employee.name}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {employee.empId} • {employee.role}
+                  {employee.empId ? `${employee.empId} • ` : ""}
+                  {employee.role}
                 </div>
               </div>
             </div>
@@ -169,7 +183,10 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Work Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-primary" />
-                  <span>15 May 2025 (Thu)</span>
+                  <span>
+                    {request.workDate}
+                    {request.workDayOfWeek ? ` (${request.workDayOfWeek})` : ""}
+                  </span>
                 </div>
               </div>
 
@@ -178,7 +195,7 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Working Hours</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Clock className="w-4 h-4 text-primary" />
-                  <span>07:00 PM – 10:30 PM</span>
+                  <span>{workingHours || "—"}</span>
                 </div>
               </div>
 
@@ -187,7 +204,7 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Duration</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <CalendarDays className="w-4 h-4 text-emerald-500" />
-                  <span>{request.durationText || "Full Day"}</span>
+                  <span>{request.durationText || request.duration || "—"}</span>
                 </div>
               </div>
 
@@ -196,7 +213,7 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Requested On</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-primary" />
-                  <span>16 May 2025 at 09:15 AM</span>
+                  <span>{request.requestedOn}</span>
                 </div>
               </div>
 
@@ -205,7 +222,7 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Expiry Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
                   <Calendar className="w-4 h-4 text-orange-500" />
-                  <span>15 Jun 2025 (in 26 days)</span>
+                  <span>{request.expiryDate}</span>
                 </div>
               </div>
 
@@ -214,7 +231,7 @@ export function CompensatoryDetailsView({
                 <span className="text-muted-foreground font-medium text-xs">Reason</span>
                 <div className="flex items-start gap-2 text-foreground font-medium pt-1">
                   <MessageSquare className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <span>{request.reason || "Worked on product release support."}</span>
+                  <span>{request.reason}</span>
                 </div>
               </div>
             </div>
@@ -225,36 +242,40 @@ export function CompensatoryDetailsView({
             <div className="flex items-center gap-2 pb-2 border-b border-border/60">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Attachments (1)
+                Attachments ({attachments.length})
               </h3>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-background border rounded-xl">
-              <div className="flex items-center gap-2.5 truncate">
-                <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">
-                    Doctor_Appointment_Proof.pdf
+            {attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments.</p>}
+            {attachments.map((att) => (
+              <div key={att.id} className="flex items-center justify-between p-3 bg-background border rounded-xl">
+                <div className="flex items-center gap-2.5 truncate">
+                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
+                    <FileText className="w-4 h-4" />
                   </div>
-                  <div className="text-xs text-muted-foreground">245 KB</div>
+                  <div>
+                    <div className="text-xs font-semibold text-foreground truncate max-w-[280px]">{att.name}</div>
+                    <div className="text-xs text-muted-foreground">{att.size}</div>
+                  </div>
                 </div>
-              </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+                {att.url && (
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Open ${att.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* Action Buttons: Reject / Approve */}
-          {status === "PENDING" && (
+          {/* Action Buttons: Reject / Approve — only for a manager responsible for this person */}
+          {status === "PENDING" && request.canReview && (
             <div className="flex items-center gap-3 pt-2">
               <Button
                 type="button"
@@ -294,48 +315,39 @@ export function CompensatoryDetailsView({
             </h3>
 
             <div className="relative pl-6 space-y-8 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
-              {/* Step 1: Requested */}
-              <div className="relative">
-                <div className="absolute -left-[27px] top-0.5 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center ring-4 ring-card">
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-foreground">Requested</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">{employee.name}</p>
-                  <p className="text-xs text-muted-foreground/80 mt-0.5">
-                    18 Aug 2025 at 09:15 AM
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2: Manager Approval */}
-              <div className="relative">
-                <div className="absolute -left-[27px] top-0.5 w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center ring-4 ring-card border border-amber-300 dark:border-amber-800">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <div className="p-3.5 rounded-xl border border-amber-200/80 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/40 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-foreground">Manager Approval</h4>
-                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      Pending
-                    </span>
+              {approvalSteps.map((step) => {
+                const current = stepStatus(step.status);
+                return (
+                  <div key={step.id} className="relative">
+                    <div
+                      className={cn(
+                        "absolute -left-[27px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-card",
+                        current === "APPROVED" && "bg-primary text-primary-foreground",
+                        current === "REJECTED" && "bg-red-500 text-white",
+                        current !== "APPROVED" && current !== "REJECTED" && "bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400"
+                      )}
+                    >
+                      {current === "APPROVED" ? (
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      ) : current === "REJECTED" ? (
+                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      ) : (
+                        <User className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
+                      {current !== "APPROVED" && (
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {current === "REJECTED" ? "Rejected" : current === "PENDING" ? "Pending" : current}
+                        </span>
+                      )}
+                    </div>
+                    {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
+                    {step.dateStr && <p className="text-xs text-muted-foreground/80 mt-0.5">{step.dateStr}</p>}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Rajesh N (Product Director)
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3: Final Approval */}
-              <div className="relative">
-                <div className="absolute -left-[27px] top-0.5 w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center ring-4 ring-card border border-border">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-muted-foreground">Final Approval</h4>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">Pending</p>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>

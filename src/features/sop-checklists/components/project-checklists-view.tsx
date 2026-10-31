@@ -382,7 +382,7 @@ function BulkAttachPanel({
                 <option value="">Choose an SOP…</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} · {t.category} · {t.items.length} steps
+                    {t.name} · {t.department} · {t.category} · {t.items.length} steps
                   </option>
                 ))}
               </select>

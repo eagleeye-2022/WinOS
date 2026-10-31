@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { ActingUser, getTaskAccess, loadActingUser, logTaskActivity, TaskAccess } from "../access";
 import { applyChecklistSync, sopCopyCreateData } from "../sync";
 import { recordSopEvent } from "../events";
+import { filterSopsForViewer } from "../sharing";
 import { normalizeEvidenceUrl } from "../utils";
 import { docFromItems, isDocNode } from "../doc";
 import { ChecklistCloseBlock, TaskChecklistItemView, TaskChecklistsPayload, TaskChecklistView } from "../types";
@@ -132,6 +133,10 @@ export async function attachSopChecklistAction(
     include: { items: { orderBy: { position: "asc" } } },
   });
   if (!template || template.isArchived) return { success: false, error: "This SOP isn't available any more" };
+  // Members can pick only SOPs shared with them, whatever id the browser sends.
+  if (!user.isManager && (await filterSopsForViewer(user.id, [template])).length === 0) {
+    return { success: false, error: "This SOP hasn't been shared with you" };
+  }
 
   const already = await d.taskChecklist.findFirst({ where: { taskId: access.task.id, templateId } });
   if (already) return { success: false, error: `"${template.name}" is already attached to this task` };

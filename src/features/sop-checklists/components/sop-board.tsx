@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Layers, Loader2, Plus, X } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Share2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SopTemplate } from "../types";
 
@@ -15,36 +15,52 @@ export interface SopBoardProps {
   templates: SopTemplate[];
   canEdit: boolean;
   isLoading: boolean;
-  /** Lists that exist only on this browser (no SOP yet) — these can be removed. */
-  localLists: string[];
   highlightList: string | null;
   movingId: string | null;
   onOpen: (t: SopTemplate) => void;
   onCreateIn: (list: string) => void;
   onMove: (t: SopTemplate, list: string) => void;
   onCreateList: (name: string) => boolean;
-  onRemoveLocalList: (name: string) => void;
+  onRenameList: (from: string, to: string) => void;
+  onDeleteList: (name: string) => void;
+  /** Managers: open the Share dialog. How many people/departments it's shared with drives the mark. */
+  shareCountOfList: (list: string) => number;
+  shareCountOfSop: (t: SopTemplate) => number;
+  onShareList: (list: string) => void;
+  onShareSop: (t: SopTemplate) => void;
+  /** The column a card sits in. */
+  listOf: (t: SopTemplate) => string;
+  /** Drag cards between columns, and offer Create List (a department's lists, not the All overview). */
+  listsEditable: boolean;
 }
 
-/** The SOP library as columns (one per category), styled like the WhyFi School board. */
+/** The SOP library as columns (a department's lists), styled like the WhyFi School board. */
 export function SopBoard({
   lists,
   templates,
   canEdit,
   isLoading,
-  localLists,
   highlightList,
   movingId,
   onOpen,
   onCreateIn,
   onMove,
   onCreateList,
-  onRemoveLocalList,
+  onRenameList,
+  onDeleteList,
+  shareCountOfList,
+  shareCountOfSop,
+  onShareList,
+  onShareSop,
+  listOf,
+  listsEditable,
 }: SopBoardProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overList, setOverList] = useState<string | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [editingList, setEditingList] = useState<string | null>(null);
+  const [listDraft, setListDraft] = useState("");
 
   const closeAddList = () => {
     setIsAddingList(false);
@@ -67,9 +83,9 @@ export function SopBoard({
     <div className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-4">
       <div className="flex h-full items-stretch gap-4">
         {lists.map((list) => {
-          const cards = templates.filter((t) => t.category === list);
+          const cards = templates.filter((t) => listOf(t) === list);
           const dragged = dragId ? templates.find((t) => t.id === dragId) : null;
-          const canDrop = canEdit && !!dragged && dragged.category !== list;
+          const canDrop = canEdit && listsEditable && !!dragged && listOf(dragged) !== list;
           return (
             <div
               key={list}
@@ -98,12 +114,34 @@ export function SopBoard({
               {/* Column header */}
               <div className="mb-3 flex items-center justify-between border-b border-slate-200/60 pb-3 dark:border-neutral-800">
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <span
-                    title={list}
-                    className="max-w-[170px] truncate text-xs font-extrabold uppercase tracking-wide text-foreground"
-                  >
-                    {list}
-                  </span>
+                  {editingList === list ? (
+                    <input
+                      autoFocus
+                      value={listDraft}
+                      maxLength={60}
+                      aria-label="List name"
+                      onChange={(e) => setListDraft(e.target.value)}
+                      onBlur={() => {
+                        setEditingList(null);
+                        onRenameList(list, listDraft);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") {
+                          setListDraft(list);
+                          setEditingList(null);
+                        }
+                      }}
+                      className="w-[130px] rounded border border-primary/50 bg-background px-1.5 py-0.5 text-xs font-bold outline-none"
+                    />
+                  ) : (
+                    <span
+                      title={list}
+                      className="max-w-[130px] truncate text-xs font-extrabold uppercase tracking-wide text-foreground"
+                    >
+                      {list}
+                    </span>
+                  )}
                   <span className="rounded-full bg-slate-200/80 px-1.5 text-[10px] font-bold text-slate-600 dark:bg-neutral-800 dark:text-neutral-400">
                     {cards.length}
                   </span>
@@ -113,15 +151,40 @@ export function SopBoard({
                   <button type="button" onClick={() => onCreateIn(list)} className={ICON_BTN} title={`New SOP in ${list}`}>
                     <Plus size={14} />
                   </button>
-                  {canEdit && cards.length === 0 && localLists.includes(list) && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveLocalList(list)}
-                      className="cursor-pointer rounded p-1 text-slate-500 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Remove this empty list"
-                    >
-                      <X size={14} />
-                    </button>
+                  {canEdit && listsEditable && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onShareList(list)}
+                        className={cn(ICON_BTN, shareCountOfList(list) > 0 && "text-primary dark:text-primary")}
+                        title={
+                          shareCountOfList(list) > 0
+                            ? `Shared with ${shareCountOfList(list)} — change who can see this list`
+                            : "Share this list"
+                        }
+                      >
+                        <Share2 size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setListDraft(list);
+                          setEditingList(list);
+                        }}
+                        className={ICON_BTN}
+                        title="Rename list"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteList(list)}
+                        className="cursor-pointer rounded p-1 text-slate-500 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="Delete list (its SOPs move to General)"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -133,7 +196,7 @@ export function SopBoard({
                     key={t.id}
                     role="button"
                     tabIndex={0}
-                    draggable={canEdit && movingId !== t.id}
+                    draggable={canEdit && listsEditable && movingId !== t.id}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = "move";
                       e.dataTransfer.setData("text/plain", t.id);
@@ -159,6 +222,23 @@ export function SopBoard({
                       <span className="text-xs font-bold leading-snug text-foreground">{t.name}</span>
                       <div className="flex shrink-0 items-center gap-1">
                         {movingId === t.id && <Loader2 size={12} className="animate-spin text-primary" />}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onShareSop(t);
+                            }}
+                            className={cn(ICON_BTN, shareCountOfSop(t) > 0 && "text-primary dark:text-primary")}
+                            title={
+                              shareCountOfSop(t) > 0
+                                ? `Shared with ${shareCountOfSop(t)} — change who can see this SOP`
+                                : "Share this SOP"
+                            }
+                          >
+                            <Share2 size={12} />
+                          </button>
+                        )}
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                           v{t.version}
                         </span>
@@ -179,7 +259,7 @@ export function SopBoard({
                 ))}
                 {cards.length === 0 && (
                   <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[11px] text-muted-foreground dark:border-neutral-800">
-                    {canEdit ? "No SOPs yet — use + or drag one here." : "No SOPs yet — use + to add one."}
+                    {canEdit && listsEditable ? "No SOPs yet — use + or drag one here." : "No SOPs yet — use + to add one."}
                   </p>
                 )}
               </div>
@@ -189,6 +269,7 @@ export function SopBoard({
 
         {/* Create List column (managers) */}
         {canEdit &&
+          listsEditable &&
           (!isAddingList ? (
             <div className="flex h-full w-[300px] shrink-0 flex-col justify-start rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-3.5 shadow-2xs transition-all duration-200 hover:border-primary/50 dark:border-neutral-800 dark:bg-neutral-900/30">
               <button

@@ -29,6 +29,11 @@ async function requireLeaveManager() {
 
 const ACTION_LOOKBACK_DAYS = 30;
 
+/** Older rows point at a placeholder link because no file was ever saved for them — nothing to show. */
+function realAttachments<T extends { fileUrl: string }>(attachments: T[]): T[] {
+  return attachments.filter((a) => !a.fileUrl.startsWith("/placeholder-"));
+}
+
 export interface FormattedBalance {
   id: string;
   leaveTypeId: string;
@@ -145,6 +150,38 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     lossOfPayDays: b.lossOfPayDays,
   }));
 
+  // Balance rows are only created on first use, so also list the active leave types this person can
+  // use but hasn't touched this year — otherwise a new user has nothing to apply for.
+  const [unopenedTypes, facts] = await Promise.all([
+    db.leaveType.findMany({
+      where: { isActive: true, id: { notIn: userBalances.map((b) => b.leaveTypeId) } },
+    }),
+    db.user.findUnique({
+      where: { id: userId },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+    }),
+  ]);
+  for (const t of unopenedTypes) {
+    if (facts && checkEligibility(t, facts, asOfKey) !== null) continue;
+    const isComp = t.code === "COMP"; // only credited by approved comp-offs
+    balances.push({
+      id: `type-${t.id}`,
+      leaveTypeId: t.id,
+      code: t.code,
+      name: t.name,
+      remainingDays: isComp ? 0 : accruedAllocation(t.allocationFrequency, t.annualEntitlement, t.annualEntitlement, asOfKey),
+      bookedDays: 0,
+      allocatedDays: isComp ? 0 : t.annualEntitlement,
+      unit: t.allowHourly ? "Hour(s)" : "Day(s)",
+      iconName: t.icon,
+      iconBgColor: t.iconBgColor || "bg-primary/10 text-primary",
+      iconTextColor: t.iconTextColor || "text-primary",
+      category: t.category,
+      lossOfPayDays: 0,
+    });
+  }
+  balances.sort((a, b) => a.name.localeCompare(b.name));
+
   // 2. Fetch my leave requests
   const requests = await db.leaveRequest.findMany({
     where: { userId },
@@ -207,7 +244,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
         avatarUrl: r.user.image || undefined,
         department: r.user.department || undefined,
       },
-      attachments: r.attachments.map((att) => ({
+      attachments: realAttachments(r.attachments).map((att) => ({
         id: att.id,
         name: att.fileName,
         size: att.fileSize,
@@ -270,10 +307,11 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
         month: "short",
         year: "numeric",
       }),
-      attachments: c.attachments.map((a) => ({
+      attachments: realAttachments(c.attachments).map((a) => ({
         id: a.id,
         name: a.fileName,
         size: a.fileSize,
+        url: a.fileUrl,
       })),
     };
   });
@@ -378,11 +416,12 @@ export async function getTeamLeaveRequestsAction(filters?: {
   }));
 
   // Counts for metric cards
-  const pendingCount = await db.leaveRequest.count({ where: { status: "PENDING" } });
-  const approvedCount = await db.leaveRequest.count({ where: { status: "APPROVED" } });
-  const rejectedCount = await db.leaveRequest.count({ where: { status: "REJECTED" } });
-  const cancelledCount = await db.leaveRequest.count({ where: { status: "CANCELLED" } });
-  const totalCount = await db.leaveRequest.count();
+  const team = scopeWhere(scope);
+  const pendingCount = await db.leaveRequest.count({ where: { ...team, status: "PENDING" } });
+  const approvedCount = await db.leaveRequest.count({ where: { ...team, status: "APPROVED" } });
+  const rejectedCount = await db.leaveRequest.count({ where: { ...team, status: "REJECTED" } });
+  const cancelledCount = await db.leaveRequest.count({ where: { ...team, status: "CANCELLED" } });
+  const totalCount = await db.leaveRequest.count({ where: team });
 
   return {
     requests: formattedRequests,
@@ -444,15 +483,76 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
     }),
   }));
 
-  const pending = await db.compensatoryRequest.count({ where: { status: "PENDING" } });
-  const approved = await db.compensatoryRequest.count({ where: { status: "APPROVED" } });
-  const rejected = await db.compensatoryRequest.count({ where: { status: "REJECTED" } });
-  const cancelled = await db.compensatoryRequest.count({ where: { status: "CANCELLED" } });
-  const total = await db.compensatoryRequest.count();
+  const team = scopeWhere(scope);
+  const pending = await db.compensatoryRequest.count({ where: { ...team, status: "PENDING" } });
+  const approved = await db.compensatoryRequest.count({ where: { ...team, status: "APPROVED" } });
+  const rejected = await db.compensatoryRequest.count({ where: { ...team, status: "REJECTED" } });
+  const cancelled = await db.compensatoryRequest.count({ where: { ...team, status: "CANCELLED" } });
+  const total = await db.compensatoryRequest.count({ where: team });
 
   return {
     requests: formatted,
     metrics: { pending, approved, rejected, cancelled, total },
+  };
+}
+
+/**
+ * One comp-off for its detail page: the requester sees it read-only; a manager responsible for
+ * them can also review it. Anyone else gets null.
+ */
+export async function getCompensatoryRequestByIdAction(requestId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const c = await db.compensatoryRequest.findUnique({
+    where: { id: requestId },
+    include: {
+      user: { select: { name: true, title: true, employeeId: true } },
+      attachments: true,
+      approvalSteps: { orderBy: { stepOrder: "asc" } },
+    },
+  });
+  if (!c) return null;
+
+  let canReview = false;
+  if (c.userId !== session.user.id) {
+    const viewer = await currentViewer(session.user.id);
+    if (!viewer || !(await canManageUser(viewer, c.userId))) return null;
+    canReview = true;
+  }
+
+  // Calendar dates are stored as UTC midnight; timestamps are shown in IST.
+  const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  const stamp = (d: Date) =>
+    `${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })} at ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}`;
+  const daysLeft = Math.ceil((c.expiryDate.getTime() - Date.now()) / 86_400_000);
+
+  return {
+    id: c.id,
+    canReview,
+    employeeName: c.user.name || "Employee",
+    employeeCode: c.user.employeeId || undefined,
+    designation: c.user.title || "Team Member",
+    avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
+    workDate: day(c.workDate),
+    workDayOfWeek: c.workDate.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+    fromTime: c.fromTime,
+    toTime: c.toTime,
+    durationText: c.duration === "FULL_DAY" ? "Full Day" : c.duration === "HALF_DAY" ? "Half Day" : "Quarter Day",
+    creditedDays: c.creditedDays,
+    reason: c.reason,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    status: c.status as any,
+    requestedOn: stamp(c.createdAt),
+    expiryDate: `${day(c.expiryDate)} ${daysLeft > 0 ? `(in ${daysLeft} days)` : "(Expired)"}`,
+    attachments: realAttachments(c.attachments).map((a) => ({ id: a.id, name: a.fileName, size: a.fileSize, url: a.fileUrl })),
+    approvalSteps: c.approvalSteps.map((s) => ({
+      id: s.id,
+      title: s.stepName,
+      actorName: s.approverName || s.approverRole || "",
+      dateStr: s.actionDate ? stamp(s.actionDate) : undefined,
+      status: s.status as string,
+    })),
   };
 }
 
@@ -538,6 +638,9 @@ export async function getLeaveTypesAction() {
 // ── 5. GET HOLIDAYS ──────────────────────────────────────────────────────────
 
 export async function getHolidaysAction(year = Number(istDateKey().slice(0, 4))) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
   const holidays = await db.holiday.findMany({
     where: { year },
     orderBy: { date: "asc" },
@@ -718,7 +821,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
       avatarUrl: request.user.image || undefined,
       department: request.user.department || undefined,
     },
-    attachments: request.attachments.map((att) => ({
+    attachments: realAttachments(request.attachments).map((att) => ({
       id: att.id,
       name: att.fileName,
       size: att.fileSize,

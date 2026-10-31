@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type MouseEvent } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,7 +29,7 @@ export function TaskDetailToggle({ open, onToggle }: { open: boolean; onToggle: 
     <button
       type="button"
       onClick={onToggle}
-      title={open ? "Hide task details" : "Show task details (time, logs, remarks)"}
+      title={open ? "Hide task details" : "Show task details (time, logs, task notes)"}
       aria-label={open ? "Hide task details" : "Show task details"}
       aria-expanded={open}
       className={cn(
@@ -40,6 +40,18 @@ export function TaskDetailToggle({ open, onToggle }: { open: boolean; onToggle: 
       {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
     </button>
   );
+}
+
+/**
+ * Row onClick: a click anywhere on the row opens/closes its details — except on the row's own
+ * controls, inside portalled dialogs/menus (React bubbles those here too), or when selecting text.
+ */
+export function toggleDetailOnRowClick(e: MouseEvent<HTMLElement>, toggle: () => void) {
+  const target = e.target as HTMLElement;
+  if (!e.currentTarget.contains(target)) return;
+  if (target.closest("a, button, input, select, textarea, label, [role='button']")) return;
+  if (window.getSelection()?.toString()) return;
+  toggle();
 }
 
 const fmt = (mins: number) => formatEffortMinutes(mins) || "0m";
@@ -188,7 +200,10 @@ function SubtasksTable({ rows, done }: { rows: DsmTaskDetail["subtaskRows"]; don
                 const overdue = daysOverdue(s.dueDate, s.done);
                 return (
                   <Fragment key={s.id}>
-                    <tr className="border-b last:border-b-0">
+                    <tr
+                      className="cursor-pointer border-b last:border-b-0"
+                      onClick={(e) => toggleDetailOnRowClick(e, () => setOpenRowId(rowOpen ? null : s.id))}
+                    >
                       <td className="px-2 py-1.5">
                         <TaskDetailToggle open={rowOpen} onToggle={() => setOpenRowId(rowOpen ? null : s.id)} />
                       </td>
@@ -374,7 +389,7 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
                   <th className="border-l px-3 py-1.5 font-semibold">Date</th>
                   <th className="border-l px-3 py-1.5 font-semibold">Time</th>
                   <th className="border-l px-3 py-1.5 font-semibold">Effort</th>
-                  <th className="w-full border-l px-3 py-1.5 font-semibold">Remarks</th>
+                  <th className="w-full border-l px-3 py-1.5 font-semibold">Task Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -398,7 +413,7 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
                       {fmt(l.minutes)}
                     </td>
                     <td className={cn("border-l px-3 py-1.5", l.remarks ? "text-foreground/90" : "italic text-muted-foreground/60")}>
-                      {l.remarks || "No remarks"}
+                      {l.remarks || "No task notes"}
                     </td>
                   </tr>
                 ))}
@@ -449,7 +464,7 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
             <ListTree size={13} /> Subtasks <b className="text-foreground">{detail.subtasks.done}/{detail.subtasks.total}</b>
           </span>
         )}
-        {/* SOP: green ✓ icon + progress when aligned, red ✕ icon alone when not. */}
+        {/* SOP: green-ticked icon + progress when aligned, red-ticked icon alone when not. */}
         <span
           className="inline-flex items-center gap-1 text-success"
           title={
@@ -458,7 +473,7 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
               : "No SOP checklist aligned to this task yet"
           }
         >
-          <SopIcon checked={detail.sop.attached} size={16} />
+          <SopIcon checked={detail.sop.attached} size={20} />
           {detail.sop.attached && (
             <b>
               {detail.sop.done}/{detail.sop.total}

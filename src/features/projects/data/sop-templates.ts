@@ -1146,7 +1146,17 @@ export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskLi
 }
 
 /** A scaffolded task plus the titles of the subtasks to create under it (see SOPTaskSeed.subtasks). */
-export type ScaffoldedTask = Partial<TaskItem> & { subtaskTitles?: string[] };
+export type ScaffoldedTask = Partial<TaskItem> & {
+  subtaskTitles?: string[];
+  /** Set only when the template task has them; otherwise the task gets the column defaults. */
+  defaultStartDate?: string;
+  defaultDueDate?: string;
+  defaultOwners?: { id: string; name: string }[];
+  sopChecklists?: { id: string; name: string }[];
+};
+
+const dateInDays = (days: number) =>
+  new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB");
 
 export function scaffoldTasksFromTemplate(
   template: ProjectTemplate,
@@ -1172,10 +1182,14 @@ export function scaffoldTasksFromTemplate(
         code: `${projectCode}-T${codeNum}`,
         title: withMonth(dt.title),
         ...(dt.subtasks && dt.subtasks.length > 0 ? { subtaskTitles: dt.subtasks.map(withMonth) } : {}),
+        ...(dt.startInDays !== undefined ? { defaultStartDate: dateInDays(dt.startInDays) } : {}),
+        ...(dt.dueInDays !== undefined ? { defaultDueDate: dateInDays(dt.dueInDays) } : {}),
+        ...(dt.defaultOwners?.length ? { defaultOwners: dt.defaultOwners } : {}),
+        ...(dt.sopChecklists?.length ? { sopChecklists: dt.sopChecklists } : {}),
         phaseCode: p.code,
         phaseName: p.name,
         taskListName: p.name,
-        status: "Open",
+        status: dt.status || "Open",
         priority: dt.priority || "Medium",
         duration: dt.duration || "1 day",
         workHours: "00:00",

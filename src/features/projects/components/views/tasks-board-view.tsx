@@ -32,6 +32,7 @@ import {
   ListTree,
 } from "lucide-react";
 import { SMM_PROJECT_TEMPLATE } from "../../data/sop-templates";
+import { isCustomTemplatePhaseCode } from "../../template-utils";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { taskOwnerPeople } from "../../utils/task-owner-people";
 import { toast } from "@/components/shared/toast";
@@ -1074,7 +1075,9 @@ export function TasksBoardView({
   const isSmmTemplateProject = dbPhases.some((p) => SMM_PROJECT_TEMPLATE.phases.some((s) => s.name === p.name));
   const usesOwnPhaseScheme =
     dbPhases.length > 0 &&
-    (isSmmTemplateProject || !dbPhases.some((p) => DEFAULT_KANBAN_PHASES.some((d) => d.code === p.code)));
+    (isSmmTemplateProject ||
+      dbPhases.some((p) => isCustomTemplatePhaseCode(p.code)) ||
+      !dbPhases.some((p) => DEFAULT_KANBAN_PHASES.some((d) => d.code === p.code)));
   if (!usesOwnPhaseScheme) {
     DEFAULT_KANBAN_PHASES.forEach((p) => {
       phaseMap[p.code] = { code: p.code, name: p.name, tasks: [] };
