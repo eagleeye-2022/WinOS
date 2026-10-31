@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 import {
   ECOMMERCE_PROJECT_TEMPLATE,
+  ENTERPRISE_PROJECT_TEMPLATE,
   SMM_PROJECT_TEMPLATE,
   scaffoldPhasesFromTemplate,
   scaffoldTaskListsFromTemplate,
@@ -137,6 +139,108 @@ describe("template drafts", () => {
     expect(newTemplateDraft("SMM")).toMatchObject({ kind: "SMM", phases: [] });
     expect(newTemplatePhase("SMM", "Planning")).toMatchObject({ name: "Planning", tasks: [], departmentAlias: "smm@" });
     expect(newTemplateTask("DIGITAL", "Kickoff")).toMatchObject({ title: "Kickoff", departmentAlias: "digitalproducts@" });
+  });
+});
+
+describe("Digital Project templates", () => {
+  const tasks = scaffoldTasksFromTemplate(ENTERPRISE_PROJECT_TEMPLATE, "E");
+  const titlesIn = (code: string) => tasks.filter((t) => t.phaseCode === code).map((t) => t.title);
+  const task = (title: string) => tasks.find((t) => t.title === title);
+
+  it("has the task lists in order, ending with the NAT list", () => {
+    expect(ENTERPRISE_PROJECT_TEMPLATE.phases.map((p) => p.name)).toEqual([
+      "1.1 Client Onboarding",
+      "1.2 Requirement Collection & Documentation",
+      "2.1 UX Research & Discovery",
+      "2.2 Ideation & Conceptualization",
+      "3.1 UI/UX Designing",
+      "3.2 Graphic Designing",
+      "3.3 Content Writing",
+      "4.1 Development",
+      "5.1 Testing",
+      "6.1 Deployment and SEO",
+      "7.1 Maintenance & Support",
+      "7.2 MSO On-Page & Technical SEO",
+      "7.3 MSO Off-Page",
+      "7.4 MSO Content Marketing",
+      "7.5 MSO Main",
+      "7.6 MSO Local SEO",
+      "7.7 MSO Performance Marketing",
+      "Not Aligned Task (NAT)",
+    ]);
+  });
+
+  it("names the NAT list exactly as DSM rows and timers look it up, with no number in front", () => {
+    for (const template of [ECOMMERCE_PROJECT_TEMPLATE, ENTERPRISE_PROJECT_TEMPLATE]) {
+      const last = template.phases.at(-1)!;
+      expect(last.name).toBe(NAT_TASK_LIST_NAME);
+      expect(last.taskLists?.map((l) => l.name)).toEqual([NAT_TASK_LIST_NAME]);
+    }
+    expect(ECOMMERCE_PROJECT_TEMPLATE.phases.at(-1)?.code).toBe("7.9");
+    expect(ENTERPRISE_PROJECT_TEMPLATE.phases.at(-1)?.code).toBe("7.8");
+    // A saved edit of the template keeps the name too.
+    const { template } = buildTemplateFromDraft(templateToDraft(ENTERPRISE_PROJECT_TEMPLATE), [], ENTERPRISE_PROJECT_TEMPLATE);
+    expect(template?.phases.at(-1)?.name).toBe(NAT_TASK_LIST_NAME);
+  });
+
+  it("has the 48 tasks and subtasks of the agreed list", () => {
+    const subtaskCount = tasks.reduce((sum, t) => sum + (t.subtaskTitles?.length ?? 0), 0);
+    expect(tasks).toHaveLength(34);
+    expect(subtaskCount).toBe(14);
+  });
+
+  it("has the updated tasks in each list", () => {
+    expect(titlesIn("1.1")).toEqual([
+      "WhatsApp Group Creation",
+      "Project Workplace Setup",
+      "Project Meeting with Team",
+      "Project Requirement and Expectation Collection from Client",
+      "Roadmap & Deliverables Document",
+      "Client Zoho Project Board Creation",
+    ]);
+    expect(titlesIn("3.2")).toEqual(["Logo Design", "Brand Guideline Design"]);
+    expect(titlesIn("3.3")).toEqual(["Website Content"]);
+    expect(titlesIn("6.1")).toEqual(["Website Live"]);
+    expect(titlesIn("7.1")).toEqual(["Website & Server Maintenance"]);
+    expect(titlesIn("7.2")).toEqual([]);
+  });
+
+  it("puts the subtasks under the right tasks", () => {
+    expect(task("V1 Keyword Research by UI/UX")?.subtaskTitles).toEqual(["Keyword Research Document Creation", "User Research"]);
+    expect(task("Competitor Analysis")?.subtaskTitles).toEqual(["User Research"]);
+    expect(task("Wireframe Design")?.subtaskTitles).toEqual(["Low Fidelity Wireframes", "High Fidelity Wireframes"]);
+    expect(task("Website Initialisation & Setup")?.subtaskTitles).toEqual(["Server Setup", "Follow Website Initialisation SOP"]);
+    expect(task("Departmental Testing")?.subtaskTitles).toHaveLength(5);
+  });
+
+  it("keeps the details of tasks that already existed", () => {
+    expect(task("WhatsApp Group Creation")).toMatchObject({ priority: "High", description: expect.stringContaining("WhatsApp") });
+  });
+
+  it("differs from Ecommerce only by Monthly Product Update in 7.x", () => {
+    const ecommerceNames = ECOMMERCE_PROJECT_TEMPLATE.phases.map((p) => p.name);
+    expect(ecommerceNames.slice(-9)).toEqual([
+      "7.1 Maintenance & Support",
+      "7.2 Monthly Product Update",
+      "7.3 MSO On-Page & Technical SEO",
+      "7.4 MSO Off-Page",
+      "7.5 MSO Content Marketing",
+      "7.6 MSO Main",
+      "7.7 MSO Local SEO",
+      "7.8 MSO Performance Marketing",
+      "Not Aligned Task (NAT)",
+    ]);
+    expect(ecommerceNames).toHaveLength(19);
+    expect(ecommerceNames.slice(0, 10)).toEqual(ENTERPRISE_PROJECT_TEMPLATE.phases.slice(0, 10).map((p) => p.name));
+    expect(
+      scaffoldTasksFromTemplate(ECOMMERCE_PROJECT_TEMPLATE, "E").map((t) => [t.title, t.subtaskTitles])
+    ).toEqual(tasks.map((t) => [t.title, t.subtaskTitles]));
+  });
+
+  it("can be edited and saved on the board with its subtasks intact", () => {
+    const { template } = buildTemplateFromDraft(templateToDraft(ENTERPRISE_PROJECT_TEMPLATE), [], ENTERPRISE_PROJECT_TEMPLATE);
+    const saved = scaffoldTasksFromTemplate({ ...template!, id: ENTERPRISE_PROJECT_TEMPLATE.id }, "E");
+    expect(saved.map((t) => [t.title, t.subtaskTitles])).toEqual(tasks.map((t) => [t.title, t.subtaskTitles]));
   });
 });
 
