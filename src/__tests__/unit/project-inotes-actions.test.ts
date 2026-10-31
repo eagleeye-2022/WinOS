@@ -110,12 +110,22 @@ describe("shareNoteToProjects", () => {
     expect((await shareNoteToProjects({}, fd({ noteId: "n1", projectIds: "p1,p2" }))).message).toBe("shared");
   });
 
-  it("refuses anyone but the card's author — even a manager", async () => {
+  it("refuses people who can't edit the card — even a manager on a normal card", async () => {
     loginAs("manager");
     setupCard({ authorId: "member" });
     const res = await shareNoteToProjects({}, fd({ noteId: "n1", projectIds: "p1" }));
-    expect(res.message).toMatch(/author/);
+    expect(res.message).toMatch(/can edit/);
     expect(d.boardNoteProjectShare.createMany).not.toHaveBeenCalled();
+  });
+
+  it("lets a collaborator with edit rights share the card to a project", async () => {
+    loginAs("outsider");
+    d.boardNote.findUnique.mockResolvedValue({
+      id: "n1",
+      authorId: "member",
+      thread: { authorId: "member", shares: [{ canEdit: true }], board: { type: "NORMAL", ownerId: "member", shares: [] } },
+    });
+    expect((await shareNoteToProjects({}, fd({ noteId: "n1", projectIds: "p1" }))).message).toBe("shared");
   });
 
   it("refuses unknown projects", async () => {

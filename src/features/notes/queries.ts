@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getShareableProjectsFor, type ShareableProject } from "./project-notes-access";
+import { getShareableProjectsFor, isPrivilegedUser, type ShareableProject } from "./project-notes-access";
 
 export type ChecklistItemData = {
   id: string;
@@ -68,11 +68,21 @@ export async function getNotebooks(): Promise<NotebookData[]> {
   return notebooks as NotebookData[];
 }
 
+/**
+ * The user whose notes a query should read: the signed-in user, or — for managers only — the
+ * `targetUserId` they asked for. Null when a non-manager asks for someone else.
+ */
+async function resolveTargetUserId(sessionUserId: string, targetUserId?: string): Promise<string | null> {
+  if (!targetUserId || targetUserId === sessionUserId) return sessionUserId;
+  return (await isPrivilegedUser(sessionUserId)) ? targetUserId : null;
+}
+
 export async function getBoards(targetUserId?: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const userId = targetUserId || session.user.id;
+  const userId = await resolveTargetUserId(session.user.id, targetUserId);
+  if (!userId) return [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -112,15 +122,31 @@ export async function getThreads(boardId: string) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
+  const userId = session.user.id;
 
-  const whereClause = {
-    boardId,
-    OR: [
-      { authorId: session.user.id },
-      { shares: { some: { userId: session.user.id } } },
-      { notes: { some: { shares: { some: { userId: session.user.id } } } } }
-    ]
-  };
+  // The board's owner and its collaborators (BoardShare) see every list and card on it — including
+  // lists made after the board was shared and cards other collaborators add. Managers see whole
+  // DSM boards (they may edit DSM cards — see canEditBoardNote).
+  const board = await d.board.findUnique({
+    where: { id: boardId },
+    select: { ownerId: true, type: true, shares: { where: { userId }, select: { userId: true } } },
+  });
+  if (!board) return [];
+  const seesWholeBoard =
+    board.ownerId === userId ||
+    board.shares.length > 0 ||
+    (session.user.role === "MANAGER" && board.type === "DSM");
+
+  const whereClause = seesWholeBoard
+    ? { boardId }
+    : {
+        boardId,
+        OR: [
+          { authorId: userId },
+          { shares: { some: { userId } } },
+          { notes: { some: { shares: { some: { userId } } } } }
+        ]
+      };
 
   return await d.thread.findMany({
     where: whereClause,
@@ -128,13 +154,17 @@ export async function getThreads(boardId: string) {
       author: { select: { id: true, name: true, email: true, image: true } },
       shares: { select: { userId: true, canEdit: true } },
       notes: {
-        where: {
-          OR: [
-            { authorId: session.user.id },
-            { shares: { some: { userId: session.user.id } } },
-            { thread: { shares: { some: { userId: session.user.id } } } }
-          ]
-        },
+        where: seesWholeBoard
+          ? undefined
+          : {
+              OR: [
+                { authorId: userId },
+                { shares: { some: { userId } } },
+                { thread: { shares: { some: { userId } } } },
+                // Cards collaborators added to a list the user owns
+                { thread: { authorId: userId } }
+              ]
+            },
         include: {
           author: { select: { id: true, name: true, email: true, image: true } },
           shares: { select: { userId: true } },
@@ -172,7 +202,11 @@ export async function getHistory(targetUserId?: string) {
       OR: [
         { authorId: userId },
         { shares: { some: { userId } } },
-        { thread: { shares: { some: { userId } } } }
+        { thread: { shares: { some: { userId } } } },
+        // Cards collaborators added or edited on the user's lists and boards
+        { thread: { authorId: userId } },
+        { thread: { board: { ownerId: userId } } },
+        { thread: { board: { shares: { some: { userId } } } } }
       ]
     };
   } else {
@@ -202,7 +236,8 @@ export async function getSharedWithMeNotes(targetUserId?: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const userId = targetUserId || session.user.id;
+  const userId = await resolveTargetUserId(session.user.id, targetUserId);
+  if (!userId) return [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
@@ -236,7 +271,8 @@ export async function getSharedByMeNotes(targetUserId?: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const userId = targetUserId || session.user.id;
+  const userId = await resolveTargetUserId(session.user.id, targetUserId);
+  if (!userId) return [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 

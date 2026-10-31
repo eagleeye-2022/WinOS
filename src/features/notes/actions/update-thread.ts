@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getStr, validateText } from "@/lib/action-utils";
+import { canManageThread } from "./_utils";
 
 export type UpdateThreadState = { errors?: { title?: string[] }; message?: string };
 
@@ -25,10 +26,13 @@ export async function updateThread(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  const thread = await d.thread.findUnique({ where: { id: threadId } });
+  const thread = await d.thread.findUnique({
+    where: { id: threadId },
+    select: { authorId: true, board: { select: { ownerId: true } } },
+  });
   if (!thread) return { message: "List not found" };
 
-  if (thread.authorId !== session.user.id) {
+  if (!canManageThread(thread, { id: session.user.id, role: session.user.role })) {
     return { message: "Unauthorized" };
   }
 

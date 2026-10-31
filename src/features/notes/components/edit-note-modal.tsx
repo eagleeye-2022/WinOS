@@ -80,7 +80,8 @@ export function EditNoteModal<T extends EditNoteModalData>({
     if (note.title !== undefined) formData.append("title", note.title || "");
     formData.append("color", note.color || "#ffffff");
     if (note.deadline) {
-      formData.append("deadline", new Date(note.deadline).toISOString().slice(0, 16));
+      // Full ISO (with "Z") so the server never reinterprets it in its own timezone.
+      formData.append("deadline", new Date(note.deadline).toISOString());
     }
     formData.append("content", note.content || "");
     note.checklistItems.forEach((item) => {

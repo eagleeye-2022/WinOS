@@ -108,7 +108,7 @@ async function loadNoteTimeline(noteId: string): Promise<NoteTimelineResult> {
   return { success: true, events };
 }
 
-/** The card, if this user can see it (author, shared with them, board owner/share, manager, or project member). */
+/** The card, if this user can see it (author, shared with them, list author, board owner/share, manager, or project member). */
 async function loadViewableNote(
   noteId: string,
   userId: string
@@ -127,6 +127,7 @@ async function loadViewableNote(
       projectShares: { select: { projectId: true } },
       thread: {
         select: {
+          authorId: true,
           shares: { where: { userId }, select: { userId: true } },
           board: { select: { ownerId: true, shares: { where: { userId }, select: { userId: true } } } },
         },
@@ -139,6 +140,7 @@ async function loadViewableNote(
     note.authorId === userId ||
     note.shares.length > 0 ||
     (note.thread?.shares?.length ?? 0) > 0 ||
+    note.thread?.authorId === userId ||
     note.thread?.board?.ownerId === userId ||
     (note.thread?.board?.shares?.length ?? 0) > 0;
 

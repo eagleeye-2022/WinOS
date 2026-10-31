@@ -351,13 +351,21 @@ export function NotesWorkspace({
     setShareSelection(sharingItem ? sharingItem.existingShares : []);
   }
 
+  // The board currently on screen. Fetches started for another board (the user switched boards
+  // while they were in flight) must not overwrite this board's lists.
+  const activeBoardIdRef = useRef(activeBoardId);
+  useEffect(() => {
+    activeBoardIdRef.current = activeBoardId;
+  }, [activeBoardId]);
+
   const refreshThreads = async () => {
-    if (!activeBoardId) return;
+    const boardId = activeBoardId;
+    if (!boardId) return;
     try {
-      const res = await fetch(`/api/boards/${activeBoardId}/threads`);
+      const res = await fetch(`/api/boards/${boardId}/threads`);
       if (res.ok) {
         const data = await res.json();
-        setThreads(data as ThreadData[]);
+        if (activeBoardIdRef.current === boardId) setThreads(data as ThreadData[]);
       }
     } catch (err) {
       console.error("Failed to refresh threads:", err);
@@ -378,15 +386,21 @@ export function NotesWorkspace({
   // Load threads when active board changes
   useEffect(() => {
     if (!activeBoardId) return;
+    let cancelled = false;
     fetch(`/api/boards/${activeBoardId}/threads`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        setThreads(data as ThreadData[]);
+        if (!cancelled) setThreads(data as ThreadData[]);
       })
-      .catch(() => setThreads([]))
+      .catch(() => {
+        if (!cancelled) setThreads([]);
+      })
       .finally(() => {
-        setLoadingThreads(false);
+        if (!cancelled) setLoadingThreads(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [activeBoardId]);
 
   // ── Drag and Drop Handlers ──────────────────────────────────────────────────
@@ -425,8 +439,9 @@ export function NotesWorkspace({
         const targetThread = threads.find((t) => t.id === targetThreadId);
         if (!sourceThread || !targetThread) return;
 
+        // Same rule as moveBoardNote: you must be able to edit the card and add to the target list.
         const note = sourceThread.notes.find((n) => n.id === noteId);
-        if (!note || note.authorId !== userId || targetThread.authorId !== userId) return;
+        if (!note || !canEditNote(note) || !canEditThread(targetThread)) return;
 
         // 1. Optimistic update
         const newThreads = threads.map((t) => {
@@ -445,7 +460,8 @@ export function NotesWorkspace({
           const formData = new FormData();
           formData.append("noteId", noteId);
           formData.append("targetThreadId", targetThreadId);
-          await moveBoardNote({}, formData);
+          const res = await moveBoardNote({}, formData);
+          if (res.message !== "moved") alert(res.message || "Failed to move note.");
           await Promise.all([refreshThreads(), refreshHistory()]);
         });
       }
@@ -469,10 +485,11 @@ export function NotesWorkspace({
         activeThreadForNote !== null;
 
       if (!isUserActive && !isPending) {
-        fetch(`/api/boards/${activeBoardId}/threads`)
+        const boardId = activeBoardId;
+        fetch(`/api/boards/${boardId}/threads`)
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
-            if (data) setThreads(data as ThreadData[]);
+            if (data && activeBoardIdRef.current === boardId) setThreads(data as ThreadData[]);
           })
           .catch((err) => console.error("Polling error:", err));
       }
@@ -551,6 +568,8 @@ export function NotesWorkspace({
         window.location.reload();
       } else if (res.errors?.name) {
         alert(res.errors.name[0]);
+      } else {
+        alert(res.message || "Failed to rename board.");
       }
     });
   };
@@ -572,6 +591,8 @@ export function NotesWorkspace({
         router.refresh();
       } else if (res.errors?.title) {
         alert(res.errors.title[0]);
+      } else {
+        alert(res.message || "Failed to rename list.");
       }
     });
   };
@@ -587,7 +608,8 @@ export function NotesWorkspace({
     if (threadNoteTitle.trim()) formData.append("noteTitle", threadNoteTitle);
     formData.append("noteType", threadNoteType);
     formData.append("color", threadColor);
-    if (threadDeadline) formData.append("deadline", threadDeadline);
+    // datetime-local is the viewer's local time; send it as UTC ISO so the server can't shift it.
+    if (threadDeadline) formData.append("deadline", new Date(threadDeadline).toISOString());
     if (threadSharedUsers.length > 0) {
       formData.append("shareUserIds", threadSharedUsers.join(","));
     }
@@ -612,6 +634,10 @@ export function NotesWorkspace({
         setThreadSharedUsers([]);
         setShowNewThread(false);
         await refreshThreads();
+      } else if (res.errors?.title) {
+        alert(res.errors.title[0]);
+      } else {
+        alert(res.message || "Failed to create list.");
       }
     });
   };
@@ -626,7 +652,7 @@ export function NotesWorkspace({
     if (noteTitle.trim()) formData.append("title", noteTitle);
     formData.append("noteType", noteNoteType);
     formData.append("color", noteColor);
-    if (noteDeadline) formData.append("deadline", noteDeadline);
+    if (noteDeadline) formData.append("deadline", new Date(noteDeadline).toISOString());
 
     if (noteNoteType === "TEXT") {
       formData.append("content", noteContent);
@@ -639,7 +665,6 @@ export function NotesWorkspace({
     startTransition(async () => {
       const res = await createBoardNote({}, formData);
       if (res.message === "created") {
-        console.log("Client: Note created successfully in thread:", activeThreadForNote, "with content:", noteContent, "and items:", noteChecklist);
         setNoteTitle("");
         setNoteContent("");
         setNoteChecklist([""]);
@@ -647,6 +672,8 @@ export function NotesWorkspace({
         setNoteColor("#ffffff");
         setActiveThreadForNote(null);
         await Promise.all([refreshThreads(), refreshHistory()]);
+      } else {
+        alert(res.message || "Failed to create note.");
       }
     });
   };
@@ -666,7 +693,8 @@ export function NotesWorkspace({
     const formData = new FormData();
     formData.append("id", noteId);
     startTransition(async () => {
-      await deleteBoardNote({}, formData);
+      const res = await deleteBoardNote({}, formData);
+      if (res.message !== "deleted") alert(res.message || "Failed to delete note.");
       await Promise.all([refreshThreads(), refreshHistory()]);
     });
   };
@@ -678,7 +706,11 @@ export function NotesWorkspace({
     const formData = new FormData();
     formData.append("boardId", boardId);
     startTransition(async () => {
-      await deleteBoard({}, formData);
+      const res = await deleteBoard({}, formData);
+      if (res.message !== "deleted") {
+        alert(res.message || "Failed to delete board.");
+        return;
+      }
       const updatedBoards = boards.filter((b) => b.id !== boardId);
       setBoards(updatedBoards);
       if (activeBoardId === boardId) {
@@ -702,7 +734,8 @@ export function NotesWorkspace({
     const formData = new FormData();
     formData.append("threadId", threadId);
     startTransition(async () => {
-      await deleteThread({}, formData);
+      const res = await deleteThread({}, formData);
+      if (res.message !== "deleted") alert(res.message || "Failed to delete list.");
       await refreshThreads();
     });
   };
@@ -716,23 +749,36 @@ export function NotesWorkspace({
     const formData = new FormData();
 
     startTransition(async () => {
+      // On failure keep the dialog open so the selection isn't lost, and say why.
       if (sharingItem.type === "board") {
         formData.append("sharePermissions", JSON.stringify(shareSelection));
         formData.append("boardId", sharingItem.id);
-        await shareBoard({}, formData);
+        const res = await shareBoard({}, formData);
+        if (res.message !== "shared") {
+          alert(res.message || "Failed to update collaborators.");
+          return;
+        }
         // Refresh the page so board shares are re-fetched from the server
         window.location.reload();
       } else if (sharingItem.type === "thread") {
         formData.append("sharePermissions", JSON.stringify(shareSelection));
         formData.append("threadId", sharingItem.id);
-        await shareThread({}, formData);
+        const res = await shareThread({}, formData);
+        if (res.message !== "shared") {
+          alert(res.message || "Failed to share list.");
+          return;
+        }
         setSharingItem(null);
         setShareSelection([]);
         await refreshThreads();
       } else {
         formData.append("shareUserIds", shareSelection.map((s) => s.userId).join(","));
         formData.append("noteId", sharingItem.id);
-        await shareBoardNote({}, formData);
+        const res = await shareBoardNote({}, formData);
+        if (res.message !== "shared") {
+          alert(res.message || "Failed to share note.");
+          return;
+        }
         setSharingItem(null);
         setShareSelection([]);
         await refreshThreads();
@@ -798,12 +844,35 @@ export function NotesWorkspace({
     activeBoard?.shares?.find((s) => s.userId === userId)?.canEdit
   );
 
+  // Whether the current user can add lists to the active board (same rule as createThread)
+  const canAddList = activeBoard?.ownerId === userId || isManager || canEditActiveBoard;
+
+  // Whether the current user can rename/share/delete a list (same rule as canManageThread)
+  const canManageList = (thread: ThreadData): boolean =>
+    thread.authorId === userId || activeBoard?.ownerId === userId || isManager;
+
   // Whether the current user can add/edit notes in a given thread
   const canEditThread = (thread: ThreadData): boolean =>
     thread.authorId === userId ||
+    activeBoard?.ownerId === userId ||
     isManager ||
     canEditActiveBoard ||
     thread.shares.some((s) => s.userId === userId && s.canEdit);
+
+  // Whether the current user can edit an existing card (content, checklist ticks). Mirrors the
+  // server's canEditBoardNote: author, list author, board owner, list/board editors, and managers
+  // only on DSM boards or on cards shared to a project.
+  const canEditNote = (note: { id: string; authorId: string; projectShares?: unknown[] }): boolean => {
+    const thread = threads.find((t) => t.notes.some((n) => n.id === note.id));
+    return (
+      note.authorId === userId ||
+      thread?.authorId === userId ||
+      activeBoard?.ownerId === userId ||
+      canEditActiveBoard ||
+      thread?.shares.some((s) => s.userId === userId && s.canEdit) === true ||
+      (isManager && (activeBoard?.type === "DSM" || (note.projectShares?.length ?? 0) > 0))
+    );
+  };
 
   return (
     <div className="flex h-[calc(100vh-4.5rem)] w-full overflow-hidden bg-background">
@@ -929,7 +998,8 @@ export function NotesWorkspace({
                           setActiveBoardId(b.id);
                           localStorage.setItem("winos_active_board_id", b.id);
                           if (typeof window !== "undefined") {
-                            window.history.pushState(null, "", `/notes?boardId=${b.id}`);
+                            // Keep the current page (e.g. /notes/member/[userId]) so a reload stays on it.
+                            window.history.pushState(null, "", `${window.location.pathname}?boardId=${b.id}`);
                           }
                         }}
                         className={cn(
@@ -1209,7 +1279,7 @@ export function NotesWorkspace({
               {activeBoard ? activeBoard.name : "iNotes"}
             </h1>
           </div>
-          {activeBoardId && activeBoard && (activeBoard.ownerId === userId || isManager) && (
+          {activeBoardId && activeBoard && canAddList && (
             <div className="flex items-center gap-2">
               {/* Collaborator avatar stack */}
               {activeBoard.shares && activeBoard.shares.length > 0 && (
@@ -1237,6 +1307,9 @@ export function NotesWorkspace({
                   )}
                 </div>
               )}
+              {/* Owner / manager only: board editors just get "New List" */}
+              {(activeBoard.ownerId === userId || isManager) && (
+              <>
               <button
                 type="button"
                 title="Edit Board"
@@ -1271,6 +1344,8 @@ export function NotesWorkspace({
                 <Trash2 size={13} />
                 Delete Board
               </button>
+              </>
+              )}
               <button
                 onClick={() => setShowNewThread(true)}
                 className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity cursor-pointer"
@@ -1292,7 +1367,7 @@ export function NotesWorkspace({
             <h2 className="text-sm font-semibold text-foreground text-white">
               Your Board is a Fresh Start
             </h2>
-            {activeBoardId && (
+            {activeBoardId && canAddList && (
               <button
                 onClick={() => setShowNewThread(true)}
                 className="mt-4 flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-medium text-primary-foreground shadow hover:opacity-95"
@@ -1328,8 +1403,8 @@ export function NotesWorkspace({
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    {/* Owner-only actions: edit/share/delete list */}
-                    {(thread.authorId === userId || isManager) && (
+                    {/* List author, board owner or manager: edit/share/delete list */}
+                    {canManageList(thread) && (
                       <>
                         <button
                           type="button"
@@ -1386,6 +1461,13 @@ export function NotesWorkspace({
                   ) : (
                     thread.notes.map((note) => {
                       const cardBg = getCardBg(note.color);
+                      // Card actions, matching the server rules: editors may share the card with
+                      // people and to a project; the author / list author / board owner may delete.
+                      const canEditCard = canEditNote(note);
+                      const canDeleteCard =
+                        note.authorId === userId || thread.authorId === userId || activeBoard?.ownerId === userId;
+                      const canShareToProject =
+                        canEditCard && (shareableProjects.length > 0 || (note.projectShares?.length ?? 0) > 0);
 
                       return (
                         <div
@@ -1416,9 +1498,9 @@ export function NotesWorkspace({
                             <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug tracking-tight pr-1">
                               {note.title || "Untitled Note"}
                             </h4>
-                            {note.authorId === userId && (
+                            {(canEditCard || canDeleteCard) && (
                               <div className="flex items-center gap-1.5 bg-slate-900/10 dark:bg-slate-100/10 backdrop-blur-md px-2 py-1 rounded-xl shadow-2xs border border-slate-900/10 dark:border-slate-100/10 shrink-0">
-                                {(shareableProjects.length > 0 || (note.projectShares?.length ?? 0) > 0) && (
+                                {canShareToProject && (
                                   <button
                                     type="button"
                                     title="Share to Project"
@@ -1431,6 +1513,7 @@ export function NotesWorkspace({
                                     <FolderKanban size={13} />
                                   </button>
                                 )}
+                                {canEditCard && (
                                 <button
                                   type="button"
                                   title="Share Note"
@@ -1446,6 +1529,8 @@ export function NotesWorkspace({
                                 >
                                   <Share2 size={13} />
                                 </button>
+                                )}
+                                {canDeleteCard && (
                                 <button
                                   type="button"
                                   title="Delete Note"
@@ -1457,6 +1542,7 @@ export function NotesWorkspace({
                                 >
                                   <Trash2 size={13} />
                                 </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1478,13 +1564,13 @@ export function NotesWorkspace({
                                     key={item.id}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (note.authorId === userId) {
+                                      if (canEditNote(note)) {
                                         handleToggleChecklistItem(item.id);
                                       }
                                     }}
                                     className={cn(
                                       "flex items-center gap-2 rounded px-1 py-0.5 transition-colors",
-                                      note.authorId === userId ? "hover:bg-slate-900/5 dark:hover:bg-slate-100/10 cursor-pointer" : "cursor-default opacity-85"
+                                      canEditNote(note) ?"hover:bg-slate-900/5 dark:hover:bg-slate-100/10 cursor-pointer" : "cursor-default opacity-85"
                                     )}
                                   >
                                     <button type="button" className="shrink-0">
@@ -2358,14 +2444,7 @@ export function NotesWorkspace({
         <EditNoteModal
           note={editingNote}
           onNoteChange={setEditingNote}
-          canEdit={
-            editingNote.authorId === userId ||
-            isManager ||
-            canEditActiveBoard ||
-            threads
-              .find((t) => t.notes.some((n) => n.id === editingNote.id))
-              ?.shares.some((s) => s.userId === userId && s.canEdit) === true
-          }
+          canEdit={canEditNote(editingNote)}
           onClose={() => setEditingNote(null)}
           onSaved={async () => { await Promise.all([refreshThreads(), refreshHistory()]); }}
           showTimeline
