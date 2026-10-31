@@ -1,5 +1,5 @@
-import { ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SopIcon } from "@/components/shared/sop-icon";
 
 /**
  * SOP checklist marker for task cards: green when an SOP checklist is aligned to the task (with
@@ -26,7 +26,7 @@ export function ChecklistChip({ summary }: { summary?: { done: number; total: nu
             : "No SOP checklist aligned to this task yet"
       }
     >
-      <ListChecks size={12} />
+      <SopIcon checked={aligned} size={13} />
       {hasSteps && `${summary.done}/${summary.total}`}
     </span>
   );

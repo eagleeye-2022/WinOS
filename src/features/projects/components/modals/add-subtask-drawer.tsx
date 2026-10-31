@@ -25,12 +25,9 @@ export function AddSubtaskDrawer({
   hideCodePreview = false,
 }: AddSubtaskDrawerProps) {
   const [title, setTitle] = useState("");
-  const [startDate, setStartDate] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
-  const [dueDate, setDueDate] = useState(() =>
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-  );
+  // No dates by default — left empty they're saved as "--" (no start / due date).
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<TaskStatus>("Open");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +74,8 @@ export function AddSubtaskDrawer({
     onClose();
     setTitle("");
     setDescription("");
+    setStartDate("");
+    setDueDate("");
   };
 
   return (

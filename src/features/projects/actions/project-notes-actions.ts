@@ -12,6 +12,7 @@ import {
   resolveProjectId,
 } from "@/features/notes/project-notes-access";
 import { canEditProjectCard, canViewProjectCards } from "@/features/notes/project-notes-utils";
+import { canEditBoardNote } from "@/features/notes/actions/_utils";
 
 export type ProjectNoteCard = {
   id: string;
@@ -40,6 +41,7 @@ export async function getProjectNotesAction(projectIdOrCode: string): Promise<Pr
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const userId = session.user.id;
+  const role = session.user.role;
 
   const projectId = await resolveProjectId(projectIdOrCode);
   if (!projectId) return { success: false, error: "Project not found" };
@@ -62,11 +64,32 @@ export async function getProjectNotesAction(projectIdOrCode: string): Promise<Pr
         include: {
           author: { select: { name: true, email: true } },
           checklistItems: { orderBy: { position: "asc" } },
-          thread: { select: { title: true, board: { select: { name: true } } } },
+          thread: {
+            include: {
+              shares: { where: { userId } },
+              board: {
+                select: { name: true, type: true, ownerId: true, shares: { where: { userId }, select: { canEdit: true } } },
+              },
+            },
+          },
         },
       },
     },
   });
+
+  // Managers and authors edit; so do the card's iNotes collaborators with edit rights (list/board
+  // owner, editors) — the same people who can edit it in iNotes.
+  const canEditIds = new Set<string>();
+  await Promise.all(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    shares.map(async (s: any) => {
+      const n = s.note;
+      const allowed =
+        canEditProjectCard({ isPrivileged, isAuthor: n.authorId === userId }) ||
+        (await canEditBoardNote(n, { id: userId, role }));
+      if (allowed) canEditIds.add(n.id);
+    })
+  );
 
   return {
     success: true,
@@ -86,7 +109,7 @@ export async function getProjectNotesAction(projectIdOrCode: string): Promise<Pr
         sharedAt: new Date(s.createdAt).toISOString(),
         authorName: displayName(n.author),
         source: [n.thread?.board?.name, n.thread?.title].filter(Boolean).join(" / "),
-        canEdit: canEditProjectCard({ isPrivileged, isAuthor: n.authorId === userId }),
+        canEdit: canEditIds.has(n.id),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         checklistItems: n.checklistItems.map((c: any) => ({ id: c.id, text: c.text, checked: c.checked })),
       };

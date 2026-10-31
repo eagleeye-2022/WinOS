@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
 import { logNoteActivity } from "../note-activity";
 import { NOTE_ACTIVITY } from "../note-activity-utils";
+import { loadEditableThread, parseDeadline } from "./_utils";
 
 export type CreateBoardNoteState = { message?: string };
 
@@ -19,17 +20,18 @@ export async function createBoardNote(
   const title = getStr(formData, "title") || null;
   const content = getStr(formData, "content") || "";
   const color = getStr(formData, "color") || "#ffffff";
-  const deadlineStr = getStr(formData, "deadline");
-  const deadline = deadlineStr ? new Date(deadlineStr) : null;
+  const deadline = parseDeadline(getStr(formData, "deadline"));
 
   if (!threadId) return { message: "Missing thread ID" };
+  if (deadline === undefined) return { message: "Invalid deadline" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Verify thread exists
-  const thread = await d.thread.findUnique({ where: { id: threadId } });
-  if (!thread) return { message: "Thread not found" };
+  // Verify the thread exists and the user may add cards to it
+  const access = await loadEditableThread(threadId, { id: session.user.id, role: session.user.role });
+  if (!access) return { message: "Thread not found" };
+  if (!access.canEdit) return { message: "Unauthorized" };
 
   // Create note
   const note = await d.boardNote.create({
@@ -81,8 +83,6 @@ export async function createBoardNote(
   }
 
   await logNoteActivity(note.id, session.user.id, NOTE_ACTIVITY.CREATED);
-
-  console.log("[createBoardNote] Note created successfully:", { id: note.id, content: note.content });
 
   return { message: "created" };
 }

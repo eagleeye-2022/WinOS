@@ -3,9 +3,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
-import { isManagerOnProjectSharedNote } from "../project-notes-access";
 import { logNoteActivity } from "../note-activity";
 import { NOTE_ACTIVITY } from "../note-activity-utils";
+import { boardNoteAccessInclude, canEditBoardNote, parseDeadline } from "./_utils";
 
 export type UpdateBoardNoteState = { message?: string };
 
@@ -20,39 +20,23 @@ export async function updateBoardNote(
   const title = getStr(formData, "title") ?? undefined;
   const content = getStr(formData, "content") || "";
   const color = getStr(formData, "color") || "#ffffff";
-  const deadlineStr = getStr(formData, "deadline");
-  const deadline = deadlineStr ? new Date(deadlineStr) : null;
+  const deadline = parseDeadline(getStr(formData, "deadline"));
 
   if (!id) return { message: "Missing note ID" };
+  if (deadline === undefined) return { message: "Invalid deadline" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  // Verify ownership / authorization: the author, a user granted edit access
-  // on the note's thread via ThreadShare.canEdit, or a manager editing a note
-  // on a DSM workspace board (matches the pre-existing blanket manager access
-  // to team members' DSM notes) may update it.
+  // Verify authorization (author, list/board owner, collaborators with edit rights, managers
+  // on DSM or project-shared cards — see canEditBoardNote).
   const note = await d.boardNote.findUnique({
     where: { id },
-    include: {
-      thread: {
-        include: {
-          shares: { where: { userId: session.user.id } },
-          board: { select: { type: true } },
-        },
-      },
-    },
+    include: boardNoteAccessInclude(session.user.id),
   });
   if (!note) return { message: "Note not found" };
 
-  const isAuthor = note.authorId === session.user.id;
-  const hasEditAccess = note.thread?.shares?.[0]?.canEdit === true;
-  const isManagerOnDsmBoard = session.user.role === "MANAGER" && note.thread?.board?.type === "DSM";
-  // Project iNotes: any manager may edit a card that has been shared to a project.
-  const isManagerOnProjectNote =
-    !isAuthor && !hasEditAccess && !isManagerOnDsmBoard &&
-    (await isManagerOnProjectSharedNote(session.user.id, id));
-  if (!isAuthor && !hasEditAccess && !isManagerOnDsmBoard && !isManagerOnProjectNote) {
+  if (!(await canEditBoardNote(note, { id: session.user.id, role: session.user.role }))) {
     return { message: "Unauthorized" };
   }
 
@@ -91,8 +75,6 @@ export async function updateBoardNote(
   }
 
   await logNoteActivity(id, session.user.id, NOTE_ACTIVITY.UPDATED);
-
-  console.log("[updateBoardNote] Note updated successfully:", { id, content });
 
   return { message: "updated" };
 }

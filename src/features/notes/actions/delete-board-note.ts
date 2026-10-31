@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
+import { canDeleteBoardNote } from "./_utils";
 
 export type DeleteBoardNoteState = { message?: string };
 
@@ -22,10 +23,11 @@ export async function deleteBoardNote(
   // Verify ownership / authorization
   const note = await d.boardNote.findUnique({
     where: { id },
+    select: { authorId: true, thread: { select: { authorId: true, board: { select: { ownerId: true } } } } },
   });
   if (!note) return { message: "Note not found" };
 
-  if (note.authorId !== session.user.id) {
+  if (!canDeleteBoardNote(note, session.user.id)) {
     return { message: "Unauthorized" };
   }
 

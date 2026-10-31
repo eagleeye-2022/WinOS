@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
 import { revalidatePath } from "next/cache";
+import { canManageThread } from "./_utils";
 
 export type ShareThreadState = { message?: string };
 
@@ -24,11 +25,14 @@ export async function shareThread(
   const d = db as any;
 
   // Verify thread ownership/authorization
-  const thread = await d.thread.findUnique({ where: { id: threadId } });
+  const thread = await d.thread.findUnique({
+    where: { id: threadId },
+    select: { authorId: true, board: { select: { ownerId: true } } },
+  });
   if (!thread) return { message: "Thread not found" };
 
-  // Allow authors or managers to share
-  if (thread.authorId !== session.user.id) {
+  // The list's author, the board's owner or a manager may share it
+  if (!canManageThread(thread, { id: session.user.id, role: session.user.role })) {
     return { message: "Unauthorized" };
   }
 
@@ -37,7 +41,11 @@ export async function shareThread(
   let permissions: { userId: string; canEdit: boolean }[];
   if (sharePermissionsStr) {
     try {
-      permissions = JSON.parse(sharePermissionsStr);
+      const parsed = JSON.parse(sharePermissionsStr);
+      if (!Array.isArray(parsed)) return { message: "Invalid share permissions" };
+      permissions = parsed
+        .filter((p) => p && typeof p.userId === "string" && p.userId)
+        .map((p) => ({ userId: p.userId as string, canEdit: p.canEdit === true }));
     } catch {
       return { message: "Invalid share permissions" };
     }
@@ -58,6 +66,8 @@ export async function shareThread(
 
   if (removedUserIds.length > 0) {
     await d.threadShare.deleteMany({ where: { threadId, userId: { in: removedUserIds } } });
+    // Also drop the card shares that were cascaded to them, or they would keep seeing every card.
+    await d.boardNoteShare.deleteMany({ where: { userId: { in: removedUserIds }, note: { threadId } } });
   }
 
   for (const { userId, canEdit } of permissions) {

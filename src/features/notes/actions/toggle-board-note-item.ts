@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getStr } from "@/lib/action-utils";
 import { logNoteActivity } from "../note-activity";
 import { NOTE_ACTIVITY } from "../note-activity-utils";
+import { boardNoteAccessInclude, canEditBoardNote } from "./_utils";
 
 export type ToggleBoardNoteItemState = { message?: string };
 
@@ -24,18 +25,15 @@ export async function toggleBoardNoteItem(
   const item = await d.boardNoteChecklistItem.findUnique({
     where: { id: itemId },
     include: {
-      note: {
-        include: {
-          author: { select: { id: true, role: true } },
-        },
-      },
+      note: { include: boardNoteAccessInclude(session.user.id) },
     },
   });
   if (!item) return { message: "Item not found" };
 
-  // Only note author can toggle checklist items
-  const hasAccess = item.note.authorId === session.user.id;
-  if (!hasAccess) return { message: "Unauthorized" };
+  // Anyone who may edit the card may tick its checklist items
+  if (!(await canEditBoardNote(item.note, { id: session.user.id, role: session.user.role }))) {
+    return { message: "Unauthorized" };
+  }
 
   await d.boardNoteChecklistItem.update({
     where: { id: itemId },

@@ -72,19 +72,28 @@ async function saveNoteVersion(
         checked: i.checked,
       })),
     };
-    const last = await d.boardNoteVersion.findFirst({ where: { noteId }, orderBy: { version: "desc" } });
-    if (last && sameNoteSnapshot(last, snapshot)) return;
-    await d.boardNoteVersion.create({
-      data: {
-        noteId,
-        version: (last?.version ?? 0) + 1,
-        ...snapshot,
-        deadline: snapshot.deadline ? new Date(snapshot.deadline) : null,
-        activityId: by.activityId,
-        userId: by.userId,
-        userName: by.userName,
-      },
-    });
+    // Two saves at once can pick the same next version number; on that unique-key clash
+    // (P2002) re-read the latest version and try again rather than dropping this one.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const last = await d.boardNoteVersion.findFirst({ where: { noteId }, orderBy: { version: "desc" } });
+      if (last && sameNoteSnapshot(last, snapshot)) return;
+      try {
+        await d.boardNoteVersion.create({
+          data: {
+            noteId,
+            version: (last?.version ?? 0) + 1,
+            ...snapshot,
+            deadline: snapshot.deadline ? new Date(snapshot.deadline) : null,
+            activityId: by.activityId,
+            userId: by.userId,
+            userName: by.userName,
+          },
+        });
+        return;
+      } catch (err) {
+        if ((err as { code?: string })?.code !== "P2002" || attempt === 2) throw err;
+      }
+    }
   } catch (err) {
     console.error("[saveNoteVersion] failed for note", noteId, err);
   }

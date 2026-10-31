@@ -7,12 +7,13 @@ import { revalidatePath } from "next/cache";
 import { parseIdList } from "../project-notes-utils";
 import { logNoteActivity } from "../note-activity";
 import { NOTE_ACTIVITY } from "../note-activity-utils";
+import { boardNoteAccessInclude, canEditBoardNote } from "./_utils";
 
 export type ShareNoteToProjectsState = { message?: string };
 
 /**
  * Project iNotes: sets which projects an iNotes card is shared to (replaces the previous set).
- * Only the card's author may do this; any project can be chosen.
+ * Anyone who may edit the card (see canEditBoardNote) may do this; any project can be chosen.
  * Separate from person-to-person sharing (BoardNoteShare), which is untouched.
  */
 export async function shareNoteToProjects(
@@ -30,12 +31,14 @@ export async function shareNoteToProjects(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
 
-  const note = await d.boardNote.findUnique({ where: { id: noteId }, select: { authorId: true } });
+  const note = await d.boardNote.findUnique({ where: { id: noteId }, include: boardNoteAccessInclude(userId) });
   if (!note) return { message: "Note not found" };
-  if (note.authorId !== userId) return { message: "Only the card's author can share it to a project" };
+  if (!(await canEditBoardNote(note, { id: userId, role: session.user.role }))) {
+    return { message: "Only people who can edit this card can share it to a project" };
+  }
 
-  // Only newly added projects need checking — the author can always keep or remove existing ones
-  // (e.g. after leaving a project).
+  // Only newly added projects need checking — existing ones can always be kept or removed
+  // (e.g. after the author left a project).
   const existing: { projectId: string }[] = await d.boardNoteProjectShare.findMany({
     where: { noteId },
     select: { projectId: true },

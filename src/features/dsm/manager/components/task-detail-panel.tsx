@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
-  ListChecks,
   ListTree,
   Loader2,
   MessageSquare,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { SopIcon } from "@/components/shared/sop-icon";
 import { getAvatarColor, getInitials } from "@/lib/avatar";
 import { formatEffortMinutes } from "@/features/dsm/utils";
 import { getDsmTaskDetailAction, type DsmTaskDetail } from "@/features/dsm/actions/get-task-detail";
@@ -449,14 +449,20 @@ function TaskDetailPanel({ taskId }: { taskId: string }) {
             <ListTree size={13} /> Subtasks <b className="text-foreground">{detail.subtasks.done}/{detail.subtasks.total}</b>
           </span>
         )}
-        <span className={cn("inline-flex items-center gap-1", detail.sop.attached ? "text-success" : "text-destructive")}>
-          <ListChecks size={13} />
-          {detail.sop.attached ? (
-            <>
-              SOP <b>{detail.sop.done}/{detail.sop.total}</b>
-            </>
-          ) : (
-            "No SOP"
+        {/* SOP: green ✓ icon + progress when aligned, red ✕ icon alone when not. */}
+        <span
+          className="inline-flex items-center gap-1 text-success"
+          title={
+            detail.sop.attached
+              ? `SOP checklist aligned: ${detail.sop.done} of ${detail.sop.total} done`
+              : "No SOP checklist aligned to this task yet"
+          }
+        >
+          <SopIcon checked={detail.sop.attached} size={16} />
+          {detail.sop.attached && (
+            <b>
+              {detail.sop.done}/{detail.sop.total}
+            </b>
           )}
         </span>
         {detail.owners.length > 0 && (

@@ -118,6 +118,12 @@ interface SingleTaskWorkspaceViewProps {
   isLearningList?: boolean;
 }
 
+// "Current Task" panel: resizable between these widths (px); 320 = the old fixed w-80.
+const SIDEBAR_DEFAULT_WIDTH = 320;
+const SIDEBAR_MIN_WIDTH = 260;
+const SIDEBAR_MAX_WIDTH = 760;
+const SIDEBAR_WIDTH_KEY = "winos_task_sidebar_width";
+
 export function SingleTaskWorkspaceView({
   projectId,
   taskId,
@@ -156,6 +162,43 @@ export function SingleTaskWorkspaceView({
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isExpandedView, setIsExpandedView] = useState(false);
+
+  // "Current Task" panel width — drag its right edge to resize (like an Excel column). Remembered
+  // in this browser only.
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      if (saved >= SIDEBAR_MIN_WIDTH && saved <= SIDEBAR_MAX_WIDTH) setSidebarWidth(saved);
+    } catch {
+      // Storage blocked — keep the default width.
+    }
+  }, []);
+  const startSidebarResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    let latest = startWidth;
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + ev.clientX - startX));
+      setSidebarWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      try {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latest));
+      } catch {
+        // Storage blocked — the width just isn't remembered.
+      }
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
   const showToast = (msg: string) => {
     if (msg.toLowerCase().includes("fail") || msg.toLowerCase().includes("error")) {
       toast.error(msg);
@@ -494,7 +537,8 @@ export function SingleTaskWorkspaceView({
 
   const [taskInfoOpen, setTaskInfoOpen] = useState(false);
   const searchParams = useSearchParams();
-  // Comments is the default tab. SOPs/Checklist is its own section under the description.
+  // Subtasks is the default tab (tabs keep their order — Comments first). SOPs/Checklist is its own
+  // section under the description.
   const [activeTab, setActiveTab] = useState<
     | "COMMENTS"
     | "SUBTASKS"
@@ -506,7 +550,7 @@ export function SingleTaskWorkspaceView({
     | "ACTIVITY"
     | "DRIVE"
     | "STANDUP_ACTIVITY"
-  >("COMMENTS");
+  >("SUBTASKS");
 
   // `?tab=checklist` (links from the project's Checklist overview) scrolls to the SOPs/Checklist section.
   const openChecklistFromUrl = !isLearningList && searchParams.get("tab") === "checklist";
@@ -1344,7 +1388,29 @@ export function SingleTaskWorkspaceView({
     <div className="flex h-full w-full bg-background text-foreground overflow-hidden font-sans dark:bg-[#09090b] dark:text-zinc-100 min-h-0">
       {/* ── Left Sidebar Task List Column (hidden when Maximize2 is active) ────── */}
       {!isExpandedView && (
-        <aside className="w-80 border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-zinc-800 dark:bg-[#0c0d10] h-full min-h-0">
+        <aside
+          style={{ width: sidebarWidth }}
+          className="relative border-r border-border bg-card flex flex-col shrink-0 select-none dark:border-zinc-800 dark:bg-[#0c0d10] h-full min-h-0"
+        >
+          {/* Drag handle on the right edge — resize the panel; double-click resets it. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize task panel"
+            title="Drag to resize · double-click to reset"
+            onPointerDown={startSidebarResize}
+            onDoubleClick={() => {
+              setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+              try {
+                localStorage.removeItem(SIDEBAR_WIDTH_KEY);
+              } catch {
+                // Storage blocked — nothing to clear.
+              }
+            }}
+            className="group/resize absolute -right-1.5 top-0 z-20 flex h-full w-3 cursor-col-resize justify-center"
+          >
+            <span className="h-full w-0.5 bg-transparent transition-colors group-hover/resize:bg-primary/70 group-active/resize:bg-primary" />
+          </div>
           {/* Header */}
           <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-3 dark:border-zinc-800">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Current Task</span>
@@ -1353,8 +1419,9 @@ export function SingleTaskWorkspaceView({
             </Link>
           </div>
 
-          {/* Open task's card with all its subtasks */}
-          <div className="flex-1 overflow-y-auto p-3">
+          {/* Open task's card with all its subtasks — scrolls both ways (deep subtasks sit further
+              right), with the always-visible scrollbar like the DSM tables. */}
+          <div className="dsm-columns-scrollbar flex-1 overflow-auto p-3">
             {sidebarRootTask ? (
               <TaskSidebarTree
                 rootTask={sidebarRootTask}

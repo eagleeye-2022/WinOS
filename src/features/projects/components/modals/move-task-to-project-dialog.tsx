@@ -11,6 +11,12 @@ import {
   type MoveTaskTarget,
 } from "../../actions/project-actions";
 
+const SELECT_TRIGGER =
+  "flex w-full justify-between rounded-md border bg-background px-3 py-2 text-xs font-normal hover:bg-accent/40 focus-visible:ring-1 focus-visible:ring-primary";
+// The list portals to <body>: lift it above this dialog's z-[70] overlay (Popover defaults to z-50,
+// which hid it behind the dialog) and match the trigger's width.
+const SELECT_CONTENT = "z-[80] w-[var(--radix-popover-trigger-width)]";
+
 /**
  * "Move to another project" (managers): pick a project and one of its task lists. The task moves
  * there with all its subtasks, time logs and DSM links (see moveTaskToProjectAction).
@@ -127,7 +133,8 @@ export function MoveTaskToProjectDialog({
                 options={projectOptions}
                 placeholder="Select project"
                 searchPlaceholder="Search projects..."
-                className="w-full rounded-md border bg-background px-3 py-2 font-normal"
+                className={SELECT_TRIGGER}
+                contentClassName={SELECT_CONTENT}
               />
             )}
           </label>
@@ -141,7 +148,8 @@ export function MoveTaskToProjectDialog({
               placeholder={projectId ? "Select task list" : "Select a project first"}
               searchPlaceholder="Search task lists..."
               disabled={!projectId}
-              className="w-full rounded-md border bg-background px-3 py-2 font-normal"
+              className={SELECT_TRIGGER}
+              contentClassName={SELECT_CONTENT}
             />
           </label>
 

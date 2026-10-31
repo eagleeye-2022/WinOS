@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => {
   const db = {
     user: { findUnique: fn() },
     project: { findMany: fn(), count: fn() },
-    thread: { findUnique: fn(), create: fn() },
+    thread: { findUnique: fn(), create: fn(), update: fn() },
     threadShare: { findMany: fn(), createMany: fn() },
     boardNote: { findUnique: fn(), create: fn(), update: fn() },
     boardNoteShare: { createMany: fn() },
@@ -30,6 +30,7 @@ import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-
 import { moveBoardNote } from "@/features/notes/actions/move-board-note";
 import { shareNoteToProjects } from "@/features/notes/actions/share-note-to-projects";
 import { getNoteTimeline } from "@/features/notes/actions/get-note-timeline";
+import { updateThread } from "@/features/notes/actions/update-thread";
 
 const d = mocks.db;
 
@@ -113,7 +114,7 @@ describe("buildTimeline", () => {
 describe("card actions record timeline events", () => {
   it("creating a card logs CREATED by its author", async () => {
     loginAs("member");
-    d.thread.findUnique.mockResolvedValue({ id: "t1" });
+    d.thread.findUnique.mockResolvedValue({ id: "t1", authorId: "member", shares: [], board: { shares: [] } });
     d.boardNote.create.mockResolvedValue({ id: "n1", content: "" });
     await createBoardNote({}, fd({ threadId: "t1", content: "x" }));
     expect(d.boardNoteActivity.create).toHaveBeenCalledWith({
@@ -150,9 +151,92 @@ describe("card actions record timeline events", () => {
   it("moving a card logs the target list", async () => {
     loginAs("member");
     d.boardNote.findUnique.mockResolvedValue({ authorId: "member" });
-    d.thread.findUnique.mockResolvedValue({ title: "Done" });
+    d.thread.findUnique.mockResolvedValue({ title: "Done", authorId: "member" });
     await moveBoardNote({}, fd({ noteId: "n1", targetThreadId: "t2" }));
     expect(loggedActions()).toEqual([["MOVED", "Done"]]);
+  });
+
+  it("a card can't be moved into someone else's list", async () => {
+    loginAs("member");
+    d.boardNote.findUnique.mockResolvedValue({ authorId: "member" });
+    d.thread.findUnique.mockResolvedValue({ title: "Theirs", authorId: "outsider" });
+    expect((await moveBoardNote({}, fd({ noteId: "n1", targetThreadId: "t2" }))).message).toBe("Unauthorized");
+    expect(d.boardNote.update).not.toHaveBeenCalled();
+  });
+
+  it("a list collaborator with edit rights may move a card between lists on the same board", async () => {
+    loginAs("outsider");
+    d.boardNote.findUnique.mockResolvedValue({
+      id: "n1", authorId: "member",
+      thread: { authorId: "member", boardId: "b1", shares: [{ canEdit: true }], board: { shares: [] } },
+    });
+    d.thread.findUnique.mockResolvedValue({ title: "Done", authorId: "member", boardId: "b1", shares: [{ canEdit: true }], board: { shares: [] } });
+    expect((await moveBoardNote({}, fd({ noteId: "n1", targetThreadId: "t2" }))).message).toBe("moved");
+  });
+
+  it("a card can't be moved to a list on another board", async () => {
+    loginAs("member");
+    d.boardNote.findUnique.mockResolvedValue({ id: "n1", authorId: "member", thread: { boardId: "b1" } });
+    d.thread.findUnique.mockResolvedValue({ title: "Elsewhere", authorId: "member", boardId: "b2" });
+    expect((await moveBoardNote({}, fd({ noteId: "n1", targetThreadId: "t9" }))).message).toBe("Unauthorized");
+    expect(d.boardNote.update).not.toHaveBeenCalled();
+  });
+
+  it("a card can't be added to a list the user can't edit", async () => {
+    loginAs("outsider");
+    d.thread.findUnique.mockResolvedValue({ id: "t1", authorId: "member", shares: [], board: { shares: [] } });
+    expect((await createBoardNote({}, fd({ threadId: "t1", content: "x" }))).message).toBe("Unauthorized");
+    expect(d.boardNote.create).not.toHaveBeenCalled();
+  });
+
+  it("a list collaborator with edit rights may add a card", async () => {
+    loginAs("outsider");
+    d.thread.findUnique.mockResolvedValue({ id: "t1", authorId: "member", shares: [{ canEdit: true }], board: { shares: [] } });
+    d.boardNote.create.mockResolvedValue({ id: "n2", content: "" });
+    expect((await createBoardNote({}, fd({ threadId: "t1", content: "x" }))).message).toBe("created");
+  });
+
+  it("the board owner may edit a card a collaborator added", async () => {
+    loginAs("member");
+    d.boardNote.findUnique.mockResolvedValue({
+      id: "n1", authorId: "outsider",
+      thread: { authorId: "outsider", shares: [], board: { type: "NORMAL", ownerId: "member", shares: [] } },
+    });
+    expect((await updateBoardNote({}, fd({ id: "n1", content: "x" }))).message).toBe("updated");
+  });
+
+  it("a board collaborator with edit rights may edit cards in lists made after the board was shared", async () => {
+    loginAs("outsider");
+    d.boardNote.findUnique.mockResolvedValue({
+      id: "n1", authorId: "member",
+      thread: { authorId: "member", shares: [], board: { type: "NORMAL", ownerId: "member", shares: [{ canEdit: true }] } },
+    });
+    expect((await updateBoardNote({}, fd({ id: "n1", content: "x" }))).message).toBe("updated");
+  });
+
+  it("a view-only board collaborator cannot edit", async () => {
+    loginAs("outsider");
+    d.boardNote.findUnique.mockResolvedValue({
+      id: "n1", authorId: "member",
+      thread: { authorId: "member", shares: [], board: { type: "NORMAL", ownerId: "member", shares: [{ canEdit: false }] } },
+    });
+    expect((await updateBoardNote({}, fd({ id: "n1", content: "x" }))).message).toBe("Unauthorized");
+    expect(d.boardNote.update).not.toHaveBeenCalled();
+  });
+
+  it("the list's author may tick a checklist item on a collaborator's card", async () => {
+    loginAs("member");
+    d.boardNoteChecklistItem.findUnique.mockResolvedValue({
+      id: "i1", noteId: "n1", text: "Draft", checked: false,
+      note: { id: "n1", authorId: "outsider", thread: { authorId: "member", shares: [], board: { shares: [] } } },
+    });
+    expect((await toggleBoardNoteItem({}, fd({ itemId: "i1" }))).message).toBe("toggled");
+  });
+
+  it("an invalid deadline is rejected instead of crashing", async () => {
+    loginAs("member");
+    expect((await updateBoardNote({}, fd({ id: "n1", content: "x", deadline: "not-a-date" }))).message).toBe("Invalid deadline");
+    expect(d.boardNote.update).not.toHaveBeenCalled();
   });
 
   it("sharing logs one event per project added and removed, with project names", async () => {
@@ -175,6 +259,20 @@ describe("card actions record timeline events", () => {
     d.boardNoteActivity.create.mockRejectedValue(new Error("db down"));
     expect((await updateBoardNote({}, fd({ id: "n1", content: "x" }))).message).toBe("updated");
     expect(d.boardNote.update).toHaveBeenCalled();
+  });
+});
+
+// ── Managing lists ──────────────────────────────────────────────────────────
+describe("renaming a list", () => {
+  it("the board owner and managers may rename someone else's list; others may not", async () => {
+    d.thread.findUnique.mockResolvedValue({ authorId: "outsider", board: { ownerId: "member" } });
+    loginAs("member");
+    expect((await updateThread({}, fd({ threadId: "t1", title: "Renamed" }))).message).toBe("updated");
+    loginAs("manager");
+    expect((await updateThread({}, fd({ threadId: "t1", title: "Renamed" }))).message).toBe("updated");
+    d.thread.findUnique.mockResolvedValue({ authorId: "member", board: { ownerId: "member" } });
+    loginAs("outsider");
+    expect((await updateThread({}, fd({ threadId: "t1", title: "Renamed" }))).message).toBe("Unauthorized");
   });
 });
 

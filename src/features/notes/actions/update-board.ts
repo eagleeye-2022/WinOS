@@ -28,7 +28,8 @@ export async function updateBoard(
   const board = await d.board.findUnique({ where: { id: boardId } });
   if (!board) return { message: "Board not found" };
 
-  if (board.ownerId !== session.user.id) {
+  // Same rule as sharing/deleting a board (and the "Edit Board" button): owner or manager.
+  if (board.ownerId !== session.user.id && session.user.role !== "MANAGER") {
     return { message: "Unauthorized" };
   }
 
