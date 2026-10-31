@@ -5638,7 +5638,8 @@ export async function getTaskTimelineAction(taskIdOrCode: string): Promise<Proje
  */
 /** "7.3 MSO Off-Page" → "mso off-page": a phase's identity independent of its number. */
 function phaseKey(name: string): string {
-  return name.replace(/^\d+(\.\d+)*\s+/, "").trim().toLowerCase();
+  // Spaces ignored: older projects' "Client On Boarding" is the templates' "Client Onboarding".
+  return name.replace(/^\d+(\.\d+)*\s+/, "").replace(/\s+/g, "").toLowerCase();
 }
 
 /**

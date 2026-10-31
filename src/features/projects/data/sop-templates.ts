@@ -1,4 +1,5 @@
 import { ProjectPhase, ProjectTemplate, SOPPhaseTemplate, SOPTaskSeed, TaskItem, TaskList } from "../types";
+import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 
 export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
   id: "template-t2t-7phase",
@@ -552,8 +553,8 @@ export const INTERNAL_PRODUCT_TEMPLATE: ProjectTemplate = {
   ],
 };
 
-// Phases 1.1 → 6.1 shared by the Digital Project templates (Ecommerce / Enterprise). They only
-// differ in the 7.x Maintenance & Support phases, which are built per template below.
+// Base details (department, flag, and each task's duration, priority and description) that
+// DIGITAL_DELIVERY_PHASES below draws its lists and tasks from.
 const DIGITAL_PRODUCT_DELIVERY_PHASES: SOPPhaseTemplate[] = [
   {
     code: "1.1",
@@ -942,9 +943,9 @@ const DIGITAL_PRODUCT_DELIVERY_PHASES: SOPPhaseTemplate[] = [
 ];
 
 /**
- * Builds the 7.x Maintenance & Support phases. 7.1 is always Maintenance & Support; the given
- * phase names follow it in order and are numbered 7.2, 7.3, ... so dropping a phase from the
- * list (e.g. Enterprise has no Monthly Product Update) renumbers everything after it.
+ * Builds the 7.x phases. 7.1 is always Maintenance & Support; the given phase names follow it in
+ * order and are numbered 7.2, 7.3, ... so dropping a phase from the list (e.g. Enterprise has no
+ * Monthly Product Update) renumbers everything after it. The NAT list comes last.
  */
 function buildMaintenancePhases(
   followingPhases: { name: string; departmentAlias: string; flag: "internal" | "external" }[]
@@ -996,7 +997,24 @@ function buildMaintenancePhases(
     };
   });
 
-  return [maintenance, ...rest];
+  // Always last. Named exactly NAT_TASK_LIST_NAME, with no number in front: that's how DSM rows and
+  // timers with no task list find it.
+  const natCode = `7.${followingPhases.length + 2}`;
+  const nat: SOPPhaseTemplate = {
+    code: natCode,
+    name: NAT_TASK_LIST_NAME,
+    departmentAlias: "digitalproducts@",
+    taskLists: [
+      {
+        name: NAT_TASK_LIST_NAME,
+        flag: "internal",
+        sequence: firstSequence + 2 + followingPhases.length,
+        defaultTasks: [],
+      },
+    ],
+  };
+
+  return [maintenance, ...rest, nat];
 }
 
 const MSO_PHASES: { name: string; departmentAlias: string; flag: "internal" | "external" }[] = [
@@ -1006,16 +1024,113 @@ const MSO_PHASES: { name: string; departmentAlias: string; flag: "internal" | "e
   { name: "MSO Main", departmentAlias: "digitalproducts@", flag: "internal" },
   { name: "MSO Local SEO", departmentAlias: "seo@", flag: "internal" },
   { name: "MSO Performance Marketing", departmentAlias: "seo@", flag: "external" },
-  { name: "NAT Task Not Aligned", departmentAlias: "digitalproducts@", flag: "internal" },
+];
+
+type DigitalTaskInput = string | { title: string; subtasks: string[] };
+
+/** A Digital Project list: the base phase with this code, under this name and with these tasks. */
+function digitalPhase(code: string, name: string, tasks: DigitalTaskInput[]): SOPPhaseTemplate {
+  const base = DIGITAL_PRODUCT_DELIVERY_PHASES.find((p) => p.code === code);
+  if (!base) throw new Error(`No delivery phase ${code}`);
+  const fullName = `${code} ${name}`;
+  const knownTasks = DIGITAL_PRODUCT_DELIVERY_PHASES.flatMap((p) =>
+    (p.taskLists ?? []).flatMap((tl) => tl.defaultTasks)
+  );
+
+  return {
+    ...base,
+    name: fullName,
+    taskLists: (base.taskLists ?? []).map((tl) => ({
+      ...tl,
+      name: fullName,
+      defaultTasks: tasks.map((task) => {
+        const { title, subtasks } = typeof task === "string" ? { title: task, subtasks: undefined } : task;
+        // A task from the base phases keeps its duration, priority, department and description.
+        const known = knownTasks.find((t) => t.title === title);
+        return {
+          ...(known ?? {
+            title,
+            duration: "1 day",
+            priority: "Medium" as const,
+            departmentAlias: base.departmentAlias,
+          }),
+          ...(subtasks ? { subtasks } : {}),
+        };
+      }),
+    })),
+  };
+}
+
+// Lists 1.1 → 6.1 of both Digital Project templates, which differ only in their 7.x lists.
+const DIGITAL_DELIVERY_PHASES: SOPPhaseTemplate[] = [
+    digitalPhase("1.1", "Client Onboarding", [
+      "WhatsApp Group Creation",
+      "Project Workplace Setup",
+      "Project Meeting with Team",
+      "Project Requirement and Expectation Collection from Client",
+      "Roadmap & Deliverables Document",
+      "Client Zoho Project Board Creation",
+    ]),
+    digitalPhase("1.2", "Requirement Collection & Documentation", [
+      "SRS: Client Onboarding Document Research and Creation",
+      "Client Onboarding Document Share with the Client",
+      "SRS: Client Onboarding Document Showcase Meeting with Client",
+      "SRS: Final Data Collection Milestone from the Client",
+      "Project Planning & Setup",
+    ]),
+    digitalPhase("2.1", "UX Research & Discovery", [
+      { title: "V1 Keyword Research by UI/UX", subtasks: ["Keyword Research Document Creation", "User Research"] },
+      { title: "Competitor Analysis", subtasks: ["User Research"] },
+      "Stakeholder Interview & Surveys",
+    ]),
+    digitalPhase("2.2", "Ideation & Conceptualization", [
+      "Information Architecture (IA) Preparation",
+      "Mood Board Creation",
+      "Mind Mapping and Brainstorming of Features",
+      "Detailed Keyword Research by SEO Team",
+      "User Journey Map (UJM)",
+    ]),
+    digitalPhase("3.1", "UI/UX Designing", [
+      { title: "Wireframe Design", subtasks: ["Low Fidelity Wireframes", "High Fidelity Wireframes"] },
+      {
+        title: "Design System Creation",
+        subtasks: ["Component Design & Component Library Creation", "Interaction Patterns, Grids & Guideline"],
+      },
+      "Header Footer Design",
+      "Design Demo to Client",
+    ]),
+    digitalPhase("3.2", "Graphic Designing", ["Logo Design", "Brand Guideline Design"]),
+    digitalPhase("3.3", "Content Writing", ["Website Content"]),
+    digitalPhase("4.1", "Development", [
+      { title: "Website Initialisation & Setup", subtasks: ["Server Setup", "Follow Website Initialisation SOP"] },
+    ]),
+    digitalPhase("5.1", "Testing", [
+      "Black Box Testing",
+      {
+        title: "Departmental Testing",
+        subtasks: [
+          "Testing from Creative Team",
+          "Testing from Marketing Team",
+          "Testing From SEOs",
+          "Testing from Content Strategist",
+          "Testing from Tech Team",
+        ],
+      },
+      "UAT Feedback",
+      "Heatmaps & Analytics (CRO)",
+      "A/B Testing",
+    ]),
+    digitalPhase("6.1", "Deployment and SEO", ["Website Live"]),
 ];
 
 export const ECOMMERCE_PROJECT_TEMPLATE: ProjectTemplate = {
   id: "template-digital-ecommerce",
   name: "Ecommerce",
-  description: "Digital Project SOP template for ecommerce builds: onboarding, research, design, development, testing, launch & SEO, and maintenance (7.1 → 7.9, including Monthly Product Update).",
+  description:
+    "Digital Project SOP template for ecommerce builds: onboarding, research, design, development, testing, launch & SEO, and maintenance (7.1 → 7.8, including Monthly Product Update).",
   category: "Client Delivery",
   phases: [
-    ...DIGITAL_PRODUCT_DELIVERY_PHASES,
+    ...DIGITAL_DELIVERY_PHASES,
     ...buildMaintenancePhases([
       { name: "Monthly Product Update", departmentAlias: "dev@", flag: "external" },
       ...MSO_PHASES,
@@ -1026,9 +1141,10 @@ export const ECOMMERCE_PROJECT_TEMPLATE: ProjectTemplate = {
 export const ENTERPRISE_PROJECT_TEMPLATE: ProjectTemplate = {
   id: "template-digital-enterprise",
   name: "Enterprise",
-  description: "Digital Project SOP template for enterprise builds: same as Ecommerce but without Monthly Product Update, so maintenance runs 7.1 → 7.8.",
+  description:
+    "Digital Project SOP template for enterprise builds: same as Ecommerce but without Monthly Product Update, so maintenance runs 7.1 → 7.7.",
   category: "Client Delivery",
-  phases: [...DIGITAL_PRODUCT_DELIVERY_PHASES, ...buildMaintenancePhases(MSO_PHASES)],
+  phases: [...DIGITAL_DELIVERY_PHASES, ...buildMaintenancePhases(MSO_PHASES)],
 };
 
 /** In a template task title, replaced by the month the project is created in ("October"). */
