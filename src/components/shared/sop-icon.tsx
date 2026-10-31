@@ -1,22 +1,18 @@
 import { cn } from "@/lib/utils";
 
-/** Top of each of the icon's three checklist rows, in viewBox units. */
-const ROW_OFFSETS = [0, 8, 16];
-
 /**
- * The SOP icon: a checklist of three ticked boxes with text lines. The ticks show the state —
- * green when an SOP is aligned, red when not. Boxes and lines follow the theme (black on light,
- * white on dark). Same props as a lucide icon (size / strokeWidth / className), so it also drops
- * into nav items (`icon: SopIcon` — checked by default).
+ * The SOP icon: a ticked list in green when an SOP is aligned, the same list struck through in red
+ * when not. Same props as a lucide icon (size / strokeWidth / className), so it also drops into
+ * nav items (`icon: SopIcon` — checked by default).
  */
 export function SopIcon({
   checked = true,
   size = 18,
+  strokeWidth = 2,
   className,
 }: {
   checked?: boolean;
   size?: number;
-  /** Accepted for lucide compatibility; the icon keeps its own stroke widths. */
   strokeWidth?: number;
   className?: string;
 }) {
@@ -26,22 +22,35 @@ export function SopIcon({
       height={size}
       viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("shrink-0", className)}
+      className={cn(
+        "shrink-0",
+        checked ? "text-green-600 dark:text-green-500" : "text-red-600 dark:text-red-500",
+        className
+      )}
       aria-hidden="true"
     >
-      {ROW_OFFSETS.map((y) => (
-        <g key={y} transform={`translate(0 ${y})`}>
-          {/* Box, open at the top right where the tick passes through, and its text lines. */}
-          <path d="M5.5 2H1.5v5.5H7V5.5M10.5 2.5h7M10.5 6h12" className="stroke-foreground" strokeWidth={1.2} />
-          <path
-            d="M3 4l1.7 1.9L8.5 1"
-            className={checked ? "stroke-green-600 dark:stroke-green-500" : "stroke-red-600 dark:stroke-red-500"}
-            strokeWidth={1.7}
-          />
-        </g>
-      ))}
+      {checked ? (
+        <>
+          <path d="M13 12h8" />
+          <path d="M13 19h8" />
+          <path d="M13 5h8" />
+          <path d="m3 17 2 2 4-4" />
+          <rect x="3" y="4" width="6" height="6" rx="1" />
+        </>
+      ) : (
+        <>
+          <path d="M13 19h6" />
+          <path d="M13 5h8" />
+          <path d="M17.657 12H21" />
+          <path d="m2 2 20 20" />
+          <path d="m3 17 2 2 4-4" />
+          <path d="M9 9a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1" />
+        </>
+      )}
     </svg>
   );
 }
