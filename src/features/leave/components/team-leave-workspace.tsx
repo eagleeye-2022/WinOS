@@ -923,7 +923,7 @@ export function TeamLeaveWorkspace({
       {activeTab === "team-calendar" && <TeamCalendarView />}
 
       {/* 5. HOLIDAYS TAB */}
-      {activeTab === "holidays" && <HolidaysView />}
+      {activeTab === "holidays" && <HolidaysView canManage />}
 
       {/* 6. LEAVE POLICY TAB (IMAGE 4) */}
       {activeTab === "leave-policy" && (

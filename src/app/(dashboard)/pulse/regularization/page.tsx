@@ -10,5 +10,11 @@ export const metadata: Metadata = {
 
 export default async function RegularizationPage() {
   const session = await auth();
-  return <AttendanceWorkspace canManage={canManageAttendance(session?.user)} currentUserId={session?.user?.id} />;
+  return (
+    <AttendanceWorkspace
+      canManage={canManageAttendance(session?.user)}
+      initialTab="regularization"
+      currentUserId={session?.user?.id}
+    />
+  );
 }

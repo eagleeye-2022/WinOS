@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 
 const PROJECT_LIST_TABS = ["ACTIVE", "INACTIVE", "COMPLETED", "TEMPLATES"] as const;
-const PROJECT_CATEGORIES = ["DIGITAL", "SMM"] as const;
+const PROJECT_CATEGORIES = ["DIGITAL", "SMM", "TEMPLATES"] as const;
 const PROJECT_LAYOUTS = ["LIST", "GRID"] as const;
 const SORT_DIRS = ["", "asc", "desc"] as const;
 import Link from "next/link";
@@ -40,7 +40,10 @@ import {
   History,
   Calendar,
 } from "lucide-react";
-import { Project, WorkspaceRole, TeamMemberOption, NewProjectFormData } from "../../types";
+import { Project, ProjectTemplate, WorkspaceRole, TeamMemberOption, NewProjectFormData } from "../../types";
+import { BUILT_IN_PROJECT_TEMPLATES, isBuiltInTemplate } from "../../template-utils";
+import { getCustomProjectTemplatesAction } from "../../actions/template-actions";
+import { ProjectTemplatesView } from "./project-templates-view";
 import { TimerWidget } from "../timer-widget";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 import {
@@ -591,9 +594,26 @@ export function AllProjectsTableView({
     allowed: PROJECT_LIST_TABS,
     history: "push",
   });
-  const [categoryTab, setCategoryTab] = useUrlState<"DIGITAL" | "SMM">("category", "DIGITAL", {
+  const [categoryParam, setCategoryTab] = useUrlState<"DIGITAL" | "SMM" | "TEMPLATES">("category", "DIGITAL", {
     allowed: PROJECT_CATEGORIES,
   });
+  // Project Template: internal SOPs, so not for client logins.
+  const canViewTemplates = (userRole as string) !== "CLIENT";
+  const categoryTab = categoryParam === "TEMPLATES" && !canViewTemplates ? "DIGITAL" : categoryParam;
+  const [customTemplates, setCustomTemplates] = useState<ProjectTemplate[]>([]);
+  const [templatesStatus, setTemplatesStatus] = useState<"LOADING" | "LOADED" | "FAILED">("LOADING");
+  useEffect(() => {
+    if (!canViewTemplates) return;
+    getCustomProjectTemplatesAction()
+      .then((templates) => {
+        setCustomTemplates(templates);
+        setTemplatesStatus("LOADED");
+      })
+      .catch((err) => {
+        console.error("Failed to load project templates:", err);
+        setTemplatesStatus("FAILED");
+      });
+  }, [canViewTemplates]);
   const [viewLayout, setViewLayout] = useUrlState<"LIST" | "GRID">("layout", "LIST", { allowed: PROJECT_LAYOUTS });
   const [searchQuery, setSearchQuery] = useUrlState("q", "");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -1363,13 +1383,15 @@ export function AllProjectsTableView({
                 <Settings size={18} />
               </button> */}
 
-                <button
-                  type="button"
-                  onClick={activeTab === "TEMPLATES" ? onOpenTemplatesModal : onOpenAddModal}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
-                >
-                  <Plus size={16} /> {activeTab === "TEMPLATES" ? "Add New Template" : "Add New Project"}
-                </button>
+                {categoryTab !== "TEMPLATES" && (
+                  <button
+                    type="button"
+                    onClick={activeTab === "TEMPLATES" ? onOpenTemplatesModal : onOpenAddModal}
+                    className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors"
+                  >
+                    <Plus size={16} /> {activeTab === "TEMPLATES" ? "Add New Template" : "Add New Project"}
+                  </button>
+                )}
               </>
             )}
 
@@ -1454,9 +1476,40 @@ export function AllProjectsTableView({
               {smmProjectsCount}
             </span>
           </button>
+          {canViewTemplates && (
+            <button
+              type="button"
+              onClick={() => setCategoryTab("TEMPLATES")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${categoryTab === "TEMPLATES"
+                  ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary/30"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground border-border/60"
+                }`}
+            >
+              <span>Project Template</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-xs font-bold ${categoryTab === "TEMPLATES"
+                    ? "bg-white/20 text-white"
+                    : "bg-muted text-muted-foreground"
+                  }`}
+              >
+                {BUILT_IN_PROJECT_TEMPLATES.length + customTemplates.filter((t) => !isBuiltInTemplate(t.id)).length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
+      {categoryTab === "TEMPLATES" ? (
+        <ProjectTemplatesView
+          customTemplates={customTemplates}
+          onCustomTemplatesChange={setCustomTemplates}
+          // Without the saved templates, an edit would be built on (and overwrite with) the originals.
+          canManage={canEditAssignments && templatesStatus === "LOADED"}
+          isLoading={templatesStatus === "LOADING"}
+          loadFailed={templatesStatus === "FAILED"}
+        />
+      ) : (
+      <>
       {/* Integrated Single Toolbar Row: Active Projects | Inactive | Completed Projects | Search Box | Collapse All Columns */}
       <div className="flex flex-wrap items-center justify-between border-b px-6 py-2.5 bg-background gap-3 relative">
         {/* Left Side: Tabs */}
@@ -2125,6 +2178,8 @@ export function AllProjectsTableView({
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
 
       {/* AI Client Report Modal */}

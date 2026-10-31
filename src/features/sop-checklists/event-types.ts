@@ -11,6 +11,7 @@ export const SOP_EVENT_TYPES = [
   "TEMPLATE_RESTORED",
   "TEMPLATE_DELETED",
   "TEMPLATE_PUSHED",
+  "TEMPLATE_SHARED",
   // Picking it for tasks
   "CHECKLIST_ATTACHED",
   "CHECKLIST_CUSTOM_CREATED",
@@ -45,6 +46,7 @@ export const SOP_EVENT_GROUPS: Record<SopEventGroup, { label: string; types: Sop
       "TEMPLATE_RESTORED",
       "TEMPLATE_DELETED",
       "TEMPLATE_PUSHED",
+      "TEMPLATE_SHARED",
     ],
   },
   PICKED: {
@@ -92,6 +94,7 @@ export function describeSopEvent(e: SopEventView, inSopTimeline: boolean): strin
     case "TEMPLATE_IMPORTED":
       return `imported ${sop} from the EED SOP sheet${num(d.steps) !== null ? ` (${d.steps} steps)` : ""}`;
     case "TEMPLATE_UPDATED": {
+      if (d.movedTo) return `moved ${sop} from the list "${d.movedFrom}" to "${d.movedTo}"`;
       const parts: string[] = [];
       if (num(d.added)) parts.push(`${d.added} step${d.added === 1 ? "" : "s"} added`);
       if (num(d.removed)) parts.push(`${d.removed} removed`);
@@ -110,8 +113,13 @@ export function describeSopEvent(e: SopEventView, inSopTimeline: boolean): strin
       return `pushed v${d.version ?? "?"} of ${sop} to ${d.updated ?? 0} task${d.updated === 1 ? "" : "s"}${
         num(d.skippedClosed) ? ` (${d.skippedClosed} closed task${d.skippedClosed === 1 ? "" : "s"} left as they were)` : ""
       }`;
+    case "TEMPLATE_SHARED": {
+      const who = [...(Array.isArray(d.departments) ? d.departments : []), ...(Array.isArray(d.people) ? d.people : [])];
+      const via = d.list ? ` through the list "${d.list}"` : "";
+      return who.length > 0 ? `shared ${sop}${via} with ${who.join(", ")}` : `stopped sharing ${sop}${via}`;
+    }
     case "CHECKLIST_ATTACHED":
-      return `picked ${sop} for the task${d.via === "bulk" ? " (bulk attach)" : ""}${num(d.version) !== null ? ` · v${d.version}` : ""}`;
+      return `picked ${sop} for the task${d.via === "bulk" ? " (bulk attach)" : d.via === "template" ? " (from project template)" : ""}${num(d.version) !== null ? ` · v${d.version}` : ""}`;
     case "CHECKLIST_CUSTOM_CREATED":
       return `added a one-off checklist "${str(d.name) ?? e.templateName ?? ""}" to the task`;
     case "CHECKLIST_REMOVED":

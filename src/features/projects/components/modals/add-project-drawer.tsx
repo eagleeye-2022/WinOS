@@ -25,6 +25,8 @@ import {
 } from "../../data/sop-templates";
 import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType } from "../../types";
 import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
+import { getCustomProjectTemplatesAction } from "../../actions/template-actions";
+import { getTemplateKind, isBuiltInTemplate } from "../../template-utils";
 
 interface AddProjectDrawerProps {
   isOpen: boolean;
@@ -53,7 +55,10 @@ export function AddProjectDrawer({
     scaffoldPhasesFromTemplate(DIGITAL_PROJECT_TEMPLATES[0])
   );
 
-  // Digital Projects pick between the Ecommerce / Enterprise templates; SMM keeps the default one.
+  // Templates created on the Project Template tab, offered next to the built-in ones.
+  const [customTemplates, setCustomTemplates] = useState<ProjectTemplate[]>([]);
+
+  // Digital Projects pick between Ecommerce / Enterprise, SMM projects use SMM; custom templates add to either.
   const applyTemplate = (tmpl: ProjectTemplate) => {
     setSelectedTemplate(tmpl);
     setPhases(scaffoldPhasesFromTemplate(tmpl));
@@ -141,6 +146,9 @@ export function AddProjectDrawer({
     }
     if (isOpen) {
       loadOptions();
+      getCustomProjectTemplatesAction()
+        .then(setCustomTemplates)
+        .catch((err) => console.error("Failed to load project templates:", err));
     }
   }, [isOpen]);
 
@@ -184,6 +192,19 @@ export function AddProjectDrawer({
   const isDigitalTemplateProject = DIGITAL_PROJECT_TEMPLATES.some(
     (t) => t.name === projectToEdit?.templateUsed
   );
+
+  // Editing only switches between Ecommerce and Enterprise; custom templates apply on creation.
+  const templateKind = projectCategory === "SMM" ? "SMM" : "DIGITAL";
+  const templateOptions = projectToEdit
+    ? DIGITAL_PROJECT_TEMPLATES
+    : [
+        ...(templateKind === "SMM" ? [SMM_PROJECT_TEMPLATE] : DIGITAL_PROJECT_TEMPLATES),
+        // Saved edits of a built-in share its id: its button already creates from the edited version.
+        ...customTemplates.filter((t) => !isBuiltInTemplate(t.id) && getTemplateKind(t) === templateKind),
+      ];
+  const showTemplatePicker = projectToEdit
+    ? projectCategory !== "SMM" && isDigitalTemplateProject
+    : templateOptions.length > 1;
 
   if (!isOpen) return null;
 
@@ -362,7 +383,7 @@ export function AddProjectDrawer({
                 onClick={() => {
                   setProjectCategory("CLIENT_DELIVERY");
                   setDepartmentAlias("digitalproducts@");
-                  if (!DIGITAL_PROJECT_TEMPLATES.some((t) => t.id === selectedTemplate.id)) {
+                  if (getTemplateKind(selectedTemplate) !== "DIGITAL") {
                     applyTemplate(DIGITAL_PROJECT_TEMPLATES[0]);
                   }
                 }}
@@ -379,7 +400,9 @@ export function AddProjectDrawer({
                 onClick={() => {
                   setProjectCategory("SMM");
                   setDepartmentAlias("smm@");
-                  applyTemplate(SMM_PROJECT_TEMPLATE);
+                  if (getTemplateKind(selectedTemplate) !== "SMM") {
+                    applyTemplate(SMM_PROJECT_TEMPLATE);
+                  }
                 }}
                 className={`flex items-center justify-center py-2 px-3 rounded-md text-xs font-semibold border transition-all ${
                   projectCategory === "SMM"
@@ -392,15 +415,15 @@ export function AddProjectDrawer({
             </div>
           </div>
 
-          {/* Digital Project Template: Ecommerce vs Enterprise. On edit it's only offered for
-              projects built from one of them — switching re-maps the phases server-side. */}
-          {projectCategory !== "SMM" && (!projectToEdit || isDigitalTemplateProject) && (
+          {/* Project Template for the chosen category. On edit it's only offered for projects
+              built from Ecommerce / Enterprise — switching re-maps the phases server-side. */}
+          {showTemplatePicker && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground">
                 Project Template
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {DIGITAL_PROJECT_TEMPLATES.map((tmpl) => (
+                {templateOptions.map((tmpl) => (
                   <button
                     key={tmpl.id}
                     type="button"

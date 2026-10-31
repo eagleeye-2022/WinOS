@@ -10,7 +10,16 @@ import { ActingUser, loadActingUser } from "../access";
 import { applyChecklistSync } from "../sync";
 import { recordSopEvent, recordSopEvents } from "../events";
 import { docFromItems, DocChecklistItem, DocNode, extractChecklistItems, isDocNode, MAX_DOC_BYTES, MAX_DOC_ITEMS } from "../doc";
-import { SopPickerOption, SopTemplate, SopTemplateInput } from "../types";
+import {
+  DEFAULT_SOP_DEPARTMENT,
+  DEFAULT_SOP_LIST,
+  SOP_DEPARTMENTS,
+  SopPickerOption,
+  SopTemplate,
+  SopTemplateInput,
+} from "../types";
+import { sopDepartmentFor } from "../utils";
+import { deleteListShares, deleteSopShares, filterSopsForViewer, renameListShares } from "../sharing";
 import { toSopSnapshot, type SopVersionSnapshot } from "../sop-versions";
 import EED_SOP_LIBRARY from "../data/eed-sop-library.json";
 
@@ -42,6 +51,7 @@ interface ValidInput {
   name: string;
   description: string;
   category: string;
+  department: string;
   content: DocNode;
   items: DocChecklistItem[];
 }
@@ -69,7 +79,10 @@ function validateInput(input: SopTemplateInput, allowedIds: Set<string>): { valu
     value: {
       name,
       description: (input.description || "").trim().slice(0, 2000),
-      category: (input.category || "General").trim().slice(0, 60) || "General",
+      category: (input.category || "").trim().slice(0, 60) || DEFAULT_SOP_LIST,
+      department: (SOP_DEPARTMENTS as readonly string[]).includes(input.department)
+        ? input.department
+        : DEFAULT_SOP_DEPARTMENT,
       content: doc,
       items,
     },
@@ -95,6 +108,7 @@ function toSopTemplate(row: any): SopTemplate {
     name: row.name,
     description: row.description,
     category: row.category,
+    department: sopDepartmentFor(row),
     version: row.version,
     isArchived: row.isArchived,
     createdByName: row.createdByName,
@@ -113,12 +127,29 @@ function toSopTemplate(row: any): SopTemplate {
 export async function getSopPickerOptionsAction(): Promise<SopPickerOption[]> {
   const session = await auth();
   if (!session?.user?.id) return [];
-  const rows = await d.sopChecklistTemplate.findMany({
+  const user = await loadActingUser(session.user.id);
+  if (!user) return [];
+  const all = await d.sopChecklistTemplate.findMany({
     where: { isArchived: false },
-    select: { id: true, name: true, category: true, _count: { select: { items: true } } },
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      department: true,
+      createdById: true,
+      _count: { select: { items: true } },
+    },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
-  return rows.map((r: any) => ({ id: r.id, name: r.name, category: r.category, stepCount: r._count.items }));
+  // Members can pick only what's shared with them.
+  const rows = user.isManager ? all : await filterSopsForViewer(user.id, all as any[]);
+  return rows.map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    department: sopDepartmentFor(r),
+    list: r.category,
+    stepCount: r._count.items,
+  }));
 }
 
 /**
@@ -135,7 +166,9 @@ export async function getSopLibraryForViewerAction(): Promise<SopTemplate[]> {
     include: TEMPLATE_INCLUDE,
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
-  return rows.map(toSopTemplate);
+  // Members see only what's shared with them (and what they created).
+  const visible = user.isManager ? rows : await filterSopsForViewer(user.id, rows as any[]);
+  return visible.map(toSopTemplate);
 }
 
 /** Managers only — powers the SOP library and the project "Attach SOP to tasks" panel. */
@@ -222,6 +255,7 @@ async function createTemplateRow(user: ActingUser, v: ValidInput) {
       name: v.name,
       description: v.description,
       category: v.category,
+      department: v.department,
       content: v.content as any,
       createdById: user.id,
       createdByName: user.name,
@@ -282,7 +316,13 @@ async function planLibraryImport(): Promise<{ plan: SopLibraryImportPlan; toCrea
       continue;
     }
     const parsed = validateInput(
-      { name: entry.name, description: entry.description, category: entry.category, content: entry.content },
+      {
+        name: entry.name,
+        description: entry.description,
+        department: entry.category,
+        category: DEFAULT_SOP_LIST,
+        content: entry.content,
+      },
       new Set()
     );
     if ("error" in parsed) {
@@ -394,6 +434,7 @@ export async function updateSopTemplateAction(
         name: v.name,
         description: v.description,
         category: v.category,
+        department: v.department,
         content: v.content as any,
         ...(itemsChanged || contentChanged ? { version: { increment: 1 } } : {}),
       },
@@ -411,7 +452,10 @@ export async function updateSopTemplateAction(
     return old && (old.text !== i.text || old.isRequired !== i.isRequired || old.requiresEvidence !== i.requiresEvidence);
   }).length;
   const metaChanged =
-    existing.name !== v.name || existing.category !== v.category || existing.description !== v.description;
+    existing.name !== v.name ||
+    existing.category !== v.category ||
+    sopDepartmentFor(existing) !== v.department ||
+    existing.description !== v.description;
   if (itemsChanged || contentChanged || metaChanged) {
     await recordSopEvent(user, {
       type: "TEMPLATE_UPDATED",
@@ -430,18 +474,22 @@ export async function updateSopTemplateAction(
   return { success: true, template: toSopTemplate(row) };
 }
 
-/** Moves the SOP to another list (category) on the library board. Only the category changes — no new version. */
+/** Moves the SOP to another list in its department on the board. No new version. */
 export async function moveSopTemplateAction(id: string, category: string): Promise<Result> {
   const user = await requireManager();
   if ("error" in user) return { success: false, error: user.error };
 
   const next = (category || "").trim().slice(0, 60);
   if (!next) return { success: false, error: "Choose a list" };
-  const existing = await d.sopChecklistTemplate.findUnique({ where: { id }, select: { name: true, category: true } });
+  const existing = await d.sopChecklistTemplate.findUnique({ where: { id }, select: { name: true, category: true, department: true } });
   if (!existing) return { success: false, error: "SOP not found" };
   if (existing.category === next) return { success: true };
 
-  await d.sopChecklistTemplate.update({ where: { id }, data: { category: next } });
+  // Stores the department too: a row saved before departments gets it from its old category.
+  await d.sopChecklistTemplate.update({
+    where: { id },
+    data: { category: next, department: sopDepartmentFor(existing) },
+  });
   await recordSopEvent(user, {
     type: "TEMPLATE_UPDATED",
     templateId: id,
@@ -450,6 +498,72 @@ export async function moveSopTemplateAction(id: string, category: string): Promi
   });
   revalidatePath(SOP_PATH);
   return { success: true };
+}
+
+/** Every SOP (archived ones too) in a department's list. */
+async function sopsInList(department: string, list: string): Promise<{ id: string; name: string }[]> {
+  const rows: any[] = await d.sopChecklistTemplate.findMany({
+    where: { category: list },
+    select: { id: true, name: true, category: true, department: true },
+  });
+  return rows.filter((r) => sopDepartmentFor(r) === department);
+}
+
+/** Moves a whole list's SOPs to `to`, storing the department, with one timeline entry per SOP. */
+async function moveSopsBetweenLists(user: ActingUser, department: string, from: string, to: string, rows: { id: string; name: string }[]) {
+  await d.sopChecklistTemplate.updateMany({
+    where: { id: { in: rows.map((r) => r.id) } },
+    data: { category: to, department },
+  });
+  await recordSopEvents(
+    user,
+    rows.map((r) => ({
+      type: "TEMPLATE_UPDATED" as const,
+      templateId: r.id,
+      templateName: r.name,
+      details: { movedFrom: from, movedTo: to },
+    }))
+  );
+  revalidatePath(SOP_PATH);
+}
+
+/** Renames a list in a department: its SOPs move to the new name. */
+export async function renameSopListAction(department: string, from: string, to: string): Promise<Result<{ updated: number }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+
+  const next = (to || "").trim().slice(0, 60);
+  if (!next) return { success: false, error: "Give the list a name" };
+  if (next === from) return { success: true, updated: 0 };
+
+  const all: any[] = await d.sopChecklistTemplate.findMany({ select: { category: true, department: true, name: true } });
+  const taken = all.some(
+    (r) =>
+      sopDepartmentFor(r) === department &&
+      r.category !== from &&
+      r.category.toLowerCase() === next.toLowerCase()
+  );
+  if (taken) return { success: false, error: `A list called "${next}" already exists in ${department}` };
+
+  const rows = await sopsInList(department, from);
+  if (rows.length > 0) await moveSopsBetweenLists(user, department, from, next, rows);
+  await renameListShares(department, from, next);
+  return { success: true, updated: rows.length };
+}
+
+/** Deletes a list in a department. Its SOPs aren't deleted — they move to the default list. */
+export async function deleteSopListAction(department: string, list: string): Promise<Result<{ moved: number }>> {
+  const user = await requireManager();
+  if ("error" in user) return { success: false, error: user.error };
+
+  const rows = await sopsInList(department, list);
+  if (rows.length === 0) return { success: true, moved: 0 };
+  if (list === DEFAULT_SOP_LIST) {
+    return { success: false, error: `"${DEFAULT_SOP_LIST}" is the default list — move its SOPs to another list first` };
+  }
+  await moveSopsBetweenLists(user, department, list, DEFAULT_SOP_LIST, rows);
+  await deleteListShares(department, list);
+  return { success: true, moved: rows.length };
 }
 
 export type SopVersionListItem = { version: number; userName: string; createdAt: string };
@@ -548,6 +662,7 @@ export async function deleteSopTemplateAction(id: string): Promise<Result> {
   if ("error" in user) return { success: false, error: user.error };
 
   const row = await d.sopChecklistTemplate.delete({ where: { id } });
+  await deleteSopShares(id);
   await recordSopEvent(user, { type: "TEMPLATE_DELETED", templateId: id, templateName: row.name });
   revalidatePath(SOP_PATH);
   return { success: true };

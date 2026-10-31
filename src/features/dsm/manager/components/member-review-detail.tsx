@@ -8,12 +8,11 @@ import {
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
   PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
-  Timer,
 } from "lucide-react";
 // (MoreHorizontal + DropdownMenu* were for the ⋯ task menus, now inline buttons — re-import them
 // if the commented-out "What Did You Do Yesterday?" menu is restored.)
 import { cn, toTitleCase } from "@/lib/utils";
-import { TaskDetailRow, TaskDetailToggle } from "./task-detail-panel";
+import { TaskDetailRow, TaskDetailToggle, toggleDetailOnRowClick } from "./task-detail-panel";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
@@ -59,7 +58,7 @@ import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_2 } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
-import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction, fetchTaskTotalEffortAction } from "@/features/dsm/actions/get-user-project-tasks";
+import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
@@ -1398,7 +1397,6 @@ function TaskRow({
   projectsLoading = false,
   onProjectsChange,
   onPriorityChange,
-  overallMinutes,
 }: {
   task: TaskItem;
   rank: number;
@@ -1413,8 +1411,6 @@ function TaskRow({
   /** Receives task lists / tasks created in place from the edit form, same as the /dsm form. */
   onProjectsChange: (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
   onPriorityChange?: (taskId: string, newPriority: string | null) => void;
-  /** The member's total effort on the linked task, all days (minutes); undefined while loading. */
-  overallMinutes?: number;
 }) {
   const [editing, setEditing] = useState(false);
   // ▸ panel under the row: the linked task's time, recent logs and remarks.
@@ -1609,10 +1605,14 @@ function TaskRow({
   }
 
   const linkedTaskId = task.projectTaskId || task.projectTask?.id;
+  const canOpenDetail = !!task.projectTask && !!linkedTaskId;
 
   return (
     <>
-    <tr className="group/task border-b last:border-b-0 transition-colors hover:bg-muted/40">
+    <tr
+      className={cn("group/task border-b last:border-b-0 transition-colors hover:bg-muted/40", canOpenDetail && "cursor-pointer")}
+      onClick={canOpenDetail ? (e) => toggleDetailOnRowClick(e, () => setDetailOpen((v) => !v)) : undefined}
+    >
       <td className="py-2 pr-2 align-top">
         <span
           className={cn(
@@ -1686,14 +1686,13 @@ function TaskRow({
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         {task.projectTask && memberUser?.id ? (
-          // Live timer while it runs; otherwise the member's overall effort on the task (all days).
+          // Live timer only: the running session, "Inactive" otherwise — never the overall effort.
           <MemberTaskTimerBadge
             taskId={task.projectTaskId || task.projectTask.id}
             taskCode={task.projectTask.code}
             memberId={memberUser.id}
             dateStr={(entryDate ? new Date(entryDate) : new Date()).toISOString().slice(0, 10)}
             liveOnly
-            idleFallback={<OverallEffortChip minutes={overallMinutes} />}
           />
         ) : (
           <span className="text-xs text-muted-foreground/60">—</span>
@@ -2000,10 +1999,14 @@ function SummaryTaskRow({
   }
 
   const linkedTaskId = task.projectTaskId || task.projectTask?.id;
+  const canOpenDetail = !!task.projectTask && !!linkedTaskId;
 
   return (
     <>
-    <tr className="group/task border-b last:border-b-0 transition-colors hover:bg-muted/40">
+    <tr
+      className={cn("group/task border-b last:border-b-0 transition-colors hover:bg-muted/40", canOpenDetail && "cursor-pointer")}
+      onClick={canOpenDetail ? (e) => toggleDetailOnRowClick(e, () => setDetailOpen((v) => !v)) : undefined}
+    >
       <td className="py-2 pr-2 align-top">
         <button
           type="button"
@@ -2128,23 +2131,6 @@ function SummaryTaskRow({
   );
 }
 
-/** "Effort Logs" on "What Will You Do Today?": the member's total on the task, all days. */
-function OverallEffortChip({ minutes }: { minutes: number | undefined }) {
-  if (minutes === undefined) return <span className="text-xs text-muted-foreground/60">…</span>;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/60 px-2 py-0.5 font-mono text-xs font-bold whitespace-nowrap dark:border-white/10 dark:bg-[#121316]",
-        minutes > 0 ? "text-foreground" : "text-muted-foreground/60"
-      )}
-      title="Total effort logged on this task (all days)"
-    >
-      <Timer size={13} className={minutes > 0 ? "shrink-0 text-info" : "shrink-0 text-muted-foreground/60"} />
-      {formatEffortMinutes(minutes) || "0m"}
-    </span>
-  );
-}
-
 /** "Effort Time" cell: when the task was worked on that day (first start – last stop), or —. */
 function EffortSpanCell({ span }: { span: string | undefined }) {
   if (!span) return <span className="text-xs text-muted-foreground/60">—</span>;
@@ -2199,7 +2185,10 @@ function LoggedSummaryRow({
 
   return (
     <>
-    <tr className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
+    <tr
+      className="cursor-pointer border-b last:border-b-0 transition-colors hover:bg-muted/40"
+      onClick={(e) => toggleDetailOnRowClick(e, () => setDetailOpen((v) => !v))}
+    >
       <td className="py-2 pr-2 align-top">
         <button
           type="button"
@@ -2548,29 +2537,6 @@ function TodayTasksSection({
       .filter((p): p is string => !!p);
   }
 
-  // Effort Logs column: the member's total on each linked task, all days.
-  const overallKey = Array.from(
-    new Set(tasks.map((t) => t.projectTaskId || t.projectTask?.id).filter(Boolean) as string[])
-  ).join(",");
-  const [overall, setOverall] = useState<Record<string, number> | null>(null);
-  useEffect(() => {
-    if (!overallKey || !memberUser?.id) {
-      setOverall({});
-      return;
-    }
-    let cancelled = false;
-    fetchTaskTotalEffortAction(overallKey.split(","), memberUser.id)
-      .then((res) => {
-        if (!cancelled) setOverall(res);
-      })
-      .catch(() => {
-        if (!cancelled) setOverall({});
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [overallKey, memberUser?.id]);
-
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="mb-1 flex items-center justify-between gap-3 flex-wrap">
@@ -2641,9 +2607,6 @@ function TodayTasksSection({
                   projectsLoading={projectsLoading}
                   onProjectsChange={setCascadingProjects}
                   onPriorityChange={handlePriorityChange}
-                  overallMinutes={
-                    overall === null ? undefined : overall[task.projectTaskId || task.projectTask?.id || ""] ?? 0
-                  }
                 />
               ))}
             </tbody>

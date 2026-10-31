@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Archive,
@@ -14,10 +14,13 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import {
   createSopTemplateAction,
+  deleteSopListAction,
+  renameSopListAction,
   deleteSopTemplateAction,
   getSopLibraryForViewerAction,
   getSopTemplatesAction,
@@ -28,12 +31,21 @@ import {
   setSopTemplateArchivedAction,
   updateSopTemplateAction,
 } from "../actions/template-actions";
-import { SOP_CATEGORIES, SopTemplate } from "../types";
+import {
+  DEFAULT_SOP_DEPARTMENT,
+  DEFAULT_SOP_LIST,
+  SOP_DEPARTMENTS,
+  SopShare,
+  SopShareTarget,
+  SopTemplate,
+} from "../types";
+import { getSopSharesAction } from "../actions/share-actions";
+import { SopShareDialog } from "./sop-share-dialog";
 import { DocNode } from "../doc";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
 import { SopBoard } from "./sop-board";
 
-/** Empty lists made with "Create List" — kept on this browser until their first SOP is saved. */
+/** Empty lists made with "Create List" ("Department::List") — kept on this browser until their first SOP is saved. */
 const LOCAL_LISTS_KEY = "sop-board-lists";
 
 const readLocalLists = (): string[] => {
@@ -54,6 +66,17 @@ const writeLocalLists = (lists: string[]) => {
 };
 
 /** Keeps `?sop=<id>` in the address bar in step with the open SOP, so the URL itself can be shared. */
+const ALL_DEPARTMENTS = "All";
+
+/** The open department tab, kept in the URL so it survives a reload and can be shared. */
+const setUrlDepartment = (department: string) => {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("list");
+  if (department === ALL_DEPARTMENTS) url.searchParams.delete("department");
+  else url.searchParams.set("department", department);
+  window.history.replaceState(window.history.state, "", url.pathname + url.search);
+};
+
 const setUrlSop = (id: string | null) => {
   const url = new URL(window.location.href);
   url.searchParams.delete("list");
@@ -94,7 +117,9 @@ interface Draft {
   id: string | null;
   name: string;
   description: string;
+  /** The list it sits in, inside its department. */
   category: string;
+  department: string;
   content: DocNode;
 }
 
@@ -105,7 +130,8 @@ const emptyDraft = (): Draft => ({
   id: null,
   name: "",
   description: "",
-  category: "General",
+  category: DEFAULT_SOP_LIST,
+  department: DEFAULT_SOP_DEPARTMENT,
   content: STARTER_DOC,
 });
 
@@ -115,6 +141,7 @@ const draftFrom = (t: SopTemplate): Draft => ({
   name: t.name,
   description: t.description,
   category: t.category,
+  department: t.department,
   content: t.content,
 });
 
@@ -127,7 +154,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const [templates, setTemplates] = useState<SopTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
@@ -136,6 +163,9 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const [localLists, setLocalLists] = useState<string[]>([]);
   const [highlightList, setHighlightList] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [department, setDepartment] = useState(ALL_DEPARTMENTS);
+  const [shares, setShares] = useState<SopShare[]>([]);
+  const [shareTarget, setShareTarget] = useState<{ target: SopShareTarget; title: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,11 +173,20 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
       .then((rows) => {
         if (cancelled) return;
         setTemplates(rows);
-        if (canEdit) setLocalLists(readLocalLists());
+        if (canEdit) {
+          setLocalLists(readLocalLists());
+          getSopSharesAction()
+            .then((rows) => {
+              if (!cancelled) setShares(rows);
+            })
+            .catch((err) => console.error("Failed to load SOP shares:", err));
+        }
         // Shared links: ?sop=<id> opens that SOP, ?list=<name> highlights that list.
         const params = new URLSearchParams(window.location.search);
         const sopId = params.get("sop");
         const list = params.get("list");
+        const dept = params.get("department");
+        if (dept && (SOP_DEPARTMENTS as readonly string[]).includes(dept)) setDepartment(dept);
         if (sopId) {
           const t = rows.find((r) => r.id === sopId);
           if (t) setDraft(draftFrom(t));
@@ -173,8 +212,16 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
     };
   }, [canEdit]);
 
-  const categories = useMemo(
-    () => Array.from(new Set([...SOP_CATEGORIES, ...templates.map((t) => t.category), ...localLists])),
+  // A department's lists: those its SOPs sit in, plus empty ones made on this browser.
+  const listsOf = useCallback(
+    (dept: string) => {
+      const prefix = `${dept}::`;
+      const lists = new Set([
+        ...templates.filter((t) => t.department === dept && !t.isArchived).map((t) => t.category),
+        ...localLists.filter((l) => l.startsWith(prefix)).map((l) => l.slice(prefix.length)),
+      ]);
+      return lists.size > 0 ? Array.from(lists) : [DEFAULT_SOP_LIST];
+    },
     [templates, localLists]
   );
 
@@ -182,13 +229,16 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
     const q = search.trim().toLowerCase();
     return templates.filter(
       (t) =>
-        (showArchived || !t.isArchived) &&
+        !t.isArchived &&
         (!q || t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q))
     );
-  }, [templates, search, showArchived]);
+  }, [templates, search]);
 
-  // Board columns — every list, so team members can add an SOP to an empty one too.
-  const boardLists = categories;
+  // Board: All shows one column per department; a department tab shows that department's lists.
+  const isAllTab = department === ALL_DEPARTMENTS;
+  const boardLists = isAllTab ? [...SOP_DEPARTMENTS] : listsOf(department);
+  const boardTemplates = isAllTab ? visible : visible.filter((t) => t.department === department);
+  const departmentPrefix = `${department}::`;
 
   const selected = draft?.id ? templates.find((t) => t.id === draft.id) ?? null : null;
 
@@ -200,6 +250,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
       ? draft.name !== selected.name ||
         draft.description !== selected.description ||
         draft.category !== selected.category ||
+        draft.department !== selected.department ||
         draft.content !== selected.content
       : !!draft.name.trim() || !!draft.description.trim() || draft.content !== STARTER_DOC);
 
@@ -228,21 +279,92 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const handleCreateList = (name: string) => {
     const trimmed = name.trim().slice(0, 60);
     if (!trimmed) return false;
-    if (categories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+    if (listsOf(department).some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
       toast.error(`A list called "${trimmed}" already exists`);
       return false;
     }
-    const next = [...localLists, trimmed];
+    const next = [...localLists, departmentPrefix + trimmed];
     setLocalLists(next);
     writeLocalLists(next);
     toast.success(`List "${trimmed}" created — add its first SOP with +`);
     return true;
   };
 
-  const handleRemoveLocalList = (name: string) => {
-    const next = localLists.filter((l) => l !== name);
-    setLocalLists(next);
-    writeLocalLists(next);
+  const sopCountInList = (list: string) =>
+    templates.filter((t) => t.department === department && t.category === list).length;
+
+  const handleRenameList = async (from: string, to: string) => {
+    const next = to.trim().slice(0, 60);
+    if (!next || next === from) return;
+    if (listsOf(department).some((c) => c !== from && c.toLowerCase() === next.toLowerCase())) {
+      toast.error(`A list called "${next}" already exists`);
+      return;
+    }
+    const count = sopCountInList(from);
+    try {
+      if (count > 0) {
+        const res = await renameSopListAction(department, from, next);
+        if (!res.success) {
+          toast.error(res.error);
+          return;
+        }
+        setTemplates((prev) =>
+          prev.map((t) => (t.department === department && t.category === from ? { ...t, category: next } : t))
+        );
+      }
+      // A list with no SOPs yet lives on this browser, under its new name now.
+      const lists = localLists.filter((l) => l !== departmentPrefix + from);
+      if (count === 0) lists.push(departmentPrefix + next);
+      setLocalLists(lists);
+      writeLocalLists(lists);
+      toast.success(`List renamed to "${next}"`);
+    } catch (err) {
+      console.error("Failed to rename list:", err);
+      toast.error("Failed to rename list");
+    }
+  };
+
+  const handleDeleteList = async (name: string) => {
+    const count = sopCountInList(name);
+    const isLocal = localLists.includes(departmentPrefix + name);
+    if (count === 0 && !isLocal) {
+      toast.info(`"${name}" is the default list — it goes away when another list exists`);
+      return;
+    }
+    if (count > 0 && name === DEFAULT_SOP_LIST) {
+      toast.error(`"${DEFAULT_SOP_LIST}" is the default list — move its SOPs to another list first`);
+      return;
+    }
+    const ok = await confirm({
+      title: "Delete list?",
+      description:
+        count > 0
+          ? `Delete "${name}"? Its ${count} SOP(s) aren't deleted — they move to the "${DEFAULT_SOP_LIST}" list.`
+          : `Delete the empty list "${name}"?`,
+      confirmLabel: "Delete list",
+    });
+    if (!ok) return;
+    try {
+      if (count > 0) {
+        const res = await deleteSopListAction(department, name);
+        if (!res.success) {
+          toast.error(res.error);
+          return;
+        }
+        setTemplates((prev) =>
+          prev.map((t) =>
+            t.department === department && t.category === name ? { ...t, category: DEFAULT_SOP_LIST } : t
+          )
+        );
+      }
+      const lists = localLists.filter((l) => l !== departmentPrefix + name);
+      setLocalLists(lists);
+      writeLocalLists(lists);
+      toast.success(count > 0 ? `List deleted — ${count} SOP(s) moved to ${DEFAULT_SOP_LIST}` : "List deleted");
+    } catch (err) {
+      console.error("Failed to delete list:", err);
+      toast.error("Failed to delete list");
+    }
   };
 
   const handleMove = async (t: SopTemplate, list: string) => {
@@ -273,7 +395,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
       // files), which reach the server action as client references and fail with "Cannot access
       // toStringTag on the server". The server validates the document shape itself.
       const input = JSON.parse(
-        JSON.stringify({ name: draft.name, description: draft.description, category: draft.category, content: draft.content })
+        JSON.stringify({ name: draft.name, description: draft.description, category: draft.category, department: draft.department, content: draft.content })
       );
       const res = draft.id ? await updateSopTemplateAction(draft.id, input) : await createSopTemplateAction(input);
       if (!res.success) {
@@ -415,71 +537,112 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background text-foreground">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-bold">
-            <ClipboardCheck size={20} className="text-primary" /> SOP Checklists
-          </h1>
-          {/* Hidden by request.
-          <p className="text-xs text-muted-foreground">
-            Write SOPs like documents — text, tables pasted from Excel, and checkboxes anywhere. Every checkbox is a step
-            people tick on the task.
-          </p> */}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* "Import EED SOP library" hidden — the library has been imported. Restore to re-run it
-              (it only adds SOPs that don't exist yet).
-          <button
-            type="button"
-            disabled={isImporting}
-            onClick={handleImportLibrary}
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-accent disabled:opacity-60"
-            title="Create the SOPs from the Team EED - SOP, Checklist, Projects sheet that aren't here yet"
-          >
-            {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            Import EED SOP library
-          </button> */}
-          {!draft && (
-            <>
-              <div className="relative">
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search SOPs"
-                  className="w-56 rounded-md border bg-background py-1.5 pl-8 pr-2 text-xs outline-none focus:border-primary"
-                />
-              </div>
-              {canEdit && (
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-                  Archived
-                </label>
+      {/* Header: one row — heading, department tabs, search icon. */}
+      <div className="flex shrink-0 items-center gap-4 border-b px-6 py-2">
+        <h1 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-base font-bold">
+          <ClipboardCheck size={18} className="text-primary" /> SOP Checklists
+        </h1>
+        {/* "Import EED SOP library" button hidden — the library has been imported. To re-run it (it only
+            adds SOPs that don't exist yet), add a button here calling handleImportLibrary, disabled by
+            isImporting. */}
+        {!draft && (
+          <>
+            {/* Department tabs: All shows every department's column, a department only its own SOPs. */}
+            <div className="dsm-columns-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-semibold">
+              {[ALL_DEPARTMENTS, ...SOP_DEPARTMENTS].map((tab) => {
+                const count =
+                  tab === ALL_DEPARTMENTS ? visible.length : visible.filter((t) => t.department === tab).length;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      setDepartment(tab);
+                      setUrlDepartment(tab);
+                    }}
+                    aria-current={department === tab ? "page" : undefined}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 transition-colors",
+                      department === tab
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    {tab}
+                    <span className="rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Search: just the icon until clicked. Stays open while it holds text. */}
+              {searchOpen || search ? (
+                <div className="relative">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    autoFocus
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onBlur={() => setSearchOpen(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setSearch("");
+                        setSearchOpen(false);
+                      }
+                    }}
+                    placeholder="Search SOPs"
+                    aria-label="Search SOPs"
+                    className="w-44 rounded-md border bg-background py-1.5 pl-8 pr-2 text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  title="Search SOPs"
+                  aria-label="Search SOPs"
+                >
+                  <Search size={16} />
+                </button>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {!draft ? (
-        // Board: one column per list (category), like the WhyFi School board.
+        // Board: one column per list (department), like the WhyFi School board.
         <SopBoard
+          listOf={(t) => (isAllTab ? t.department : t.category)}
+          listsEditable={!isAllTab}
           lists={boardLists}
-          templates={visible}
+          templates={boardTemplates}
           canEdit={canEdit}
           isLoading={isLoading}
-          localLists={localLists}
           highlightList={highlightList}
           movingId={movingId}
           onOpen={openSop}
           onCreateIn={(list) => {
             setHighlightList(null);
-            setDraft({ ...emptyDraft(), category: list });
+            setDraft(
+              isAllTab
+                ? { ...emptyDraft(), department: list }
+                : { ...emptyDraft(), department, category: list }
+            );
           }}
           onMove={handleMove}
           onCreateList={handleCreateList}
-          onRemoveLocalList={handleRemoveLocalList}
+          onRenameList={handleRenameList}
+          onDeleteList={handleDeleteList}
+          shareCountOfList={(list) =>
+            shares.filter((s) => !s.templateId && s.department === department && s.listName === list).length
+          }
+          shareCountOfSop={(t) => shares.filter((s) => s.templateId === t.id).length}
+          onShareList={(list) =>
+            setShareTarget({ target: { kind: "list", department, list }, title: `${department} · ${list}` })
+          }
+          onShareSop={(t) => setShareTarget({ target: { kind: "sop", templateId: t.id }, title: t.name })}
         />
       ) : (
         <section className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
@@ -509,7 +672,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-foreground">{draft.name}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {draft.category}
+                  {draft.department} · {draft.category}
                   {selected && ` · ${selected.items.length} checkboxes · v${selected.version}`}
                 </p>
                 {draft.description && <p className="text-sm text-muted-foreground">{draft.description}</p>}
@@ -548,18 +711,34 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold">
-                  Category
+                  Department
                   <select
-                    value={draft.category}
-                    onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                    value={draft.department}
+                    onChange={(e) => setDraft({ ...draft, department: e.target.value })}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal"
                   >
-                    {categories.map((c) => (
+                    {SOP_DEPARTMENTS.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="space-y-1 text-xs font-semibold">
+                  List
+                  <input
+                    list="sop-department-lists"
+                    value={draft.category}
+                    maxLength={60}
+                    onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+                    placeholder={DEFAULT_SOP_LIST}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal outline-none focus:border-primary"
+                  />
+                  <datalist id="sop-department-lists">
+                    {listsOf(draft.department).map((l) => (
+                      <option key={l} value={l} />
+                    ))}
+                  </datalist>
                 </label>
               </div>
 
@@ -646,6 +825,19 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
             setDraft(draftFrom(t));
             setTimelineOpen(false);
             toast.success(`Version restored — saved as v${t.version}`);
+          }}
+        />
+      )}
+      {shareTarget && (
+        <SopShareDialog
+          key={shareTarget.title}
+          target={shareTarget.target}
+          title={shareTarget.title}
+          shares={shares}
+          onClose={() => setShareTarget(null)}
+          onSaved={(next) => {
+            setShares(next);
+            setShareTarget(null);
           }}
         />
       )}

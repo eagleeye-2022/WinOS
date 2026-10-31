@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 import {
+  getCompensatoryRequestByIdAction,
   getMyLeaveTrackerDataAction,
   getLeaveRequestByIdAction,
 } from "../queries/leave-queries";
@@ -145,15 +146,20 @@ export function LeaveWorkspace({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedRequest(matched as any);
             setActiveTab("request-details");
+          } else {
+            // Not found, or not theirs to open — back to the list instead of a blank page.
+            setActiveTab("requests");
           }
         }
 
         if (initialSelectedCompRequestId) {
-          const matchedComp = data.compensatoryRequests.find((c) => c.id === initialSelectedCompRequestId);
-          if (matchedComp) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setSelectedCompRequest(matchedComp as any);
+          // Fetched by id because a manager opens team members' comp-offs here too.
+          const comp = await getCompensatoryRequestByIdAction(initialSelectedCompRequestId);
+          if (comp) {
+            setSelectedCompRequest(comp);
             setActiveTab("compensatory-details");
+          } else {
+            setActiveTab("compensatory");
           }
         }
       } catch (error) {
@@ -174,9 +180,12 @@ export function LeaveWorkspace({
     setActiveTab("request-details");
   };
 
-  const handleViewCompRequest = (request: CompensatoryRequest) => {
+  const handleViewCompRequest = async (request: CompensatoryRequest) => {
     setSelectedCompRequest(request);
     setActiveTab("compensatory-details");
+    // The list row is a summary; the detail page needs the times, attachments and approval steps.
+    const full = await getCompensatoryRequestByIdAction(request.id).catch(() => null);
+    if (full) setSelectedCompRequest(full);
   };
 
   const handleCancelRequest = async (requestId: string) => {

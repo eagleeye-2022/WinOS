@@ -1,7 +1,7 @@
 import { Metadata } from "next";
-import { auth } from "@/lib/auth";
+import { ROUTES } from "@/constants/routes";
 import { AttendanceReportsHub } from "@/features/attendance/components/attendance-reports-hub";
-import { canManageAttendance } from "@/features/attendance/utils";
+import { requirePulseManagerPage } from "@/features/attendance/page-guards";
 
 export const metadata: Metadata = {
   title: "Team Leave Data for Payroll | WinOS",
@@ -9,7 +9,6 @@ export const metadata: Metadata = {
 };
 
 export default async function TeamLeavePayrollPage() {
-  const session = await auth();
-  const canManage = canManageAttendance(session?.user);
-  return <AttendanceReportsHub initialReport={canManage ? "team-leave-payroll" : "my-payroll"} canManage={canManage} />;
+  await requirePulseManagerPage(`${ROUTES.pulseReports}?report=my-payroll`);
+  return <AttendanceReportsHub initialReport="team-leave-payroll" canManage />;
 }

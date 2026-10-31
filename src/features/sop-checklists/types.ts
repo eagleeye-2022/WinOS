@@ -1,4 +1,5 @@
 import type { DocNode } from "./doc";
+import { DEPARTMENTS } from "@/features/users/constants";
 
 export interface SopTemplateItem {
   id: string;
@@ -12,7 +13,9 @@ export interface SopTemplate {
   id: string;
   name: string;
   description: string;
+  /** The list it sits in, inside its department. */
   category: string;
+  department: string;
   version: number;
   isArchived: boolean;
   createdByName: string | null;
@@ -30,7 +33,9 @@ export interface SopTemplate {
 export interface SopTemplateInput {
   name: string;
   description: string;
+  /** The list it sits in, inside its department. */
   category: string;
+  department: string;
   content: DocNode;
 }
 
@@ -74,7 +79,8 @@ export interface TaskChecklistsPayload {
 export interface SopPickerOption {
   id: string;
   name: string;
-  category: string;
+  department: string;
+  list: string;
   stepCount: number;
 }
 
@@ -124,12 +130,30 @@ export interface ProjectChecklistOverview {
   tasks: ProjectChecklistTask[];
 }
 
-export const SOP_CATEGORIES = [
-  "General",
-  "Client Delivery",
-  "Development",
-  "Design",
-  "SEO",
-  "Marketing",
-  "QA",
-] as const;
+/** One share (SopChecklistShare): a card (templateId) or list (department + listName) → a person or department. */
+export interface SopShare {
+  templateId: string | null;
+  department: string | null;
+  listName: string | null;
+  targetUserId: string | null;
+  targetDepartment: string | null;
+}
+
+export type SopShareTarget =
+  | { kind: "sop"; templateId: string }
+  | { kind: "list"; department: string; list: string };
+
+export interface SopShareUserOption {
+  id: string;
+  name: string;
+  department: string | null;
+}
+
+/** SOPs belong to the company's departments; inside one, to a list (SopChecklistTemplate.category). */
+export const SOP_DEPARTMENTS = DEPARTMENTS;
+
+/** For a new SOP when no department was chosen. */
+export const DEFAULT_SOP_DEPARTMENT = "Operation";
+
+/** For a new SOP when no list was chosen. */
+export const DEFAULT_SOP_LIST = "General";

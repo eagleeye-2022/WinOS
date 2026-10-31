@@ -23,6 +23,7 @@ import { getMyModuleAccessAction } from "@/features/users/actions/permission-act
 import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
 import { ChecklistGateHost } from "@/features/sop-checklists/components/checklist-gate";
 import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
+import { canManageAttendance } from "@/features/attendance/utils";
 import { db } from "@/lib/db";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
@@ -173,7 +174,11 @@ export default async function DashboardLayout({
       <div className="flex flex-1 justify-start w-full min-h-0">
         <RouteDarkScope match="/dsm">
           <div className="h-full w-56 shrink-0">
-            <AppSidebar userRole={userRole} userId={session?.user?.id} />
+            <AppSidebar
+              userRole={userRole}
+              userId={session?.user?.id}
+              canManagePulse={canManageAttendance(session?.user)}
+            />
           </div>
         </RouteDarkScope>
 

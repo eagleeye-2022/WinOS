@@ -113,11 +113,12 @@ an existing pattern, not something to "fix" incidentally while working on unrela
 `ProjectPhase`, `ProjectTask`, etc.) but they're disconnected from `User` and carry hardcoded
 demo defaults (e.g. `ownerName @default("Dhruv Patidar")`), and the feature also ships parallel
 static mock-data files (`src/features/projects/data/mock-*.ts`). Check whether a given view is
-reading live Prisma data or mocks before assuming either. Project *templates* (`ProjectTemplate`
-model, `src/features/projects/actions/template-actions.ts`) are real and manager-gated: the table
-is lazily self-seeded from `src/features/projects/data/sop-templates.ts`
-(`DEFAULT_PROJECT_TEMPLATES`) on first `getProjectTemplatesAction()` call, not via a migration or
-seed script.
+reading live Prisma data or mocks before assuming either. Project *templates* are edited as a board on the Project Template tab of the Srijan project list.
+Ecommerce, Enterprise and SMM are built in (`src/features/projects/data/sop-templates.ts`). Managers'
+custom templates and saved edits of built-in ones (same id as the built-in, which they override) are
+`ProjectTemplate` rows (`src/features/projects/actions/template-actions.ts`,
+`src/features/projects/template-utils.ts`) with phase codes `P1`, `P2`… so the task board shows only
+their own columns.
 
 **Two rich-text editor stacks** are present: TipTap 3 (`@tiptap/*`, extensive custom component tree
 under `src/components/tiptap-*`) is the one actually used throughout the app; `@ckeditor/ckeditor5-react`

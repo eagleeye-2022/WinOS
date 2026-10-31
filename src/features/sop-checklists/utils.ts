@@ -4,6 +4,67 @@
 
 import { isStandupRoutineTask, NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 import { LEARNING_PROJECT_CATEGORY } from "@/features/whyfi/constants";
+import { DEFAULT_SOP_DEPARTMENT, SOP_DEPARTMENTS, type SopShare } from "./types";
+
+/** SOPs saved under the old categories, by the department of the old category. */
+const LEGACY_CATEGORY_DEPARTMENT: Record<string, string> = {
+  SEO: "Marketing",
+  Design: "Operation",
+  Development: "Operation",
+  QA: "Operation",
+  "Client Delivery": "Operation",
+  General: DEFAULT_SOP_DEPARTMENT,
+  // Team names briefly used as lists; they aren't departments.
+  Creative: "Operation",
+  Tech: "Operation",
+  "EED Core": "Management",
+};
+
+/** Old-category SOPs whose department differs from their old category's (per the team's SOP sheet). */
+const LEGACY_SOP_DEPARTMENT: Record<string, string> = {
+  "Credential Checklist": "HR",
+  "Things to Do Before Leaving Office": "HR",
+  "Things to Do Before Starting Work": "HR",
+  "Sales SOP: Proposal or Estimate Review": "Sales",
+  "LNP Saturday SOP: Monthly Planning Session": "Management",
+};
+
+/**
+ * The department of an SOP saved before departments, from its old category (SEO, Design, …). Used
+ * when reading, without changing the row; saving or moving an SOP stores the department.
+ */
+export function sopDepartmentOf(category: string | null | undefined, name?: string | null): string {
+  const c = (category || "").trim();
+  if ((SOP_DEPARTMENTS as readonly string[]).includes(c)) return c;
+  if (!(c in LEGACY_CATEGORY_DEPARTMENT)) return DEFAULT_SOP_DEPARTMENT;
+  return LEGACY_SOP_DEPARTMENT[(name || "").trim()] ?? LEGACY_CATEGORY_DEPARTMENT[c];
+}
+
+/** An SOP's department: the saved one, or the one worked out for rows saved before departments. */
+export function sopDepartmentFor(row: { department?: string | null; category?: string | null; name?: string | null }): string {
+  return row.department || sopDepartmentOf(row.category, row.name);
+}
+
+/**
+ * May a non-manager see this SOP? Yes if they created it, or if it, or the list it sits in, is
+ * shared with them or their department.
+ */
+export function isSopVisibleTo(
+  sop: { id: string; department: string; list: string; createdById?: string | null },
+  viewer: { id: string; department?: string | null },
+  shares: SopShare[]
+): boolean {
+  if (sop.createdById && sop.createdById === viewer.id) return true;
+  return shares.some(
+    (s) =>
+      (s.templateId
+        ? s.templateId === sop.id
+        : s.department === sop.department && s.listName === sop.list) &&
+      (s.targetUserId
+        ? s.targetUserId === viewer.id
+        : !!s.targetDepartment && s.targetDepartment === viewer.department)
+  );
+}
 
 /**
  * Tasks that close without an SOP checklist: anything outside a Srijan project, WhyFi School

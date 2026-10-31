@@ -56,6 +56,14 @@ export interface SOPTaskSeed {
   description?: string;
   /** Titles of subtasks created under this task when a project is created from the template. */
   subtasks?: string[];
+  /** Status the task starts in; Open when unset. */
+  status?: TaskStatus;
+  /** Days after the project is created; no date when unset. */
+  startInDays?: number;
+  dueInDays?: number;
+  /** Owners and SOP checklists the task starts with. Names are kept so they show without a lookup. */
+  defaultOwners?: { id: string; name: string }[];
+  sopChecklists?: { id: string; name: string }[];
 }
 
 export interface SOPTaskListTemplate {
@@ -78,7 +86,8 @@ export interface ProjectTemplate {
   name: string;
   description: string;
   isDefault?: boolean;
-  category: "Client Delivery" | "Internal Product" | "Custom";
+  /** Custom templates (Project Template tab) use "Digital Project" / "SMM Project". */
+  category: "Client Delivery" | "Internal Product" | "Custom" | "Digital Project" | "SMM Project";
   phases: SOPPhaseTemplate[];
 }
 

@@ -406,5 +406,10 @@ export function rollupMonth(days: ResolvedDay[]): MonthRollup {
 /** Who may review regularizations, view other people's attendance and act on leave for others. */
 export function canManageAttendance(user: { role?: string | null; profileRole?: string | null } | null | undefined): boolean {
   if (!user) return false;
-  return user.role === "MANAGER" || user.profileRole === "MANAGER" || user.profileRole === "ADMIN";
+  return (
+    user.role === "MANAGER" ||
+    user.profileRole === "MANAGER" ||
+    user.profileRole === "ADMIN" ||
+    user.profileRole === "PORTAL_OWNER"
+  );
 }

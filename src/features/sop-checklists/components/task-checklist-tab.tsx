@@ -180,17 +180,17 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
 
   const attachedTemplateIds = new Set(checklists.map((c) => c.templateId).filter(Boolean));
 
-  // Category filter (header picker), shared by the Checklist picker and the "Attach an SOP" list.
-  const categories = Array.from(new Set((templates ?? []).map((t) => t.category))).sort((a, b) => a.localeCompare(b));
-  const shownTemplates = (templates ?? []).filter((t) => !category || t.category === category);
+  // Department filter (header picker), shared by the Checklist picker and the "Attach an SOP" list.
+  const categories = Array.from(new Set((templates ?? []).map((t) => t.department))).sort((a, b) => a.localeCompare(b));
+  const shownTemplates = (templates ?? []).filter((t) => !category || t.department === category);
   const categoryOptions = categories.map((c) => ({
     value: c,
-    label: `${c} (${(templates ?? []).filter((t) => t.category === c).length})`,
+    label: `${c} (${(templates ?? []).filter((t) => t.department === c).length})`,
   }));
   // Picking a checklist attaches it; ones already on this task aren't offered again.
   const checklistOptions = shownTemplates
     .filter((t) => !attachedTemplateIds.has(t.id))
-    .map((t) => ({ value: t.id, label: `${t.name} · ${t.stepCount} steps${category ? "" : ` · ${t.category}`}` }));
+    .map((t) => ({ value: t.id, label: `${t.name} · ${t.stepCount} steps${category ? ` · ${t.list}` : ` · ${t.department}`}` }));
 
   if (isLoading) {
     return (
@@ -224,8 +224,8 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
               value={category}
               onChange={setCategory}
               options={categoryOptions}
-              placeholder={templates === null ? "Loading…" : "All categories"}
-              searchPlaceholder="Search categories..."
+              placeholder={templates === null ? "Loading…" : "All departments"}
+              searchPlaceholder="Search departments..."
               disabled={templates === null}
               className="flex max-w-[190px] items-center gap-1 rounded-md border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-primary dark:border-zinc-800"
             />
@@ -269,10 +269,10 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
             <Loader2 size={16} className="animate-spin text-primary" />
           ) : templates.length === 0 ? (
             <p className="text-muted-foreground">
-              No SOPs yet — create one under Srijan → SOP Checklists.
+              {canManage ? "No SOPs yet — create one under Srijan → SOP Checklists." : "No SOPs have been shared with you yet — ask a manager."}
             </p>
           ) : shownTemplates.length === 0 ? (
-            <p className="text-muted-foreground">No SOPs in this category.</p>
+            <p className="text-muted-foreground">No SOPs in this department.</p>
           ) : (
             <ul className="max-h-56 space-y-1 overflow-y-auto">
               {shownTemplates.map((t) => {
@@ -287,7 +287,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
                     >
                       <span>
                         <span className="font-semibold text-foreground">{t.name}</span>
-                        <span className="text-muted-foreground"> · {t.category} · {t.stepCount} steps</span>
+                        <span className="text-muted-foreground"> · {t.department} · {t.list} · {t.stepCount} steps</span>
                       </span>
                       {attached && <span className="text-[11px] text-muted-foreground">Attached</span>}
                     </button>
@@ -328,7 +328,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
           <p className="font-semibold text-foreground">No checklist on this task yet.</p>
           <p>
             {canCheck
-              ? "Select an SOP checklist above (pick a category to narrow the list). The task can't be closed until its checklist is complete."
+              ? "Select an SOP checklist above (pick a department to narrow the list). The task can't be closed until its checklist is complete."
               : "Only this task's owners, project users and managers can add a checklist."}
           </p>
         </div>

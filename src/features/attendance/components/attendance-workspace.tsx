@@ -62,14 +62,20 @@ interface AttendanceWorkspaceProps {
   /** Managers see Team Attendance and can review / regularize on behalf. */
   canManage?: boolean;
   currentUserId?: string;
+  /** Tab this route opens on (Team Attendance and Regularization are separate sidebar links). */
+  initialTab?: MainTab;
 }
 
-export function AttendanceWorkspace({ canManage = false, currentUserId }: AttendanceWorkspaceProps) {
+export function AttendanceWorkspace({
+  canManage = false,
+  currentUserId,
+  initialTab = "my-attendance",
+}: AttendanceWorkspaceProps) {
   const initialToday = istDateKey();
   const initialDate = dateFromKey(initialToday)!;
   // Tab + week/month in the URL; the open sub-view / selected member / request in the Pulse
   // navigation slice — so all of it is restored when coming back to the module.
-  const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", "my-attendance", {
+  const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", initialTab, {
     allowed: MAIN_TABS,
     history: "push",
   });

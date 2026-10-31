@@ -54,7 +54,8 @@ const CURRENT_YEAR = Number(istDateKey().slice(0, 4));
 /** Last year, this year and next year. */
 const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(String);
 
-export function HolidaysView() {
+/** `canManage` shows add/delete (Team Leave); My Leaves shows the same list read-only. */
+export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
   const [selectedYear, setSelectedYear] = useState(String(CURRENT_YEAR));
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,14 +144,16 @@ export function HolidaysView() {
           </p>
         </div>
 
-        <Button
-          type="button"
-          onClick={() => setIsAddModalOpen(true)}
-          className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Holiday</span>
-        </Button>
+        {canManage && (
+          <Button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Holiday</span>
+          </Button>
+        )}
       </div>
 
       {/* 4 Metric Summary Cards */}
@@ -235,13 +238,13 @@ export function HolidaysView() {
                 <th className="py-3 px-4 font-semibold">DAY</th>
                 <th className="py-3 px-4 font-semibold">TYPE</th>
                 <th className="py-3 px-5 font-semibold">DESCRIPTION</th>
-                <th className="py-3 px-4 font-semibold text-center">ACTION</th>
+                {canManage && <th className="py-3 px-4 font-semibold text-center">ACTION</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {holidayList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={canManage ? 6 : 5} className="py-8 text-center text-muted-foreground">
                     No holidays listed for {selectedYear}
                   </td>
                 </tr>
@@ -292,18 +295,20 @@ export function HolidaysView() {
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteHoliday(holiday.id)}
-                          className="hover:text-red-500 p-1 rounded"
-                          title="Delete Holiday"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600" />
-                        </button>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHoliday(holiday.id)}
+                            className="hover:text-red-500 p-1 rounded"
+                            title="Delete Holiday"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

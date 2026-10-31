@@ -1260,7 +1260,11 @@ model SopChecklistTemplate {
   id             String                     @id @default(cuid())
   name           String
   description    String                     @default("")
+  // The list (board column) the SOP sits in, inside its department.
   category       String                     @default("General")
+  // One of DEPARTMENTS (src/features/users/constants.ts). Null on SOPs saved before departments:
+  // sopDepartmentFor() works theirs out from the old category until they're next saved.
+  department     String?
   // The SOP as a TipTap JSON document (text, tables, checkboxes…). Every checkbox (taskItem) in it
   // carries an `itemId` attr = one SopChecklistTemplateItem row, re-derived on each save. Null for
   // SOPs saved before rich documents — those render as a plain checkbox list built from `items`.
@@ -1369,6 +1373,26 @@ model TaskChecklistItem {
 // archived, SOPs picked for or removed from tasks, items ticked / added / edited, tasks closed.
 // Append-only. No foreign keys on purpose: events (with the names copied in) outlive the SOP,
 // task or checklist they're about. Event types: src/features/sop-checklists/event-types.ts.
+// Who may see an SOP besides managers and its creator: a row shares one SOP card (templateId) or a
+// whole list (department + listName) with one person (targetUserId) or department (targetDepartment).
+// No foreign keys, like SopChecklistEvent; rows are removed with the SOP or list they're about.
+model SopChecklistShare {
+  id               String   @id @default(cuid())
+  templateId       String?
+  department       String?
+  listName         String?
+  targetUserId     String?
+  targetDepartment String?
+  createdById      String?
+  createdByName    String?
+  createdAt        DateTime @default(now())
+
+  @@index([templateId])
+  @@index([department, listName])
+  @@index([targetUserId])
+  @@index([targetDepartment])
+}
+
 model SopChecklistEvent {
   id           String   @id @default(cuid())
   type         String
