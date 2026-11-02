@@ -152,6 +152,30 @@ export interface SopShareUserOption {
 /** SOPs belong to the company's departments; inside one, to a list (SopChecklistTemplate.category). */
 export const SOP_DEPARTMENTS = DEPARTMENTS;
 
+/** Operation's tabs: such SOPs are stored with department "Operation/Tech" and so on. */
+export const OPERATION_SECTIONS = ["Tech", "Creative", "Marketing", "General"] as const;
+
+/** Every value of SopChecklistTemplate.department. */
+export const SOP_PLACES: readonly string[] = SOP_DEPARTMENTS.flatMap((d) =>
+  d === "Operation" ? OPERATION_SECTIONS.map((s) => `Operation/${s}`) : [d]
+);
+
+export const DEFAULT_SOP_PLACE = "Operation/General";
+
+/** A task an SOP is picked on (the info panel of an open SOP). */
+export interface SopUsageTask {
+  taskId: string;
+  taskCode: string;
+  taskTitle: string;
+  status: string;
+  projectCode: string | null;
+  projectName: string;
+  done: number;
+  total: number;
+  pickedByName: string | null;
+  pickedAt: string;
+}
+
 /** For a new SOP when no department was chosen. */
 export const DEFAULT_SOP_DEPARTMENT = "Operation";
 

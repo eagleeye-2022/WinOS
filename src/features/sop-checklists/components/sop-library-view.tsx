@@ -32,7 +32,9 @@ import {
   updateSopTemplateAction,
 } from "../actions/template-actions";
 import {
-  DEFAULT_SOP_DEPARTMENT,
+  DEFAULT_SOP_PLACE,
+  OPERATION_SECTIONS,
+  SOP_PLACES,
   DEFAULT_SOP_LIST,
   SOP_DEPARTMENTS,
   SopShare,
@@ -42,6 +44,8 @@ import {
 import { getSopSharesAction } from "../actions/share-actions";
 import { SopShareDialog } from "./sop-share-dialog";
 import { DocNode } from "../doc";
+import { sopPlaceLabel, sopTopDepartment } from "../utils";
+import { SopInfoAside } from "./sop-info-aside";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
 import { SopBoard } from "./sop-board";
 
@@ -67,13 +71,16 @@ const writeLocalLists = (lists: string[]) => {
 
 /** Keeps `?sop=<id>` in the address bar in step with the open SOP, so the URL itself can be shared. */
 const ALL_DEPARTMENTS = "All";
+const DEFAULT_DEPARTMENT_TAB = "Operation";
 
 /** The open department tab, kept in the URL so it survives a reload and can be shared. */
-const setUrlDepartment = (department: string) => {
+const setUrlDepartment = (department: string, section: string) => {
   const url = new URL(window.location.href);
   url.searchParams.delete("list");
-  if (department === ALL_DEPARTMENTS) url.searchParams.delete("department");
+  if (department === DEFAULT_DEPARTMENT_TAB) url.searchParams.delete("department");
   else url.searchParams.set("department", department);
+  if (department === "Operation" && section !== OPERATION_SECTIONS[0]) url.searchParams.set("section", section);
+  else url.searchParams.delete("section");
   window.history.replaceState(window.history.state, "", url.pathname + url.search);
 };
 
@@ -131,7 +138,7 @@ const emptyDraft = (): Draft => ({
   name: "",
   description: "",
   category: DEFAULT_SOP_LIST,
-  department: DEFAULT_SOP_DEPARTMENT,
+  department: DEFAULT_SOP_PLACE,
   content: STARTER_DOC,
 });
 
@@ -163,7 +170,8 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const [localLists, setLocalLists] = useState<string[]>([]);
   const [highlightList, setHighlightList] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
-  const [department, setDepartment] = useState(ALL_DEPARTMENTS);
+  const [department, setDepartment] = useState(DEFAULT_DEPARTMENT_TAB);
+  const [section, setSection] = useState<string>(OPERATION_SECTIONS[0]);
   const [shares, setShares] = useState<SopShare[]>([]);
   const [shareTarget, setShareTarget] = useState<{ target: SopShareTarget; title: string } | null>(null);
 
@@ -186,7 +194,9 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
         const sopId = params.get("sop");
         const list = params.get("list");
         const dept = params.get("department");
-        if (dept && (SOP_DEPARTMENTS as readonly string[]).includes(dept)) setDepartment(dept);
+        if (dept === ALL_DEPARTMENTS || (dept && (SOP_DEPARTMENTS as readonly string[]).includes(dept))) setDepartment(dept);
+        const urlSection = params.get("section");
+        if (urlSection && (OPERATION_SECTIONS as readonly string[]).includes(urlSection)) setSection(urlSection);
         if (sopId) {
           const t = rows.find((r) => r.id === sopId);
           if (t) setDraft(draftFrom(t));
@@ -236,9 +246,11 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
 
   // Board: All shows one column per department; a department tab shows that department's lists.
   const isAllTab = department === ALL_DEPARTMENTS;
-  const boardLists = isAllTab ? [...SOP_DEPARTMENTS] : listsOf(department);
-  const boardTemplates = isAllTab ? visible : visible.filter((t) => t.department === department);
-  const departmentPrefix = `${department}::`;
+  // Where the open tab points: a department, or for Operation its tab ("Operation/Tech").
+  const place = department === "Operation" ? `Operation/${section}` : department;
+  const boardLists = isAllTab ? [...SOP_DEPARTMENTS] : listsOf(place);
+  const boardTemplates = isAllTab ? visible : visible.filter((t) => t.department === place);
+  const departmentPrefix = `${place}::`;
 
   const selected = draft?.id ? templates.find((t) => t.id === draft.id) ?? null : null;
 
@@ -279,7 +291,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const handleCreateList = (name: string) => {
     const trimmed = name.trim().slice(0, 60);
     if (!trimmed) return false;
-    if (listsOf(department).some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+    if (listsOf(place).some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
       toast.error(`A list called "${trimmed}" already exists`);
       return false;
     }
@@ -291,25 +303,25 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   };
 
   const sopCountInList = (list: string) =>
-    templates.filter((t) => t.department === department && t.category === list).length;
+    templates.filter((t) => t.department === place && t.category === list).length;
 
   const handleRenameList = async (from: string, to: string) => {
     const next = to.trim().slice(0, 60);
     if (!next || next === from) return;
-    if (listsOf(department).some((c) => c !== from && c.toLowerCase() === next.toLowerCase())) {
+    if (listsOf(place).some((c) => c !== from && c.toLowerCase() === next.toLowerCase())) {
       toast.error(`A list called "${next}" already exists`);
       return;
     }
     const count = sopCountInList(from);
     try {
       if (count > 0) {
-        const res = await renameSopListAction(department, from, next);
+        const res = await renameSopListAction(place, from, next);
         if (!res.success) {
           toast.error(res.error);
           return;
         }
         setTemplates((prev) =>
-          prev.map((t) => (t.department === department && t.category === from ? { ...t, category: next } : t))
+          prev.map((t) => (t.department === place && t.category === from ? { ...t, category: next } : t))
         );
       }
       // A list with no SOPs yet lives on this browser, under its new name now.
@@ -346,14 +358,14 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
     if (!ok) return;
     try {
       if (count > 0) {
-        const res = await deleteSopListAction(department, name);
+        const res = await deleteSopListAction(place, name);
         if (!res.success) {
           toast.error(res.error);
           return;
         }
         setTemplates((prev) =>
           prev.map((t) =>
-            t.department === department && t.category === name ? { ...t, category: DEFAULT_SOP_LIST } : t
+            t.department === place && t.category === name ? { ...t, category: DEFAULT_SOP_LIST } : t
           )
         );
       }
@@ -549,16 +561,16 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
           <>
             {/* Department tabs: All shows every department's column, a department only its own SOPs. */}
             <div className="dsm-columns-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs font-semibold">
-              {[ALL_DEPARTMENTS, ...SOP_DEPARTMENTS].map((tab) => {
+              {[...SOP_DEPARTMENTS, ALL_DEPARTMENTS].map((tab) => {
                 const count =
-                  tab === ALL_DEPARTMENTS ? visible.length : visible.filter((t) => t.department === tab).length;
+                  tab === ALL_DEPARTMENTS ? visible.length : visible.filter((t) => sopTopDepartment(t.department) === tab).length;
                 return (
                   <button
                     key={tab}
                     type="button"
                     onClick={() => {
                       setDepartment(tab);
-                      setUrlDepartment(tab);
+                      setUrlDepartment(tab, section);
                     }}
                     aria-current={department === tab ? "page" : undefined}
                     className={cn(
@@ -611,10 +623,36 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
         )}
       </div>
 
+      {!draft && department === "Operation" && (
+        // Operation's own tabs.
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b px-6 py-1.5 text-xs font-medium">
+          {OPERATION_SECTIONS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => {
+                setSection(tab);
+                setUrlDepartment("Operation", tab);
+              }}
+              aria-current={section === tab ? "page" : undefined}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 transition-colors",
+                section === tab ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {tab}
+              <span className="text-[10px] font-bold text-muted-foreground">
+                {visible.filter((t) => t.department === `Operation/${tab}`).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {!draft ? (
         // Board: one column per list (department), like the WhyFi School board.
         <SopBoard
-          listOf={(t) => (isAllTab ? t.department : t.category)}
+          listOf={(t) => (isAllTab ? sopTopDepartment(t.department) : t.category)}
           listsEditable={!isAllTab}
           lists={boardLists}
           templates={boardTemplates}
@@ -627,8 +665,8 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
             setHighlightList(null);
             setDraft(
               isAllTab
-                ? { ...emptyDraft(), department: list }
-                : { ...emptyDraft(), department, category: list }
+                ? { ...emptyDraft(), department: list === "Operation" ? DEFAULT_SOP_PLACE : list }
+                : { ...emptyDraft(), department: place, category: list }
             );
           }}
           onMove={handleMove}
@@ -636,16 +674,17 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
           onRenameList={handleRenameList}
           onDeleteList={handleDeleteList}
           shareCountOfList={(list) =>
-            shares.filter((s) => !s.templateId && s.department === department && s.listName === list).length
+            shares.filter((s) => !s.templateId && s.department === place && s.listName === list).length
           }
           shareCountOfSop={(t) => shares.filter((s) => s.templateId === t.id).length}
           onShareList={(list) =>
-            setShareTarget({ target: { kind: "list", department, list }, title: `${department} · ${list}` })
+            setShareTarget({ target: { kind: "list", department: place, list }, title: `${sopPlaceLabel(place)} · ${list}` })
           }
           onShareSop={(t) => setShareTarget({ target: { kind: "sop", templateId: t.id }, title: t.name })}
         />
       ) : (
-        <section className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex min-h-0 flex-1">
+        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto mb-4 flex max-w-4xl items-center justify-between gap-2">
             <button
               type="button"
@@ -672,12 +711,12 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
               <div className="space-y-1">
                 <h2 className="text-lg font-bold text-foreground">{draft.name}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {draft.department} · {draft.category}
-                  {selected && ` · ${selected.items.length} checkboxes · v${selected.version}`}
+                  {sopPlaceLabel(draft.department)} · {draft.category}
+                  {selected && ` · ${selected.items.length} checklist · v${selected.version}`}
                 </p>
                 {draft.description && <p className="text-sm text-muted-foreground">{draft.description}</p>}
               </div>
-              <div className="rounded-md border bg-background p-3">
+              <div className="rounded-xl border bg-card p-4">
                 <SopDocView key={draft.editorKey} content={draft.content} checkedById={NO_TICKS} onToggle={() => false} />
               </div>
             </div>
@@ -701,30 +740,30 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
               )}
 
               <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
-                <label className="space-y-1 text-xs font-semibold">
+                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
                   Name
                   <input
                     value={draft.name}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                     placeholder="e.g. Website Launch QA"
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal outline-none focus:border-primary"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
                   />
                 </label>
-                <label className="space-y-1 text-xs font-semibold">
+                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
                   Department
                   <select
                     value={draft.department}
                     onChange={(e) => setDraft({ ...draft, department: e.target.value })}
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal text-foreground"
                   >
-                    {SOP_DEPARTMENTS.map((c) => (
+                    {SOP_PLACES.map((c) => (
                       <option key={c} value={c}>
-                        {c}
+                        {sopPlaceLabel(c)}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1 text-xs font-semibold">
+                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
                   List
                   <input
                     list="sop-department-lists"
@@ -732,7 +771,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                     maxLength={60}
                     onChange={(e) => setDraft({ ...draft, category: e.target.value })}
                     placeholder={DEFAULT_SOP_LIST}
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal outline-none focus:border-primary"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
                   />
                   <datalist id="sop-department-lists">
                     {listsOf(draft.department).map((l) => (
@@ -742,18 +781,18 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                 </label>
               </div>
 
-              <label className="block space-y-1 text-xs font-semibold">
+              <label className="block space-y-1 text-[11px] font-medium text-muted-foreground">
                 Short description
                 <input
                   value={draft.description}
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                   placeholder="When should this SOP be used?"
-                  className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal outline-none focus:border-primary"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
                 />
               </label>
 
               <div className="space-y-1">
-                <p className="text-xs font-semibold">SOP document</p>
+                <p className="text-[11px] font-medium text-muted-foreground">SOP document</p>
                 {/* Hidden by request.
                 <p className="text-[11px] text-muted-foreground">
                   Paste from Excel, Sheets, Word or Docs. Select lines or table cells and click{" "}
@@ -811,6 +850,8 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
             </div>
           )}
         </section>
+        {selected && <SopInfoAside template={selected} />}
+        </div>
       )}
       {selected && canEdit && (
         <SopTimelineDrawer

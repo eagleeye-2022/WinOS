@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Layers, Loader2, Pencil, Plus, Share2, Trash2, X } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Share2, Square, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SopTemplate } from "../types";
 
@@ -219,7 +219,7 @@ export function SopBoard({
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-xs font-bold leading-snug text-foreground">{t.name}</span>
+                      <span className="text-sm font-bold leading-snug text-foreground">{t.name}</span>
                       <div className="flex shrink-0 items-center gap-1">
                         {movingId === t.id && <Loader2 size={12} className="animate-spin text-primary" />}
                         {canEdit && (
@@ -244,11 +244,18 @@ export function SopBoard({
                         </span>
                       </div>
                     </div>
-                    {t.description && (
-                      <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{t.description}</p>
+                    {t.items.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                        {t.items.slice(0, 2).map((item) => (
+                          <li key={item.id} className="flex items-start gap-1.5">
+                            <Square size={10} className="mt-[3px] shrink-0" />
+                            <span className="line-clamp-1">{item.text}</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                      <span>{t.items.length} checkboxes</span>
+                      <span>{t.items.length} checklist</span>
                       {canEdit && <span>· on {t.attachedCount} task(s)</span>}
                       {t.isArchived && <span className="font-semibold">· Archived</span>}
                       {canEdit && t.outdatedCount > 0 && (

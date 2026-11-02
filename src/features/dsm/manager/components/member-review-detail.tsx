@@ -1636,7 +1636,7 @@ function TaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-1 items-center flex-wrap gap-1.5 text-sm">
-          <WrappedTaskText text={task.text} />
+          <WrappedTaskText text={task.text} expanded={canOpenDetail ? detailOpen : undefined} />
           {task.priority && (
             <span
               className={cn(
@@ -2043,7 +2043,7 @@ function SummaryTaskRow({
       </td>
       <td className="py-2 pr-3 align-top">
         <div className={cn("flex items-center gap-1.5 text-sm", done ? "text-foreground" : "text-foreground/90")}>
-          <WrappedTaskText text={task.text} />
+          <WrappedTaskText text={task.text} expanded={canOpenDetail ? detailOpen : undefined} />
           {/* {!done && (
             <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-warning">
               Not done
@@ -2218,7 +2218,7 @@ function LoggedSummaryRow({
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex items-center gap-1.5 text-sm text-foreground/90">
-          <WrappedTaskText text={task.title} />
+          <WrappedTaskText text={task.title} expanded={detailOpen} />
         </div>
       </td>
       {/* Not one of that day's DSM tasks, so it has no DSM priority. */}

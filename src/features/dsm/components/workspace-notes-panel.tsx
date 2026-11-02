@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Share2,
@@ -8,11 +8,14 @@ import {
   Square,
   Sparkles,
   Pencil,
+  Pin,
 } from "lucide-react";
 import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-item";
 import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
 import type { SharedNoteData } from "../queries";
 import { toTitleCase } from "@/lib/utils";
+
+const PINNED_NOTES_KEY = "workspace-notes-pinned";
 
 // Pastel color palette matching Note History cards for Light mode, and rich dark tones for Dark mode
 const COLOR_PALETTE = [
@@ -340,6 +343,35 @@ export function WorkspaceNotesPanel({
 }: WorkspaceNotesPanelProps) {
   const router = useRouter();
   const [editingNote, setEditingNote] = useState<SharedNoteData | null>(null);
+  // Pinned cards go first. Personal to this browser (no database change).
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const raw = JSON.parse(window.localStorage.getItem(PINNED_NOTES_KEY) || "[]");
+        if (Array.isArray(raw)) setPinnedIds(raw.filter((x): x is string => typeof x === "string"));
+      } catch {
+        // Storage unavailable — nothing is pinned.
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const togglePinned = (id: string) => {
+    const next = pinnedIds.includes(id) ? pinnedIds.filter((x) => x !== id) : [id, ...pinnedIds];
+    setPinnedIds(next);
+    try {
+      window.localStorage.setItem(PINNED_NOTES_KEY, JSON.stringify(next));
+    } catch {
+      // Storage unavailable — the pin lasts until the page reloads.
+    }
+  };
+
+  const orderedNotes = [
+    ...sharedNotes.filter((n) => pinnedIds.includes(n.id)),
+    ...sharedNotes.filter((n) => !pinnedIds.includes(n.id)),
+  ];
 
   return (
     <div className="flex flex-col bg-card">
@@ -366,13 +398,11 @@ export function WorkspaceNotesPanel({
         ) : (
           /* Shared Notes Section */
           <div className="flex flex-col gap-3.5">
-            {sharedNotes.map((note) => {
+            {orderedNotes.map((note) => {
               const palette = getCardColors(note.color, note.id);
-              const threadTitleSub = note.threadTitle
-                ? note.threadTitle.length > 20
-                  ? note.threadTitle.substring(0, 20) + "..."
-                  : note.threadTitle
-                : "";
+              // Short heading: "Marketing (EED Team)" → "Marketing"; the full name is on hover.
+              const shortThread = (note.threadTitle ?? "").split("(")[0].trim();
+              const threadTitleSub = shortThread.length > 14 ? shortThread.substring(0, 14) + "…" : shortThread;
 
               return (
                 <div
@@ -395,8 +425,8 @@ export function WorkspaceNotesPanel({
                   }}
                 >
                   <div className="flex items-center justify-between border-b pb-2 border-slate-900/10 dark:border-slate-100/10">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1 truncate max-w-[50%]" title={note.threadTitle}>
-                      <Sparkles size={13} className="text-primary shrink-0" /> In {threadTitleSub}
+                    <span title={`${note.threadTitle ?? ""} · By ${toTitleCase(note.authorName)}`} className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1 truncate max-w-[50%]">
+                      <Sparkles size={13} className="text-primary shrink-0" /> {threadTitleSub}
                     </span>
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
                       {note.canEdit && (
@@ -407,9 +437,18 @@ export function WorkspaceNotesPanel({
                           <Pencil size={11} />
                         </span>
                       )}
-                      <span>
-                        By {toTitleCase(note.authorName)} {note.authorRole === "MANAGER" && "(Manager)"}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePinned(note.id);
+                        }}
+                        title={pinnedIds.includes(note.id) ? "Unpin" : "Pin to top"}
+                        aria-label={pinnedIds.includes(note.id) ? "Unpin note" : "Pin note to top"}
+                        className="rounded p-0.5 cursor-pointer hover:bg-slate-900/10 dark:hover:bg-slate-100/10"
+                      >
+                        <Pin size={13} className={pinnedIds.includes(note.id) ? "fill-current text-primary" : ""} />
+                      </button>
                     </div>
                   </div>
                   <SharedNoteCard note={note} userRole={userRole} />

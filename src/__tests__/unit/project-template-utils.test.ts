@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 import {
   ECOMMERCE_PROJECT_TEMPLATE,
@@ -14,9 +14,11 @@ import {
   TemplateDraft,
   buildTemplateFromDraft,
   duplicateTemplateDraft,
+  flattenSubtasks,
   getTemplateKind,
   isBuiltInTemplate,
   isCustomTemplatePhaseCode,
+  moveTemplateSubtask,
   moveTemplateTask,
   newTemplateDraft,
   newTemplatePhase,
@@ -347,6 +349,107 @@ describe("editing a built-in template", () => {
       t.phases.flatMap((p) => (p.taskLists ?? []).map((l) => l.name));
     expect(names(template!)).toEqual(names(ECOMMERCE_PROJECT_TEMPLATE));
     expect(names(template!)).toContain("7.1.1 Done Maintenance & Support");
+  });
+});
+
+describe("moveTemplateSubtask", () => {
+  const lists = () => [
+    {
+      ...newTemplatePhase("DIGITAL", "A"),
+      tasks: [
+        { ...newTemplateTask("DIGITAL", "a1"), subtasks: ["s1", "s2"] },
+        newTemplateTask("DIGITAL", "a2"),
+      ],
+    },
+    { ...newTemplatePhase("DIGITAL", "B"), tasks: [{ ...newTemplateTask("DIGITAL", "b1"), subtasks: ["s3"] }] },
+  ];
+
+  it("moves a subtask to the end of a task in the same or another list", () => {
+    const same = moveTemplateSubtask(lists(), { phaseIndex: 0, taskIndex: 0, subtaskPath: [0] }, { phaseIndex: 0, taskIndex: 1 });
+    expect(same[0].tasks.map((t) => t.subtasks)).toEqual([["s2"], ["s1"]]);
+
+    const other = moveTemplateSubtask(lists(), { phaseIndex: 0, taskIndex: 0, subtaskPath: [1] }, { phaseIndex: 1, taskIndex: 0 });
+    expect(other[0].tasks[0].subtasks).toEqual(["s1"]);
+    expect(other[1].tasks[0].subtasks).toEqual(["s3", "s2"]);
+  });
+
+  it("changes nothing for its own task or a target that doesn't exist", () => {
+    const phases = lists();
+    expect(moveTemplateSubtask(phases, { phaseIndex: 0, taskIndex: 0, subtaskPath: [0] }, { phaseIndex: 0, taskIndex: 0 })).toBe(phases);
+    expect(moveTemplateSubtask(phases, { phaseIndex: 0, taskIndex: 0, subtaskPath: [0] }, { phaseIndex: 5, taskIndex: 0 })).toBe(phases);
+    expect(moveTemplateSubtask(phases, { phaseIndex: 0, taskIndex: 0, subtaskPath: [9] }, { phaseIndex: 1, taskIndex: 0 })).toBe(phases);
+  });
+
+  const nested = () => [
+    {
+      ...newTemplatePhase("DIGITAL", "A"),
+      tasks: [
+        { ...newTemplateTask("DIGITAL", "a1"), subtasks: [{ title: "s1", subtasks: [{ title: "s1.1", subtasks: ["deep"] }, "s1.2"] }] },
+        newTemplateTask("DIGITAL", "a2"),
+      ],
+    },
+  ];
+
+  it("moves a nested subtask with its own subtasks to another task", () => {
+    const moved = moveTemplateSubtask(nested(), { phaseIndex: 0, taskIndex: 0, subtaskPath: [0, 0] }, { phaseIndex: 0, taskIndex: 1 });
+    expect(moved[0].tasks[0].subtasks).toEqual([{ title: "s1", subtasks: ["s1.2"] }]);
+    expect(moved[0].tasks[1].subtasks).toEqual([{ title: "s1.1", subtasks: ["deep"] }]);
+  });
+
+  it("moves a nested subtask up to sit directly under its own task", () => {
+    const moved = moveTemplateSubtask(nested(), { phaseIndex: 0, taskIndex: 0, subtaskPath: [0, 1] }, { phaseIndex: 0, taskIndex: 0 });
+    expect(moved[0].tasks[0].subtasks).toEqual([{ title: "s1", subtasks: [{ title: "s1.1", subtasks: ["deep"] }] }, "s1.2"]);
+  });
+
+  it("turns a subtask back into a plain name when its last child leaves", () => {
+    const moved = moveTemplateSubtask(
+      [{ ...newTemplatePhase("DIGITAL", "A"), tasks: [{ ...newTemplateTask("DIGITAL", "a1"), subtasks: [{ title: "s1", subtasks: ["only"] }] }, newTemplateTask("DIGITAL", "a2")] }],
+      { phaseIndex: 0, taskIndex: 0, subtaskPath: [0, 0] },
+      { phaseIndex: 0, taskIndex: 1 }
+    );
+    expect(moved[0].tasks[0].subtasks).toEqual(["s1"]);
+  });
+});
+
+describe("nested template subtasks", () => {
+  const seed = {
+    ...newTemplateTask("DIGITAL", "Kickoff"),
+    subtasks: [" Plan ", { title: " {MONTH} Review ", subtasks: [{ title: "Notes", subtasks: ["Share "] }, "  "] }, { title: "  ", subtasks: ["lost"] }],
+  };
+  const { template } = buildTemplateFromDraft(draft({ phases: [{ name: "Build", clientVisible: true, tasks: [seed] }] }), []);
+  const saved = template!.phases[0].taskLists![0].defaultTasks[0];
+
+  it("are saved trimmed at every depth, dropping blanks and anything under them", () => {
+    expect(saved.subtasks).toEqual(["Plan", { title: "{MONTH} Review", subtasks: [{ title: "Notes", subtasks: ["Share"] }] }]);
+  });
+
+  it("survive reloading into the board and saving again", () => {
+    const again = buildTemplateFromDraft(templateToDraft({ ...template!, id: "custom" }), []);
+    expect(again.template).toEqual(template);
+  });
+
+  it("reach a new project's tasks with the month filled in at every depth", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 27));
+    const [task] = scaffoldTasksFromTemplate({ ...template!, id: "custom" }, "EEDP-1");
+    vi.useRealTimers();
+    expect(task.subtaskTitles).toEqual(["Plan", "October Review"]);
+    expect(task.subtaskSeeds).toEqual(["Plan", { title: "October Review", subtasks: [{ title: "Notes", subtasks: ["Share"] }] }]);
+  });
+
+  it("are numbered like a project's, depth by depth", () => {
+    expect(flattenSubtasks(saved.subtasks!, "T01")).toEqual([
+      { code: "T01.1", title: "Plan", depth: 0 },
+      { code: "T01.2", title: "{MONTH} Review", depth: 0 },
+      { code: "T01.2.1", title: "Notes", depth: 1 },
+      { code: "T01.2.1.1", title: "Share", depth: 2 },
+    ]);
+  });
+
+  it("leave older templates with plain subtask names as they were", () => {
+    const [, month] = scaffoldTasksFromTemplate(SMM_PROJECT_TEMPLATE, "S").filter((t) => t.subtaskSeeds);
+    expect(month.subtaskSeeds?.every((s) => typeof s === "string")).toBe(true);
+    expect(month.subtaskSeeds).toEqual(month.subtaskTitles);
   });
 });
 

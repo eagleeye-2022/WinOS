@@ -23,12 +23,21 @@ import { ChecklistChip } from "@/features/sop-checklists/components/checklist-ch
 import { getSopPickerOptionsAction } from "@/features/sop-checklists/actions/template-actions";
 import type { SopPickerOption } from "@/features/sop-checklists/types";
 import { cn } from "@/lib/utils";
-import { SOPTaskSeed, TaskStatus, getTaskStatusPillClasses, getTaskStatusSelectClasses } from "../../types";
+import {
+  SOPSubtaskSeed,
+  SOPTaskSeed,
+  TaskStatus,
+  getTaskStatusPillClasses,
+  getTaskStatusSelectClasses,
+  makeSubtask,
+  subtaskChildren,
+  subtaskTitle,
+} from "../../types";
 // Used by the hidden month hint and Task Information below.
 // import { TEMPLATE_MONTH_PLACEHOLDER } from "../../data/sop-templates";
 // import { getOwnersAndTeamsAction } from "../../actions/project-actions";
 // import { OwnerUserOption, TaskMultiOwnerSelect } from "../task-multi-owner-select";
-import { TEMPLATE_STATUSES } from "../../template-utils";
+import { TEMPLATE_STATUSES, flattenSubtasks } from "../../template-utils";
 
 interface TemplateTaskPageProps {
   task: SOPTaskSeed;
@@ -114,6 +123,120 @@ function DaysField({
 }
 */
 
+/** Editable subtask rows at any depth; each row can add a subtask of its own. */
+function SubtaskRows({
+  subtasks,
+  parentCode,
+  canManage,
+  onChange,
+}: {
+  subtasks: SOPSubtaskSeed[];
+  parentCode: string;
+  canManage: boolean;
+  onChange: (subtasks: SOPSubtaskSeed[]) => void;
+}) {
+  const [addingTo, setAddingTo] = useState<number | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+
+  const addChild = (index: number) => {
+    const title = newTitle.trim();
+    if (!title) return;
+    const parent = subtasks[index];
+    onChange(
+      subtasks.map((s, i) =>
+        i === index ? makeSubtask(subtaskTitle(parent), [...subtaskChildren(parent), title]) : s
+      )
+    );
+    setNewTitle("");
+  };
+
+  return (
+    <>
+      {subtasks.map((subtask, index) => {
+        const code = `${parentCode}.${index + 1}`;
+        const children = subtaskChildren(subtask);
+        return (
+          <div key={index} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="min-w-10 shrink-0 font-mono font-bold text-muted-foreground">{code}</span>
+              {canManage ? (
+                <>
+                  <input
+                    type="text"
+                    value={subtaskTitle(subtask)}
+                    onChange={(e) =>
+                      onChange(subtasks.map((s, i) => (i === index ? makeSubtask(e.target.value, children) : s)))
+                    }
+                    aria-label={`Subtask ${code}`}
+                    className="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewTitle("");
+                      setAddingTo(addingTo === index ? null : index);
+                    }}
+                    title="Add a subtask under this one"
+                    aria-label={`Add a subtask under ${code}`}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddingTo(null);
+                      onChange(subtasks.filter((_, i) => i !== index));
+                    }}
+                    title="Remove subtask"
+                    aria-label={`Remove subtask ${code}`}
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                  >
+                    <X size={14} />
+                  </button>
+                </>
+              ) : (
+                <span className="text-foreground">{subtaskTitle(subtask)}</span>
+              )}
+            </div>
+            {(children.length > 0 || addingTo === index) && (
+              <div className="ml-4 space-y-2 border-l-2 border-cyan-400/70 pl-3 dark:border-cyan-500/50">
+                <SubtaskRows
+                  subtasks={children}
+                  parentCode={code}
+                  canManage={canManage}
+                  onChange={(next) =>
+                    onChange(subtasks.map((s, i) => (i === index ? makeSubtask(subtaskTitle(subtask), next) : s)))
+                  }
+                />
+                {addingTo === index && (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addChild(index);
+                      if (e.key === "Escape") setAddingTo(null);
+                    }}
+                    onBlur={() => {
+                      addChild(index);
+                      setAddingTo(null);
+                    }}
+                    placeholder="Subtask name, then Enter to add another"
+                    aria-label={`New subtask under ${code}`}
+                    className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /**
  * The main task page for a task in a template: what's set here is what the task starts with in
  * every project created from the template. Edits go to the template's board, which saves them.
@@ -160,6 +283,7 @@ export function TemplateTaskPage({
   }, [canManage]);
 
   const subtasks = task.subtasks ?? [];
+  const allSubtasks = flattenSubtasks(subtasks, code);
   const taskOwners = task.defaultOwners ?? [];
   const taskSops = task.sopChecklists ?? [];
 
@@ -247,16 +371,17 @@ export function TemplateTaskPage({
               </div>
             </div>
 
-            {subtasks.map((subtask, index) => (
+            {allSubtasks.map((subtask) => (
               <div
-                key={index}
-                className="ml-3 rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs space-y-1 dark:border-neutral-800 dark:bg-card"
+                key={subtask.code}
+                style={{ marginLeft: 12 * (subtask.depth + 1) }}
+                className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs space-y-1 dark:border-neutral-800 dark:bg-card"
               >
                 <span className="block font-mono text-xs font-bold text-slate-400 dark:text-neutral-500">
-                  {code}.{index + 1}
+                  {subtask.code}
                 </span>
                 <span className="block text-xs font-semibold leading-snug text-slate-800 dark:text-neutral-200">
-                  {subtask || "Untitled subtask"}
+                  {subtask.title || "Untitled subtask"}
                 </span>
               </div>
             ))}
@@ -575,40 +700,15 @@ export function TemplateTaskPage({
         </Section>
         */}
 
-        <Section title={`Subtasks (${subtasks.length})`}>
+        <Section title={`Subtasks (${allSubtasks.length})`}>
           <div className="space-y-2 p-4 text-xs">
             {subtasks.length === 0 && !canManage && <p className="italic text-muted-foreground">No subtasks.</p>}
-            {subtasks.map((subtask, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <span className="w-10 shrink-0 font-mono font-bold text-muted-foreground">
-                  {code}.{index + 1}
-                </span>
-                {canManage ? (
-                  <>
-                    <input
-                      type="text"
-                      value={subtask}
-                      onChange={(e) =>
-                        onChange({ subtasks: subtasks.map((s, i) => (i === index ? e.target.value : s)) })
-                      }
-                      aria-label={`Subtask ${index + 1}`}
-                      className="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onChange({ subtasks: subtasks.filter((_, i) => i !== index) })}
-                      title="Remove subtask"
-                      aria-label={`Remove subtask ${index + 1}`}
-                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-foreground">{subtask}</span>
-                )}
-              </div>
-            ))}
+            <SubtaskRows
+              subtasks={subtasks}
+              parentCode={code}
+              canManage={canManage}
+              onChange={(next) => onChange({ subtasks: next })}
+            />
             {canManage && (
               <>
                 <div className="flex items-center gap-2 pt-1">

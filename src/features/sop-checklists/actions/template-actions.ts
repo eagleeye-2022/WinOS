@@ -11,9 +11,9 @@ import { applyChecklistSync } from "../sync";
 import { recordSopEvent, recordSopEvents } from "../events";
 import { docFromItems, DocChecklistItem, DocNode, extractChecklistItems, isDocNode, MAX_DOC_BYTES, MAX_DOC_ITEMS } from "../doc";
 import {
-  DEFAULT_SOP_DEPARTMENT,
+  DEFAULT_SOP_PLACE,
   DEFAULT_SOP_LIST,
-  SOP_DEPARTMENTS,
+  SOP_PLACES,
   SopPickerOption,
   SopTemplate,
   SopTemplateInput,
@@ -80,9 +80,7 @@ function validateInput(input: SopTemplateInput, allowedIds: Set<string>): { valu
       name,
       description: (input.description || "").trim().slice(0, 2000),
       category: (input.category || "").trim().slice(0, 60) || DEFAULT_SOP_LIST,
-      department: (SOP_DEPARTMENTS as readonly string[]).includes(input.department)
-        ? input.department
-        : DEFAULT_SOP_DEPARTMENT,
+      department: SOP_PLACES.includes(input.department) ? input.department : DEFAULT_SOP_PLACE,
       content: doc,
       items,
     },
