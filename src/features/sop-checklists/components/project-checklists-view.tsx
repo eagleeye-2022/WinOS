@@ -11,6 +11,7 @@ import {
   getProjectChecklistOverviewAction,
 } from "../actions/project-checklist-actions";
 import { getSopTemplatesAction } from "../actions/template-actions";
+import { sopPlaceLabel } from "../utils";
 import { ProjectChecklistOverview, ProjectChecklistTask, SopTemplate } from "../types";
 
 type Filter = "WITH" | "REQUIRED_OPEN" | "OUTDATED" | "WITHOUT";
@@ -382,7 +383,7 @@ function BulkAttachPanel({
                 <option value="">Choose an SOP…</option>
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} · {t.department} · {t.category} · {t.items.length} steps
+                    {t.name} · {sopPlaceLabel(t.department)} · {t.category} · {t.items.length} steps
                   </option>
                 ))}
               </select>

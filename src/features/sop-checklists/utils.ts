@@ -40,10 +40,29 @@ export function sopDepartmentOf(category: string | null | undefined, name?: stri
   return LEGACY_SOP_DEPARTMENT[(name || "").trim()] ?? LEGACY_CATEGORY_DEPARTMENT[c];
 }
 
-/** An SOP's department: the saved one, or the one worked out for rows saved before departments. */
+/** Old lists that belong to one of Operation's tabs; the rest go to General. */
+const LEGACY_OPERATION_SECTION: Record<string, string> = {
+  Development: "Tech",
+  Tech: "Tech",
+  Design: "Creative",
+  Creative: "Creative",
+};
+
+/**
+ * Where an SOP sits: a department, or for Operation also its tab ("Operation/Tech"). The saved value,
+ * or the one worked out for rows saved before departments.
+ */
 export function sopDepartmentFor(row: { department?: string | null; category?: string | null; name?: string | null }): string {
-  return row.department || sopDepartmentOf(row.category, row.name);
+  const base = row.department || sopDepartmentOf(row.category, row.name);
+  if (base !== "Operation") return base;
+  return `Operation/${LEGACY_OPERATION_SECTION[(row.category || "").trim()] ?? "General"}`;
 }
+
+/** "Operation/Tech" → "Operation". */
+export const sopTopDepartment = (place: string) => place.split("/")[0];
+
+/** "Operation/Tech" → "Operation · Tech". */
+export const sopPlaceLabel = (place: string) => place.replace("/", " · ");
 
 /**
  * May a non-manager see this SOP? Yes if they created it, or if it, or the list it sits in, is

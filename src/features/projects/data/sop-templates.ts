@@ -1,4 +1,15 @@
-import { ProjectPhase, ProjectTemplate, SOPPhaseTemplate, SOPTaskSeed, TaskItem, TaskList } from "../types";
+import {
+  ProjectPhase,
+  ProjectTemplate,
+  SOPPhaseTemplate,
+  SOPSubtaskSeed,
+  SOPTaskSeed,
+  TaskItem,
+  TaskList,
+  makeSubtask,
+  subtaskChildren,
+  subtaskTitle,
+} from "../types";
 import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 
 export const VERBATIM_T2T_7_PHASE_TEMPLATE: ProjectTemplate = {
@@ -1263,7 +1274,9 @@ export function scaffoldTaskListsFromTemplate(template: ProjectTemplate): TaskLi
 
 /** A scaffolded task plus the titles of the subtasks to create under it (see SOPTaskSeed.subtasks). */
 export type ScaffoldedTask = Partial<TaskItem> & {
+  /** Titles of its direct subtasks; subtaskSeeds has them with their own subtasks. */
   subtaskTitles?: string[];
+  subtaskSeeds?: SOPSubtaskSeed[];
   /** Set only when the template task has them; otherwise the task gets the column defaults. */
   defaultStartDate?: string;
   defaultDueDate?: string;
@@ -1284,6 +1297,8 @@ export function scaffoldTasksFromTemplate(
   let taskCounter = 1;
   const monthName = new Date().toLocaleString("en-US", { month: "long" });
   const withMonth = (s: string) => s.split(TEMPLATE_MONTH_PLACEHOLDER).join(monthName);
+  const subtaskWithMonth = (s: SOPSubtaskSeed): SOPSubtaskSeed =>
+    makeSubtask(withMonth(subtaskTitle(s)), subtaskChildren(s).map(subtaskWithMonth));
   const ownerName = defaultOwnerName || "Unassigned";
   const ownersList = defaultOwnerName && defaultOwnerName !== "Unassigned" ? [defaultOwnerName] : [];
   const ownerIdsList = defaultOwnerId ? [defaultOwnerId] : [];
@@ -1297,7 +1312,12 @@ export function scaffoldTasksFromTemplate(
       tasks.push({
         code: `${projectCode}-T${codeNum}`,
         title: withMonth(dt.title),
-        ...(dt.subtasks && dt.subtasks.length > 0 ? { subtaskTitles: dt.subtasks.map(withMonth) } : {}),
+        ...(dt.subtasks && dt.subtasks.length > 0
+          ? {
+              subtaskTitles: dt.subtasks.map((s) => withMonth(subtaskTitle(s))),
+              subtaskSeeds: dt.subtasks.map(subtaskWithMonth),
+            }
+          : {}),
         ...(dt.startInDays !== undefined ? { defaultStartDate: dateInDays(dt.startInDays) } : {}),
         ...(dt.dueInDays !== undefined ? { defaultDueDate: dateInDays(dt.dueInDays) } : {}),
         ...(dt.defaultOwners?.length ? { defaultOwners: dt.defaultOwners } : {}),

@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { ActingUser, loadActingUser } from "../access";
 import { recordSopEvents } from "../events";
 import { loadSopShares } from "../sharing";
-import { SOP_DEPARTMENTS, type SopShare, type SopShareTarget, type SopShareUserOption } from "../types";
+import { SOP_DEPARTMENTS, SOP_PLACES, type SopShare, type SopShareTarget, type SopShareUserOption } from "../types";
 import { sopDepartmentFor } from "../utils";
 
 const d = db as any;
@@ -54,7 +54,7 @@ export async function setSopShareAction(
     target.kind === "sop"
       ? { templateId: target.templateId, department: null, listName: null }
       : { templateId: null, department: target.department, listName: target.list };
-  if (target.kind === "list" && !(SOP_DEPARTMENTS as readonly string[]).includes(target.department)) {
+  if (target.kind === "list" && !SOP_PLACES.includes(target.department)) {
     return { success: false, error: "Unknown department" };
   }
 

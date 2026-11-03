@@ -48,14 +48,26 @@ export interface TaskList {
   phaseCode: string;
 }
 
+/** A template subtask: just its title, or an object when it has subtasks of its own. */
+export type SOPSubtaskSeed = string | { title: string; subtasks?: SOPSubtaskSeed[] };
+
+export const subtaskTitle = (subtask: SOPSubtaskSeed): string =>
+  typeof subtask === "string" ? subtask : subtask.title;
+
+export const subtaskChildren = (subtask: SOPSubtaskSeed): SOPSubtaskSeed[] =>
+  typeof subtask === "string" ? [] : subtask.subtasks ?? [];
+
+export const makeSubtask = (title: string, children: SOPSubtaskSeed[] = []): SOPSubtaskSeed =>
+  children.length > 0 ? { title, subtasks: children } : title;
+
 export interface SOPTaskSeed {
   title: string;
   duration: string;
   priority: ProjectPriority;
   departmentAlias: string;
   description?: string;
-  /** Titles of subtasks created under this task when a project is created from the template. */
-  subtasks?: string[];
+  /** Subtasks created under this task, at any depth, when a project is created from the template. */
+  subtasks?: SOPSubtaskSeed[];
   /** Status the task starts in; Open when unset. */
   status?: TaskStatus;
   /** Days after the project is created; no date when unset. */

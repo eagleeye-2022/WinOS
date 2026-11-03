@@ -44,6 +44,14 @@ describe("sopDepartmentOf", () => {
     expect(sopDepartmentOf(null)).toBe("Operation");
   });
 
+  it("sopDepartmentFor puts Operation SOPs in its tabs", () => {
+    expect(sopDepartmentFor({ department: null, category: "Development", name: "X" })).toBe("Operation/Tech");
+    expect(sopDepartmentFor({ department: null, category: "Design", name: "X" })).toBe("Operation/Creative");
+    expect(sopDepartmentFor({ department: null, category: "QA", name: "X" })).toBe("Operation/General");
+    expect(sopDepartmentFor({ department: "Operation", category: "Design", name: "X" })).toBe("Operation/Creative");
+    expect(sopDepartmentFor({ department: "Operation/Marketing", category: "Ads", name: "X" })).toBe("Operation/Marketing");
+  });
+
   it("sopDepartmentFor prefers the saved department, keeping the list separate", () => {
     expect(sopDepartmentFor({ department: "Sales", category: "SEO", name: "X" })).toBe("Sales");
     expect(sopDepartmentFor({ department: null, category: "SEO", name: "X" })).toBe("Marketing");

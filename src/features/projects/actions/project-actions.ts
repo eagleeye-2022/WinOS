@@ -32,6 +32,8 @@ import {
   ProjectTemplate,
   ProjectPhase,
   DELETED_TASK_LIST_STATUS,
+  subtaskChildren,
+  subtaskTitle,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -1055,19 +1057,22 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
       });
 
       // Template subtasks (e.g. SMM's "October Month" → its monthly steps), numbered <task>.1, .2…
-      const withSubtasks = scaffoldedTasks.filter((t) => t.code && t.subtaskTitles && t.subtaskTitles.length > 0);
-      if (withSubtasks.length > 0) {
+      // and theirs <task>.1.1… One depth at a time: a subtask needs its parent's row id.
+      let subtaskLevel = scaffoldedTasks.flatMap((t) =>
+        t.code && t.subtaskSeeds?.length ? [{ t, parentCode: t.code, seeds: t.subtaskSeeds }] : []
+      );
+      while (subtaskLevel.length > 0) {
         const parents: { id: string; code: string }[] = await db.projectTask.findMany({
-          where: { projectId: newProject.id, code: { in: withSubtasks.map((t) => t.code as string) } },
+          where: { projectId: newProject.id, code: { in: subtaskLevel.map((l) => l.parentCode) } },
           select: { id: true, code: true },
         });
         const parentIdByCode = new Map(parents.map((p) => [p.code, p.id]));
-        const subtaskRows = withSubtasks.flatMap((t) => {
-          const parentId = parentIdByCode.get(t.code as string);
+        const subtaskRows = subtaskLevel.flatMap(({ t, parentCode, seeds }) => {
+          const parentId = parentIdByCode.get(parentCode);
           if (!parentId) return [];
-          return (t.subtaskTitles as string[]).map((title, i) => ({
-            code: `${t.code}.${i + 1}`,
-            title,
+          return seeds.map((seed, i) => ({
+            code: `${parentCode}.${i + 1}`,
+            title: subtaskTitle(seed),
             phaseId: t.phaseCode ? phaseIdMap.get(t.phaseCode) : undefined,
             phaseCode: t.phaseCode,
             phaseName: t.phaseName,
@@ -1089,6 +1094,12 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
           await db.projectTask.createMany({ data: subtaskRows });
           createdTaskCount += subtaskRows.length;
         }
+        subtaskLevel = subtaskLevel.flatMap(({ t, parentCode, seeds }) =>
+          seeds.flatMap((seed, i) => {
+            const children = subtaskChildren(seed);
+            return children.length > 0 ? [{ t, parentCode: `${parentCode}.${i + 1}`, seeds: children }] : [];
+          })
+        );
       }
     }
   }

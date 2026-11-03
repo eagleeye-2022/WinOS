@@ -119,9 +119,32 @@ export function ExpandableTaskText({
  * (wrapped, same row), click again to collapse. Hover shows the full text too. The Report tables
  * still use ExpandableTaskText.
  */
-export function WrappedTaskText({ text, className }: { text: string; className?: string }) {
+export function WrappedTaskText({
+  text,
+  className,
+  expanded: controlledExpanded,
+}: {
+  text: string;
+  className?: string;
+  /** Set when the row controls it: the text just follows, and clicks go to the row. */
+  expanded?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const toggle = () => setExpanded((v) => !v);
+  if (controlledExpanded !== undefined) {
+    return (
+      <span
+        title={controlledExpanded ? undefined : text}
+        className={cn(
+          "block w-60 max-w-full leading-snug",
+          controlledExpanded ? "whitespace-normal break-words" : "truncate",
+          className
+        )}
+      >
+        {text}
+      </span>
+    );
+  }
   return (
     <span
       role="button"

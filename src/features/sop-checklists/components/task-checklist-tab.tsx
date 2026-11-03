@@ -42,7 +42,7 @@ import {
 } from "../actions/task-checklist-actions";
 import { getSopPickerOptionsAction } from "../actions/template-actions";
 import { SopPickerOption, TaskChecklistItemView, TaskChecklistView } from "../types";
-import { checklistProgress } from "../utils";
+import { checklistProgress, sopPlaceLabel } from "../utils";
 import { docItemIds } from "../doc";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
 
@@ -185,12 +185,12 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
   const shownTemplates = (templates ?? []).filter((t) => !category || t.department === category);
   const categoryOptions = categories.map((c) => ({
     value: c,
-    label: `${c} (${(templates ?? []).filter((t) => t.department === c).length})`,
+    label: `${sopPlaceLabel(c)} (${(templates ?? []).filter((t) => t.department === c).length})`,
   }));
   // Picking a checklist attaches it; ones already on this task aren't offered again.
   const checklistOptions = shownTemplates
     .filter((t) => !attachedTemplateIds.has(t.id))
-    .map((t) => ({ value: t.id, label: `${t.name} · ${t.stepCount} steps${category ? ` · ${t.list}` : ` · ${t.department}`}` }));
+    .map((t) => ({ value: t.id, label: `${t.name} · ${t.stepCount} steps${category ? ` · ${t.list}` : ` · ${sopPlaceLabel(t.department)}`}` }));
 
   if (isLoading) {
     return (
@@ -287,7 +287,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
                     >
                       <span>
                         <span className="font-semibold text-foreground">{t.name}</span>
-                        <span className="text-muted-foreground"> · {t.department} · {t.list} · {t.stepCount} steps</span>
+                        <span className="text-muted-foreground"> · {sopPlaceLabel(t.department)} · {t.list} · {t.stepCount} steps</span>
                       </span>
                       {attached && <span className="text-[11px] text-muted-foreground">Attached</span>}
                     </button>

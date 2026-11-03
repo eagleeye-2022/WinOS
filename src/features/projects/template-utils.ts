@@ -2,10 +2,14 @@ import {
   PROJECT_TASK_STATUSES,
   ProjectPriority,
   ProjectTemplate,
+  SOPSubtaskSeed,
   SOPTaskListTemplate,
   SOPTaskSeed,
   TaskStatus,
   isTaskDone,
+  makeSubtask,
+  subtaskChildren,
+  subtaskTitle,
 } from "./types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -47,8 +51,16 @@ function cleanRefs(refs: unknown): { id: string; name: string }[] {
   return [...byId.values()];
 }
 
+/** Trims titles and drops blank subtasks, along with anything under them. */
+function cleanSubtasks(subtasks: SOPSubtaskSeed[]): SOPSubtaskSeed[] {
+  return subtasks.flatMap((subtask) => {
+    const title = (subtaskTitle(subtask) || "").trim();
+    return title ? [makeSubtask(title, cleanSubtasks(subtaskChildren(subtask)))] : [];
+  });
+}
+
 function cleanTask(task: SOPTaskSeed, departmentAlias: string): SOPTaskSeed {
-  const subtasks = (task.subtasks ?? []).map((s) => s.trim()).filter(Boolean);
+  const subtasks = cleanSubtasks(task.subtasks ?? []);
   const startInDays = cleanDays(task.startInDays);
   const dueInDays = cleanDays(task.dueInDays);
   const defaultOwners = cleanRefs(task.defaultOwners);
@@ -163,6 +175,61 @@ export function moveTemplateTask(
   target.splice(insertAt, 0, task);
 
   return phases.map((p, i) => ({ ...p, tasks: lists[i] }));
+}
+
+function subtaskAt(subtasks: SOPSubtaskSeed[], path: number[]): SOPSubtaskSeed | undefined {
+  const [index, ...rest] = path;
+  const subtask = subtasks[index];
+  return subtask === undefined || rest.length === 0 ? subtask : subtaskAt(subtaskChildren(subtask), rest);
+}
+
+function withoutSubtaskAt(subtasks: SOPSubtaskSeed[], path: number[]): SOPSubtaskSeed[] {
+  const [index, ...rest] = path;
+  if (rest.length === 0) return subtasks.filter((_, i) => i !== index);
+  return subtasks.map((subtask, i) =>
+    i === index ? makeSubtask(subtaskTitle(subtask), withoutSubtaskAt(subtaskChildren(subtask), rest)) : subtask
+  );
+}
+
+/**
+ * Moves a subtask, with its own subtasks, to the end of a task's direct subtasks. `from.subtaskPath`
+ * is its position at each depth, so [0, 2] is the third subtask of the first subtask.
+ */
+export function moveTemplateSubtask(
+  phases: TemplatePhaseDraft[],
+  from: { phaseIndex: number; taskIndex: number; subtaskPath: number[] },
+  to: { phaseIndex: number; taskIndex: number }
+): TemplatePhaseDraft[] {
+  const subtask = subtaskAt(phases[from.phaseIndex]?.tasks[from.taskIndex]?.subtasks ?? [], from.subtaskPath);
+  if (subtask === undefined || !phases[to.phaseIndex]?.tasks[to.taskIndex]) return phases;
+  const isSameTask = from.phaseIndex === to.phaseIndex && from.taskIndex === to.taskIndex;
+  if (isSameTask && from.subtaskPath.length === 1) return phases;
+
+  return phases.map((phase, phaseIndex) => ({
+    ...phase,
+    tasks: phase.tasks.map((task, taskIndex) => {
+      const isSource = phaseIndex === from.phaseIndex && taskIndex === from.taskIndex;
+      const isTarget = phaseIndex === to.phaseIndex && taskIndex === to.taskIndex;
+      if (!isSource && !isTarget) return task;
+      const remaining = isSource ? withoutSubtaskAt(task.subtasks ?? [], from.subtaskPath) : task.subtasks ?? [];
+      return { ...task, subtasks: isTarget ? [...remaining, subtask] : remaining };
+    }),
+  }));
+}
+
+/** Every subtask at any depth, in order, with its code and depth (0 = directly under the task). */
+export function flattenSubtasks(
+  subtasks: SOPSubtaskSeed[],
+  parentCode: string,
+  depth = 0
+): { code: string; title: string; depth: number }[] {
+  return subtasks.flatMap((subtask, index) => {
+    const code = `${parentCode}.${index + 1}`;
+    return [
+      { code, title: subtaskTitle(subtask), depth },
+      ...flattenSubtasks(subtaskChildren(subtask), code, depth + 1),
+    ];
+  });
 }
 
 /**

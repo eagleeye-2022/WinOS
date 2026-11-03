@@ -27,7 +27,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/navigation/use-url-state";
-import { ProjectTemplate, SOPTaskSeed, TaskStatus, getTaskStatusPillClasses } from "../../types";
+import {
+  ProjectTemplate,
+  SOPSubtaskSeed,
+  SOPTaskSeed,
+  TaskStatus,
+  getTaskStatusPillClasses,
+  makeSubtask,
+  subtaskChildren,
+  subtaskTitle,
+} from "../../types";
 import { TemplateTaskPage } from "./template-task-page";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import {
@@ -36,6 +45,7 @@ import {
   TemplateDraft,
   TemplatePhaseDraft,
   isBuiltInTemplate,
+  moveTemplateSubtask,
   moveTemplateTask,
   newTemplateDraft,
   newTemplatePhase,
@@ -940,9 +950,16 @@ function TemplateBoard({
                         isDragging={dragged?.phaseIndex === phaseIndex && dragged.taskIndex === taskIndex}
                         lists={draft.phases}
                         phaseIndex={phaseIndex}
+                        taskIndex={taskIndex}
                         onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
                         onChange={(patch) =>
                           updateTasks(phaseIndex, (tasks) => tasks.map((x, i) => (i === taskIndex ? { ...x, ...patch } : x)))
+                        }
+                        onMoveSubtask={(subtaskPath, target) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            phases: moveTemplateSubtask(prev.phases, { phaseIndex, taskIndex, subtaskPath }, target),
+                          }))
                         }
                         onDuplicate={() =>
                           updateTasks(phaseIndex, (tasks) => [
@@ -1035,11 +1052,13 @@ function TemplateTaskCard({
   isDragging,
   lists,
   phaseIndex,
+  taskIndex,
   onOpen,
   onChange,
   onDuplicate,
   onDelete,
   onMoveToList,
+  onMoveSubtask,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -1051,11 +1070,13 @@ function TemplateTaskCard({
   isDragging: boolean;
   lists: TemplatePhaseDraft[];
   phaseIndex: number;
+  taskIndex: number;
   onOpen: () => void;
   onChange: (patch: Partial<SOPTaskSeed>) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onMoveToList: (phaseIndex: number) => void;
+  onMoveSubtask: (subtaskPath: number[], target: { phaseIndex: number; taskIndex: number }) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -1063,6 +1084,7 @@ function TemplateTaskCard({
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [menu, setMenu] = useState<"more" | "move" | null>(null);
   const subtasks = task.subtasks ?? [];
   const owners = task.defaultOwners ?? [];
@@ -1071,7 +1093,7 @@ function TemplateTaskCard({
   return (
     <div
       onClick={onOpen}
-      draggable={canManage && !isRenaming}
+      draggable={canManage && !isRenaming && !isAddingSubtask}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", task.title);
@@ -1134,6 +1156,18 @@ function TemplateTaskCard({
                   align="end"
                   className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
                 >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenu(null);
+                      setShowSubtasks(true);
+                      setIsAddingSubtask(true);
+                    }}
+                    className={MENU_ITEM}
+                  >
+                    <Plus size={13} />
+                    <span>Add Subtask</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1235,14 +1269,6 @@ function TemplateTaskCard({
         </h4>
       )}
 
-      {showSubtasks && subtasks.length > 0 && (
-        <ul className="ml-1 space-y-0.5 border-l pl-2 text-xs text-muted-foreground">
-          {subtasks.map((subtask, index) => (
-            <li key={`${subtask}-${index}`}>{subtask}</li>
-          ))}
-        </ul>
-      )}
-
       {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-xs">
         <div className="flex items-center gap-2 text-slate-400" onClick={(e) => e.stopPropagation()}>
@@ -1282,6 +1308,364 @@ function TemplateTaskCard({
           </span>
         )}
       </div>
+
+      {/* Subtasks, nested under the task like on the project board */}
+      {(isAddingSubtask || (showSubtasks && subtasks.length > 0)) && (
+        <TemplateSubtaskList
+          subtasks={showSubtasks ? subtasks : []}
+          parentCode={code}
+          parentPath={[]}
+          canManage={canManage}
+          lists={lists}
+          task={{ phaseIndex, taskIndex }}
+          isAdding={isAddingSubtask}
+          onCloseAdd={() => setIsAddingSubtask(false)}
+          onOpen={onOpen}
+          onChange={(next) => onChange({ subtasks: next })}
+          onAdd={(title) => onChange({ subtasks: [...subtasks, title] })}
+          onMove={onMoveSubtask}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A task's or subtask's subtasks, on the project board's connector line, with their quick add. */
+function TemplateSubtaskList({
+  subtasks,
+  parentCode,
+  parentPath,
+  canManage,
+  lists,
+  task,
+  isAdding,
+  onCloseAdd,
+  onOpen,
+  onChange,
+  onAdd,
+  onMove,
+}: {
+  subtasks: SOPSubtaskSeed[];
+  parentCode: string;
+  parentPath: number[];
+  canManage: boolean;
+  lists: TemplatePhaseDraft[];
+  task: { phaseIndex: number; taskIndex: number };
+  isAdding: boolean;
+  onCloseAdd: () => void;
+  onOpen: () => void;
+  onChange: (subtasks: SOPSubtaskSeed[]) => void;
+  onAdd: (title: string) => void;
+  onMove: (subtaskPath: number[], target: { phaseIndex: number; taskIndex: number }) => void;
+}) {
+  const [newTitle, setNewTitle] = useState("");
+
+  const add = () => {
+    const title = newTitle.trim();
+    if (!title) return;
+    onAdd(title);
+    setNewTitle("");
+  };
+
+  return (
+    <div
+      className="relative ml-2.5 mt-1 space-y-2 border-l-2 border-cyan-400/70 dark:border-cyan-500/50 pl-3"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {subtasks.map((subtask, index) => (
+        <div key={index} className="relative">
+          <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
+          <TemplateSubtaskCard
+            subtask={subtask}
+            code={`${parentCode}.${index + 1}`}
+            path={[...parentPath, index]}
+            canManage={canManage}
+            lists={lists}
+            task={task}
+            onOpen={onOpen}
+            onChange={(updated) => onChange(subtasks.map((s, i) => (i === index ? updated : s)))}
+            onDuplicate={() => onChange([...subtasks.slice(0, index + 1), subtask, ...subtasks.slice(index + 1)])}
+            onDelete={() => onChange(subtasks.filter((_, i) => i !== index))}
+            onMove={onMove}
+          />
+        </div>
+      ))}
+      {isAdding && (
+        <input
+          type="text"
+          autoFocus
+          value={newTitle}
+          draggable={false}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") add();
+            if (e.key === "Escape") onCloseAdd();
+          }}
+          onBlur={() => {
+            add();
+            onCloseAdd();
+          }}
+          placeholder="Subtask name, then Enter to add another"
+          aria-label="New subtask name"
+          className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The project board's subtask card, for a subtask in a template. A template subtask is just a name
+ * and its own subtasks, so its pill is fixed at Open and it has no page: opening it opens its task.
+ */
+function TemplateSubtaskCard({
+  subtask,
+  code,
+  path,
+  canManage,
+  lists,
+  task,
+  onOpen,
+  onChange,
+  onDuplicate,
+  onDelete,
+  onMove,
+}: {
+  subtask: SOPSubtaskSeed;
+  code: string;
+  path: number[];
+  canManage: boolean;
+  lists: TemplatePhaseDraft[];
+  task: { phaseIndex: number; taskIndex: number };
+  onOpen: () => void;
+  onChange: (subtask: SOPSubtaskSeed) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onMove: (subtaskPath: number[], target: { phaseIndex: number; taskIndex: number }) => void;
+}) {
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [menu, setMenu] = useState<"more" | "move" | null>(null);
+  const [showChildren, setShowChildren] = useState(false);
+  const [isAddingChild, setIsAddingChild] = useState(false);
+  const title = subtaskTitle(subtask);
+  const children = subtaskChildren(subtask);
+  const onRename = (renamed: string) => onChange(makeSubtask(renamed, children));
+  // A nested subtask can move up to be directly under its own task; a direct one is already there.
+  const isCurrentTask = (phaseIndex: number, taskIndex: number) =>
+    path.length === 1 && phaseIndex === task.phaseIndex && taskIndex === task.taskIndex;
+
+  return (
+    <div
+      onClick={onOpen}
+      className="relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all space-y-2.5 group/subtask cursor-pointer border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card hover:border-primary/60 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
+        <div className="flex min-w-0 items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
+          <span
+            title="Subtasks start as Open"
+            className={cn(
+              "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-white shadow-2xs",
+              getTaskStatusPillClasses("Open")
+            )}
+          >
+            Open
+          </span>
+          {canManage && (
+            <Popover open={menu === "more"} onOpenChange={(open) => setMenu(open ? "more" : null)}>
+              <PopoverTrigger asChild>
+                <button type="button" className={CARD_ICON_BUTTON} title="More options" aria-label="More options">
+                  <MoreVertical size={13} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="end"
+                className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(null);
+                    setShowChildren(true);
+                    setIsAddingChild(true);
+                  }}
+                  className={MENU_ITEM}
+                >
+                  <Plus size={13} />
+                  <span>Add Subtask</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(null);
+                    onDuplicate();
+                  }}
+                  className={MENU_ITEM}
+                >
+                  <Copy size={13} />
+                  <span>Duplicate</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenu(null);
+                    onDelete();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Delete</span>
+                </button>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      </div>
+
+      {isRenaming ? (
+        <input
+          type="text"
+          autoFocus
+          defaultValue={title}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            const renamed = e.currentTarget.value.trim();
+            if (renamed) onRename(renamed);
+            setIsRenaming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") setIsRenaming(false);
+          }}
+          aria-label="Subtask title"
+          className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-bold text-slate-800 dark:text-neutral-200 outline-none ring-1 ring-primary/30 focus:ring-primary transition-all"
+        />
+      ) : (
+        <h4
+          onClick={(e) => {
+            if (!canManage) return;
+            e.stopPropagation();
+            setIsRenaming(true);
+          }}
+          title={canManage ? "Click to rename" : title}
+          className={cn(
+            "rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors text-slate-800 dark:text-neutral-200",
+            canManage && "group-hover/subtask:text-primary hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text"
+          )}
+        >
+          {title}
+        </h4>
+      )}
+
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-xs">
+        <div className="flex items-center gap-2 text-slate-400" onClick={(e) => e.stopPropagation()}>
+          <span
+            title="Time is logged once it's a task in a project"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-muted-foreground dark:bg-zinc-900 dark:border-zinc-800"
+          >
+            <Clock size={13} aria-hidden="true" />
+          </span>
+          <ChecklistChip title="Subtasks start without an SOP" />
+          <button
+            type="button"
+            onClick={onOpen}
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-slate-400 hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10"
+            title="Open its task"
+            aria-label="Open its task"
+          >
+            <Eye size={13} />
+          </button>
+          {canManage && (
+            <Popover open={menu === "move"} onOpenChange={(open) => setMenu(open ? "move" : null)}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-slate-400 hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10"
+                  title="Move to another task"
+                  aria-label="Move to another task"
+                >
+                  <ArrowRightLeft size={13} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="bottom"
+                align="start"
+                className="w-64 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+              >
+                <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                  Move to Task
+                </p>
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {lists.map(
+                    (list, listIndex) =>
+                      list.tasks.length > 0 && (
+                        <div key={listIndex} className="space-y-0.5">
+                          <p className="truncate px-2 pt-1 text-xs font-semibold text-muted-foreground">{list.name}</p>
+                          {list.tasks.map((target, targetIndex) => {
+                            const isParent = isCurrentTask(listIndex, targetIndex);
+                            return (
+                              <button
+                                key={targetIndex}
+                                type="button"
+                                onClick={() => {
+                                  setMenu(null);
+                                  if (!isParent) onMove(path, { phaseIndex: listIndex, taskIndex: targetIndex });
+                                }}
+                                className={cn(
+                                  "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
+                                  isParent ? "bg-primary/10 text-primary font-bold" : "text-foreground"
+                                )}
+                              >
+                                <span className="truncate">{target.title}</span>
+                                {isParent && <Check size={12} className="shrink-0 text-primary" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+          {children.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowChildren((v) => !v)}
+              className="flex items-center gap-1 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-foreground transition-all cursor-pointer"
+              title={`${children.length} Subtask${children.length > 1 ? "s" : ""} (Click to ${showChildren ? "hide" : "view"})`}
+            >
+              <ListTree size={13} />
+              <span className="text-xs font-bold">{children.length}</span>
+              {showChildren ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            </button>
+          )}
+        </div>
+        <span
+          title="Starts unassigned"
+          className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
+        >
+          <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" aria-label="Unassigned" />
+        </span>
+      </div>
+
+      {(isAddingChild || (showChildren && children.length > 0)) && (
+        <TemplateSubtaskList
+          subtasks={showChildren ? children : []}
+          parentCode={code}
+          parentPath={path}
+          canManage={canManage}
+          lists={lists}
+          task={task}
+          isAdding={isAddingChild}
+          onCloseAdd={() => setIsAddingChild(false)}
+          onOpen={onOpen}
+          onChange={(next) => onChange(makeSubtask(title, next))}
+          onAdd={(childTitle) => onChange(makeSubtask(title, [...children, childTitle]))}
+          onMove={onMove}
+        />
+      )}
     </div>
   );
 }
