@@ -33,6 +33,8 @@ type MentionInputProps = {
   required?: boolean;
   autoFocus?: boolean;
   onEnterSubmit?: () => void;
+  /** Explicit callback when a mention member is chosen from the autocomplete menu */
+  onSelectMention?: (member: MentionMember) => void;
 };
 
 function memberLabel(m: { name: string | null; email: string }): string {
@@ -100,6 +102,7 @@ export function MentionInput({
   required,
   autoFocus,
   onEnterSubmit,
+  onSelectMention,
 }: MentionInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"people" | "file">("people");
@@ -340,8 +343,31 @@ export function MentionInput({
     const root = editorRef.current;
     if (!root) return;
     root.focus();
-    const range = removeCharsBeforeCaret(root, removeLen);
-    if (!range) return;
+    let range = removeCharsBeforeCaret(root, removeLen);
+    if (!range) {
+      placeCaretAtEnd(root);
+      range = removeCharsBeforeCaret(root, removeLen);
+    }
+
+    if (!range) {
+      const lastChild = root.lastChild;
+      if (lastChild && lastChild.nodeType === Node.TEXT_NODE && lastChild.textContent) {
+        const text = lastChild.textContent;
+        if (text.length >= removeLen) {
+          lastChild.textContent = text.slice(0, text.length - removeLen);
+        } else {
+          lastChild.textContent = "";
+        }
+      }
+      root.appendChild(node);
+      const spaceNode = document.createTextNode(trailing);
+      root.appendChild(spaceNode);
+      placeCaretAtEnd(root);
+      setIsOpen(false);
+      emitChange();
+      return;
+    }
+
     range.insertNode(node);
     const spaceNode = document.createTextNode(trailing);
     node.after(spaceNode);
@@ -359,6 +385,7 @@ export function MentionInput({
 
   const selectMember = (member: MentionMember) => {
     insertNodeReplacingQuery(createMentionNode(member), 1 + query.length);
+    onSelectMention?.(member);
   };
 
   const selectFile = (file: MentionFile) => {
@@ -457,8 +484,15 @@ export function MentionInput({
                   <button
                     key={m.id}
                     type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectMember(m)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectMember(m);
+                    }}
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={cn(
                       "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",

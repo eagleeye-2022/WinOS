@@ -65,10 +65,10 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (label === "Daily DSM" || label === "DSM") {
     return pathname === ROUTES.dsm || pathname === "/dashboard";
   }
-  if (label === "All Reporting") {
+  if (label === "All Reporting" || label === "All Daily Progress Reports") {
     return pathname.startsWith(ROUTES.dsrManage) || pathname.startsWith("/report/member");
   }
-  if (label === "My Reporting" || label === "Reporting") {
+  if (label === "My Reporting" || label === "Reporting" || label === "Submit Report" || label === "Daily Progress Report" || label === "My Daily Progress Report") {
     return pathname === ROUTES.dsr || pathname === ROUTES.dsrMy;
   }
   if (label === "iNotes" || label === "i-Notes" || label === "My Notes") {

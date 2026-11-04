@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type InternalUser = { id: string; name: string | null; email: string };
 
@@ -14,11 +15,16 @@ type Props = {
 
 export function ParticipantPicker({ users, currentUserId, selectedIds, onChange }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
-  // The organizer is listed like anyone else — they're only added as an
-  // attendee if they explicitly check their own name here.
-  const ordered = [...users].sort((a, b) =>
-    a.id === currentUserId ? -1 : b.id === currentUserId ? 1 : 0,
-  );
+  // The organizer is listed first, then all selected participants, followed by remaining users.
+  const ordered = [...users].sort((a, b) => {
+    if (a.id === currentUserId) return -1;
+    if (b.id === currentUserId) return 1;
+    const aSel = selectedIds.includes(a.id);
+    const bSel = selectedIds.includes(b.id);
+    if (aSel && !bSel) return -1;
+    if (!aSel && bSel) return 1;
+    return (a.name || a.email).localeCompare(b.name || b.email);
+  });
 
   const filtered = ordered.filter((u) => {
     const q = searchQuery.trim().toLowerCase();
@@ -65,29 +71,41 @@ export function ParticipantPicker({ users, currentUserId, selectedIds, onChange 
             {searchQuery ? "No participants match your search." : "No other users to invite."}
           </p>
         ) : (
-          filtered.map((u) => (
-            <label
-              key={u.id}
-              className="flex cursor-pointer items-center justify-between px-3 py-2 text-xs transition-colors hover:bg-accent/50 select-none"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <input
-                  type="checkbox"
-                  value={u.id}
-                  checked={selectedIds.includes(u.id)}
-                  onChange={() => toggle(u.id)}
-                  className="rounded border-input text-primary focus:ring-primary accent-primary shrink-0 cursor-pointer"
-                />
-                <span className="font-semibold text-foreground truncate">
-                  {u.name ?? u.email.split("@")[0]}
-                  {u.id === currentUserId ? " (You)" : ""}
-                </span>
-                <span className="text-muted-foreground text-xs truncate">
-                  ({u.email})
-                </span>
-              </div>
-            </label>
-          ))
+          filtered.map((u) => {
+            const isSelected = selectedIds.includes(u.id);
+            return (
+              <label
+                key={u.id}
+                className={cn(
+                  "flex cursor-pointer items-center justify-between px-3 py-2 text-xs transition-colors select-none",
+                  isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-accent/50",
+                )}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <input
+                    type="checkbox"
+                    value={u.id}
+                    checked={isSelected}
+                    onChange={() => toggle(u.id)}
+                    className="rounded border-input text-primary focus:ring-primary accent-primary shrink-0 cursor-pointer"
+                  />
+                  <span className={cn("truncate", isSelected ? "font-bold text-primary" : "font-semibold text-foreground")}>
+                    {u.name ?? u.email.split("@")[0]}
+                    {u.id === currentUserId ? " (You)" : ""}
+                  </span>
+                  <span className="text-muted-foreground text-xs truncate">
+                    ({u.email})
+                  </span>
+                </div>
+                {isSelected && (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10">
+                    <Check size={10} />
+                    Selected
+                  </span>
+                )}
+              </label>
+            );
+          })
         )}
       </div>
     </div>

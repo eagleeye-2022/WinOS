@@ -4,7 +4,6 @@ import React, { useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
-  CalendarDays,
   Check,
   ChevronDown,
   Copy,
@@ -22,13 +21,14 @@ import { toast } from "@/components/shared/toast";
 import { cn } from "@/lib/utils";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { TimerWidget } from "./timer-widget";
+import { TaskCardDueDate } from "./task-card-due-date";
 import { taskOwnerPeople } from "../utils/task-owner-people";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { deleteTaskAction, duplicateTaskAction, updateTaskAction } from "../actions/project-actions";
 import { PROJECT_TASK_STATUSES, getTaskStatusPillClasses, isTaskDone, type TaskItem, type TaskStatus } from "../types";
 
 type SidebarUser = { id: string; name: string; email: string; role: "ADMIN" | "TEAM_MEMBER" } | null;
-type CardChanges = { status?: TaskStatus; phaseCode?: string; phaseName?: string };
+type CardChanges = { status?: TaskStatus; phaseCode?: string; phaseName?: string; dueDate?: string };
 
 /**
  * Task page sidebar: the open task's card — the project board's card (code, status select,
@@ -116,6 +116,7 @@ export function TaskSidebarTree({
     const previous: CardChanges = {
       ...(changes.status && { status: item.status }),
       ...(changes.phaseCode && { phaseCode: item.phaseCode, phaseName: item.phaseName }),
+      ...(changes.dueDate !== undefined && { dueDate: item.dueDate }),
     };
     setTasks(apply(changes));
     try {
@@ -411,11 +412,12 @@ export function TaskSidebarTree({
             </div>
 
             <div className="flex items-center gap-1.5">
-              {item.dueDate && item.dueDate !== "--" && (
-                <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground" title={`Due ${item.dueDate}`}>
-                  <CalendarDays size={12} /> {item.dueDate}
-                </span>
-              )}
+              <TaskCardDueDate
+                dueDate={item.dueDate}
+                canEdit={canEdit}
+                disabledReason={lockedReason}
+                onChange={(dueDate) => saveCard(item, { dueDate })}
+              />
               <span
                 className="flex shrink-0 items-center rounded-full"
                 title={`Owners: ${(item.owners && item.owners.length > 0 ? item.owners : [item.owner || "Unassigned"]).join(", ")}`}

@@ -51,11 +51,34 @@ function cleanRefs(refs: unknown): { id: string; name: string }[] {
   return [...byId.values()];
 }
 
-/** Trims titles and drops blank subtasks, along with anything under them. */
+/** Trims titles and drops blank subtasks, preserving descriptions, statuses, and SOP checklists. */
 function cleanSubtasks(subtasks: SOPSubtaskSeed[]): SOPSubtaskSeed[] {
   return subtasks.flatMap((subtask) => {
     const title = (subtaskTitle(subtask) || "").trim();
-    return title ? [makeSubtask(title, cleanSubtasks(subtaskChildren(subtask)))] : [];
+    if (!title) return [];
+    const children = cleanSubtasks(subtaskChildren(subtask));
+    const isObj = typeof subtask === "object" && subtask !== null;
+    const description = isObj && subtask.description ? subtask.description.trim() || undefined : undefined;
+    const status = isObj && subtask.status && TEMPLATE_STATUSES.includes(subtask.status) ? subtask.status : undefined;
+    const sopChecklists = isObj ? cleanRefs(subtask.sopChecklists) : [];
+    const defaultOwners = isObj ? cleanRefs(subtask.defaultOwners) : [];
+    const startDate = isObj && typeof subtask.startDate === "string" ? subtask.startDate : undefined;
+    const dueDate = isObj && typeof subtask.dueDate === "string" ? subtask.dueDate : undefined;
+    const priority = isObj && subtask.priority && TEMPLATE_PRIORITIES.includes(subtask.priority) ? subtask.priority : undefined;
+    const duration = isObj && typeof subtask.duration === "string" ? subtask.duration : undefined;
+
+    return [
+      makeSubtask(title, children, {
+        description,
+        status,
+        sopChecklists: sopChecklists.length > 0 ? sopChecklists : undefined,
+        defaultOwners: defaultOwners.length > 0 ? defaultOwners : undefined,
+        startDate,
+        dueDate,
+        priority,
+        duration,
+      }),
+    ];
   });
 }
 
@@ -217,7 +240,7 @@ export function moveTemplateSubtask(
   }));
 }
 
-/** Every subtask at any depth, in order, with its code and depth (0 = directly under the task). */
+/** Every subtask at any depth, in order, with its code and how deep it sits. */
 export function flattenSubtasks(
   subtasks: SOPSubtaskSeed[],
   parentCode: string,
@@ -230,6 +253,205 @@ export function flattenSubtasks(
       ...flattenSubtasks(subtaskChildren(subtask), code, depth + 1),
     ];
   });
+}
+
+export interface FlattenedSubtaskTreeItem {
+  code: string;
+  title: string;
+  depth: number;
+  path: number[];
+  seed: SOPSubtaskSeed;
+}
+
+/** Every subtask at any depth, in order, with its code, depth, numeric path, and seed. */
+export function flattenSubtasksTree(
+  subtasks: SOPSubtaskSeed[],
+  parentCode: string,
+  parentPath: number[] = [],
+  depth = 0
+): FlattenedSubtaskTreeItem[] {
+  return subtasks.flatMap((subtask, index) => {
+    const code = `${parentCode}.${index + 1}`;
+    const path = [...parentPath, index];
+    return [
+      { code, title: subtaskTitle(subtask), depth, path, seed: subtask },
+      ...flattenSubtasksTree(subtaskChildren(subtask), code, path, depth + 1),
+    ];
+  });
+}
+
+export function getSubtaskAtPath(
+  subtasks: SOPSubtaskSeed[],
+  path: number[]
+): SOPSubtaskSeed | undefined {
+  if (path.length === 0) return undefined;
+  let current: SOPSubtaskSeed | undefined = subtasks[path[0]];
+  for (let i = 1; i < path.length; i++) {
+    if (!current) return undefined;
+    const children = subtaskChildren(current);
+    current = children[path[i]];
+  }
+  return current;
+}
+
+export function updateSubtaskAtPath(
+  subtasks: SOPSubtaskSeed[],
+  path: number[],
+  updater: (subtask: SOPSubtaskSeed) => SOPSubtaskSeed
+): SOPSubtaskSeed[] {
+  if (path.length === 0) return subtasks;
+  const [index, ...rest] = path;
+  return subtasks.map((s, i) => {
+    if (i !== index) return s;
+    if (rest.length === 0) {
+      return updater(s);
+    }
+    const children = subtaskChildren(s);
+    const updatedChildren = updateSubtaskAtPath(children, rest, updater);
+    const title = subtaskTitle(s);
+    const extra = typeof s === "object" && s !== null ? {
+      description: s.description,
+      status: s.status,
+      sopChecklists: s.sopChecklists,
+      defaultOwners: s.defaultOwners,
+      startDate: s.startDate,
+      dueDate: s.dueDate,
+      priority: s.priority,
+      duration: s.duration,
+    } : undefined;
+    return makeSubtask(title, updatedChildren, extra);
+  });
+}
+
+export function deleteSubtaskAtPath(
+  subtasks: SOPSubtaskSeed[],
+  path: number[]
+): SOPSubtaskSeed[] {
+  if (path.length === 0) return subtasks;
+  if (path.length === 1) {
+    return subtasks.filter((_, i) => i !== path[0]);
+  }
+  const [index, ...rest] = path;
+  return subtasks.map((s, i) => {
+    if (i !== index) return s;
+    const children = subtaskChildren(s);
+    const updatedChildren = deleteSubtaskAtPath(children, rest);
+    const title = subtaskTitle(s);
+    const extra = typeof s === "object" && s !== null ? {
+      description: s.description,
+      status: s.status,
+      sopChecklists: s.sopChecklists,
+      defaultOwners: s.defaultOwners,
+      startDate: s.startDate,
+      dueDate: s.dueDate,
+      priority: s.priority,
+      duration: s.duration,
+    } : undefined;
+    return makeSubtask(title, updatedChildren, extra);
+  });
+}
+
+export function duplicateSubtaskAtPath(
+  subtasks: SOPSubtaskSeed[],
+  path: number[]
+): SOPSubtaskSeed[] {
+  if (path.length === 0) return subtasks;
+  if (path.length === 1) {
+    const target = subtasks[path[0]];
+    if (!target) return subtasks;
+    const cloned = JSON.parse(JSON.stringify(target));
+    if (typeof cloned === "string") {
+      return [...subtasks.slice(0, path[0] + 1), `${cloned} (Copy)`, ...subtasks.slice(path[0] + 1)];
+    } else {
+      cloned.title = `${subtaskTitle(cloned)} (Copy)`;
+      return [...subtasks.slice(0, path[0] + 1), cloned, ...subtasks.slice(path[0] + 1)];
+    }
+  }
+  const [index, ...rest] = path;
+  return subtasks.map((s, i) => {
+    if (i !== index) return s;
+    const children = subtaskChildren(s);
+    const updatedChildren = duplicateSubtaskAtPath(children, rest);
+    const title = subtaskTitle(s);
+    const extra = typeof s === "object" && s !== null ? {
+      description: s.description,
+      status: s.status,
+      sopChecklists: s.sopChecklists,
+      defaultOwners: s.defaultOwners,
+      startDate: s.startDate,
+      dueDate: s.dueDate,
+      priority: s.priority,
+      duration: s.duration,
+    } : undefined;
+    return makeSubtask(title, updatedChildren, extra);
+  });
+}
+
+export function updateTaskOrSubtask(
+  task: SOPTaskSeed,
+  subtaskPath: number[] | undefined,
+  patch: Partial<SOPTaskSeed>
+): SOPTaskSeed {
+  if (!subtaskPath || subtaskPath.length === 0) {
+    return { ...task, ...patch };
+  }
+  const updatedSubtasks = updateSubtaskAtPath(task.subtasks ?? [], subtaskPath, (subtask) => {
+    const currentTitle = patch.title !== undefined ? patch.title : subtaskTitle(subtask);
+    const currentChildren = patch.subtasks !== undefined ? patch.subtasks : subtaskChildren(subtask);
+    const isObj = typeof subtask === "object" && subtask !== null;
+    const currentDesc = patch.description !== undefined ? patch.description : (isObj ? subtask.description : undefined);
+    const currentStatus = patch.status !== undefined ? patch.status : (isObj ? subtask.status : undefined);
+    const currentSops = patch.sopChecklists !== undefined ? patch.sopChecklists : (isObj ? subtask.sopChecklists : undefined);
+    const currentOwners = patch.defaultOwners !== undefined ? patch.defaultOwners : (isObj ? subtask.defaultOwners : undefined);
+    const currentStartDate = patch.startDate !== undefined ? patch.startDate : (isObj ? subtask.startDate : undefined);
+    const currentDueDate = patch.dueDate !== undefined ? patch.dueDate : (isObj ? subtask.dueDate : undefined);
+    const currentPriority = patch.priority !== undefined ? patch.priority : (isObj ? subtask.priority : undefined);
+    const currentDuration = patch.duration !== undefined ? patch.duration : (isObj ? subtask.duration : undefined);
+
+    return makeSubtask(currentTitle, currentChildren, {
+      description: currentDesc,
+      status: currentStatus,
+      sopChecklists: currentSops,
+      defaultOwners: currentOwners,
+      startDate: currentStartDate,
+      dueDate: currentDueDate,
+      priority: currentPriority,
+      duration: currentDuration,
+    });
+  });
+  return {
+    ...task,
+    subtasks: updatedSubtasks,
+  };
+}
+
+export function getSubtaskBreadcrumbs(
+  rootTask: SOPTaskSeed,
+  rootCode: string,
+  path: number[]
+): { code: string; title: string; path: number[] }[] {
+  const breadcrumbs: { code: string; title: string; path: number[] }[] = [
+    { code: rootCode, title: rootTask.title, path: [] },
+  ];
+  let currentChildren = rootTask.subtasks ?? [];
+  let currentCode = rootCode;
+  const currentPath: number[] = [];
+
+  for (let i = 0; i < path.length; i++) {
+    const idx = path[i];
+    const subtask = currentChildren[idx];
+    if (!subtask) break;
+    currentCode = `${currentCode}.${idx + 1}`;
+    currentPath.push(idx);
+    breadcrumbs.push({
+      code: currentCode,
+      title: subtaskTitle(subtask),
+      path: [...currentPath],
+    });
+    currentChildren = subtaskChildren(subtask);
+  }
+
+  return breadcrumbs;
 }
 
 /**

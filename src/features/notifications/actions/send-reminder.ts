@@ -26,7 +26,7 @@ const REMINDER_CONTENT: Record<ReminderKind, { type: string; title: string; mess
   report: {
     type: "REPORT_REMINDER",
     title: "End-of-Day Report Reminder",
-    message: `Hey! You haven't submitted your end-of-day report yet. Record today's work in Zoho Cliq, paste the link in Reporting and submit before the ${formatCutoffLabel(getReportCutoff(), getReportCutoffDayOffset())} cut-off.`,
+    message: `Hey! You haven't submitted your end-of-day report yet. Record today's work in Zoho Cliq, paste the link in Daily Progress Report and submit before the ${formatCutoffLabel(getReportCutoff(), getReportCutoffDayOffset())} cut-off.`,
   },
 };
 

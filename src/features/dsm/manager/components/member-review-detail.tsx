@@ -1991,7 +1991,7 @@ function SummaryTaskRow({
   if (editing) {
     return (
       <tr className="border-b bg-muted/20">
-        <td colSpan={8} className="p-2">
+        <td colSpan={9} className="p-2">
           <SummaryTaskEditor task={task} isDone={done} entryId={entryId} kind={kind} cascadingProjects={cascadingProjects} onDone={() => setEditing(false)} />
         </td>
       </tr>
@@ -2053,6 +2053,9 @@ function SummaryTaskRow({
       </td>
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         <PriorityBadge priority={task.managerPriority ?? task.priority} />
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
+        <DueDateCell dueDate={task.dueDate} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
         <EffortSpanCell span={effortSpan} />
@@ -2126,7 +2129,7 @@ function SummaryTaskRow({
         </div>
       </td>
     </tr>
-    {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={8} />}
+    {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={9} />}
     </>
   );
 }
@@ -2226,6 +2229,9 @@ function LoggedSummaryRow({
         <PriorityBadge priority={null} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
+        <DueDateCell dueDate={task.dueDate} />
+      </td>
+      <td className="py-2 pr-3 align-top whitespace-nowrap">
         <EffortSpanCell span={formatEffortSpan(task.effortFrom, task.effortTo)} />
       </td>
       <td className="py-2 pr-3 align-top whitespace-nowrap">
@@ -2239,7 +2245,7 @@ function LoggedSummaryRow({
         </div>
       </td>
     </tr>
-    {detailOpen && <TaskDetailRow taskId={task.taskId} colSpan={8} />}
+    {detailOpen && <TaskDetailRow taskId={task.taskId} colSpan={9} />}
     </>
   );
 }
@@ -2401,7 +2407,7 @@ function YesterdayTasksSection({
 
       {totalCount > 0 ? (
         <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
-          <table className={cn(STICKY_PROJECT_COL_2, "w-full min-w-[640px] text-left")}>
+          <table className={cn(STICKY_PROJECT_COL_2, "w-full min-w-[720px] text-left")}>
             <thead>
               <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="w-10 py-2 pr-2">Done</th>
@@ -2409,6 +2415,7 @@ function YesterdayTasksSection({
                 <th className="py-2 pr-3">Task ID</th>
                 <th className="py-2 pr-3">Task / Subtask</th>
                 <th className="w-20 py-2 pr-3">Priority</th>
+                <th className="py-2 pr-3">Due Date</th>
                 <th className="py-2 pr-3">Effort Time</th>
                 <th className="py-2 pr-3">Effort Logs</th>
                 <th className="py-2 pr-2 text-center">Action</th>

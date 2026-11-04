@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
 import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
+import { effectiveDsmDueDate, projectDueDateToDate } from "@/lib/task-due-date";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { DELETED_TASK_LIST_STATUS, isTaskDone } from "@/features/projects/types";
 import { decodeDescriptionWithTimePeriod } from "@/features/projects/utils/time-helpers";
@@ -15,7 +16,6 @@ import {
   LEARNING_PROJECT_CATEGORY,
   NOT_LEARNING_PROJECT,
   WHYFI_PROJECT_LABEL,
-  WHYFI_SHORT_LABEL,
   effortProjectLabel,
 } from "@/features/whyfi/constants";
 
@@ -411,6 +411,8 @@ export type YesterdayTaskItem = {
   /** Effort time that day — first start / last stop of its logs ("10:05 AM"), null when unknown. */
   effortFrom: string | null;
   effortTo: string | null;
+  /** Due date of the task (or its linked project task). */
+  dueDate: Date | string | null;
 };
 
 /** A task the member logged time on that day that wasn't one of the day's DSM tasks (e.g. WhyFi School). */
@@ -428,6 +430,8 @@ export type YesterdayLoggedTask = {
   /** Effort time that day — first start / last stop of its logs ("10:05 AM"), null when unknown. */
   effortFrom: string | null;
   effortTo: string | null;
+  /** Due date of the project task. */
+  dueDate: Date | string | null;
 };
 
 /**
@@ -448,15 +452,16 @@ export async function getLoggedTasksOutsideDsm(
       taskId: row.taskId,
       code: row.task!.code,
       title: row.task!.title,
-      // WhyFi School tasks read "WFS" in the Project column (getDayEffort labels them "WhyFi School").
+      // WhyFi School tasks read "WhyFi School" in the Project column (getDayEffort labels them "WhyFi School").
       projectLabel:
-        row.task!.project?.name === WHYFI_PROJECT_LABEL ? WHYFI_SHORT_LABEL : row.task!.project?.name ?? "Project",
+        row.task!.project?.name === WHYFI_PROJECT_LABEL ? WHYFI_PROJECT_LABEL : row.task!.project?.name ?? "Project",
       projectId: row.task!.project?.id ?? null,
       status: row.task!.status ?? "Open",
       isDone: isTaskDone(row.task!.status),
       minutes: row.minutes,
       effortFrom: spans[row.taskId]?.firstStart ?? null,
       effortTo: spans[row.taskId]?.lastStop ?? null,
+      dueDate: row.task?.dueDate ? projectDueDateToDate(row.task.dueDate) : null,
     }));
 }
 
@@ -491,7 +496,16 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
       tasks: {
         where: { kind: "TODAY" },
         orderBy: { order: "asc" },
-        select: { id: true, text: true, isCompleted: true, priority: true, projectTaskId: true, projectId: true, projectTask: { select: { code: true, projectId: true } } },
+        select: {
+          id: true,
+          text: true,
+          isCompleted: true,
+          priority: true,
+          projectTaskId: true,
+          projectId: true,
+          dueDate: true,
+          projectTask: { select: { code: true, projectId: true, dueDate: true } },
+        },
       },
     },
     orderBy: { date: "desc" },
@@ -515,7 +529,16 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
     date: dateStr,
     loggedTasks,
     tasks: entry.tasks.map(
-      (t: { id: string; text: string; isCompleted: boolean; priority: string | null; projectTaskId: string | null; projectId: string | null; projectTask: { code: string; projectId: string | null } | null }) => ({
+      (t: {
+        id: string;
+        text: string;
+        isCompleted: boolean;
+        priority: string | null;
+        projectTaskId: string | null;
+        projectId: string | null;
+        dueDate: Date | null;
+        projectTask: { code: string; projectId: string | null; dueDate?: string | null } | null;
+      }) => ({
         id: t.id,
         text: t.text,
         isCompleted: isYesterdayTaskDone(t, dsrDone),
@@ -527,6 +550,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
         loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
         effortFrom: t.projectTaskId ? effort[t.projectTaskId]?.firstStart ?? null : null,
         effortTo: t.projectTaskId ? effort[t.projectTaskId]?.lastStop ?? null : null,
+        dueDate: effectiveDsmDueDate(t.dueDate, t.projectTask?.dueDate),
       })
     ),
   };
@@ -1330,7 +1354,7 @@ function logMatchesDay(logDate: Date, dStr: string): boolean {
 export type DayEffortRow = {
   taskId: string;
   minutes: number;
-  task: { code: string; title: string; status?: string; project: { id: string; name: string } | null } | null;
+  task: { code: string; title: string; status?: string; dueDate?: string | null; project: { id: string; name: string } | null } | null;
 };
 
 /**
@@ -1364,7 +1388,7 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
       duration: true,
       date: true,
       task: {
-        select: { code: true, title: true, status: true, project: { select: { id: true, name: true, projectCategory: true } } },
+        select: { code: true, title: true, status: true, dueDate: true, project: { select: { id: true, name: true, projectCategory: true } } },
       },
     },
   });
@@ -1378,6 +1402,7 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
           code: log.task.code,
           title: log.task.title,
           status: log.task.status,
+          dueDate: log.task.dueDate,
           project: log.task.project
             ? {
                 id: log.task.project.id,

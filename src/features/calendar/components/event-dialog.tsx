@@ -24,7 +24,14 @@ import { ParticipantPicker } from "./participant-picker";
 import { EventDateTimePicker } from "./event-date-time-picker";
 import { EventDetailPopover } from "./event-detail-popover";
 import { RecurrencePicker } from "./recurrence-picker";
-import { toDateTimeLocalValue, toTitleCase, validateEventDateTime } from "../utils";
+import {
+  toDateTimeLocalValue,
+  toTitleCase,
+  validateEventDateTime,
+  extractMentionsFromText,
+  reconcileMentionParticipants,
+} from "../utils";
+import { MentionInput } from "@/components/shared/mention-input";
 import { localWeekday, withLocalWeekday, type RecurrenceRule } from "../recurrence";
 import type { CalendarEventView } from "../queries";
 
@@ -102,7 +109,9 @@ export function EventDialog({
 
   // Local Form UI States matching mockups
   const [meetingType, setMeetingType] = useState<"face-to-face" | "online">("online");
-  const [title, setTitle] = useState(event?.title ?? defaultTitle ?? "");
+  const initialTitle = event?.title ?? defaultTitle ?? "";
+  const [title, setTitle] = useState(initialTitle);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [start, setStart] = useState<Date>(() => {
     if (event?.start) return event.start;
     if (defaultStart) return defaultStart;
@@ -171,12 +180,40 @@ export function EventDialog({
   const [tempCoHost, setTempCoHost] = useState("");
   const [tempSpeaker, setTempSpeaker] = useState("");
 
-  const initialParticipantIds = defaultParticipantIds && defaultParticipantIds.length > 0
-    ? defaultParticipantIds
-    : internalUsers
-      .filter((u) => event?.attendees.some((a) => a.email === u.email))
-      .map((u) => u.id);
+  const initialTitleMentions = extractMentionsFromText(initialTitle, internalUsers);
+
+  const initialParticipantIds = Array.from(
+    new Set([
+      ...(defaultParticipantIds && defaultParticipantIds.length > 0
+        ? defaultParticipantIds
+        : internalUsers
+            .filter((u) => event?.attendees.some((a) => a.email === u.email))
+            .map((u) => u.id)),
+      ...initialTitleMentions,
+    ]),
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>(initialParticipantIds);
+  const prevMentionedIdsRef = useRef<Set<string>>(new Set(initialTitleMentions));
+
+  function handleMentionsChange(newTitle: string, chipMentionIds: string[]) {
+    const typedMentionIds = extractMentionsFromText(newTitle, internalUsers);
+    const combinedMentionIds = Array.from(new Set([...chipMentionIds, ...typedMentionIds]));
+
+    setSelectedIds((currentSelected) => {
+      const { nextSelectedIds, nextMentionedIds } = reconcileMentionParticipants(
+        currentSelected,
+        prevMentionedIdsRef.current,
+        combinedMentionIds,
+      );
+      prevMentionedIdsRef.current = nextMentionedIds;
+      return nextSelectedIds;
+    });
+  }
+
+  function handleSelectMention(member: { id: string }) {
+    setSelectedIds((prev) => (prev.includes(member.id) ? prev : [...prev, member.id]));
+    prevMentionedIdsRef.current.add(member.id);
+  }
 
   const currentUser = internalUsers.find((u) => u.id === currentUserId);
   const userName = currentUser?.name || currentUser?.email || "mohit.thakre";
@@ -195,6 +232,13 @@ export function EventDialog({
   const isDateTimeValid = !dtErrors.start && !dtErrors.end;
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (!title.trim()) {
+      e.preventDefault();
+      setTitleError("Meeting name is required");
+      return;
+    }
+    setTitleError(null);
+
     if (!isDateTimeValid) {
       e.preventDefault();
       return;
@@ -344,6 +388,7 @@ export function EventDialog({
           onSubmit={handleFormSubmit}
           className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm"
         >
+          <input type="hidden" name="title" value={title} />
           <input type="hidden" name="start" value={toDateTimeLocalValue(start)} />
           <input type="hidden" name="end" value={toDateTimeLocalValue(end)} />
           <input type="hidden" name="meetingType" value={meetingType} />
@@ -406,20 +451,28 @@ export function EventDialog({
 
           {/* Title / Name */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-foreground">
-              Name <span className="text-destructive">*</span>
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Zylker Marketing Openhouse"
-              required
-              className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-foreground">
+                Name <span className="text-destructive">*</span>
+              </label>
+              <span className="text-[11px] text-muted-foreground">Type @ to mention and assign participants</span>
+            </div>
+            <MentionInput
+              key={effectiveEventId || "create-event-dialog"}
+              defaultValue={initialTitle}
+              defaultMentions={internalUsers.filter((u) => initialTitleMentions.includes(u.id))}
+              teamMembers={internalUsers}
+              placeholder="e.g. Sync with @Alex on project kickoff"
+              onSelectMention={handleSelectMention}
+              onChange={(val, mentionIds) => {
+                setTitle(val);
+                if (val.trim()) setTitleError(null);
+                handleMentionsChange(val, mentionIds);
+              }}
+              className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all min-h-[42px]"
             />
-            {state.errors?.title && (
-              <p className="text-xs text-destructive">{state.errors.title[0]}</p>
+            {(titleError || state.errors?.title) && (
+              <p className="text-xs text-destructive">{titleError || state.errors?.title?.[0]}</p>
             )}
           </div>
 
@@ -483,6 +536,39 @@ export function EventDialog({
           {/* Meeting Mode (Audio vs Video + Record option) */}
 
 
+          {/* Assign to Section */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Users size={14} className="text-primary" />
+                <span>Assign to</span>
+              </label>
+              {selectedIds.length > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                  <CheckCircle2 size={13} className="text-primary" />
+                  {selectedIds.length} participant{selectedIds.length === 1 ? "" : "s"} selected
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">0 participants selected</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 text-xs border-b border-border pb-1.5">
+              <span className="font-semibold text-primary border-b-2 border-primary pb-1">
+                Participants
+              </span>
+            </div>
+
+            <div className="pt-1">
+              <ParticipantPicker
+                users={internalUsers}
+                currentUserId={currentUserId}
+                selectedIds={selectedIds}
+                onChange={setSelectedIds}
+              />
+            </div>
+          </div>
+
           {/* Advanced Section Toggle */}
           <div className="border-t border-border pt-4 space-y-4">
             <button
@@ -490,67 +576,12 @@ export function EventDialog({
               onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
               className="flex items-center justify-between w-full text-xs font-semibold text-primary hover:underline"
             >
-              <span>Advanced</span>
+              <span>Advanced Options (Meeting Link)</span>
               {isAdvancedOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
             {isAdvancedOpen && (
               <div className="space-y-4 bg-muted/20 p-4 rounded-xl border border-border animate-in fade-in duration-150">
-                {/* Assign to: Participants | Conversation */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-medium text-foreground">
-                    Assign to
-                  </label>
-                  <div className="flex items-center gap-4 text-xs border-b border-border pb-2">
-                    <button
-                      type="button"
-                      onClick={() => setAssignToTab("participants")}
-                      className={`font-semibold transition-colors pb-1 border-b-2 ${assignToTab === "participants"
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                    >
-                      Participants
-                    </button>
-                    {/* <button
-                      type="button"
-                      onClick={() => setAssignToTab("conversation")}
-                      className={`font-semibold transition-colors pb-1 border-b-2 ${assignToTab === "conversation"
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                        }`}
-                    >
-                      Conversation
-                    </button> */}
-                  </div>
-
-                  {assignToTab === "participants" ? (
-                    <div className="space-y-2 pt-1">
-                      {/* <input
-                        type="email"
-                        value={participantEmail}
-                        onChange={(e) => setParticipantEmail(e.target.value)}
-                        placeholder="scott.fisher@eagleeyedigital.com"
-                        className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary"
-                      /> */}
-                      <ParticipantPicker
-                        users={internalUsers}
-                        currentUserId={currentUserId}
-                        selectedIds={selectedIds}
-                        onChange={setSelectedIds}
-                      />
-                    </div>
-                  ) : (
-                    <div className="pt-1">
-                      <input
-                        type="text"
-                        placeholder="Select channel or group conversation..."
-                        className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary"
-                      />
-                    </div>
-                  )}
-                </div>
-
                 {/* Link input */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-foreground">
@@ -564,49 +595,6 @@ export function EventDialog({
                     className="w-full rounded-lg border border-input bg-background px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary"
                   />
                 </div>
-
-                {/* Alert Type */}
-                {/* <div className="space-y-2">
-                  <label className="block text-xs font-medium text-foreground">
-                    Alert Type
-                  </label>
-                  <div className="flex items-center gap-5 text-xs text-foreground">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="alertType"
-                        checked={alertType === "none"}
-                        onChange={() => setAlertType("none")}
-                        className="text-primary bg-background border-input focus:ring-primary"
-                      />
-                      <span>None</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="alertType"
-                        checked={alertType === "remind"}
-                        onChange={() => setAlertType("remind")}
-                        className="text-primary bg-background border-input focus:ring-primary"
-                      />
-                      <span>Remind me</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="alertType"
-                        checked={alertType === "zia"}
-                        onChange={() => setAlertType("zia")}
-                        className="text-primary bg-background border-input focus:ring-primary"
-                      />
-                      <span className="flex items-center gap-1 font-medium">
-                        Include Zia in your event
-                      </span>
-                    </label>
-                  </div>
-                </div> */}
               </div>
             )}
           </div>

@@ -48,8 +48,21 @@ export interface TaskList {
   phaseCode: string;
 }
 
-/** A template subtask: just its title, or an object when it has subtasks of its own. */
-export type SOPSubtaskSeed = string | { title: string; subtasks?: SOPSubtaskSeed[] };
+/** A template subtask: just its title, or an object when it has subtasks or details of its own. */
+export type SOPSubtaskSeed =
+  | string
+  | {
+      title: string;
+      subtasks?: SOPSubtaskSeed[];
+      description?: string;
+      status?: TaskStatus;
+      sopChecklists?: { id: string; name: string }[];
+      defaultOwners?: { id: string; name: string }[];
+      startDate?: string;
+      dueDate?: string;
+      priority?: ProjectPriority;
+      duration?: string;
+    };
 
 export const subtaskTitle = (subtask: SOPSubtaskSeed): string =>
   typeof subtask === "string" ? subtask : subtask.title;
@@ -57,8 +70,71 @@ export const subtaskTitle = (subtask: SOPSubtaskSeed): string =>
 export const subtaskChildren = (subtask: SOPSubtaskSeed): SOPSubtaskSeed[] =>
   typeof subtask === "string" ? [] : subtask.subtasks ?? [];
 
-export const makeSubtask = (title: string, children: SOPSubtaskSeed[] = []): SOPSubtaskSeed =>
-  children.length > 0 ? { title, subtasks: children } : title;
+export const subtaskDescription = (subtask: SOPSubtaskSeed): string | undefined =>
+  typeof subtask === "object" ? subtask.description : undefined;
+
+export const subtaskStatus = (subtask: SOPSubtaskSeed): TaskStatus | undefined =>
+  typeof subtask === "object" ? subtask.status : undefined;
+
+export const subtaskSops = (subtask: SOPSubtaskSeed): { id: string; name: string }[] =>
+  typeof subtask === "object" && subtask.sopChecklists ? subtask.sopChecklists : [];
+
+export const subtaskOwners = (subtask: SOPSubtaskSeed): { id: string; name: string }[] =>
+  typeof subtask === "object" && subtask.defaultOwners ? subtask.defaultOwners : [];
+
+export const subtaskStartDate = (subtask: SOPSubtaskSeed): string | undefined =>
+  typeof subtask === "object" ? subtask.startDate : undefined;
+
+export const subtaskDueDate = (subtask: SOPSubtaskSeed): string | undefined =>
+  typeof subtask === "object" ? subtask.dueDate : undefined;
+
+export const subtaskPriority = (subtask: SOPSubtaskSeed): ProjectPriority | undefined =>
+  typeof subtask === "object" ? subtask.priority : undefined;
+
+export const subtaskDuration = (subtask: SOPSubtaskSeed): string | undefined =>
+  typeof subtask === "object" ? subtask.duration : undefined;
+
+export const makeSubtask = (
+  title: string,
+  children: SOPSubtaskSeed[] = [],
+  extra?: {
+    description?: string;
+    status?: TaskStatus;
+    sopChecklists?: { id: string; name: string }[];
+    defaultOwners?: { id: string; name: string }[];
+    startDate?: string;
+    dueDate?: string;
+    priority?: ProjectPriority;
+    duration?: string;
+  }
+): SOPSubtaskSeed => {
+  const hasExtra =
+    children.length > 0 ||
+    Boolean(extra?.description) ||
+    Boolean(extra?.status) ||
+    Boolean(extra?.sopChecklists?.length) ||
+    Boolean(extra?.defaultOwners?.length) ||
+    Boolean(extra?.startDate) ||
+    Boolean(extra?.dueDate) ||
+    Boolean(extra?.priority) ||
+    Boolean(extra?.duration);
+
+  if (hasExtra) {
+    return {
+      title,
+      subtasks: children.length > 0 ? children : undefined,
+      ...(extra?.description ? { description: extra.description } : {}),
+      ...(extra?.status ? { status: extra.status } : {}),
+      ...(extra?.sopChecklists && extra.sopChecklists.length > 0 ? { sopChecklists: extra.sopChecklists } : {}),
+      ...(extra?.defaultOwners && extra.defaultOwners.length > 0 ? { defaultOwners: extra.defaultOwners } : {}),
+      ...(extra?.startDate ? { startDate: extra.startDate } : {}),
+      ...(extra?.dueDate ? { dueDate: extra.dueDate } : {}),
+      ...(extra?.priority ? { priority: extra.priority } : {}),
+      ...(extra?.duration ? { duration: extra.duration } : {}),
+    };
+  }
+  return title;
+};
 
 export interface SOPTaskSeed {
   title: string;
@@ -73,6 +149,8 @@ export interface SOPTaskSeed {
   /** Days after the project is created; no date when unset. */
   startInDays?: number;
   dueInDays?: number;
+  startDate?: string;
+  dueDate?: string;
   /** Owners and SOP checklists the task starts with. Names are kept so they show without a lookup. */
   defaultOwners?: { id: string; name: string }[];
   sopChecklists?: { id: string; name: string }[];

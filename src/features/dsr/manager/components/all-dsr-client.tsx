@@ -189,7 +189,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
       {/* Page Heading + Date Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Reporting</h1>
+          <h1 className="text-3xl font-bold tracking-tight">All Daily Progress Reports</h1>
           <p className="text-sm text-muted-foreground">
             Review end-of-day reports and recordings for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
           </p>
@@ -199,7 +199,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
             href="/report/my"
             className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow hover:opacity-90 transition-opacity"
           >
-            <Plus size={14} /> Submit My Reporting
+            <Plus size={14} /> Submit Report
           </Link>
 
           {/* Today Button */}

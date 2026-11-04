@@ -1297,8 +1297,21 @@ export function scaffoldTasksFromTemplate(
   let taskCounter = 1;
   const monthName = new Date().toLocaleString("en-US", { month: "long" });
   const withMonth = (s: string) => s.split(TEMPLATE_MONTH_PLACEHOLDER).join(monthName);
-  const subtaskWithMonth = (s: SOPSubtaskSeed): SOPSubtaskSeed =>
-    makeSubtask(withMonth(subtaskTitle(s)), subtaskChildren(s).map(subtaskWithMonth));
+  const subtaskWithMonth = (s: SOPSubtaskSeed): SOPSubtaskSeed => {
+    const isObj = typeof s === "object" && s !== null;
+    return makeSubtask(
+      withMonth(subtaskTitle(s)),
+      subtaskChildren(s).map(subtaskWithMonth),
+      isObj
+        ? {
+            description: s.description ? withMonth(s.description) : undefined,
+            status: s.status,
+            sopChecklists: s.sopChecklists,
+            defaultOwners: s.defaultOwners,
+          }
+        : undefined
+    );
+  };
   const ownerName = defaultOwnerName || "Unassigned";
   const ownersList = defaultOwnerName && defaultOwnerName !== "Unassigned" ? [defaultOwnerName] : [];
   const ownerIdsList = defaultOwnerId ? [defaultOwnerId] : [];
