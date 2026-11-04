@@ -1,9 +1,12 @@
+import { WHYFI_PROJECT_LABEL } from "@/features/whyfi/constants";
+
 /**
  * Project pill label (DSM project column): the part before the first ":" ("MGM : MalavGram" →
  * "MGM"); with no ":", the first 5 characters + "." when longer ("Kosmetics" → "Kosme.").
  */
 export function projectPillName(name: string | null | undefined): string {
   const full = (name || "").trim();
+  if (full === WHYFI_PROJECT_LABEL || full === "WFS") return WHYFI_PROJECT_LABEL;
   const idx = full.indexOf(":");
   const beforeColon = idx === -1 ? "" : full.slice(0, idx).trim();
   if (beforeColon) return beforeColon;

@@ -54,6 +54,8 @@ describe("sopDepartmentOf", () => {
 
   it("sopDepartmentFor prefers the saved department, keeping the list separate", () => {
     expect(sopDepartmentFor({ department: "Sales", category: "SEO", name: "X" })).toBe("Sales");
-    expect(sopDepartmentFor({ department: null, category: "SEO", name: "X" })).toBe("Marketing");
+    expect(sopDepartmentFor({ department: null, category: "SEO", name: "X" })).toBe("Operation/Marketing");
+    expect(sopDepartmentFor({ department: null, category: "Marketing", name: "X" })).toBe("Operation/Marketing");
+    expect(sopDepartmentFor({ department: "Marketing", category: "SEO", name: "X" })).toBe("Marketing");
   });
 });

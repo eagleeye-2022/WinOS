@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, Clock, Timer, Filter, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { projectPillName } from "@/features/projects/utils/project-name";
+import { WHYFI_PROJECT_LABEL } from "@/features/whyfi/constants";
 
 export type SortFilterOption = { value: string; label: string };
 
@@ -211,14 +212,23 @@ export function TaskIdChip({ code, title, href }: { code: string; title?: string
   );
 }
 
-/** Colored pill for a linked project's name. */
-export function ProjectPill({ name }: { name: string }) {
+/**
+ * Colored pill for a linked project's name — blue, or orange for a WhyFi School (learning) list
+ * (pass `whyfi`; a project labelled "WhyFi School" is recognised by name too).
+ */
+export function ProjectPill({ name, whyfi = false }: { name: string; whyfi?: boolean }) {
   // "MGM : MalavGram" → "MGM"; no ":" → first 5 chars + "." ("Kosmetics" → "Kosme.").
   const displayName = projectPillName(name);
+  const isWhyfi = whyfi || name === WHYFI_PROJECT_LABEL;
   return (
     <span
       title={name}
-      className="inline-flex shrink-0 items-center rounded-md border border-info/30 bg-info/10 px-2 py-0.5 text-xs font-medium text-info whitespace-nowrap"
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        isWhyfi
+          ? "border-orange-400/40 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+          : "border-info/30 bg-info/10 text-info"
+      )}
     >
       {displayName}
     </span>

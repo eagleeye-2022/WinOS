@@ -5,13 +5,16 @@ import {
   ArrowLeftToLine,
   ArrowRightLeft,
   ArrowRightToLine,
+  CalendarDays,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
   Copy,
   Eye,
+  Layers,
   ListTree,
   Loader2,
   MoreVertical,
@@ -35,15 +38,27 @@ import {
   getTaskStatusPillClasses,
   makeSubtask,
   subtaskChildren,
+  subtaskDescription,
+  subtaskDueDate,
+  subtaskDuration,
+  subtaskOwners,
+  subtaskPriority,
+  subtaskSops,
+  subtaskStartDate,
+  subtaskStatus,
   subtaskTitle,
 } from "../../types";
 import { TemplateTaskPage } from "./template-task-page";
 import { AvatarStack } from "@/components/shared/avatar-stack";
+import { TaskMultiOwnerSelect, type OwnerUserOption } from "../task-multi-owner-select";
+import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
 import {
   BUILT_IN_PROJECT_TEMPLATES,
   TEMPLATE_STATUSES,
   TemplateDraft,
   TemplatePhaseDraft,
+  deleteSubtaskAtPath,
+  duplicateSubtaskAtPath,
   isBuiltInTemplate,
   moveTemplateSubtask,
   moveTemplateTask,
@@ -51,6 +66,7 @@ import {
   newTemplatePhase,
   newTemplateTask,
   templateToDraft,
+  updateTaskOrSubtask,
 } from "../../template-utils";
 import {
   createProjectTemplateAction,
@@ -304,7 +320,7 @@ function TemplateBoard({
   const unsavedDraftJson = useRef<string | null>(null);
   const onAutoSavedRef = useRef(onAutoSaved);
   const [dragged, setDragged] = useState<{ phaseIndex: number; taskIndex: number } | null>(null);
-  const [editingTask, setEditingTask] = useState<{ phaseIndex: number; taskIndex: number } | null>(null);
+  const [editingTask, setEditingTask] = useState<{ phaseIndex: number; taskIndex: number; subtaskPath?: number[] } | null>(null);
   const [addingToPhase, setAddingToPhase] = useState<number | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isCreatingList, setIsCreatingList] = useState(false);
@@ -312,6 +328,15 @@ function TemplateBoard({
   const [renamingPhase, setRenamingPhase] = useState<number | null>(null);
   const [listMenuPhase, setListMenuPhase] = useState<number | null>(null);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<number>>(new Set());
+  // Ticked cards for the bulk bar, as "list:task" positions.
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [ownerOptions, setOwnerOptions] = useState<OwnerUserOption[]>([]);
+
+  useEffect(() => {
+    getAllUserOptionsAction()
+      .then((opts) => setOwnerOptions(opts.map((o) => ({ id: o.id, name: o.name, email: "" }))))
+      .catch(() => {});
+  }, []);
 
   const isNew = !templateId;
   // Used by the hidden template details strip below.
@@ -385,6 +410,10 @@ function TemplateBoard({
 
   const allCollapsed = draft.phases.length > 0 && draft.phases.every((_, i) => collapsedPhases.has(i));
 
+  // Selected cards are tracked by position, so any change to how many tasks each list holds clears them.
+  const taskLayout = draft.phases.map((p) => p.tasks.length).join(",");
+  useEffect(() => setSelectedTasks(new Set()), [taskLayout]);
+
   const updatePhase = (index: number, patch: Partial<TemplatePhaseDraft>) => {
     setDraft((prev) => ({
       ...prev,
@@ -401,6 +430,7 @@ function TemplateBoard({
 
   // Lists are tracked by position, so anything that shifts them closes the per-list UI.
   const resetListUi = () => {
+    setSelectedTasks(new Set());
     setCollapsedPhases(new Set());
     setAddingToPhase(null);
     setRenamingPhase(null);
@@ -460,8 +490,72 @@ function TemplateBoard({
     e.stopPropagation();
     if (dragged) {
       setDraft((prev) => ({ ...prev, phases: moveTemplateTask(prev.phases, dragged, { phaseIndex, taskIndex }) }));
+      setSelectedTasks(new Set());
     }
     setDragged(null);
+  };
+
+  const toggleSelected = (phaseIndex: number, taskIndex: number) => {
+    const key = `${phaseIndex}:${taskIndex}`;
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const allTaskKeys = draft.phases.flatMap((p, pi) => p.tasks.map((_, ti) => `${pi}:${ti}`));
+
+  const isSelectedKey = (pi: number, ti: number) => selectedTasks.has(`${pi}:${ti}`);
+
+  const bulkStatus = (status: TaskStatus) =>
+    setDraft((prev) => ({
+      ...prev,
+      phases: prev.phases.map((p, pi) => ({
+        ...p,
+        tasks: p.tasks.map((t, ti) =>
+          selectedTasks.has(`${pi}:${ti}`) ? { ...t, status: status === "Open" ? undefined : status } : t
+        ),
+      })),
+    }));
+
+  const bulkAddOwner = (name: string) =>
+    setDraft((prev) => ({
+      ...prev,
+      phases: prev.phases.map((p, pi) => ({
+        ...p,
+        tasks: p.tasks.map((t, ti) => {
+          if (!selectedTasks.has(`${pi}:${ti}`)) return t;
+          const owners = t.defaultOwners ?? [];
+          return owners.some((o) => o.name === name) ? t : { ...t, defaultOwners: [...owners, { id: name, name }] };
+        }),
+      })),
+    }));
+
+  const bulkDelete = () => {
+    setDraft((prev) => ({
+      ...prev,
+      phases: prev.phases.map((p, pi) => ({ ...p, tasks: p.tasks.filter((_, ti) => !selectedTasks.has(`${pi}:${ti}`)) })),
+    }));
+    setSelectedTasks(new Set());
+  };
+
+  const bulkMove = (target: number) => {
+    setDraft((prev) => {
+      const moved: SOPTaskSeed[] = [];
+      const phases = prev.phases.map((p, pi) => ({
+        ...p,
+        tasks: p.tasks.filter((t, ti) => {
+          if (!selectedTasks.has(`${pi}:${ti}`)) return true;
+          moved.push(t);
+          return false;
+        }),
+      }));
+      phases[target] = { ...phases[target], tasks: [...phases[target].tasks, ...moved] };
+      return { ...prev, phases };
+    });
+    setSelectedTasks(new Set());
   };
 
   const handleCreate = async () => {
@@ -514,7 +608,7 @@ function TemplateBoard({
   );
 
   if (task && editingTask) {
-    const { phaseIndex, taskIndex } = editingTask;
+    const { phaseIndex, taskIndex, subtaskPath } = editingTask;
     const firstTaskNumber = draft.phases.slice(0, phaseIndex).reduce((sum, p) => sum + p.tasks.length, 0);
     return (
       <TemplateTaskPage
@@ -524,10 +618,22 @@ function TemplateBoard({
         lists={draft.phases.map((p) => p.name)}
         phaseIndex={phaseIndex}
         canManage={canManage}
+        subtaskPath={subtaskPath}
+        onNavigateSubtask={(path) =>
+          setEditingTask({
+            phaseIndex,
+            taskIndex,
+            subtaskPath: path.length > 0 ? path : undefined,
+          })
+        }
         showCreate={isNew}
         isSaving={isSaving}
         saveStatus={saveStatus}
-        onChange={(patch) => updateTasks(phaseIndex, (tasks) => tasks.map((t, i) => (i === taskIndex ? { ...t, ...patch } : t)))}
+        onChange={(patch) =>
+          updateTasks(phaseIndex, (tasks) =>
+            tasks.map((t, i) => (i === taskIndex ? updateTaskOrSubtask(t, subtaskPath, patch) : t))
+          )
+        }
         onMoveToList={(target) => {
           if (target === phaseIndex) return;
           setDraft((prev) => ({
@@ -536,11 +642,57 @@ function TemplateBoard({
           }));
           setEditingTask({ phaseIndex: target, taskIndex: draft.phases[target].tasks.length });
         }}
-        onDelete={() => {
-          updateTasks(phaseIndex, (tasks) => tasks.filter((_, i) => i !== taskIndex));
-          setEditingTask(null);
+        onDuplicate={() => {
+          if (subtaskPath && subtaskPath.length > 0) {
+            const newSubtasks = duplicateSubtaskAtPath(task.subtasks ?? [], subtaskPath);
+            updateTasks(phaseIndex, (tasks) =>
+              tasks.map((t, i) => (i === taskIndex ? { ...t, subtasks: newSubtasks } : t))
+            );
+            toast.success("Subtask duplicated");
+          } else {
+            updateTasks(phaseIndex, (tasks) => {
+              const current = tasks[taskIndex];
+              if (!current) return tasks;
+              const cloned = JSON.parse(JSON.stringify(current));
+              cloned.title = `${cloned.title} (Copy)`;
+              return [
+                ...tasks.slice(0, taskIndex + 1),
+                cloned,
+                ...tasks.slice(taskIndex + 1),
+              ];
+            });
+            toast.success("Task duplicated");
+          }
         }}
-        onBack={() => setEditingTask(null)}
+        onDelete={() => {
+          if (subtaskPath && subtaskPath.length > 0) {
+            const newSubtasks = deleteSubtaskAtPath(task.subtasks ?? [], subtaskPath);
+            updateTasks(phaseIndex, (tasks) =>
+              tasks.map((t, i) => (i === taskIndex ? { ...t, subtasks: newSubtasks } : t))
+            );
+            const parentPath = subtaskPath.slice(0, -1);
+            setEditingTask({
+              phaseIndex,
+              taskIndex,
+              subtaskPath: parentPath.length > 0 ? parentPath : undefined,
+            });
+          } else {
+            updateTasks(phaseIndex, (tasks) => tasks.filter((_, i) => i !== taskIndex));
+            setEditingTask(null);
+          }
+        }}
+        onBack={() => {
+          if (subtaskPath && subtaskPath.length > 0) {
+            const parentPath = subtaskPath.slice(0, -1);
+            setEditingTask({
+              phaseIndex,
+              taskIndex,
+              subtaskPath: parentPath.length > 0 ? parentPath : undefined,
+            });
+          } else {
+            setEditingTask(null);
+          }
+        }}
         onCreate={handleCreate}
       />
     );
@@ -694,8 +846,142 @@ function TemplateBoard({
       </div>
       */}
 
+      {/* Bulk selection toolbar: shown only while cards are ticked, like the project board */}
+      {canManage && selectedTasks.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 px-6 py-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+          <label className="flex items-center gap-2 cursor-pointer select-none pr-1">
+            <input
+              type="checkbox"
+              checked={allTaskKeys.length > 0 && allTaskKeys.every((k) => selectedTasks.has(k))}
+              onChange={() =>
+                setSelectedTasks(allTaskKeys.every((k) => selectedTasks.has(k)) ? new Set() : new Set(allTaskKeys))
+              }
+              className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+              title="Select all"
+            />
+            <span className="text-xs font-bold text-primary whitespace-nowrap">{selectedTasks.size} selected</span>
+          </label>
+
+          <div className="h-4 w-px bg-primary/30 mx-1" />
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-primary/15 transition-colors cursor-pointer"
+              >
+                <ArrowRightLeft size={13} />
+                <span>Move</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="start"
+              className="w-52 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+            >
+              <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                Move to List
+              </p>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {draft.phases.map((p, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => bulkMove(index)}
+                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium text-foreground cursor-pointer truncate"
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-primary/15 transition-colors cursor-pointer"
+              >
+                <CheckCircle2 size={13} />
+                <span>Status</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="start"
+              className="w-40 p-1.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+            >
+              {TEMPLATE_STATUSES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => bulkStatus(s)}
+                  className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-accent text-xs font-medium text-foreground cursor-pointer"
+                >
+                  {s}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-primary/15 transition-colors cursor-pointer"
+              >
+                <UserIcon size={13} />
+                <span>Add Owner</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="start"
+              className="w-48 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+            >
+              <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
+                Assign Owner
+              </p>
+              <div className="max-h-48 overflow-y-auto space-y-0.5">
+                {ownerOptions.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => bulkAddOwner(u.name)}
+                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium text-foreground cursor-pointer truncate"
+                  >
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <button
+            type="button"
+            onClick={bulkDelete}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+          >
+            <Trash2 size={13} />
+            <span>Delete</span>
+          </button>
+
+          <div className="flex-1" />
+
+          <button
+            type="button"
+            onClick={() => setSelectedTasks(new Set())}
+            className="p-1.5 rounded-full text-primary hover:bg-primary/15 transition-colors cursor-pointer"
+            title="Clear selection"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Board toolbar */}
-      <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-2.5 bg-card relative gap-3">
         <button
           type="button"
           onClick={() => setCollapsedPhases(allCollapsed ? new Set() : new Set(draft.phases.map((_, i) => i)))}
@@ -735,7 +1021,7 @@ function TemplateBoard({
 
       {/* Board */}
       <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40">
-        <div className="flex gap-3.5 h-full items-stretch">
+        <div data-col-scope className="flex gap-3.5 h-full items-stretch">
           {draft.phases.map((phase, phaseIndex) => {
             // Same numbering a project's tasks get when it's created from the template.
             const firstTaskNumber = draft.phases.slice(0, phaseIndex).reduce((sum, p) => sum + p.tasks.length, 0);
@@ -770,11 +1056,15 @@ function TemplateBoard({
             return (
               <div
                 key={phaseIndex}
+                // Drag its right edge to resize (TableColumnResizer), never narrower than the minimum.
+                data-resizable-col
+                data-col-key={`template-list-${phaseIndex}`}
+                data-min-width={340}
                 className="w-[360px] min-w-[340px] shrink-0 rounded-2xl border border-slate-200/80 dark:border-neutral-800 bg-slate-100/70 dark:bg-neutral-900/40 p-3.5 flex flex-col h-full overflow-hidden shadow-2xs transition-all duration-200"
               >
                 {/* Column header */}
-                <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
-                  <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/60 dark:border-neutral-800">
+                  <div className="flex items-center gap-2 overflow-hidden">
                     {renamingPhase === phaseIndex ? (
                       <input
                         type="text"
@@ -787,14 +1077,14 @@ function TemplateBoard({
                           if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
                         }}
                         aria-label="Task list name"
-                        className="w-[220px] rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 font-extrabold text-xs uppercase tracking-wide text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary transition-all"
+                        className="w-[240px] rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 font-extrabold text-xs uppercase tracking-wide text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary transition-all"
                       />
                     ) : (
                       <span
                         onClick={() => canManage && setRenamingPhase(phaseIndex)}
                         title={canManage ? "Click to rename task list" : phase.name}
                         className={cn(
-                          "rounded-md px-1 -mx-1 font-extrabold text-xs uppercase text-foreground tracking-wide truncate transition-colors",
+                          "rounded-md px-1 -mx-1 font-extrabold text-xs text-foreground tracking-wide truncate max-w-[240px] transition-colors",
                           canManage && "cursor-text hover:bg-slate-200/60 dark:hover:bg-neutral-800/60"
                         )}
                       >
@@ -803,7 +1093,7 @@ function TemplateBoard({
                     )}
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => toggleCollapsed(phaseIndex)}
@@ -885,7 +1175,7 @@ function TemplateBoard({
                   onDrop={(e) => dropTask(e, phaseIndex)}
                 >
                   {addingToPhase === phaseIndex && (
-                    <div className="rounded-xl border border-border bg-card p-3 shadow-md space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="rounded-xl border border-slate-700/80 bg-[#16181d] p-3 shadow-md space-y-2.5 animate-in fade-in zoom-in-95 duration-150">
                       <textarea
                         autoFocus
                         rows={3}
@@ -901,15 +1191,15 @@ function TemplateBoard({
                         }}
                         placeholder="Enter task name..."
                         aria-label="New task name"
-                        className="w-full resize-y rounded-lg border border-input bg-background p-2.5 text-xs font-medium text-foreground outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground min-h-[70px]"
+                        className="w-full resize-y rounded-lg border border-neutral-700/80 bg-[#111216] p-2.5 text-xs font-medium text-white outline-none focus:ring-1 focus:ring-primary placeholder:text-neutral-500 min-h-[70px]"
                       />
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
-                        <span className="text-xs text-muted-foreground font-mono">↵ Enter to create</span>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-800">
+                        <span className="text-xs text-neutral-400 font-mono">↵ Enter to create</span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setAddingToPhase(null)}
-                            className="px-2.5 py-1 rounded text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                            className="px-2.5 py-1 rounded text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -948,10 +1238,14 @@ function TemplateBoard({
                         code={`T${String(firstTaskNumber + taskIndex + 1).padStart(2, "0")}`}
                         canManage={canManage}
                         isDragging={dragged?.phaseIndex === phaseIndex && dragged.taskIndex === taskIndex}
+                        isSelected={isSelectedKey(phaseIndex, taskIndex)}
+                        onToggleSelect={() => toggleSelected(phaseIndex, taskIndex)}
+                        ownerOptions={ownerOptions}
                         lists={draft.phases}
                         phaseIndex={phaseIndex}
                         taskIndex={taskIndex}
                         onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
+                        onOpenSubtask={(path) => setEditingTask({ phaseIndex, taskIndex, subtaskPath: path })}
                         onChange={(patch) =>
                           updateTasks(phaseIndex, (tasks) => tasks.map((x, i) => (i === taskIndex ? { ...x, ...patch } : x)))
                         }
@@ -999,9 +1293,12 @@ function TemplateBoard({
                 </button>
               </div>
             ) : (
-              <div className="w-[300px] shrink-0 rounded-2xl border border-slate-300 dark:border-neutral-700 bg-card p-4 flex flex-col h-full shadow-md space-y-3">
-                <div className="flex items-center justify-between border-b border-border pb-2.5">
-                  <span className="font-bold text-xs text-foreground">Create Task List</span>
+              <div className="w-[340px] shrink-0 rounded-2xl border border-slate-300 dark:border-neutral-700 bg-card dark:bg-[#16181d] p-4 flex flex-col h-full shadow-md transition-all duration-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
+                    <Layers size={14} className="text-primary" />
+                    <span>Create Task List</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -1014,32 +1311,74 @@ function TemplateBoard({
                     <X size={14} />
                   </button>
                 </div>
-                <input
-                  type="text"
-                  autoFocus
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addList();
-                    if (e.key === "Escape") setIsCreatingList(false);
-                  }}
-                  placeholder="Task list name"
-                  aria-label="New task list name"
-                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
-                />
-                <button
-                  type="button"
-                  disabled={!newListName.trim()}
-                  onClick={addList}
-                  className="flex w-full items-center justify-center gap-1 rounded-md bg-primary py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                >
-                  <Plus size={13} /> Create
-                </button>
+
+                <div className="space-y-2.5 text-xs">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Task List / Phase Name <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      autoFocus
+                      required
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      placeholder="e.g. POST LAUNCH, QA AUDIT"
+                      aria-label="New task list name"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newListName.trim()) {
+                          e.preventDefault();
+                          addList();
+                        } else if (e.key === "Escape") {
+                          setIsCreatingList(false);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingList(false);
+                      setNewListName("");
+                    }}
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!newListName.trim()}
+                    onClick={addList}
+                    className="flex items-center gap-1.5 rounded-md bg-primary hover:bg-primary/90 text-white px-3.5 py-1.5 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                  >
+                    <span>Create List</span>
+                  </button>
+                </div>
               </div>
             ))}
         </div>
       </div>
 
+      {/* Footer bar, as under the project board */}
+      <div className="shrink-0 flex items-center justify-between border-t border-border px-6 py-2.5 bg-card text-xs text-muted-foreground font-semibold shadow-2xs">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 px-3.5 py-1 text-sky-600 dark:text-sky-400 font-bold">
+          <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
+          <span>TEMPLATE: {draft.name.trim() || "NEW TEMPLATE"}</span>
+        </div>
+
+        <div className="flex items-center gap-5 text-xs">
+          <span>
+            TOTAL LISTS: <strong className="text-foreground">{draft.phases.length}</strong>
+          </span>
+          <span>
+            TOTAL COUNT: <strong className="text-foreground">{allTaskKeys.length} TASKS</strong>
+          </span>
+        </div>
+      </div>
     </>
   );
 }
@@ -1050,10 +1389,14 @@ function TemplateTaskCard({
   code,
   canManage,
   isDragging,
+  isSelected,
+  onToggleSelect,
+  ownerOptions,
   lists,
   phaseIndex,
   taskIndex,
   onOpen,
+  onOpenSubtask,
   onChange,
   onDuplicate,
   onDelete,
@@ -1068,10 +1411,14 @@ function TemplateTaskCard({
   code: string;
   canManage: boolean;
   isDragging: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  ownerOptions: OwnerUserOption[];
   lists: TemplatePhaseDraft[];
   phaseIndex: number;
   taskIndex: number;
   onOpen: () => void;
+  onOpenSubtask: (path: number[]) => void;
   onChange: (patch: Partial<SOPTaskSeed>) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -1103,15 +1450,32 @@ function TemplateTaskCard({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={cn(
-        "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all space-y-2.5 group",
-        "border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card cursor-pointer hover:border-primary/60 hover:shadow-md",
+        "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
         canManage && "cursor-grab active:cursor-grabbing",
-        isDragging && "opacity-40"
+        isDragging && "opacity-40",
+        isSelected
+          ? "border-primary/70 bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/40 shadow-md"
+          : "border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card hover:border-primary/60 hover:shadow-md"
       )}
     >
-      {/* Top row: code, status pill and actions */}
+      {/* Top row: select checkbox, code, status pill and actions */}
       <div className="flex items-center justify-between gap-3">
-        <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => {}}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canManage) onToggleSelect();
+            }}
+            disabled={!canManage}
+            title={canManage ? "Select task" : "Only managers can select tasks"}
+            className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 accent-primary cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+          />
+          <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
+        </div>
+        {/* The status pill shrinks (capped); the 👁 / ⋮ / move buttons never do. */}
         <div className="flex min-w-0 items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
           <div
             className={cn(
@@ -1295,18 +1659,23 @@ function TemplateTaskCard({
             </button>
           )}
         </div>
-        {owners.length > 0 ? (
-          <span title={`Starts with: ${owners.map((o) => o.name).join(", ")}`}>
-            <AvatarStack people={owners} />
-          </span>
-        ) : (
-          <span
-            title="Starts unassigned"
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
-          >
-            <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" aria-label="Unassigned" />
-          </span>
-        )}
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {/* Due date, left of the owner avatar */}
+          {task.dueDate && task.dueDate !== "--" && (
+            <span
+              className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
+              title={`Due ${task.dueDate}`}
+            >
+              <CalendarDays size={12} /> {task.dueDate}
+            </span>
+          )}
+          <TemplateOwnersPopover
+            owners={owners}
+            ownerOptions={ownerOptions}
+            canManage={canManage}
+            onChangeOwners={(next) => onChange({ defaultOwners: next })}
+          />
+        </div>
       </div>
 
       {/* Subtasks, nested under the task like on the project board */}
@@ -1316,11 +1685,12 @@ function TemplateTaskCard({
           parentCode={code}
           parentPath={[]}
           canManage={canManage}
+          ownerOptions={ownerOptions}
           lists={lists}
           task={{ phaseIndex, taskIndex }}
           isAdding={isAddingSubtask}
           onCloseAdd={() => setIsAddingSubtask(false)}
-          onOpen={onOpen}
+          onOpenSubtask={onOpenSubtask}
           onChange={(next) => onChange({ subtasks: next })}
           onAdd={(title) => onChange({ subtasks: [...subtasks, title] })}
           onMove={onMoveSubtask}
@@ -1330,17 +1700,72 @@ function TemplateTaskCard({
   );
 }
 
+/** The owner avatar(s) on a card; click to pick who the task starts with, as on the project board. */
+function TemplateOwnersPopover({
+  owners,
+  ownerOptions,
+  canManage,
+  onChangeOwners,
+}: {
+  owners: { id: string; name: string }[];
+  ownerOptions: OwnerUserOption[];
+  canManage: boolean;
+  onChangeOwners: (owners: { id: string; name: string }[]) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="flex shrink-0 items-center rounded-full hover:scale-105 transition-transform cursor-pointer"
+          title={`Owners: ${owners.length > 0 ? owners.map((o) => o.name).join(", ") : "Unassigned"}${
+            canManage ? " (Click to assign owners)" : ""
+          }`}
+        >
+          {owners.length === 0 ? (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700">
+              <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" aria-label="Unassigned" />
+            </span>
+          ) : (
+            <AvatarStack people={owners} />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <TaskMultiOwnerSelect
+          selectedOwners={owners.map((o) => o.name)}
+          disabled={!canManage}
+          onChangeOwners={(next) =>
+            onChangeOwners(
+              next.filter((n) => n && n.trim().toLowerCase() !== "unassigned").map((name) => ({ id: name, name }))
+            )
+          }
+          ownersList={ownerOptions}
+          listLabel="Project Users"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /** A task's or subtask's subtasks, on the project board's connector line, with their quick add. */
 function TemplateSubtaskList({
   subtasks,
   parentCode,
   parentPath,
   canManage,
+  ownerOptions,
   lists,
   task,
   isAdding,
   onCloseAdd,
-  onOpen,
+  onOpenSubtask,
   onChange,
   onAdd,
   onMove,
@@ -1349,11 +1774,12 @@ function TemplateSubtaskList({
   parentCode: string;
   parentPath: number[];
   canManage: boolean;
+  ownerOptions: OwnerUserOption[];
   lists: TemplatePhaseDraft[];
   task: { phaseIndex: number; taskIndex: number };
   isAdding: boolean;
   onCloseAdd: () => void;
-  onOpen: () => void;
+  onOpenSubtask: (path: number[]) => void;
   onChange: (subtasks: SOPSubtaskSeed[]) => void;
   onAdd: (title: string) => void;
   onMove: (subtaskPath: number[], target: { phaseIndex: number; taskIndex: number }) => void;
@@ -1380,9 +1806,10 @@ function TemplateSubtaskList({
             code={`${parentCode}.${index + 1}`}
             path={[...parentPath, index]}
             canManage={canManage}
+            ownerOptions={ownerOptions}
             lists={lists}
             task={task}
-            onOpen={onOpen}
+            onOpenSubtask={onOpenSubtask}
             onChange={(updated) => onChange(subtasks.map((s, i) => (i === index ? updated : s)))}
             onDuplicate={() => onChange([...subtasks.slice(0, index + 1), subtask, ...subtasks.slice(index + 1)])}
             onDelete={() => onChange(subtasks.filter((_, i) => i !== index))}
@@ -1423,9 +1850,10 @@ function TemplateSubtaskCard({
   code,
   path,
   canManage,
+  ownerOptions,
   lists,
   task,
-  onOpen,
+  onOpenSubtask,
   onChange,
   onDuplicate,
   onDelete,
@@ -1435,9 +1863,10 @@ function TemplateSubtaskCard({
   code: string;
   path: number[];
   canManage: boolean;
+  ownerOptions: OwnerUserOption[];
   lists: TemplatePhaseDraft[];
   task: { phaseIndex: number; taskIndex: number };
-  onOpen: () => void;
+  onOpenSubtask: (path: number[]) => void;
   onChange: (subtask: SOPSubtaskSeed) => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -1449,28 +1878,58 @@ function TemplateSubtaskCard({
   const [isAddingChild, setIsAddingChild] = useState(false);
   const title = subtaskTitle(subtask);
   const children = subtaskChildren(subtask);
-  const onRename = (renamed: string) => onChange(makeSubtask(renamed, children));
+  const status = subtaskStatus(subtask) ?? "Open";
+  const sops = subtaskSops(subtask);
+  const owners = subtaskOwners(subtask);
+  const dueDate = subtaskDueDate(subtask);
+  const extra = {
+    description: subtaskDescription(subtask),
+    status: subtaskStatus(subtask),
+    sopChecklists: sops,
+    defaultOwners: owners,
+    startDate: subtaskStartDate(subtask),
+    dueDate,
+    priority: subtaskPriority(subtask),
+    duration: subtaskDuration(subtask),
+  };
+
+  const onRename = (renamed: string) => onChange(makeSubtask(renamed, children, extra));
+  const onStatus = (next: TaskStatus) => onChange(makeSubtask(title, children, { ...extra, status: next === "Open" ? undefined : next }));
+  const onOwners = (next: { id: string; name: string }[]) => onChange(makeSubtask(title, children, { ...extra, defaultOwners: next }));
   // A nested subtask can move up to be directly under its own task; a direct one is already there.
   const isCurrentTask = (phaseIndex: number, taskIndex: number) =>
     path.length === 1 && phaseIndex === task.phaseIndex && taskIndex === task.taskIndex;
 
   return (
     <div
-      onClick={onOpen}
+      onClick={() => onOpenSubtask(path)}
       className="relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all space-y-2.5 group/subtask cursor-pointer border-slate-200/90 dark:border-neutral-800 bg-white dark:bg-card hover:border-primary/60 hover:shadow-md"
     >
       <div className="flex items-center justify-between gap-3">
         <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
         <div className="flex min-w-0 items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
-          <span
-            title="Subtasks start as Open"
+          <div
             className={cn(
-              "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-white shadow-2xs",
-              getTaskStatusPillClasses("Open")
+              "relative inline-flex min-w-0 max-w-[150px] shrink items-center rounded-md pl-2 pr-1 py-0.5 text-xs font-medium text-white transition-all shadow-2xs",
+              getTaskStatusPillClasses(status)
             )}
           >
-            Open
-          </span>
+            <select
+              value={status}
+              disabled={!canManage}
+              onChange={(e) => onStatus(e.target.value as TaskStatus)}
+              title={`Starts as: ${status}`}
+              aria-label="Status the subtask starts in"
+              className="appearance-none [field-sizing:content] min-w-0 max-w-full truncate bg-transparent pr-3.5 outline-none cursor-pointer font-medium text-white transition-all disabled:cursor-default text-xs"
+            >
+              {TEMPLATE_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-card text-foreground">
+                  {s}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={11} className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-white/90" />
+          </div>
           {canManage && (
             <Popover open={menu === "more"} onOpenChange={(open) => setMenu(open ? "more" : null)}>
               <PopoverTrigger asChild>
@@ -1566,13 +2025,20 @@ function TemplateSubtaskCard({
           >
             <Clock size={13} aria-hidden="true" />
           </span>
-          <ChecklistChip title="Subtasks start without an SOP" />
+          <ChecklistChip
+            summary={sops.length > 0 ? { done: 0, total: 0, requiredOpen: 0 } : undefined}
+            title={
+              sops.length > 0
+                ? `SOP attached in new projects: ${sops.map((s) => s.name).join(", ")}`
+                : "Subtasks start without an SOP"
+            }
+          />
           <button
             type="button"
-            onClick={onOpen}
+            onClick={() => onOpenSubtask(path)}
             className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-slate-400 hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10"
-            title="Open its task"
-            aria-label="Open its task"
+            title="Open subtask page"
+            aria-label="Open subtask page"
           >
             <Eye size={13} />
           </button>
@@ -1642,12 +2108,17 @@ function TemplateSubtaskCard({
             </button>
           )}
         </div>
-        <span
-          title="Starts unassigned"
-          className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700"
-        >
-          <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" aria-label="Unassigned" />
-        </span>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {dueDate && dueDate !== "--" && (
+            <span
+              className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
+              title={`Due ${dueDate}`}
+            >
+              <CalendarDays size={12} /> {dueDate}
+            </span>
+          )}
+          <TemplateOwnersPopover owners={owners} ownerOptions={ownerOptions} canManage={canManage} onChangeOwners={onOwners} />
+        </div>
       </div>
 
       {(isAddingChild || (showChildren && children.length > 0)) && (
@@ -1656,13 +2127,14 @@ function TemplateSubtaskCard({
           parentCode={code}
           parentPath={path}
           canManage={canManage}
+          ownerOptions={ownerOptions}
           lists={lists}
           task={task}
           isAdding={isAddingChild}
           onCloseAdd={() => setIsAddingChild(false)}
-          onOpen={onOpen}
-          onChange={(next) => onChange(makeSubtask(title, next))}
-          onAdd={(childTitle) => onChange(makeSubtask(title, [...children, childTitle]))}
+          onOpenSubtask={onOpenSubtask}
+          onChange={(next) => onChange(makeSubtask(title, next, extra))}
+          onAdd={(childTitle) => onChange(makeSubtask(title, [...children, childTitle], extra))}
           onMove={onMove}
         />
       )}

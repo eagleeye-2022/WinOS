@@ -758,6 +758,39 @@ export function SingleTaskWorkspaceView({
       .catch((err) => console.error("Failed to update subtask status in DB:", err));
   };
 
+  /** Subtasks table: pick a subtask's start or due date. Shown at once, saved, rolled back on failure. */
+  const handleSubtaskDateChange = async (st: TaskSubtask, field: "startDate" | "dueDate", isoDate: string) => {
+    if (!canEditTask) {
+      toast.warning("Only the task owner can edit this task.");
+      return;
+    }
+    const value = isoDate ? formatInputToDisplayDate(isoDate) : "--";
+    const previous = st[field] || "--";
+    if (value === previous) return;
+    const apply = (v: string) =>
+      setTasks((prev) =>
+        prev.map((t) => {
+          let next = t.id === activeTask.id ? { ...t, subtasks: subtasks } : t;
+          if ((next.subtasks || []).some((s) => s.id === st.id)) {
+            next = { ...next, subtasks: (next.subtasks || []).map((s) => (s.id === st.id ? { ...s, [field]: v } : s)) };
+          }
+          return t.id === st.id ? { ...next, [field]: v } : next;
+        })
+      );
+    apply(value);
+    try {
+      const result = await updateTaskAction(st.id, { [field]: value });
+      if (!result.success) {
+        apply(previous);
+        toast.error(result.error || "Couldn't save the date.");
+      }
+    } catch (err) {
+      console.error("Failed to update subtask date:", err);
+      apply(previous);
+      toast.error("Couldn't save the date.");
+    }
+  };
+
   const handleDeleteSubtask = async (id: string) => {
     const ok = await confirm({
       title: "Delete subtask?",
@@ -765,7 +798,8 @@ export function SingleTaskWorkspaceView({
     });
     if (!ok) return;
 
-    // Out of whichever task holds it (this one, or a subtask of it).
+    // Out of whichever task holds it (this one, or a subtask of it); put back if the delete is refused.
+    const before = tasks;
     setTasks((prev) =>
       prev.map((t) => {
         const list = t.id === activeTask.id ? subtasks : t.subtasks || [];
@@ -773,7 +807,17 @@ export function SingleTaskWorkspaceView({
       })
     );
 
-    deleteSubtaskAction(id).catch((err) => console.error("Failed to delete subtask in DB:", err));
+    deleteSubtaskAction(id)
+      .then((deleted) => {
+        if (deleted) return;
+        setTasks(before);
+        toast.error("You don't have permission to delete this subtask.");
+      })
+      .catch((err) => {
+        console.error("Failed to delete subtask in DB:", err);
+        setTasks(before);
+        toast.error("Couldn't delete the subtask. Please try again.");
+      });
   };
 
   const refreshComments = useCallback(async () => {
@@ -2151,12 +2195,24 @@ export function SingleTaskWorkspaceView({
                                   )}
                                 </select>
                               </td>
-                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-zinc-800 dark:text-zinc-400">
-                                {st.startDate || "--"}
-                              </td>
-                              <td className="py-2 px-3 border-r border-border text-muted-foreground dark:border-zinc-800 dark:text-zinc-400">
-                                {st.dueDate || "--"}
-                              </td>
+                              {(["startDate", "dueDate"] as const).map((field) => (
+                                <td
+                                  key={field}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="py-2 px-3 border-r border-border text-muted-foreground dark:border-zinc-800 dark:text-zinc-400"
+                                >
+                                  {canEditTask ? (
+                                    <input
+                                      type="date"
+                                      value={parseDateForInput(st[field])}
+                                      onChange={(e) => handleSubtaskDateChange(st, field, e.target.value)}
+                                      className="w-auto max-w-[130px] bg-transparent text-xs text-foreground outline-none cursor-pointer dark:text-zinc-200 dark:[color-scheme:dark]"
+                                    />
+                                  ) : (
+                                    formatSafeDisplayDate(st[field])
+                                  )}
+                                </td>
+                              ))}
                               <td className="py-2 px-2 text-center">
                                 <button
                                   type="button"

@@ -28,7 +28,6 @@ import {
   X,
   Loader2,
   Copy,
-  CalendarDays,
   ListTree,
 } from "lucide-react";
 import { SMM_PROJECT_TEMPLATE } from "../../data/sop-templates";
@@ -52,6 +51,7 @@ import { getTaskChecklistSummariesAction } from "@/features/sop-checklists/actio
 import { PhasesTableView } from "./phases-table-view";
 import { TimeTrackerView } from "./time-tracker-view";
 import { TimerWidget } from "../timer-widget";
+import { TaskCardDueDate } from "../task-card-due-date";
 import { ActiveTimerProvider } from "../../context/active-timer-context";
 import { NewTimeLogModal } from "../modals/new-time-log-modal";
 // import { analyzeTaskStaleness } from "../../manager/ai-project-assistant";
@@ -749,6 +749,24 @@ export function TasksBoardView({
       router.refresh();
     } catch (err) {
       console.error("[TasksBoardView] Error assigning owner:", err);
+    }
+  };
+
+  /** Card's due date: shown at once, saved, put back if the server refuses. */
+  const handleChangeTaskDueDate = async (task: TaskItem, dueDate: string) => {
+    const previous = task.dueDate;
+    if ((dueDate || "--") === (previous || "--")) return;
+    onUpdateTask({ ...task, dueDate });
+    try {
+      const result = await updateTaskAction(task.id, { dueDate });
+      if (!result.success) {
+        onUpdateTask({ ...task, dueDate: previous });
+        toast.error(result.error || "Couldn't save the due date.");
+      }
+    } catch (err) {
+      console.error("[TasksBoardView] Failed to save due date:", err);
+      onUpdateTask({ ...task, dueDate: previous });
+      toast.error("Couldn't save the due date.");
     }
   };
 
@@ -1568,14 +1586,12 @@ export function TasksBoardView({
 
           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             {/* Due date, left of the owner avatar */}
-            {task.dueDate && task.dueDate !== "--" && (
-              <span
-                className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
-                title={`Due ${task.dueDate}`}
-              >
-                <CalendarDays size={12} /> {task.dueDate}
-              </span>
-            )}
+            <TaskCardDueDate
+              dueDate={task.dueDate}
+              canEdit={canEdit && !isUnsavedTaskId(task.id)}
+              disabledReason={lockedReason}
+              onChange={(dueDate) => handleChangeTaskDueDate(task, dueDate)}
+            />
             <Popover>
               <PopoverTrigger asChild>
                 <button

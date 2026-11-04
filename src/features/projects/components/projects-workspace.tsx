@@ -235,8 +235,14 @@ export function ProjectsWorkspace() {
   };
 
   const handleDeleteProject = async (id: string) => {
+    const before = projects;
     setProjects((prev) => prev.filter((p) => p.id !== id));
-    await deleteProjectAction(id);
+    const deleted = await deleteProjectAction(id).catch(() => false);
+    if (!deleted) {
+      setProjects(before);
+      toast.error("Only a manager can delete a project.");
+      return;
+    }
     toast.success("Project deleted");
   };
 

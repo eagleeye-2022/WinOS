@@ -179,4 +179,103 @@ export function toTitleCase(str: string): string {
   return toTitleText(str);
 }
 
+export type CalendarMentionUser = {
+  id: string;
+  name: string | null;
+  email: string;
+};
+
+/**
+ * Extracts internal user IDs mentioned in text (e.g. `@Mohit`, `@mohit.thakre`, `@Mohit Thakre`).
+ * Handles boundary checks so email addresses like test@domain.com are not false positives.
+ */
+export function extractMentionsFromText(text: string, users: CalendarMentionUser[]): string[] {
+  if (!text || !users || users.length === 0) return [];
+  const matchedIds: string[] = [];
+  const lowerText = text.toLowerCase();
+
+  // Count first name frequencies among users to avoid ambiguous single-name matches
+  const firstNameCounts = new Map<string, number>();
+  for (const u of users) {
+    const fn = (u.name || "").trim().split(/\s+/)[0]?.toLowerCase();
+    if (fn) firstNameCounts.set(fn, (firstNameCounts.get(fn) || 0) + 1);
+  }
+
+  for (const user of users) {
+    const name = (user.name || "").trim().toLowerCase();
+    const emailPrefix = user.email.split("@")[0].toLowerCase();
+    const firstName = name.split(/\s+/)[0];
+    const isFirstNameUnique = Boolean(firstName && (firstNameCounts.get(firstName) ?? 0) === 1);
+
+    const candidates = [
+      name ? `@${name}` : null,
+      isFirstNameUnique ? `@${firstName}` : null,
+      `@${emailPrefix}`,
+    ].filter(Boolean) as string[];
+
+    for (const pat of candidates) {
+      let searchPos = 0;
+      let found = false;
+      while (searchPos < lowerText.length) {
+        const idx = lowerText.indexOf(pat, searchPos);
+        if (idx === -1) break;
+
+        const charBefore = idx > 0 ? lowerText[idx - 1] : " ";
+        const charAfter = idx + pat.length < lowerText.length ? lowerText[idx + pat.length] : " ";
+
+        const validBefore = /[\s,.:;!?'"()\[\]{}]/.test(charBefore) || idx === 0;
+        const validAfter = /[\s,.:;!?'"()\[\]{}]/.test(charAfter) || idx + pat.length === lowerText.length;
+
+        if (validBefore && validAfter) {
+          if (!matchedIds.includes(user.id)) {
+            matchedIds.push(user.id);
+          }
+          found = true;
+          break;
+        }
+        searchPos = idx + 1;
+      }
+      if (found) break;
+    }
+  }
+
+  return matchedIds;
+}
+
+/**
+ * Reconciles participant selections based on additions and removals of mentions in the title.
+ * - Newly mentioned IDs are added to `currentSelectedIds`.
+ * - Mentions that were removed from the title are removed from `currentSelectedIds`.
+ * - Manual participant picks that were never mentioned are kept untouched.
+ */
+export function reconcileMentionParticipants(
+  currentSelectedIds: string[],
+  prevMentionedIds: Set<string>,
+  nextMentionedIds: string[],
+): { nextSelectedIds: string[]; nextMentionedIds: Set<string> } {
+  const nextMentionSet = new Set(nextMentionedIds);
+  const added = nextMentionedIds.filter((id) => !prevMentionedIds.has(id));
+  const removed = Array.from(prevMentionedIds).filter((id) => !nextMentionSet.has(id));
+
+  let nextSelected = [...currentSelectedIds];
+
+  // Add newly mentioned IDs
+  for (const id of added) {
+    if (!nextSelected.includes(id)) {
+      nextSelected.push(id);
+    }
+  }
+
+  // Remove IDs that were un-mentioned
+  if (removed.length > 0) {
+    nextSelected = nextSelected.filter((id) => !removed.includes(id));
+  }
+
+  return {
+    nextSelectedIds: nextSelected,
+    nextMentionedIds: nextMentionSet,
+  };
+}
+
+
 

@@ -1100,7 +1100,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft size={14} />
-            Back to All Reporting
+            Back to All Daily Progress Reports
           </Link>
         </div>
 

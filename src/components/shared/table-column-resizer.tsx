@@ -73,14 +73,18 @@ function resizableEdgeAt(e: PointerEvent | MouseEvent): ResizableEl | null {
   return e.clientX >= rect.right - EDGE_PX && e.clientX <= rect.right + 1 ? el : null;
 }
 
-/** Stable id within the page: table index + header row + cell index, or the explicit col key. */
+/**
+ * Stable id within the page: the explicit col key, or for plain headers the header row's labels +
+ * cell index. Deliberately not the table's position in the DOM — that shifts when tabs, loading
+ * states or other tables mount, which made saved widths land on the wrong table (or none).
+ */
 function cellId(el: ResizableEl): string | null {
   if (!isTh(el)) return el.dataset.colKey ? `k:${el.dataset.colKey}` : null;
-  const table = el.closest("table");
+  if (el.dataset.colKey) return `k:${el.dataset.colKey}`;
   const row = el.parentElement as HTMLTableRowElement | null;
-  if (!table || !row) return null;
-  const tableIndex = Array.prototype.indexOf.call(document.querySelectorAll("table"), table);
-  return `${tableIndex}:${row.rowIndex}:${el.cellIndex}`;
+  if (!row) return null;
+  const labels = Array.from(row.cells, (c) => (c.textContent ?? "").trim().slice(0, 24)).join("|");
+  return `h:${labels}:${el.cellIndex}`;
 }
 
 /** Narrowest a column may be dragged to: its `data-min-width` (e.g. Kanban task lists), else MIN_WIDTH. */

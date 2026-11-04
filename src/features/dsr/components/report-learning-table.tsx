@@ -76,7 +76,7 @@ export function ReportLearningTable({
               <tr key={item.id} className="border-b transition-colors last:border-b-0 hover:bg-muted/40">
                 <td className="py-2.5 pr-2 align-top">{renderDone(item)}</td>
                 <td className="py-2.5 pr-3 align-top">
-                  {card ? <ProjectPill name={card.listName} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                  {card ? <ProjectPill name={card.listName} whyfi /> : <span className="text-xs text-muted-foreground/60">—</span>}
                 </td>
                 <td className="py-2.5 pr-3 align-top">
                   {code ? (

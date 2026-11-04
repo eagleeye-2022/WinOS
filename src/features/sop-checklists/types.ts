@@ -155,6 +155,14 @@ export const SOP_DEPARTMENTS = DEPARTMENTS;
 /** Operation's tabs: such SOPs are stored with department "Operation/Tech" and so on. */
 export const OPERATION_SECTIONS = ["Tech", "Creative", "Marketing", "General"] as const;
 
+/** How Operation's tabs read (the stored values above stay short). */
+export const OPERATION_SECTION_LABELS: Record<string, string> = {
+  Tech: "Tech team",
+  Creative: "Creative team",
+  Marketing: "Marketing team",
+  General: "General",
+};
+
 /** Every value of SopChecklistTemplate.department. */
 export const SOP_PLACES: readonly string[] = SOP_DEPARTMENTS.flatMap((d) =>
   d === "Operation" ? OPERATION_SECTIONS.map((s) => `Operation/${s}`) : [d]

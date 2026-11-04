@@ -107,6 +107,7 @@ export function TaskDocumentsTab({ taskId, projectId, onDocumentUploaded }: Task
       setDocuments((prev) => prev.filter((d) => d.id !== docId));
     } catch (err) {
       console.error("Failed to delete task document:", err);
+      alert(err instanceof Error ? err.message : "Couldn't delete the document.");
     }
   };
 

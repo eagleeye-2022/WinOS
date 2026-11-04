@@ -8,7 +8,7 @@ export const ROUTES = {
   dsmMy: "/dsm/my",
   dsmAll: "/dsm/all",
   dsmMember: (userId: string) => `/dsm/member/${userId}` as const,
-  // The end-of-day DSR is now "Reporting" (UI + URLs). Keys keep the `dsr` prefix because the
+  // The end-of-day DSR is now "Daily Progress Report" (UI + URLs). Keys keep the `dsr` prefix because the
   // DsrEntry model/feature folder are unchanged; old /dsr URLs redirect via next.config.ts.
   dsr: "/report",
   dsrMy: "/report/my",

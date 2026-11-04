@@ -4,7 +4,7 @@
 
 import { isStandupRoutineTask, NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
 import { LEARNING_PROJECT_CATEGORY } from "@/features/whyfi/constants";
-import { DEFAULT_SOP_DEPARTMENT, SOP_DEPARTMENTS, type SopShare } from "./types";
+import { DEFAULT_SOP_DEPARTMENT, OPERATION_SECTION_LABELS, SOP_DEPARTMENTS, type SopShare } from "./types";
 
 /** SOPs saved under the old categories, by the department of the old category. */
 const LEGACY_CATEGORY_DEPARTMENT: Record<string, string> = {
@@ -53,6 +53,8 @@ const LEGACY_OPERATION_SECTION: Record<string, string> = {
  * or the one worked out for rows saved before departments.
  */
 export function sopDepartmentFor(row: { department?: string | null; category?: string | null; name?: string | null }): string {
+  // The old SEO / Marketing lists are Operation's marketing work, not the Marketing department's.
+  if (!row.department && ["SEO", "Marketing"].includes((row.category || "").trim())) return "Operation/Marketing";
   const base = row.department || sopDepartmentOf(row.category, row.name);
   if (base !== "Operation") return base;
   return `Operation/${LEGACY_OPERATION_SECTION[(row.category || "").trim()] ?? "General"}`;
@@ -62,7 +64,10 @@ export function sopDepartmentFor(row: { department?: string | null; category?: s
 export const sopTopDepartment = (place: string) => place.split("/")[0];
 
 /** "Operation/Tech" → "Operation · Tech". */
-export const sopPlaceLabel = (place: string) => place.replace("/", " · ");
+export const sopPlaceLabel = (place: string) => {
+  const [dept, section] = place.split("/");
+  return section ? `${dept} · ${OPERATION_SECTION_LABELS[section] ?? section}` : dept;
+};
 
 /**
  * May a non-manager see this SOP? Yes if they created it, or if it, or the list it sits in, is

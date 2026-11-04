@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, Circle, Clock, Link2Off, Loader2, Timer } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, Circle, Clock, Link2Off, Loader2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
 import { effortStartMinutes, formatEffortMinutes, formatEffortSpan } from "../utils";
-import { TaskCodeChip, TaskRowCard, TaskRowCardFooter } from "@/components/shared/task-table-parts";
+import { TaskCodeChip, TaskRowCard, TaskRowCardFooter, formatDueDate } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 import { setLoggedTaskDoneAction } from "../actions/set-logged-task-done";
@@ -62,6 +62,30 @@ function PriorityChip({ priority }: { priority: string | null }) {
         )}
       >
         {priority || "—"}
+      </span>
+    </span>
+  );
+}
+
+/** "DUE: 30 Sep" — read-only, matching the style of PriorityChip. */
+function DueDateChip({ dueDate }: { dueDate?: Date | string | null }) {
+  const parsed = dueDate ? new Date(dueDate) : null;
+  const isValid = parsed && !Number.isNaN(parsed.getTime());
+  const isOverdue = isValid && parsed.getTime() < new Date(new Date().toDateString()).getTime();
+
+  return (
+    <span className="flex shrink-0 items-center gap-1.5" title="Due date">
+      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Due:</span>
+      <span
+        className={cn(
+          "flex items-center gap-1 rounded-lg border px-2.5 py-0.5 text-xs",
+          !isValid && "border-border font-normal text-muted-foreground",
+          isValid && isOverdue && "border-destructive/40 bg-destructive/10 text-destructive font-bold",
+          isValid && !isOverdue && "border-border bg-background font-semibold text-foreground"
+        )}
+      >
+        {isValid && <Calendar size={11} className={isOverdue ? "text-destructive" : "text-muted-foreground"} />}
+        {isValid ? formatDueDate(parsed) : "—"}
       </span>
     </span>
   );
@@ -186,11 +210,12 @@ export function YesterdayTaskList({
               </div>
             )}
 
-            {/* Line 3: Priority + Effort time on left, time logged on right */}
+            {/* Line 3: Priority + Due date + Effort time on left, time logged on right */}
             <TaskRowCardFooter
               left={
                 <div className="flex flex-wrap items-center gap-3">
                   <PriorityChip priority={t.priority} />
+                  <DueDateChip dueDate={t.dueDate} />
                   <EffortSpanChip from={t.effortFrom} to={t.effortTo} />
                 </div>
               }
@@ -248,9 +273,14 @@ export function YesterdayTaskList({
               </span>
             </div>
 
-            {/* Line 3: Effort time on left, time logged on right */}
+            {/* Line 3: Due date + Effort time on left, time logged on right */}
             <TaskRowCardFooter
-              left={<EffortSpanChip from={t.effortFrom} to={t.effortTo} />}
+              left={
+                <div className="flex flex-wrap items-center gap-3">
+                  <DueDateChip dueDate={t.dueDate} />
+                  <EffortSpanChip from={t.effortFrom} to={t.effortTo} />
+                </div>
+              }
               right={<LoggedMinutesChip minutes={t.minutes} />}
             />
           </TaskRowCard>

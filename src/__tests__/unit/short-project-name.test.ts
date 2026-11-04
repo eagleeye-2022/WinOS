@@ -11,6 +11,8 @@ describe("projectPillName (DSM project column)", () => {
     expect(projectPillName("Kosmetics")).toBe("Kosme.");
     expect(projectPillName("Pamas")).toBe("Pamas");
     expect(projectPillName("7Dots")).toBe("7Dots");
+    expect(projectPillName("WhyFi School")).toBe("WhyFi School");
+    expect(projectPillName("WFS")).toBe("WhyFi School");
   });
 
   it("with nothing before the colon, falls back to the 5-character rule", () => {

@@ -15,6 +15,13 @@ import {
   buildTemplateFromDraft,
   duplicateTemplateDraft,
   flattenSubtasks,
+  flattenSubtasksTree,
+  getSubtaskAtPath,
+  updateSubtaskAtPath,
+  deleteSubtaskAtPath,
+  duplicateSubtaskAtPath,
+  updateTaskOrSubtask,
+  getSubtaskBreadcrumbs,
   getTemplateKind,
   isBuiltInTemplate,
   isCustomTemplatePhaseCode,
@@ -486,3 +493,208 @@ describe("moveTemplateTask", () => {
     ]);
   });
 });
+
+describe("nested template subtasks and path operations", () => {
+  it("traverses nested subtasks at any depth and returns them", () => {
+    const subtasks = [
+      {
+        title: "Setup Database",
+        subtasks: [
+          {
+            title: "Run Migrations",
+            subtasks: ["Seed admin user", "Verify indices"],
+          },
+          "Backup schema",
+        ],
+      },
+      "Deploy App",
+    ];
+
+    expect(getSubtaskAtPath(subtasks, [0])).toMatchObject({ title: "Setup Database" });
+    expect(getSubtaskAtPath(subtasks, [0, 0])).toMatchObject({ title: "Run Migrations" });
+    expect(getSubtaskAtPath(subtasks, [0, 0, 0])).toBe("Seed admin user");
+    expect(getSubtaskAtPath(subtasks, [0, 0, 1])).toBe("Verify indices");
+    expect(getSubtaskAtPath(subtasks, [0, 1])).toBe("Backup schema");
+    expect(getSubtaskAtPath(subtasks, [1])).toBe("Deploy App");
+    expect(getSubtaskAtPath(subtasks, [99])).toBeUndefined();
+  });
+
+  it("updates a nested subtask without mutating siblings", () => {
+    const initial = [
+      {
+        title: "Setup Database",
+        subtasks: ["Run Migrations", "Backup schema"],
+      },
+    ];
+
+    const updated = updateSubtaskAtPath(initial, [0, 0], (s) => ({
+      title: typeof s === "string" ? s : s.title,
+      description: "Migration details",
+      status: "In Progress",
+    }));
+
+    const target = getSubtaskAtPath(updated, [0, 0]);
+    expect(target).toMatchObject({
+      title: "Run Migrations",
+      description: "Migration details",
+      status: "In Progress",
+    });
+    expect(getSubtaskAtPath(updated, [0, 1])).toBe("Backup schema");
+  });
+
+  it("deletes a nested subtask cleanly", () => {
+    const initial = [
+      {
+        title: "Setup Database",
+        subtasks: ["Run Migrations", "Backup schema"],
+      },
+    ];
+
+    const updated = deleteSubtaskAtPath(initial, [0, 0]);
+    expect(getSubtaskAtPath(updated, [0])).toMatchObject({
+      title: "Setup Database",
+      subtasks: ["Backup schema"],
+    });
+  });
+
+  it("builds correct breadcrumbs for deeply nested subtasks", () => {
+    const task = {
+      title: "Main Task",
+      duration: "1 day",
+      priority: "Medium" as const,
+      departmentAlias: "dev@",
+      subtasks: [
+        {
+          title: "Subtask 1",
+          subtasks: [
+            {
+              title: "Subtask 1.1",
+              subtasks: ["Subtask 1.1.1"],
+            },
+          ],
+        },
+      ],
+    };
+
+    const breadcrumbs = getSubtaskBreadcrumbs(task, "T01", [0, 0, 0]);
+    expect(breadcrumbs).toEqual([
+      { code: "T01", title: "Main Task", path: [] },
+      { code: "T01.1", title: "Subtask 1", path: [0] },
+      { code: "T01.1.1", title: "Subtask 1.1", path: [0, 0] },
+      { code: "T01.1.1.1", title: "Subtask 1.1.1", path: [0, 0, 0] },
+    ]);
+  });
+
+  it("flattens subtask tree with paths and depth", () => {
+    const subtasks = [
+      {
+        title: "Parent",
+        subtasks: [
+          {
+            title: "Child",
+            subtasks: ["Grandchild"],
+          },
+        ],
+      },
+    ];
+    const tree = flattenSubtasksTree(subtasks, "T01");
+    expect(tree).toEqual([
+      {
+        code: "T01.1",
+        title: "Parent",
+        depth: 0,
+        path: [0],
+        seed: subtasks[0],
+      },
+      {
+        code: "T01.1.1",
+        title: "Child",
+        depth: 1,
+        path: [0, 0],
+        seed: (subtasks[0] as any).subtasks[0],
+      },
+      {
+        code: "T01.1.1.1",
+        title: "Grandchild",
+        depth: 2,
+        path: [0, 0, 0],
+        seed: "Grandchild",
+      },
+    ]);
+  });
+
+  it("updates root task or nested subtask with updateTaskOrSubtask", () => {
+    const task = {
+      title: "Root Task",
+      duration: "1 day",
+      priority: "Medium" as const,
+      departmentAlias: "dev@",
+      subtasks: [
+        {
+          title: "Sub 1",
+          subtasks: ["Sub 1.1"],
+        },
+      ],
+    };
+
+    const rootUpdated = updateTaskOrSubtask(task, undefined, { title: "Renamed Root" });
+    expect(rootUpdated.title).toBe("Renamed Root");
+
+    const subUpdated = updateTaskOrSubtask(task, [0, 0], {
+      title: "Renamed Sub 1.1",
+      description: "My deep description",
+      status: "In Progress",
+      startDate: "2026-08-01",
+      dueDate: "2026-08-05",
+      priority: "High",
+      duration: "4 days",
+    });
+    expect(getSubtaskAtPath(subUpdated.subtasks!, [0, 0])).toMatchObject({
+      title: "Renamed Sub 1.1",
+      description: "My deep description",
+      status: "In Progress",
+      startDate: "2026-08-01",
+      dueDate: "2026-08-05",
+      priority: "High",
+      duration: "4 days",
+    });
+  });
+
+  it("duplicates a subtask at arbitrary path", () => {
+    const subtasks = [
+      {
+        title: "Parent",
+        subtasks: ["Child 1", "Child 2"],
+      },
+    ];
+
+    const duplicated = duplicateSubtaskAtPath(subtasks, [0, 0]);
+    expect(getSubtaskAtPath(duplicated, [0])).toMatchObject({
+      title: "Parent",
+      subtasks: ["Child 1", "Child 1 (Copy)", "Child 2"],
+    });
+  });
+
+  it("preserves task information fields (startDate, dueDate, priority, duration) on delete and clean", () => {
+    const subtasks = [
+      {
+        title: "Parent",
+        startDate: "2026-08-01",
+        dueDate: "2026-08-10",
+        priority: "Urgent" as const,
+        duration: "9 days",
+        subtasks: ["Child 1", "Child 2"],
+      },
+    ];
+
+    const updated = deleteSubtaskAtPath(subtasks, [0, 1]);
+    const parent = getSubtaskAtPath(updated, [0]) as any;
+    expect(parent.title).toBe("Parent");
+    expect(parent.startDate).toBe("2026-08-01");
+    expect(parent.dueDate).toBe("2026-08-10");
+    expect(parent.priority).toBe("Urgent");
+    expect(parent.duration).toBe("9 days");
+    expect(parent.subtasks).toEqual(["Child 1"]);
+  });
+});
+
