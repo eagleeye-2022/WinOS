@@ -11,7 +11,7 @@ import type { ProjectLinkSummary } from "../queries";
 import { TaskIdChip, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, TaskInfoLink, STICKY_PROJECT_COL_2, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
-import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/components/task-detail-panel";
+import { TaskDetailRow, TaskDetailToggle, toggleDetailOnRowClick } from "@/features/dsm/manager/components/task-detail-panel";
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
@@ -297,7 +297,17 @@ export function DsrHistoryCard({
                       const detailOpen = openDetailId === task.id;
                       return (
                         <Fragment key={task.id}>
-                        <tr className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
+                        <tr
+                          className={cn(
+                            "border-b last:border-b-0 hover:bg-muted/40 transition-colors",
+                            withDetails && linkedTaskId && "cursor-pointer"
+                          )}
+                          onClick={
+                            withDetails && linkedTaskId
+                              ? (e) => toggleDetailOnRowClick(e, () => setOpenDetailId(detailOpen ? null : task.id))
+                              : undefined
+                          }
+                        >
                           <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground">
                             <span className="flex items-center gap-1" title={task.completed ? "Completed" : "Not completed"}>
                               {task.completed ? (
@@ -331,7 +341,8 @@ export function DsrHistoryCard({
                           )}
                           <td className="py-2 pr-3 align-top">
                             <div className={cn("flex flex-wrap items-center gap-1.5 text-sm", !task.completed && "text-muted-foreground")}>
-                              <WrappedTaskText text={task.text} />
+                              {/* With a dropdown, a click on the text opens the row like anywhere else. */}
+                              <WrappedTaskText text={task.text} expanded={withDetails && linkedTaskId ? detailOpen : undefined} />
                               {task.addedAfterReview && (
                                 <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
                                   NT

@@ -69,7 +69,7 @@ export function SubmitReportModal({
         aria-describedby={undefined}
       >
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Update End-of-Day Report" : "Submit End-of-Day Report"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Update Daily Progress Report" : "Submit Daily Progress Report"}</DialogTitle>
         </DialogHeader>
 
         {/* Stepper */}
