@@ -1355,6 +1355,44 @@ export function SubmitDsmForm({
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }, { id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
   });
 
+  // Tasks a manager adds from /dsm/member/[userId] land on the entry after this form has mounted
+  // (or are hidden behind a saved local draft). Merge any that are missing so they show up here —
+  // otherwise they'd be invisible, and saving (delete-then-recreate) would wipe them.
+  const managerAddedKey = (entry?.tasks ?? [])
+    .filter((t) => t.kind === "TODAY" && t.addedBy && t.addedBy.id !== currentUserId)
+    .map((t) => t.id)
+    .join(",");
+  useEffect(() => {
+    const managerTasks = (entry?.tasks ?? []).filter(
+      (t) => t.kind === "TODAY" && t.addedBy && t.addedBy.id !== currentUserId
+    );
+    if (managerTasks.length === 0) return;
+    setTasks((prev) => {
+      const have = new Set(prev.map((p) => p.text.trim().toLowerCase()).filter(Boolean));
+      const missing = managerTasks.filter((t) => !have.has(t.text.trim().toLowerCase()));
+      if (missing.length === 0) return prev;
+      const added = missing.map((t) => ({
+        id: crypto.randomUUID(),
+        text: t.text,
+        priority: t.priority ?? "",
+        projectTaskId: t.projectTaskId ?? "",
+        projectId: t.projectId ?? "",
+        carried: false,
+        dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
+      }));
+      // Fill blank placeholder rows first, then append.
+      const next = [...prev];
+      for (const a of added) {
+        const blank = next.findIndex((r) => !r.text.trim());
+        if (blank >= 0) next[blank] = a;
+        else next.push(a);
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managerAddedKey, currentUserId]);
+
   const [taskSortMode, setTaskSortMode] = useState("");
   // "Not Aligned Task" filter for today's tasks (see isNotAlignedTask).
   const [showNotAligned, setShowNotAligned] = useState(false);

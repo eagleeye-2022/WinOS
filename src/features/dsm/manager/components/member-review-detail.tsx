@@ -1501,6 +1501,22 @@ function TaskRow({
               await action(fd);
               setEditing(false);
             }}
+            // Auto-save (no Save button): saved when focus leaves the form. Moving into the pickers
+            // or a dialog opened from them doesn't count — those open outside the form (portals).
+            onBlur={(e) => {
+              const next = e.relatedTarget as HTMLElement | null;
+              if (e.currentTarget.contains(next)) return;
+              if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
+              if (pending) return;
+              const unchanged =
+                text.trim() === task.text.trim() &&
+                priority === (task.managerPriority || "") &&
+                dueDate === (task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "") &&
+                selectedProjectTaskId === (task.projectTaskId ?? "") &&
+                selectedProjectId === (task.projectId ?? "");
+              if (unchanged) return;
+              if (text.trim()) e.currentTarget.requestSubmit();
+            }}
             className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
           >
             <input type="hidden" name="taskId" value={task.id} />
@@ -1584,17 +1600,13 @@ function TaskRow({
                 <TodayDueButton value={dueDate} onChange={setDueDate} />
               </div>
 
-              {/* Save / Cancel */}
+              {/* Saving… / Cancel (no Save button — the task saves itself, see the form's onBlur). */}
               <div className="flex items-center gap-1.5">
-                <button
-                  type="submit"
-                  disabled={pending || !text.trim()}
-                  title="Save changes"
-                  className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-                >
-                  {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
-                  Save
-                </button>
+                {pending && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 size={14} className="animate-spin" /> Saving…
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
@@ -1817,6 +1829,24 @@ function SummaryTaskEditor({
         await action(fd);
         onDone();
       }}
+      // Auto-save (no Save button): saved when focus leaves the form with a task written.
+      // Pickers/dialogs open outside the form (portals) and don't count as leaving.
+      onBlur={(e) => {
+        const next = e.relatedTarget as HTMLElement | null;
+        if (e.currentTarget.contains(next)) return;
+        if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
+        if (pending || !text.trim()) return;
+        if (
+          task &&
+          text.trim() === task.text.trim() &&
+          isCompleted === Boolean(isDone) &&
+          projectTaskId === (task.projectTaskId ?? "") &&
+          projectId === (task.projectId ?? "")
+        ) {
+          return;
+        }
+        e.currentTarget.requestSubmit();
+      }}
       className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
     >
       {task && <input type="hidden" name="taskId" value={task.id} />}
@@ -1902,14 +1932,11 @@ function SummaryTaskEditor({
           Completed
         </label>
         <div className="flex items-center gap-1.5">
-          <button
-            type="submit"
-            disabled={pending || !text.trim()}
-            className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-          >
-            {pending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
-            {task ? "Save" : "Add Task"}
-          </button>
+          {pending && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 size={14} className="animate-spin" /> Saving…
+            </span>
+          )}
           <button
             type="button"
             onClick={onDone}
