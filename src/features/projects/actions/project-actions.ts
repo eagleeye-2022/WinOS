@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { toTitleText } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { canUserActOnTask } from "../utils/task-authorization";
+import { rollUpParentDates } from "../utils/parent-date-rollup";
 import { isProjectUser, projectUserWhere } from "../project-user";
 import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
 import {
@@ -1876,7 +1877,8 @@ export async function getTeamMembersForAssignmentAction(): Promise<
 export async function getTasksAction(projectId?: string): Promise<TaskItem[]> {
   await requireAuth();
   const userMap = await getUserMap();
-  return loadTasks(projectId, userMap);
+  // Parents show their subtasks' date span (see rollUpParentDates).
+  return rollUpParentDates(await loadTasks(projectId, userMap));
 }
 
 /**
@@ -2028,6 +2030,8 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
     else childrenByParentKey.set(other.parentTaskId, [other]);
   }
 
+  // Rows' own stored dates — callers roll parents up for display (rollUpParentDates): the project
+  // workspace does it client-side so edits re-roll; getTasksAction does it here.
   return dbTasks.map((t) => {
     const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId, userMap);
     const resolvedTaskOwner = ownersDisplay.owners.length > 0
@@ -2099,6 +2103,7 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
 
     return {
     id: t.code || t.id,
+    dbId: t.id,
     code: t.code || t.id,
     title: t.title,
     phaseCode: t.phaseCode || "1.1",
@@ -2174,7 +2179,8 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
     orderBy: [{ order: "asc" }, { createdAt: "desc" }],
   });
 
-  return dbTasks.map((t) => {
+  // Parents show their subtasks' date span (see rollUpParentDates).
+  return rollUpParentDates(dbTasks.map((t) => {
     const ownersDisplay = resolveOwnersDisplay(t.owners, t.ownerUser?.name, t.owner, t.ownerId, userMap);
     const resolvedTaskOwner = ownersDisplay.owners.length > 0
       ? ownersDisplay.owners.join(", ")
@@ -2185,6 +2191,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
 
     return {
     id: t.code || t.id,
+    dbId: t.id,
     code: t.code || t.id,
     title: t.title,
     phaseCode: t.phaseCode || "1.1",
@@ -2251,7 +2258,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
       actionText: act.actionText,
     })),
     };
-  });
+  }));
 }
 
 export async function getMyTasksAction(): Promise<TaskItem[]> {
@@ -3246,16 +3253,42 @@ export async function moveTaskToProjectAction(
 
 export async function deleteTaskAction(taskId: string): Promise<boolean> {
   const session = await requireAuth();
-  if (!(await canDeleteProjectTask(session, taskId))) return false;
+  return deleteTaskOrSubtask(session, taskId);
+}
 
-  await db.projectTask.deleteMany({
-    where: {
-      OR: [{ id: taskId }, { code: taskId }],
-    },
-  });
+/**
+ * The one delete behind every Delete button — a task's ⋯ menu, its card on the board or in the left
+ * tree, and a row of a Subtasks table (deleteTaskAction and deleteSubtaskAction both land here).
+ * Pass the database id: codes can repeat ("…-T38.1" twice), and a code then picks just one of them.
+ * Same permission rule as editing a task; a legacy ProjectSubtask entry (no task row, no owners)
+ * only a manager may remove. The task's own subtasks go with it (parentTaskId cascades).
+ */
+async function deleteTaskOrSubtask(
+  session: Awaited<ReturnType<typeof requireAuth>>,
+  idOrCode: string
+): Promise<boolean> {
+  const allowed =
+    (await canDeleteProjectTask(session, idOrCode)) || (await isPrivilegedViewer(session.user.id));
+  if (!allowed) return false;
+
+  await deleteOneProjectTask(idOrCode);
+  // Legacy ProjectSubtask entries are deleted by their own id only (codes can repeat).
+  await db.projectSubtask.deleteMany({ where: { id: idOrCode } }).catch(() => {});
 
   revalidatePath("/projects");
   return true;
+}
+
+/**
+ * Deletes exactly one task row — the one `idOrCode` resolves to (its id first, then its code) —
+ * and, by cascade, everything under it. Deleting by `code` with deleteMany also removed any other
+ * row that happened to share the code (e.g. two subtasks both saved as "…-T38.1").
+ */
+async function deleteOneProjectTask(idOrCode: string) {
+  const target =
+    (await db.projectTask.findUnique({ where: { id: idOrCode }, select: { id: true } })) ??
+    (await db.projectTask.findFirst({ where: { code: idOrCode }, select: { id: true }, orderBy: { createdAt: "desc" } }));
+  if (target) await db.projectTask.delete({ where: { id: target.id } });
 }
 
 /**
@@ -3543,23 +3576,8 @@ export async function updateSubtaskAction(
 
 export async function deleteSubtaskAction(subtaskId: string): Promise<boolean> {
   const session = await requireAuth();
-  // Same rule as deleting a task. A subtask that only exists in the legacy ProjectSubtask
-  // table has no owners to check, so only a manager may remove it.
-  const allowed =
-    (await canDeleteProjectTask(session, subtaskId)) || (await isPrivilegedViewer(session.user.id));
-  if (!allowed) return false;
-
-  // Its own subtasks go with it (parentTaskId cascades).
-  await db.projectTask.deleteMany({
-    where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
-  });
-
-  await db.projectSubtask.deleteMany({
-    where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
-  }).catch(() => {});
-
-  revalidatePath("/projects");
-  return true;
+  // Same delete as deleteTaskAction (see deleteTaskOrSubtask).
+  return deleteTaskOrSubtask(session, subtaskId);
 }
 
 export async function createTaskRemarkAction(

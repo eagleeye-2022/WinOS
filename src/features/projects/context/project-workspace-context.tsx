@@ -1,11 +1,12 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   getProjectWorkspaceAction,
   type ProjectWorkspaceData,
 } from "../actions/project-actions";
 import { Project, TaskItem } from "../types";
+import { rollUpParentDates } from "../utils/parent-date-rollup";
 
 type ProjectWorkspaceContextValue = {
   projectId: string;
@@ -104,12 +105,16 @@ export function ProjectWorkspaceProvider({
     if (data?.project) rememberWorkspace(projectId, data, tasks);
   }, [projectId, data, tasks]);
 
+  // State keeps each row's own dates; what's shown has parents spanning their subtasks, re-rolled
+  // on every edit (see rollUpParentDates).
+  const shownTasks = useMemo(() => rollUpParentDates(tasks), [tasks]);
+
   return (
     <ProjectWorkspaceContext.Provider
       value={{
         projectId,
         project: data?.project ?? null,
-        tasks,
+        tasks: shownTasks,
         setTasks,
         myTaskCount: data?.myTaskCount ?? 0,
         owners: data?.owners ?? [],

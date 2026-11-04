@@ -478,6 +478,8 @@ export interface TaskSubtask {
 
 export interface TaskItem {
   id: string;
+  /** The row's database id (`id` above is usually the code). Codes can repeat, so deletes use this. */
+  dbId?: string;
   code: string; // e.g. WI1-T11
   title: string;
   parentTaskId?: string; // set when this task is really a subtask of another ProjectTask

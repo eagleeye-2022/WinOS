@@ -389,6 +389,15 @@ function AddTaskRow({
         await action(fd);
         resetForm();
       }}
+      // Auto-save (no Add Task button): saved when focus leaves the form with a task written.
+      // Moving into the project/task pickers or a dialog opened from them doesn't count — those
+      // open outside the form (portals).
+      onBlur={(e) => {
+        const next = e.relatedTarget as HTMLElement | null;
+        if (e.currentTarget.contains(next)) return;
+        if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
+        if (text.trim() && !pending) e.currentTarget.requestSubmit();
+      }}
       className="mt-3 flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
     >
       <input type="hidden" name="entryId" value={entryId} />
@@ -433,8 +442,13 @@ function AddTaskRow({
           name="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            if (text.trim() && !pending) e.currentTarget.form?.requestSubmit();
+          }}
           autoFocus
-          placeholder="Describe what will be done..."
+          placeholder="Describe what will be done... (saves automatically)"
           className="flex-1 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
       </div>
@@ -451,20 +465,18 @@ function AddTaskRow({
           <TodayDueButton value={dueDate} onChange={setDueDate} />
         </div>
 
-        {/* Add / Cancel */}
+        {/* Saving… / Cancel (no Add Task button — the task saves itself, see the form's onBlur). */}
         <div className="flex items-center gap-1.5">
-          <button
-            type="submit"
-            disabled={pending || !text.trim()}
-            title="Add task"
-            className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 transition-colors disabled:opacity-50"
-          >
-            {pending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2.5} />}
-            Add Task
-          </button>
+          {pending && (
+            <span className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+              <Loader2 size={13} className="animate-spin" /> Saving…
+            </span>
+          )}
           <button
             type="button"
             onClick={resetForm}
+            // Keep focus in the form so cancelling doesn't count as leaving it (which would save).
+            onMouseDown={(e) => e.preventDefault()}
             title="Cancel"
             className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >

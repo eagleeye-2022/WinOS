@@ -25,6 +25,7 @@ import { TaskCardDueDate } from "./task-card-due-date";
 import { taskOwnerPeople } from "../utils/task-owner-people";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { deleteTaskAction, duplicateTaskAction, updateTaskAction } from "../actions/project-actions";
+import { removeTaskFromList } from "../utils/remove-task-from-list";
 import { PROJECT_TASK_STATUSES, getTaskStatusPillClasses, isTaskDone, type TaskItem, type TaskStatus } from "../types";
 
 type SidebarUser = { id: string; name: string; email: string; role: "ADMIN" | "TEAM_MEMBER" } | null;
@@ -52,6 +53,7 @@ export function TaskSidebarTree({
   onOpenTaskStatusChange,
   onOpenTaskPhaseChange,
   onOpenTaskDelete,
+  onTaskDeleted,
   onOpenTaskLogSaved,
 }: {
   rootTask: TaskItem;
@@ -67,6 +69,8 @@ export function TaskSidebarTree({
   onOpenTaskStatusChange: (status: TaskStatus) => void;
   onOpenTaskPhaseChange: (phaseCode: string, phaseName: string) => void;
   onOpenTaskDelete: () => void;
+  /** After another card is deleted: the page moves off a deleted task and reloads the project. */
+  onTaskDeleted?: (idOrCode: string) => void;
   onOpenTaskLogSaved: () => void;
 }) {
   const router = useRouter();
@@ -103,11 +107,17 @@ export function TaskSidebarTree({
           };
         }
         // Also its entry in the parent's subtask list (what the Subtasks table shows).
-        if (vals.status && (t.subtasks || []).some((s) => s.id === item.id || s.code === item.code)) {
+        if ((vals.status || vals.dueDate !== undefined) && (t.subtasks || []).some((s) => s.id === item.id || s.code === item.code)) {
           return {
             ...t,
             subtasks: (t.subtasks || []).map((s) =>
-              s.id === item.id || s.code === item.code ? { ...s, status: vals.status!, completed: isTaskDone(vals.status) } : s
+              s.id === item.id || s.code === item.code
+                ? {
+                    ...s,
+                    ...(vals.status && { status: vals.status, completed: isTaskDone(vals.status) }),
+                    ...(vals.dueDate !== undefined && { dueDate: vals.dueDate }),
+                  }
+                : s
             ),
           };
         }
@@ -180,8 +190,12 @@ export function TaskSidebarTree({
     });
     if (!ok) return;
     try {
-      if (await deleteTaskAction(item.id)) {
-        setTasks((prev) => prev.filter((t) => t.id !== item.id));
+      // By database id, like the Subtasks table's delete — codes can repeat.
+      const target = item.dbId ?? item.id;
+      if (await deleteTaskAction(target)) {
+        // Also its subtasks, and its row in the parent's Subtasks table.
+        if (onTaskDeleted) onTaskDeleted(target);
+        else setTasks((prev) => removeTaskFromList(prev, target));
         router.refresh();
       } else {
         toast.error("Couldn't delete the task.");

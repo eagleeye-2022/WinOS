@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { canUserActOnTask } from "../../utils/task-authorization";
+import { removeTaskFromList } from "../../utils/remove-task-from-list";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -248,14 +249,20 @@ export function SingleTaskWorkspaceView({
     });
     if (!ok) return;
     try {
-      const success = await deleteTaskAction(activeTask.id);
-      if (success) {
-        router.push(backHref);
+      // By database id, like the left tree's and the Subtasks table's deletes — codes can repeat.
+      const target = activeTask.dbId ?? activeTask.id;
+      const success = await deleteTaskAction(target);
+      if (!success) {
+        toast.error("You don't have permission to delete this task.");
+        return;
       }
+      afterTaskDeleted(target);
     } catch (err) {
       console.error("Failed to delete task:", err);
+      toast.error("Couldn't delete the task. Please try again.");
     }
   };
+
 
   const handleToggleFullscreen = () => {
     setIsExpandedView((prev) => !prev);
@@ -275,6 +282,37 @@ export function SingleTaskWorkspaceView({
       ),
     [leftTaskItems, taskId]
   );
+
+  // Set while leaving a task that was just deleted, so its page shows the loader, not "Task Not Found".
+  const [leavingDeletedTask, setLeavingDeletedTask] = useState(false);
+  useEffect(() => setLeavingDeletedTask(false), [taskId]);
+
+  /**
+   * After a task or subtask is deleted (from the ⋯ menu, the left tree or the Subtasks table): if
+   * the open task is gone (it, or a parent of it, was deleted), go to its nearest remaining parent
+   * task — or the project page when there's none. Then drop it from the shared list and reload the
+   * project, so the board, the left tree and every Subtasks table match the database.
+   */
+  const afterTaskDeleted = (deletedIdOrCode: string) => {
+    const remaining = removeTaskFromList(leftTaskItems, deletedIdOrCode);
+    const remainingCodes = new Set(remaining.map((t) => t.code));
+    if (foundTask && !remainingCodes.has(foundTask.code)) {
+      // Parent of a row: the task listing it as a subtask, or the one its parentTaskId points at.
+      const parentOf = (t: TaskItem) =>
+        leftTaskItems.find((p) => p.subtasks?.some((s) => s.code === t.code)) ??
+        leftTaskItems.find((p) => !!t.parentTaskId && (p.id === t.parentTaskId || p.code === t.parentTaskId));
+      let target = parentOf(foundTask);
+      const seen = new Set<string>([foundTask.code]);
+      while (target && !remainingCodes.has(target.code) && !seen.has(target.code)) {
+        seen.add(target.code);
+        target = parentOf(target);
+      }
+      setLeavingDeletedTask(true);
+      router.push(target && remainingCodes.has(target.code) ? `${taskHrefBase}/${target.code}` : backHref);
+    }
+    setTasks((prev) => removeTaskFromList(prev, deletedIdOrCode));
+    void refreshWorkspace();
+  };
 
   const activeTask: TaskItem = foundTask || {
     id: taskId,
@@ -646,6 +684,7 @@ export function SingleTaskWorkspaceView({
       // The code as its id, like every row the workspace loads (loadTasks: `id: code || id`). The
       // Subtasks tree matches a row to its entry in the parent's list by code, so it isn't doubled.
       id: created.code,
+      dbId: created.id,
       code: created.code,
       title: created.title,
       status: created.status,
@@ -774,7 +813,8 @@ export function SingleTaskWorkspaceView({
           if ((next.subtasks || []).some((s) => s.id === st.id)) {
             next = { ...next, subtasks: (next.subtasks || []).map((s) => (s.id === st.id ? { ...s, [field]: v } : s)) };
           }
-          return t.id === st.id ? { ...next, [field]: v } : next;
+          // The subtask's own row too (its card) — rows are keyed by code, the entry by db id.
+          return t.id === st.id || t.code === st.code ? { ...next, [field]: v } : next;
         })
       );
     apply(value);
@@ -799,17 +839,20 @@ export function SingleTaskWorkspaceView({
     if (!ok) return;
 
     // Out of whichever task holds it (this one, or a subtask of it); put back if the delete is refused.
-    const before = tasks;
-    setTasks((prev) =>
-      prev.map((t) => {
-        const list = t.id === activeTask.id ? subtasks : t.subtasks || [];
-        return list.some((st) => st.id === id) ? { ...t, subtasks: list.filter((st) => st.id !== id) } : t;
-      })
-    );
+    // (Snapshot the stored rows, not the shown `tasks` — those carry rolled-up parent dates.)
+    // Removes its entry here, its own row (its card in the left tree) and everything under it.
+    let before: TaskItem[] = [];
+    setTasks((prev) => {
+      before = prev;
+      return removeTaskFromList(prev, id);
+    });
 
     deleteSubtaskAction(id)
       .then((deleted) => {
-        if (deleted) return;
+        if (deleted) {
+          afterTaskDeleted(id);
+          return;
+        }
         setTasks(before);
         toast.error("You don't have permission to delete this subtask.");
       })
@@ -1359,7 +1402,7 @@ export function SingleTaskWorkspaceView({
   const isOpenTask = (item: TaskItem) =>
     item.code.toLowerCase() === taskId.toLowerCase() || item.id.toLowerCase() === taskId.toLowerCase();
 
-  if (isLoading || isRefetchingMissingTask || isUnsavedTask) {
+  if (isLoading || isRefetchingMissingTask || isUnsavedTask || (leavingDeletedTask && !foundTask)) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-background text-foreground dark:bg-[#09090b]">
         <div className="flex flex-col items-center gap-3">
@@ -1480,6 +1523,7 @@ export function SingleTaskWorkspaceView({
                 onOpenTaskStatusChange={handleStatusChange}
                 onOpenTaskPhaseChange={(phaseCode, phaseName) => handleUpdateTaskField({ phaseCode, phaseName })}
                 onOpenTaskDelete={handleDeleteTask}
+                onTaskDeleted={afterTaskDeleted}
                 onOpenTaskLogSaved={refreshTaskTimeLogs}
               />
             ) : (
