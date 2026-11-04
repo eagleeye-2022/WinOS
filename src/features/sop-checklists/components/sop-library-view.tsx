@@ -34,6 +34,7 @@ import {
 import {
   DEFAULT_SOP_PLACE,
   OPERATION_SECTIONS,
+  OPERATION_SECTION_LABELS,
   SOP_PLACES,
   DEFAULT_SOP_LIST,
   SOP_DEPARTMENTS,
@@ -640,10 +641,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                 section === tab ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
-              {tab}
-              <span className="text-[10px] font-bold text-muted-foreground">
-                {visible.filter((t) => t.department === `Operation/${tab}`).length}
-              </span>
+              {OPERATION_SECTION_LABELS[tab]}
             </button>
           ))}
         </div>
@@ -763,6 +761,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                     ))}
                   </select>
                 </label>
+                {/* List field hidden by request — an SOP keeps the list it was created in (move it by dragging).
                 <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
                   List
                   <input
@@ -778,7 +777,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                       <option key={l} value={l} />
                     ))}
                   </datalist>
-                </label>
+                </label> */}
               </div>
 
               <label className="block space-y-1 text-[11px] font-medium text-muted-foreground">

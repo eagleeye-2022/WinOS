@@ -157,7 +157,7 @@ export function StandupLearningSection({
                       </span>
                     </td>
                     <td className="py-2.5 pr-3 align-top">
-                      {card ? <ProjectPill name={card.listName} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                      {card ? <ProjectPill name={card.listName} whyfi /> : <span className="text-xs text-muted-foreground/60">—</span>}
                     </td>
                     <td className="py-2.5 pr-3 align-top">
                       {code ? (

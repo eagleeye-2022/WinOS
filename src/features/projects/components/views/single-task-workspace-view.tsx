@@ -798,7 +798,8 @@ export function SingleTaskWorkspaceView({
     });
     if (!ok) return;
 
-    // Out of whichever task holds it (this one, or a subtask of it).
+    // Out of whichever task holds it (this one, or a subtask of it); put back if the delete is refused.
+    const before = tasks;
     setTasks((prev) =>
       prev.map((t) => {
         const list = t.id === activeTask.id ? subtasks : t.subtasks || [];
@@ -806,7 +807,17 @@ export function SingleTaskWorkspaceView({
       })
     );
 
-    deleteSubtaskAction(id).catch((err) => console.error("Failed to delete subtask in DB:", err));
+    deleteSubtaskAction(id)
+      .then((deleted) => {
+        if (deleted) return;
+        setTasks(before);
+        toast.error("You don't have permission to delete this subtask.");
+      })
+      .catch((err) => {
+        console.error("Failed to delete subtask in DB:", err);
+        setTasks(before);
+        toast.error("Couldn't delete the subtask. Please try again.");
+      });
   };
 
   const refreshComments = useCallback(async () => {

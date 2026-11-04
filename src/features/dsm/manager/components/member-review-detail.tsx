@@ -52,7 +52,7 @@ import { ProjectTaskSelectors, projectSelectOptions } from "@/features/dsm/compo
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
 import { WhyfiTaskSelectors } from "@/features/whyfi/components/whyfi-task-selectors";
-import { formatLearningLine, parseLearningLineCode, stripLearningLineCode } from "@/features/whyfi/constants";
+import { formatLearningLine, parseLearningLineCode, stripLearningLineCode, LEARNING_CODE_PREFIX, LEARNING_PROJECT_CATEGORY, WHYFI_PROJECT_LABEL } from "@/features/whyfi/constants";
 import { assignWhyfiTaskToMemberAction, updateWhyfiTaskAction, type WhyfiPickerTask } from "@/features/whyfi/actions";
 import { WhyfiLearningAddRow } from "@/features/whyfi/components/whyfi-learning-add-row";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, DueDateInput, TodayDueButton, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_2 } from "@/components/shared/task-table-parts";
@@ -1624,7 +1624,7 @@ function TaskRow({
         </span>
       </td>
       <td className="py-2 pr-3 align-top">
-        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         {task.projectTask ? (
@@ -2030,7 +2030,7 @@ function SummaryTaskRow({
         </button>
       </td>
       <td className="py-2 pr-3 align-top">
-        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         {/* Status pill hidden in "What Did You Do Yesterday?" — pass showStatus (or remove the prop) to restore */}
@@ -2409,7 +2409,7 @@ function YesterdayTasksSection({
         <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
           <table className={cn(STICKY_PROJECT_COL_2, "w-full min-w-[720px] text-left")}>
             <thead>
-              <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b text-xs font-bold uppercase tracking-wider text-muted-foreground [&>th]:whitespace-nowrap">
                 <th className="w-10 py-2 pr-2">Done</th>
                 <th className="py-2 pr-3">Project</th>
                 <th className="py-2 pr-3">Task ID</th>
@@ -2424,9 +2424,11 @@ function YesterdayTasksSection({
             <tbody>
               {/* DSM tasks and the other tasks time was logged on that day (WhyFi School, tasks
                   outside the DSM) as one list, by Effort Time — earliest start first; rows without an
-                  effort time keep their order at the bottom (stable sort). */}
+                  effort time keep their order at the bottom (stable sort). WhyFi School rows go
+                  after all the others, in the same order among themselves. */}
               {[
                 ...rows.map((r) => ({
+                  whyfi: isWhyfiTask(r.task),
                   start: effortStartMinutes(r.task.projectTaskId ? spans[r.task.projectTaskId] : undefined),
                   node: (
                     <SummaryTaskRow
@@ -2442,11 +2444,12 @@ function YesterdayTasksSection({
                   ),
                 })),
                 ...loggedTasks.map((t) => ({
+                  whyfi: t.projectLabel === WHYFI_PROJECT_LABEL,
                   start: effortStartMinutes(t.effortFrom),
                   node: <LoggedSummaryRow key={t.taskId} task={t} onToggled={setLoggedDone} />,
                 })),
               ]
-                .sort((a, b) => a.start - b.start)
+                .sort((a, b) => Number(a.whyfi) - Number(b.whyfi) || a.start - b.start)
                 .map((r) => r.node)}
             </tbody>
           </table>
@@ -2476,6 +2479,15 @@ function YesterdayTasksSection({
         </button>
       )} */}
     </div>
+  );
+}
+
+/** A WhyFi School task: its project is a learning list ("WL-…" code, category LEARNING). */
+function isWhyfiTask(t: TaskItem): boolean {
+  const project = t.projectTask?.project;
+  return (
+    project?.projectCategory === LEARNING_PROJECT_CATEGORY ||
+    !!project?.code?.startsWith(`${LEARNING_CODE_PREFIX}-`)
   );
 }
 
@@ -2530,13 +2542,15 @@ function TodayTasksSection({
     return dir * (ad - bd);
   };
 
-  const sorted = (() => {
+  const sortedAll = (() => {
     if (sortMode === "text-asc") return [...tasksWithOptimistic].sort((a, b) => a.text.localeCompare(b.text));
     if (sortMode === "text-desc") return [...tasksWithOptimistic].sort((a, b) => b.text.localeCompare(a.text));
     if (sortMode === "deadline") return [...tasksWithOptimistic].sort((a, b) => cmpDue(a, b, 1));
     if (sortMode === "recent") return [...tasksWithOptimistic].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return sortByPriority(tasksWithOptimistic); // default: P1 first, unassigned last
   })();
+  // WhyFi School (learning) tasks always come last, in the same sort order among themselves.
+  const sorted = [...sortedAll.filter((t) => !isWhyfiTask(t)), ...sortedAll.filter(isWhyfiTask)];
 
   function takenFor(taskId: string) {
     return tasksWithOptimistic

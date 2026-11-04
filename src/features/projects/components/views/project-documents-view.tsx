@@ -107,6 +107,7 @@ export function ProjectDocumentsView({ projectId, projectName }: ProjectDocument
       setDocuments((prev) => prev.filter((d) => d.id !== docId));
     } catch (err) {
       console.error("Failed to delete document:", err);
+      alert(err instanceof Error ? err.message : "Couldn't delete the document.");
     }
   };
 

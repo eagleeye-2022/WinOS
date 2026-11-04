@@ -1164,7 +1164,9 @@ export async function createProjectAction(data: NewProjectFormData): Promise<Pro
 }
 
 export async function deleteProjectAction(projectId: string): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Deletes the project and (by cascade) all its tasks — managers only.
+  if (!(await isPrivilegedViewer(session.user.id))) return false;
 
   await db.project.deleteMany({
     where: {
@@ -3244,15 +3246,33 @@ export async function moveTaskToProjectAction(
 
 export async function deleteTaskAction(taskId: string): Promise<boolean> {
   const session = await requireAuth();
+  if (!(await canDeleteProjectTask(session, taskId))) return false;
 
+  await db.projectTask.deleteMany({
+    where: {
+      OR: [{ id: taskId }, { code: taskId }],
+    },
+  });
+
+  revalidatePath("/projects");
+  return true;
+}
+
+/**
+ * Who may delete a task or subtask — same rule as updateTaskAction: a manager, any user of the
+ * task's project (see isProjectUser), its owner(s), the project owner, or — for a still-unowned
+ * task — its author. False when the task doesn't exist.
+ */
+async function canDeleteProjectTask(
+  session: Awaited<ReturnType<typeof requireAuth>>,
+  taskId: string
+): Promise<boolean> {
   const task = await db.projectTask.findFirst({
     where: { OR: [{ id: taskId }, { code: taskId }] },
     include: { project: { select: { ownerId: true } }, ...TASK_OWNERS_INCLUDE },
   });
   if (!task) return false;
 
-  // Same permission rule as updateTaskAction: any user of the task's project (see
-  // isProjectUser), its owner(s), the project owner, or — for a still-unowned task — its author.
   const ownerIdsOnTask = task.owners.map((o) => o.userId);
   const ownerNamesOnTask =
     task.owners.length > 0
@@ -3278,18 +3298,7 @@ export async function deleteTaskAction(taskId: string): Promise<boolean> {
     !task.ownerId &&
     ownerNamesOnTask.length === 0 &&
     task.authorId === session.user.id;
-  if (!isAuthorized && !isUnownedAuthor) {
-    return false;
-  }
-
-  await db.projectTask.deleteMany({
-    where: {
-      OR: [{ id: taskId }, { code: taskId }],
-    },
-  });
-
-  revalidatePath("/projects");
-  return true;
+  return isAuthorized || isUnownedAuthor;
 }
 
 /** Persists a drag-reordered (and optionally drag-moved-to-a-different-phase) Kanban column:
@@ -3533,8 +3542,14 @@ export async function updateSubtaskAction(
 }
 
 export async function deleteSubtaskAction(subtaskId: string): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Same rule as deleting a task. A subtask that only exists in the legacy ProjectSubtask
+  // table has no owners to check, so only a manager may remove it.
+  const allowed =
+    (await canDeleteProjectTask(session, subtaskId)) || (await isPrivilegedViewer(session.user.id));
+  if (!allowed) return false;
 
+  // Its own subtasks go with it (parentTaskId cascades).
   await db.projectTask.deleteMany({
     where: { OR: [{ id: subtaskId }, { code: subtaskId }] },
   });
@@ -3696,7 +3711,11 @@ export async function inviteUserAction(
   profileRole?: ProfileRoleValue,
   projectIds: string[] = []
 ): Promise<ProjectUser> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Creates users and sets their role (an existing user's too) — managers only.
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    throw new Error("Only a manager can invite users.");
+  }
 
   // The underlying Prisma `User.role` enum only has TEAM_MEMBER|MANAGER (used site-wide for
   // manager route gating). "Administrator" is represented as MANAGER + profileRole ADMIN.
@@ -3760,7 +3779,11 @@ export async function updateUserRoleAction(
   role: MemberRoleTier,
   profileRole: ProfileRoleValue
 ): Promise<ProjectUser> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Without this anyone signed in could make themselves a manager.
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    throw new Error("Only a manager can change user roles.");
+  }
 
   const dbRole = role === "TEAM_MEMBER" ? "TEAM_MEMBER" : "MANAGER";
 
@@ -4289,7 +4312,11 @@ export async function removeProjectMemberAction(
   projectId: string,
   userId: string
 ): Promise<boolean> {
-  await requireAuth();
+  const session = await requireAuth();
+  // Same rule as addProjectMembersAction.
+  if (!(await isPrivilegedViewer(session.user.id, projectId))) {
+    throw new Error("Only a manager can remove members from a project.");
+  }
 
   const project = await db.project.findFirst({
     where: { OR: [{ id: projectId }, { code: projectId }] },
@@ -5291,11 +5318,8 @@ export async function saveProjectDocumentAction(docData: {
 }
 
 export async function deleteProjectDocumentAction(docId: string, projectId: string): Promise<boolean> {
-  await requireAuth();
-
-  await db.userDocument.delete({
-    where: { id: docId },
-  });
+  const session = await requireAuth();
+  await deleteAttachedDocument(session.user.id, docId, "PROJECT:");
 
   revalidatePath(`/projects/${projectId}`);
   return true;
@@ -5549,13 +5573,27 @@ export async function saveTaskDocumentAction(docData: {
 }
 
 export async function deleteTaskDocumentAction(docId: string, taskId: string): Promise<boolean> {
-  await requireAuth();
-
-  await db.userDocument.delete({
-    where: { id: docId },
-  });
-
+  const session = await requireAuth();
+  await deleteAttachedDocument(session.user.id, docId, "TASK:");
   return true;
+}
+
+/**
+ * Deletes a project/task attachment. UserDocument also holds people's personal documents, so
+ * only rows of the given kind ("PROJECT:" / "TASK:") are touched, and only by their uploader or
+ * a manager.
+ */
+async function deleteAttachedDocument(userId: string, docId: string, kindPrefix: "PROJECT:" | "TASK:") {
+  const doc = await db.userDocument.findUnique({
+    where: { id: docId },
+    select: { userId: true, kind: true },
+  });
+  if (!doc) return; // already gone
+  if (!doc.kind.startsWith(kindPrefix)) throw new Error("Document not found.");
+  if (doc.userId !== userId && !(await isPrivilegedViewer(userId))) {
+    throw new Error("Only the uploader or a manager can delete this document.");
+  }
+  await db.userDocument.delete({ where: { id: docId } });
 }
 
 export async function getTaskTimelineAction(taskIdOrCode: string): Promise<ProjectTimelineEvent[]> {
