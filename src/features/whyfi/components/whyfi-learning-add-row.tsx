@@ -10,7 +10,8 @@ import { WhyfiTaskSelectors } from "./whyfi-task-selectors";
 
 /**
  * "+ Add Learning Task" for a DSM's WhyFi School section, laid out like the DSM "New Task" row:
- * NEW LEARNING TASK: [Task List → Task → Subtask] / description / DUE: [date] [Today]  [Add] [Cancel].
+ * NEW LEARNING TASK: [Task List → Task → Subtask] / description / DUE: [date] [Today]  [Cancel].
+ * It saves itself on Enter or when focus leaves the row.
  * The due date belongs to the picked card (learning lines are plain text), so it needs a card.
  */
 export function WhyfiLearningAddRow({
@@ -80,7 +81,17 @@ export function WhyfiLearningAddRow({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs">
+    <div
+      // Auto-save (no Add Task button): saved when focus leaves the row with a task picked or a
+      // line written. Moving into the task pickers (portalled popovers) doesn't count.
+      onBlur={(e) => {
+        const next = e.relatedTarget as HTMLElement | null;
+        if (e.currentTarget.contains(next)) return;
+        if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
+        void submit();
+      }}
+      className="mt-3 flex flex-col gap-2 rounded-xl border border-primary/40 bg-card p-3 shadow-xs"
+    >
       {/* Task List → Task → Subtask */}
       <div className="flex flex-wrap items-center gap-2.5 text-xs">
         <span className="text-xs font-semibold uppercase text-muted-foreground">New Learning Task:</span>
@@ -111,7 +122,11 @@ export function WhyfiLearningAddRow({
               reset();
             }
           }}
-          placeholder={task ? "Optional note (defaults to the task title)..." : "Describe what will be learned..."}
+          placeholder={
+            task
+              ? "Optional note (defaults to the task title)... (saves automatically)"
+              : "Describe what will be learned... (saves automatically)"
+          }
           className="flex-1 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring"
         />
       </div>
@@ -127,20 +142,18 @@ export function WhyfiLearningAddRow({
           <TodayDueButton value={dueDate} onChange={setDueDate} disabled={!task || saving} />
         </div>
 
+        {/* Saving… / Cancel (no Add Task button — the row saves itself, see onBlur above). */}
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!canAdd}
-            title="Add learning task"
-            className="flex items-center gap-1 rounded-md bg-success/10 px-2.5 py-1.5 text-xs font-semibold text-success transition-colors hover:bg-success/20 disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2.5} />}
-            {saving ? "Saving…" : "Add Task"}
-          </button>
+          {saving && (
+            <span className="flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+              <Loader2 size={13} className="animate-spin" /> Saving…
+            </span>
+          )}
           <button
             type="button"
             onClick={reset}
+            // Keep focus in the row so cancelling doesn't count as leaving it (which would save).
+            onMouseDown={(e) => e.preventDefault()}
             disabled={saving}
             title="Cancel"
             className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
