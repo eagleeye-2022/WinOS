@@ -9,6 +9,7 @@ import {
   STICKY_PROJECT_COL_2,
   TASK_TABLE_SCROLL,
   TaskIdChip,
+  TaskInfoLink,
   WrappedTaskText,
 } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
@@ -21,7 +22,7 @@ type LearningItem = { id: string; text: string; completed: boolean };
 /**
  * "What Will You Learn Today (WhyFi School)?" on a report — the same table as the DSM card
  * (StandupLearningSection), without the # column: Done · List · Task ID · Learning Task · Status · Due Date · Effort
- * Logs. Lines linked to a WhyFi School card ("[WL-1-T3] …") fill in the card's columns; the Done
+ * Logs · Action (ⓘ opens the card). Lines linked to a WhyFi School card ("[WL-1-T3] …") fill in the card's columns; the Done
  * cell is the caller's (read-only tick, or the manager's toggle).
  */
 export function ReportLearningTable({
@@ -64,6 +65,7 @@ export function ReportLearningTable({
             <th className="w-24 whitespace-nowrap pb-2.5 pr-3 font-semibold">Status</th>
             <th className="whitespace-nowrap pb-2.5 pr-3 font-semibold">Due Date</th>
             <th className="whitespace-nowrap pb-2.5 pr-3 font-semibold">Effort Logs</th>
+            <th className="whitespace-nowrap pb-2.5 pr-2 text-center font-semibold">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -80,7 +82,8 @@ export function ReportLearningTable({
                 </td>
                 <td className="py-2.5 pr-3 align-top">
                   {code ? (
-                    <TaskIdChip code={code} title={card?.title || text} href={card ? projectTaskHref(card.projectId, code) : null} />
+                    // No ⓘ beside the ID — it's in the Action column.
+                    <TaskIdChip code={code} title={card?.title || text} />
                   ) : (
                     <span className="text-xs text-muted-foreground/60">—</span>
                   )}
@@ -114,6 +117,15 @@ export function ReportLearningTable({
                 <td className="py-2.5 pr-3 align-top">
                   {code && card ? (
                     <MemberTaskTimerBadge taskId={card.id} taskCode={code} memberId={memberId} dateStr={dateStr} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground/60">—</span>
+                  )}
+                </td>
+                <td className="py-2.5 pr-2 align-top text-center">
+                  {code && card && projectTaskHref(card.projectId, code) ? (
+                    <div className="flex items-center justify-center">
+                      <TaskInfoLink href={projectTaskHref(card.projectId, code)!} code={code} className="h-7 w-7 rounded-lg hover:bg-muted" />
+                    </div>
                   ) : (
                     <span className="text-xs text-muted-foreground/60">—</span>
                   )}

@@ -107,7 +107,7 @@ export function DsrPageClient({
             <p className="text-xs text-muted-foreground">{formatDayHeader(now)}</p>
             {/* Hidden for now.
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              End-of-Day Report · Cut-off {reportConfig.cutoffLabel}
+              Daily Progress Report · Cut-off {reportConfig.cutoffLabel}
             </p>
             */}
             <h1 className="mt-1 text-4xl font-bold tracking-tight">{formatFullDate(now)}</h1>

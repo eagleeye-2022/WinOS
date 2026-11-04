@@ -191,7 +191,7 @@ export function AllDsrClient({ stats, groups, selectedDateStr, blockerMembers = 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">All Daily Progress Reports</h1>
           <p className="text-sm text-muted-foreground">
-            Review end-of-day reports and recordings for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
+            Review daily progress reports and recordings for all departments • <span className="font-semibold text-foreground/80">{formattedDate}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

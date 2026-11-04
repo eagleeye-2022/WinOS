@@ -27,7 +27,7 @@ import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-proje
 import { projectLinkKeys } from "@/features/dsr/reporting";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TimeTrackedBadge, TaskTableHead, PriorityBadge, WrappedTaskText, SortFilterButton, TaskCreatedAtLabel, STICKY_PROJECT_COL_3, TASK_TABLE_SCROLL } from "@/components/shared/task-table-parts";
-import { TaskDetailRow, TaskDetailToggle } from "@/features/dsm/manager/components/task-detail-panel";
+import { TaskDetailRow, TaskDetailToggle, toggleDetailOnRowClick } from "@/features/dsm/manager/components/task-detail-panel";
 import { ReportLearningTable } from "@/features/dsr/components/report-learning-table";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
@@ -178,7 +178,10 @@ function TaskItemRow({
 
   return (
     <>
-    <tr className="border-b last:border-b-0 hover:bg-muted/40 transition-colors">
+    <tr
+      className={cn("border-b last:border-b-0 hover:bg-muted/40 transition-colors", linkedTaskId && "cursor-pointer")}
+      onClick={linkedTaskId ? (e) => toggleDetailOnRowClick(e, () => setDetailOpen((v) => !v)) : undefined}
+    >
       <td className="py-2 pr-2 align-top">
         <form
           action={(fd) => {
@@ -213,14 +216,16 @@ function TaskItemRow({
         {projectLink?.projectTask ? (
           <div className="flex items-start gap-0.5">
             {linkedTaskId && <TaskDetailToggle open={detailOpen} onToggle={() => setDetailOpen((v) => !v)} />}
-            <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} href={projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)} />
+            {/* No ⓘ beside the ID — it's in the Action column. */}
+            <TaskIdChip code={projectLink.projectTask.code} title={projectLink.projectTask.title || task.text} />
           </div>
         ) : <span className="text-xs text-muted-foreground/60">—</span>}
       </td>
       <td className="py-2 pr-3 align-top">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className={cn("select-none", task.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-            <WrappedTaskText text={task.text} />
+            {/* With a dropdown, a click on the text opens the row like anywhere else (and shows it in full). */}
+            <WrappedTaskText text={task.text} expanded={linkedTaskId ? detailOpen : undefined} />
           </span>
           {task.addedAfterReview && (
             <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-primary" title="Added After Review">
@@ -228,7 +233,7 @@ function TaskItemRow({
             </span>
           )}
         </div>
-        <TaskCreatedAtLabel date={task.createdAt} />
+        {/* "Created <date>" hidden by request. <TaskCreatedAtLabel date={task.createdAt} /> */}
       </td>
       <td className="w-20 py-2 pr-3 align-top whitespace-nowrap">
         <PriorityBadge priority={task.priority} />
@@ -1100,7 +1105,7 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft size={14} />
-            Back to All Daily Progress Reports
+            Back
           </Link>
         </div>
 
@@ -1155,18 +1160,21 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
               isLocked={false}
               markCompletedInDsr={true}
             />
-            {timeSummary && <ReportTimeSection summary={timeSummary} />}
+            {/* "Time Logged Today" hidden here by request (the member's own report still shows it).
+            {timeSummary && <ReportTimeSection summary={timeSummary} />} */}
             <AdditionalWorkCard entry={activeEntry} />
             {/* Learning sits above Support Needed / meetings. */}
             <LearningCard entry={activeEntry} memberId={user.id} />
             <BlockersSupportCard entry={activeEntry} />
+            {/* "Reviewer Actions" (Manager Comments + Reviewed button) hidden by request — restore to
+                mark reports reviewed from here again.
             <ReviewerActionsCard
               entryId={activeEntry.id}
               userId={user.id}
               memberName={memberFirstName}
               isReviewed={isReviewed}
               managerComment={activeEntry.managerComment}
-            />
+            /> */}
             <TimelineCard events={activeEntry.timelineEvents} />
           </div>
         ) : (

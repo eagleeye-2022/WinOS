@@ -119,7 +119,7 @@ function ManagerDashboard({
         >
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <BarChart2 size={15} strokeWidth={1.75} />
-            End-of-Day Reports
+            Daily Progress Reports
           </div>
           <div className="mt-3 flex-1">
             {dsrStats ? (
@@ -204,7 +204,7 @@ function ManagerDashboard({
             [
               { label: "My DSM",         desc: "My Daily Standup",         icon: User,          href: ROUTES.dsmMy },
               { label: "All DSM",        desc: "Team Standup Overview",    icon: ClipboardList, href: ROUTES.dsmAll },
-              { label: "All Daily Progress Reports",  desc: "End-of-Day Report Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
+              { label: "All Daily Progress Reports",  desc: "Daily Progress Report Queue",     icon: BarChart2,     href: ROUTES.dsrManage },
               { label: "Blockers", desc: "Team Blockers & Issues", icon: AlertCircle, href: ROUTES.blockers },
               { label: "Support Needed", desc: "Pending Support Requests", icon: SupportNeededIcon, href: ROUTES.support },
             ] as const
