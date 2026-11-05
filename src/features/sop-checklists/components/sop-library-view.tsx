@@ -258,7 +258,6 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   // Unsaved edits in the open SOP (the editor only replaces `content` when the document changes).
   const isDirty =
     !!draft &&
-    (canEdit || !draft.id) &&
     (selected
       ? draft.name !== selected.name ||
         draft.description !== selected.description ||
@@ -713,25 +712,11 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
               </button>
             )}
           </div>
-          {!canEdit && draft.id ? (
-            // Team members: a saved SOP as a read-only document (its checkboxes are ticked on tasks).
-            // A new SOP (no id yet) falls through to the editor below so they can create it.
+          {/* Team members used to get a read-only SOPDocView here; they now edit like managers
+              (archive, delete, push and move stay manager-only below). */}
+          {
             <div className="mx-auto max-w-4xl space-y-4">
-              <div className="space-y-1">
-                <h2 className="text-lg font-bold text-foreground">{draft.name}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {sopPlaceLabel(draft.department)} · {draft.category}
-                  {selected && ` · ${selected.items.length} checklist · v${selected.version}`}
-                </p>
-                {draft.description && <p className="text-sm text-muted-foreground">{draft.description}</p>}
-              </div>
-              <div className="rounded-xl border bg-card p-4">
-                <SopDocView key={draft.editorKey} content={draft.content} checkedById={NO_TICKS} onToggle={() => false} />
-              </div>
-            </div>
-          ) : (
-            <div className="mx-auto max-w-4xl space-y-4">
-              {selected && selected.outdatedCount > 0 && (
+              {canEdit && selected && selected.outdatedCount > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
                   <span>
                     <b>{selected.outdatedCount}</b> task checklist(s) still use an older version of this SOP.
@@ -818,7 +803,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
                 <div className="flex items-center gap-2">
-                  {selected && (
+                  {canEdit && selected && (
                     <>
                       <button
                         type="button"
@@ -858,7 +843,7 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
                 </div>
               </div>
             </div>
-          )}
+          }
         </section>
         {selected && <SopInfoAside template={selected} />}
         </div>

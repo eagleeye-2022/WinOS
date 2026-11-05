@@ -78,6 +78,7 @@ import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state"
 import Link from "next/link";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { PageTitle } from "@/components/shared/page-header";
+import { TaskIdChip, ProjectPill } from "@/components/shared/task-table-parts";
 
 const GROUP_BY_OPTIONS = ["Group By Date", "Group By User", "Group By Project"] as const;
 const TIME_SHEET_VIEWS = ["My Effort Logs", "All Effort Logs", "Team Effort Logs"] as const;
@@ -111,6 +112,12 @@ interface TimeTrackerViewProps {
   projectSpan?: { start?: string; end?: string };
 }
 
+/** Task id as the same `[CODE]` chip the DSM tables use; a dash when the log has no task code. */
+function LogIdChip({ log }: { log: TimeLogEntry }) {
+  const code = log.taskCode || log.code;
+  if (!code) return <span className="text-muted-foreground/60">—</span>;
+  return <TaskIdChip code={code} title={log.title} />;
+}
 
 /** Log Title cell text: a link to the logged task (new tab, like the ⓘ task icon elsewhere);
  *  plain text when the log has no task code (`taskCode` falls back to the log id then). */
@@ -906,6 +913,14 @@ export function TimeTrackerView({
   })();
   const billablePercentage = totalMinutesAll > 0 ? Math.round((billableMinutes / totalMinutesAll) * 100) : 0;
 
+  // WhyFi School (learning) effort always sits after the project effort — inside each group, and as
+  // the last group in Group By Project. The order is otherwise kept.
+  const isWhyfiProject = (project: string) => project === WHYFI_PROJECT_LABEL || project === WHYFI_SHORT_LABEL;
+  const whyfiLast = <T extends { project: string }>(logs: T[]): T[] => [
+    ...logs.filter((l) => !isWhyfiProject(l.project)),
+    ...logs.filter((l) => isWhyfiProject(l.project)),
+  ];
+
   // Real "Group By Date" data
   const dateGroupsData = React.useMemo(() => {
     const byDate = new Map<
@@ -931,7 +946,7 @@ export function TimeTrackerView({
           totalHours: formatMinutesShort(billable + nonBillable),
           billableHours: formatMinutesShort(billable),
           nonBillableHours: formatMinutesShort(nonBillable),
-          logs: g.logs,
+          logs: whyfiLast(g.logs),
         };
       });
   }, [filteredAllLogs]);
@@ -962,6 +977,7 @@ export function TimeTrackerView({
       byUser.get(key)!.timeLogs.push(log);
     }
     for (const group of byUser.values()) {
+      group.timeLogs = whyfiLast(group.timeLogs);
       const billable = group.timeLogs
         .filter((l) => l.billingType === "BILLABLE")
         .reduce((sum, l) => sum + parseDurationMinutes(l.duration), 0);
@@ -991,7 +1007,11 @@ export function TimeTrackerView({
       byProject.get(key)!.timeLogs.push(log);
     }
     return Array.from(byProject.values())
-      .sort((a, b) => a.projectName.localeCompare(b.projectName))
+      .sort(
+        (a, b) =>
+          Number(isWhyfiProject(a.projectName)) - Number(isWhyfiProject(b.projectName)) ||
+          a.projectName.localeCompare(b.projectName)
+      )
       .map((group) => {
         const billable = group.timeLogs
           .filter((l) => l.billingType === "BILLABLE")
@@ -1524,12 +1544,6 @@ export function TimeTrackerView({
                 <th className="py-2.5 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
-                  ID
-                </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px]">
-                  LOG TITLE
-                </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   <div className="flex items-center gap-1.5">
                     <Folder size={13} className="text-muted-foreground" />
@@ -1537,10 +1551,10 @@ export function TimeTrackerView({
                   </div>
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={13} className="text-muted-foreground" />
-                    <span>DAILY LOG HOURS</span>
-                  </div>
+                  TASK ID
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px]">
+                  TASK/SUBTASK
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
                   TASK NOTES
@@ -1548,7 +1562,13 @@ export function TimeTrackerView({
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
                     <Clock size={13} className="text-muted-foreground" />
-                    <span>TIME PERIOD</span>
+                    <span>EFFORT TIME</span>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={13} className="text-muted-foreground" />
+                    <span>EFFORT LOG</span>
                   </div>
                 </th>
                 {/* User column hidden in Group By Date by request.
@@ -1594,7 +1614,7 @@ export function TimeTrackerView({
                           )}
                         </button>
                       </td>
-                      <td colSpan={3} className="py-2.5 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                      <td colSpan={5} className="py-2.5 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <CalendarIcon size={14} className="text-muted-foreground" />
                           <span className="text-foreground font-bold">{group.date}</span>
@@ -1607,7 +1627,7 @@ export function TimeTrackerView({
                           {showBilling && <span className="text-warning font-bold">{group.nonBillableHours}</span>}
                         </div>
                       </td>
-                      <td colSpan={showBilling ? 4 : 3} className="py-2.5 px-4" />
+                      <td colSpan={showBilling ? 2 : 1} className="py-2.5 px-4" />
                     </tr>
 
                     {!isCollapsed && (
@@ -1645,8 +1665,12 @@ export function TimeTrackerView({
                               />
                             </td>
 
+                            <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
+                              <ProjectPill name={log.project} />
+                            </td>
+
                             <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                              {log.taskCode || log.code}
+                              <LogIdChip log={log} />
                             </td>
 
                             <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
@@ -1654,25 +1678,6 @@ export function TimeTrackerView({
                                 <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                                 <LogTitleLink log={log} />
                               </div>
-                            </td>
-
-                            <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <Folder size={14} className="text-muted-foreground shrink-0" />
-                                <span title={log.project}>{shortProjectName(log.project)}</span>
-                              </div>
-                            </td>
-
-                            {/* Daily Log Hours Column — INLINE EDITABLE */}
-                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
-                              <InlineTextCell
-                                value={log.duration}
-                                onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
-                                mono
-                                placeholder="00:00"
-                                className="font-mono text-foreground min-w-[70px]"
-                                title="Click to edit Daily Log Hours inline"
-                              />
                             </td>
 
                             {/* Task Notes (remarks) Column — opens a popup to read/edit */}
@@ -1688,7 +1693,19 @@ export function TimeTrackerView({
                                 mono
                                 placeholder="00:00 - 00:00"
                                 className="text-xs text-muted-foreground min-w-[110px]"
-                                title="Click to edit Time Period inline"
+                                title="Click to edit Effort Time inline"
+                              />
+                            </td>
+
+                            {/* Daily Log Hours Column — INLINE EDITABLE */}
+                            <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                              <InlineTextCell
+                                value={log.duration}
+                                onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                                mono
+                                placeholder="00:00"
+                                className="font-mono text-foreground min-w-[70px]"
+                                title="Click to edit Effort Log inline"
                               />
                             </td>
 
@@ -1809,19 +1826,19 @@ export function TimeTrackerView({
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
-                  LOG TITLE
-                </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   USER
                 </th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
-                  DAILY LOG HOURS
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">TASK ID</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                  TASK/SUBTASK
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
-                  TIME PERIOD
+                  EFFORT TIME
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                  EFFORT LOG
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
                 {showBilling && (<th className="py-3 px-4 border-r border-border whitespace-nowrap">
@@ -1861,7 +1878,7 @@ export function TimeTrackerView({
                       </button>
                     </td>
 
-                    <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                    <td colSpan={5} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <div className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
                           <Folder size={13} />
@@ -1881,7 +1898,7 @@ export function TimeTrackerView({
                       </div>
                     </td>
 
-                    <td colSpan={showBilling ? 4 : 3} className="py-3 px-4" />
+                    <td colSpan={showBilling ? 2 : 1} className="py-3 px-4" />
                   </tr>
 
                   {!collapsedDates[groupKey] && (
@@ -1900,17 +1917,6 @@ export function TimeTrackerView({
                             />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                            {log.taskCode || log.code}
-                          </td>
-
-                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                              <LogTitleLink log={log} />
-                            </div>
-                          </td>
-
                           <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
                               <UserIcon size={14} className="text-muted-foreground shrink-0" />
@@ -1918,16 +1924,15 @@ export function TimeTrackerView({
                             </div>
                           </td>
 
-                          {/* Daily Log Hours Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
-                            <InlineTextCell
-                              value={log.duration}
-                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
-                              mono
-                              placeholder="00:00"
-                              className="font-mono text-foreground min-w-[70px]"
-                              title="Click to edit Daily Log Hours inline"
-                            />
+                          <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                            <LogIdChip log={log} />
+                          </td>
+
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
+                              <LogTitleLink log={log} />
+                            </div>
                           </td>
 
                           {/* Task Notes (remarks) Column — opens a popup to read/edit */}
@@ -1943,7 +1948,19 @@ export function TimeTrackerView({
                               mono
                               placeholder="00:00 - 00:00"
                               className="text-xs text-muted-foreground min-w-[175px]"
-                              title="Click to edit Time Period inline"
+                              title="Click to edit Effort Time inline"
+                            />
+                          </td>
+
+                          {/* Daily Log Hours Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.duration}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                              mono
+                              placeholder="00:00"
+                              className="font-mono text-foreground min-w-[70px]"
+                              title="Click to edit Effort Log inline"
                             />
                           </td>
 
@@ -2032,19 +2049,19 @@ export function TimeTrackerView({
                 <th className="py-3 px-3 border-r border-border w-10 text-center">
                   {expandCollapseAllHeader}
                 </th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
-                  LOG TITLE
-                </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">
                   {projectLabel.toUpperCase()}
                 </th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
-                  DAILY LOG HOURS
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">TASK ID</th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                  TASK/SUBTASK
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">
-                  TIME PERIOD
+                  EFFORT TIME
+                </th>
+                <th className="py-3 px-4 border-r border-border whitespace-nowrap">
+                  EFFORT LOG
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
                 {showBilling && (<th className="py-3 px-4 border-r border-border whitespace-nowrap">
@@ -2083,7 +2100,7 @@ export function TimeTrackerView({
                       </button>
                     </td>
 
-                    <td colSpan={3} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
+                    <td colSpan={5} className="py-3 px-4 border-r border-border font-bold text-foreground whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <UserAvatar
                           userId={group.userId}
@@ -2108,7 +2125,7 @@ export function TimeTrackerView({
                       </div>
                     </td>
 
-                    <td colSpan={showBilling ? 4 : 3} className="py-3 px-4" />
+                    <td colSpan={showBilling ? 2 : 1} className="py-3 px-4" />
                   </tr>
 
                   {!collapsedDates[group.userId] && (
@@ -2127,8 +2144,12 @@ export function TimeTrackerView({
                             />
                           </td>
 
+                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
+                            <ProjectPill name={log.project} />
+                          </td>
+
                           <td className="py-2.5 px-4 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                            {log.taskCode || log.code}
+                            <LogIdChip log={log} />
                           </td>
 
                           <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
@@ -2136,25 +2157,6 @@ export function TimeTrackerView({
                               <ClipboardList size={14} className="text-muted-foreground shrink-0" />
                               <LogTitleLink log={log} />
                             </div>
-                          </td>
-
-                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <Folder size={14} className="text-muted-foreground shrink-0" />
-                              <span title={log.project}>{shortProjectName(log.project)}</span>
-                            </div>
-                          </td>
-
-                          {/* Daily Log Hours Column — INLINE EDITABLE */}
-                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
-                            <InlineTextCell
-                              value={log.duration}
-                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
-                              mono
-                              placeholder="00:00"
-                              className="font-mono text-foreground min-w-[70px]"
-                              title="Click to edit Daily Log Hours inline"
-                            />
                           </td>
 
                           {/* Task Notes (remarks) Column — opens a popup to read/edit */}
@@ -2170,7 +2172,19 @@ export function TimeTrackerView({
                               mono
                               placeholder="00:00 - 00:00"
                               className="text-xs text-muted-foreground min-w-[175px]"
-                              title="Click to edit Time Period inline"
+                              title="Click to edit Effort Time inline"
+                            />
+                          </td>
+
+                          {/* Daily Log Hours Column — INLINE EDITABLE */}
+                          <td className="py-2 px-3 border-r border-border whitespace-nowrap">
+                            <InlineTextCell
+                              value={log.duration}
+                              onSave={(newVal) => handleInlineFieldChange(log.id, "duration", newVal)}
+                              mono
+                              placeholder="00:00"
+                              className="font-mono text-foreground min-w-[70px]"
+                              title="Click to edit Effort Log inline"
                             />
                           </td>
 

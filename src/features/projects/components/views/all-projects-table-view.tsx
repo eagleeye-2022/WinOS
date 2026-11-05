@@ -135,7 +135,7 @@ const TECH_COLS: CollapsibleColId[] = ["techLead", "techAssignee"];
 const CREATIVE_UIUX_COLS: CollapsibleColId[] = ["creativeUiuxLead", "creativeUiuxAssignee"];
 const CREATIVE_GRAPHIC_COLS: CollapsibleColId[] = ["creativeGraphicLead", "creativeGraphicAssignee"];
 const CREATIVE_COLS: CollapsibleColId[] = [...CREATIVE_UIUX_COLS, ...CREATIVE_GRAPHIC_COLS];
-const MARKETING_COLS: CollapsibleColId[] = ["marketingLead", "marketingSeo", "marketingContent"];
+const MARKETING_COLS: CollapsibleColId[] = ["marketingLead", "marketingSeo" /* , "marketingContent" — hidden for now */];
 
 /** Every leaf column in body-row order — drives the <colgroup> so column widths are fixed
  *  (not content-driven) and stay in sync with which columns are collapsed. */
@@ -157,7 +157,7 @@ const LEAF_COL_ORDER: CollapsibleColId[] = [
   "creativeGraphicAssignee",
   "marketingLead",
   "marketingSeo",
-  "marketingContent",
+  // "marketingContent", // hidden for now
   "projectCalendar",
   "assetLink",
   // "projectTimeline",
@@ -1844,7 +1844,7 @@ export function AllProjectsTableView({
                 {renderGroupHeader("Client Location", CLIENT_LOCATION_COLS, 2)}
                 {renderGroupHeader("Tech", TECH_COLS, 2)}
                 {renderGroupHeader("Creative", CREATIVE_COLS, 4)}
-                {renderGroupHeader("Marketing", MARKETING_COLS, 3)}
+                {renderGroupHeader("Marketing", MARKETING_COLS, 2)}
                 {renderLeafHeader("projectCalendar", "Project Calendar", 3)}
                 {renderLeafHeader("assetLink", "Asset Link", 3)}
                 {/* {renderLeafHeader("projectTimeline", "Timeline", 3)} */}
@@ -1859,7 +1859,7 @@ export function AllProjectsTableView({
                 {renderGroupHeader("Graphic", CREATIVE_GRAPHIC_COLS, 2)}
                 {renderLeafHeader("marketingLead", "Lead", 2)}
                 {renderLeafHeader("marketingSeo", "SEO Assignee", 2)}
-                {renderLeafHeader("marketingContent", "Content Assignee", 2)}
+                {/* {renderLeafHeader("marketingContent", "Content Assignee", 2)} */}
               </tr>
               <tr className="border-b bg-muted/40 text-muted-foreground font-medium text-center">
                 {renderLeafHeader("creativeUiuxLead", "Lead")}
@@ -2106,6 +2106,7 @@ export function AllProjectsTableView({
                         />
                       )}
 
+                      {/* Content Assignee column hidden for now.
                       {cell(
                         "marketingContent",
                         <AssigneeCell
@@ -2117,6 +2118,7 @@ export function AllProjectsTableView({
                           onUpdated={(patch) => patchProject(project.id, patch)}
                         />
                       )}
+                      */}
 
                       {cell(
                         "projectCalendar",

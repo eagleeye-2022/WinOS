@@ -282,7 +282,7 @@ export function SopBoard({
               <button
                 type="button"
                 onClick={() => setIsAddingList(true)}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0088ff] px-3 py-4 text-xs font-bold text-white shadow-2xs transition-all hover:bg-[#0077ee] hover:shadow-xs"
+                className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-3 py-4 text-xs font-bold text-primary shadow-2xs transition-all hover:bg-primary/10 hover:shadow-xs dark:text-sky-400"
               >
                 <span>Create List</span>
               </button>
@@ -291,7 +291,7 @@ export function SopBoard({
             <div className="flex h-full w-[300px] shrink-0 flex-col space-y-3 rounded-2xl border border-slate-300 bg-card p-4 shadow-md transition-all duration-200 dark:border-neutral-700 dark:bg-[#16181d]">
               <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                  <Layers size={14} className="text-[#0088ff]" />
+                  <Layers size={14} className="text-primary" />
                   <span>Create List</span>
                 </div>
                 <button
@@ -339,7 +339,7 @@ export function SopBoard({
                   type="button"
                   disabled={!newListName.trim()}
                   onClick={createList}
-                  className="cursor-pointer rounded-md bg-[#0088ff] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#0077ee] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Create List
                 </button>
