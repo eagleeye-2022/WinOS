@@ -56,6 +56,7 @@ import {
   Edit2,
   Copy,
   CopyCheck,
+  GripVertical,
 } from "lucide-react";
 import { TaskSidebarTree } from "../task-sidebar-tree";
 import { TaskItem, TaskStatus, TaskActivityLog, TaskSubtask, TimeLogEntry, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusBadgeClasses, getTaskStatusSelectClasses } from "../../types";
@@ -86,6 +87,7 @@ import {
   createSubtaskAction,
   updateSubtaskAction,
   deleteSubtaskAction,
+  reorderProjectTasksAction,
   createTaskRemarkAction,
   getTaskRemarksAction,
   getMyProjectUserProjectIdsAction,
@@ -666,20 +668,59 @@ export function SingleTaskWorkspaceView({
         );
       return [...own, ...linked];
     };
-    const rows: { st: TaskSubtask; depth: number; hasChildren: boolean }[] = [];
+    const rows: { st: TaskSubtask; depth: number; hasChildren: boolean; parentId: string }[] = [];
     const seen = new Set<string>([activeTask.id]);
-    const walk = (list: TaskSubtask[], depth: number) => {
+    const walk = (list: TaskSubtask[], depth: number, parentId: string) => {
       for (const st of list) {
         if (seen.has(st.id)) continue; // guards against a loop in bad data
         seen.add(st.id);
         const children = childrenOf(st).filter((c) => !seen.has(c.id));
-        rows.push({ st, depth, hasChildren: children.length > 0 });
-        if (children.length > 0 && !collapsedSubtaskIds.has(st.id)) walk(children, depth + 1);
+        rows.push({ st, depth, hasChildren: children.length > 0, parentId });
+        if (children.length > 0 && !collapsedSubtaskIds.has(st.id)) walk(children, depth + 1, st.id);
       }
     };
-    walk(subtasks, 0);
+    walk(subtasks, 0, activeTask.id);
     return rows;
   }, [leftTaskItems, subtasks, activeTask.id, collapsedSubtaskIds]);
+
+  // Drag a subtask row above/below another one under the same parent; the new order is saved
+  // (each sibling's `order` = its position) and kept on reload.
+  const [dragReadyId, setDragReadyId] = useState<string | null>(null);
+  const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
+  const endSubtaskDrag = () => {
+    setDragReadyId(null);
+    setDraggingSubtaskId(null);
+    setDropTarget(null);
+  };
+  const handleSubtaskDrop = (targetId: string, after: boolean) => {
+    const srcId = draggingSubtaskId;
+    endSubtaskDrag();
+    if (!srcId || srcId === targetId) return;
+    const src = subtaskRows.find((r) => r.st.id === srcId);
+    const target = subtaskRows.find((r) => r.st.id === targetId);
+    if (!src || !target || src.parentId !== target.parentId) return;
+
+    const parentId = src.parentId;
+    const siblings = subtaskRows.filter((r) => r.parentId === parentId).map((r) => r.st);
+    const without = siblings.filter((s) => s.id !== srcId);
+    const at = without.findIndex((s) => s.id === targetId) + (after ? 1 : 0);
+    const ordered = [...without.slice(0, at), src.st, ...without.slice(at)];
+    if (ordered.every((s, i) => s.id === siblings[i].id)) return;
+
+    let before: TaskItem[] = [];
+    setTasks((prev) => {
+      before = prev;
+      return prev.map((t) =>
+        t.id === parentId || t.dbId === parentId || t.code === parentId ? { ...t, subtasks: ordered } : t
+      );
+    });
+    reorderProjectTasksAction(ordered.map((s) => s.id)).catch((err) => {
+      console.error("Failed to save subtask order:", err);
+      setTasks(before);
+      toast.error("Couldn't save the new order. Please try again.");
+    });
+  };
 
   // A subtask is a full ProjectTask with its own detail page, so besides listing it under the
   // parent it must also be in the workspace task list — otherwise opening it right after
@@ -1507,9 +1548,6 @@ export function SingleTaskWorkspaceView({
           {/* Header */}
           <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-3 dark:border-zinc-800">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Current Task</span>
-            <Link href={backHref} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-              <ArrowLeft size={12} /> All Tasks
-            </Link>
           </div>
 
           {/* Open task's card with all its subtasks — scrolls both ways (deep subtasks sit further
@@ -2195,9 +2233,31 @@ export function SingleTaskWorkspaceView({
                             </td>
                           </tr>
                         ) : (
-                          subtaskRows.map(({ st, depth, hasChildren }) => (
+                          subtaskRows.map(({ st, depth, hasChildren, parentId }) => (
                             <tr
                               key={st.id}
+                              draggable={canEditTask && dragReadyId === st.id}
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", st.id);
+                                setDraggingSubtaskId(st.id);
+                              }}
+                              onDragEnd={endSubtaskDrag}
+                              onDragOver={(e) => {
+                                const src = subtaskRows.find((r) => r.st.id === draggingSubtaskId);
+                                if (!src || src.parentId !== parentId || src.st.id === st.id) return;
+                                e.preventDefault();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const after = e.clientY > rect.top + rect.height / 2;
+                                setDropTarget((prev) =>
+                                  prev?.id === st.id && prev.after === after ? prev : { id: st.id, after }
+                                );
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (dropTarget?.id === st.id) handleSubtaskDrop(st.id, dropTarget.after);
+                                else endSubtaskDrag();
+                              }}
                               onClick={() => {
                                 // Older checklist-style subtasks (ProjectSubtask rows) have no page — opening
                                 // one showed "Task Not Found".
@@ -2207,11 +2267,31 @@ export function SingleTaskWorkspaceView({
                                 }
                                 router.push(`${taskHrefBase}/${st.code}`);
                               }}
-                              className="hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30"
+                              className={cn(
+                                "hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30",
+                                draggingSubtaskId === st.id && "opacity-40",
+                                dropTarget?.id === st.id &&
+                                  (dropTarget.after
+                                    ? "[&>td]:shadow-[inset_0_-2px_0_0_var(--color-primary)]"
+                                    : "[&>td]:shadow-[inset_0_2px_0_0_var(--color-primary)]")
+                              )}
                               title="Open this subtask"
                             >
                               <td className="py-2 px-3 border-r border-border font-mono text-xs text-muted-foreground font-semibold dark:border-zinc-800 dark:text-zinc-400">
-                                {st.code}
+                                <div className="flex items-center gap-1">
+                                  {canEditTask && (
+                                    <span
+                                      onMouseDown={() => setDragReadyId(st.id)}
+                                      onMouseUp={() => setDragReadyId(null)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      title="Drag to reorder"
+                                      className="-ml-1 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 active:cursor-grabbing"
+                                    >
+                                      <GripVertical size={13} />
+                                    </span>
+                                  )}
+                                  <span>{st.code}</span>
+                                </div>
                               </td>
                               <td className="py-2 px-4 border-r border-border font-medium text-foreground dark:border-zinc-800 dark:text-zinc-200">
                                 <div className="flex items-center gap-2" style={{ paddingLeft: depth * 22 }}>

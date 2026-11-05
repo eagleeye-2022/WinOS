@@ -633,6 +633,7 @@ function ChecklistCard({
                 </div>
               )}
 
+              {/* "Who ticked what · notes & proof links" section — commented out by request
               {docItems.length > 0 && (
                 <div>
                   <button
@@ -663,6 +664,7 @@ function ChecklistCard({
                   )}
                 </div>
               )}
+              */}
             </>
           ) : (
             <ul className="space-y-1">

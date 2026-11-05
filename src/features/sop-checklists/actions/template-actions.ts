@@ -38,7 +38,7 @@ async function requireManager(): Promise<ActingUser | { error: string }> {
   return user;
 }
 
-/** Any signed-in user — creating an SOP is open to everyone; editing, archiving and deleting stay manager-only. */
+/** Any signed-in user — creating and editing an SOP is open to everyone; archiving and deleting stay manager-only. */
 async function requireSignedIn(): Promise<ActingUser | { error: string }> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -386,7 +386,9 @@ export async function updateSopTemplateAction(
   id: string,
   input: SopTemplateInput
 ): Promise<Result<{ template: SopTemplate }>> {
-  const user = await requireManager();
+  // Team members may edit too (deleting, archiving, moving and pushing stay manager-only), but
+  // only SOPs they can see.
+  const user = await requireSignedIn();
   if ("error" in user) return { success: false, error: user.error };
 
   const existing = await d.sopChecklistTemplate.findUnique({
@@ -394,6 +396,9 @@ export async function updateSopTemplateAction(
     include: { items: { orderBy: { position: "asc" } } },
   });
   if (!existing) return { success: false, error: "This SOP no longer exists" };
+  if (!user.isManager && (await filterSopsForViewer(user.id, [existing])).length === 0) {
+    return { success: false, error: "You don't have access to this SOP" };
+  }
 
   const existingById = new Map<string, any>(existing.items.map((i: any) => [i.id, i]));
   const parsed = validateInput(input, new Set(existingById.keys()));

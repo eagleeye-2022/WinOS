@@ -602,12 +602,12 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                       <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
                         <thead>
                           <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">ID</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
-                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
-                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
-                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">EFFORT TIME</th>
+                            <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">EFFORT LOG</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">DATE</th>
                             <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
                             {/* Approval Status column hidden by request.
@@ -618,38 +618,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                         <tbody className="divide-y divide-border">
                           {userGroup.timeLogs.map((log) => (
                             <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
+                                {log.project || projectName}
+                              </td>
                               <td className="px-4 py-2.5 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                                 {log.taskCode || log.code}
                               </td>
                               <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
                                 {log.title}
-                              </td>
-                              <td className="px-4 py-2.5 border-r border-border text-foreground whitespace-nowrap">
-                                {log.project || projectName}
-                              </td>
-                              <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                {editingCell?.logId === log.id && editingCell.field === "duration" ? (
-                                  <input
-                                    type="text"
-                                    autoFocus
-                                    value={editDraft}
-                                    onChange={(e) => setEditDraft(e.target.value)}
-                                    onBlur={() => commitCellEdit(log, "duration")}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") e.currentTarget.blur();
-                                      if (e.key === "Escape") setEditingCell(null);
-                                    }}
-                                    className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
-                                  />
-                                ) : (
-                                  <span
-                                    onClick={() => handleStartEditCell(log, "duration")}
-                                    title="Click to edit"
-                                    className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
-                                  >
-                                    {log.duration}
-                                  </span>
-                                )}
                               </td>
                               <td className="px-3 py-2 border-r border-border text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
                                 <RemarksPopupCell value={log.remarks || ""} onSave={(next) => saveRemarks(log, next)} editable={!isClient} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
@@ -676,6 +652,30 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                                     className={cn("inline-block rounded-md px-1 -mx-1 text-xs text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                                   >
                                     {log.timePeriod || "—"}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                {editingCell?.logId === log.id && editingCell.field === "duration" ? (
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onBlur={() => commitCellEdit(log, "duration")}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") e.currentTarget.blur();
+                                      if (e.key === "Escape") setEditingCell(null);
+                                    }}
+                                    className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                                  />
+                                ) : (
+                                  <span
+                                    onClick={() => handleStartEditCell(log, "duration")}
+                                    title="Click to edit"
+                                    className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                                  >
+                                    {log.duration}
                                   </span>
                                 )}
                               </td>
@@ -722,12 +722,12 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
             <table className="w-full min-w-[1100px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold">
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">ID</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">LOG TITLE</th>
-                  <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[140px]">PROJECT</th>
-                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">DAILY LOG HOURS</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
-                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">TIME PERIOD</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">EFFORT TIME</th>
+                  <th className="py-3 px-4 border-r border-border whitespace-nowrap">EFFORT LOG</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">DATE</th>
                   <th className="py-3 px-4 border-r border-border whitespace-nowrap">BILLING TYPE</th>
                   {/* Approval Status column hidden by request.
@@ -745,38 +745,14 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                 ) : (
                   filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
+                        {log.project || projectName}
+                      </td>
                       <td className="px-4 py-3 border-r border-border font-mono text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         {log.taskCode || log.code}
                       </td>
                       <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
                         {log.title}
-                      </td>
-                      <td className="px-4 py-3 border-r border-border text-foreground whitespace-nowrap">
-                        {log.project || projectName}
-                      </td>
-                      <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        {editingCell?.logId === log.id && editingCell.field === "duration" ? (
-                          <input
-                            type="text"
-                            autoFocus
-                            value={editDraft}
-                            onChange={(e) => setEditDraft(e.target.value)}
-                            onBlur={() => commitCellEdit(log, "duration")}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") e.currentTarget.blur();
-                              if (e.key === "Escape") setEditingCell(null);
-                            }}
-                            className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
-                          />
-                        ) : (
-                          <span
-                            onClick={() => handleStartEditCell(log, "duration")}
-                            title="Click to edit"
-                            className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
-                          >
-                            {log.duration}
-                          </span>
-                        )}
                       </td>
                       <td className="px-3 py-2 border-r border-border text-muted-foreground max-w-[220px] truncate" title={log.remarks} onClick={(e) => e.stopPropagation()}>
                         <RemarksPopupCell value={log.remarks || ""} onSave={(next) => saveRemarks(log, next)} editable={!isClient} subtitle={[log.taskCode || log.code, log.title].filter(Boolean).join(" — ")} />
@@ -802,6 +778,30 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                             className={cn("inline-block rounded-md px-1 -mx-1 text-xs text-muted-foreground", !isClient && "cursor-text hover:bg-muted/60")}
                           >
                             {log.timePeriod || "—"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 border-r border-border whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {editingCell?.logId === log.id && editingCell.field === "duration" ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            onBlur={() => commitCellEdit(log, "duration")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                            className="w-20 rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-mono text-foreground outline-none ring-1 ring-primary/30 focus:ring-primary"
+                          />
+                        ) : (
+                          <span
+                            onClick={() => handleStartEditCell(log, "duration")}
+                            title="Click to edit"
+                            className={cn("inline-block rounded-md px-1 -mx-1 font-mono text-foreground", !isClient && "cursor-text hover:bg-muted/60")}
+                          >
+                            {log.duration}
                           </span>
                         )}
                       </td>

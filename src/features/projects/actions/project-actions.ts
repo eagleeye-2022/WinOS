@@ -2046,7 +2046,7 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
 
     // Same rows the `childTasks` relation (parentTaskId = this task's id) used to return, oldest first.
     const childTasks = [...(childrenByParentKey.get(t.id) ?? [])].sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt.getTime() - b.createdAt.getTime()
     );
     for (const ct of childTasks) {
       subtasksMap.set(ct.id, {
@@ -2170,7 +2170,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
       author: { select: { id: true, name: true, email: true } },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: { createdAt: "asc" as const },
+        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
       },
       remarks: true,
       activities: true,
@@ -2303,7 +2303,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
       },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: { createdAt: "asc" as const },
+        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
       },
       project: { select: { name: true } },
       remarks: true,
