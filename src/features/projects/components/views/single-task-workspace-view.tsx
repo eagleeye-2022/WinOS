@@ -1705,7 +1705,7 @@ export function SingleTaskWorkspaceView({
               </button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-zinc-800 dark:bg-[#121215]">
+                <div className="absolute right-0 mt-2 w-60 rounded-xl border border-border bg-card p-1.5 shadow-xl z-50 animate-in fade-in-0 zoom-in-95 font-sans dark:border-zinc-800 dark:bg-[#121215]">
                   <button
                     type="button"
                     onClick={handleCopyTaskLink}
@@ -1730,10 +1730,10 @@ export function SingleTaskWorkspaceView({
                         setIsMoreMenuOpen(false);
                         setMoveToProjectOpen(true);
                       }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-zinc-200"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer dark:text-zinc-200"
                     >
-                      <ArrowRightLeft size={14} className="text-primary" />
-                      <span>Move to Another Project</span>
+                      <ArrowRightLeft size={14} className="shrink-0 text-primary" />
+                      <span className="whitespace-nowrap">Move to Another Project</span>
                     </button>
                   )}
                   <div className="my-1 border-t border-border dark:border-zinc-800" />

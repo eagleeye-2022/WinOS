@@ -43,7 +43,7 @@ import {
 import { getSopPickerOptionsAction } from "../actions/template-actions";
 import { SopPickerOption, TaskChecklistItemView, TaskChecklistView } from "../types";
 import { checklistProgress, sopPlaceLabel } from "../utils";
-import { docItemIds } from "../doc";
+import { docItemIds, hidePlaceholderNotes } from "../doc";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
 
 /** TipTap needs the browser — loaded on demand. */
@@ -411,6 +411,11 @@ function ChecklistCard({
   const [showDetails, setShowDetails] = useState(false);
   const [proofItemId, setProofItemId] = useState<string | null>(null);
   const docIds = useMemo(() => (checklist.content ? docItemIds(checklist.content) : null), [checklist.content]);
+  // Shown without the import's empty "Notes & references / PURPOSE" placeholder (stored SOP unchanged).
+  const shownContent = useMemo(
+    () => (checklist.content ? hidePlaceholderNotes(checklist.content) : checklist.content),
+    [checklist.content]
+  );
   const { docItems, extraItems, itemBySource, checkedById } = useMemo(() => {
     const bySource = new Map<string, TaskChecklistItemView>();
     const inDoc: TaskChecklistItemView[] = [];
@@ -612,9 +617,10 @@ function ChecklistCard({
           {checklist.content && docIds ? (
             <>
               <div className="px-1">
-                <SopDocView content={checklist.content} checkedById={checkedById} onToggle={handleDocToggle} />
+                <SopDocView content={shownContent ?? checklist.content} checkedById={checkedById} onToggle={handleDocToggle} />
               </div>
 
+              {/* "Also on this task" section — commented out by request
               {extraItems.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Also on this task</p>
@@ -632,6 +638,7 @@ function ChecklistCard({
                   </ul>
                 </div>
               )}
+              */}
 
               {/* "Who ticked what · notes & proof links" section — commented out by request
               {docItems.length > 0 && (
@@ -681,6 +688,7 @@ function ChecklistCard({
             </ul>
           )}
 
+          {/* "Add an item to this task's checklist" form — commented out by request
           {canManage && (
             <form
               onSubmit={(e) => {
@@ -697,6 +705,7 @@ function ChecklistCard({
               />
             </form>
           )}
+          */}
         </div>
       )}
     </div>

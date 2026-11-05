@@ -9,6 +9,14 @@ import {
   isTaskDone,
   makeSubtask,
   subtaskChildren,
+  subtaskDescription,
+  subtaskDueDate,
+  subtaskDuration,
+  subtaskOwners,
+  subtaskPriority,
+  subtaskSops,
+  subtaskStartDate,
+  subtaskStatus,
   subtaskTitle,
 } from "./types";
 import {
@@ -237,6 +245,50 @@ export function moveTemplateSubtask(
       const remaining = isSource ? withoutSubtaskAt(task.subtasks ?? [], from.subtaskPath) : task.subtasks ?? [];
       return { ...task, subtasks: isTarget ? [...remaining, subtask] : remaining };
     }),
+  }));
+}
+
+/**
+ * A subtask lifted out as a task — for "Move to another template", where it becomes a top-level
+ * task of the target list. Its own subtasks, owners, SOPs and dates come with it.
+ */
+export function subtaskToTaskSeed(
+  phases: TemplatePhaseDraft[],
+  from: { phaseIndex: number; taskIndex: number; subtaskPath: number[] }
+): SOPTaskSeed | undefined {
+  const parent = phases[from.phaseIndex]?.tasks[from.taskIndex];
+  const subtask = parent && subtaskAt(parent.subtasks ?? [], from.subtaskPath);
+  if (!parent || subtask === undefined) return undefined;
+  const children = subtaskChildren(subtask);
+  const owners = subtaskOwners(subtask);
+  const sops = subtaskSops(subtask);
+  return {
+    title: subtaskTitle(subtask),
+    duration: subtaskDuration(subtask) || "1 day",
+    priority: subtaskPriority(subtask) ?? "Medium",
+    departmentAlias: parent.departmentAlias,
+    ...(subtaskDescription(subtask) ? { description: subtaskDescription(subtask) } : {}),
+    ...(subtaskStatus(subtask) ? { status: subtaskStatus(subtask) } : {}),
+    ...(subtaskStartDate(subtask) ? { startDate: subtaskStartDate(subtask) } : {}),
+    ...(subtaskDueDate(subtask) ? { dueDate: subtaskDueDate(subtask) } : {}),
+    ...(owners.length > 0 ? { defaultOwners: owners } : {}),
+    ...(sops.length > 0 ? { sopChecklists: sops } : {}),
+    ...(children.length > 0 ? { subtasks: children } : {}),
+  };
+}
+
+/** The phases without the subtask at `from.subtaskPath` (and its own subtasks). */
+export function removeTemplateSubtask(
+  phases: TemplatePhaseDraft[],
+  from: { phaseIndex: number; taskIndex: number; subtaskPath: number[] }
+): TemplatePhaseDraft[] {
+  return phases.map((phase, phaseIndex) => ({
+    ...phase,
+    tasks: phase.tasks.map((task, taskIndex) =>
+      phaseIndex === from.phaseIndex && taskIndex === from.taskIndex
+        ? { ...task, subtasks: withoutSubtaskAt(task.subtasks ?? [], from.subtaskPath) }
+        : task
+    ),
   }));
 }
 
