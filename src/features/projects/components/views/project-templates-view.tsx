@@ -49,6 +49,7 @@ import {
   subtaskTitle,
 } from "../../types";
 import { TemplateTaskPage } from "./template-task-page";
+import { TemplateMoveMenu } from "../template-move-menu";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { TaskMultiOwnerSelect, type OwnerUserOption } from "../task-multi-owner-select";
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
@@ -69,6 +70,7 @@ import {
   updateTaskOrSubtask,
 } from "../../template-utils";
 import {
+  addTaskToTemplateAction,
   createProjectTemplateAction,
   deleteProjectTemplateAction,
   updateProjectTemplateAction,
@@ -240,6 +242,9 @@ export function ProjectTemplatesView({
         initialDraft={newDraft ?? templateToDraft(selected)}
         templateId={newDraft ? undefined : selected.id}
         canManage={canManage}
+        otherTemplates={templates
+          .filter((t) => newDraft || t.id !== selected.id)
+          .map((t) => ({ id: t.id, name: t.name, lists: templateToDraft(t).phases.map((p) => p.name) }))}
         onDirtyChange={(dirty) => {
           hasUnsavedChanges.current = dirty;
         }}
@@ -287,6 +292,8 @@ interface TemplateBoardProps {
   /** Omitted for a new template. */
   templateId?: string;
   canManage: boolean;
+  /** The other templates (and their lists) a task can be moved to. */
+  otherTemplates: { id: string; name: string; lists: string[] }[];
   onDirtyChange: (dirty: boolean) => void;
   onCreated: (template: ProjectTemplate) => void;
   onAutoSaved: (template: ProjectTemplate) => void;
@@ -302,6 +309,7 @@ function TemplateBoard({
   initialDraft,
   templateId,
   canManage,
+  otherTemplates,
   onDirtyChange,
   onCreated,
   onAutoSaved,
@@ -360,8 +368,11 @@ function TemplateBoard({
       let error: string | null = null;
       try {
         const result = await updateProjectTemplateAction(templateId, JSON.parse(draftJson));
-        if (result.success && result.template) onAutoSavedRef.current(result.template);
-        else error = result.error || "Failed to save template.";
+        if (result.success && result.template) {
+          onAutoSavedRef.current(result.template);
+          // Every saved change (add, edit, copy, move, delete…) confirms itself.
+          toast.success("Template updated");
+        } else error = result.error || "Failed to save template.";
       } catch (err) {
         console.error("Failed to save project template:", err);
         error = "Failed to save template. Check your connection.";
@@ -389,8 +400,10 @@ function TemplateBoard({
       if (!templateId || !unsavedDraftJson.current) return;
       updateProjectTemplateAction(templateId, JSON.parse(unsavedDraftJson.current))
         .then((result) => {
-          if (result.success && result.template) onAutoSavedRef.current(result.template);
-          else toast.error(result.error || "Your last template edit couldn't be saved.");
+          if (result.success && result.template) {
+            onAutoSavedRef.current(result.template);
+            toast.success("Template updated");
+          } else toast.error(result.error || "Your last template edit couldn't be saved.");
         })
         .catch((err) => {
           console.error("Failed to save project template:", err);
@@ -558,6 +571,35 @@ function TemplateBoard({
     setSelectedTasks(new Set());
   };
 
+  /**
+   * Moves a task to a list of another template: added there first (and saved), then removed here
+   * (this board saves itself), so a failure leaves the task where it was.
+   */
+  const moveTaskToTemplate = async (
+    phaseIndex: number,
+    taskIndex: number,
+    target: { id: string; name: string },
+    targetList: number
+  ) => {
+    const moving = draft.phases[phaseIndex]?.tasks[taskIndex];
+    if (!moving) return;
+    try {
+      const result = await addTaskToTemplateAction(target.id, moving, targetList);
+      if (!result.success || !result.template) {
+        toast.error(result.error || "Couldn't move the task.");
+        return;
+      }
+      onAutoSavedRef.current(result.template);
+      updateTasks(phaseIndex, (tasks) => tasks.filter((_, i) => i !== taskIndex));
+      // Moved from its own page: that page has nothing left to show, so go back to the board.
+      setEditingTask(null);
+      toast.success(`Moved "${moving.title}" to ${target.name}`);
+    } catch (err) {
+      console.error("Failed to move task to another template:", err);
+      toast.error("Couldn't move the task.");
+    }
+  };
+
   const handleCreate = async () => {
     setIsSaving(true);
     try {
@@ -634,6 +676,60 @@ function TemplateBoard({
             tasks.map((t, i) => (i === taskIndex ? updateTaskOrSubtask(t, subtaskPath, patch) : t))
           )
         }
+        sidebarCard={
+          // The template board's own task card for this task (its subtasks open), so the left panel
+          // works exactly like the board: status, ⋮ menu, move to list / template, owners, subtasks.
+          <TemplateTaskCard
+            inSidebar
+            task={task}
+            code={`T${String(firstTaskNumber + taskIndex + 1).padStart(2, "0")}`}
+            canManage={canManage}
+            isDragging={false}
+            isSelected={false}
+            onToggleSelect={() => {}}
+            ownerOptions={ownerOptions}
+            lists={draft.phases}
+            otherTemplates={otherTemplates}
+            onMoveToTemplate={(target, listIndex) => moveTaskToTemplate(phaseIndex, taskIndex, target, listIndex)}
+            phaseIndex={phaseIndex}
+            taskIndex={taskIndex}
+            onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
+            onOpenSubtask={(path) => setEditingTask({ phaseIndex, taskIndex, subtaskPath: path })}
+            onChange={(patch) =>
+              updateTasks(phaseIndex, (tasks) => tasks.map((x, i) => (i === taskIndex ? { ...x, ...patch } : x)))
+            }
+            onMoveSubtask={(path, target) =>
+              setDraft((prev) => ({
+                ...prev,
+                phases: moveTemplateSubtask(prev.phases, { phaseIndex, taskIndex, subtaskPath: path }, target),
+              }))
+            }
+            onDuplicate={() =>
+              updateTasks(phaseIndex, (tasks) => [
+                ...tasks.slice(0, taskIndex + 1),
+                { ...tasks[taskIndex], title: `${tasks[taskIndex].title} (Copy)` },
+                ...tasks.slice(taskIndex + 1),
+              ])
+            }
+            onDelete={() => {
+              updateTasks(phaseIndex, (tasks) => tasks.filter((_, i) => i !== taskIndex));
+              setEditingTask(null);
+            }}
+            onMoveToList={(target) => {
+              setDraft((prev) => ({
+                ...prev,
+                phases: moveTemplateTask(prev.phases, { phaseIndex, taskIndex }, { phaseIndex: target }),
+              }));
+              setEditingTask({ phaseIndex: target, taskIndex: draft.phases[target].tasks.length });
+            }}
+            onDragStart={() => {}}
+            onDragEnd={() => {}}
+            onDragOver={() => {}}
+            onDrop={() => {}}
+          />
+        }
+        otherTemplates={otherTemplates}
+        onMoveToTemplate={(target, listIndex) => moveTaskToTemplate(phaseIndex, taskIndex, target, listIndex)}
         onMoveToList={(target) => {
           if (target === phaseIndex) return;
           setDraft((prev) => ({
@@ -1242,6 +1338,8 @@ function TemplateBoard({
                         onToggleSelect={() => toggleSelected(phaseIndex, taskIndex)}
                         ownerOptions={ownerOptions}
                         lists={draft.phases}
+                        otherTemplates={otherTemplates}
+                        onMoveToTemplate={(target, listIndex) => moveTaskToTemplate(phaseIndex, taskIndex, target, listIndex)}
                         phaseIndex={phaseIndex}
                         taskIndex={taskIndex}
                         onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
@@ -1258,7 +1356,7 @@ function TemplateBoard({
                         onDuplicate={() =>
                           updateTasks(phaseIndex, (tasks) => [
                             ...tasks.slice(0, taskIndex + 1),
-                            { ...t },
+                            { ...t, title: `${t.title} (Copy)` },
                             ...tasks.slice(taskIndex + 1),
                           ])
                         }
@@ -1393,6 +1491,8 @@ function TemplateTaskCard({
   onToggleSelect,
   ownerOptions,
   lists,
+  otherTemplates,
+  onMoveToTemplate,
   phaseIndex,
   taskIndex,
   onOpen,
@@ -1406,7 +1506,10 @@ function TemplateTaskCard({
   onDragEnd,
   onDragOver,
   onDrop,
+  inSidebar = false,
 }: {
+  /** On the task page's left panel: subtasks start open, and there's no bulk-select box or dragging. */
+  inSidebar?: boolean;
   task: SOPTaskSeed;
   code: string;
   canManage: boolean;
@@ -1415,6 +1518,8 @@ function TemplateTaskCard({
   onToggleSelect: () => void;
   ownerOptions: OwnerUserOption[];
   lists: TemplatePhaseDraft[];
+  otherTemplates: { id: string; name: string; lists: string[] }[];
+  onMoveToTemplate: (target: { id: string; name: string }, listIndex: number) => void;
   phaseIndex: number;
   taskIndex: number;
   onOpen: () => void;
@@ -1430,7 +1535,7 @@ function TemplateTaskCard({
   onDrop: (e: React.DragEvent) => void;
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
-  const [showSubtasks, setShowSubtasks] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(inSidebar);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [menu, setMenu] = useState<"more" | "move" | null>(null);
   const subtasks = task.subtasks ?? [];
@@ -1440,7 +1545,7 @@ function TemplateTaskCard({
   return (
     <div
       onClick={onOpen}
-      draggable={canManage && !isRenaming && !isAddingSubtask}
+      draggable={canManage && !inSidebar && !isRenaming && !isAddingSubtask}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", task.title);
@@ -1461,7 +1566,7 @@ function TemplateTaskCard({
       {/* Top row: select checkbox, code, status pill and actions */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 shrink-0">
-          <input
+          {!inSidebar && <input
             type="checkbox"
             checked={isSelected}
             onChange={() => {}}
@@ -1472,7 +1577,7 @@ function TemplateTaskCard({
             disabled={!canManage}
             title={canManage ? "Select task" : "Only managers can select tasks"}
             className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 accent-primary cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
-          />
+          />}
           <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
         </div>
         {/* The status pill shrinks (capped); the 👁 / ⋮ / move buttons never do. */}
@@ -1557,41 +1662,21 @@ function TemplateTaskCard({
                 </PopoverContent>
               </Popover>
 
-              <Popover open={menu === "move"} onOpenChange={(open) => setMenu(open ? "move" : null)}>
-                <PopoverTrigger asChild>
-                  <button type="button" className={CARD_ICON_BUTTON} title="Move to another list" aria-label="Move to another list">
+              <TemplateMoveMenu
+                taskLabel={`${code} ${task.title}`}
+                open={menu === "move"}
+                onOpenChange={(open) => setMenu(open ? "move" : null)}
+                trigger={
+                  <button type="button" className={CARD_ICON_BUTTON} title="Move to another list or template" aria-label="Move to another list or template">
                     <ArrowRightLeft size={13} />
                   </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  side="bottom"
-                  align="end"
-                  className="w-52 p-2 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
-                >
-                  <p className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b mb-1">
-                    Move to List
-                  </p>
-                  <div className="max-h-48 overflow-y-auto space-y-0.5">
-                    {lists.map((list, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => {
-                          setMenu(null);
-                          if (index !== phaseIndex) onMoveToList(index);
-                        }}
-                        className={cn(
-                          "w-full text-left px-2 py-1.5 rounded-md hover:bg-accent text-xs font-medium flex items-center justify-between cursor-pointer",
-                          index === phaseIndex ? "bg-primary/10 text-primary font-bold" : "text-foreground"
-                        )}
-                      >
-                        <span className="truncate">{list.name}</span>
-                        {index === phaseIndex && <Check size={12} className="shrink-0 text-primary" />}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+                }
+                lists={lists.map((l) => l.name)}
+                currentListIndex={phaseIndex}
+                otherTemplates={otherTemplates}
+                onMoveToList={onMoveToList}
+                onMoveToTemplate={onMoveToTemplate}
+              />
             </>
           )}
         </div>

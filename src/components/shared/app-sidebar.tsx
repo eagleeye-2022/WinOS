@@ -213,7 +213,13 @@ export function AppSidebar({
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Regularization", href: "/pulse/regularization", icon: Timer },
-          { label: "WhyFi School", href: "/pulse/whyfi-learning", icon: GraduationCap },
+          {
+            label: "WhyFi School",
+            href: "/pulse/whyfi-learning",
+            icon: GraduationCap,
+            // Members see only their own WhyFi School effort logs (scoped server-side).
+            children: [{ label: "Effort Logs", href: "/pulse/whyfi-effort-logs", icon: ClockFading }],
+          },
           { label: "Reports", href: "/pulse/reports", icon: BarChart2 },
           { label: "RTD Documents", href: "/people", icon: ClipboardList },
           { label: "iNotes", href: iNotesIn("pulse"), icon: FileText },

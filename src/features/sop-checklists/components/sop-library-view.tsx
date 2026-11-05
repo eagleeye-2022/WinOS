@@ -382,6 +382,17 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
 
   const handleMove = async (t: SopTemplate, list: string) => {
     setMovingId(t.id);
+    // Lists only exist through their SOPs, so moving a list's last SOP out would make the list
+    // vanish. Keep it as an empty list (like a freshly created one) so it stays on the board.
+    const sourceKey = `${t.department}::${t.category}`;
+    const sourceKeepsASop = templates.some(
+      (x) => x.id !== t.id && !x.isArchived && x.department === t.department && x.category === t.category
+    );
+    if (!sourceKeepsASop && !localLists.includes(sourceKey)) {
+      const lists = [...localLists, sourceKey];
+      setLocalLists(lists);
+      writeLocalLists(lists);
+    }
     upsertTemplate({ ...t, category: list });
     try {
       const res = await moveSopTemplateAction(t.id, list);

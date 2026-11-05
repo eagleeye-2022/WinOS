@@ -4,21 +4,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowLeft,
-  CalendarDays,
+  ArrowRightLeft,
   CheckSquare,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
-  Eye,
   Folder,
-  ListTree,
   Loader2,
   Maximize2,
   Minimize2,
   Plus,
   Minus,
   Trash2,
-  User as UserIcon,
   X,
   Calendar,
   Layers,
@@ -34,11 +31,10 @@ import {
   MessageSquare,
   History,
 } from "lucide-react";
-import { AvatarStack } from "@/components/shared/avatar-stack";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { SearchableSelect } from "@/components/shared/searchable-select";
-import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
 import { TaskMultiOwnerSelect, type OwnerUserOption } from "../task-multi-owner-select";
+import { TemplateMoveMenu, type TemplateMoveTarget } from "../template-move-menu";
 import {
   getSopLibraryForViewerAction,
   getSopPickerOptionsAction,
@@ -99,6 +95,11 @@ interface TemplateTaskPageProps {
   saveStatus: React.ReactNode;
   onChange: (patch: Partial<SOPTaskSeed>) => void;
   onMoveToList: (phaseIndex: number) => void;
+  /** The open task's card for the left panel: the template board's own task card, with its subtasks. */
+  sidebarCard: React.ReactNode;
+  /** The other templates (and their lists) this task can be moved to. */
+  otherTemplates: TemplateMoveTarget[];
+  onMoveToTemplate: (target: { id: string; name: string }, listIndex: number) => void;
   onDuplicate?: () => void;
   onDelete: () => void;
   onBack: () => void;
@@ -456,167 +457,6 @@ function TemplateChecklistCard({
 }
 
 /**
- * The task page sidebar's card: the project board's card (code, status, 👁, title, clock, SOP chip,
- * subtask count, due date, owners) with its subtasks, at any depth, always expanded underneath on the
- * board's tree line. The open task / subtask is highlighted.
- */
-function TemplateSidebarCard({
-  code,
-  title,
-  status,
-  sops,
-  owners,
-  dueDate,
-  isSubtask,
-  isSelected,
-  onOpen,
-  childSeeds,
-  subtaskPath,
-  parentPath,
-  onNavigateSubtask,
-}: {
-  code: string;
-  title: string;
-  status: TaskStatus;
-  sops: { id: string; name: string }[];
-  owners: { id: string; name: string }[];
-  dueDate?: string;
-  isSubtask: boolean;
-  isSelected: boolean;
-  onOpen: () => void;
-  childSeeds: SOPSubtaskSeed[];
-  subtaskPath: number[];
-  parentPath: number[];
-  onNavigateSubtask?: (path: number[]) => void;
-}) {
-  const footerBtn =
-    "flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-slate-400 hover:text-foreground hover:bg-muted transition-all duration-150 cursor-pointer dark:bg-[#121316] dark:border-white/10";
-
-  return (
-    <div className="space-y-2">
-      <div
-        onClick={onOpen}
-        aria-current={isSelected ? "page" : undefined}
-        className={cn(
-          // Same width at every depth: deeper levels move right and the panel scrolls sideways.
-          "relative w-[272px] overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
-          "bg-white dark:bg-[#111214]",
-          isSelected
-            ? "border-primary/70 ring-1 ring-primary/40 shadow-md"
-            : "border-slate-200/90 dark:border-neutral-800 hover:border-primary/60 hover:shadow-md"
-        )}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-xs font-bold text-slate-400 dark:text-neutral-500 whitespace-nowrap">{code}</span>
-          <div className="flex min-w-0 items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
-            <span
-              title={`Starts as: ${status}`}
-              className={cn(
-                "inline-flex min-w-0 max-w-[150px] shrink items-center truncate rounded-md px-2 py-0.5 text-xs font-medium text-white shadow-2xs",
-                getTaskStatusPillClasses(status)
-              )}
-            >
-              {status}
-            </span>
-            {!isSubtask && (
-              <button
-                type="button"
-                onClick={onOpen}
-                className="shrink-0 p-1 rounded-full text-slate-400 hover:bg-slate-200 hover:text-foreground dark:hover:bg-neutral-800 transition-all duration-150 cursor-pointer"
-                title="Open task"
-              >
-                <Eye size={13} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <h4 className="rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary text-slate-800 dark:text-neutral-200">
-          {title || "Untitled subtask"}
-        </h4>
-
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-xs">
-          <div className="flex items-center gap-2 text-slate-400" onClick={(e) => e.stopPropagation()}>
-            <span
-              title="Time is logged once it's a task in a project"
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-muted/60 text-muted-foreground dark:bg-zinc-900 dark:border-zinc-800"
-            >
-              <Clock size={13} aria-hidden="true" />
-            </span>
-            <ChecklistChip
-              summary={sops.length > 0 ? { done: 0, total: 0, requiredOpen: 0 } : undefined}
-              title={sops.length > 0 ? `SOP attached in new projects: ${sops.map((s) => s.name).join(", ")}` : "No SOP set"}
-            />
-            {isSubtask && (
-              <button type="button" onClick={onOpen} className={footerBtn} title="Open subtask">
-                <Eye size={13} />
-              </button>
-            )}
-            {childSeeds.length > 0 && (
-              <span
-                className="flex items-center gap-1 p-1 text-slate-400"
-                title={`${childSeeds.length} Subtask${childSeeds.length > 1 ? "s" : ""} (shown below)`}
-              >
-                <ListTree size={13} />
-                <span className="text-xs font-bold">{childSeeds.length}</span>
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {dueDate && dueDate !== "--" && (
-              <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground" title={`Due ${dueDate}`}>
-                <CalendarDays size={12} /> {dueDate}
-              </span>
-            )}
-            <span
-              className="flex shrink-0 items-center rounded-full"
-              title={owners.length > 0 ? `Owners: ${owners.map((o) => o.name).join(", ")}` : "Starts unassigned"}
-            >
-              {owners.length === 0 ? (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700">
-                  <UserIcon size={12} className="text-slate-400 dark:text-neutral-500" />
-                </span>
-              ) : (
-                <AvatarStack people={owners} />
-              )}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {childSeeds.length > 0 && (
-        <div className={cn("relative ml-2.5 space-y-2 border-l-2 border-cyan-400/70 dark:border-cyan-500/50 pl-3", !isSubtask && "mt-1")}>
-          {childSeeds.map((child, index) => {
-            const path = [...parentPath, index];
-            return (
-              <div key={index} className="relative">
-                <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
-                <TemplateSidebarCard
-                  code={`${code}.${index + 1}`}
-                  title={subtaskTitle(child)}
-                  status={subtaskStatus(child) ?? "Open"}
-                  sops={subtaskSops(child)}
-                  owners={subtaskOwners(child)}
-                  dueDate={subtaskDueDate(child)}
-                  isSubtask
-                  isSelected={subtaskPath.length === path.length && subtaskPath.every((v, i) => v === path[i])}
-                  onOpen={() => onNavigateSubtask?.(path)}
-                  childSeeds={subtaskChildren(child)}
-                  subtaskPath={subtaskPath}
-                  parentPath={path}
-                  onNavigateSubtask={onNavigateSubtask}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * The main template task & subtask page: renders both root tasks and nested subtasks at any depth.
  * Provides exact same UI, colors, sections (Task Information, SOPs/Checklists, Subtasks Table, Comments),
  * header buttons, resizable hierarchy sidebar, and breadcrumbs as the normal project task page.
@@ -635,6 +475,9 @@ export function TemplateTaskPage({
   saveStatus,
   onChange,
   onMoveToList,
+  sidebarCard,
+  otherTemplates,
+  onMoveToTemplate,
   onDuplicate,
   onDelete,
   onBack,
@@ -679,6 +522,7 @@ export function TemplateTaskPage({
 
   // Menus
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   // Comments feed state
@@ -883,21 +727,7 @@ export function TemplateTaskPage({
           {/* Open task's card with all its subtasks (any depth) on the board's tree line */}
           <div className="dsm-columns-scrollbar flex-1 overflow-auto p-3">
             <div className="w-max min-w-full">
-              <TemplateSidebarCard
-                code={code}
-                title={task.title}
-                status={task.status ?? "Open"}
-                sops={task.sopChecklists ?? []}
-                owners={rootOwners}
-                dueDate={task.dueDate}
-                isSubtask={false}
-                isSelected={!isSubtaskActive}
-                onOpen={() => onNavigateSubtask?.([])}
-                childSeeds={task.subtasks ?? []}
-                subtaskPath={subtaskPath}
-                parentPath={[]}
-                onNavigateSubtask={onNavigateSubtask}
-              />
+              {sidebarCard}
             </div>
           </div>
         </aside>
@@ -1061,6 +891,33 @@ export function TemplateTaskPage({
               <Plus size={14} />
               <span>Effort Log</span>
             </button>
+
+            {/* Move to another list or template (not for a subtask: it moves within the task). */}
+            {canManage && !isSubtaskActive && (
+              <TemplateMoveMenu
+                taskLabel={`${code} ${task.title}`}
+                open={isMoveMenuOpen}
+                onOpenChange={setIsMoveMenuOpen}
+                trigger={
+                  <button
+                    type="button"
+                    className={cn(
+                      "p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-foreground transition-colors cursor-pointer dark:border-zinc-800 dark:bg-[#141519] dark:hover:bg-zinc-800 dark:text-zinc-300",
+                      isMoveMenuOpen && "ring-2 ring-primary bg-accent"
+                    )}
+                    title="Move to another list or template"
+                    aria-label="Move to another list or template"
+                  >
+                    <ArrowRightLeft size={16} />
+                  </button>
+                }
+                lists={lists}
+                currentListIndex={phaseIndex}
+                otherTemplates={otherTemplates}
+                onMoveToList={onMoveToList}
+                onMoveToTemplate={onMoveToTemplate}
+              />
+            )}
 
             {/* More Actions Menu (...) */}
             <div className="relative">
