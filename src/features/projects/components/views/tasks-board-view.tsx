@@ -1628,6 +1628,7 @@ export function TasksBoardView({
                   </button>
                 )}
                 <TaskMultiOwnerSelect
+                  inline
                   selectedOwners={
                     (task.owners && task.owners.length > 0
                       ? task.owners

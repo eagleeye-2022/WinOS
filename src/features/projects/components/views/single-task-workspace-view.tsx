@@ -387,6 +387,12 @@ export function SingleTaskWorkspaceView({
         (taskOwnerNames.length === 0 && activeTask.authorId === currentUser.id))
   );
 
+  // A done task is read-only: title, dates, priority, owners, project, subtasks and the timer are
+  // locked. Only the status (to reopen it) and the description stay editable.
+  const isTaskLocked = isTaskDone(activeTask.status, undefined, activeTask.completionPercentage);
+  const canEditFields = canEditTask && !isTaskLocked;
+  const lockedTaskMessage = "This task is done — reopen it to change this.";
+
   // Active Task Form & Section States
   const [taskStatus, setTaskStatus] = useState<TaskStatus>(
     activeTask.status || "Open"
@@ -505,8 +511,8 @@ export function SingleTaskWorkspaceView({
   // Shared save path for the owner-editable Task Information fields (start date, due date,
   // priority) — same permission check and rollback-on-denial behavior as status/description.
   const handleUpdateTaskField = async (updates: Partial<TaskItem>): Promise<boolean> => {
-    if (!canEditTask) {
-      toast.warning("Only the task owner can edit this task.");
+    if (!canEditFields) {
+      toast.warning(isTaskLocked ? lockedTaskMessage : "Only the task owner can edit this task.");
       return false;
     }
     const taskId = activeTask.id;
@@ -1525,6 +1531,7 @@ export function SingleTaskWorkspaceView({
                 onOpenTaskDelete={handleDeleteTask}
                 onTaskDeleted={afterTaskDeleted}
                 onOpenTaskLogSaved={refreshTaskTimeLogs}
+                ownersOptions={ownersOptions}
               />
             ) : (
               <div className="py-8 text-center text-xs text-muted-foreground dark:text-zinc-400">
@@ -1582,11 +1589,11 @@ export function SingleTaskWorkspaceView({
               />
             ) : (
               <h2
-                onClick={() => canEditTask && setIsEditingTitle(true)}
-                title={canEditTask ? "Click to edit title" : undefined}
+                onClick={() => canEditFields && setIsEditingTitle(true)}
+                title={canEditFields ? "Click to edit title" : isTaskLocked ? lockedTaskMessage : undefined}
                 // Bordered box on hover (instead of a dashed underline) so it reads as editable.
                 className={`-mx-2 truncate rounded-md border border-transparent px-2 py-0.5 text-lg font-bold tracking-tight text-foreground transition-colors dark:text-neutral-100 ${
-                  canEditTask ? "cursor-text hover:border-border hover:bg-accent/30 dark:hover:border-zinc-700" : ""
+                  canEditFields ? "cursor-text hover:border-border hover:bg-accent/30 dark:hover:border-zinc-700" : ""
                 }`}
               >
                 {activeTask.title}
@@ -1625,8 +1632,8 @@ export function SingleTaskWorkspaceView({
                 taskId={activeTask.id}
                 projectId={activeTask.projectId || projectId}
                 onSaveLog={handleTimerWidgetLogSaved}
-                canStart={canStartTimer}
-                disabledReason={notOwnerMessage}
+                canStart={canStartTimer && !isTaskLocked}
+                disabledReason={isTaskLocked ? "This task is done — reopen it to start a timer." : notOwnerMessage}
                 defaultExpanded
               />
             </div>
@@ -1678,7 +1685,7 @@ export function SingleTaskWorkspaceView({
                     <span>Duplicate Task</span>
                   </button>
                   {/* Managers: move the task (with its subtasks and time logs) into another project's list. */}
-                  {currentUser?.role === "ADMIN" && !isLearningList && (
+                  {currentUser?.role === "ADMIN" && !isLearningList && !isTaskLocked && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1732,10 +1739,16 @@ export function SingleTaskWorkspaceView({
                         : []
                       ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                     }
-                    disabled={!canEditTask}
-                    disabledReason={!canEditTask ? `Only the task owner (${activeTask.owner || "Unassigned"}) can change ownership` : undefined}
+                    disabled={!canEditFields}
+                    disabledReason={
+                      isTaskLocked
+                        ? lockedTaskMessage
+                        : !canEditTask
+                        ? `Only the task owner (${activeTask.owner || "Unassigned"}) can change ownership`
+                        : undefined
+                    }
                     onChangeOwners={(newOwners) => {
-                      if (!canEditTask) return;
+                      if (!canEditFields) return;
                       const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
                       const primaryOwner = cleanOwners.length > 0 ? cleanOwners.join(", ") : "Unassigned";
                       handleUpdateTaskField({ owners: cleanOwners, owner: primaryOwner }).then((ok) => {
@@ -1926,8 +1939,8 @@ export function SingleTaskWorkspaceView({
                       ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")
                     }
                     onChangeOwners={(newOwners) => {
-                      if (!canEditTask) {
-                        toast.warning("Only the task owner can change the owner.");
+                      if (!canEditFields) {
+                        toast.warning(isTaskLocked ? lockedTaskMessage : "Only the task owner can change the owner.");
                         return;
                       }
                       const cleanOwners = newOwners.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
@@ -1961,12 +1974,13 @@ export function SingleTaskWorkspaceView({
                         .catch((err) => console.error("Failed to update task owner in DB:", err));
                     }}
                     ownersList={ownersOptions}
-                    disabled={!canEditTask}
+                    disabled={!canEditFields}
+                    disabledReason={isTaskLocked ? lockedTaskMessage : undefined}
                   />
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Start Date</span>
-                  {canEditTask ? (
+                  {canEditFields ? (
                     <input
                       type="date"
                       value={parseDateForInput(activeTask.startDate)}
@@ -1988,7 +2002,7 @@ export function SingleTaskWorkspaceView({
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Due Date</span>
-                  {canEditTask ? (
+                  {canEditFields ? (
                     <input
                       type="date"
                       value={parseDateForInput(activeTask.dueDate)}
@@ -2010,7 +2024,7 @@ export function SingleTaskWorkspaceView({
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Priority</span>
-                  {canEditTask ? (
+                  {canEditFields ? (
                     <select
                       value={activeTask.priority || "None"}
                       onChange={(e) => handleUpdateTaskField({ priority: e.target.value as TaskItem["priority"] })}

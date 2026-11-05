@@ -23,6 +23,9 @@ interface TaskMultiOwnerSelectProps {
   /** Only the current task owner may reassign ownership — disables the picker for everyone else. */
   disabled?: boolean;
   disabledReason?: string;
+  /** Render just the searchable member list (always open, no pill box) — for use inside popovers,
+   *  where an absolutely positioned dropdown gets clipped and can't be clicked. */
+  inline?: boolean;
 }
 
 const DEFAULT_TEAM_MEMBERS: OwnerUserOption[] = [
@@ -52,6 +55,7 @@ export function TaskMultiOwnerSelect({
   className = "",
   disabled = false,
   disabledReason = "Only the task owner can change the owner",
+  inline = false,
 }: TaskMultiOwnerSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -171,6 +175,75 @@ export function TaskMultiOwnerSelect({
     setInternalSelected(next);
     onChangeOwners(next);
   };
+
+  if (inline) {
+    return (
+      <div className={`w-full ${className}`}>
+        <div className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/30 px-2.5 py-1.5 dark:border-zinc-800">
+          <Search size={13} className="text-muted-foreground/70 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search members..."
+            disabled={disabled}
+            className="bg-transparent text-xs text-foreground outline-none flex-1 min-w-0"
+          />
+        </div>
+        <div className="mt-2 flex items-center justify-between px-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
+            {listLabel ?? "Members"}
+          </span>
+          {internalSelected.length > 0 && (
+            <span className="text-xs font-semibold text-muted-foreground/70">
+              {internalSelected.length} assigned
+            </span>
+          )}
+        </div>
+        <div
+          title={disabled ? disabledReason : undefined}
+          className={`mt-1 max-h-60 overflow-y-auto space-y-0.5 ${disabled ? "opacity-60" : ""}`}
+        >
+          {filteredList.length === 0 ? (
+            <div className="py-4 text-center text-xs text-muted-foreground/70 italic">
+              No matching members found
+            </div>
+          ) : (
+            filteredList.map((u) => {
+              const selected = isUserSelected(u);
+              return (
+                <button
+                  type="button"
+                  key={u.id}
+                  disabled={disabled}
+                  onClick={() => handleToggleOwner(u)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors ${
+                    disabled ? "cursor-not-allowed" : "cursor-pointer"
+                  } ${selected ? "bg-primary/10 font-semibold text-primary" : "text-foreground hover:bg-accent"}`}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <UserAvatar
+                      userId={u.id}
+                      name={u.name}
+                      email={u.email}
+                      title=""
+                      className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(
+                        u.name
+                      )}`}
+                    >
+                      {getInitials(u.name)}
+                    </UserAvatar>
+                    <span className="truncate">{u.name}</span>
+                  </span>
+                  {selected && <Check size={14} className="text-primary shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full ${className}`}>

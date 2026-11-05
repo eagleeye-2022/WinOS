@@ -14,6 +14,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { TaskMultiOwnerSelect, type OwnerUserOption } from "./task-multi-owner-select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { useConfirm } from "@/components/shared/confirm-dialog";
@@ -29,7 +30,7 @@ import { removeTaskFromList } from "../utils/remove-task-from-list";
 import { PROJECT_TASK_STATUSES, getTaskStatusPillClasses, isTaskDone, type TaskItem, type TaskStatus } from "../types";
 
 type SidebarUser = { id: string; name: string; email: string; role: "ADMIN" | "TEAM_MEMBER" } | null;
-type CardChanges = { status?: TaskStatus; phaseCode?: string; phaseName?: string; dueDate?: string };
+type CardChanges = { owners?: string[]; owner?: string; ownerNames?: string[]; title?: string; status?: TaskStatus; phaseCode?: string; phaseName?: string; dueDate?: string };
 
 /**
  * Task page sidebar: the open task's card — the project board's card (code, status select,
@@ -55,6 +56,7 @@ export function TaskSidebarTree({
   onOpenTaskDelete,
   onTaskDeleted,
   onOpenTaskLogSaved,
+  ownersOptions,
 }: {
   rootTask: TaskItem;
   childrenOf: (task: TaskItem) => TaskItem[];
@@ -72,10 +74,22 @@ export function TaskSidebarTree({
   /** After another card is deleted: the page moves off a deleted task and reloads the project. */
   onTaskDeleted?: (idOrCode: string) => void;
   onOpenTaskLogSaved: () => void;
+  /** Project users the owners popover can assign. */
+  ownersOptions: OwnerUserOption[];
 }) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  // Click a card's title to rename it inline (same as the board's cards).
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState("");
+
+  const commitTitle = (item: TaskItem) => {
+    const trimmed = titleDraft.trim();
+    setEditingTitleId(null);
+    if (!trimmed || trimmed === item.title) return;
+    saveCard(item, { title: trimmed });
+  };
 
   // Same rule as the board's cards (isTaskOwner there): managers, users of the project, and the
   // task's own owners can work on it.
@@ -103,11 +117,14 @@ export function TaskSidebarTree({
           return {
             ...t,
             ...vals,
+            // Locally the owners are shown by name (the server gets the picked ids/names).
+            ...(vals.ownerNames && { owners: vals.ownerNames }),
+            ownerNames: undefined,
             ...(vals.status && { completionPercentage: isTaskDone(vals.status) ? 100 : 0 }),
           };
         }
         // Also its entry in the parent's subtask list (what the Subtasks table shows).
-        if ((vals.status || vals.dueDate !== undefined) && (t.subtasks || []).some((s) => s.id === item.id || s.code === item.code)) {
+        if ((vals.status || vals.dueDate !== undefined || vals.title) && (t.subtasks || []).some((s) => s.id === item.id || s.code === item.code)) {
           return {
             ...t,
             subtasks: (t.subtasks || []).map((s) =>
@@ -116,6 +133,7 @@ export function TaskSidebarTree({
                     ...s,
                     ...(vals.status && { status: vals.status, completed: isTaskDone(vals.status) }),
                     ...(vals.dueDate !== undefined && { dueDate: vals.dueDate }),
+                    ...(vals.title && { title: vals.title }),
                   }
                 : s
             ),
@@ -124,13 +142,17 @@ export function TaskSidebarTree({
         return t;
       });
     const previous: CardChanges = {
+      ...(changes.owners && { owners: item.owners ?? [], owner: item.owner }),
+      ...(changes.title && { title: item.title }),
       ...(changes.status && { status: item.status }),
       ...(changes.phaseCode && { phaseCode: item.phaseCode, phaseName: item.phaseName }),
       ...(changes.dueDate !== undefined && { dueDate: item.dueDate }),
     };
     setTasks(apply(changes));
     try {
-      const result = await updateTaskAction(item.id, changes);
+      const { ownerNames: _ownerNames, ...serverChanges } = changes;
+      void _ownerNames;
+      const result = await updateTaskAction(item.id, serverChanges);
       if (result.success) {
         toast.success("Task updated");
         return;
@@ -154,7 +176,19 @@ export function TaskSidebarTree({
     else saveCard(item, { status: next });
   };
 
-  const moveToPhase = (item: TaskItem, phaseCode: string, phaseName: string) => {
+  /** Owners popover: shown by name at once, the picked ids/names saved like the board does. */
+  const changeOwners = (item: TaskItem, next: string[]) => {
+    const clean = next.filter((o) => o && o.trim().toLowerCase() !== "unassigned");
+    const names = clean.map(
+      (raw) =>
+        ownersOptions.find(
+          (u) => u.id === raw || u.name.toLowerCase() === raw.toLowerCase() || u.email.toLowerCase() === raw.toLowerCase()
+        )?.name ?? raw
+    );
+    saveCard(item, { owners: clean, owner: names.length > 0 ? names.join(", ") : "Unassigned", ownerNames: names });
+  };
+
+  const moveToPhase =(item: TaskItem, phaseCode: string, phaseName: string) => {
     if (phaseCode === item.phaseCode) return;
     if (isOpenTask(item)) onOpenTaskPhaseChange(phaseCode, phaseName);
     else saveCard(item, { phaseCode, phaseName });
@@ -361,16 +395,40 @@ export function TaskSidebarTree({
           </div>
 
           {/* Title */}
-          <h4
-            className={cn(
-              "rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary",
-              isLocked
-                ? "line-through text-slate-400 dark:text-neutral-500 decoration-slate-400/80 dark:decoration-neutral-500/80"
-                : "text-slate-800 dark:text-neutral-200"
-            )}
-          >
-            {item.title}
-          </h4>
+          {editingTitleId === item.id ? (
+            <input
+              type="text"
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={() => commitTitle(item)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setEditingTitleId(null);
+              }}
+              className="w-full rounded-md border border-primary/50 bg-transparent px-1 -mx-1 py-0.5 text-xs font-bold text-slate-800 dark:text-neutral-200 outline-none ring-1 ring-primary/30 focus:ring-primary transition-all"
+            />
+          ) : (
+            <h4
+              onClick={(e) => {
+                if (!canEdit) return;
+                e.stopPropagation();
+                setTitleDraft(item.title);
+                setEditingTitleId(item.id);
+              }}
+              title={canEdit ? "Click to rename" : item.title}
+              className={cn(
+                "rounded-md px-1 -mx-1 text-xs font-semibold leading-snug transition-colors group-hover:text-primary",
+                isLocked
+                  ? "line-through text-slate-400 dark:text-neutral-500 decoration-slate-400/80 dark:decoration-neutral-500/80"
+                  : "text-slate-800 dark:text-neutral-200",
+                canEdit && "hover:bg-slate-100 dark:hover:bg-neutral-800/60 cursor-text"
+              )}
+            >
+              {item.title}
+            </h4>
+          )}
 
           {/* Card Footer: timer, subtask count on the left; due date and owners on the right */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-neutral-800/80 text-slate-400 text-xs">
@@ -432,18 +490,45 @@ export function TaskSidebarTree({
                 disabledReason={lockedReason}
                 onChange={(dueDate) => saveCard(item, { dueDate })}
               />
-              <span
-                className="flex shrink-0 items-center rounded-full"
-                title={`Owners: ${(item.owners && item.owners.length > 0 ? item.owners : [item.owner || "Unassigned"]).join(", ")}`}
-              >
-                {owners.length === 0 ? (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700">
-                    <User size={12} className="text-slate-400 dark:text-neutral-500" />
-                  </span>
-                ) : (
-                  <AvatarStack people={owners} />
-                )}
-              </span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex shrink-0 items-center rounded-full hover:scale-105 transition-transform cursor-pointer"
+                    title={`Owners: ${(item.owners && item.owners.length > 0 ? item.owners : [item.owner || "Unassigned"]).join(", ")} (Click to assign owners)`}
+                  >
+                    {owners.length === 0 ? (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400 border border-slate-200/80 ring-2 ring-background shadow-2xs dark:bg-neutral-800 dark:text-neutral-500 dark:border-neutral-700">
+                        <User size={12} className="text-slate-400 dark:text-neutral-500" />
+                      </span>
+                    ) : (
+                      <AvatarStack people={owners} />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="end"
+                  className="w-64 p-2.5 text-xs z-50 bg-popover text-popover-foreground shadow-lg border border-border"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <TaskMultiOwnerSelect
+                    inline
+                    selectedOwners={(item.owners && item.owners.length > 0
+                      ? item.owners
+                      : item.owner && item.owner !== "Unassigned"
+                      ? [item.owner]
+                      : []
+                    ).filter((o) => o && o.trim().toLowerCase() !== "unassigned")}
+                    disabled={!canEdit}
+                    disabledReason={lockedReason}
+                    onChangeOwners={(next) => changeOwners(item, next)}
+                    ownersList={ownersOptions}
+                    listLabel="Project Users"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
