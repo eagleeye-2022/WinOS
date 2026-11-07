@@ -21,6 +21,7 @@ import { useConfirm } from "@/components/shared/confirm-dialog";
 import { toast } from "@/components/shared/toast";
 import { cn } from "@/lib/utils";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { MoveTaskToProjectDialog } from "./modals/move-task-to-project-dialog";
 import { TimerWidget } from "./timer-widget";
 import { TaskCardDueDate } from "./task-card-due-date";
 import { taskOwnerPeople } from "../utils/task-owner-people";
@@ -80,6 +81,8 @@ export function TaskSidebarTree({
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  // Card picked for "Move to Another Project" (managers) — the dialog is open while it's set.
+  const [moveToProjectTask, setMoveToProjectTask] = useState<TaskItem | null>(null);
   // Click a card's title to rename it inline (same as the board's cards).
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
@@ -261,6 +264,16 @@ export function TaskSidebarTree({
           </button>
         ))}
       </div>
+      {/* Managers: move it (with subtasks and time logs) into another project's list. */}
+      {currentUser?.role === "ADMIN" && (
+        <button
+          type="button"
+          onClick={() => setMoveToProjectTask(item)}
+          className="mt-1 flex w-full items-center gap-1.5 rounded-md border-t px-2 py-1.5 pt-2 text-left text-xs font-semibold text-primary hover:bg-accent cursor-pointer"
+        >
+          <ArrowRightLeft size={12} /> Move to Another Project…
+        </button>
+      )}
     </>
   );
 
@@ -552,6 +565,21 @@ export function TaskSidebarTree({
       {/* As wide as the deepest level needs; the panel around it scrolls sideways. */}
       <div className="w-max min-w-full">{renderCard(rootTask, null, new Set())}</div>
       {ConfirmDialog}
+      {moveToProjectTask && (
+        <MoveTaskToProjectDialog
+          open
+          onClose={() => setMoveToProjectTask(null)}
+          taskId={moveToProjectTask.dbId ?? moveToProjectTask.id}
+          taskCode={moveToProjectTask.code}
+          taskTitle={moveToProjectTask.title}
+          currentProjectId={projectId}
+          onMoved={({ projectId: movedTo, code }) => {
+            setMoveToProjectTask(null);
+            // The task now lives in the other project — open it there.
+            router.push(`/projects/${movedTo}/tasks/${code}`);
+          }}
+        />
+      )}
     </>
   );
 }

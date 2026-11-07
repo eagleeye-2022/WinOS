@@ -132,6 +132,38 @@ export function applyChecks(doc: DocNode, checkedById: Map<string, boolean>): Do
   return walk(doc);
 }
 
+const nodeText = (node: DocNode): string =>
+  (node.text ?? "") + (node.content ?? []).map(nodeText).join(" ");
+
+/**
+ * The document without an empty "Notes & references" section — the heading, plus what follows it up
+ * to the next heading, when that is only the bare "PURPOSE" placeholder the SOP import leaves behind
+ * (and no checkboxes). A section with real notes is kept. Display only; the stored SOP isn't changed.
+ */
+export function hidePlaceholderNotes(doc: DocNode): DocNode {
+  const blocks = doc.content;
+  if (!blocks) return doc;
+  const isNotesHeading = (b: DocNode) =>
+    b.type === "heading" && nodeText(b).replace(/\s+/g, " ").trim().toLowerCase() === "notes & references";
+  const hasCheckbox = (b: DocNode): boolean => b.type === "taskItem" || (b.content ?? []).some(hasCheckbox);
+
+  const out: DocNode[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    if (!isNotesHeading(blocks[i])) {
+      out.push(blocks[i]);
+      continue;
+    }
+    let end = i + 1;
+    while (end < blocks.length && blocks[end].type !== "heading") end++;
+    const section = blocks.slice(i + 1, end);
+    const isPlaceholder =
+      !section.some(hasCheckbox) && section.map(nodeText).join(" ").replace(/\s+/g, " ").trim().toUpperCase() === "PURPOSE";
+    if (isPlaceholder) i = end - 1; // skip the heading and its section
+    else out.push(blocks[i]);
+  }
+  return out.length === blocks.length ? doc : { ...doc, content: out };
+}
+
 /** Every checkbox `itemId` in the document. */
 export function docItemIds(doc: DocNode): Set<string> {
   const ids = new Set<string>();

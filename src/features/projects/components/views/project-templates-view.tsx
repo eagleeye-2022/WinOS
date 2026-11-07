@@ -29,7 +29,7 @@ import { toast } from "@/components/shared/toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
 import { cn } from "@/lib/utils";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, writeSearchParam } from "@/lib/navigation/use-url-state";
 import {
   ProjectTemplate,
   SOPSubtaskSeed,
@@ -49,7 +49,7 @@ import {
   subtaskTitle,
 } from "../../types";
 import { TemplateTaskPage } from "./template-task-page";
-import { TemplateMoveMenu } from "../template-move-menu";
+import { MoveTaskToTemplateDialog, TemplateMoveMenu } from "../template-move-menu";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { TaskMultiOwnerSelect, type OwnerUserOption } from "../task-multi-owner-select";
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
@@ -66,6 +66,8 @@ import {
   newTemplateDraft,
   newTemplatePhase,
   newTemplateTask,
+  removeTemplateSubtask,
+  subtaskToTaskSeed,
   templateToDraft,
   updateTaskOrSubtask,
 } from "../../template-utils";
@@ -128,12 +130,14 @@ export function ProjectTemplatesView({
 
   const openDraft = async (draft: TemplateDraft) => {
     if (!(await confirmLeave())) return;
+    writeSearchParam("task", null); // an open task page belongs to the template it was opened in
     setNewDraft(draft);
     setBoardVersion((v) => v + 1);
   };
 
   const selectTemplate = async (id: string) => {
     if (!(await confirmLeave())) return;
+    writeSearchParam("task", null);
     setNewDraft(null);
     setSelectedId(id);
     setBoardVersion((v) => v + 1);
@@ -148,6 +152,7 @@ export function ProjectTemplatesView({
 
   const handleCreated = (saved: ProjectTemplate) => {
     storeTemplate(saved);
+    writeSearchParam("task", null);
     setNewDraft(null);
     setSelectedId(saved.id);
     setBoardVersion((v) => v + 1);
@@ -180,6 +185,7 @@ export function ProjectTemplatesView({
         return;
       }
       onCustomTemplatesChange(customTemplates.filter((t) => t.id !== selected.id));
+      writeSearchParam("task", null);
       if (!isBuiltIn) setSelectedId("");
       setBoardVersion((v) => v + 1);
       toast.success(isBuiltIn ? "Template reset to original" : "Template deleted");
@@ -252,6 +258,7 @@ export function ProjectTemplatesView({
         onAutoSaved={storeTemplate}
         onCancelNew={() => {
           hasUnsavedChanges.current = false;
+          writeSearchParam("task", null);
           setNewDraft(null);
           setBoardVersion((v) => v + 1);
         }}
@@ -285,6 +292,21 @@ export function ProjectTemplatesView({
       {ConfirmDialog}
     </div>
   );
+}
+
+type EditingTask = { phaseIndex: number; taskIndex: number; subtaskPath?: number[] };
+
+const formatEditingTask = ({ phaseIndex, taskIndex, subtaskPath }: EditingTask) =>
+  [phaseIndex, taskIndex, ...(subtaskPath && subtaskPath.length > 0 ? [subtaskPath.join("-")] : [])].join(".");
+
+/** The open task from `?task=`; null when absent or it no longer exists in the template. */
+function parseEditingTask(param: string, draft: TemplateDraft): EditingTask | null {
+  if (!/^\d+\.\d+(\.\d+(-\d+)*)?$/.test(param)) return null;
+  const [phase, task, sub] = param.split(".");
+  const phaseIndex = Number(phase);
+  const taskIndex = Number(task);
+  if (!draft.phases[phaseIndex]?.tasks[taskIndex]) return null;
+  return { phaseIndex, taskIndex, ...(sub ? { subtaskPath: sub.split("-").map(Number) } : {}) };
 }
 
 interface TemplateBoardProps {
@@ -328,7 +350,16 @@ function TemplateBoard({
   const unsavedDraftJson = useRef<string | null>(null);
   const onAutoSavedRef = useRef(onAutoSaved);
   const [dragged, setDragged] = useState<{ phaseIndex: number; taskIndex: number } | null>(null);
-  const [editingTask, setEditingTask] = useState<{ phaseIndex: number; taskIndex: number; subtaskPath?: number[] } | null>(null);
+  // The open task page lives in the URL (?task=<list>.<task>[.<subtask path>]), so leaving and coming
+  // back (Back button, module switcher) returns to the same task, and its scroll can be restored.
+  const [taskParam, setTaskParam] = useUrlState("task", "", { history: "push" });
+  const editingTask = parseEditingTask(taskParam, draft);
+  const setEditingTask = (
+    next: EditingTask | null | ((prev: EditingTask | null) => EditingTask | null)
+  ) => {
+    const resolved = typeof next === "function" ? next(editingTask) : next;
+    setTaskParam(resolved ? formatEditingTask(resolved) : "");
+  };
   const [addingToPhase, setAddingToPhase] = useState<number | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isCreatingList, setIsCreatingList] = useState(false);
@@ -600,6 +631,37 @@ function TemplateBoard({
     }
   };
 
+  /**
+   * Moves a subtask to a list of another template, where it becomes a top-level task (with its own
+   * subtasks). Same order as moveTaskToTemplate: added there first, removed here only on success.
+   */
+  const moveSubtaskToTemplate = async (
+    phaseIndex: number,
+    taskIndex: number,
+    subtaskPath: number[],
+    target: { id: string; name: string },
+    targetList: number
+  ) => {
+    const from = { phaseIndex, taskIndex, subtaskPath };
+    const moving = subtaskToTaskSeed(draft.phases, from);
+    if (!moving) return;
+    try {
+      const result = await addTaskToTemplateAction(target.id, moving, targetList);
+      if (!result.success || !result.template) {
+        toast.error(result.error || "Couldn't move the subtask.");
+        return;
+      }
+      onAutoSavedRef.current(result.template);
+      setDraft((prev) => ({ ...prev, phases: removeTemplateSubtask(prev.phases, from) }));
+      // Moved from its own page: that subtask is gone, so show its task instead.
+      setEditingTask((prev) => (prev?.subtaskPath ? { phaseIndex, taskIndex } : prev));
+      toast.success(`Moved "${moving.title}" to ${target.name}`);
+    } catch (err) {
+      console.error("Failed to move subtask to another template:", err);
+      toast.error("Couldn't move the subtask.");
+    }
+  };
+
   const handleCreate = async () => {
     setIsSaving(true);
     try {
@@ -691,6 +753,9 @@ function TemplateBoard({
             lists={draft.phases}
             otherTemplates={otherTemplates}
             onMoveToTemplate={(target, listIndex) => moveTaskToTemplate(phaseIndex, taskIndex, target, listIndex)}
+            onMoveSubtaskToTemplate={(path, target, listIndex) =>
+              moveSubtaskToTemplate(phaseIndex, taskIndex, path, target, listIndex)
+            }
             phaseIndex={phaseIndex}
             taskIndex={taskIndex}
             onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
@@ -1116,7 +1181,11 @@ function TemplateBoard({
       </div>
 
       {/* Board */}
-      <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40">
+      {/* data-scroll-key: a stable id so Back/Forward restores this scroll position (see NavigationStateTracker). */}
+      <div
+        data-scroll-key={`template-board-${templateId ?? "new"}`}
+        className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40"
+      >
         <div data-col-scope className="flex gap-3.5 h-full items-stretch">
           {draft.phases.map((phase, phaseIndex) => {
             // Same numbering a project's tasks get when it's created from the template.
@@ -1263,6 +1332,7 @@ function TemplateBoard({
 
                 {/* Column body */}
                 <div
+                  data-scroll-key={`template-list-${templateId ?? "new"}-${phaseIndex}`}
                   className={cn(
                     "space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 rounded-xl transition-colors",
                     dragged && "ring-1 ring-transparent hover:ring-primary/30"
@@ -1340,6 +1410,9 @@ function TemplateBoard({
                         lists={draft.phases}
                         otherTemplates={otherTemplates}
                         onMoveToTemplate={(target, listIndex) => moveTaskToTemplate(phaseIndex, taskIndex, target, listIndex)}
+                        onMoveSubtaskToTemplate={(path, target, listIndex) =>
+                          moveSubtaskToTemplate(phaseIndex, taskIndex, path, target, listIndex)
+                        }
                         phaseIndex={phaseIndex}
                         taskIndex={taskIndex}
                         onOpen={() => setEditingTask({ phaseIndex, taskIndex })}
@@ -1493,6 +1566,7 @@ function TemplateTaskCard({
   lists,
   otherTemplates,
   onMoveToTemplate,
+  onMoveSubtaskToTemplate,
   phaseIndex,
   taskIndex,
   onOpen,
@@ -1520,6 +1594,7 @@ function TemplateTaskCard({
   lists: TemplatePhaseDraft[];
   otherTemplates: { id: string; name: string; lists: string[] }[];
   onMoveToTemplate: (target: { id: string; name: string }, listIndex: number) => void;
+  onMoveSubtaskToTemplate: (subtaskPath: number[], target: { id: string; name: string }, listIndex: number) => void;
   phaseIndex: number;
   taskIndex: number;
   onOpen: () => void;
@@ -1779,6 +1854,8 @@ function TemplateTaskCard({
           onChange={(next) => onChange({ subtasks: next })}
           onAdd={(title) => onChange({ subtasks: [...subtasks, title] })}
           onMove={onMoveSubtask}
+          otherTemplates={otherTemplates}
+          onMoveToTemplate={onMoveSubtaskToTemplate}
         />
       )}
     </div>
@@ -1854,7 +1931,11 @@ function TemplateSubtaskList({
   onChange,
   onAdd,
   onMove,
+  otherTemplates,
+  onMoveToTemplate,
 }: {
+  otherTemplates: { id: string; name: string; lists: string[] }[];
+  onMoveToTemplate: (subtaskPath: number[], target: { id: string; name: string }, listIndex: number) => void;
   subtasks: SOPSubtaskSeed[];
   parentCode: string;
   parentPath: number[];
@@ -1899,6 +1980,8 @@ function TemplateSubtaskList({
             onDuplicate={() => onChange([...subtasks.slice(0, index + 1), subtask, ...subtasks.slice(index + 1)])}
             onDelete={() => onChange(subtasks.filter((_, i) => i !== index))}
             onMove={onMove}
+            otherTemplates={otherTemplates}
+            onMoveToTemplate={onMoveToTemplate}
           />
         </div>
       ))}
@@ -1943,7 +2026,11 @@ function TemplateSubtaskCard({
   onDuplicate,
   onDelete,
   onMove,
+  otherTemplates,
+  onMoveToTemplate,
 }: {
+  otherTemplates: { id: string; name: string; lists: string[] }[];
+  onMoveToTemplate: (subtaskPath: number[], target: { id: string; name: string }, listIndex: number) => void;
   subtask: SOPSubtaskSeed;
   code: string;
   path: number[];
@@ -1961,6 +2048,7 @@ function TemplateSubtaskCard({
   const [menu, setMenu] = useState<"more" | "move" | null>(null);
   const [showChildren, setShowChildren] = useState(false);
   const [isAddingChild, setIsAddingChild] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const title = subtaskTitle(subtask);
   const children = subtaskChildren(subtask);
   const status = subtaskStatus(subtask) ?? "Open";
@@ -2177,8 +2265,29 @@ function TemplateSubtaskCard({
                       )
                   )}
                 </div>
+                {otherTemplates.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenu(null);
+                      setIsMoveDialogOpen(true);
+                    }}
+                    className="mt-1.5 flex w-full cursor-pointer items-center gap-2 rounded-md border-t px-2 pb-2 pt-2.5 text-left text-xs font-semibold text-foreground hover:bg-accent"
+                  >
+                    <ArrowRightLeft size={13} className="shrink-0 text-primary" />
+                    <span>Move to Another Template…</span>
+                  </button>
+                )}
               </PopoverContent>
             </Popover>
+          )}
+          {isMoveDialogOpen && (
+            <MoveTaskToTemplateDialog
+              taskLabel={`${code} ${title}`}
+              otherTemplates={otherTemplates}
+              onMove={(target, listIndex) => onMoveToTemplate(path, target, listIndex)}
+              onClose={() => setIsMoveDialogOpen(false)}
+            />
           )}
           {children.length > 0 && (
             <button
@@ -2221,6 +2330,8 @@ function TemplateSubtaskCard({
           onChange={(next) => onChange(makeSubtask(title, next, extra))}
           onAdd={(childTitle) => onChange(makeSubtask(title, [...children, childTitle], extra))}
           onMove={onMove}
+          otherTemplates={otherTemplates}
+          onMoveToTemplate={onMoveToTemplate}
         />
       )}
     </div>

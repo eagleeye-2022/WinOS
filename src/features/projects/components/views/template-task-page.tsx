@@ -725,7 +725,7 @@ export function TemplateTaskPage({
             </button>
           </div>
           {/* Open task's card with all its subtasks (any depth) on the board's tree line */}
-          <div className="dsm-columns-scrollbar flex-1 overflow-auto p-3">
+          <div data-scroll-key="template-task-sidebar" className="dsm-columns-scrollbar flex-1 overflow-auto p-3">
             <div className="w-max min-w-full">
               {sidebarCard}
             </div>
@@ -1038,7 +1038,7 @@ export function TemplateTaskPage({
         </div>
 
         {/* Workspace Body Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 pb-20">
+        <div data-scroll-key="template-task-main" className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 pb-20">
           {/* Status Field */}
           <div className="space-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground dark:text-zinc-400">

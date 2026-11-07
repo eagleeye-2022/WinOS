@@ -40,6 +40,9 @@ export function NavigationStateTracker() {
 
     restoringRef.current = true;
     const cancel = restoreScroll(root, saved, {
+      // Boards like Project Templates fetch their data after mount; 2.5s can be too short for them.
+      // The retry stops as soon as the user scrolls or types, so a longer wait costs nothing.
+      timeoutMs: 8000,
       onDone: () => {
         restoringRef.current = false;
       },

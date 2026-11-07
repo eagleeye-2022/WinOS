@@ -22,7 +22,7 @@ const SELECT_CONTENT = "z-[80] w-[var(--radix-popover-trigger-width)]";
  * "Move to another template": pick a template, then one of its task lists — the same dialog as
  * moving a project task to another project. `onMove` adds the task there.
  */
-function MoveTaskToTemplateDialog({
+export function MoveTaskToTemplateDialog({
   taskLabel,
   otherTemplates,
   onMove,
