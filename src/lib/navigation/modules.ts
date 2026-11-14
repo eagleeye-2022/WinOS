@@ -31,7 +31,7 @@ export const NAV_MODULES: readonly NavModule[] = [
   {
     id: "people",
     label: "Pulse",
-    homeHref: "/pulse/leave",
+    homeHref: "/pulse/home",
     moduleKey: "PEOPLE",
     prefixes: ["/pulse", "/people", "/leave"],
     moduleParams: ["people", "pulse"],

@@ -103,7 +103,7 @@ export function ActionRequiredSection({
 
                     <button
                       onClick={() => onApplyLeave(item)}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-200 dark:border-zinc-700/80 bg-white hover:bg-blue-50/50 dark:bg-zinc-800 text-primary text-xs font-semibold transition-all shadow-xs"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-200 dark:border-zinc-700/80 bg-white hover:bg-blue-50/50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-primary text-xs font-semibold transition-all shadow-xs"
                     >
                       <CalendarPlus className="w-4 h-4" />
                       <span>Apply Leave</span>

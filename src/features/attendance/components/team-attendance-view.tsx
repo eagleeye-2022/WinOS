@@ -7,7 +7,6 @@ import {
   CalendarCheck,
   UserX,
   Search,
-  ChevronDown,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -15,9 +14,9 @@ import {
   Building2,
   Home as HomeIcon,
   Wifi,
-  Calendar,
   Loader2,
 } from "lucide-react";
+import { PeriodNav } from "@/components/shared/period-nav";
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
@@ -33,8 +32,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const [statusFilter, setStatusFilter] = useState("All");
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [workModeFilter, setWorkModeFilter] = useState("All");
-  const [selectedDate, setSelectedDate] = useState(() => `Today, ${formatShortDate(istDateKey())}`);
-  const [currentDateObj, setCurrentDateObj] = useState(() => new Date(istDateKey()));
+  const [dateKey, setDateKey] = useState(() => istDateKey());
+  const dateLabel = dateKey === istDateKey() ? `Today, ${formatShortDate(dateKey)}` : formatShortDate(dateKey);
   const [teamMembers, setTeamMembers] = useState<TeamMemberAttendance[]>([]);
   const [counts, setCounts] = useState({ total: 0, workingNow: 0, completed: 0, onLeave: 0, absent: 0, dayOff: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -45,8 +44,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
     startTransition(async () => {
       if (!quiet) setIsLoading(true);
       try {
-        const dateStr = currentDateObj.toISOString().split("T")[0];
-        const res = await getTeamAttendanceData(dateStr, {
+        const res = await getTeamAttendanceData(dateKey, {
           search: searchTerm,
           status: statusFilter,
           workMode: workModeFilter,
@@ -63,7 +61,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
 
   useEffect(() => {
     loadData();
-  }, [currentDateObj, statusFilter, workModeFilter, searchTerm]);
+  }, [dateKey, statusFilter, workModeFilter, searchTerm]);
 
   // Check-ins and check-outs happen on other people's devices: refresh every minute and when this
   // tab comes back into view, so the list stays live without a manual reload.
@@ -86,20 +84,6 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const shownMembers =
     departmentFilter === "All" ? teamMembers : teamMembers.filter((m) => m.department === departmentFilter);
 
-  const handlePrevDay = () => {
-    const prev = new Date(currentDateObj);
-    prev.setDate(prev.getDate() - 1);
-    setCurrentDateObj(prev);
-    setSelectedDate(prev.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }));
-  };
-
-  const handleNextDay = () => {
-    const next = new Date(currentDateObj);
-    next.setDate(next.getDate() + 1);
-    setCurrentDateObj(next);
-    setSelectedDate(next.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }));
-  };
-
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* Header with Date Navigator */}
@@ -110,42 +94,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
           </h1>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Opens the browser's date picker. */}
-          <label className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-xs cursor-pointer whitespace-nowrap">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{selectedDate}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="date"
-              aria-label="Pick a date"
-              value={currentDateObj.toISOString().slice(0, 10)}
-              onChange={(e) => {
-                const key = e.target.value;
-                if (!key) return;
-                setCurrentDateObj(new Date(key));
-                setSelectedDate(key === istDateKey() ? `Today, ${formatShortDate(key)}` : formatShortDate(key));
-              }}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </label>
-
-          <button
-            onClick={handlePrevDay}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Previous</span>
-          </button>
-
-          <button
-            onClick={handleNextDay}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-          >
-            <span>Next</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <PeriodNav modes={["day"]} value={dateKey} label={dateLabel} onChange={setDateKey} />
       </div>
 
       {/* 4 Summary Stat Cards */}
@@ -337,7 +286,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                             {member.name}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {member.designation} • ID: {member.employeeId}
+                            {member.designation}
+                            {/* Employee ID hidden for now: {" "}• ID: {member.employeeId} */}
                           </div>
                         </div>
                       </div>
@@ -448,7 +398,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           e.stopPropagation();
                           onViewEmployee?.(member);
                         }}
-                        className="text-xs font-bold text-primary hover:text-blue-700 hover:underline"
+                        className="text-xs font-bold text-primary hover:text-foreground hover:underline"
                       >
                         View Details
                       </button>

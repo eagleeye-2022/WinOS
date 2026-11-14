@@ -194,7 +194,7 @@ export function RegularizationRequestsList({
           <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search request or employee..."
+            placeholder="Search request or team member..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-xl border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
@@ -208,7 +208,7 @@ export function RegularizationRequestsList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3.5 px-5">Employee</th>
+                <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Attendance Date</th>
                 <th className="py-3.5 px-5">Existing Timing</th>
                 <th className="py-3.5 px-5">Requested Timing</th>
@@ -248,7 +248,8 @@ export function RegularizationRequestsList({
                             {req.employee.name}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {req.employee.designation} • ID: {req.employee.employeeId}
+                            {req.employee.designation}
+                            {/* Employee ID hidden for now: {" "}• ID: {req.employee.employeeId} */}
                           </div>
                         </div>
                       </div>
@@ -325,7 +326,7 @@ export function RegularizationRequestsList({
                           e.stopPropagation();
                           onViewRequest?.(req);
                         }}
-                        className="text-xs font-bold text-primary hover:text-blue-700 hover:underline"
+                        className="text-xs font-bold text-primary hover:text-foreground hover:underline"
                       >
                         View Details
                       </button>

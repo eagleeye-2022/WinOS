@@ -73,7 +73,7 @@ export function WhyfiLearningAddRow({
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-xs font-medium text-primary/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-foreground"
       >
         <Plus size={13} /> Add Learning Task
       </button>

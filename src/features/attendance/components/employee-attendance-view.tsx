@@ -6,10 +6,9 @@ import {
   UserPlus,
   Mail,
   Phone,
-  Calendar,
   ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
+import { PeriodNav, periodKind } from "@/components/shared/period-nav";
 import { AttendanceRecord, ActionRequiredItem, EmployeeProfile, MonthlySummary } from "../types";
 import { AttendanceWeekView } from "./attendance-week-view";
 import { AttendanceMonthView } from "./attendance-month-view";
@@ -19,7 +18,6 @@ import { AttendanceDetailsDrawer } from "./attendance-details-drawer";
 import { getMyAttendanceData } from "../queries/attendance-queries";
 import {
   MONTH_NAMES,
-  addDaysToKey,
   dateFromKey,
   formatShortDate,
   istDateKey,
@@ -75,7 +73,7 @@ export function EmployeeAttendanceView({
       })
       .catch((err) => {
         console.error("Failed to load employee attendance data:", err);
-        if (!cancelled) setLoadError("Couldn't load this employee's attendance.");
+        if (!cancelled) setLoadError("Couldn't load this team member's attendance.");
       });
     return () => {
       cancelled = true;
@@ -86,14 +84,6 @@ export function EmployeeAttendanceView({
   const currentWeekRecords = weekDates.map((d) => recordsMap[d]).filter(Boolean);
   const monthLabel = `${MONTH_NAMES[monthIndex]} ${year}`;
   const weekLabel = `${formatShortDate(weekDates[0])} – ${formatShortDate(weekDates[6])}`;
-
-  const shift = (direction: 1 | -1) => {
-    if (viewMode === "week") {
-      setSelectedDate(addDaysToKey(selectedDate, 7 * direction));
-    } else {
-      setSelectedDate(new Date(Date.UTC(year, monthIndex + direction, 1)).toISOString().slice(0, 10));
-    }
-  };
 
   const handleOpenDrawer = (record: AttendanceRecord) => {
     setSelectedRecordForDrawer(record);
@@ -149,7 +139,8 @@ export function EmployeeAttendanceView({
               </span>
             </div>
             <div className="text-xs text-muted-foreground">
-              {employee.designation} • ID: {employee.employeeId} • {employee.department}
+              {employee.designation} • {employee.department}
+              {/* Employee ID hidden for now: • ID: {employee.employeeId} */}
             </div>
           </div>
         </div>
@@ -159,7 +150,7 @@ export function EmployeeAttendanceView({
           {employee.email && (
             <a
               href={`mailto:${employee.email}`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
             >
               <Mail className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{employee.email}</span>
@@ -168,7 +159,7 @@ export function EmployeeAttendanceView({
           {employee.phone && employee.phone !== "—" && (
             <a
               href={`tel:${employee.phone}`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
             >
               <Phone className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{employee.phone}</span>
@@ -197,7 +188,7 @@ export function EmployeeAttendanceView({
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 viewMode === "week"
                   ? "bg-card text-primary shadow-xs"
-                  : "text-muted-foreground hover:text-zinc-900"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Week
@@ -208,35 +199,38 @@ export function EmployeeAttendanceView({
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 viewMode === "month"
                   ? "bg-card text-primary shadow-xs"
-                  : "text-muted-foreground hover:text-zinc-900"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               Month
             </button>
           </div>
 
-          <button
-            onClick={() => shift(-1)}
-            className="p-2 rounded-xl border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          {/* A picked date opens its week; a picked month opens the month view. */}
+          <PeriodNav
+            modes={["day", "month"]}
+            value={viewMode === "week" ? selectedDate : selectedDate.slice(0, 7)}
+            stepDays={7}
+            label={viewMode === "week" ? weekLabel : undefined}
+            onChange={(period) => {
+              if (periodKind(period) === "month") {
+                setViewMode("month");
+                setSelectedDate(today.slice(0, 7) === period ? today : `${period}-01`);
+              } else {
+                setViewMode("week");
+                setSelectedDate(period);
+              }
+            }}
+          />
 
-          <button
-            onClick={() => setSelectedDate(today)}
-            title="Go to today"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs"
-          >
-            <span>{viewMode === "week" ? weekLabel : monthLabel}</span>
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
-
-          <button
-            onClick={() => shift(1)}
-            className="p-2 rounded-xl border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {selectedDate !== today && (
+            <button
+              onClick={() => setSelectedDate(today)}
+              className="px-3 py-1.5 rounded-lg border border-input bg-background text-xs font-bold text-foreground shadow-xs hover:bg-accent"
+            >
+              Today
+            </button>
+          )}
         </div>
       </div>
 

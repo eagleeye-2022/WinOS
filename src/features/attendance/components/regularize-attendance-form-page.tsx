@@ -275,7 +275,7 @@ export function RegularizeAttendanceFormPage({
             <div className="space-y-3.5 text-xs">
               {onBehalfOf && (
                 <div className="flex items-start justify-between">
-                  <span className="text-muted-foreground">Employee</span>
+                  <span className="text-muted-foreground">Team Member</span>
                   <span className="font-bold text-foreground text-right">{onBehalfOf.name}</span>
                 </div>
               )}

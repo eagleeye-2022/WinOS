@@ -4,8 +4,6 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import {
   Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
   Users,
   Clock,
   Sparkles,
@@ -17,13 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PeriodNav } from "@/components/shared/period-nav";
 import { cn } from "@/lib/utils";
 import { getTeamCalendarEventsAction } from "../queries/leave-queries";
 
@@ -126,26 +118,10 @@ export function TeamCalendarView() {
     year: "numeric",
   });
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-    setSelectedDay(1);
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-    setSelectedDay(1);
-  };
-
   const handleToday = () => {
     const now = new Date();
     setCurrentDate(now);
     setSelectedDay(now.getDate());
-  };
-
-  const handleMonthSelect = (val: string) => {
-    const [m, y] = val.split("-").map(Number);
-    setCurrentDate(new Date(y, m, 1));
-    setSelectedDay(1);
   };
 
   // Selected date key for querying events (YYYY-MM-DD)
@@ -170,20 +146,6 @@ export function TeamCalendarView() {
     );
   };
 
-  // Generate Month Options for select dropdown
-  const monthOptions = useMemo(() => {
-    const opts = [];
-    const baseYear = new Date().getFullYear();
-    for (let y = baseYear - 1; y <= baseYear + 1; y++) {
-      for (let m = 0; m < 12; m++) {
-        const d = new Date(y, m, 1);
-        const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-        opts.push({ value: `${m}-${y}`, label });
-      }
-    }
-    return opts;
-  }, []);
-
   return (
     <div className="space-y-6 select-none">
       {/* Header */}
@@ -207,51 +169,16 @@ export function TeamCalendarView() {
             <span>Today</span>
           </Button>
 
-          {/* Month Navigation Prev/Next */}
-          <div className="flex items-center border rounded-xl overflow-hidden bg-background">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handlePrevMonth}
-              className="h-9 w-9 rounded-none text-muted-foreground hover:text-foreground"
-              title="Previous Month"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-
-            <span className="px-3 text-xs font-bold text-foreground min-w-[110px] text-center">
-              {monthName}
-            </span>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleNextMonth}
-              className="h-9 w-9 rounded-none text-muted-foreground hover:text-foreground"
-              title="Next Month"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Month/Year Quick Select */}
-          <Select
-            value={`${month}-${year}`}
-            onValueChange={handleMonthSelect}
-          >
-            <SelectTrigger className="h-9 w-36 rounded-xl text-xs bg-background">
-              <SelectValue placeholder="Select Month" />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* A picked date opens its month with that day selected. */}
+          <PeriodNav
+            modes={["day", "month"]}
+            value={`${year}-${String(month + 1).padStart(2, "0")}`}
+            onChange={(period) => {
+              const [y, m, d] = period.split("-").map(Number);
+              setCurrentDate(new Date(y, m - 1, 1));
+              setSelectedDay(d || 1);
+            }}
+          />
         </div>
       </div>
 

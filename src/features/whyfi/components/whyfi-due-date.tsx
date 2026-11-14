@@ -74,7 +74,7 @@ export function WhyfiDueDate({
           "rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors",
           isToday
             ? "cursor-default border-primary/40 bg-primary/10 text-primary"
-            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
         )}
       >
         Today

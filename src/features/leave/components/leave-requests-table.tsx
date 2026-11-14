@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { LeaveRequest, LeaveStatus } from "../types";
-import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "./period-nav";
+import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

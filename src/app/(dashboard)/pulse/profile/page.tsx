@@ -3,7 +3,7 @@ import { MyProfileView } from "@/features/attendance/components/my-profile-view"
 
 export const metadata: Metadata = {
   title: "My Profile | WinOS",
-  description: "View and manage your employee profile, contact details, and account settings.",
+  description: "View and manage your team member profile, contact details, and account settings.",
 };
 
 export default function PulseProfilePage() {

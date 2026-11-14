@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { compOffDurationError, countLeaveDays } from "@/features/leave/leave-rules";
-import { currentPeriod, overlapsPeriod, periodBounds, periodLabel } from "@/features/leave/components/period-nav";
+import {
+  currentPeriod,
+  overlapsPeriod,
+  periodBounds,
+  periodKind,
+  periodLabel,
+  rangePeriod,
+  shiftPeriod,
+} from "@/components/shared/period-nav";
 import { defaultReasonFor } from "@/features/attendance/components/regularization-fields";
 import { employeeCode } from "@/features/attendance/utils";
 import { isSelfAction } from "@/features/attendance/team-scope";
@@ -55,6 +63,25 @@ describe("period navigator", () => {
   it("starts at the current month / year", () => {
     expect(currentPeriod("month")).toMatch(/^\d{4}-\d{2}$/);
     expect(currentPeriod("year")).toMatch(/^\d{4}$/);
+  });
+  it("handles single days and ranges", () => {
+    expect(periodKind("2026-11-14")).toBe("day");
+    expect(periodKind(rangePeriod("2026-11-12", "2026-11-03"))).toBe("range");
+    expect(periodBounds(rangePeriod("2026-11-12", "2026-11-03"))).toEqual({ start: "2026-11-03", end: "2026-11-12" });
+    expect(periodLabel("2026-11-14")).toBe("14 Nov 2026");
+    expect(periodLabel("2026-11-03~2026-11-12")).toBe("03 Nov – 12 Nov 2026");
+    expect(periodLabel("2026-12-28~2027-01-03")).toBe("28 Dec 2026 – 03 Jan 2027");
+    expect(overlapsPeriod("2026-11-10", "2026-11-11", "2026-11-03~2026-11-12")).toBe(true);
+    expect(overlapsPeriod("2026-11-13", "2026-11-13", "2026-11-03~2026-11-12")).toBe(false);
+  });
+  it("prev / next step by the period's own size", () => {
+    expect(shiftPeriod("2026-11-30", 1)).toBe("2026-12-01");
+    expect(shiftPeriod("2026-11-14", -7)).toBe("2026-11-07");
+    expect(shiftPeriod("2026-01", -1)).toBe("2025-12");
+    expect(shiftPeriod("2026", 1)).toBe("2027");
+    // A 10-day range moves by 10 days.
+    expect(shiftPeriod("2026-11-03~2026-11-12", 1)).toBe("2026-11-13~2026-11-22");
+    expect(shiftPeriod("2026-11-03~2026-11-12", -1)).toBe("2026-10-24~2026-11-02");
   });
 });
 

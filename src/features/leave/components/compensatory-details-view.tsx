@@ -42,7 +42,7 @@ export function CompensatoryDetailsView({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const employee = {
-    name: request.employeeName || "Employee",
+    name: request.employeeName || "Team Member",
     empId: request.employeeCode,
     role: request.designation || "Team Member",
   };
@@ -104,7 +104,7 @@ export function CompensatoryDetailsView({
             <button
               type="button"
               onClick={() => (onBack ? onBack() : router.push("/pulse/leave"))}
-              className="text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+              className="text-primary hover:underline hover:text-foreground transition-colors cursor-pointer"
             >
               Compensatory Requests
             </button>
@@ -150,13 +150,13 @@ export function CompensatoryDetailsView({
 
       {/* Main 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Employee & Request Details */}
+        {/* Left Column: Team Member & Request Details */}
         <div className="lg:col-span-8 space-y-6">
           <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
             <div className="flex items-center gap-2 pb-2 border-b border-border/60">
               <FileText className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Employee & Request Details
+                Team Member & Request Details
               </h3>
             </div>
 

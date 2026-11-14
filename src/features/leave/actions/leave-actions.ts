@@ -81,7 +81,7 @@ function revalidateLeaveAndAttendance() {
   revalidatePath("/pulse/leave/team");
   revalidatePath("/pulse/attendance");
   revalidatePath("/pulse/team-attendance");
-  revalidatePath("/people/home");
+  revalidatePath("/pulse/home");
 }
 
 function parseKey(value: string | undefined, what: string): string {
@@ -232,7 +232,7 @@ export async function applyLeaveAction(formData: {
         where: { id: formData.forUserId! },
         select: { id: true, name: true, role: true, profileRole: true, isActive: true },
       });
-      if (!target?.isActive) fail("That employee isn't active.");
+      if (!target?.isActive) fail("That team member isn't active.");
       user = target;
     }
     const userId = user.id;
@@ -288,7 +288,7 @@ export async function applyLeaveAction(formData: {
       });
       if (workedDay) {
         const k = dateKeyFromUtc(workedDay.date);
-        fail(`${onBehalf ? `${user.name || "This employee"} already checked` : "You already checked"} in on ${FULL_DAY_NAMES[workedDay.date.getUTCDay()]} ${k.split("-").reverse().join("/")}. Apply half-day leave for that date, or leave it out.`);
+        fail(`${onBehalf ? `${user.name || "This team member"} already checked` : "You already checked"} in on ${FULL_DAY_NAMES[workedDay.date.getUTCDay()]} ${k.split("-").reverse().join("/")}. Apply half-day leave for that date, or leave it out.`);
       }
     }
 
@@ -303,7 +303,7 @@ export async function applyLeaveAction(formData: {
       },
     });
     if (overlapping) {
-      fail(`${onBehalf ? `${user.name || "This employee"} already has` : "You already have"} a leave request covering these dates.`);
+      fail(`${onBehalf ? `${user.name || "This team member"} already has` : "You already have"} a leave request covering these dates.`);
     }
 
     // Who the leave type is for (department, employment type, probation, minimum service).
@@ -367,7 +367,7 @@ export async function applyLeaveAction(formData: {
                 stepOrder: 1,
                 stepName: "Requested",
                 approverId: userId,
-                approverName: user.name || "Employee",
+                approverName: user.name || "Team Member",
                 approverRole: "Applicant",
                 status: "APPROVED",
                 actionDate: now,
@@ -411,8 +411,8 @@ export async function applyLeaveAction(formData: {
           userId: id,
           title: "Leave request to review",
           message: onBehalf
-            ? `${actor.name || "A manager"} applied ${leaveType.name} for ${user.name || "an employee"}: ${days}.`
-            : `${user.name || "An employee"} applied for ${leaveType.name}: ${days}.`,
+            ? `${actor.name || "A manager"} applied ${leaveType.name} for ${user.name || "a team member"}: ${days}.`
+            : `${user.name || "A team member"} applied for ${leaveType.name}: ${days}.`,
           relatedEntryId: result.requestId,
         }))
       );
@@ -512,7 +512,7 @@ export async function approveLeaveRequestAction(
     if (request.status !== "PENDING") fail(`This request is already ${request.status.toLowerCase()}.`);
 
     const requester = await loadRequester(request.userId);
-    if (!requester) fail("Employee not found.");
+    if (!requester) fail("Team member not found.");
     // Requests created before routing existed have a single "Reporting Manager" step.
     const pending = await pendingStepOf(requestId);
     const role = pending?.step.approverRole ?? "Reporting Manager";
@@ -637,7 +637,7 @@ export async function rejectLeaveRequestAction(requestId: string, rejectionReaso
     if (request.status !== "PENDING") fail(`This request is already ${request.status.toLowerCase()}.`);
 
     const requester = await loadRequester(request.userId);
-    if (!requester) fail("Employee not found.");
+    if (!requester) fail("Team member not found.");
     const pending = await pendingStepOf(requestId);
     const role = pending?.step.approverRole ?? "Reporting Manager";
     if (isSelfAction(approver, request.userId)) fail("You can't reject your own leave — cancel it instead.");
@@ -748,7 +748,7 @@ export async function applyCompensatoryAction(data: {
               stepOrder: 1,
               stepName: "Requested",
               approverId: userId,
-              approverName: user.name || "Employee",
+              approverName: user.name || "Team Member",
               approverRole: "Applicant",
               status: "APPROVED",
               actionDate: new Date(),
@@ -773,7 +773,7 @@ export async function applyCompensatoryAction(data: {
         approvers.map((id) => ({
           userId: id,
           title: "Comp-off request to review",
-          message: `${user.name || "An employee"} requested a comp-off for working on ${leaveDateLabel(workKey, workKey)}.`,
+          message: `${user.name || "A team member"} requested a comp-off for working on ${leaveDateLabel(workKey, workKey)}.`,
           relatedEntryId: comp.id,
         }))
       );
@@ -913,7 +913,7 @@ export async function adjustLeaveBalanceAction(data: {
       db.user.findUnique({ where: { id: data.employeeId }, select: { isActive: true } }),
       db.leaveType.findUnique({ where: { id: data.leaveTypeId } }),
     ]);
-    if (!employee?.isActive) fail("Employee not found.");
+    if (!employee?.isActive) fail("Team member not found.");
     if (!leaveType) fail("Leave type not found.");
     if (!(await canManageUser(manager, data.employeeId))) fail("You can only adjust balances of people in your team.");
 

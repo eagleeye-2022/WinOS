@@ -347,7 +347,7 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
     employee: {
       id: r.user.id,
       employeeId: employeeCode(r.user.employeeId, r.user.id),
-      name: r.user.name || "Employee",
+      name: r.user.name || "Team Member",
       avatarUrl: r.user.image || undefined,
       status: r.user.isActive ? "ACTIVE" : "INACTIVE",
       designation: r.user.title || "Team Member",
@@ -377,7 +377,7 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
     timeline: [
       {
         title: "Request Submitted",
-        subtitle: `Submitted by ${r.user.name || "Employee"}`,
+        subtitle: `Submitted by ${r.user.name || "Team Member"}`,
         timestamp: appliedOnStr,
         status: "completed",
       },
@@ -487,23 +487,41 @@ function toShiftItem(day: UserDay, base: Partial<ShiftSummaryItem> & { id: strin
   return { ...base, status: "Absent", workMode: "Office" };
 }
 
-export async function getMyShiftSummaryData(monthIndex?: number, year?: number) {
+/** Longest custom range the shift summary will load in one go. */
+const MAX_SHIFT_RANGE_DAYS = 366;
+
+/**
+ * The signed-in user's day-by-day shifts for a month, or for `dateRange` (inclusive "YYYY-MM-DD"
+ * keys, at most a year) when one is given.
+ */
+export async function getMyShiftSummaryData(
+  monthIndex?: number,
+  year?: number,
+  dateRange?: { from: string; to: string }
+) {
   const session = await requireSession();
   const userId = session.user.id!;
 
-  const fallback = currentMonth();
-  const m = monthIndex ?? fallback.monthIndex;
-  const y = year ?? fallback.year;
+  let allKeys: string[];
+  if (dateRange && dateFromKey(dateRange.from) && dateFromKey(dateRange.to) && dateRange.from <= dateRange.to) {
+    allKeys = [];
+    for (let k = dateRange.from; k <= dateRange.to && allKeys.length < MAX_SHIFT_RANGE_DAYS; k = addDaysToKey(k, 1)) {
+      allKeys.push(k);
+    }
+  } else {
+    const fallback = currentMonth();
+    allKeys = monthKeys(monthIndex ?? fallback.monthIndex, year ?? fallback.year);
+  }
 
   // Only up to today — future days have nothing to summarise.
-  const keys = monthKeys(m, y).filter((k) => k <= istDateKey());
+  const keys = allKeys.filter((k) => k <= istDateKey());
   if (keys.length === 0) return [];
 
   const range = await loadAttendanceRange([userId], keys[0], keys[keys.length - 1]);
 
   return range.daysFor(userId, keys).map((day) => {
     const d = dateFromKey(day.key)!;
-    const dateStr = `${String(d.getUTCDate()).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}/${y} ${
+    const dateStr = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()} ${
       DAY_NAMES[d.getUTCDay()].charAt(0) + DAY_NAMES[d.getUTCDay()].slice(1).toLowerCase()
     }`;
     return toShiftItem(day, { id: day.attendance?.id || `shift-${day.key}`, dateStr });
@@ -528,7 +546,7 @@ export async function getTeamShiftSummaryData(selectedDateStr?: string) {
     const [day] = range.daysFor(u.id, [key]);
     return toShiftItem(day, {
       id: u.id,
-      employeeName: u.name || "Employee",
+      employeeName: u.name || "Team Member",
       designation: u.title || "Team Member",
       avatarUrl: u.image || undefined,
     });
@@ -594,7 +612,7 @@ export async function getTeamPayrollReportData(monthIndex?: number, year?: numbe
     const r = rollupMonth(range.daysFor(u.id, elapsed).map((d) => d.resolved));
     return {
       id: u.id,
-      name: u.name || "Employee",
+      name: u.name || "Team Member",
       designation: u.title || "Team Member",
       avatarUrl: u.image || undefined,
       companyWorkingDays: expected,
@@ -647,7 +665,7 @@ export async function getTeamLeavePayrollData(monthIndex?: number, year?: number
 
     return {
       id: u.id,
-      name: u.name || "Employee",
+      name: u.name || "Team Member",
       avatarGradient: "from-blue-500 to-indigo-600",
       totalDays: all.length,
       weekend,

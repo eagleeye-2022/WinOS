@@ -120,7 +120,7 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     {userProfile.isActive ? "Active" : "Inactive"}
                   </span>
-                  <span className="text-muted-foreground font-mono">Employee ID: {userProfile.employeeId || NOT_SET}</span>
+                  <span className="text-muted-foreground font-mono">Team Member ID: {userProfile.employeeId || NOT_SET}</span>
                 </div>
               </div>
             </div>
@@ -176,7 +176,7 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
               <div className="pt-4 border-t border-border">
                 <button
                   onClick={() => logoutAction()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100/70 transition-colors shadow-2xs"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100/70 dark:hover:bg-rose-950/60 transition-colors shadow-2xs"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Log Out of WinOS</span>

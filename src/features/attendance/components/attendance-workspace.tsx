@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Timer,
   CheckCircle2,
@@ -44,6 +41,7 @@ import {
   weekKeysFor,
 } from "../utils";
 import { cn } from "@/lib/utils";
+import { PeriodNav, periodKind } from "@/components/shared/period-nav";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
@@ -232,15 +230,6 @@ export function AttendanceWorkspace({
     setTeamSubView("employee-view");
   };
 
-  const shiftMonth = (delta: number) => {
-    const target = new Date(Date.UTC(currentYear, currentMonthIndex + delta, 1));
-    const sameMonthAsToday = todayKey.slice(0, 7) === target.toISOString().slice(0, 7);
-    goToDate(sameMonthAsToday ? todayKey : target.toISOString().slice(0, 10));
-  };
-
-  const handlePrev = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, -7)) : shiftMonth(-1));
-  const handleNext = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, 7)) : shiftMonth(1));
-
   return (
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
       <div className="max-w-[1600px] w-full mx-auto space-y-6">
@@ -311,7 +300,7 @@ export function AttendanceWorkspace({
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "week"
                         ? "bg-card text-primary shadow-xs"
-                        : "text-muted-foreground hover:text-zinc-900"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     Week
@@ -322,57 +311,42 @@ export function AttendanceWorkspace({
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "month"
                         ? "bg-card text-primary shadow-xs"
-                        : "text-muted-foreground hover:text-zinc-900"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     Month
                   </button>
                 </div>
 
-                <button
-                  onClick={handlePrev}
-                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {/* The label opens a real month picker; "Today" jumps back. */}
-                <label
-                  title="Pick a month"
-                  className="relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs cursor-pointer whitespace-nowrap"
-                >
-                  <span>
-                    {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
-                  </span>
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="month"
-                    aria-label="Pick a month"
-                    value={`${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`}
-                    onChange={(e) => {
-                      const month = e.target.value;
-                      if (!month) return;
-                      goToDate(todayKey.slice(0, 7) === month ? todayKey : `${month}-01`);
-                    }}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                </label>
+                {/* A picked date opens its week; a picked month opens the month view. */}
+                <PeriodNav
+                  modes={["day", "month"]}
+                  value={
+                    viewMode === "week"
+                      ? selectedDate
+                      : `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`
+                  }
+                  stepDays={7}
+                  label={viewMode === "week" ? weekLabel : undefined}
+                  onChange={(period) => {
+                    if (periodKind(period) === "month") {
+                      setViewMode("month");
+                      goToDate(todayKey.slice(0, 7) === period ? todayKey : `${period}-01`);
+                    } else {
+                      setViewMode("week");
+                      goToDate(period);
+                    }
+                  }}
+                />
 
                 {selectedDate !== todayKey && (
                   <button
                     onClick={() => goToDate(todayKey)}
-                    className="px-3 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs hover:bg-accent"
+                    className="px-3 py-1.5 rounded-lg border border-input bg-background text-xs font-bold text-foreground shadow-xs hover:bg-accent"
                   >
                     Today
                   </button>
                 )}
-
-                <button
-                  onClick={handleNext}
-                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
             </div>
 

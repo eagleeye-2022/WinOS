@@ -78,7 +78,7 @@ export function LeaveRequestDetailsView({
       {
         id: "step-1",
         title: "Requested",
-        actorName: request.employee?.name || "Employee",
+        actorName: request.employee?.name || "Team Member",
         dateStr: request.appliedOnDateTime || request.appliedOn,
         status: "COMPLETED" as const,
       },
@@ -153,7 +153,7 @@ export function LeaveRequestDetailsView({
   };
 
   const employee = request.employee || {
-    name: "Employee",
+    name: "Team Member",
     empId: "—",
     role: "Team Member",
   };
@@ -285,7 +285,7 @@ export function LeaveRequestDetailsView({
             <button
               type="button"
               onClick={() => (onBack ? onBack() : router.push("/pulse/leave"))}
-              className="text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+              className="text-primary hover:underline hover:text-foreground transition-colors cursor-pointer"
             >
               Leave Requests
             </button>
@@ -347,7 +347,7 @@ export function LeaveRequestDetailsView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
               {/* Employee */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Employee</span>
+                <span className="text-muted-foreground font-medium text-xs">Team Member</span>
                 <div className="flex items-center gap-3 pt-0.5">
                   <UserAvatar
                     userId={employee.id}
@@ -469,7 +469,7 @@ export function LeaveRequestDetailsView({
                       variant="ghost"
                       size="icon"
                       onClick={() => setPreviewAttachment(att)}
-                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-primary/10"
                       title="View Document"
                     >
                       <Eye className="w-4 h-4" />

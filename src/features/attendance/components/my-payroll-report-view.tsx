@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Calendar,
   ChevronDown,
   Download,
   Building,
@@ -15,6 +14,7 @@ import { MyMonthlyPayrollItem } from "../types";
 import { getMyPayrollReportData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { istDateKey } from "../utils";
+import { PeriodNav } from "@/components/shared/period-nav";
 
 export function MyPayrollReportView() {
   const [selectedYear, setSelectedYear] = useState(() => istDateKey().slice(0, 4));
@@ -60,12 +60,7 @@ export function MyPayrollReportView() {
       {/* Filter Row */}
       <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Year Picker */}
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Year {selectedYear}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
+          <PeriodNav modes={["year"]} value={selectedYear} onChange={setSelectedYear} />
         </div>
       </div>
 

@@ -215,7 +215,7 @@ export function LeaveBalanceAdjustmentView({
   const totalDaysAdjustment = useMemo(() => rows.reduce((acc, r) => acc + signedDays(r), 0), [rows]);
 
   const formError = !currentEmployee
-    ? "Select an employee."
+    ? "Select a team member."
     : rows.length === 0
     ? "Add at least one leave type to adjust."
     : rows.some((r) => rowError(r))
@@ -281,9 +281,9 @@ export function LeaveBalanceAdjustmentView({
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave/team"
-            className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            className="text-primary hover:underline hover:text-foreground transition-colors"
           >
-            Employee Leave
+            Team Member Leave
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
           <span className="text-foreground">Adjust Balance</span>
@@ -315,7 +315,7 @@ export function LeaveBalanceAdjustmentView({
               >
                 <SelectTrigger className="h-8 w-64 font-bold text-sm bg-background border-none p-0 focus:ring-0">
                   {/* Just the name here — the large avatar sits beside it. */}
-                  <SelectValue placeholder="Select Employee">{currentEmployee?.name}</SelectValue>
+                  <SelectValue placeholder="Select Team Member">{currentEmployee?.name}</SelectValue>
                 </SelectTrigger>
                 {/* Fixed size; the list scrolls inside it. */}
                 <SelectContent className="max-h-72 w-72">
@@ -391,7 +391,7 @@ export function LeaveBalanceAdjustmentView({
             onClick={handleAddRow}
             disabled={unusedTypes.length === 0}
             title={unusedTypes.length === 0 ? "Every leave type is already in the list" : undefined}
-            className="text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 gap-1.5"
+            className="text-xs font-semibold text-primary hover:text-foreground hover:bg-primary/5 gap-1.5"
           >
             <Plus className="w-4 h-4" />
             <span>Add Another Leave Type</span>

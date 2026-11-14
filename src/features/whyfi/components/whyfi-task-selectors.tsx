@@ -5,7 +5,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import type { WhyfiPickerTask } from "../actions";
 import { pickerLists, subtaskOptions, topLevelCard, topLevelCardsOfList } from "../picker-tree";
 
-const selectCls = "text-xs font-medium text-foreground hover:text-primary transition-colors";
+const selectCls = "text-xs font-medium text-foreground transition-colors";
 
 function Divider() {
   return <div className="h-3.5 w-px bg-border shrink-0" />;

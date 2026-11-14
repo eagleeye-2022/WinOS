@@ -137,7 +137,8 @@ export function RegularizationRequestDetails({
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {request.employee.designation} • ID: {request.employee.employeeId} •{" "}
+                  {request.employee.designation} •{" "}
+                  {/* Employee ID hidden for now: ID: {request.employee.employeeId} •{" "} */}
                   {request.employee.department}
                 </div>
               </div>
@@ -277,7 +278,7 @@ export function RegularizationRequestDetails({
               <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                 <MessageSquare className="w-3.5 h-3.5" />
               </div>
-              <span>Employee Remarks</span>
+              <span>Team Member Remarks</span>
             </div>
             <p className="text-xs text-muted-foreground pl-8 leading-relaxed">
               {request.remarks || "No remarks provided."}
@@ -299,7 +300,7 @@ export function RegularizationRequestDetails({
                   maxLength={250}
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Reason for rejection (shared with the employee)"
+                  placeholder="Reason for rejection (shared with the team member)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
                 />
               )}
@@ -308,7 +309,7 @@ export function RegularizationRequestDetails({
                   <button
                     disabled={isProcessing}
                     onClick={handleCancel}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-card text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors shadow-2xs disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-card dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors shadow-2xs disabled:opacity-50"
                   >
                     <XCircle className="w-4 h-4" />
                     <span>Withdraw Request</span>
@@ -322,7 +323,7 @@ export function RegularizationRequestDetails({
                     <button
                       disabled={isProcessing}
                       onClick={handleReject}
-                      className="px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-950/70 transition-colors disabled:opacity-50"
                     >
                       {isRejecting ? "Confirm Reject" : "Reject"}
                     </button>

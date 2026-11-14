@@ -280,18 +280,18 @@ export function checkEligibility(policy: EligibilityPolicy, emp: EmployeeFacts, 
     return `${policy.name} is only for ${policy.departments.join(", ")}.`;
   }
   if (policy.employmentTypes.length && emp.employmentType && !policy.employmentTypes.some((t) => same(t, emp.employmentType!))) {
-    return `${policy.name} is only for ${policy.employmentTypes.join(", ")} employees.`;
+    return `${policy.name} is only for ${policy.employmentTypes.join(", ")} team members.`;
   }
 
   const type = (emp.employmentType || "").toLowerCase();
   if (policy.applicableTo === "FULL_TIME_ONLY" && type && !/full|permanent/.test(type)) {
-    return `${policy.name} is only for full-time employees.`;
+    return `${policy.name} is only for full-time team members.`;
   }
   if (policy.applicableTo === "CONTRACTORS" && (type || emp.profileRole) && !/contract/.test(type) && emp.profileRole !== "CONTRACTOR") {
     return `${policy.name} is only for contractors.`;
   }
   if (policy.applicableTo === "PROBATIONARY" && emp.dateOfConfirmation && dateKey(emp.dateOfConfirmation) <= onKey) {
-    return `${policy.name} is only for employees on probation.`;
+    return `${policy.name} is only for team members on probation.`;
   }
 
   if (policy.minServicePeriod && policy.minServicePeriod > 0 && emp.dateOfJoining) {

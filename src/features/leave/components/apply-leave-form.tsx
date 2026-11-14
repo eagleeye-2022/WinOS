@@ -446,7 +446,7 @@ export function ApplyLeaveForm({
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave"
-            className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            className="text-primary hover:underline hover:text-foreground transition-colors"
           >
             My Leave
           </Link>
@@ -823,7 +823,7 @@ export function ApplyLeaveForm({
                           variant="ghost"
                           size="icon"
                           onClick={() => setPreviewAttachment(att)}
-                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-primary/10"
                           title="View Document"
                         >
                           <Eye className="w-3.5 h-3.5" />

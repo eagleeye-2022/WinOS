@@ -84,7 +84,7 @@ const EXCESS_MAP: Record<string, "DO_NOT_ALLOW" | "ALLOW_WITHOUT_LIMIT" | "ALLOW
   LOP: "MARK_AS_LOP",
 };
 const AUDIENCE_MAP: Record<string, "ALL_EMPLOYEES" | "FULL_TIME_ONLY" | "PROBATIONARY" | "CONTRACTORS"> = {
-  "All Employees": "ALL_EMPLOYEES",
+  "All Team Members": "ALL_EMPLOYEES",
   "Full Time Only": "FULL_TIME_ONLY",
   Probationary: "PROBATIONARY",
   Contractors: "CONTRACTORS",
@@ -104,7 +104,7 @@ const DOC_POLICY_MAP = {
   EXCEEDS: "REQUIRED_WHEN_EXCEEDS",
 } as const;
 const APPROVAL_FLOW_MAP: Record<string, "DIRECT_MANAGER" | "DEPARTMENT_HEAD" | "HR_ADMIN" | "CUSTOM_TWO_STEP"> = {
-  "Employee's Direct Manager": "DIRECT_MANAGER",
+  "Team Member's Direct Manager": "DIRECT_MANAGER",
   "Department Head": "DEPARTMENT_HEAD",
   "HR Admin": "HR_ADMIN",
   "Custom 2-Step Approval": "CUSTOM_TWO_STEP",
@@ -160,18 +160,18 @@ const COLOR_THEMES = [
 ];
 
 const PRESET_LEAVE_TYPES = [
-  { name: "Sick Leave", code: "SL", category: "Paid", entitlement: 12, desc: "Leave granted to employees when they are not feeling well and unable to attend work." },
+  { name: "Sick Leave", code: "SL", category: "Paid", entitlement: 12, desc: "Leave granted to team members when they are not feeling well and unable to attend work." },
   { name: "Casual Leave", code: "CL", category: "Paid", entitlement: 6, desc: "For short personal affairs, family events, or unforeseen matters." },
-  { name: "Paid Leave", code: "PL", category: "Paid", entitlement: 12, desc: "General earned / annual time off for employees." },
+  { name: "Paid Leave", code: "PL", category: "Paid", entitlement: 12, desc: "General earned / annual time off for team members." },
   { name: "Privilege Leave", code: "PL", category: "Paid", entitlement: 15, desc: "Earned leave accrued through service tenure." },
-  { name: "Maternity Leave", code: "ML", category: "Paid", entitlement: 180, desc: "Statutory paid leave for female employees for prenatal and postnatal care." },
-  { name: "Paternity Leave", code: "PTL", category: "Paid", entitlement: 15, desc: "Leave granted to male employees around the birth/adoption of a child." },
+  { name: "Maternity Leave", code: "ML", category: "Paid", entitlement: 180, desc: "Statutory paid leave for female team members for prenatal and postnatal care." },
+  { name: "Paternity Leave", code: "PTL", category: "Paid", entitlement: 15, desc: "Leave granted to male team members around the birth/adoption of a child." },
   { name: "Comp Off", code: "COMP", category: "Paid", entitlement: 0, desc: "Compensatory time off earned by working extra hours, holidays or weekends." },
   { name: "Loss of Pay (LOP)", code: "LOP", category: "Unpaid", entitlement: 0, desc: "Unpaid leave for absences beyond allotted paid leave quota." },
   { name: "Floating Holiday", code: "FH", category: "Paid", entitlement: 3, desc: "Optional cultural, festive or religious holiday from designated list." },
   { name: "Early Leave", code: "EL", category: "Paid", entitlement: 2, desc: "Short permission to leave workplace 1-2 hours early." },
   { name: "Bereavement Leave", code: "BL", category: "Paid", entitlement: 5, desc: "Compassionate leave following the death of an immediate family member." },
-  { name: "Marriage Leave", code: "MRL", category: "Paid", entitlement: 5, desc: "Special leave granted for an employee's own wedding." },
+  { name: "Marriage Leave", code: "MRL", category: "Paid", entitlement: 5, desc: "Special leave granted for a team member's own wedding." },
   { name: "Sabbatical Leave", code: "SBL", category: "Unpaid", entitlement: 30, desc: "Extended unpaid career break for study, research or personal development." },
   { name: "Work From Home", code: "WFH", category: "Paid", entitlement: 24, desc: "Remote work authorization request." },
 ];
@@ -344,7 +344,7 @@ export function CreateLeaveTypeWizard({
   const [yearEndDate, setYearEndDate] = useState(() => `${istDateKey().slice(0, 4)}-12-31`);
 
   // STEP 3: Eligibility & Duration
-  const [applicableTo, setApplicableTo] = useState("All Employees");
+  const [applicableTo, setApplicableTo] = useState("All Team Members");
   const [department, setDepartment] = useState("All Departments");
   const [employmentType, setEmploymentType] = useState("All Employment Types");
   const [minServicePeriod, setMinServicePeriod] = useState(6);
@@ -405,7 +405,7 @@ export function CreateLeaveTypeWizard({
   // STEP 6: Approval & Visibility
   const [managerApprovalRequired, setManagerApprovalRequired] = useState(true);
   const [approvalFlow, setApprovalFlow] = useState(
-    "Employee's Direct Manager"
+    "Team Member's Direct Manager"
   );
   const [allowAdminApplyOnBehalf, setAllowAdminApplyOnBehalf] = useState(true);
   const [employeeVisibility, setEmployeeVisibility] = useState(
@@ -548,14 +548,14 @@ export function CreateLeaveTypeWizard({
           <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Link
               href="/pulse/leave/team"
-              className="text-primary hover:underline hover:text-primary/80 transition-colors"
+              className="text-primary hover:underline hover:text-foreground transition-colors"
             >
               Leave Tracker
             </Link>
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
             <Link
               href="/pulse/leave/team"
-              className="text-primary hover:underline hover:text-primary/80 transition-colors"
+              className="text-primary hover:underline hover:text-foreground transition-colors"
             >
               Leave Types
             </Link>
@@ -1073,7 +1073,7 @@ export function CreateLeaveTypeWizard({
               <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
-                  Employees can apply beyond their balance. Excess days will be marked as Loss of Pay.
+                  Team members can apply beyond their balance. Excess days will be marked as Loss of Pay.
                 </span>
               </div>
             </div>
@@ -1103,7 +1103,7 @@ export function CreateLeaveTypeWizard({
                     <SelectValue placeholder="Applicable to" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All Employees">All Employees</SelectItem>
+                    <SelectItem value="All Team Members">All Team Members</SelectItem>
                     <SelectItem value="Full Time Only">Full Time Only</SelectItem>
                     <SelectItem value="Probationary">Probationary</SelectItem>
                     <SelectItem value="Contractors">Contractors</SelectItem>
@@ -1296,7 +1296,7 @@ export function CreateLeaveTypeWizard({
               <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
-                  Employees will be able to request leave only in the selected duration types.
+                  Team members will be able to request leave only in the selected duration types.
                 </span>
               </div>
             </div>
@@ -1525,7 +1525,7 @@ export function CreateLeaveTypeWizard({
 
                 <div className="flex items-center gap-2 pt-1">
                   <span className="text-muted-foreground text-xs font-medium">
-                    An employee can make
+                    A team member can make
                   </span>
                   <Input
                     type="number"
@@ -1694,7 +1694,7 @@ export function CreateLeaveTypeWizard({
                       <button
                         type="button"
                         onClick={() => removeClubbingType(type)}
-                        className="hover:text-blue-900 dark:hover:text-blue-100"
+                        className="hover:text-foreground"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1816,7 +1816,7 @@ export function CreateLeaveTypeWizard({
                 <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>
-                    Employees must upload a supporting document if the applied leave period exceeds the specified number of days.
+                    Team members must upload a supporting document if the applied leave period exceeds the specified number of days.
                   </span>
                 </div>
               </div>
@@ -1843,7 +1843,7 @@ export function CreateLeaveTypeWizard({
                         <button
                           type="button"
                           onClick={() => removeFileType(type)}
-                          className="hover:text-blue-900 dark:hover:text-blue-100"
+                          className="hover:text-foreground"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1913,8 +1913,8 @@ export function CreateLeaveTypeWizard({
                         <SelectValue placeholder="Select approval flow" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Employee's Direct Manager">
-                          Employee&apos;s Direct Manager
+                        <SelectItem value="Team Member's Direct Manager">
+                          Team Member&apos;s Direct Manager
                         </SelectItem>
                         <SelectItem value="Department Head">
                           Department Head
@@ -1941,7 +1941,7 @@ export function CreateLeaveTypeWizard({
                     onCheckedChange={setAllowAdminApplyOnBehalf}
                   />
                   <span className="font-medium text-foreground">
-                    Allow administrators to apply this leave on employee&apos;s behalf.
+                    Allow administrators to apply this leave on a team member&apos;s behalf.
                   </span>
                 </div>
               </div>
@@ -1951,7 +1951,7 @@ export function CreateLeaveTypeWizard({
             <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-foreground">
-                  Employee Leave Visibility
+                  Team Member Leave Visibility
                 </h4>
               </div>
 
@@ -1961,7 +1961,7 @@ export function CreateLeaveTypeWizard({
                   {/* Allow employees to view */}
                   <div className="space-y-1.5">
                     <span className="font-semibold text-foreground">
-                      Allow employees to view
+                      Allow team members to view
                     </span>
                     <Select
                       value={employeeVisibility}
@@ -2019,7 +2019,7 @@ export function CreateLeaveTypeWizard({
                     This setting determines the date on which the leave balance is calculated and shown in reports.
                   </p>
                   <p className="text-xs text-primary/90 font-medium">
-                    <strong className="text-foreground">Example:</strong> If an employee has applied leave for 10th June, balance will be shown as on 10th June.
+                    <strong className="text-foreground">Example:</strong> If a team member has applied leave for 10th June, balance will be shown as on 10th June.
                   </p>
                 </div>
               </div>

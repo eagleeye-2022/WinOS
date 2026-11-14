@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Calendar,
   Download,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -12,7 +10,8 @@ import {
 } from "lucide-react";
 import { getTeamLeavePayrollData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
-import { currentMonthLabel } from "../utils";
+import { istDateKey } from "../utils";
+import { PeriodNav } from "@/components/shared/period-nav";
 
 interface LeavePayrollRecord {
   id: string;
@@ -31,7 +30,7 @@ interface LeavePayrollRecord {
 }
 
 export function TeamLeavePayrollView() {
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
+  const [selectedMonth, setSelectedMonth] = useState(() => istDateKey().slice(0, 7));
   const [activePopoverId, setActivePopoverId] = useState<string | null>(null);
   const [records, setRecords] = useState<LeavePayrollRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,7 +40,8 @@ export function TeamLeavePayrollView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTeamLeavePayrollData();
+        const [y, m] = selectedMonth.split("-").map(Number);
+        const data = await getTeamLeavePayrollData(m - 1, y);
         setRecords(data);
       } catch (err) {
         console.error("Failed to load team leave payroll data:", err);
@@ -74,12 +74,7 @@ export function TeamLeavePayrollView() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Month Selector Button */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs hover:bg-accent">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{selectedMonth}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
+          <PeriodNav modes={["month"]} value={selectedMonth} onChange={setSelectedMonth} />
 
           {/* Export Button */}
           <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-xs transition-colors">
@@ -95,7 +90,7 @@ export function TeamLeavePayrollView() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="py-4 px-6">Employee</th>
+                <th className="py-4 px-6">Team Member</th>
                 <th className="py-4 px-6 text-center">Total Days</th>
                 <th className="py-4 px-6 text-center">Weekend</th>
                 <th className="py-4 px-6 text-center">Payable Days</th>
@@ -179,7 +174,7 @@ export function TeamLeavePayrollView() {
                               className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none"
                               title="View Loss of Pay Breakdown"
                             >
-                              <Info className="w-3.5 h-3.5 text-blue-500 hover:text-blue-600" />
+                              <Info className="w-3.5 h-3.5 text-blue-500 hover:text-foreground" />
                             </button>
                           )}
                         </div>

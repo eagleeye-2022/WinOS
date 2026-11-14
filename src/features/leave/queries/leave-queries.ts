@@ -313,7 +313,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       })} at ${r.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
       employee: {
         id: r.user.id,
-        name: r.user.name || "Employee",
+        name: r.user.name || "Team Member",
         empId: employeeCode(r.user.employeeId, r.user.id),
         role: r.user.title || "Team Member",
         avatarUrl: r.user.image || undefined,
@@ -333,7 +333,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
           actorName:
             s.approverName ||
             (s.approverRole === "Applicant"
-              ? r.user.name || "Employee"
+              ? r.user.name || "Team Member"
               : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
           actorRole: s.approverRole || undefined,
           dateStr: s.actionDate
@@ -358,7 +358,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     );
     return {
       id: c.id,
-      employeeName: c.user.name || "Employee",
+      employeeName: c.user.name || "Team Member",
       designation: c.user.title || "Team Member",
       avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
       workDate: c.workDate.toLocaleDateString("en-GB", {
@@ -482,7 +482,7 @@ export async function getTeamLeaveRequestsAction(filters?: {
 
   const formattedRequests = requests.map((r) => ({
     id: r.id,
-    employeeName: r.user.name || "Employee",
+    employeeName: r.user.name || "Team Member",
     department: r.user.department || "General",
     avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
     leaveType: `${r.leaveType.name} (${r.leaveType.code})`,
@@ -557,7 +557,7 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
 
   const formatted = compRequests.map((c) => ({
     id: c.id,
-    employeeName: c.user.name || "Employee",
+    employeeName: c.user.name || "Team Member",
     designation: c.user.title || "Team Member",
     avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
     workDate: c.workDate.toLocaleDateString("en-GB", {
@@ -626,7 +626,7 @@ export async function getCompensatoryRequestByIdAction(requestId: string) {
   return {
     id: c.id,
     canReview,
-    employeeName: c.user.name || "Employee",
+    employeeName: c.user.name || "Team Member",
     employeeCode: employeeCode(c.user.employeeId, c.userId),
     designation: c.user.title || "Team Member",
     avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
@@ -836,7 +836,7 @@ export async function getEmployeesForAdjustmentAction() {
 
     return {
       id: u.id,
-      name: u.name || "Employee",
+      name: u.name || "Team Member",
       empId: employeeCode(u.employeeId, u.id),
       role: u.title || "Team Member",
       department: u.department || "General",
@@ -931,7 +931,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     })} at ${request.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
     employee: {
       id: request.user.id,
-      name: request.user.name || "Employee",
+      name: request.user.name || "Team Member",
       empId: employeeCode(request.user.employeeId, request.user.id),
       role: request.user.title || "Team Member",
       avatarUrl: request.user.image || undefined,
@@ -951,7 +951,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
         actorName:
           s.approverName ||
           (s.approverRole === "Applicant"
-            ? request.user.name || "Employee"
+            ? request.user.name || "Team Member"
             : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
         actorRole: s.approverRole || undefined,
         dateStr: s.actionDate
@@ -1066,7 +1066,7 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
 
       leavesByDate[dateKey].push({
         id: r.id,
-        employeeName: r.user.name || "Employee",
+        employeeName: r.user.name || "Team Member",
         employeeId: employeeCode(r.user.employeeId, r.user.id),
         avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
         avatarUrl: r.user.image || undefined,

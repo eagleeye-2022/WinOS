@@ -255,19 +255,16 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     setLocationState({ status: "skipped" });
   };
 
-  // Still locating: wait for it (or skip it). Otherwise go ahead, with the location only if there is one.
-  const locationSettled = locationState.status !== "locating";
-
+  // Location never blocks the punch: confirming while it's still locating goes ahead without it.
   const confirm = async () => {
-    if (!photo || !locationSettled) return;
+    if (!photo) return;
+    const location = locationState.status === "ready" ? locationState.location : undefined;
+    if (locationState.status === "locating") skipLocation();
     setIsSubmitting(true);
     setSubmitError(null);
     try {
       const photoUrl = await uploadSelfie(photo.blob);
-      const error = await onConfirm({
-        photo: photoUrl,
-        location: locationState.status === "ready" ? locationState.location : undefined,
-      });
+      const error = await onConfirm({ photo: photoUrl, location });
       if (error) setSubmitError(error);
       else close();
     } catch (err) {
@@ -277,7 +274,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     }
   };
 
-  const canConfirm = Boolean(photo) && locationSettled && !isSubmitting;
+  const canConfirm = Boolean(photo) && !isSubmitting;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
@@ -286,7 +283,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           <div>
             <h3 className="text-base font-bold text-foreground">{heading}</h3>
             <p className="text-xs text-muted-foreground">
-              A photo is recorded with your {verb}, and your location if you share it.
+              A photo is required. Sharing your location is optional.
             </p>
           </div>
           <button
@@ -370,6 +367,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {locationState.best ? "Improving location accuracy…" : "Getting your location…"}
                   </p>
+                  <p className="mt-0.5 text-muted-foreground">Optional: you can {verb} without waiting.</p>
                   {locationState.best?.accuracy !== undefined && (
                     <p className="mt-0.5 text-muted-foreground">
                       Currently ±{formatDistance(locationState.best.accuracy)}
@@ -412,6 +410,14 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
                     {locationState.location.accuracy !== undefined &&
                       ` · ±${formatDistance(locationState.location.accuracy)}`}
                   </p>
+                  <button
+                    type="button"
+                    onClick={skipLocation}
+                    disabled={isSubmitting}
+                    className="mt-1 font-semibold text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                  >
+                    Don&apos;t share location
+                  </button>
                 </>
               )}
               {locationState.status === "error" && (

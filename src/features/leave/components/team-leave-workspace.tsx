@@ -40,7 +40,7 @@ import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/navigation/use-url-state";
-import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "./period-nav";
+import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 
 const TEAM_LEAVE_LIST_TABS = [
   "leave-requests",
@@ -388,7 +388,7 @@ export function TeamLeaveWorkspace({
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            Employee Leave
+            Team Member Leave
           </button>
 
           <button
@@ -532,7 +532,7 @@ export function TeamLeaveWorkspace({
                 <Input
                   value={searchEmployee}
                   onChange={(e) => setSearchEmployee(e.target.value)}
-                  placeholder="Search by employee"
+                  placeholder="Search by team member"
                   className="h-9 pl-9 rounded-xl text-xs bg-background w-full"
                 />
               </div>
@@ -605,7 +605,7 @@ export function TeamLeaveWorkspace({
                     size="sm"
                     disabled={isBulkProcessing}
                     onClick={() => handleBulk("reject")}
-                    className="h-8 text-xs border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300"
+                    className="h-8 text-xs border-red-200 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 dark:border-red-900 dark:text-red-300"
                   >
                     Reject
                   </Button>
@@ -721,7 +721,7 @@ export function TeamLeaveWorkspace({
                           <div className="flex items-center justify-center gap-1">
                             <Link
                               href={`/pulse/leave/requests/${req.id}`}
-                              className="p-1 rounded-lg hover:bg-muted text-primary hover:text-primary"
+                              className="p-1 rounded-lg hover:bg-muted text-primary hover:text-foreground"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
@@ -851,7 +851,7 @@ export function TeamLeaveWorkspace({
                 <Input
                   value={searchEmployee}
                   onChange={(e) => setSearchEmployee(e.target.value)}
-                  placeholder="Search by employee name..."
+                  placeholder="Search by team member name..."
                   className="h-9 pl-9 rounded-xl text-xs bg-background"
                 />
               </div>
@@ -967,7 +967,7 @@ export function TeamLeaveWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickCompApprove(comp.id)}
-                                  className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-600"
+                                  className="p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
                                   title="Quick Approve"
                                 >
                                   <Check className="w-4 h-4" />
@@ -975,7 +975,7 @@ export function TeamLeaveWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickCompReject(comp.id)}
-                                  className="p-1 rounded-lg hover:bg-red-50 text-red-600"
+                                  className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
                                   title="Quick Reject"
                                 >
                                   <X className="w-4 h-4" />

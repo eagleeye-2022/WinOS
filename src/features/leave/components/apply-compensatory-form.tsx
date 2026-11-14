@@ -194,7 +194,7 @@ export function ApplyCompensatoryForm({
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave"
-            className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            className="text-primary hover:underline hover:text-foreground transition-colors"
           >
             My Leave
           </Link>

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Calendar,
   ChevronDown,
   Download,
   Building2,
@@ -18,10 +17,11 @@ import {
 import { ShiftSummaryItem } from "../types";
 import { getMyShiftSummaryData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
-import { currentMonthLabel } from "../utils";
+import { istDateKey } from "../utils";
+import { PeriodNav, periodBounds, periodKind } from "@/components/shared/period-nav";
 
 export function MyShiftSummaryView() {
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
+  const [selectedMonth, setSelectedMonth] = useState(() => istDateKey().slice(0, 7));
   const [workModeFilter, setWorkModeFilter] = useState("All");
   const [items, setItems] = useState<ShiftSummaryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +31,15 @@ export function MyShiftSummaryView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getMyShiftSummaryData();
+        // A month loads as a month; a date or range loads exactly those days.
+        let data;
+        if (periodKind(selectedMonth) === "month") {
+          const [y, m] = selectedMonth.split("-").map(Number);
+          data = await getMyShiftSummaryData(m - 1, y);
+        } else {
+          const { start, end } = periodBounds(selectedMonth);
+          data = await getMyShiftSummaryData(undefined, undefined, { from: start, to: end });
+        }
         setItems(data);
       } catch (err) {
         console.error("Failed to load my shift summary:", err);
@@ -72,12 +80,7 @@ export function MyShiftSummaryView() {
       {/* Filter Row */}
       <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Month Picker */}
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{selectedMonth}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
+          <PeriodNav modes={["day", "range", "month"]} value={selectedMonth} onChange={setSelectedMonth} />
 
           {/* Work Mode Dropdown */}
           <select

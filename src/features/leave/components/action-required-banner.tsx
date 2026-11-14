@@ -78,7 +78,7 @@ export function ActionRequiredBanner({
                   variant="outline"
                   size="sm"
                   onClick={() => onRegularize(item)}
-                  className="h-8 px-3 text-xs font-medium text-primary hover:text-primary hover:bg-primary/5 border-primary/30"
+                  className="h-8 px-3 text-xs font-medium text-primary hover:text-foreground hover:bg-primary/5 border-primary/30"
                 >
                   <UserCheck className="w-3.5 h-3.5 mr-1.5 text-primary" />
                   Regularize
@@ -88,7 +88,7 @@ export function ActionRequiredBanner({
                   variant="outline"
                   size="sm"
                   onClick={() => onApplyLeave(item)}
-                  className="h-8 px-3 text-xs font-medium text-primary hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-300 dark:border-zinc-700"
+                  className="h-8 px-3 text-xs font-medium text-primary hover:text-foreground hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-300 dark:border-zinc-700"
                 >
                   <Calendar className="w-3.5 h-3.5 mr-1.5 text-primary" />
                   Apply Leave
