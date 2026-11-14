@@ -68,36 +68,33 @@ export function TeamLeavePayrollView() {
       {/* Header with Title and Month Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Team Leave for Payroll
           </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            Overview of total days, weekends, payable days, and loss of pay details for payroll calculation.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Month Selector Button */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 shadow-xs hover:bg-zinc-50">
-            <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs hover:bg-accent">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <span>{selectedMonth}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
 
           {/* Export Button */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 shadow-xs transition-colors">
-            <Download className="w-3.5 h-3.5 text-zinc-500" />
+          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-xs transition-colors">
+            <Download className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Export</span>
           </button>
         </div>
       </div>
 
       {/* Table Container */}
-      <div className="rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 overflow-visible shadow-xs">
+      <div className="rounded-2xl bg-card border border-border overflow-visible shadow-xs">
         <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 <th className="py-4 px-6">Employee</th>
                 <th className="py-4 px-6 text-center">Total Days</th>
                 <th className="py-4 px-6 text-center">Weekend</th>
@@ -109,14 +106,14 @@ export function TeamLeavePayrollView() {
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-zinc-400">
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading leave payroll data...
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-zinc-400">
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
                     No records found.
                   </td>
                 </tr>
@@ -128,7 +125,7 @@ export function TeamLeavePayrollView() {
                   return (
                     <tr
                       key={rec.id}
-                      className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors"
+                      className="hover:bg-muted/50 transition-colors"
                     >
                       {/* Employee Cell */}
                       <td className="py-4 px-6">
@@ -141,24 +138,24 @@ export function TeamLeavePayrollView() {
                           >
                             {rec.name.charAt(0)}
                           </div>
-                          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                          <span className="font-semibold text-foreground">
                             {rec.name}
                           </span>
                         </div>
                       </td>
 
                       {/* Total Days */}
-                      <td className="py-4 px-6 text-center font-medium text-zinc-600 dark:text-zinc-300">
+                      <td className="py-4 px-6 text-center font-medium text-muted-foreground">
                         {rec.totalDays}
                       </td>
 
                       {/* Weekend */}
-                      <td className="py-4 px-6 text-center font-medium text-zinc-600 dark:text-zinc-300">
+                      <td className="py-4 px-6 text-center font-medium text-muted-foreground">
                         {rec.weekend}
                       </td>
 
                       {/* Payable Days */}
-                      <td className="py-4 px-6 text-center font-semibold text-zinc-800 dark:text-zinc-200">
+                      <td className="py-4 px-6 text-center font-semibold text-foreground">
                         {rec.payableDays}
                       </td>
 
@@ -170,7 +167,7 @@ export function TeamLeavePayrollView() {
                               "font-bold",
                               hasLop
                                 ? "text-rose-600 dark:text-rose-400"
-                                : "text-zinc-700 dark:text-zinc-300"
+                                : "text-foreground"
                             )}
                           >
                             {rec.lossOfPay.toFixed(1)}
@@ -179,7 +176,7 @@ export function TeamLeavePayrollView() {
                           {hasLop && rec.lossOfPayBreakdown && (
                             <button
                               onClick={(e) => togglePopover(rec.id, e)}
-                              className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none"
+                              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none"
                               title="View Loss of Pay Breakdown"
                             >
                               <Info className="w-3.5 h-3.5 text-blue-500 hover:text-blue-600" />
@@ -191,35 +188,35 @@ export function TeamLeavePayrollView() {
                         {isPopoverOpen && rec.lossOfPayBreakdown && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute left-1/2 -translate-x-1/2 top-12 z-50 w-72 p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200 dark:border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
+                            className="absolute left-1/2 -translate-x-1/2 top-12 z-50 w-72 p-4 rounded-2xl bg-card border border-border shadow-2xl animate-in fade-in zoom-in-95 duration-150 text-left"
                           >
-                            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-zinc-100 dark:border-zinc-800">
-                              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-border">
+                              <span className="text-xs font-bold text-foreground">
                                 Loss of Pay Details
                               </span>
-                              <span className="text-xs font-extrabold text-rose-600">
+                              <span className="text-xs font-bold text-rose-600">
                                 {rec.lossOfPay.toFixed(1)} Days
                               </span>
                             </div>
 
                             <div className="space-y-2 text-xs">
-                              <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                              <div className="flex items-center justify-between text-muted-foreground">
                                 <span>Unpaid Leave</span>
-                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                <span className="font-semibold text-foreground">
                                   {rec.lossOfPayBreakdown.unpaidLeave.toFixed(1)} Days
                                 </span>
                               </div>
 
-                              <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                              <div className="flex items-center justify-between text-muted-foreground">
                                 <span>Half Day Unpaid</span>
-                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                <span className="font-semibold text-foreground">
                                   {rec.lossOfPayBreakdown.halfDayUnpaid.toFixed(1)} Days
                                 </span>
                               </div>
 
-                              <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                              <div className="flex items-center justify-between text-muted-foreground">
                                 <span>Late Arrival Penalty</span>
-                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                <span className="font-semibold text-foreground">
                                   {rec.lossOfPayBreakdown.lateArrival.toFixed(1)} Days
                                 </span>
                               </div>
@@ -229,7 +226,7 @@ export function TeamLeavePayrollView() {
                       </td>
 
                       {/* Paid Days */}
-                      <td className="py-4 px-6 text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                      <td className="py-4 px-6 text-center font-bold text-foreground">
                         {rec.paidDays.toFixed(1)}
                       </td>
                     </tr>
@@ -241,16 +238,16 @@ export function TeamLeavePayrollView() {
         </div>
 
         {/* Footer Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border text-xs text-muted-foreground">
           <div>
-            Showing <span className="font-bold text-zinc-800 dark:text-zinc-200">{records.length}</span> members
+            Showing <span className="font-bold text-foreground">{records.length}</span> members
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 disabled:opacity-40">
+            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="font-bold text-zinc-800 dark:text-zinc-200">1</span>
-            <button className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 disabled:opacity-40">
+            <span className="font-bold text-foreground">1</span>
+            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>

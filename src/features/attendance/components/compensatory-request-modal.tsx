@@ -59,25 +59,25 @@ export function CompensatoryRequestModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-card rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      <div className="w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-400">
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-accent text-primary">
               <Award className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-base font-bold text-foreground">
                 Compensatory Off Request
               </h3>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-muted-foreground">
                 Worked on Holiday: {record.holidayInfo?.name || record.formattedDate}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="w-5 h-5" />
           </button>
@@ -94,36 +94,36 @@ export function CompensatoryRequestModal({
 
           <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 text-xs text-blue-800 dark:text-blue-300">
             You worked on <span className="font-bold">{record.formattedDate}</span> from{" "}
-            <span className="font-bold">{record.checkInTime || "09:00 AM"}</span> to{" "}
-            <span className="font-bold">{record.checkOutTime || "06:00 PM"}</span>. Submitting this request will credit 1 Compensatory Leave upon manager approval.
+            <span className="font-bold">{record.checkInTime || "—"}</span> to{" "}
+            <span className="font-bold">{record.checkOutTime || "not checked out"}</span>. Submitting this request will credit 1 Compensatory Leave upon manager approval.
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
               Work Description / Reason
             </label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-muted text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
               placeholder="Describe tasks completed on this holiday..."
               required
             />
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

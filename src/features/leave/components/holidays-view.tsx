@@ -139,9 +139,6 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Holidays
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            View and manage company holidays
-          </p>
         </div>
 
         {canManage && (
@@ -196,7 +193,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
 
         {/* Special Holiday */}
         <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-400">
+          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-accent text-primary">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -379,9 +376,6 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
                   <SelectItem value="OPTIONAL">Optional Holiday</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Choose whether this is a company holiday or optional holiday.
-              </p>
             </div>
 
             {/* Description / Note */}
@@ -404,9 +398,6 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
                 placeholder="Add a short note or description about the holiday..."
                 className="min-h-[80px] text-xs resize-none rounded-xl"
               />
-              <p className="text-xs text-muted-foreground">
-                Maximum 200 characters
-              </p>
             </div>
 
             <DialogFooter className="pt-3 gap-2">
@@ -423,7 +414,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
                 type="submit"
                 size="sm"
                 disabled={isSubmitting || !newHolidayName || !newHolidayDate}
-                className="text-xs h-9 rounded-xl bg-primary text-primary-foreground"
+                className="text-xs h-9 rounded-lg bg-primary text-primary-foreground"
               >
                 {isSubmitting ? "Adding..." : "Add Holiday"}
               </Button>

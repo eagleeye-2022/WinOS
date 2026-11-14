@@ -30,6 +30,14 @@ export function dateKeyFromUtc(d: Date | string): string {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
+/**
+ * The employee code shown everywhere in Pulse: the real `User.employeeId`, or one derived from the
+ * user id when none is set (the same person always gets the same code, on every page).
+ */
+export function employeeCode(employeeId: string | null | undefined, userId: string): string {
+  return employeeId || `EMP-${userId.slice(-4).toUpperCase()}`;
+}
+
 /** The calendar day in IST for an instant (defaults to now). */
 export function istDateKey(now: Date = new Date()): string {
   return dateKeyFromUtc(new Date(now.getTime() + IST_OFFSET_MINUTES * 60_000));

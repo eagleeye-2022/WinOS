@@ -76,7 +76,7 @@ export function CompensatoryRequestsTable({
         );
       case "PENDING":
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-input">
             Pending
           </span>
         );
@@ -97,15 +97,12 @@ export function CompensatoryRequestsTable({
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Compensatory Requests
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage your compensatory requests
-          </p>
         </div>
 
         <Button
           type="button"
           onClick={onApplyClick}
-          className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+          className="h-10 px-5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Apply Compensatory Request</span>

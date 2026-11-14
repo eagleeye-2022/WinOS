@@ -32,9 +32,20 @@ const SKIP_INPUT = [
 
 const TEXT_INPUT_TYPES = new Set(["", "text", "search"]);
 
+/** Search boxes filter as typed — re-casing the query ("test" → "Test") only gets in the way. */
+function isSearchBox(el: HTMLInputElement): boolean {
+  return (
+    (el.getAttribute("type") || "").toLowerCase() === "search" ||
+    el.getAttribute("role") === "searchbox" ||
+    /^\s*search\b/i.test(el.getAttribute("placeholder") || "") ||
+    /search/i.test(el.getAttribute("aria-label") || "")
+  );
+}
+
 function isCasedInput(el: EventTarget | null): el is HTMLInputElement {
   if (!(el instanceof HTMLInputElement)) return false;
   if (!TEXT_INPUT_TYPES.has((el.getAttribute("type") || "").toLowerCase())) return false;
+  if (isSearchBox(el)) return false;
   return !el.matches(SKIP_INPUT) && !el.closest(".keep-case, [data-keep-case]");
 }
 

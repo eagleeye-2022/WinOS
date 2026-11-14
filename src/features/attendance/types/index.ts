@@ -116,7 +116,7 @@ export interface TeamMemberAttendance {
   designation: string;
   department: string;
   email?: string;
-  status: "Working Now" | "Completed" | "On Leave" | "Absent";
+  status: "Working Now" | "Completed" | "On Leave" | "Absent" | "Day Off";
   leaveType?: string; // "Casual Leave", "Sick Leave"
   checkInTime?: string;
   checkInSource?: AttendanceSource;
@@ -158,6 +158,8 @@ export interface RegularizationRequest {
   };
   reason: string; // "Forgot to check out"
   remarks?: string; // "I forgot to mark my check-out after leaving the office."
+  /** What was missing when it was requested (from the punches recorded then). */
+  issueType?: "MISSING_CHECK_IN" | "MISSING_CHECK_OUT" | "OTHER";
   status: RegularizationStatus;
   requestedOn: string; // "16 Aug 2026, 10:21 AM"
   appliedOn: string; // "12 Aug 2026"

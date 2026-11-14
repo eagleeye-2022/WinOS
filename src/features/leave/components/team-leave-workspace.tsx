@@ -40,6 +40,7 @@ import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/navigation/use-url-state";
+import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "./period-nav";
 
 const TEAM_LEAVE_LIST_TABS = [
   "leave-requests",
@@ -69,6 +70,8 @@ interface TeamLeaveItem {
   avatarText: string;
   leaveType: string;
   leaveTypeCode: string;
+  fromKey: string;
+  toKey: string;
   duration: string;
   dateTime: string;
   reason: string;
@@ -80,14 +83,27 @@ interface TeamCompItem {
   id: string;
   employeeName: string;
   designation: string;
+  department: string;
   avatarText: string;
   workDate: string;
   workDay: string;
+  workKey: string;
   hoursWorked: string;
   duration: string;
   reason: string;
   status: LeaveStatus;
   requestedOn: string;
+}
+
+/** Metric-card figures for a set of requests. */
+function countByStatus(rows: { status: LeaveStatus }[]) {
+  return {
+    pending: rows.filter((r) => r.status === "PENDING").length,
+    approved: rows.filter((r) => r.status === "APPROVED").length,
+    rejected: rows.filter((r) => r.status === "REJECTED").length,
+    cancelled: rows.filter((r) => r.status === "CANCELLED").length,
+    total: rows.length,
+  };
 }
 
 export function TeamLeaveWorkspace({
@@ -123,48 +139,35 @@ export function TeamLeaveWorkspace({
 
   const [teamRequests, setTeamRequests] = useState<TeamLeaveItem[]>([]);
   const [teamCompRequests, setTeamCompRequests] = useState<TeamCompItem[]>([]);
-  const [metrics, setMetrics] = useState({
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    cancelled: 0,
-    total: 0,
-  });
-  const [compMetrics, setCompMetrics] = useState({
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    cancelled: 0,
-    total: 0,
-  });
 
   // Filters state
   const [searchEmployee, setSearchEmployee] = useUrlState("q", "");
   const [selectedStatus, setSelectedStatus] = useUrlState("status", "ALL");
   const [selectedType, setSelectedType] = useUrlState("type", "ALL");
   const [selectedDept, setSelectedDept] = useUrlState("dept", "ALL");
+  const [period, setPeriod] = useUrlState<Period>("month", currentPeriod("month"));
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
-  // Load live team requests
+  /** Switching tabs starts each list with clean filters (they're shared URL params). */
+  const switchTab = (tab: TeamLeaveListTab | "create-leave-type") => {
+    setSearchEmployee("");
+    setSelectedStatus("ALL");
+    setSelectedType("ALL");
+    setSelectedDept("ALL");
+    setSelectedRowIds([]);
+    setActiveTab(tab);
+  };
+
+  // Load the whole team queue once; filters (month, status, type, department, search) apply below,
+  // so the metric cards and the table always describe the same rows.
   const loadData = async () => {
     try {
-      const res = await getTeamLeaveRequestsAction({
-        search: searchEmployee,
-        status: selectedStatus,
-        leaveTypeCode: selectedType,
-        department: selectedDept,
-      });
+      const [res, compRes] = await Promise.all([getTeamLeaveRequestsAction(), getTeamCompensatoryRequestsAction()]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamRequests(res.requests as any);
-      setMetrics(res.metrics);
-
-      const compRes = await getTeamCompensatoryRequestsAction({
-        search: searchEmployee,
-        status: selectedStatus,
-      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamCompRequests(compRes.requests as any);
-      setCompMetrics(compRes.metrics);
     } catch (err) {
       console.error("Failed to load team requests:", err);
     }
@@ -172,7 +175,49 @@ export function TeamLeaveWorkspace({
 
   React.useEffect(() => {
     loadData();
-  }, [searchEmployee, selectedStatus, selectedType, selectedDept]);
+  }, []);
+
+  // Each tab starts at the top, and the browser tab says which one this is.
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+    const titles: Record<TeamLeaveListTab | "create-leave-type", string> = {
+      "leave-requests": "Team Leave Requests",
+      "employee-leave": "Leave Balance Adjustment",
+      "compensatory-requests": "Team Compensatory Requests",
+      "team-calendar": "Team Calendar",
+      holidays: "Holidays",
+      "leave-policy": "Leave Policy",
+      "create-leave-type": "Create Leave Type",
+    };
+    document.title = `${titles[activeTab]} | WinOS`;
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    setSelectedRowIds([]);
+  }, [searchEmployee, selectedStatus, selectedType, selectedDept, period]);
+
+  const inPeriodRequests = useMemo(
+    () => teamRequests.filter((r) => overlapsPeriod(r.fromKey, r.toKey, period)),
+    [teamRequests, period]
+  );
+  const inPeriodComp = useMemo(
+    () => teamCompRequests.filter((r) => overlapsPeriod(r.workKey, r.workKey, period)),
+    [teamCompRequests, period]
+  );
+  const metrics = useMemo(() => countByStatus(inPeriodRequests), [inPeriodRequests]);
+  const compMetrics = useMemo(() => countByStatus(inPeriodComp), [inPeriodComp]);
+
+  // Filter options from the data itself, not a hardcoded list.
+  const typeOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of teamRequests) if (!seen.has(r.leaveTypeCode)) seen.set(r.leaveTypeCode, r.leaveType);
+    return [...seen].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [teamRequests]);
+  const deptOptions = useMemo(
+    () => [...new Set([...teamRequests, ...teamCompRequests].map((r) => r.department))].sort(),
+    [teamRequests, teamCompRequests]
+  );
 
   // Actions
   const handleQuickApprove = async (id: string) => {
@@ -184,6 +229,26 @@ export function TeamLeaveWorkspace({
     } catch (err) {
       alert(errorMessage(err));
     }
+  };
+
+  /** Approve / reject every selected pending request; reports the ones that failed. */
+  const handleBulk = async (decision: "approve" | "reject") => {
+    const ids = selectedRowIds.filter((id) => teamRequests.find((r) => r.id === id)?.status === "PENDING");
+    if (!ids.length) return;
+    if (!confirm(`${decision === "approve" ? "Approve" : "Reject"} ${ids.length} pending request(s)?`)) return;
+    setIsBulkProcessing(true);
+    const failures: string[] = [];
+    for (const id of ids) {
+      const res = decision === "approve" ? await approveLeaveRequestAction(id) : await rejectLeaveRequestAction(id);
+      if (!res.success) {
+        const name = teamRequests.find((r) => r.id === id)?.employeeName ?? "A request";
+        failures.push(`${name}: ${res.message}`);
+      }
+    }
+    setIsBulkProcessing(false);
+    setSelectedRowIds([]);
+    loadData();
+    if (failures.length) alert(`Some requests weren't updated:\n${failures.join("\n")}`);
   };
 
   const handleQuickReject = async (id: string) => {
@@ -213,14 +278,6 @@ export function TeamLeaveWorkspace({
     }
   };
 
-  const toggleSelectAll = () => {
-    if (selectedRowIds.length === teamRequests.length) {
-      setSelectedRowIds([]);
-    } else {
-      setSelectedRowIds(teamRequests.map((r) => r.id));
-    }
-  };
-
   const toggleSelectRow = (id: string) => {
     setSelectedRowIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -229,7 +286,7 @@ export function TeamLeaveWorkspace({
 
   // Filtered Leave Requests
   const filteredTeamRequests = useMemo(() => {
-    return teamRequests.filter((r) => {
+    return inPeriodRequests.filter((r) => {
       if (
         searchEmployee &&
         !r.employeeName.toLowerCase().includes(searchEmployee.toLowerCase())
@@ -247,11 +304,17 @@ export function TeamLeaveWorkspace({
       }
       return true;
     });
-  }, [teamRequests, searchEmployee, selectedStatus, selectedType, selectedDept]);
+  }, [inPeriodRequests, searchEmployee, selectedStatus, selectedType, selectedDept]);
+
+  // Only pending rows can be acted on in bulk, so only they are selectable.
+  const selectableIdsInView = filteredTeamRequests.filter((r) => r.status === "PENDING").map((r) => r.id);
+  const allInViewSelected =
+    selectableIdsInView.length > 0 && selectableIdsInView.every((id) => selectedRowIds.includes(id));
+  const toggleSelectAll = () => setSelectedRowIds(allInViewSelected ? [] : selectableIdsInView);
 
   // Filtered Compensatory Requests
   const filteredTeamCompRequests = useMemo(() => {
-    return teamCompRequests.filter((r) => {
+    return inPeriodComp.filter((r) => {
       if (
         searchEmployee &&
         !r.employeeName.toLowerCase().includes(searchEmployee.toLowerCase())
@@ -261,9 +324,12 @@ export function TeamLeaveWorkspace({
       if (selectedStatus !== "ALL" && r.status !== selectedStatus) {
         return false;
       }
+      if (selectedDept !== "ALL" && r.department !== selectedDept) {
+        return false;
+      }
       return true;
     });
-  }, [teamCompRequests, searchEmployee, selectedStatus]);
+  }, [inPeriodComp, searchEmployee, selectedStatus, selectedDept]);
 
   const getStatusBadge = (status: LeaveStatus) => {
     switch (status) {
@@ -295,13 +361,13 @@ export function TeamLeaveWorkspace({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
+    <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
       {/* Top Navigation Tabs */}
       <div className="border-b border-border/80 pb-0">
         <nav className="flex items-center gap-8 -mb-px">
           <button
             type="button"
-            onClick={() => setActiveTab("leave-requests")}
+            onClick={() => switchTab("leave-requests")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "leave-requests"
@@ -314,7 +380,7 @@ export function TeamLeaveWorkspace({
 
           <button
             type="button"
-            onClick={() => setActiveTab("employee-leave")}
+            onClick={() => switchTab("employee-leave")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "employee-leave"
@@ -327,7 +393,7 @@ export function TeamLeaveWorkspace({
 
           <button
             type="button"
-            onClick={() => setActiveTab("compensatory-requests")}
+            onClick={() => switchTab("compensatory-requests")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "compensatory-requests"
@@ -340,7 +406,7 @@ export function TeamLeaveWorkspace({
 
           <button
             type="button"
-            onClick={() => setActiveTab("team-calendar")}
+            onClick={() => switchTab("team-calendar")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "team-calendar"
@@ -353,7 +419,7 @@ export function TeamLeaveWorkspace({
 
           <button
             type="button"
-            onClick={() => setActiveTab("holidays")}
+            onClick={() => switchTab("holidays")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "holidays"
@@ -366,7 +432,7 @@ export function TeamLeaveWorkspace({
 
           <button
             type="button"
-            onClick={() => setActiveTab("leave-policy")}
+            onClick={() => switchTab("leave-policy")}
             className={cn(
               "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
               activeTab === "leave-policy"
@@ -387,9 +453,6 @@ export function TeamLeaveWorkspace({
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               All Leave Requests
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Review and take action on leave requests from your team
-            </p>
           </div>
 
           {/* 5 Metric Summary Cards */}
@@ -454,7 +517,7 @@ export function TeamLeaveWorkspace({
               <div>
                 <div className="text-xs font-semibold text-muted-foreground">Total Requests</div>
                 <div className="text-lg font-bold text-foreground">
-                  {metrics.total} <span className="text-xs font-normal text-muted-foreground">This Month</span>
+                  {metrics.total} <span className="text-xs font-normal text-muted-foreground">In Period</span>
                 </div>
               </div>
             </div>
@@ -462,9 +525,9 @@ export function TeamLeaveWorkspace({
 
           {/* Filter Bar */}
           <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-center">
+            <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
-              <div className="lg:col-span-2 relative">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <Input
                   value={searchEmployee}
@@ -476,7 +539,7 @@ export function TeamLeaveWorkspace({
 
               {/* Status */}
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-9 w-36 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -490,56 +553,86 @@ export function TeamLeaveWorkspace({
 
               {/* Leave Type */}
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-9 w-48 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="All Leave Types" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Leave Types</SelectItem>
-                  <SelectItem value="SL">Sick Leave (SL)</SelectItem>
-                  <SelectItem value="CL">Casual Leave (CL)</SelectItem>
-                  <SelectItem value="PL">Privilege Leave (PL)</SelectItem>
-                  <SelectItem value="EL">Early Leave</SelectItem>
-                  <SelectItem value="HD">Half Day</SelectItem>
-                  <SelectItem value="MAT">Maternity Leave</SelectItem>
+                  {typeOptions.map(([code, name]) => (
+                    <SelectItem key={code} value={code}>
+                      {name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               {/* Department */}
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Departments</SelectItem>
-                  <SelectItem value="Product Design">Product Design</SelectItem>
-                  <SelectItem value="Engineering">Engineering</SelectItem>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                  <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
-                  <SelectItem value="Finance">Finance</SelectItem>
-                  <SelectItem value="Operations">Operations</SelectItem>
+                  {deptOptions.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              {/* Date range */}
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-xs font-medium text-foreground">
-                <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span>01 May – 31 May</span>
-              </div>
+              <PeriodNav value={period} onChange={setPeriod} />
             </div>
 
-            {/* Table */}
-            <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
-              <table className="w-full text-left border-collapse text-xs">
+            {/* Bulk actions for the selected pending requests */}
+            {selectedRowIds.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-xs">
+                <span className="font-semibold text-foreground">{selectedRowIds.length} pending request(s) selected</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isBulkProcessing}
+                    onClick={() => setSelectedRowIds([])}
+                    className="h-8 text-xs"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isBulkProcessing}
+                    onClick={() => handleBulk("reject")}
+                    className="h-8 text-xs border-red-200 text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isBulkProcessing}
+                    onClick={() => handleBulk("approve")}
+                    className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {isBulkProcessing ? "Working…" : "Approve"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Table — scrolls sideways on narrow screens; the action column stays pinned */}
+            <div className="border border-border/80 rounded-xl overflow-x-auto bg-background">
+              <table className="w-full min-w-[960px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-3 w-8">
                       <input
                         type="checkbox"
-                        checked={
-                          selectedRowIds.length > 0 &&
-                          selectedRowIds.length === teamRequests.length
-                        }
+                        aria-label="Select all pending requests"
+                        disabled={selectableIdsInView.length === 0}
+                        checked={allInViewSelected}
                         onChange={toggleSelectAll}
                         className="rounded"
                       />
@@ -551,7 +644,7 @@ export function TeamLeaveWorkspace({
                     <th className="py-3 px-3 font-semibold">REASON</th>
                     <th className="py-3 px-3 font-semibold">STATUS</th>
                     <th className="py-3 px-3 font-semibold">APPLIED ON</th>
-                    <th className="py-3 px-3 font-semibold text-center">ACTION</th>
+                    <th className="py-3 px-3 font-semibold text-center sticky right-0 bg-muted">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -568,9 +661,11 @@ export function TeamLeaveWorkspace({
                         <td className="py-3 px-3">
                           <input
                             type="checkbox"
+                            aria-label={`Select ${req.employeeName}'s request`}
+                            disabled={req.status !== "PENDING"}
                             checked={selectedRowIds.includes(req.id)}
                             onChange={() => toggleSelectRow(req.id)}
-                            className="rounded"
+                            className="rounded disabled:opacity-30"
                           />
                         </td>
 
@@ -622,7 +717,7 @@ export function TeamLeaveWorkspace({
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3 px-3 text-center">
+                        <td className="py-3 px-3 text-center sticky right-0 bg-background">
                           <div className="flex items-center justify-center gap-1">
                             <Link
                               href={`/pulse/leave/requests/${req.id}`}
@@ -664,9 +759,6 @@ export function TeamLeaveWorkspace({
             {/* Pagination */}
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>Showing: <strong className="text-foreground">{filteredTeamRequests.length}</strong> of {metrics.total} records</span>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0 rounded-lg">1</Button>
-              </div>
             </div>
           </div>
         </div>
@@ -674,13 +766,7 @@ export function TeamLeaveWorkspace({
 
       {/* 2. EMPLOYEE LEAVE TAB */}
       {activeTab === "employee-leave" && (
-        <LeaveBalanceAdjustmentView
-          onSuccess={() => {
-            loadData();
-            setActiveTab("leave-requests");
-          }}
-          onCancel={() => setActiveTab("leave-requests")}
-        />
+        <LeaveBalanceAdjustmentView onCancel={() => switchTab("leave-requests")} />
       )}
 
       {/* 3. COMPENSATORY REQUESTS TAB (IMAGE 5) */}
@@ -692,15 +778,12 @@ export function TeamLeaveWorkspace({
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 Compensatory Requests
               </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Review and manage compensatory time off requests
-              </p>
             </div>
 
             <Button
               type="button"
               variant="outline"
-              className="h-9 px-4 rounded-xl text-xs font-semibold gap-2 self-start sm:self-auto"
+              className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto"
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
@@ -755,15 +838,15 @@ export function TeamLeaveWorkspace({
               </div>
               <div>
                 <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Total Requests</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-xs font-normal text-muted-foreground">This Month</span></div>
+                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-xs font-normal text-muted-foreground">In Period</span></div>
               </div>
             </div>
           </div>
 
           {/* Filter Bar */}
           <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="lg:col-span-2 relative">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={searchEmployee}
@@ -774,7 +857,7 @@ export function TeamLeaveWorkspace({
               </div>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-9 w-36 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -787,25 +870,25 @@ export function TeamLeaveWorkspace({
               </Select>
 
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Departments</SelectItem>
-                  <SelectItem value="Engineering">Engineering</SelectItem>
-                  <SelectItem value="Product Design">Product Design</SelectItem>
+                  {deptOptions.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-background border rounded-xl text-xs font-medium text-foreground">
-                <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span>01 May – 31 May</span>
-              </div>
+              <PeriodNav value={period} onChange={setPeriod} />
             </div>
 
             {/* Table */}
-            <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="border border-border/80 rounded-xl overflow-x-auto bg-background">
+              <table className="w-full min-w-[900px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-4 font-semibold">EMPLOYEE</th>
@@ -815,7 +898,7 @@ export function TeamLeaveWorkspace({
                     <th className="py-3 px-4 font-semibold">REASON</th>
                     <th className="py-3 px-4 font-semibold">STATUS</th>
                     <th className="py-3 px-4 font-semibold">REQUESTED ON</th>
-                    <th className="py-3 px-4 font-semibold text-center">ACTION</th>
+                    <th className="py-3 px-4 font-semibold text-center sticky right-0 bg-muted">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -830,7 +913,7 @@ export function TeamLeaveWorkspace({
                       <tr key={comp.id} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-accent text-blue-600 font-bold flex items-center justify-center text-xs shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-accent text-primary font-bold flex items-center justify-center text-xs shrink-0">
                               {comp.avatarText}
                             </div>
                             <div>
@@ -869,7 +952,7 @@ export function TeamLeaveWorkspace({
                           {comp.requestedOn}
                         </td>
 
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center sticky right-0 bg-background">
                           <div className="flex items-center justify-center gap-1.5">
                             <Link
                               href={`/pulse/leave/compensatory/${comp.id}`}

@@ -25,6 +25,7 @@ import {
   SHIFT_START,
   weekKeysFor,
   workedMinutesBetween,
+  employeeCode,
 } from "../utils";
 import type {
   AttendanceRecord,
@@ -168,8 +169,10 @@ export async function getMyAttendanceData(monthIndex?: number, year?: number, fo
   const session = await requireSession();
   let userId = session.user.id!;
   if (forUserId && forUserId !== userId) {
+    // Viewing only: any manager can open anyone's attendance from Team Attendance (which lists
+    // everyone). Acting on it — regularizing on their behalf, approvals — still checks canManageUser.
     const viewer = await viewerOf(userId);
-    if (!viewer || !(await canManageUser(viewer, forUserId))) throw new Error("Forbidden");
+    if (!viewer || !canManageAttendance(viewer)) throw new Error("Forbidden");
     userId = forUserId;
   }
 
@@ -236,12 +239,14 @@ export async function getTeamAttendanceData(
   selectedDateStr?: string,
   filters?: { search?: string; status?: string; workMode?: string }
 ) {
-  const { scope } = await requireManager();
+  // Any manager sees everyone's attendance here (view only). Approving leave / regularization still
+  // follows reporting lines (canManageUser), so this doesn't widen who can approve what.
+  await requireManager();
 
   const key = selectedDateStr && dateFromKey(selectedDateStr) ? selectedDateStr : istDateKey();
 
   const users = await db.user.findMany({
-    where: teamUsersWhere(scope),
+    where: teamUsersWhere(null),
     select: teamUserSelect,
     orderBy: { name: "asc" },
   });
@@ -257,12 +262,14 @@ export async function getTeamAttendanceData(
     if (day.resolved.status === "WORKING_NOW") status = "Working Now";
     else if (att?.checkInTime) status = "Completed";
     else if (approvedLeave) status = "On Leave";
+    // Weekends and holidays aren't absences (anyone who worked one is counted above).
+    else if (!day.resolved.isWorkingDay) status = "Day Off";
 
     const minutes = workedMinutesOf(day);
 
     return {
       id: u.id,
-      employeeId: u.employeeId || `EMP-${u.id.slice(-4).toUpperCase()}`,
+      employeeId: employeeCode(u.employeeId, u.id),
       name: u.name || "Team Member",
       avatarUrl: u.image || undefined,
       designation: u.title || "Team Member",
@@ -276,7 +283,8 @@ export async function getTeamAttendanceData(
       checkOutSource: (att?.checkOutSource as AttendanceSource) || undefined,
       workedHours: minutes > 0 ? formatClock(minutes) : undefined,
       workedHoursSubtext: status === "Working Now" && att?.checkInTime ? `Since ${att.checkInTime}` : undefined,
-      workMode: (att?.workMode === "REMOTE" ? "Remote" : "Office") as "Office" | "Remote",
+      // Only someone who checked in has a work mode for the day.
+      workMode: att?.checkInTime ? (att.workMode === "REMOTE" ? "Remote" : "Office") : undefined,
     };
   });
 
@@ -290,10 +298,11 @@ export async function getTeamAttendanceData(
         m.designation.toLowerCase().includes(q)
     );
   }
-  if (filters?.status && filters.status !== "All Status") {
+  // The page sends "All" for no filter (older callers sent "All Status" / "All Modes").
+  if (filters?.status && filters.status !== "All" && filters.status !== "All Status") {
     filtered = filtered.filter((m) => m.status === filters.status);
   }
-  if (filters?.workMode && filters.workMode !== "All Modes") {
+  if (filters?.workMode && filters.workMode !== "All" && filters.workMode !== "All Modes") {
     filtered = filtered.filter((m) => m.workMode === filters.workMode);
   }
 
@@ -303,6 +312,7 @@ export async function getTeamAttendanceData(
     completed: teamMembers.filter((m) => m.status === "Completed").length,
     onLeave: teamMembers.filter((m) => m.status === "On Leave").length,
     absent: teamMembers.filter((m) => m.status === "Absent").length,
+    dayOff: teamMembers.filter((m) => m.status === "Day Off").length,
   };
 
   return { teamMembers: filtered, counts };
@@ -336,7 +346,7 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
     id: r.id,
     employee: {
       id: r.user.id,
-      employeeId: r.user.employeeId || `EMP-${r.user.id.slice(-4).toUpperCase()}`,
+      employeeId: employeeCode(r.user.employeeId, r.user.id),
       name: r.user.name || "Employee",
       avatarUrl: r.user.image || undefined,
       status: r.user.isActive ? "ACTIVE" : "INACTIVE",
@@ -359,6 +369,7 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
     },
     reason: r.reason,
     remarks: r.remarks || undefined,
+    issueType: !r.existingCheckIn ? "MISSING_CHECK_IN" : !r.existingCheckOut ? "MISSING_CHECK_OUT" : "OTHER",
     status: STATUS_LABEL[r.status] || "Pending",
     requestedOn: `${appliedOnStr}, ${appliedTime}`,
     appliedOn: appliedOnStr,

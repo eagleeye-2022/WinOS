@@ -6,7 +6,8 @@ import { lookupPlaceAction, type CheckInLocation } from "../actions/attendance-a
 import { cn } from "@/lib/utils";
 
 export interface CheckInCapture {
-  location: CheckInLocation;
+  /** Left out when the employee checks in/out without sharing their location. */
+  location?: CheckInLocation;
   /** URL from POST /api/uploads. */
   photo: string;
 }
@@ -28,7 +29,9 @@ type LocationState =
   | { status: "locating"; best?: CheckInLocation }
   /** `place`: undefined while looking up the area name, null when none was found. */
   | { status: "ready"; location: CheckInLocation; place?: Place | null }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  /** The employee chose to go ahead without sharing their location. */
+  | { status: "skipped" };
 
 /** Stop waiting as soon as a reading is this good (metres). */
 const GOOD_ACCURACY_M = 100;
@@ -79,7 +82,8 @@ async function uploadSelfie(blob: Blob): Promise<string> {
 
 /**
  * Check-in capture: a live selfie from the front camera plus the browser's GPS fix.
- * Both are required — the server refuses a check-in without them.
+ * The photo is required; the location is optional (the employee can go ahead without it, and it's
+ * then saved as not recorded).
  * Camera and location only work on HTTPS (or localhost).
  */
 export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = "check-in" }: CheckInCaptureModalProps) {
@@ -246,13 +250,24 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     onClose();
   };
 
+  const skipLocation = () => {
+    stopLocating();
+    setLocationState({ status: "skipped" });
+  };
+
+  // Still locating: wait for it (or skip it). Otherwise go ahead, with the location only if there is one.
+  const locationSettled = locationState.status !== "locating";
+
   const confirm = async () => {
-    if (!photo || locationState.status !== "ready") return;
+    if (!photo || !locationSettled) return;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
       const photoUrl = await uploadSelfie(photo.blob);
-      const error = await onConfirm({ photo: photoUrl, location: locationState.location });
+      const error = await onConfirm({
+        photo: photoUrl,
+        location: locationState.status === "ready" ? locationState.location : undefined,
+      });
       if (error) setSubmitError(error);
       else close();
     } catch (err) {
@@ -262,7 +277,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     }
   };
 
-  const canConfirm = Boolean(photo) && locationState.status === "ready" && !isSubmitting;
+  const canConfirm = Boolean(photo) && locationSettled && !isSubmitting;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
@@ -270,7 +285,9 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div>
             <h3 className="text-base font-bold text-foreground">{heading}</h3>
-            <p className="text-xs text-muted-foreground">A photo and your location are recorded with your {verb}.</p>
+            <p className="text-xs text-muted-foreground">
+              A photo is recorded with your {verb}, and your location if you share it.
+            </p>
           </div>
           <button
             type="button"
@@ -358,6 +375,22 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
                       Currently ±{formatDistance(locationState.best.accuracy)}
                     </p>
                   )}
+                  <button
+                    type="button"
+                    onClick={skipLocation}
+                    className="mt-1 font-semibold text-muted-foreground underline hover:text-foreground"
+                  >
+                    Continue without location
+                  </button>
+                </>
+              )}
+              {locationState.status === "skipped" && (
+                <>
+                  <p className="font-semibold text-foreground">Location not shared</p>
+                  <p className="text-muted-foreground">Your {verb} will be saved without a location.</p>
+                  <button type="button" onClick={locate} className="mt-1 font-semibold text-primary underline">
+                    Share location
+                  </button>
                 </>
               )}
               {locationState.status === "ready" && (
@@ -384,6 +417,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
               {locationState.status === "error" && (
                 <>
                   <p className="text-rose-700 dark:text-rose-300">{locationState.message}</p>
+                  <p className="mt-0.5 text-muted-foreground">You can still {verb} without it.</p>
                   <button type="button" onClick={locate} className="mt-1 font-semibold text-rose-700 underline dark:text-rose-300">
                     Try again
                   </button>
@@ -399,7 +433,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           <button
             type="button"
             onClick={close}
-            className="rounded-xl px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+            className="rounded-lg px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -407,7 +441,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
             type="button"
             onClick={confirm}
             disabled={!canConfirm}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-600/60 disabled:hover:bg-emerald-600/60"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-600/60 disabled:hover:bg-emerald-600/60"
           >
             {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogIn className="h-3.5 w-3.5" />}
             Confirm {verb}

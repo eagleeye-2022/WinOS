@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect } from "react";
 import {
   UserPlus,
@@ -112,7 +113,7 @@ export function EmployeeAttendanceView({
       <div className="flex items-center justify-between">
         <button
           onClick={onBackToTeam}
-          className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline"
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Team Attendance</span>
@@ -120,7 +121,7 @@ export function EmployeeAttendanceView({
 
         <button
           onClick={onApplyRegularizationOnBehalf}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs transition-colors"
         >
           <UserPlus className="w-4 h-4" />
           <span>Regularize on Behalf</span>
@@ -128,29 +129,26 @@ export function EmployeeAttendanceView({
       </div>
 
       {/* Employee Profile Banner */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="p-6 rounded-2xl bg-card border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          {employee.avatarUrl ? (
-            <img
-              src={employee.avatarUrl}
-              alt={employee.name}
-              className="w-14 h-14 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-            />
-          ) : (
-            <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-300 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-base font-bold shrink-0">
-              {employee.name.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <UserAvatar
+            userId={employee.id}
+            name={employee.name}
+            image={employee.avatarUrl}
+            className="w-14 h-14 bg-primary/10 text-primary dark:text-blue-300 border border-input text-base font-bold"
+          >
+            {employee.name.slice(0, 2).toUpperCase()}
+          </UserAvatar>
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-extrabold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base font-bold text-foreground">
                 {employee.name}
               </h2>
               <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                 {employee.status}
               </span>
             </div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs text-muted-foreground">
               {employee.designation} • ID: {employee.employeeId} • {employee.department}
             </div>
           </div>
@@ -161,18 +159,18 @@ export function EmployeeAttendanceView({
           {employee.email && (
             <a
               href={`mailto:${employee.email}`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/40 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-zinc-100 transition-colors"
             >
-              <Mail className="w-3.5 h-3.5 text-zinc-500" />
+              <Mail className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{employee.email}</span>
             </a>
           )}
           {employee.phone && employee.phone !== "—" && (
             <a
               href={`tel:${employee.phone}`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/40 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-muted/40 text-xs font-semibold text-foreground hover:bg-zinc-100 transition-colors"
             >
-              <Phone className="w-3.5 h-3.5 text-zinc-500" />
+              <Phone className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{employee.phone}</span>
             </a>
           )}
@@ -182,24 +180,24 @@ export function EmployeeAttendanceView({
       {/* Attendance View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h2 className="text-xl font-bold text-foreground tracking-tight">
             Attendance Log
           </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Detailed attendance log and daily swipe entries for {employee.name}.
           </p>
         </div>
 
         {/* View Switcher & Date Nav */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60">
+          <div className="flex items-center p-1 rounded-xl bg-muted border border-input/60">
             <button
               onClick={() => setViewMode("week")}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 viewMode === "week"
-                  ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+                  ? "bg-card text-primary shadow-xs"
+                  : "text-muted-foreground hover:text-zinc-900"
               )}
             >
               Week
@@ -209,8 +207,8 @@ export function EmployeeAttendanceView({
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                 viewMode === "month"
-                  ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+                  ? "bg-card text-primary shadow-xs"
+                  : "text-muted-foreground hover:text-zinc-900"
               )}
             >
               Month
@@ -219,7 +217,7 @@ export function EmployeeAttendanceView({
 
           <button
             onClick={() => shift(-1)}
-            className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs"
+            className="p-2 rounded-xl border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -227,15 +225,15 @@ export function EmployeeAttendanceView({
           <button
             onClick={() => setSelectedDate(today)}
             title="Go to today"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200 shadow-xs"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs"
           >
             <span>{viewMode === "week" ? weekLabel : monthLabel}</span>
-            <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
 
           <button
             onClick={() => shift(1)}
-            className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs"
+            className="p-2 rounded-xl border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

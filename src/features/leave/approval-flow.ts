@@ -93,6 +93,8 @@ export async function approverIdsFor(role: ApproverRole, r: Requester): Promise<
 
 /** Whether `viewer` may approve / reject a step with this role for `r`. Admins may act on any step. */
 export async function canActOnStep(viewer: Viewer, role: ApproverRole | string | null, r: Requester): Promise<boolean> {
+  // Nobody approves or rejects their own request — it goes to someone above them (an admin, their
+  // reporting manager, or any other manager when none is set).
   if (viewer.id === r.id) return false;
   if (isPulseAdmin(viewer)) return true;
   if (role === "Department Head") {

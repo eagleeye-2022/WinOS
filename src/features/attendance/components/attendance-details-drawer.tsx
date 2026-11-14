@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import {
   X,
@@ -35,7 +35,7 @@ const COORDS = /(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/;
 /** The recorded location (area name + address); coordinates captured at check-in link to the map. */
 function LocationValue({ location }: { location?: { name: string; address: string } }) {
   if (!location?.name) {
-    return <p className="text-right text-xs text-zinc-400">Not recorded</p>;
+    return <p className="text-right text-xs text-muted-foreground">Not recorded</p>;
   }
   const coords = COORDS.exec(location.name) ?? COORDS.exec(location.address || "");
   return (
@@ -45,14 +45,14 @@ function LocationValue({ location }: { location?: { name: string; address: strin
           href={`https://www.google.com/maps?q=${coords[1]},${coords[2]}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+          className="font-semibold text-primary hover:underline dark:text-blue-400"
         >
           {location.name}
         </a>
       ) : (
-        <p className="font-semibold text-blue-600 dark:text-blue-400">{location.name}</p>
+        <p className="font-semibold text-primary">{location.name}</p>
       )}
-      {location.address && <p className="text-xs text-zinc-400 mt-0.5">{location.address}</p>}
+      {location.address && <p className="text-xs text-muted-foreground mt-0.5">{location.address}</p>}
     </div>
   );
 }
@@ -74,18 +74,26 @@ export function AttendanceDetailsDrawer({
   onApplyLeave,
   onRequestCompOff,
 }: AttendanceDetailsDrawerProps) {
+  // Esc closes the drawer.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !record) return null;
 
   const getSourceIcon = (source?: string) => {
     switch (source) {
       case "Fingerprint":
-        return <Fingerprint className="w-4 h-4 text-zinc-500" />;
+        return <Fingerprint className="w-4 h-4 text-muted-foreground" />;
       case "Web":
-        return <Globe className="w-4 h-4 text-zinc-500" />;
+        return <Globe className="w-4 h-4 text-muted-foreground" />;
       case "Mobile App":
-        return <Smartphone className="w-4 h-4 text-zinc-500" />;
+        return <Smartphone className="w-4 h-4 text-muted-foreground" />;
       default:
-        return <Globe className="w-4 h-4 text-zinc-500" />;
+        return <Globe className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -110,15 +118,16 @@ export function AttendanceDetailsDrawer({
 
       {/* Drawer Panel */}
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <div className="w-screen max-w-[430px] bg-white dark:bg-card shadow-2xl flex flex-col justify-between border-l border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-right duration-300">
+        <div className="w-screen max-w-[430px] bg-card shadow-2xl flex flex-col justify-between border-l border-border animate-in slide-in-from-right duration-300">
           {/* Top Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100 dark:border-zinc-800">
-            <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+            <h2 className="text-xl font-bold text-foreground">
               Attendance Details
             </h2>
             <button
               onClick={onClose}
-              className="rounded-full p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              aria-label="Close"
+              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -127,15 +136,15 @@ export function AttendanceDetailsDrawer({
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
             {/* Selected Date Header */}
-            <div className="flex items-center gap-2.5 text-zinc-700 dark:text-zinc-200 font-semibold text-base">
-              <Calendar className="w-4 h-4 text-zinc-500" />
+            <div className="flex items-center gap-2.5 text-foreground font-semibold text-base">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
               <span>{record.formattedDate}</span>
             </div>
 
             {/* 1. Still Working Top Banner (Batch 2 Image 2) */}
             {isWorkingNow && (
               <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-accent text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-accent text-primary flex items-center justify-center shrink-0 mt-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping absolute" />
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                 </div>
@@ -186,17 +195,17 @@ export function AttendanceDetailsDrawer({
 
             {/* 4. Holiday Top Banner (Batch 2 Image 5) */}
             {isHoliday && (
-              <div className="p-6 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800 flex flex-col items-center justify-center text-center">
+              <div className="p-6 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-border flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 rounded-full bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-xs mb-3">
                   🇮🇳
                 </div>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   Company Holiday
                 </span>
-                <h3 className="text-lg font-extrabold text-zinc-900 dark:text-zinc-100 mt-1">
-                  {record.holidayInfo?.name || "Independence Day"}
+                <h3 className="text-lg font-bold text-foreground mt-1">
+                  {record.holidayInfo?.name || "Holiday"}
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {record.formattedDate}
                 </p>
               </div>
@@ -256,7 +265,7 @@ export function AttendanceDetailsDrawer({
             {/* ── SECTION: ISSUE (If Action Required) ────────────────────── */}
             {isActionRequired && (
               <div className="space-y-2">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   ISSUE
                 </h5>
                 <div className="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 flex items-center gap-3">
@@ -271,7 +280,7 @@ export function AttendanceDetailsDrawer({
                         ? "Missing Check-in"
                         : "Missing Check-out"}
                     </h5>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {missingType === "MISSING_BOTH"
                         ? "No check-in and check-out was recorded for this day."
                         : missingType === "MISSING_CHECKIN"
@@ -285,8 +294,8 @@ export function AttendanceDetailsDrawer({
 
             {/* ── SECTION: Compensatory Work Header ────────────────────────── */}
             {isHolidayWork && (
-              <div className="flex items-center gap-2 text-sm font-bold text-zinc-800 dark:text-zinc-100 pt-1">
-                <Briefcase className="w-4 h-4 text-zinc-500" />
+              <div className="flex items-center gap-2 text-sm font-bold text-foreground pt-1">
+                <Briefcase className="w-4 h-4 text-muted-foreground" />
                 <span>Compensatory Work</span>
               </div>
             )}
@@ -299,35 +308,35 @@ export function AttendanceDetailsDrawer({
                   <div className="relative pl-6 border-l-2 border-emerald-500 dark:border-emerald-600 space-y-2 py-0.5">
                     <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-emerald-500" />
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         CHECK-IN
                       </span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                      <span className="font-bold text-foreground text-sm">
                         {record.checkInTime}
                       </span>
                     </div>
 
                     <div className="space-y-2 pt-1 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-zinc-500">
+                        <span className="flex items-center gap-2 text-muted-foreground">
                           {getSourceIcon(record.checkInSource)} Attendance Source
                         </span>
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                          {record.checkInSource || "Fingerprint"}
+                        <span className="font-semibold text-foreground">
+                          {record.checkInSource || "Web"}
                         </span>
                       </div>
 
                       <div className="flex items-start justify-between">
-                        <span className="flex items-center gap-2 text-zinc-500 pt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400" /> Location
+                        <span className="flex items-center gap-2 text-muted-foreground pt-0.5">
+                          <MapPin className="w-3.5 h-3.5 text-muted-foreground" /> Location
                         </span>
                         <LocationValue location={record.checkInLocation} />
                       </div>
 
                       {record.checkInPhoto && (
                         <div className="flex items-start justify-between pt-1">
-                          <span className="flex items-center gap-2 text-zinc-500 pt-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Captured Image
+                          <span className="flex items-center gap-2 text-muted-foreground pt-1">
+                            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" /> Captured Image
                           </span>
                           <a
                             href={record.checkInPhoto}
@@ -353,27 +362,27 @@ export function AttendanceDetailsDrawer({
                   <div className="relative pl-6 border-l-2 border-emerald-500 dark:border-emerald-600 space-y-2 py-0.5 pt-2">
                     <div className="absolute -left-[5px] top-3 w-2 h-2 rounded-full bg-emerald-500" />
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         CHECK-OUT
                       </span>
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                      <span className="font-bold text-foreground text-sm">
                         {record.checkOutTime}
                       </span>
                     </div>
 
                     <div className="space-y-2 pt-1 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-zinc-500">
+                        <span className="flex items-center gap-2 text-muted-foreground">
                           {getSourceIcon(record.checkOutSource)} Attendance Source
                         </span>
-                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                        <span className="font-semibold text-foreground">
                           {record.checkOutSource || "Web"}
                         </span>
                       </div>
 
                       <div className="flex items-start justify-between">
-                        <span className="flex items-center gap-2 text-zinc-500 pt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-zinc-400" /> Location
+                        <span className="flex items-center gap-2 text-muted-foreground pt-0.5">
+                          <MapPin className="w-3.5 h-3.5 text-muted-foreground" /> Location
                         </span>
                         <LocationValue location={record.checkOutLocation} />
                       </div>
@@ -381,8 +390,8 @@ export function AttendanceDetailsDrawer({
                       {/* Captured Image if available */}
                       {record.checkOutPhoto && (
                         <div className="flex items-start justify-between pt-1">
-                          <span className="flex items-center gap-2 text-zinc-500 pt-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Captured Image
+                          <span className="flex items-center gap-2 text-muted-foreground pt-1">
+                            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" /> Captured Image
                           </span>
                           <div className="w-20 h-12 rounded-lg overflow-hidden border border-zinc-200 shadow-sm relative">
                             <img
@@ -403,40 +412,39 @@ export function AttendanceDetailsDrawer({
             {isWorkingNow && (
               <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-accent text-blue-600 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-accent text-primary flex items-center justify-center shrink-0">
                     <RotateCcw className="w-4 h-4" />
                   </div>
                   <div>
                     <h5 className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
                       STILL WORKING
                     </h5>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       You are currently checked-in and working.
                     </p>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-blue-100 dark:border-zinc-700/60">
-                  <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    <Clock className="w-4 h-4 text-zinc-400" />
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     <span>Live Duration</span>
                   </div>
-                  <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
-                    {record.workedDuration || "3h 34m"}
+                  <div className="text-2xl font-black text-primary mt-0.5">
+                    {record.workedDuration || "—"}
                   </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    {record.liveSince || `Since ${record.checkInTime || "09:08 AM"}`}
-                  </p>
+                  {/* liveSince is an ISO timestamp; the check-in time is what people read. */}
+                  {record.checkInTime && <p className="text-xs text-muted-foreground mt-0.5">Since {record.checkInTime}</p>}
                 </div>
               </div>
             )}
 
-            {/* ── SECTION: Early Leave (Approved) Info (Batch 2 Image 3) ──── */}
-            {isEarlyLeave && (
+            {/* ── SECTION: Early Leave (Approved) Info — only with real early-leave details ──── */}
+            {isEarlyLeave && record.earlyLeaveInfo && (
               <div className="space-y-3 pt-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-foreground">
                     EARLY LEAVE
                   </h5>
                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -446,59 +454,54 @@ export function AttendanceDetailsDrawer({
 
                 <div className="space-y-3 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <FileText className="w-3.5 h-3.5 text-zinc-400" /> Leave Type
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Leave Type
                     </span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    <span className="font-semibold text-foreground">
                       {record.earlyLeaveInfo?.leaveType || "Early Leave"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <Clock className="w-3.5 h-3.5 text-zinc-400" /> From
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" /> From
                     </span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                      {record.earlyLeaveInfo?.from || record.checkOutTime || "04:00 PM"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <Clock className="w-3.5 h-3.5 text-zinc-400" /> To
-                    </span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                      {record.earlyLeaveInfo?.to || "06:30 PM"}
+                    <span className="font-semibold text-foreground">
+                      {record.earlyLeaveInfo?.from || record.checkOutTime || "—"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400" /> Leave Status
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" /> To
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      {record.earlyLeaveInfo?.to || "—"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground" /> Leave Status
                     </span>
                     <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      {record.earlyLeaveInfo?.status || "Approved"}
+                      {record.earlyLeaveInfo?.status || "—"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <User className="w-3.5 h-3.5 text-zinc-400" /> Approved By
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <User className="w-3.5 h-3.5 text-muted-foreground" /> Approved By
                     </span>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">
-                          {record.earlyLeaveInfo?.approvedBy?.name || "Rohit Sharma"}
+                        <p className="font-semibold text-foreground text-xs">
+                          {record.earlyLeaveInfo?.approvedBy?.name || "—"}
                         </p>
-                        <p className="text-xs text-zinc-400">
-                          {record.earlyLeaveInfo?.approvedBy?.role || "HR Manager"}
-                        </p>
+                        {record.earlyLeaveInfo?.approvedBy?.role && (
+                          <p className="text-xs text-muted-foreground">{record.earlyLeaveInfo.approvedBy.role}</p>
+                        )}
                       </div>
-                      <img
-                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                        alt="HR Manager"
-                        className="w-7 h-7 rounded-full object-cover border border-zinc-200"
-                      />
                     </div>
                   </div>
                 </div>
@@ -508,52 +511,52 @@ export function AttendanceDetailsDrawer({
             {/* ── SECTION: Leave Info Block (For Casual / Sick Leaves) ─────── */}
             {record.leaveInfo && (
               <div className="space-y-4 pt-1">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-sm font-bold text-foreground">
                   Leave Information
                 </h3>
 
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                      <FileText className="w-4 h-4 text-zinc-400" /> Leave Type
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <FileText className="w-4 h-4 text-muted-foreground" /> Leave Type
                     </span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    <span className="font-semibold text-foreground">
                       {record.leaveInfo.leaveType}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                      <Clock className="w-4 h-4 text-zinc-400" /> Duration
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4 text-muted-foreground" /> Duration
                     </span>
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    <span className="font-semibold text-foreground">
                       {record.leaveInfo.duration}
                     </span>
                   </div>
 
                   {record.leaveInfo.session ? (
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                        <Layers className="w-4 h-4 text-zinc-400" /> Session
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Layers className="w-4 h-4 text-muted-foreground" /> Session
                       </span>
-                      <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      <span className="font-semibold text-foreground">
                         {record.leaveInfo.session}
                       </span>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                        <CalendarDays className="w-4 h-4 text-zinc-400" /> Leave Date
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <CalendarDays className="w-4 h-4 text-muted-foreground" /> Leave Date
                       </span>
-                      <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      <span className="font-semibold text-foreground">
                         {record.formattedDate}
                       </span>
                     </div>
                   )}
 
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                      <CheckCircle2 className="w-4 h-4 text-zinc-400" /> Leave Status
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <CheckCircle2 className="w-4 h-4 text-muted-foreground" /> Leave Status
                     </span>
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold tracking-wide uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                       {record.leaveInfo.status}
@@ -562,10 +565,10 @@ export function AttendanceDetailsDrawer({
 
                   {record.leaveInfo.appliedOn && (
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                        <Clock className="w-4 h-4 text-zinc-400" /> Applied On
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="w-4 h-4 text-muted-foreground" /> Applied On
                       </span>
-                      <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      <span className="font-semibold text-foreground">
                         {record.leaveInfo.appliedOn}
                       </span>
                     </div>
@@ -573,15 +576,15 @@ export function AttendanceDetailsDrawer({
 
                   {record.leaveInfo.approvedBy && (
                     <div className="flex items-center justify-between pt-1">
-                      <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                        <User className="w-4 h-4 text-zinc-400" /> Approved By
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <User className="w-4 h-4 text-muted-foreground" /> Approved By
                       </span>
                       <div className="flex items-center gap-2.5">
                         <div className="text-right">
-                          <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">
+                          <p className="font-semibold text-foreground text-sm">
                             {record.leaveInfo.approvedBy.name}
                           </p>
-                          <p className="text-xs text-zinc-400">
+                          <p className="text-xs text-muted-foreground">
                             {record.leaveInfo.approvedBy.role}
                           </p>
                         </div>
@@ -589,7 +592,7 @@ export function AttendanceDetailsDrawer({
                           <img
                             src={record.leaveInfo.approvedBy.avatarUrl}
                             alt={record.leaveInfo.approvedBy.name}
-                            className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
+                            className="w-8 h-8 rounded-full object-cover border border-input"
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center font-bold text-xs text-zinc-600">
@@ -606,36 +609,36 @@ export function AttendanceDetailsDrawer({
             {/* ── SECTION: WHAT YOU CAN DO (Batch 2 Images 1 & 4) ──────────── */}
             {isActionRequired && (
               <div className="space-y-3 pt-2">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   WHAT YOU CAN DO
                 </h5>
 
                 {/* Option 1: Regularize Attendance */}
                 <button
                   onClick={() => onRegularize?.(record)}
-                  className="w-full p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-between group text-left shadow-xs hover:shadow-sm"
+                  className="w-full p-4 rounded-2xl border border-border bg-background/60 hover:bg-accent transition-all flex items-center justify-between group text-left shadow-xs hover:shadow-sm"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-accent text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-accent text-primary flex items-center justify-center shrink-0">
                       <Calendar className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 group-hover:underline">
+                      <h4 className="text-sm font-bold text-primary group-hover:underline">
                         Regularize Attendance
                       </h4>
-                      <p className="text-xs text-zinc-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         Correct or submit the missing attendance details.
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                 </button>
 
                 {/* Option 2: Apply Leave (shown if missing both or full day issue) */}
                 {missingType === "MISSING_BOTH" && (
                   <button
                     onClick={() => onApplyLeave?.(record)}
-                    className="w-full p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-between group text-left shadow-xs hover:shadow-sm"
+                    className="w-full p-4 rounded-2xl border border-border bg-background/60 hover:bg-accent transition-all flex items-center justify-between group text-left shadow-xs hover:shadow-sm"
                   >
                     <div className="flex items-center gap-3.5">
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -645,12 +648,12 @@ export function AttendanceDetailsDrawer({
                         <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline">
                           Apply Leave
                         </h4>
-                        <p className="text-xs text-zinc-400 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           Apply for leave for this date instead.
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 )}
               </div>
@@ -661,7 +664,7 @@ export function AttendanceDetailsDrawer({
               <div className="pt-2">
                 <button
                   onClick={() => onRequestCompOff?.(record)}
-                  className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition-colors"
+                  className="w-full py-3 px-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition-colors"
                 >
                   <Calendar className="w-4 h-4" />
                   <span>Compensatory Request</span>
@@ -670,55 +673,54 @@ export function AttendanceDetailsDrawer({
             )}
 
             {/* ── SECTION: WORK DETAILS ───────────────────────────────────── */}
-            <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+            <div className="space-y-3 pt-3 border-t border-border">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
                 <span className="w-2 h-2 rounded-full bg-purple-600" />
                 <span>
-                  {isWorkingNow || isActionRequired || isHolidayWork
-                    ? "WORK DETAILS (Live)"
-                    : "WORK DETAILS"}
+                  {/* Only an open session is live — a past day's figures are final. */}
+                  {isWorkingNow ? "WORK DETAILS (Live)" : "WORK DETAILS"}
                 </span>
               </div>
 
               {record.workedDuration ? (
                 <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                    <Clock className="w-4 h-4 text-zinc-400" />
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     Worked Duration
                   </span>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                  <span className="font-bold text-foreground">
                     {record.workedDuration}
                   </span>
                 </div>
               ) : isActionRequired ? (
                 <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                    <Clock className="w-4 h-4 text-zinc-400" />
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     Worked Duration
                   </span>
-                  <span className="font-bold text-zinc-400">-</span>
+                  <span className="font-bold text-muted-foreground">-</span>
                 </div>
               ) : isFullLeave ? (
-                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 flex items-center justify-center text-zinc-400">
+                <div className="p-4 rounded-xl border border-border bg-muted/40 flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 flex items-center justify-center text-muted-foreground">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <h5 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                    <h5 className="text-sm font-bold text-foreground">
                       No attendance recorded
                     </h5>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       You were on leave for this day.
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                    <Clock className="w-4 h-4 text-zinc-400" />
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     Worked Duration
                   </span>
-                  <span className="font-bold text-zinc-400">-</span>
+                  <span className="font-bold text-muted-foreground">-</span>
                 </div>
               )}
             </div>

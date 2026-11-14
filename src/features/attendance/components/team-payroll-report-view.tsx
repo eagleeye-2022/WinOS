@@ -15,6 +15,7 @@ import { TeamPayrollItem } from "../types";
 import { getTeamPayrollReportData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { currentMonthLabel } from "../utils";
+import { PersonAvatar } from "./person-avatar";
 
 export function TeamPayrollReportView() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthLabel);
@@ -57,51 +58,48 @@ export function TeamPayrollReportView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Team Payroll Report
           </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            Calculated attendance metrics for monthly payroll processing.
-          </p>
         </div>
 
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-bold hover:bg-zinc-50 transition-colors shadow-xs">
-          <Download className="w-3.5 h-3.5 text-zinc-500" />
+        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-xs">
+          <Download className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Export Payroll Report</span>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 ml-0.5" />
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
         </button>
       </div>
 
       {/* Filter Row */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-card border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center flex-wrap gap-2.5">
           {/* Month Picker */}
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+          <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <span>{selectedMonth}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>
 
         {/* Search */}
         <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search team member..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 text-xs text-zinc-800 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
       {/* Payroll Table */}
-      <div className="rounded-2xl bg-white dark:bg-card border border-zinc-200/90 dark:border-zinc-800 overflow-hidden shadow-xs">
+      <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Company Working Days</th>
                 <th className="py-3.5 px-5">Expected Payable Days</th>
@@ -115,14 +113,14 @@ export function TeamPayrollReportView() {
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-zinc-400">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading payroll data...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-zinc-400">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     No payroll data found.
                   </td>
                 </tr>
@@ -130,24 +128,17 @@ export function TeamPayrollReportView() {
                 filteredItems.map((item) => (
                   <tr
                     key={item.id}
-                    className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors"
+                    className="hover:bg-muted/50 transition-colors"
                   >
                     {/* Employee */}
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            item.avatarUrl ||
-                            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                          }
-                          alt={item.name}
-                          className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-                        />
+                        <PersonAvatar name={item.name} image={item.avatarUrl} />
                         <div>
-                          <div className="font-bold text-zinc-900 dark:text-zinc-100">
+                          <div className="font-bold text-foreground">
                             {item.name}
                           </div>
-                          <div className="text-xs text-zinc-400">
+                          <div className="text-xs text-muted-foreground">
                             {item.designation}
                           </div>
                         </div>
@@ -155,12 +146,12 @@ export function TeamPayrollReportView() {
                     </td>
 
                     {/* Company Working Days */}
-                    <td className="py-3.5 px-5 font-semibold text-zinc-700 dark:text-zinc-300">
+                    <td className="py-3.5 px-5 font-semibold text-foreground">
                       {item.companyWorkingDays}
                     </td>
 
                     {/* Expected Payable Days */}
-                    <td className="py-3.5 px-5 font-semibold text-zinc-800 dark:text-zinc-200">
+                    <td className="py-3.5 px-5 font-semibold text-foreground">
                       {item.expectedPayableDays}
                     </td>
 
@@ -175,7 +166,7 @@ export function TeamPayrollReportView() {
                     </td>
 
                     {/* Paid Offs */}
-                    <td className="py-3.5 px-5 font-semibold text-blue-600 dark:text-blue-400">
+                    <td className="py-3.5 px-5 font-semibold text-primary">
                       {item.paidOffs}
                     </td>
 
@@ -185,7 +176,7 @@ export function TeamPayrollReportView() {
                     </td>
 
                     {/* Total Days */}
-                    <td className="py-3.5 px-5 font-extrabold text-zinc-900 dark:text-zinc-100">
+                    <td className="py-3.5 px-5 font-bold text-foreground">
                       {item.totalDays}
                     </td>
                   </tr>
@@ -196,16 +187,16 @@ export function TeamPayrollReportView() {
         </div>
 
         {/* Footer Pagination */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
           <div>
-            Showing <span className="font-bold text-zinc-800 dark:text-zinc-200">{filteredItems.length}</span> members
+            Showing <span className="font-bold text-foreground">{filteredItems.length}</span> members
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 disabled:opacity-40">
+            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="font-bold text-zinc-800 dark:text-zinc-200">1</span>
-            <button className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 disabled:opacity-40">
+            <span className="font-bold text-foreground">1</span>
+            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -191,7 +191,10 @@ export function AttendanceWorkspace({
       date: record.date,
       formattedDate: record.formattedDate,
       dayName: record.dayOfWeek,
-      issue: record.actionRequiredReason || "Missing Check-out",
+      // Describe what's actually missing, so the reason defaults correctly.
+      issue:
+        record.actionRequiredReason ||
+        (record.checkInTime && !record.checkOutTime ? "Missing Check-out" : "Missing Check-in & Check-out"),
     };
     setSelectedActionItem(item);
     setIsRegularizeModalOpen(true);
@@ -242,14 +245,14 @@ export function AttendanceWorkspace({
     <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
       <div className="max-w-[1600px] w-full mx-auto space-y-6">
         {/* Top Main Navigation Tabs */}
-        <div className="flex items-center border-b border-zinc-200 dark:border-zinc-800 gap-8">
+        <div className="flex items-center border-b border-border gap-8">
           <button
             onClick={() => setActiveTab("my-attendance")}
             className={cn(
               "pb-3 text-sm font-bold border-b-2 transition-colors relative",
               activeTab === "my-attendance"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
+                ? "border-blue-600 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
             )}
           >
             Attendance Records
@@ -264,8 +267,8 @@ export function AttendanceWorkspace({
               className={cn(
                 "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
                 activeTab === "team-attendance"
-                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
+                  ? "border-blue-600 text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
               )}
             >
               Team Attendance
@@ -280,8 +283,8 @@ export function AttendanceWorkspace({
             className={cn(
               "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
               activeTab === "regularization"
-                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
+                ? "border-blue-600 text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
             )}
           >
             Regularization Request
@@ -294,24 +297,21 @@ export function AttendanceWorkspace({
             {/* Header Row: Title & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                <h1 className="text-2xl font-bold text-foreground tracking-tight">
                   My Attendance
                 </h1>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                  Track your daily attendance and work hours
-                </p>
               </div>
 
               {/* View Switcher & Date Navigation */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60">
+                <div className="flex items-center p-1 rounded-xl bg-muted border border-input/60">
                   <button
                     onClick={() => setViewMode("week")}
                     className={cn(
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "week"
-                        ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
-                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+                        ? "bg-card text-primary shadow-xs"
+                        : "text-muted-foreground hover:text-zinc-900"
                     )}
                   >
                     Week
@@ -321,8 +321,8 @@ export function AttendanceWorkspace({
                     className={cn(
                       "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
                       viewMode === "month"
-                        ? "bg-white dark:bg-card text-blue-600 dark:text-blue-400 shadow-xs"
-                        : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
+                        ? "bg-card text-primary shadow-xs"
+                        : "text-muted-foreground hover:text-zinc-900"
                     )}
                   >
                     Month
@@ -331,25 +331,45 @@ export function AttendanceWorkspace({
 
                 <button
                   onClick={handlePrev}
-                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs transition-colors"
+                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                <button
-                  onClick={() => goToDate(todayKey)}
-                  title="Go to today"
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200 shadow-xs"
+                {/* The label opens a real month picker; "Today" jumps back. */}
+                <label
+                  title="Pick a month"
+                  className="relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs cursor-pointer whitespace-nowrap"
                 >
                   <span>
                     {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
                   </span>
-                  <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-                </button>
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="month"
+                    aria-label="Pick a month"
+                    value={`${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`}
+                    onChange={(e) => {
+                      const month = e.target.value;
+                      if (!month) return;
+                      goToDate(todayKey.slice(0, 7) === month ? todayKey : `${month}-01`);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                </label>
+
+                {selectedDate !== todayKey && (
+                  <button
+                    onClick={() => goToDate(todayKey)}
+                    className="px-3 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs hover:bg-accent"
+                  >
+                    Today
+                  </button>
+                )}
 
                 <button
                   onClick={handleNext}
-                  className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 shadow-xs transition-colors"
+                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -364,8 +384,8 @@ export function AttendanceWorkspace({
 
             {/* View Content */}
             {isLoading ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-400">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 <span className="text-xs font-semibold">Loading attendance data...</span>
               </div>
             ) : viewMode === "week" ? (
@@ -403,6 +423,7 @@ export function AttendanceWorkspace({
                 onSelectDate={handleOpenDrawer}
                 monthIndex={currentMonthIndex}
                 year={currentYear}
+                todayKey={todayKey}
               />
             )}
           </>
@@ -521,7 +542,16 @@ export function AttendanceWorkspace({
         <RegularizeAttendanceModal
           isOpen={isRegularizeModalOpen}
           onClose={() => setIsRegularizeModalOpen(false)}
-          item={selectedActionItem}
+          target={
+            selectedActionItem
+              ? {
+                  dateKey: selectedActionItem.date,
+                  label: `${selectedActionItem.formattedDate} (${selectedActionItem.dayName})`,
+                  issue: selectedActionItem.issue,
+                  existingCheckIn: recordsMap[selectedActionItem.date]?.checkInTime,
+                }
+              : null
+          }
           onSubmitSuccess={() => {
             fetchAttendance();
             if (selectedActionItem) {

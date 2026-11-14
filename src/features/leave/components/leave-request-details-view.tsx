@@ -47,12 +47,14 @@ import { errorMessage, unwrap } from "../action-result";
 import { getLeaveRequestByIdAction } from "../queries/leave-queries";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface LeaveRequestDetailsViewProps {
   request: LeaveRequest;
   leaveTypes: LeaveTypeConfig[];
   onCancelRequest?: (id: string) => void;
   onBack?: () => void;
+  /** Someone else's request, opened by a manager: Approve / Reject show. Never on your own request. */
   isManagerView?: boolean;
 }
 
@@ -63,6 +65,8 @@ export function LeaveRequestDetailsView({
   onBack,
   isManagerView = false,
 }: LeaveRequestDetailsViewProps) {
+  // Nobody approves their own leave (the server refuses it too).
+  const showReview = isManagerView;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"approval" | "balance">("approval");
   const [status, setStatus] = useState<LeaveStatus>(request.status);
@@ -150,7 +154,7 @@ export function LeaveRequestDetailsView({
 
   const employee = request.employee || {
     name: "Employee",
-    empId: "EMP001",
+    empId: "—",
     role: "Team Member",
   };
 
@@ -319,7 +323,7 @@ export function LeaveRequestDetailsView({
           type="button"
           variant="outline"
           onClick={handlePrint}
-          className="h-9 px-4 rounded-xl text-xs font-semibold gap-2 self-start sm:self-auto border-border"
+          className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto border-border"
         >
           <Printer className="w-4 h-4" />
           <span>Print</span>
@@ -345,13 +349,14 @@ export function LeaveRequestDetailsView({
               <div className="space-y-1.5">
                 <span className="text-muted-foreground font-medium text-xs">Employee</span>
                 <div className="flex items-center gap-3 pt-0.5">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
-                    {employee.avatarUrl ? (
-                      <img src={employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{employee.name.slice(0, 2).toUpperCase()}</span>
-                    )}
-                  </div>
+                  <UserAvatar
+                    userId={employee.id}
+                    name={employee.name}
+                    image={employee.avatarUrl}
+                    className="w-9 h-9 bg-primary/10 border border-primary/20 text-primary font-bold text-xs"
+                  >
+                    {employee.name.slice(0, 2).toUpperCase()}
+                  </UserAvatar>
                   <div>
                     <div className="font-bold text-foreground text-sm leading-tight">
                       {employee.name}
@@ -495,22 +500,22 @@ export function LeaveRequestDetailsView({
                   variant="outline"
                   disabled={isProcessing}
                   onClick={handleCancel}
-                  className="h-10 px-5 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted border-border flex items-center gap-1.5"
+                  className="h-10 px-5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted border-border flex items-center gap-1.5"
                 >
                   <X className="w-4 h-4" />
                   <span>Cancel Request</span>
                 </Button>
               )}
 
-              {/* Manager Actions: Reject / Approve */}
-              {isManagerView && (
+              {/* Manager Actions: Reject / Approve (a manager's own request included) */}
+              {showReview && (
                 <>
                   <Button
                     type="button"
                     variant="outline"
                     disabled={isProcessing}
                     onClick={handleReject}
-                    className="h-10 px-6 rounded-xl text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
+                    className="h-10 px-6 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
                   >
                     <X className="w-4 h-4 text-red-500" />
                     <span>{isProcessing ? "Processing..." : "Reject"}</span>
@@ -521,7 +526,7 @@ export function LeaveRequestDetailsView({
                     variant="outline"
                     disabled={isProcessing}
                     onClick={handleApprove}
-                    className="h-10 px-6 rounded-xl text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
+                    className="h-10 px-6 rounded-lg text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
                   >
                     <Check className="w-4 h-4 text-emerald-500" />
                     <span>{isProcessing ? "Processing..." : "Approve"}</span>
@@ -644,7 +649,8 @@ export function LeaveRequestDetailsView({
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {step.actorName} {step.actorRole ? `(${step.actorRole})` : ""}
+                          {step.actorName}
+                          {step.actorRole && step.actorRole !== step.actorName ? ` (${step.actorRole})` : ""}
                         </p>
                         {step.dateStr && (
                           <p className="text-xs text-muted-foreground/80">{step.dateStr}</p>

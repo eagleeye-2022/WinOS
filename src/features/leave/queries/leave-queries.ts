@@ -3,11 +3,12 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange } from "@/features/attendance/attendance-data";
-import { addDaysToKey, formatShortDate, fullDayName, istDateKey } from "@/features/attendance/utils";
+import { addDaysToKey, employeeCode, formatShortDate, fullDayName, istDateKey } from "@/features/attendance/utils";
 import { accruedAllocation, checkEligibility } from "../leave-rules";
 import { effectiveAvailable } from "../balance";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { canManageUser, managedUserIds, scopeWhere } from "@/features/attendance/team-scope";
+import { approverIdsFor, loadRequester, type ApproverRole } from "../approval-flow";
 
 /** Fresh role data for the signed-in user (the JWT may be stale). */
 async function currentViewer(userId: string) {
@@ -25,6 +26,40 @@ async function requireLeaveManager() {
   const viewer = await currentViewer(session.user.id);
   if (!viewer || !canManageAttendance(viewer)) throw new Error("Forbidden");
   return { viewer, scope: await managedUserIds(viewer) };
+}
+
+/**
+ * A manager's approval queue: the people they manage, minus their own requests (those go to
+ * someone else — nobody approves their own).
+ */
+function teamQueueWhere(viewerId: string, scope: Set<string> | null) {
+  return { userId: scope === null ? { not: viewerId } : { in: [...scope].filter((id) => id !== viewerId) } };
+}
+
+/**
+ * Who a still-pending step is waiting on, by name — "Asha Rao", "Asha Rao, Vikram S" or
+ * "Any manager" — instead of just the role. One lookup per role per requester.
+ */
+function pendingApproverNames(userId: string) {
+  const cache = new Map<string, Promise<string | null>>();
+  return (role: string | null): Promise<string | null> => {
+    const key = role || "Reporting Manager";
+    if (!cache.has(key)) {
+      cache.set(
+        key,
+        (async () => {
+          const requester = await loadRequester(userId);
+          if (!requester) return null;
+          const ids = await approverIdsFor(key as ApproverRole, requester);
+          if (ids.length === 0) return null;
+          if (ids.length > 2) return key === "HR Admin" ? "Any admin" : "Any manager";
+          const users = await db.user.findMany({ where: { id: { in: ids } }, select: { name: true, email: true } });
+          return users.map((u) => u.name || u.email).join(", ") || null;
+        })().catch(() => null)
+      );
+    }
+    return cache.get(key)!;
+  };
 }
 
 const ACTION_LOOKBACK_DAYS = 30;
@@ -114,10 +149,39 @@ export interface FormattedCompensatoryRequest {
 
 // ── 1. GET TRACKER DATA FOR LOGGED-IN USER ───────────────────────────────────
 
-export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear()) {
+/**
+ * People the signed-in user can apply leave for besides themselves: everyone they manage (managers),
+ * nobody otherwise. Internal staff only, sorted by name.
+ */
+export async function getLeaveApplicantOptionsAction(): Promise<{ id: string; name: string }[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const viewer = await currentViewer(session.user.id);
+  if (!viewer || !canManageAttendance(viewer)) return [];
+  const scope = await managedUserIds(viewer);
+  const users = await db.user.findMany({
+    where: {
+      isActive: true,
+      id: { not: viewer.id },
+      OR: [{ profileRole: null }, { profileRole: { not: "CLIENT" } }],
+      ...scopeWhere(scope, "id"),
+    },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+  return users.map((u) => ({ id: u.id, name: u.name || u.email }));
+}
+
+/** `forUserId` (managers only): another employee's balances and requests, to apply leave on their behalf. */
+export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(), forUserId?: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
-  const userId = session.user.id;
+  let userId = session.user.id;
+  if (forUserId && forUserId !== userId) {
+    const viewer = await currentViewer(userId);
+    if (!viewer || !(await canManageUser(viewer, forUserId))) throw new Error("Forbidden");
+    userId = forUserId;
+  }
 
   // 1. Fetch balances
   const userBalances = await db.userLeaveBalance.findMany({
@@ -142,7 +206,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     remainingDays: available[i],
     bookedDays: b.bookedDays,
     allocatedDays: b.allocatedDays,
-    unit: b.leaveType.allowHourly ? "Hour(s)" : "Day(s)",
+    unit: "Day(s)", // balances are always kept in days (allowHourly only allows hourly requests)
     iconName: b.leaveType.icon,
     iconBgColor: b.leaveType.iconBgColor || "bg-primary/10 text-primary",
     iconTextColor: b.leaveType.iconTextColor || "text-primary",
@@ -172,7 +236,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       remainingDays: isComp ? 0 : accruedAllocation(t.allocationFrequency, t.annualEntitlement, t.annualEntitlement, asOfKey),
       bookedDays: 0,
       allocatedDays: isComp ? 0 : t.annualEntitlement,
-      unit: t.allowHourly ? "Hour(s)" : "Day(s)",
+      unit: "Day(s)",
       iconName: t.icon,
       iconBgColor: t.iconBgColor || "bg-primary/10 text-primary",
       iconTextColor: t.iconTextColor || "text-primary",
@@ -193,6 +257,17 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Name the people a pending step is waiting on (one lookup per role).
+  const namesFor = pendingApproverNames(userId);
+  const pendingRoles = [
+    ...new Set(
+      requests.flatMap((r) =>
+        r.approvalSteps.filter((s) => s.status === "PENDING" && !s.approverName).map((s) => s.approverRole || "Reporting Manager")
+      )
+    ),
+  ];
+  const pendingNames = new Map(await Promise.all(pendingRoles.map(async (role) => [role, await namesFor(role)] as const)));
 
   const formattedRequests: FormattedLeaveRequest[] = requests.map((r) => {
     const fromStr = r.fromDate.toLocaleDateString("en-GB", {
@@ -239,7 +314,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       employee: {
         id: r.user.id,
         name: r.user.name || "Employee",
-        empId: r.user.employeeId || "EMP001",
+        empId: employeeCode(r.user.employeeId, r.user.id),
         role: r.user.title || "Team Member",
         avatarUrl: r.user.image || undefined,
         department: r.user.department || undefined,
@@ -257,7 +332,9 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
           title: s.stepName,
           actorName:
             s.approverName ||
-            (s.approverRole === "Applicant" ? r.user.name || "Employee" : s.approverRole || "Approver"),
+            (s.approverRole === "Applicant"
+              ? r.user.name || "Employee"
+              : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
           actorRole: s.approverRole || undefined,
           dateStr: s.actionDate
             ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
@@ -322,7 +399,14 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   const lookbackStart = addDaysToKey(todayKey, -ACTION_LOOKBACK_DAYS);
   const lookbackKeys: string[] = [];
   for (let k = lookbackStart; k < todayKey; k = addDaysToKey(k, 1)) lookbackKeys.push(k);
-  const attendanceRange = await loadAttendanceRange([userId], lookbackStart, todayKey);
+  // The year's days so far (up to yesterday) — for the "Absent" figure below.
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31` < todayKey ? `${year}-12-31` : addDaysToKey(todayKey, -1);
+  const yearKeys: string[] = [];
+  for (let k = yearStart; k <= yearEnd; k = addDaysToKey(k, 1)) yearKeys.push(k);
+  // One load covers both ranges.
+  const rangeStart = yearStart < lookbackStart ? yearStart : lookbackStart;
+  const attendanceRange = await loadAttendanceRange([userId], rangeStart, todayKey > yearEnd ? todayKey : yearEnd);
 
   const formattedActionRequired = attendanceRange
     .daysFor(userId, lookbackKeys)
@@ -338,10 +422,17 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
 
   // Stats
   const totalBookedThisYear = userBalances.reduce((acc, b) => acc + b.bookedDays, 0);
-  const totalAbsentDays = userBalances.reduce((acc, b) => acc + b.lossOfPayDays, 0);
+  // Absent = working days with no attendance and no leave, from the same day resolver Home's
+  // "Loss of pay" card and payroll use (balance lossOfPayDays only covers leave over the balance,
+  // so it read 0 for plain absences).
+  const totalAbsentDays =
+    Math.round(attendanceRange.daysFor(userId, yearKeys).reduce((acc, d) => acc + d.resolved.absent, 0) * 100) / 100;
 
+  // A manager may review someone else's requests here (applying on their behalf) — never their own.
+  const signedIn = await currentViewer(session.user.id);
   return {
     currentUserId: userId,
+    canReview: canManageAttendance(signedIn) && userId !== session.user.id,
     balances,
     requests: formattedRequests,
     compensatoryRequests: formattedCompRequests,
@@ -361,10 +452,11 @@ export async function getTeamLeaveRequestsAction(filters?: {
   leaveTypeCode?: string;
   department?: string;
 }) {
-  const { scope } = await requireLeaveManager();
+  const { viewer, scope } = await requireLeaveManager();
+  const team = teamQueueWhere(viewer.id, scope);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = { ...scopeWhere(scope) };
+  const whereClause: any = { ...team };
 
   if (filters?.status && filters.status !== "ALL") {
     whereClause.status = filters.status;
@@ -395,6 +487,9 @@ export async function getTeamLeaveRequestsAction(filters?: {
     avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
     leaveType: `${r.leaveType.name} (${r.leaveType.code})`,
     leaveTypeCode: r.leaveType.code,
+    /** "YYYY-MM-DD" — for the month filter. */
+    fromKey: r.fromDate.toISOString().slice(0, 10),
+    toKey: r.toDate.toISOString().slice(0, 10),
     duration:
       r.durationType === "HALF_DAY"
         ? `${r.durationDays} Day`
@@ -416,7 +511,6 @@ export async function getTeamLeaveRequestsAction(filters?: {
   }));
 
   // Counts for metric cards
-  const team = scopeWhere(scope);
   const pendingCount = await db.leaveRequest.count({ where: { ...team, status: "PENDING" } });
   const approvedCount = await db.leaveRequest.count({ where: { ...team, status: "APPROVED" } });
   const rejectedCount = await db.leaveRequest.count({ where: { ...team, status: "REJECTED" } });
@@ -441,10 +535,11 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
   search?: string;
   status?: string;
 }) {
-  const { scope } = await requireLeaveManager();
+  const { viewer, scope } = await requireLeaveManager();
+  const team = teamQueueWhere(viewer.id, scope);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = { ...scopeWhere(scope) };
+  const whereClause: any = { ...team };
   if (filters?.status && filters.status !== "ALL") {
     whereClause.status = filters.status;
   }
@@ -471,6 +566,9 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
       year: "numeric",
     }),
     workDay: c.workDate.toLocaleDateString("en-US", { weekday: "short" }),
+    /** "YYYY-MM-DD" — for the month filter. */
+    workKey: c.workDate.toISOString().slice(0, 10),
+    department: c.user.department || "General",
     hoursWorked: `${c.fromTime} - ${c.toTime}\n${c.hoursWorked} Hours`,
     duration: c.duration === "FULL_DAY" ? "Full Day" : c.duration === "HALF_DAY" ? "Half Day" : "Quarter Day",
     reason: c.reason,
@@ -483,7 +581,6 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
     }),
   }));
 
-  const team = scopeWhere(scope);
   const pending = await db.compensatoryRequest.count({ where: { ...team, status: "PENDING" } });
   const approved = await db.compensatoryRequest.count({ where: { ...team, status: "APPROVED" } });
   const rejected = await db.compensatoryRequest.count({ where: { ...team, status: "REJECTED" } });
@@ -514,12 +611,11 @@ export async function getCompensatoryRequestByIdAction(requestId: string) {
   });
   if (!c) return null;
 
-  let canReview = false;
-  if (c.userId !== session.user.id) {
-    const viewer = await currentViewer(session.user.id);
-    if (!viewer || !(await canManageUser(viewer, c.userId))) return null;
-    canReview = true;
-  }
+  // Managers review other people's comp-offs; everyone sees their own read-only (no self-approval).
+  const own = c.userId === session.user.id;
+  const viewer = own ? null : await currentViewer(session.user.id);
+  const canReview = Boolean(viewer && (await canManageUser(viewer, c.userId)));
+  if (!own && !canReview) return null;
 
   // Calendar dates are stored as UTC midnight; timestamps are shown in IST.
   const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
@@ -531,7 +627,7 @@ export async function getCompensatoryRequestByIdAction(requestId: string) {
     id: c.id,
     canReview,
     employeeName: c.user.name || "Employee",
-    employeeCode: c.user.employeeId || undefined,
+    employeeCode: employeeCode(c.user.employeeId, c.userId),
     designation: c.user.title || "Team Member",
     avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
     workDate: day(c.workDate),
@@ -623,8 +719,8 @@ export async function getLeaveTypesAction() {
       code: t.code,
       description: t.description || "",
       category: t.category === "PAID" ? "Paid Leave" : "Unpaid Leave",
-      unit: t.allowHourly ? "Hour(s)" : "Day(s)",
-      entitlement: `${t.annualEntitlement} ${t.allowHourly ? "hours" : "days"} / ${t.allocationFrequency === "MONTHLY" ? "month" : "Year"}`,
+      unit: "Day(s)",
+      entitlement: `${t.annualEntitlement} days / ${t.allocationFrequency === "MONTHLY" ? "month" : t.allocationFrequency === "QUARTERLY" ? "quarter" : "year"}`,
       isActive: t.isActive,
       icon: t.icon,
       iconBg: t.iconBgColor || "bg-primary/10 text-primary",
@@ -673,10 +769,17 @@ export async function getHolidaysAction(year = Number(istDateKey().slice(0, 4)))
 // ── 6. GET EMPLOYEES FOR BALANCE ADJUSTMENT ──────────────────────────────────
 
 export async function getEmployeesForAdjustmentAction() {
-  const { scope } = await requireLeaveManager();
+  const { viewer, scope } = await requireLeaveManager();
+  const year = Number(istDateKey().slice(0, 4));
   const [users, allLeaveTypes] = await Promise.all([
     db.user.findMany({
-      where: { isActive: true, ...scopeWhere(scope, "id") },
+      // Nobody adjusts their own balance; project clients don't take leave.
+      where: {
+        isActive: true,
+        id: { not: viewer.id },
+        OR: [{ profileRole: null }, { profileRole: { not: "CLIENT" } }],
+        ...scopeWhere(scope, "id"),
+      },
       select: {
         id: true,
         name: true,
@@ -686,6 +789,7 @@ export async function getEmployeesForAdjustmentAction() {
         title: true,
         image: true,
         userLeaveBalances: {
+          where: { year },
           include: { leaveType: true },
         },
       },
@@ -712,26 +816,28 @@ export async function getEmployeesForAdjustmentAction() {
           booked: b.bookedDays,
           adjusted: b.adjustedDays,
           available: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
-          unit: t.allowHourly ? "Hours" : "Days",
+          unit: "Days",
         };
       }
+      // No row yet: adjusting opens one with the yearly entitlement (comp-off starts at 0).
+      const opening = t.code === "COMP" ? 0 : t.annualEntitlement;
       return {
         id: `virtual-${t.id}`,
         leaveTypeId: t.id,
         leaveTypeCode: t.code,
         leaveTypeName: t.name,
-        allocated: 0,
+        allocated: opening,
         booked: 0,
         adjusted: 0,
-        available: 0,
-        unit: t.allowHourly ? "Hours" : "Days",
+        available: opening,
+        unit: "Days",
       };
     });
 
     return {
       id: u.id,
       name: u.name || "Employee",
-      empId: u.employeeId || "EMP001",
+      empId: employeeCode(u.employeeId, u.id),
       role: u.title || "Team Member",
       department: u.department || "General",
       avatarUrl: u.image || undefined,
@@ -783,6 +889,16 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     year: "numeric",
   });
 
+  const namesFor = pendingApproverNames(request.userId);
+  const pendingRoles = [
+    ...new Set(
+      request.approvalSteps
+        .filter((s) => s.status === "PENDING" && !s.approverName)
+        .map((s) => s.approverRole || "Reporting Manager")
+    ),
+  ];
+  const pendingNames = new Map(await Promise.all(pendingRoles.map(async (role) => [role, await namesFor(role)] as const)));
+
   const formattedRequest: FormattedLeaveRequest = {
     id: request.id,
     leaveTypeCode: request.leaveType.code,
@@ -816,7 +932,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     employee: {
       id: request.user.id,
       name: request.user.name || "Employee",
-      empId: request.user.employeeId || "EMP001",
+      empId: employeeCode(request.user.employeeId, request.user.id),
       role: request.user.title || "Team Member",
       avatarUrl: request.user.image || undefined,
       department: request.user.department || undefined,
@@ -834,7 +950,9 @@ export async function getLeaveRequestByIdAction(requestId: string) {
         title: s.stepName,
         actorName:
           s.approverName ||
-          (s.approverRole === "Applicant" ? request.user.name || "Employee" : s.approverRole || "Approver"),
+          (s.approverRole === "Applicant"
+            ? request.user.name || "Employee"
+            : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
         actorRole: s.approverRole || undefined,
         dateStr: s.actionDate
           ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
@@ -851,7 +969,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     name: b.leaveType.name,
     remainingDays: b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays,
     bookedDays: b.bookedDays,
-    unit: b.leaveType.allowHourly ? "Hours" : "Days",
+    unit: "Days",
     iconName: b.leaveType.icon,
     iconBgColor: b.leaveType.iconBgColor || "bg-primary/10 text-primary",
     iconTextColor: b.leaveType.iconTextColor || "text-primary",
@@ -949,7 +1067,7 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
       leavesByDate[dateKey].push({
         id: r.id,
         employeeName: r.user.name || "Employee",
-        employeeId: r.user.employeeId || "EMP001",
+        employeeId: employeeCode(r.user.employeeId, r.user.id),
         avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
         avatarUrl: r.user.image || undefined,
         role: r.user.title || "Team Member",

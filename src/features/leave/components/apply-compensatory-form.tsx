@@ -20,7 +20,8 @@ import { CompDurationType, CompensatoryRequest, LeaveAttachment } from "../types
 import { applyCompensatoryAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 import { uploadAttachment } from "../upload-attachment";
-import { addDaysToKey, istDateKey } from "@/features/attendance/utils";
+import { addDaysToKey, istDateKey, normalizeTime, workedMinutesBetween } from "@/features/attendance/utils";
+import { compOffDurationError } from "../leave-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface ApplyCompensatoryFormProps {
-  onSubmitCompensatory: (newComp: CompensatoryRequest) => void;
+  onSubmitCompensatory?: (newComp: CompensatoryRequest) => void;
   onCancel?: () => void;
 }
 
@@ -53,37 +54,45 @@ export function ApplyCompensatoryForm({
   /** The picked files, by attachment id — uploaded on submit. */
   const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const todayKey = istDateKey();
 
-  // Format date helper
+  // Calendar-date keys read as UTC, so the weekday never shifts with the browser's time zone.
   const formatDateWithWeekday = (dStr: string) => {
-    try {
-      const d = new Date(dStr);
-      if (isNaN(d.getTime())) return dStr;
-      const day = d.getDate();
-      const month = d.toLocaleDateString("en-US", { month: "short" });
-      const year = d.getFullYear();
-      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-      return `${day} ${month} ${year} (${weekday})`;
-    } catch {
-      return dStr;
-    }
+    const d = new Date(`${dStr}T00:00:00Z`);
+    if (isNaN(d.getTime())) return dStr;
+    const month = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+    const weekday = d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+    return `${d.getUTCDate()} ${month} ${d.getUTCFullYear()} (${weekday})`;
   };
 
-  // Auto calculate expiry date (1 month after work date)
+  // Expiry: one month after the work date (same rule as the server's compOffExpiry).
   const expiryDateFormatted = useMemo(() => {
-    try {
-      const d = new Date(workDate);
-      if (isNaN(d.getTime())) return "18 Jun 2025 (Wed)";
-      d.setMonth(d.getMonth() + 1);
-      const day = d.getDate();
-      const month = d.toLocaleDateString("en-US", { month: "short" });
-      const year = d.getFullYear();
-      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-      return `${day} ${month} ${year} (${weekday})`;
-    } catch {
-      return "18 Jun 2025 (Wed)";
-    }
+    const d = new Date(`${workDate}T00:00:00Z`);
+    if (isNaN(d.getTime())) return "—";
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    return formatDateWithWeekday(d.toISOString().slice(0, 10));
   }, [workDate]);
+
+  // Checked as you type, with the same rules the server applies.
+  const workedMinutes = useMemo(() => {
+    const from = normalizeTime(fromTime);
+    const to = normalizeTime(toTime);
+    return from && to ? workedMinutesBetween(from, to) : null;
+  }, [fromTime, toTime]);
+  const dateError = !workDate
+    ? "Pick the date you worked."
+    : workDate > todayKey
+    ? "You can't claim a comp-off for a future date."
+    : null;
+  const timeError =
+    !normalizeTime(fromTime) || !normalizeTime(toTime)
+      ? "Enter times as e.g. 09:30 AM."
+      : !workedMinutes
+      ? "The end time must be after the start time."
+      : null;
+  const durationError = workedMinutes ? compOffDurationError(durationType, workedMinutes) : null;
+  const inputError = dateError ?? timeError ?? durationError;
 
   const durationDetails = useMemo(() => {
     switch (durationType) {
@@ -116,6 +125,15 @@ export function ApplyCompensatoryForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    if (inputError) {
+      setSubmitError(inputError);
+      return;
+    }
+    if (!reason.trim()) {
+      setSubmitError("A reason is required.");
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -128,23 +146,18 @@ export function ApplyCompensatoryForm({
           fromTime,
           toTime,
           duration: durationType,
-          reason,
+          reason: reason.trim(),
           attachments: uploaded,
         })
       );
       const hours = Math.floor(res.hoursWorked);
       const mins = Math.round((res.hoursWorked - hours) * 60);
 
-      const d = new Date(workDate);
-      const day = d.getDate();
-      const month = d.toLocaleDateString("en-US", { month: "short" });
-      const year = d.getFullYear();
-      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-
+      const [dayPart, weekdayPart] = formatDateWithWeekday(workDate).split(" (");
       const newComp: CompensatoryRequest = {
         id: res.id,
-        workDate: `${day} ${month} ${year}`,
-        workDayOfWeek: weekday,
+        workDate: dayPart,
+        workDayOfWeek: (weekdayPart || "").replace(")", ""),
         hoursWorkedDisplay: `${fromTime} - ${toTime}\n${hours}h ${String(mins).padStart(2, "0")}m`,
         fromTime,
         toTime,
@@ -161,15 +174,15 @@ export function ApplyCompensatoryForm({
         attachments: attachments.length > 0 ? attachments : undefined,
       };
 
-      onSubmitCompensatory(newComp);
+      // The parent shows the confirmation and takes the user back to their comp-off list.
       setIsSubmitting(false);
-      if (onCancel) {
-        onCancel();
+      if (onSubmitCompensatory) {
+        onSubmitCompensatory(newComp);
       } else {
-        router.push("/pulse/leave");
+        router.push("/pulse/leave?tab=compensatory");
       }
     } catch (err) {
-      alert(errorMessage(err, "Failed to submit compensatory request."));
+      setSubmitError(errorMessage(err, "Failed to submit compensatory request."));
       setIsSubmitting(false);
     }
   };
@@ -193,9 +206,6 @@ export function ApplyCompensatoryForm({
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Compensatory Request
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Request compensatory leave for extra hours worked.
-          </p>
         </div>
       </div>
 
@@ -218,13 +228,13 @@ export function ApplyCompensatoryForm({
                   <Input
                     type="date"
                     value={workDate}
+                    max={todayKey}
+                    aria-invalid={Boolean(dateError)}
                     onChange={(e) => setWorkDate(e.target.value)}
-                    className="h-10 rounded-xl text-xs bg-background"
+                    className={cn("h-10 rounded-xl text-xs bg-background", dateError && "border-red-500")}
                     required
                   />
-                  <div className="text-xs text-muted-foreground font-medium pl-1">
-                    {formatDateWithWeekday(workDate)}
-                  </div>
+                  {dateError && <p className="text-xs text-red-600 dark:text-red-400">{dateError}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
@@ -260,6 +270,13 @@ export function ApplyCompensatoryForm({
                     </div>
                   </div>
                 </div>
+                {timeError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">{timeError}</p>
+                ) : workedMinutes ? (
+                  <p className="text-xs text-muted-foreground">
+                    {Math.floor(workedMinutes / 60)}h {String(workedMinutes % 60).padStart(2, "0")}m worked
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -338,6 +355,7 @@ export function ApplyCompensatoryForm({
                     <span>Quarter Day</span>
                   </button>
                 </div>
+                {durationError && <p className="text-xs text-red-600 dark:text-red-400 pt-1">{durationError}</p>}
               </div>
             </div>
 
@@ -453,10 +471,13 @@ export function ApplyCompensatoryForm({
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{expiryDateFormatted}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Expiry date is auto calculated as 1 month from work date.
-                </p>
               </div>
+
+              {submitError && (
+                <div role="alert" className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
+                  {submitError}
+                </div>
+              )}
 
               {/* Form Action Buttons */}
               <div className="flex items-center justify-between pt-4 border-t">
@@ -471,8 +492,8 @@ export function ApplyCompensatoryForm({
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="h-10 px-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                  disabled={isSubmitting || Boolean(inputError)}
+                  className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                 >
                   {isSubmitting ? "Submitting..." : "Submit Request"}
                 </Button>

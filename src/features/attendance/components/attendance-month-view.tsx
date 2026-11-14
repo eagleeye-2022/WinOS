@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { cn } from "@/lib/utils";
-import { addDaysToKey, monthKeys, weekKeysFor } from "../utils";
+import { addDaysToKey, istDateKey, monthKeys, weekKeysFor } from "../utils";
 
 interface AttendanceMonthViewProps {
   records: Record<string, AttendanceRecord>;
@@ -19,6 +19,8 @@ interface AttendanceMonthViewProps {
   onSelectDate: (record: AttendanceRecord) => void;
   monthIndex: number; // 0-based
   year: number;
+  /** "YYYY-MM-DD" in IST; defaults to now. */
+  todayKey?: string;
 }
 
 export function AttendanceMonthView({
@@ -27,6 +29,7 @@ export function AttendanceMonthView({
   onSelectDate,
   monthIndex,
   year,
+  todayKey = istDateKey(),
 }: AttendanceMonthViewProps) {
   const daysOfWeek = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
@@ -40,13 +43,13 @@ export function AttendanceMonthView({
   }
 
   return (
-    <div className="bg-white dark:bg-card rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
       {/* Calendar Header Row */}
-      <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 text-center bg-zinc-50/50 dark:bg-zinc-800/30">
+      <div className="grid grid-cols-7 border-b border-border text-center bg-muted/40">
         {daysOfWeek.map((day) => (
           <div
             key={day}
-            className="py-3 text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 border-r border-zinc-100 dark:border-zinc-800/60 last:border-r-0"
+            className="py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/60 last:border-r-0"
           >
             {day}
           </div>
@@ -69,7 +72,7 @@ export function AttendanceMonthView({
               className={cn(
                 "min-h-[105px] p-2.5 transition-colors cursor-pointer flex flex-col justify-between relative",
                 cell.isCurrentMonth
-                  ? "bg-white dark:bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                  ? "bg-card hover:bg-accent/60"
                   : "bg-zinc-50/40 dark:bg-card/30 text-zinc-300 dark:text-zinc-600",
                 isHoliday && "bg-blue-50/40 dark:bg-accent",
                 isSelected &&
@@ -82,16 +85,17 @@ export function AttendanceMonthView({
                   className={cn(
                     "text-xs font-bold",
                     cell.isCurrentMonth
-                      ? "text-zinc-700 dark:text-zinc-200"
+                      ? "text-foreground"
                       : "text-zinc-300 dark:text-zinc-600"
                   )}
                 >
                   {cell.day}
                 </span>
 
-                {isSelected && (
-                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
-                    {cell.day}
+                {/* The filled badge marks today only; the selected day just gets the ring. */}
+                {cell.dateStr === todayKey && (
+                  <span className="px-1.5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                    Today
                   </span>
                 )}
               </div>
@@ -101,7 +105,7 @@ export function AttendanceMonthView({
                 <div className="mt-1 space-y-1">
                   {/* Working now */}
                   {record.status === "WORKING_NOW" && (
-                    <div className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-1 text-xs font-bold text-primary">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                       <span>Working</span>
                     </div>
@@ -115,7 +119,7 @@ export function AttendanceMonthView({
                         <span>Present</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-zinc-400 pl-4 font-medium">
+                        <div className="text-xs text-muted-foreground pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -132,7 +136,7 @@ export function AttendanceMonthView({
                         <span>Half Day</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-zinc-400 pl-3.5 font-medium">
+                        <div className="text-xs text-muted-foreground pl-3.5 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -147,7 +151,7 @@ export function AttendanceMonthView({
                         <span>Early Leave</span>
                       </div>
                       {record.workedDuration && (
-                        <div className="text-xs text-zinc-400 pl-4 font-medium">
+                        <div className="text-xs text-muted-foreground pl-4 font-medium">
                           {record.workedDuration}
                         </div>
                       )}
@@ -161,7 +165,7 @@ export function AttendanceMonthView({
                         <ArrowRightCircle className="w-3 h-3" />
                         <span>{record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave"}</span>
                       </div>
-                      <div className="text-xs text-zinc-400 pl-4">
+                      <div className="text-xs text-muted-foreground pl-4">
                         {record.leaveInfo?.leaveType || "Leave"}
                       </div>
                     </div>
@@ -185,7 +189,7 @@ export function AttendanceMonthView({
                   {/* Holiday */}
                   {record.status === "HOLIDAY" && (
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                      <div className="flex items-center gap-1 text-xs font-bold text-primary">
                         <Calendar className="w-3 h-3" />
                         <span>Holiday</span>
                       </div>
@@ -197,7 +201,7 @@ export function AttendanceMonthView({
 
                   {/* Weekend */}
                   {record.status === "WEEKEND" && (
-                    <div className="flex items-center gap-1 text-xs text-zinc-400">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
                       <span>Weekend</span>
                     </div>
@@ -211,7 +215,7 @@ export function AttendanceMonthView({
       </div>
 
       {/* Bottom Legend */}
-      <div className="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-wrap items-center gap-6 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+      <div className="px-6 py-4 border-t border-border bg-muted/40 flex flex-wrap items-center gap-6 text-xs font-semibold text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span>Present</span>

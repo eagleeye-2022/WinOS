@@ -1,15 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-} from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import {
   ActionRequiredItem,
   CompensatoryRequest,
@@ -19,7 +13,7 @@ import {
 import { LeaveBalanceGrid } from "./leave-balance-grid";
 import { ActionRequiredBanner } from "./action-required-banner";
 import { LeaveRequestsTable } from "./leave-requests-table";
-import { RegularizeModal } from "./regularize-modal";
+import { RegularizeAttendanceModal } from "@/features/attendance/components/regularize-attendance-modal";
 import { CompensatoryRequestsTable } from "./compensatory-requests-table";
 import { ApplyCompensatoryForm } from "./apply-compensatory-form";
 import { HolidaysView } from "./holidays-view";
@@ -29,6 +23,7 @@ import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUrlState } from "@/lib/navigation/use-url-state";
+import { toast } from "@/components/shared/toast";
 import {
   getCompensatoryRequestByIdAction,
   getMyLeaveTrackerDataAction,
@@ -36,7 +31,6 @@ import {
 } from "../queries/leave-queries";
 import { cancelLeaveRequestAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
-import { submitRegularizationAction } from "@/features/attendance/actions/attendance-actions";
 
 type ActiveTab =
   | "overview"
@@ -174,6 +168,23 @@ export function LeaveWorkspace({
     loadData();
   }, []);
 
+  // Each view starts at the top, and the browser tab says which view this is.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+    const titles: Record<ActiveTab, string> = {
+      overview: "Leave Tracker",
+      requests: "My Leave Requests",
+      compensatory: "My Compensatory Requests",
+      holidays: "Holidays",
+      apply: "Apply for Leave",
+      "apply-compensatory": "Compensatory Request",
+      "request-details": "Leave Request Details",
+      "compensatory-details": "Compensatory Request Details",
+    };
+    document.title = `${titles[activeTab]} | WinOS`;
+  }, [activeTab]);
+
   // Handlers
   const handleViewRequest = (request: LeaveRequest) => {
     setSelectedRequest(request);
@@ -202,30 +213,6 @@ export function LeaveWorkspace({
     setIsRegularizeModalOpen(true);
   };
 
-  /** Returns an error message to show in the modal, or null on success. */
-  const handleRegularizeSubmit = async (
-    item: ActionRequiredItem,
-    checkIn: string,
-    checkOut: string,
-    reason: string
-  ): Promise<string | null> => {
-    try {
-      const res = await submitRegularizationAction({
-        missingDate: item.dateKey,
-        checkInTime: checkIn,
-        checkOutTime: checkOut,
-        reason,
-        issueDescription: item.issue,
-      });
-      if (!res.success) return res.message;
-      loadData();
-      return null;
-    } catch (err) {
-      console.error("Failed to regularize attendance:", err);
-      return "Failed to submit regularization. Please try again.";
-    }
-  };
-
   const handleApplyLeaveFromAction = (item: ActionRequiredItem) => {
     setPrefilledApplyDate(item.dateKey);
     setActiveTab("apply");
@@ -243,12 +230,13 @@ export function LeaveWorkspace({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
+    <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
       {/* 1. APPLY LEAVE VIEW */}
       {activeTab === "apply" && (
         <ApplyLeaveForm
           leaveTypes={leaveTypes}
           onSubmitLeave={(newReq) => {
+            toast.success(`Leave applied: ${newReq.durationText}.`);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedRequest(newReq as any);
             loadData();
@@ -263,6 +251,7 @@ export function LeaveWorkspace({
       {activeTab === "apply-compensatory" && (
         <ApplyCompensatoryForm
           onSubmitCompensatory={() => {
+            toast.success("Comp-off request submitted for approval.");
             loadData();
             setActiveTab("compensatory");
           }}
@@ -365,9 +354,6 @@ export function LeaveWorkspace({
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
                       Leave Tracker
                     </h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Manage your time off and leave requests
-                    </p>
                   </div>
 
                   <Button
@@ -389,32 +375,9 @@ export function LeaveWorkspace({
                         <span className="font-bold text-foreground">{stats.bookedThisYear} day(s)</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Absent : </span>
+                        <span className="text-muted-foreground" title="Working days with no check-in and no leave — the same days Home counts as loss of pay">Absent this year : </span>
                         <span className="font-bold text-foreground">{stats.absentDays} day(s)</span>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 self-end md:self-auto">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg border-border/80 text-muted-foreground"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border/80 rounded-lg text-xs font-medium text-foreground">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>01/01/2026 - 31/01/2026</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg border-border/80 text-muted-foreground"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
 
@@ -454,9 +417,6 @@ export function LeaveWorkspace({
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
                       Leave Requests
                     </h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Manage your time off and leave requests
-                    </p>
                   </div>
 
                   <Button
@@ -493,12 +453,19 @@ export function LeaveWorkspace({
           </>
         )}
 
-      {/* Regularize Modal */}
-      <RegularizeModal
-        item={regularizeItem}
+      {/* Regularize Modal — the same dialog My Attendance uses */}
+      <RegularizeAttendanceModal
         isOpen={isRegularizeModalOpen}
         onClose={() => setIsRegularizeModalOpen(false)}
-        onSubmit={handleRegularizeSubmit}
+        target={
+          regularizeItem
+            ? { dateKey: regularizeItem.dateKey, label: `${regularizeItem.date} (${regularizeItem.dayOfWeek})`, issue: regularizeItem.issue }
+            : null
+        }
+        onSubmitSuccess={() => {
+          toast.success("Regularization sent for approval.");
+          loadData();
+        }}
       />
     </div>
   );
