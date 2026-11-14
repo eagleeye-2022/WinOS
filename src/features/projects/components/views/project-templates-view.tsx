@@ -5,7 +5,6 @@ import {
   ArrowLeftToLine,
   ArrowRightLeft,
   ArrowRightToLine,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -52,6 +51,9 @@ import { TemplateTaskPage } from "./template-task-page";
 import { MoveTaskToTemplateDialog, TemplateMoveMenu } from "../template-move-menu";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { TaskMultiOwnerSelect, type OwnerUserOption } from "../task-multi-owner-select";
+import { AddTemplateTaskDrawer } from "../modals/add-template-task-drawer";
+import { TaskCardDueDate } from "../task-card-due-date";
+import { getSopLibraryForViewerAction } from "@/features/sop-checklists/actions/template-actions";
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
 import {
   BUILT_IN_PROJECT_TEMPLATES,
@@ -362,6 +364,8 @@ function TemplateBoard({
   };
   const [addingToPhase, setAddingToPhase] = useState<number | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  // The full "Add New Task" form (header button), open on this list.
+  const [drawerListIndex, setDrawerListIndex] = useState<number | null>(null);
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [renamingPhase, setRenamingPhase] = useState<number | null>(null);
@@ -371,9 +375,19 @@ function TemplateBoard({
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [ownerOptions, setOwnerOptions] = useState<OwnerUserOption[]>([]);
 
+  const [sopSteps, setSopSteps] = useState<SopStepCounts>(() => new Map());
+
   useEffect(() => {
     getAllUserOptionsAction()
       .then((opts) => setOwnerOptions(opts.map((o) => ({ id: o.id, name: o.name, email: "" }))))
+      .catch(() => {});
+    // Step counts for the cards' SOP chips ("0/5"); the chips just show green without them.
+    getSopLibraryForViewerAction()
+      .then((sops) =>
+        setSopSteps(
+          new Map(sops.map((s) => [s.id, { total: s.items.length, required: s.items.filter((i) => i.isRequired).length }]))
+        )
+      )
       .catch(() => {});
   }, []);
 
@@ -715,6 +729,7 @@ function TemplateBoard({
     const { phaseIndex, taskIndex, subtaskPath } = editingTask;
     const firstTaskNumber = draft.phases.slice(0, phaseIndex).reduce((sum, p) => sum + p.tasks.length, 0);
     return (
+      <SopStepsContext.Provider value={sopSteps}>
       <TemplateTaskPage
         task={task}
         code={`T${String(firstTaskNumber + taskIndex + 1).padStart(2, "0")}`}
@@ -856,11 +871,12 @@ function TemplateBoard({
         }}
         onCreate={handleCreate}
       />
+      </SopStepsContext.Provider>
     );
   }
 
   return (
-    <>
+    <SopStepsContext.Provider value={sopSteps}>
       {/* A new template still needs its name and category before it can be created. */}
       {canManage && isNew && (
         <div className="flex flex-wrap items-start justify-between gap-3 border-b px-6 py-3">
@@ -1169,8 +1185,8 @@ function TemplateBoard({
             <button
               type="button"
               disabled={draft.phases.length === 0}
-              onClick={() => openAddTask(0)}
-              title={draft.phases.length === 0 ? "Create a task list first" : "Add a task to the first list"}
+              onClick={() => setDrawerListIndex(0)}
+              title={draft.phases.length === 0 ? "Create a task list first" : "Add a task to any list"}
               className="flex items-center gap-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
             >
               <Plus size={16} />
@@ -1534,6 +1550,24 @@ function TemplateBoard({
         </div>
       </div>
 
+      {canManage && (
+        <AddTemplateTaskDrawer
+          isOpen={drawerListIndex !== null}
+          onClose={() => setDrawerListIndex(null)}
+          lists={draft.phases.map((p) => p.name)}
+          initialListIndex={drawerListIndex ?? 0}
+          ownerOptions={ownerOptions}
+          onAddTask={(listIndex, fields) => {
+            updateTasks(listIndex, (tasks) => [...tasks, { ...newTemplateTask(draft.kind, fields.title), ...fields }]);
+            setCollapsedPhases((prev) => {
+              const next = new Set(prev);
+              next.delete(listIndex);
+              return next;
+            });
+          }}
+        />
+      )}
+
       {/* Footer bar, as under the project board */}
       <div className="shrink-0 flex items-center justify-between border-t border-border px-6 py-2.5 bg-card text-xs text-muted-foreground font-semibold shadow-2xs">
         <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 px-3.5 py-1 text-sky-600 dark:text-sky-400 font-bold">
@@ -1550,7 +1584,39 @@ function TemplateBoard({
           </span>
         </div>
       </div>
-    </>
+    </SopStepsContext.Provider>
+  );
+}
+
+/** SOP id → how many checklist steps (and required ones) it has, for the "0/5" on template SOP chips. */
+type SopStepCounts = Map<string, { total: number; required: number }>;
+const SopStepsContext = React.createContext<SopStepCounts>(new Map());
+
+/**
+ * The project board's SOP chip, for a template task or subtask: green with "0/<steps>" when an SOP
+ * is attached (a new project's copy starts with none done), red when not.
+ */
+function TemplateSopChip({ sops }: { sops?: { id: string; name: string }[] }) {
+  const sopSteps = React.useContext(SopStepsContext);
+  const attached = sops ?? [];
+  if (attached.length === 0) {
+    return <ChecklistChip title="No SOP set on this template task" />;
+  }
+  let total = 0;
+  let required = 0;
+  for (const sop of attached) {
+    const counts = sopSteps.get(sop.id);
+    total += counts?.total ?? 0;
+    required += counts?.required ?? 0;
+  }
+  return (
+    <ChecklistChip
+      summary={{ done: 0, total, requiredOpen: required }}
+      title={
+        `SOP attached in new projects: ${attached.map((s) => s.name).join(", ")}` +
+        (total > 0 ? ` · ${total} step${total === 1 ? "" : "s"}` : "")
+      }
+    />
   );
 }
 
@@ -1615,7 +1681,6 @@ function TemplateTaskCard({
   const [menu, setMenu] = useState<"more" | "move" | null>(null);
   const subtasks = task.subtasks ?? [];
   const owners = task.defaultOwners ?? [];
-  const sopNames = (task.sopChecklists ?? []).map((s) => s.name).join(", ");
 
   return (
     <div
@@ -1751,6 +1816,7 @@ function TemplateTaskCard({
                 otherTemplates={otherTemplates}
                 onMoveToList={onMoveToList}
                 onMoveToTemplate={onMoveToTemplate}
+                taskSeed={task}
               />
             </>
           )}
@@ -1802,10 +1868,7 @@ function TemplateTaskCard({
           >
             <Clock size={13} aria-label={`Duration: ${task.duration}`} />
           </span>
-          <ChecklistChip
-            summary={sopNames ? { done: 0, total: 0, requiredOpen: 0 } : undefined}
-            title={sopNames ? `SOP attached in new projects: ${sopNames}` : "No SOP set on this template task"}
-          />
+          <TemplateSopChip sops={task.sopChecklists} />
           {subtasks.length > 0 && (
             <button
               type="button"
@@ -1820,15 +1883,13 @@ function TemplateTaskCard({
           )}
         </div>
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {/* Due date, left of the owner avatar */}
-          {task.dueDate && task.dueDate !== "--" && (
-            <span
-              className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
-              title={`Due ${task.dueDate}`}
-            >
-              <CalendarDays size={12} /> {task.dueDate}
-            </span>
-          )}
+          {/* Due date, left of the owner avatar: click to pick one, as on the project board */}
+          <TaskCardDueDate
+            dueDate={task.dueDate}
+            canEdit={canManage}
+            disabledReason="Only managers can edit templates"
+            onChange={(dueDate) => onChange({ dueDate: dueDate === "--" ? undefined : dueDate })}
+          />
           <TemplateOwnersPopover
             owners={owners}
             ownerOptions={ownerOptions}
@@ -2198,14 +2259,7 @@ function TemplateSubtaskCard({
           >
             <Clock size={13} aria-hidden="true" />
           </span>
-          <ChecklistChip
-            summary={sops.length > 0 ? { done: 0, total: 0, requiredOpen: 0 } : undefined}
-            title={
-              sops.length > 0
-                ? `SOP attached in new projects: ${sops.map((s) => s.name).join(", ")}`
-                : "Subtasks start without an SOP"
-            }
-          />
+          <TemplateSopChip sops={sops} />
           <button
             type="button"
             onClick={() => onOpenSubtask(path)}
@@ -2303,14 +2357,14 @@ function TemplateSubtaskCard({
           )}
         </div>
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {dueDate && dueDate !== "--" && (
-            <span
-              className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground"
-              title={`Due ${dueDate}`}
-            >
-              <CalendarDays size={12} /> {dueDate}
-            </span>
-          )}
+          <TaskCardDueDate
+            dueDate={dueDate}
+            canEdit={canManage}
+            disabledReason="Only managers can edit templates"
+            onChange={(next) =>
+              onChange(makeSubtask(title, children, { ...extra, dueDate: next === "--" ? undefined : next }))
+            }
+          />
           <TemplateOwnersPopover owners={owners} ownerOptions={ownerOptions} canManage={canManage} onChangeOwners={onOwners} />
         </div>
       </div>

@@ -14,7 +14,7 @@ import {
   workedMinutesBetween,
 } from "@/features/attendance/utils";
 import { LeaveActionError, type ActionResult } from "../action-result";
-import { canManageUser } from "@/features/attendance/team-scope";
+import { canManageUser, isSelfAction } from "@/features/attendance/team-scope";
 import {
   approvalStepsFor,
   approverIdsFor,
@@ -28,7 +28,9 @@ import {
   applyExceededRule,
   checkEligibility,
   checkRequestLimits,
+  COMP_OFF_MIN_MINUTES,
   compOffCredit,
+  compOffDurationError,
   compOffExpiry,
   countLeaveDays,
   validateLeaveRequest,
@@ -148,6 +150,58 @@ function attachmentRows(files: UploadedAttachment[], uploadedById: string) {
   }));
 }
 
+// ── 0. PREVIEW LEAVE DAYS ────────────────────────────────────────────────────
+
+/**
+ * What a full / half-day request would cost, counted exactly as applying does (weekends and
+ * holidays skipped; weekends / holidays between two leave days added when the type's sandwich
+ * policy says so). Lets the form show the real figure before submitting.
+ */
+export async function previewLeaveDaysAction(data: {
+  leaveTypeCode: string;
+  durationType: "FULL_DAY" | "HALF_DAY";
+  fromDate: string;
+  toDate: string;
+}): Promise<ActionResult<{ days: number; workingDays: number; sandwichedDays: number; holidayNames: string[] }>> {
+  return run("previewLeaveDays", async () => {
+    await requireUser();
+    const leaveType = await db.leaveType.findUnique({
+      where: { code: data.leaveTypeCode },
+      select: { sandwichPolicy: true, sandwichWeekends: true, sandwichHolidays: true },
+    });
+    if (!leaveType) fail("Invalid leave type.");
+    const fromKey = parseKey(data.fromDate, "start date");
+    const toKey = parseKey(data.toDate, "end date");
+    if (toKey < fromKey) fail("The end date can't be before the start date.");
+    if (dateFromKey(toKey)!.getTime() - dateFromKey(fromKey)!.getTime() > 366 * 86_400_000) fail("That range is too long.");
+
+    const endExclusive = dateFromKey(toKey)!;
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    const holidays = await db.holiday.findMany({
+      where: { date: { gte: dateFromKey(fromKey)!, lt: endExclusive }, ...MANDATORY_HOLIDAY },
+      select: { date: true, name: true },
+    });
+    const holidayKeys = new Set(holidays.map((h) => dateKeyFromUtc(h.date)));
+
+    const count = countLeaveDays({
+      fromKey,
+      toKey,
+      durationType: data.durationType,
+      requestedDays: 0,
+      isHoliday: (k) => holidayKeys.has(k),
+      policy: leaveType,
+    });
+    if ("error" in count) fail(count.error);
+    const workingDays = data.durationType === "HALF_DAY" ? count.days : count.workingKeys.length;
+    return {
+      days: count.days,
+      workingDays,
+      sandwichedDays: Math.max(0, Math.round((count.days - workingDays) * 100) / 100),
+      holidayNames: holidays.map((h) => h.name),
+    };
+  });
+}
+
 // ── 1. APPLY FOR LEAVE ───────────────────────────────────────────────────────
 
 export async function applyLeaveAction(formData: {
@@ -163,11 +217,24 @@ export async function applyLeaveAction(formData: {
   durationHours?: number;
   reason: string;
   attachments?: UploadedAttachment[];
+  /** Managers only: apply for this employee instead of themselves (same rules, their balance). */
+  forUserId?: string;
 }): Promise<
   ActionResult<{ requestId: string; durationDays: number; autoApproved: boolean; isLossOfPay: boolean; lopDays: number }>
 > {
   return run("applyLeave", async () => {
-    const user = await requireUser();
+    const actor = await requireUser();
+    const onBehalf = Boolean(formData.forUserId && formData.forUserId !== actor.id);
+    let user = actor;
+    if (onBehalf) {
+      if (!(await canManageUser(actor, formData.forUserId!))) fail("Only managers can apply leave for someone else.");
+      const target = await db.user.findUnique({
+        where: { id: formData.forUserId! },
+        select: { id: true, name: true, role: true, profileRole: true, isActive: true },
+      });
+      if (!target?.isActive) fail("That employee isn't active.");
+      user = target;
+    }
     const userId = user.id;
 
     const leaveType = await db.leaveType.findUnique({ where: { code: formData.leaveTypeCode } });
@@ -221,7 +288,7 @@ export async function applyLeaveAction(formData: {
       });
       if (workedDay) {
         const k = dateKeyFromUtc(workedDay.date);
-        fail(`You already checked in on ${FULL_DAY_NAMES[workedDay.date.getUTCDay()]} ${k.split("-").reverse().join("/")}. Apply half-day leave for that date, or leave it out.`);
+        fail(`${onBehalf ? `${user.name || "This employee"} already checked` : "You already checked"} in on ${FULL_DAY_NAMES[workedDay.date.getUTCDay()]} ${k.split("-").reverse().join("/")}. Apply half-day leave for that date, or leave it out.`);
       }
     }
 
@@ -235,7 +302,9 @@ export async function applyLeaveAction(formData: {
         ...(formData.durationType === "FULL_DAY" ? {} : { durationType: "FULL_DAY" as const }),
       },
     });
-    if (overlapping) fail("You already have a leave request covering these dates.");
+    if (overlapping) {
+      fail(`${onBehalf ? `${user.name || "This employee"} already has` : "You already have"} a leave request covering these dates.`);
+    }
 
     // Who the leave type is for (department, employment type, probation, minimum service).
     const facts = await db.user.findUnique({
@@ -302,7 +371,11 @@ export async function applyLeaveAction(formData: {
                 approverRole: "Applicant",
                 status: "APPROVED",
                 actionDate: now,
-                comments: autoApproved ? "Approved automatically — this leave type needs no approval" : undefined,
+                comments:
+                  [onBehalf ? `Applied by ${actor.name || "a manager"} on their behalf` : null,
+                    autoApproved ? "Approved automatically — this leave type needs no approval" : null]
+                    .filter(Boolean)
+                    .join(" · ") || undefined,
               },
               ...steps.map((s, i) => ({
                 stepOrder: i + 2,
@@ -312,7 +385,7 @@ export async function applyLeaveAction(formData: {
               })),
             ],
           },
-          attachments: attachments.length ? { create: attachmentRows(attachments, userId) } : undefined,
+          attachments: attachments.length ? { create: attachmentRows(attachments, actor.id) } : undefined,
         },
       });
 
@@ -329,17 +402,31 @@ export async function applyLeaveAction(formData: {
       return { requestId: request.id, durationDays: count.days, autoApproved, ...outcome };
     });
 
+    const days = `${leaveDateLabel(fromKey, toKey)} (${result.durationDays} day${result.durationDays === 1 ? "" : "s"})`;
     if (!result.autoApproved && requester) {
       const approvers = await approverIdsFor(steps[0].approverRole, requester);
       await notify(
-        userId,
+        actor.id,
         approvers.map((id) => ({
           userId: id,
           title: "Leave request to review",
-          message: `${user.name || "An employee"} applied for ${leaveType.name}: ${leaveDateLabel(fromKey, toKey)} (${result.durationDays} day${result.durationDays === 1 ? "" : "s"}).`,
+          message: onBehalf
+            ? `${actor.name || "A manager"} applied ${leaveType.name} for ${user.name || "an employee"}: ${days}.`
+            : `${user.name || "An employee"} applied for ${leaveType.name}: ${days}.`,
           relatedEntryId: result.requestId,
         }))
       );
+    }
+    // The employee hears about leave applied for them.
+    if (onBehalf) {
+      await notify(actor.id, [
+        {
+          userId,
+          title: "Leave applied for you",
+          message: `${actor.name || "Your manager"} applied ${leaveType.name} for you: ${days}${result.autoApproved ? " — approved" : ""}.`,
+          relatedEntryId: result.requestId,
+        },
+      ]);
     }
 
     revalidateLeaveAndAttendance();
@@ -422,7 +509,6 @@ export async function approveLeaveRequestAction(
 
     const request = await db.leaveRequest.findUnique({ where: { id: requestId }, include: { leaveType: true } });
     if (!request) fail("Request not found.");
-    if (request.userId === approver.id) fail("You can't approve your own leave.");
     if (request.status !== "PENDING") fail(`This request is already ${request.status.toLowerCase()}.`);
 
     const requester = await loadRequester(request.userId);
@@ -430,6 +516,7 @@ export async function approveLeaveRequestAction(
     // Requests created before routing existed have a single "Reporting Manager" step.
     const pending = await pendingStepOf(requestId);
     const role = pending?.step.approverRole ?? "Reporting Manager";
+    if (isSelfAction(approver, request.userId)) fail("You can't approve your own leave — another manager or an admin has to.");
     if (!(await canActOnStep(approver, role, requester))) {
       fail(`This step needs approval from the ${role.toLowerCase()}${role === "HR Admin" ? "" : " (or an admin)"}.`);
     }
@@ -547,13 +634,13 @@ export async function rejectLeaveRequestAction(requestId: string, rejectionReaso
 
     const request = await db.leaveRequest.findUnique({ where: { id: requestId }, include: { leaveType: true } });
     if (!request) fail("Request not found.");
-    if (request.userId === approver.id) fail("You can't reject your own leave.");
     if (request.status !== "PENDING") fail(`This request is already ${request.status.toLowerCase()}.`);
 
     const requester = await loadRequester(request.userId);
     if (!requester) fail("Employee not found.");
     const pending = await pendingStepOf(requestId);
     const role = pending?.step.approverRole ?? "Reporting Manager";
+    if (isSelfAction(approver, request.userId)) fail("You can't reject your own leave — cancel it instead.");
     if (!(await canActOnStep(approver, role, requester))) {
       fail(`This step needs a decision from the ${role.toLowerCase()}${role === "HR Admin" ? "" : " (or an admin)"}.`);
     }
@@ -623,6 +710,9 @@ export async function applyCompensatoryAction(data: {
     if (!fromTime || !toTime) fail("Enter the start and end time as e.g. 09:30 AM.");
     const minutes = workedMinutesBetween(fromTime, toTime);
     if (!minutes) fail("The end time must be after the start time.");
+    if (!(data.duration in COMP_OFF_MIN_MINUTES)) fail("Pick a duration.");
+    const durationError = compOffDurationError(data.duration, minutes);
+    if (durationError) fail(durationError);
     const reason = requireReason(data.reason);
     const attachments = checkAttachments(data.attachments);
 
@@ -702,8 +792,8 @@ export async function approveCompensatoryAction(requestId: string): Promise<Acti
 
     const comp = await db.compensatoryRequest.findUnique({ where: { id: requestId } });
     if (!comp) fail("Compensatory request not found.");
-    if (comp.userId === manager.id) fail("You can't approve your own comp-off.");
     if (comp.status !== "PENDING") fail("This request has already been reviewed.");
+    if (isSelfAction(manager, comp.userId)) fail("You can't approve your own comp-off — another manager or an admin has to.");
     if (!(await canManageUser(manager, comp.userId))) fail("Only this person's reporting manager (or an admin) can approve it.");
 
     // The credit lands on the COMP leave type — without it, approving would credit nothing.
@@ -761,8 +851,8 @@ export async function rejectCompensatoryAction(requestId: string, reason?: strin
 
     const comp = await db.compensatoryRequest.findUnique({ where: { id: requestId } });
     if (!comp) fail("Compensatory request not found.");
-    if (comp.userId === manager.id) fail("You can't reject your own comp-off.");
     if (comp.status !== "PENDING") fail("This request has already been reviewed.");
+    if (isSelfAction(manager, comp.userId)) fail("You can't reject your own comp-off — another manager or an admin has to.");
     if (!(await canManageUser(manager, comp.userId))) fail("Only this person's reporting manager (or an admin) can reject it.");
 
     await db.$transaction(async (tx) => {
@@ -815,22 +905,27 @@ export async function adjustLeaveBalanceAction(data: {
     if (!Number.isFinite(adjustmentDays) || adjustmentDays === 0) fail("Enter the number of days to add or deduct.");
     if (Math.abs(adjustmentDays) > 366) fail("That adjustment is too large.");
 
+    const remarks = (data.remarks || "").trim();
+    if (remarks.length > 300) fail("Remarks must be under 300 characters.");
+    if (isSelfAction(manager, data.employeeId)) fail("You can't adjust your own leave balance.");
+
     const [employee, leaveType] = await Promise.all([
       db.user.findUnique({ where: { id: data.employeeId }, select: { isActive: true } }),
-      db.leaveType.findUnique({ where: { id: data.leaveTypeId }, select: { id: true } }),
+      db.leaveType.findUnique({ where: { id: data.leaveTypeId } }),
     ]);
     if (!employee?.isActive) fail("Employee not found.");
     if (!leaveType) fail("Leave type not found.");
     if (!(await canManageUser(manager, data.employeeId))) fail("You can only adjust balances of people in your team.");
 
     const newBalance = await db.$transaction(async (tx) => {
-      const balance = await tx.userLeaveBalance.findUnique({
-        where: { userId_leaveTypeId_year: { userId: data.employeeId, leaveTypeId: data.leaveTypeId, year } },
-      });
-      const previousBalance = balance
-        ? balance.allocatedDays + balance.carriedForward + balance.adjustedDays - balance.bookedDays
-        : 0;
-      const next = previousBalance + adjustmentDays;
+      // Open the row the same way applying leave does, so a first adjustment doesn't drop the entitlement.
+      const balance = await getOrOpenBalance(tx, data.employeeId, leaveType, year);
+      const previousBalance = balance.allocatedDays + balance.carriedForward + balance.adjustedDays - balance.bookedDays;
+      const next = Math.round((previousBalance + adjustmentDays) * 100) / 100;
+      // Balances never go negative — unpaid days are tracked as loss of pay, not a negative balance.
+      if (next < 0) {
+        fail(`${leaveType.name} has ${previousBalance} day(s) left — you can deduct at most ${Math.max(0, previousBalance)}.`);
+      }
 
       // Audit record
       await tx.leaveBalanceAdjustment.create({
@@ -842,14 +937,13 @@ export async function adjustLeaveBalanceAction(data: {
           adjustmentDays,
           newBalance: next,
           reason: data.reason,
-          remarks: data.remarks,
+          remarks: remarks || undefined,
         },
       });
 
-      await tx.userLeaveBalance.upsert({
-        where: { userId_leaveTypeId_year: { userId: data.employeeId, leaveTypeId: data.leaveTypeId, year } },
-        update: { adjustedDays: { increment: adjustmentDays } },
-        create: { userId: data.employeeId, leaveTypeId: data.leaveTypeId, year, allocatedDays: 0, adjustedDays: adjustmentDays },
+      await tx.userLeaveBalance.update({
+        where: { id: balance.id },
+        data: { adjustedDays: { increment: adjustmentDays } },
       });
 
       return next;

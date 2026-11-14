@@ -36,6 +36,13 @@ describe("toTitleCaseText", () => {
     expect(toTitleCaseText("i am here")).toBe("I Am Here");
   });
 
+  it("leaves a plural suffix in brackets lowercase (Day(s), not Day(S))", () => {
+    expect(toTitleCaseText("12 day(s) left")).toBe("12 Day(s) Left");
+    expect(toTitleCaseText("hour(s)")).toBe("Hour(s)");
+    // A bracketed word on its own is still a word.
+    expect(toTitleCaseText("(remote) work")).toBe("(Remote) Work");
+  });
+
   it("keeps punctuation and spacing, and only changes letter case", () => {
     const input = "  (hello),  world!  don't stop ";
     const out = toTitleCaseText(input);

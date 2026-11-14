@@ -56,6 +56,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { createLeaveTypeAction } from "../actions/leave-actions";
+import { getLeaveTypesAction } from "../queries/leave-queries";
+import { istDateKey } from "@/features/attendance/utils";
 import { errorMessage, unwrap } from "../action-result";
 
 // Wizard labels → the enum values createLeaveTypeAction stores.
@@ -148,13 +150,13 @@ const AVAILABLE_ICONS = [
 
 const COLOR_THEMES = [
   { id: "emerald", label: "Emerald", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800" },
-  { id: "blue", label: "Blue", bg: "bg-blue-50 dark:bg-accent", text: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-zinc-700" },
+  { id: "blue", label: "Blue", bg: "bg-blue-50 dark:bg-accent", text: "text-primary", border: "border-blue-200 dark:border-zinc-700" },
   { id: "purple", label: "Purple", bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-600 dark:text-purple-400", border: "border-purple-200 dark:border-purple-800" },
   { id: "orange", label: "Amber / Orange", bg: "bg-orange-50 dark:bg-orange-950/40", text: "text-orange-600 dark:text-orange-400", border: "border-orange-200 dark:border-orange-800" },
   { id: "rose", label: "Rose / Red", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800" },
   { id: "cyan", label: "Cyan", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-200 dark:border-cyan-800" },
   { id: "indigo", label: "Indigo", bg: "bg-indigo-50 dark:bg-accent", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-200 dark:border-zinc-700" },
-  { id: "slate", label: "Slate", bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-700 dark:text-zinc-300", border: "border-zinc-200 dark:border-zinc-700" },
+  { id: "slate", label: "Slate", bg: "bg-muted", text: "text-foreground", border: "border-input" },
 ];
 
 const PRESET_LEAVE_TYPES = [
@@ -186,15 +188,33 @@ export function CreateLeaveTypeWizard({
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
 
-  // STEP 1: Basic Information
-  const [leaveTypeName, setLeaveTypeName] = useState("Sick Leave");
-  const [leaveCode, setLeaveCode] = useState("SL");
+  // STEP 1: Basic Information — starts empty (pick a preset from the name suggestions to prefill).
+  const [leaveTypeName, setLeaveTypeName] = useState("");
+  const [leaveCode, setLeaveCode] = useState("");
   const [status, setStatus] = useState("Active");
-  const [description, setDescription] = useState(
-    "Leave granted to employees when they are not feeling well and unable to attend work."
-  );
-  const [effectiveDate, setEffectiveDate] = useState("2025-06-01");
+  const [description, setDescription] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(() => istDateKey());
   const [expiryDate, setExpiryDate] = useState("");
+
+  // Codes already in use, so a duplicate is caught on step 1 instead of after all six steps.
+  const [takenCodes, setTakenCodes] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    getLeaveTypesAction()
+      .then((d) => setTakenCodes(new Map(d.leaveTypes.map((t) => [t.code.toUpperCase(), t.name]))))
+      .catch(() => {});
+  }, []);
+  const normalizedCode = leaveCode.trim().toUpperCase();
+  const step1Error = !leaveTypeName.trim()
+    ? "Enter a leave type name."
+    : !/^[A-Z0-9_]{1,10}$/.test(normalizedCode)
+    ? "The leave code must be 1–10 letters or digits."
+    : takenCodes.has(normalizedCode)
+    ? `The code ${normalizedCode} is already used by ${takenCodes.get(normalizedCode)}.`
+    : !effectiveDate
+    ? "Pick an effective date."
+    : expiryDate && expiryDate < effectiveDate
+    ? "The expiry date can't be before the effective date."
+    : null;
 
   // Autocomplete dropdown state
   const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
@@ -321,7 +341,7 @@ export function CreateLeaveTypeWizard({
     "Carry forward up to a limit"
   );
   const [excessOption, setExcessOption] = useState("LOP"); // "DO_NOT_ALLOW" | "WITHOUT_LIMIT" | "YEAR_END" | "LOP"
-  const [yearEndDate, setYearEndDate] = useState("2025-12-31");
+  const [yearEndDate, setYearEndDate] = useState(() => `${istDateKey().slice(0, 4)}-12-31`);
 
   // STEP 3: Eligibility & Duration
   const [applicableTo, setApplicableTo] = useState("All Employees");
@@ -422,6 +442,12 @@ export function CreateLeaveTypeWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleNext = async () => {
+    if (step1Error && (currentStep === 1 || currentStep === 6)) {
+      setSubmitError(step1Error);
+      setCurrentStep(1);
+      return;
+    }
+    setSubmitError(null);
     if (currentStep < 6) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -430,9 +456,9 @@ export function CreateLeaveTypeWizard({
       try {
         unwrap(
           await createLeaveTypeAction({
-            name: leaveTypeName,
-            code: leaveCode,
-            description,
+            name: leaveTypeName.trim(),
+            code: normalizedCode,
+            description: description.trim() || undefined,
             icon: selectedIcon,
             iconBgColor: currentColor.bg,
             iconTextColor: currentColor.text,
@@ -541,9 +567,6 @@ export function CreateLeaveTypeWizard({
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Create New Leave Type
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure a new leave type and set the rules for allocation and application.
-            </p>
           </div>
         </div>
 
@@ -618,9 +641,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Basic Information
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Provide the basic details of the leave type.
-            </p>
           </div>
 
           <div className="space-y-5 text-xs">
@@ -683,9 +703,6 @@ export function CreateLeaveTypeWizard({
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Type any name or click a suggestion to auto-fill code and rules.
-                </p>
               </div>
 
               {/* Leave Code */}
@@ -700,9 +717,6 @@ export function CreateLeaveTypeWizard({
                   className="h-10 rounded-xl text-xs bg-background font-medium"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Short code / abbreviation (e.g. SL).
-                </p>
               </div>
 
               {/* Icon */}
@@ -734,9 +748,6 @@ export function CreateLeaveTypeWizard({
                     <span>Change Icon & Color</span>
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Selected: <span className="font-medium text-foreground">{selectedIcon}</span> with <span className="font-medium text-foreground">{currentColor.label}</span> badge.
-                </p>
               </div>
             </div>
 
@@ -757,9 +768,6 @@ export function CreateLeaveTypeWizard({
                   <SelectItem value="Inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Only active leave types are available for employees.
-              </p>
             </div>
 
             {/* Description */}
@@ -773,9 +781,6 @@ export function CreateLeaveTypeWizard({
                 placeholder="Provide a short description of this leave type..."
                 className="min-h-[80px] text-xs resize-none bg-background rounded-xl p-3"
               />
-              <p className="text-xs text-muted-foreground">
-                Provide a short description of this leave type.
-              </p>
             </div>
 
             {/* Effective & Expiry Dates */}
@@ -791,9 +796,6 @@ export function CreateLeaveTypeWizard({
                   className="h-10 rounded-xl text-xs bg-background"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  From when this leave type will be available.
-                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -806,9 +808,6 @@ export function CreateLeaveTypeWizard({
                   onChange={(e) => setExpiryDate(e.target.value)}
                   className="h-10 rounded-xl text-xs bg-background"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank if there is no expiry.
-                </p>
               </div>
             </div>
           </div>
@@ -822,9 +821,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Leave & Balance Setup
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Define allocation, balance rules and how excess leaves will be handled.
-            </p>
           </div>
 
           <div className="space-y-6 text-xs">
@@ -845,9 +841,6 @@ export function CreateLeaveTypeWizard({
                     <SelectItem value="Partially Paid">Partially Paid</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Type of leave and its payment nature.
-                </p>
               </div>
 
               {/* Allocation Frequency */}
@@ -866,9 +859,6 @@ export function CreateLeaveTypeWizard({
                     <SelectItem value="On-Demand">On-Demand</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  How often the leave will be allocated.
-                </p>
               </div>
 
               {/* Annual Entitlement */}
@@ -890,9 +880,6 @@ export function CreateLeaveTypeWizard({
                     Days
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Total number of leave days in a year.
-                </p>
               </div>
             </div>
 
@@ -912,9 +899,6 @@ export function CreateLeaveTypeWizard({
                     Allow carry forward of unused balance
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Employees can carry forward remaining balance.
-                </p>
               </div>
 
               {/* Carry Forward Limit */}
@@ -935,9 +919,6 @@ export function CreateLeaveTypeWizard({
                     Days
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Maximum days that can be carried forward.
-                </p>
               </div>
 
               {/* Balance Reset Rule */}
@@ -965,9 +946,6 @@ export function CreateLeaveTypeWizard({
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  What happens to balance at the end of the year.
-                </p>
               </div>
             </div>
 
@@ -977,9 +955,6 @@ export function CreateLeaveTypeWizard({
                 <h4 className="text-xs font-bold text-foreground">
                   Exceeded Leave Entitlement
                 </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Define how to manage leave requests that exceed the entitled balance.
-                </p>
               </div>
 
               {/* 4 Option Cards */}
@@ -1006,9 +981,6 @@ export function CreateLeaveTypeWizard({
                       Do not allow request
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                    Employees cannot apply when balance is 0.
-                  </p>
                 </div>
 
                 {/* 2. Allow without limit */}
@@ -1033,9 +1005,6 @@ export function CreateLeaveTypeWizard({
                       Allow without limit
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                    Allow leave requests even if balance is 0.
-                  </p>
                 </div>
 
                 {/* 3. Allow until year end limit */}
@@ -1060,9 +1029,6 @@ export function CreateLeaveTypeWizard({
                       Allow until year end limit
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                    Allow extra leaves up to year end limit.
-                  </p>
                 </div>
 
                 {/* 4. Mark excess as LOP */}
@@ -1087,9 +1053,6 @@ export function CreateLeaveTypeWizard({
                       Mark excess as LOP
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                    Excess leaves will be marked as Loss of Pay (LOP).
-                  </p>
                 </div>
               </div>
 
@@ -1104,9 +1067,6 @@ export function CreateLeaveTypeWizard({
                   onChange={(e) => setYearEndDate(e.target.value)}
                   className="h-10 rounded-xl text-xs bg-background"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Year end date for entitlement calculation.
-                </p>
               </div>
 
               {/* Info Notice Banner */}
@@ -1128,9 +1088,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Eligibility & Duration
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Define who can apply for this leave and the type of leave duration allowed.
-            </p>
           </div>
 
           <div className="space-y-6 text-xs">
@@ -1152,9 +1109,6 @@ export function CreateLeaveTypeWizard({
                     <SelectItem value="Contractors">Contractors</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select the employees who can apply for this leave.
-                </p>
               </div>
 
               {/* Departments */}
@@ -1176,9 +1130,6 @@ export function CreateLeaveTypeWizard({
                     <SelectItem value="Finance">Finance</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select specific departments (optional).
-                </p>
               </div>
 
               {/* Employment Type */}
@@ -1197,9 +1148,6 @@ export function CreateLeaveTypeWizard({
                     <SelectItem value="Contract">Contract</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select employment types (optional).
-                </p>
               </div>
             </div>
 
@@ -1227,9 +1175,6 @@ export function CreateLeaveTypeWizard({
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Employees must complete this service period to be eligible for this leave.
-              </p>
             </div>
 
             {/* Allowed Durations */}
@@ -1238,9 +1183,6 @@ export function CreateLeaveTypeWizard({
                 <label className="font-semibold text-foreground">
                   Allowed Durations <span className="text-red-500">*</span>
                 </label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Choose the duration types that employees can request for this leave.
-                </p>
               </div>
 
               {/* 4 Selectable Duration Cards */}
@@ -1269,9 +1211,6 @@ export function CreateLeaveTypeWizard({
                       Full Day
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6 leading-tight">
-                    Employees can apply for full day leave.
-                  </p>
                 </div>
 
                 {/* 2. Half Day */}
@@ -1298,9 +1237,6 @@ export function CreateLeaveTypeWizard({
                       Half Day
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6 leading-tight">
-                    Employees can apply for half day leave.
-                  </p>
                 </div>
 
                 {/* 3. Quarter Day */}
@@ -1327,9 +1263,6 @@ export function CreateLeaveTypeWizard({
                       Quarter Day
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6 leading-tight">
-                    Employees can apply for quarter day leave.
-                  </p>
                 </div>
 
                 {/* 4. Hourly */}
@@ -1356,9 +1289,6 @@ export function CreateLeaveTypeWizard({
                       Hourly
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6 leading-tight">
-                    Employees can apply for leave in hours.
-                  </p>
                 </div>
               </div>
 
@@ -1381,9 +1311,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Application Rules
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Define when and how employees can apply for this leave.
-            </p>
           </div>
 
           <div className="space-y-6 text-xs">
@@ -1429,9 +1356,6 @@ export function CreateLeaveTypeWizard({
                       </SelectContent>
                     </Select>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Employees can apply for leave in the past.
-                  </p>
                 </div>
 
                 {/* Allow Advance */}
@@ -1469,9 +1393,6 @@ export function CreateLeaveTypeWizard({
                       </SelectContent>
                     </Select>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Employees can apply for leave in advance.
-                  </p>
                 </div>
 
                 {/* Minimum Advance Notice */}
@@ -1499,9 +1420,6 @@ export function CreateLeaveTypeWizard({
                       </SelectContent>
                     </Select>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Notice required before the leave start date.
-                  </p>
                 </div>
               </div>
             </div>
@@ -1532,9 +1450,6 @@ export function CreateLeaveTypeWizard({
                       Days
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Smallest leave duration allowed.
-                  </p>
                 </div>
 
                 {/* Max Leave Per Request */}
@@ -1555,9 +1470,6 @@ export function CreateLeaveTypeWizard({
                       Days
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Largest leave duration allowed per request.
-                  </p>
                 </div>
 
                 {/* Max Consecutive Days */}
@@ -1578,9 +1490,6 @@ export function CreateLeaveTypeWizard({
                       Days
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Maximum consecutive days allowed.
-                  </p>
                 </div>
 
                 {/* Min Gap Between Requests */}
@@ -1601,9 +1510,6 @@ export function CreateLeaveTypeWizard({
                       Days
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Minimum gap between two requests.
-                  </p>
                 </div>
               </div>
             </div>
@@ -1652,9 +1558,6 @@ export function CreateLeaveTypeWizard({
                   </Select>
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-1">
-                  Limit the number of leave requests within the selected period.
-                </p>
               </div>
 
               {/* Right: Days chips */}
@@ -1690,9 +1593,6 @@ export function CreateLeaveTypeWizard({
                   })}
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-2">
-                  Select the days of the week when this leave can be applied.
-                </p>
               </div>
             </div>
           </div>
@@ -1706,9 +1606,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Policies & Documents
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure special policies and document requirements for this leave type.
-            </p>
           </div>
 
           <div className="space-y-6 text-xs">
@@ -1730,9 +1627,6 @@ export function CreateLeaveTypeWizard({
                     Enable sandwich leave policy
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Weekends and company holidays between the leave period will be counted as leave.
-                </p>
 
                 {sandwichPolicy && (
                   <div className="space-y-2 pt-1">
@@ -1771,9 +1665,6 @@ export function CreateLeaveTypeWizard({
                   Clubbing Policy
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
                 </span>
-                <p className="text-xs text-muted-foreground">
-                  Select leave types that cannot be taken together with this leave.
-                </p>
 
                 <Select onValueChange={(val) => {
                   if (!clubbingLeaveTypes.includes(val)) {
@@ -1811,9 +1702,6 @@ export function CreateLeaveTypeWizard({
                   ))}
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Employees cannot take this leave along with the selected leave types.
-                </p>
               </div>
             </div>
 
@@ -1825,9 +1713,6 @@ export function CreateLeaveTypeWizard({
                   Supporting Document Policy
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
                 </span>
-                <p className="text-xs text-muted-foreground">
-                  Define when employees need to upload supporting documents.
-                </p>
 
                 {/* 3 Radio options */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -1853,9 +1738,6 @@ export function CreateLeaveTypeWizard({
                         Not Required
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                      No supporting document is required to apply for this leave.
-                    </p>
                   </div>
 
                   {/* Always Required */}
@@ -1880,9 +1762,6 @@ export function CreateLeaveTypeWizard({
                         Always Required
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-5 leading-tight">
-                      Employees must upload a supporting document for every request.
-                    </p>
                   </div>
 
                   {/* Required when exceeds */}
@@ -1948,9 +1827,6 @@ export function CreateLeaveTypeWizard({
                   Accepted File Types
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
                 </span>
-                <p className="text-xs text-muted-foreground">
-                  Allow only specific file types and set size limits.
-                </p>
 
                 {/* File Types select & pills */}
                 <div className="space-y-2">
@@ -2006,9 +1882,6 @@ export function CreateLeaveTypeWizard({
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Approval & Visibility
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Set approval process and define what employees can view in their leave reports.
-            </p>
           </div>
 
           <div className="space-y-6 text-xs">
@@ -2029,9 +1902,6 @@ export function CreateLeaveTypeWizard({
                     Manager Approval Required
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Yes, require manager approval for this leave. If disabled, leave requests will be auto-approved.
-                </p>
 
                 {managerApprovalRequired && (
                   <div className="space-y-1.5 pt-1">
@@ -2055,9 +1925,6 @@ export function CreateLeaveTypeWizard({
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Select who should approve the leave requests.
-                    </p>
                   </div>
                 )}
               </div>
@@ -2077,9 +1944,6 @@ export function CreateLeaveTypeWizard({
                     Allow administrators to apply this leave on employee&apos;s behalf.
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Useful for special cases like maternity, bereavement, etc.
-                </p>
               </div>
             </div>
 
@@ -2089,9 +1953,6 @@ export function CreateLeaveTypeWizard({
                 <h4 className="text-xs font-bold text-foreground">
                   Employee Leave Visibility
                 </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Choose what employees can see in their leave reports.
-                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2121,9 +1982,6 @@ export function CreateLeaveTypeWizard({
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Employees will be able to see full details including balance, taken leaves, upcoming leaves and history.
-                    </p>
                   </div>
 
                   {/* Balance Display Preference */}
@@ -2131,9 +1989,6 @@ export function CreateLeaveTypeWizard({
                     <span className="font-semibold text-foreground">
                       Balance Display Preference
                     </span>
-                    <p className="text-xs text-muted-foreground">
-                      Balance is to be displayed as
-                    </p>
                     <Select
                       value={balanceDisplayPreference}
                       onValueChange={setBalanceDisplayPreference}
@@ -2151,9 +2006,6 @@ export function CreateLeaveTypeWizard({
                         </SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Balance will be calculated based on the start date of the leave request.
-                    </p>
                   </div>
                 </div>
 
@@ -2188,7 +2040,7 @@ export function CreateLeaveTypeWizard({
           type="button"
           variant="outline"
           onClick={handleBack}
-          className="h-10 px-6 rounded-xl text-xs font-semibold gap-1.5"
+          className="h-10 px-6 rounded-lg text-xs font-semibold gap-1.5"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
@@ -2203,7 +2055,7 @@ export function CreateLeaveTypeWizard({
           type="button"
           disabled={isSubmitting}
           onClick={handleNext}
-          className="h-10 px-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs gap-1.5"
+          className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs gap-1.5"
         >
           <span>
             {isSubmitting
@@ -2230,9 +2082,6 @@ export function CreateLeaveTypeWizard({
                 <h3 className="text-base font-bold text-foreground">
                   Choose Icon & Color Theme
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Select visual style for leave cards and badges
-                </p>
               </div>
               <button
                 type="button"

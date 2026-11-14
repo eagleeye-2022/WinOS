@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -42,13 +42,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { applyLeaveAction } from "../actions/leave-actions";
+import { applyLeaveAction, previewLeaveDaysAction } from "../actions/leave-actions";
+import { getLeaveApplicantOptionsAction, getMyLeaveTrackerDataAction } from "../queries/leave-queries";
 import { errorMessage, unwrap } from "../action-result";
 import { uploadAttachment } from "../upload-attachment";
 import {
   EXPECTED_SHIFT_MINUTES,
   SHIFT_END,
+  addDaysToKey,
   formatTime12h,
+  isWeekendKey,
   istDateKey,
   parseTime12h,
   workedMinutesBetween,
@@ -70,24 +73,70 @@ interface ApplyLeaveFormProps {
 }
 
 export function ApplyLeaveForm({
-  leaveTypes,
+  leaveTypes: myLeaveTypes,
   onSubmitLeave,
   onCancel,
   initialDate,
 }: ApplyLeaveFormProps) {
   const router = useRouter();
 
-  // The team works in IST — a UTC date would show yesterday before 05:30 AM.
+  // Managers can apply for a team member: the leave types and balances are then that person's.
+  const [applicantOptions, setApplicantOptions] = useState<{ id: string; name: string }[]>([]);
+  const [forUserId, setForUserId] = useState("");
+  const [otherTypes, setOtherTypes] = useState<LeaveTypeConfig[] | null>(null);
+  useEffect(() => {
+    getLeaveApplicantOptionsAction()
+      .then(setApplicantOptions)
+      .catch(() => setApplicantOptions([]));
+  }, []);
+  useEffect(() => {
+    if (!forUserId) return;
+    let cancelled = false;
+    getMyLeaveTrackerDataAction(undefined, forUserId)
+      .then((data) => {
+        if (cancelled) return;
+        setOtherTypes(
+          data.balances.map((b) => ({
+            id: b.id,
+            code: b.code as LeaveTypeConfig["code"],
+            name: b.name,
+            remainingDays: b.remainingDays,
+            bookedDays: b.bookedDays,
+            unit: b.unit,
+            iconName: b.iconName,
+            iconBgColor: b.iconBgColor,
+            iconTextColor: b.iconTextColor,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setOtherTypes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [forUserId]);
+  const applicantName = applicantOptions.find((o) => o.id === forUserId)?.name;
+  const leaveTypes = forUserId ? otherTypes ?? [] : myLeaveTypes;
+
+  // The team works in IST — a UTC date would show yesterday before 05:30 AM. Leave is only taken on
+  // working days, so a weekend opens on the following Monday (holidays are flagged by the preview).
   const todayStr = istDateKey();
+  const defaultDate = useMemo(() => {
+    let k = todayStr;
+    while (isWeekendKey(k)) k = addDaysToKey(k, 1);
+    return k;
+  }, [todayStr]);
 
   // Form State
   // Empty until picked: the list can still be loading when the form mounts, and `selectedType`
   // falls back to the first leave type.
   const [selectedTypeCode, setSelectedTypeCode] = useState<string>("");
   const [dayType, setDayType] = useState<DayType>("FULL_DAY");
-  const [date, setDate] = useState<string>(initialDate || todayStr);
-  const [fromDate, setFromDate] = useState<string>(initialDate || todayStr);
-  const [toDate, setToDate] = useState<string>(initialDate || todayStr);
+  const [date, setDate] = useState<string>(initialDate || defaultDate);
+  const [fromDate, setFromDate] = useState<string>(initialDate || defaultDate);
+  const [toDate, setToDate] = useState<string>(initialDate || defaultDate);
+  const [formError, setFormError] = useState<string | null>(null);
   const [session, setSession] = useState<HalfDaySession>("FIRST_HALF");
   // Early leave defaults to the last two hours of the configured shift.
   const [fromTime, setFromTime] = useState<string>(() => formatTime12h((parseTime12h(SHIFT_END) ?? 1110) - 120));
@@ -105,22 +154,57 @@ export function ApplyLeaveForm({
     return leaveTypes.find((lt) => lt.code === selectedTypeCode) || leaveTypes[0];
   }, [leaveTypes, selectedTypeCode]);
 
-  const isEarlyLeave = selectedType?.code === "EL";
+  const selectedCode = selectedType?.code;
+  const isEarlyLeave = selectedCode === "EL";
 
-  // Formatted date string (e.g. 21 Aug 2026 (Fri))
+  // Formatted date string (e.g. 21 Aug 2026 (Fri)). Keys are calendar dates, so read them as UTC —
+  // `new Date("2026-11-06")` is UTC midnight and would show the previous day west of UTC.
   const formatDateDisplay = (dStr: string) => {
-    try {
-      const d = new Date(dStr);
-      if (isNaN(d.getTime())) return dStr;
-      const day = d.getDate();
-      const month = d.toLocaleDateString("en-US", { month: "short" });
-      const year = d.getFullYear();
-      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
-      return `${day} ${month} ${year} (${weekday})`;
-    } catch {
-      return dStr;
-    }
+    const d = new Date(`${dStr}T00:00:00Z`);
+    if (isNaN(d.getTime())) return dStr;
+    const month = d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+    const weekday = d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+    return `${d.getUTCDate()} ${month} ${d.getUTCFullYear()} (${weekday})`;
   };
+
+  const rangeFrom = dayType === "MULTIPLE_DAYS" ? fromDate : date;
+  const rangeTo = dayType === "MULTIPLE_DAYS" ? toDate : date;
+  const rangeError =
+    !isEarlyLeave && dayType === "MULTIPLE_DAYS" && fromDate && toDate && toDate < fromDate
+      ? "The To date can't be before the From date."
+      : null;
+
+  // What the server will actually charge (weekends / holidays skipped, sandwich policy applied).
+  const [preview, setPreview] = useState<
+    | { state: "idle" | "loading" }
+    | { state: "ok"; days: number; workingDays: number; sandwichedDays: number; holidayNames: string[] }
+    | { state: "error"; message: string }
+  >({ state: "idle" });
+  useEffect(() => {
+    if (isEarlyLeave || !selectedCode || rangeError || !rangeFrom || !rangeTo) {
+      setPreview({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setPreview({ state: "loading" });
+    const t = setTimeout(() => {
+      previewLeaveDaysAction({
+        leaveTypeCode: selectedCode,
+        durationType: dayType === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY",
+        fromDate: rangeFrom,
+        toDate: rangeTo,
+      })
+        .then((res) => {
+          if (cancelled) return;
+          setPreview(res.success ? { state: "ok", ...res } : { state: "error", message: res.message });
+        })
+        .catch(() => !cancelled && setPreview({ state: "idle" }));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isEarlyLeave, selectedCode, dayType, rangeFrom, rangeTo, rangeError]);
 
   // Calculate duration & summary text
   const durationInfo = useMemo(() => {
@@ -140,35 +224,31 @@ export function ApplyLeaveForm({
             : "Pick a leaving time before the end time",
       };
     }
+    if (rangeError) return { text: "—", days: 0, summary: rangeError };
+    if (preview.state === "error") return { text: "—", days: 0, summary: preview.message };
+    if (preview.state !== "ok") return { text: "…", days: 0, summary: "Counting leave days…" };
+
+    const days = preview.days;
+    const text = `${days} Day${days === 1 ? "" : "s"}`;
     if (dayType === "HALF_DAY") {
       const sessionLabel = session === "FIRST_HALF" ? "First Half" : "Second Half";
-      return {
-        text: "0.5 Day",
-        days: 0.5,
-        summary: `You have selected Half Day (${sessionLabel}) on ${formatDateDisplay(date)}`,
-      };
+      return { text, days, summary: `You have selected Half Day (${sessionLabel}) on ${formatDateDisplay(date)}` };
     }
-    if (dayType === "FULL_DAY") {
-      return {
-        text: "1 Day",
-        days: 1,
-        summary: `You have selected 1 day of leave on ${formatDateDisplay(date)}`,
-      };
+    const parts = [`${preview.workingDays} working day${preview.workingDays === 1 ? "" : "s"}`];
+    if (preview.sandwichedDays > 0) {
+      parts.push(`${preview.sandwichedDays} weekend/holiday day${preview.sandwichedDays === 1 ? "" : "s"} in between (sandwich policy)`);
     }
-    // Multiple Days
-    const d1 = new Date(fromDate);
-    const d2 = new Date(toDate);
-    let diffDays = 1;
-    if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) {
-      const diffTime = Math.max(0, d2.getTime() - d1.getTime());
-      diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    }
+    const holidays = preview.holidayNames.length ? ` Holidays skipped: ${preview.holidayNames.join(", ")}.` : "";
+    const range =
+      rangeFrom === rangeTo
+        ? `on ${formatDateDisplay(rangeFrom)}`
+        : `from ${formatDateDisplay(rangeFrom)} to ${formatDateDisplay(rangeTo)}`;
     return {
-      text: `${diffDays} Day${diffDays > 1 ? "s" : ""}`,
-      days: diffDays,
-      summary: `You have selected ${diffDays} day${diffDays > 1 ? "s" : ""} of leave (from ${formatDateDisplay(fromDate)} to ${formatDateDisplay(toDate)})`,
+      text,
+      days,
+      summary: `${text} of leave ${range}${parts.length > 1 || preview.workingDays !== days ? ` — ${parts.join(" + ")}` : ""}.${holidays}`,
     };
-  }, [isEarlyLeave, dayType, session, date, fromDate, toDate, fromTime, toTime]);
+  }, [isEarlyLeave, dayType, session, date, fromTime, toTime, rangeFrom, rangeTo, rangeError, preview]);
 
   // Real balance calculation from DB leave type
   const availableBalance = selectedType?.remainingDays ?? 0;
@@ -210,13 +290,22 @@ export function ApplyLeaveForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!selectedType) return;
-    if (!reason.trim()) {
-      alert("Please enter a reason for your leave request.");
+    if (rangeError) {
+      setFormError(rangeError);
+      return;
+    }
+    if (!isEarlyLeave && preview.state === "error") {
+      setFormError(preview.message);
       return;
     }
     if (isEarlyLeave && !(durationInfo.days > 0)) {
-      alert("The leaving time must be before the end time.");
+      setFormError("The leaving time must be before the end time.");
+      return;
+    }
+    if (!reason.trim()) {
+      setFormError("A reason is required.");
       return;
     }
     setIsSubmitting(true);
@@ -244,10 +333,13 @@ export function ApplyLeaveForm({
         toTime: isEarlyLeave ? toTime : undefined,
         durationDays: durationInfo.days,
         durationHours: isEarlyLeave ? durationInfo.hours : undefined,
-        reason,
+        reason: reason.trim(),
         attachments: uploaded,
+        forUserId: forUserId || undefined,
       }));
-      if (res.isLossOfPay) alert(`Leave applied. ${res.lopDays} day(s) exceed your balance and will be loss of pay.`);
+      if (res.isLossOfPay) {
+        alert(`Leave applied. ${res.lopDays} day(s) exceed ${applicantName ? `${applicantName}'s` : "your"} balance and will be loss of pay.`);
+      }
 
       const newRequest: LeaveRequest = {
         id: res.requestId,
@@ -305,7 +397,7 @@ export function ApplyLeaveForm({
       setSubmittedSuccess(true);
       onSubmitLeave(newRequest);
     } catch (err) {
-      alert(errorMessage(err, "Failed to submit leave request."));
+      setFormError(errorMessage(err, "Failed to submit leave request."));
       setIsSubmitting(false);
     }
   };
@@ -366,13 +458,6 @@ export function ApplyLeaveForm({
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Apply for Leave
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {isEarlyLeave
-              ? "Apply for early leave."
-              : dayType === "FULL_DAY"
-              ? "Apply for full day leave."
-              : "Apply for leave for full day or half day."}
-          </p>
         </div>
       </div>
 
@@ -381,6 +466,44 @@ export function ApplyLeaveForm({
         {/* Left Column: Form */}
         <div className="lg:col-span-8 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Managers only: whose leave this is */}
+            {applicantOptions.length > 0 && (
+              <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
+                <h3 className="text-sm font-bold text-foreground tracking-tight">Applying for</h3>
+                <div className="space-y-1.5 max-w-md">
+                  <Select
+                    value={forUserId || "__self"}
+                    onValueChange={(val) => {
+                      setForUserId(val === "__self" ? "" : val);
+                      setOtherTypes(null);
+                      setSelectedTypeCode("");
+                    }}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__self" className="text-xs">
+                        Myself
+                      </SelectItem>
+                      {applicantOptions.map((o) => (
+                        <SelectItem key={o.id} value={o.id} className="text-xs">
+                          {o.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {forUserId && (
+                    <p className="text-xs text-muted-foreground">
+                      {otherTypes === null
+                        ? `Loading ${applicantName ?? "their"} leave balances…`
+                        : `Uses ${applicantName ?? "their"} leave types and balances. They'll be notified.`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 1. Leave Type Section */}
             <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
               <h3 className="text-sm font-bold text-foreground tracking-tight">
@@ -465,15 +588,15 @@ export function ApplyLeaveForm({
                           type="date"
                           value={fromDate}
                           onChange={(e) => {
-                            setFromDate(e.target.value);
-                            setDate(e.target.value);
+                            const next = e.target.value;
+                            setFromDate(next);
+                            setDate(next);
+                            // Keep the range valid: a later start moves the end with it.
+                            if (next && toDate && toDate < next) setToDate(next);
                           }}
                           className="h-10 rounded-xl text-xs bg-background"
                           required
                         />
-                        <div className="text-xs text-muted-foreground font-medium pl-1">
-                          {formatDateDisplay(fromDate)}
-                        </div>
                       </div>
 
                       <div className="space-y-1.5">
@@ -483,13 +606,13 @@ export function ApplyLeaveForm({
                         <Input
                           type="date"
                           value={toDate}
+                          min={fromDate || undefined}
+                          aria-invalid={Boolean(rangeError)}
                           onChange={(e) => setToDate(e.target.value)}
-                          className="h-10 rounded-xl text-xs bg-background"
+                          className={cn("h-10 rounded-xl text-xs bg-background", rangeError && "border-red-500")}
                           required
                         />
-                        <div className="text-xs text-muted-foreground font-medium pl-1">
-                          {formatDateDisplay(toDate)}
-                        </div>
+                        {rangeError && <p className="text-xs text-red-600 dark:text-red-400">{rangeError}</p>}
                       </div>
                     </div>
                   ) : (
@@ -512,9 +635,6 @@ export function ApplyLeaveForm({
                             className="h-10 rounded-xl text-xs bg-background"
                             required
                           />
-                        </div>
-                        <div className="text-xs text-muted-foreground font-medium pl-1">
-                          {formatDateDisplay(date)}
                         </div>
                       </div>
 
@@ -586,16 +706,12 @@ export function ApplyLeaveForm({
                       className="h-10 rounded-xl text-xs bg-background max-w-md"
                       required
                     />
-                    <div className="text-xs text-muted-foreground font-medium pl-1">
-                      {formatDateDisplay(date)}
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-foreground">
-                        From Time <span className="text-red-500">*</span>{" "}
-                        <span className="text-muted-foreground font-normal">(When leaving)</span>
+                        From Time <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -611,8 +727,7 @@ export function ApplyLeaveForm({
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-foreground">
-                        To Time <span className="text-red-500">*</span>{" "}
-                        <span className="text-muted-foreground font-normal">(End of shift)</span>
+                        To Time <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <Clock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -629,8 +744,15 @@ export function ApplyLeaveForm({
                 </div>
               )}
 
-              {/* Blue Selection Info Banner */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              {/* Selection info banner — red when the dates can't be taken as leave */}
+              <div
+                className={cn(
+                  "flex items-center gap-2 p-3 border rounded-xl text-xs",
+                  rangeError || preview.state === "error"
+                    ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300"
+                    : "bg-blue-50/80 dark:bg-accent border-blue-100 dark:border-zinc-700/40 text-blue-700 dark:text-blue-300"
+                )}
+              >
                 <Info className="w-4 h-4 shrink-0" />
                 <span>{durationInfo.summary}</span>
               </div>
@@ -763,7 +885,7 @@ export function ApplyLeaveForm({
                           <th className="py-2.5 px-4 font-semibold">FROM TIME (LEAVING)</th>
                           <th className="py-2.5 px-4 font-semibold">TO TIME (SHIFT END)</th>
                         </>
-                      ) : dayType === "FULL_DAY" ? (
+                      ) : dayType !== "HALF_DAY" ? (
                         <>
                           <th className="py-2.5 px-4 font-semibold">FROM</th>
                           <th className="py-2.5 px-4 font-semibold">TO</th>
@@ -795,13 +917,13 @@ export function ApplyLeaveForm({
                           <td className="py-3 px-4 text-foreground">{fromTime}</td>
                           <td className="py-3 px-4 text-foreground">{toTime}</td>
                         </>
-                      ) : dayType === "FULL_DAY" ? (
+                      ) : dayType !== "HALF_DAY" ? (
                         <>
                           <td className="py-3 px-4 font-medium text-foreground">
-                            {formatDateDisplay(fromDate)}
+                            {formatDateDisplay(rangeFrom)}
                           </td>
                           <td className="py-3 px-4 font-medium text-foreground">
-                            {formatDateDisplay(toDate)}
+                            {formatDateDisplay(rangeTo)}
                           </td>
                         </>
                       ) : (
@@ -832,6 +954,13 @@ export function ApplyLeaveForm({
                 </table>
               </div>
 
+              {formError && (
+                <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               {/* Form Action Buttons */}
               <div className="flex items-center justify-between pt-2">
                 <Button
@@ -845,8 +974,13 @@ export function ApplyLeaveForm({
 
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !selectedType}
-                  className="h-10 px-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                  disabled={
+                    isSubmitting ||
+                    !selectedType ||
+                    Boolean(rangeError) ||
+                    (!isEarlyLeave && (preview.state === "loading" || preview.state === "error"))
+                  }
+                  className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                 >
                   {isSubmitting ? "Applying..." : "Apply Leave"}
                 </Button>
@@ -863,58 +997,37 @@ export function ApplyLeaveForm({
               Remaining Leaves
             </h3>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Casual Leave */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-blue-50 dark:bg-accent text-blue-500">
-                  <Calendar className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-muted-foreground font-medium">Casual Leave</div>
-                <div className="text-xs font-bold text-primary">4 Days</div>
+            {/* The employee's real balance for each leave type they can apply for; click one to pick it. */}
+            {leaveTypes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No leave types are set up for you yet.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                {leaveTypes.map((lt) => {
+                  const Icon = getIcon(lt.iconName || "Calendar");
+                  const isSelected = lt.code === selectedType?.code;
+                  return (
+                    <button
+                      key={lt.code}
+                      type="button"
+                      onClick={() => setSelectedTypeCode(lt.code)}
+                      title={`Apply for ${lt.name}`}
+                      className={cn(
+                        "p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1 transition-colors cursor-pointer hover:border-primary/60",
+                        isSelected && "border-primary ring-1 ring-primary/40"
+                      )}
+                    >
+                      <div className={cn("p-1.5 rounded-full", lt.iconBgColor, lt.iconTextColor)}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-xs text-muted-foreground font-medium">{lt.shortName || lt.name}</div>
+                      <div className={cn("text-xs font-bold", lt.remainingDays < 0 ? "text-red-500" : "text-primary")}>
+                        {lt.remainingDays} {/hour/i.test(lt.unit) ? "Hours" : Math.abs(lt.remainingDays) === 1 ? "Day" : "Days"}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* Sick Leave */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500">
-                  <Heart className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-muted-foreground font-medium">Sick Leave</div>
-                <div className="text-xs font-bold text-primary">3 Days</div>
-              </div>
-
-              {/* Annual Leave */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-500">
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-muted-foreground font-medium">Annual Leave</div>
-                <div className="text-xs font-bold text-primary">5 Days</div>
-              </div>
-
-              {/* Comp Off */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-500">
-                  <History className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-muted-foreground font-medium">Comp Off</div>
-                <div className="text-xs font-bold text-primary">1 Day</div>
-              </div>
-
-              {/* Early Leave */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="p-1.5 rounded-full bg-cyan-50 dark:bg-cyan-950/40 text-cyan-500">
-                  <Clock className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-xs text-muted-foreground font-medium">Early Leave</div>
-                <div className="text-xs font-bold text-primary">2 Days</div>
-              </div>
-
-              {/* +4 More */}
-              <div className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1">
-                <div className="text-sm font-bold text-foreground">+4</div>
-                <div className="text-xs text-muted-foreground font-medium">More</div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Balance Summary Card */}
@@ -922,9 +1035,7 @@ export function ApplyLeaveForm({
             <div>
               <h3 className="text-sm font-bold text-foreground tracking-tight">
                 Balance Summary –{" "}
-                <span className="text-primary">
-                  {isEarlyLeave ? "Early Leave" : "Half Day Leave (HD)"}
-                </span>
+                <span className="text-primary">{selectedType?.name ?? "—"}</span>
               </h3>
             </div>
 
@@ -945,7 +1056,9 @@ export function ApplyLeaveForm({
 
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Available balance</span>
-                <span className="font-bold text-red-500">{availableBalance}</span>
+                <span className={cn("font-bold", availableBalance < 0 ? "text-red-500" : "text-foreground")}>
+                  {availableBalance}
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -955,15 +1068,22 @@ export function ApplyLeaveForm({
 
               <div className="flex items-center justify-between pt-2 border-t font-semibold">
                 <span className="text-primary font-bold">Balance after current booking</span>
-                <span className="font-bold text-red-500">{balanceAfterBooking}</span>
+                <span className={cn("font-bold", balanceAfterBooking < 0 ? "text-red-500" : "text-emerald-600 dark:text-emerald-400")}>
+                  {balanceAfterBooking}
+                </span>
               </div>
             </div>
 
-            {/* Policy notice */}
-            <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
-              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              <span>Negative balance is allowed as per company policy.</span>
-            </div>
+            {/* Only when this booking goes past the balance; the leave type's policy decides what happens. */}
+            {balanceAfterBooking < 0 && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span>
+                  This is more than your available balance. The extra is handled by this leave type&apos;s policy
+                  (for example, marked as loss of pay).
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

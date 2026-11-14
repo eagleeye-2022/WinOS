@@ -35,6 +35,7 @@ import {
   DELETED_TASK_LIST_STATUS,
   subtaskChildren,
   subtaskTitle,
+  type SOPTaskSeed,
 } from "../types";
 import {
   DEFAULT_PROJECT_TEMPLATES,
@@ -3091,6 +3092,146 @@ export async function getOpenSubtasksReasonAction(taskId: string): Promise<strin
   await requireAuth();
   const open = await openSubtasksOf(taskId);
   return open.length > 0 ? openSubtasksMessage(open, "close") : null;
+}
+
+/**
+ * Copies a Project Template task — with its subtasks (any depth), default owners and SOP
+ * checklists — into a task list of an existing project, the same way creating a project from the
+ * template would (month placeholders filled in, "starts/due in N days" dates from today). The
+ * template itself is left as it is. Managers only. The task gets the project's next code; its
+ * subtasks follow it (EEDP-96-T40.1, .1.1…).
+ */
+export async function addTemplateTaskToProjectAction(
+  seed: SOPTaskSeed,
+  targetProjectId: string,
+  targetListCode: string,
+  templateName?: string
+): Promise<MoveTaskResult> {
+  const session = await requireAuth();
+  if (!(await isPrivilegedViewer(session.user.id))) {
+    return { success: false, error: "Only a manager can add template tasks to a project." };
+  }
+  if (!seed?.title?.trim()) return { success: false, error: "The task has no title." };
+
+  const target = await db.project.findFirst({
+    where: { OR: [{ id: targetProjectId }, { code: targetProjectId }] },
+    select: { id: true, code: true, name: true, projectCategory: true },
+  });
+  if (!target) return { success: false, error: "Project not found." };
+  if (target.projectCategory === LEARNING_PROJECT_CATEGORY) {
+    return { success: false, error: "Template tasks can't be added to a WhyFi School list." };
+  }
+
+  const [phase, taskList] = await Promise.all([
+    db.projectPhase.findFirst({ where: { projectId: target.id, code: targetListCode }, select: { id: true, name: true } }),
+    db.projectTaskList.findFirst({ where: { projectId: target.id, phaseCode: targetListCode }, select: { status: true } }),
+  ]);
+  if (!phase || taskList?.status === DELETED_TASK_LIST_STATUS) {
+    return { success: false, error: "That task list doesn't exist in the project." };
+  }
+
+  // Same scaffolding as a new project, for a one-list template holding just this task.
+  const [scaffolded] = scaffoldTasksFromTemplate(
+    {
+      id: "template-task",
+      name: templateName || "Template",
+      description: "",
+      phases: [{ code: targetListCode, name: phase.name, departmentAlias: seed.departmentAlias, tasks: [seed] }],
+    } as ProjectTemplate,
+    target.code || target.id
+  );
+  if (!scaffolded) return { success: false, error: "Couldn't read the template task." };
+
+  const usedCodes = (await db.projectTask.findMany({ where: { projectId: target.id }, select: { code: true } })).map((t) => t.code);
+  const code = nextTaskCode(target.code || target.id, usedCodes, usedCodes.length);
+  const task: ScaffoldedTask = { ...scaffolded, code };
+
+  // A default owner may have left since the template was saved: only active users are assigned.
+  const defaultOwnerIds = (task.defaultOwners ?? []).map((o) => o.id);
+  const activeOwners = new Map(
+    defaultOwnerIds.length > 0
+      ? (
+          await db.user.findMany({ where: { id: { in: defaultOwnerIds }, isActive: true }, select: { id: true, name: true } })
+        ).map((u) => [u.id, u.name || "Unassigned"] as const)
+      : []
+  );
+  const activeOwnerIdsOf = (t: ScaffoldedTask) => (t.defaultOwners ?? []).map((o) => o.id).filter((id) => activeOwners.has(id));
+  const ownerIds = activeOwnerIdsOf(task);
+
+  const actor = await db.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true } });
+  const actorName = actor?.name || session.user.name || actor?.email || "Manager";
+
+  const created = await db.projectTask.create({
+    data: {
+      code,
+      title: task.title || "Untitled Task",
+      phaseId: phase.id,
+      phaseCode: targetListCode,
+      phaseName: phase.name,
+      taskListName: phase.name,
+      isExternal: task.isExternal ?? true,
+      status: task.status || "Open",
+      authorId: session.user.id,
+      authorName: actorName,
+      departmentAlias: task.departmentAlias,
+      duration: task.duration,
+      priority: task.priority,
+      description: task.description,
+      startDate: task.defaultStartDate,
+      dueDate: task.defaultDueDate,
+      ownerId: ownerIds[0] ?? null,
+      owner: ownerIds.length > 0 ? ownerIds.map((id) => activeOwners.get(id)).join(", ") : "Unassigned",
+      projectId: target.id,
+    },
+    select: { id: true, code: true },
+  });
+
+  await applyTemplateTaskDefaults(target.id, [task], activeOwnerIdsOf, { id: session.user.id, name: actorName });
+
+  // Its subtasks, numbered <task>.1, .2… and theirs <task>.1.1… (same as a new project).
+  const addSubtasks = async (seeds: NonNullable<ScaffoldedTask["subtaskSeeds"]>, parentId: string, parentCode: string) => {
+    for (const [i, sub] of seeds.entries()) {
+      const child = await db.projectTask.create({
+        data: {
+          code: `${parentCode}.${i + 1}`,
+          title: subtaskTitle(sub),
+          phaseId: phase.id,
+          phaseCode: targetListCode,
+          phaseName: phase.name,
+          taskListName: phase.name,
+          isExternal: task.isExternal ?? true,
+          status: "Open",
+          authorId: session.user.id,
+          authorName: actorName,
+          departmentAlias: task.departmentAlias,
+          duration: task.duration,
+          priority: task.priority,
+          ownerId: null,
+          owner: "Unassigned",
+          projectId: target.id,
+          parentTaskId: parentId,
+        },
+        select: { id: true, code: true },
+      });
+      const children = subtaskChildren(sub);
+      if (children.length > 0) await addSubtasks(children, child.id, child.code);
+    }
+  };
+  if (task.subtaskSeeds?.length) await addSubtasks(task.subtaskSeeds, created.id, created.code);
+
+  await db.projectTaskActivity.create({
+    data: {
+      userName: actorName,
+      userId: session.user.id,
+      userInitials: toInitials(actorName),
+      actionText: `added this task from the ${templateName ? `"${templateName}" ` : ""}project template`,
+      taskId: created.id,
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${target.code || target.id}`);
+  return { success: true, projectId: target.code || target.id, code: created.code };
 }
 
 export type MoveTaskTarget ={ id: string; code: string | null; name: string; lists: { code: string; name: string }[] };

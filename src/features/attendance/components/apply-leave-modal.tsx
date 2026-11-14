@@ -92,25 +92,25 @@ export function ApplyLeaveModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-card rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      <div className="w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400">
               <CalendarPlus className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-base font-bold text-foreground">
                 Apply Leave
               </h3>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-muted-foreground">
                 {item.formattedDate} ({item.dayName})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="w-5 h-5" />
           </button>
@@ -127,14 +127,14 @@ export function ApplyLeaveModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
                 Leave Type
               </label>
               <select
                 value={leaveTypeCode}
                 onChange={(e) => setLeaveTypeCode(e.target.value)}
                 disabled={!leaveTypes || leaveTypes.length === 0}
-                className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60"
+                className="w-full px-3.5 py-2 rounded-xl border border-input bg-muted text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60"
               >
                 {!leaveTypes && <option value="">Loading…</option>}
                 {leaveTypes?.length === 0 && <option value="">No leave types available</option>}
@@ -147,13 +147,13 @@ export function ApplyLeaveModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
                 Duration
               </label>
               <select
                 value={durationType}
                 onChange={(e) => setDurationType(e.target.value as "FULL_DAY" | "HALF_DAY")}
-                className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-input bg-muted text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
               >
                 {(!selectedType || selectedType.allowFullDay) && <option value="FULL_DAY">Full Day (1.0 day)</option>}
                 {(!selectedType || selectedType.allowHalfDay) && <option value="HALF_DAY">Half Day (0.5 day)</option>}
@@ -163,11 +163,11 @@ export function ApplyLeaveModal({
 
           {durationType === "HALF_DAY" && (
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
                 Session
               </label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
                   <input
                     type="radio"
                     name="halfDay"
@@ -177,7 +177,7 @@ export function ApplyLeaveModal({
                   />
                   <span>First Half</span>
                 </label>
-                <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
                   <input
                     type="radio"
                     name="halfDay"
@@ -192,31 +192,31 @@ export function ApplyLeaveModal({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
               Reason
             </label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-muted text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
               placeholder="Provide reason for leave..."
               required
             />
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-accent transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !leaveTypeCode}
-              className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs flex items-center gap-2 transition-all disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { LeaveTypeConfig } from "../types";
 import { LeaveBalanceCard } from "./leave-balance-card";
@@ -18,6 +18,20 @@ export function LeaveBalanceGrid({
   onSelectType,
 }: LeaveBalanceGridProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Scroll arrows only when the cards don't all fit.
+  const [overflows, setOverflows] = useState(false);
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) {
+      setOverflows(false);
+      return;
+    }
+    const measure = () => setOverflows(el.scrollWidth > el.clientWidth + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [leaveTypes.length]);
 
   const handleScroll = (direction: "left" | "right") => {
     if (scrollContainerRef.current) {
@@ -40,7 +54,7 @@ export function LeaveBalanceGrid({
           </h3>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className={overflows ? "flex items-center gap-1.5" : "hidden"}>
           <Button
             type="button"
             variant="outline"

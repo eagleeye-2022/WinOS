@@ -12,8 +12,6 @@ import {
   Home,
   Search,
   Plus,
-  Edit2,
-  MoreVertical,
   Sliders,
   Sparkles,
   Loader2,
@@ -53,7 +51,8 @@ export interface LeaveTypePolicyItem {
   description: string;
   code: string;
   category: "Paid Leave" | "Unpaid Leave" | "Partially Paid";
-  unit: "Day(s)" | "Hour(s)";
+  /** Always "Day(s)" — balances are kept in days. */
+  unit: string;
   entitlement: string;
   isActive: boolean;
   icon?: string;
@@ -82,7 +81,6 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [unitFilter, setUnitFilter] = useState("ALL");
 
   const getLeaveIcon = (iconName?: string) => {
     switch (iconName) {
@@ -172,12 +170,9 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
       if (categoryFilter !== "ALL" && p.category !== categoryFilter) {
         return false;
       }
-      if (unitFilter !== "ALL" && p.unit !== unitFilter) {
-        return false;
-      }
       return true;
     });
-  }, [leavePolicies, searchTerm, statusFilter, categoryFilter, unitFilter]);
+  }, [leavePolicies, searchTerm, statusFilter, categoryFilter]);
 
   const handleCreate = () => {
     if (onCreateNew) {
@@ -195,15 +190,12 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Leave Types
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Create and manage all leave types defined in your organization.
-          </p>
         </div>
 
         <Button
           type="button"
           onClick={handleCreate}
-          className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+          className="h-10 px-5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Create Leave Type</span>
@@ -270,7 +262,7 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
 
       {/* Filter Bar */}
       <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
           {/* Search */}
           <div className="lg:col-span-2 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -306,17 +298,6 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             </SelectContent>
           </Select>
 
-          {/* Unit */}
-          <Select value={unitFilter} onValueChange={setUnitFilter}>
-            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
-              <SelectValue placeholder="All Units" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Units</SelectItem>
-              <SelectItem value="Day(s)">Day(s)</SelectItem>
-              <SelectItem value="Hour(s)">Hour(s)</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Leave Types Table */}
@@ -330,13 +311,12 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                 <th className="py-3 px-4 font-semibold">Leave Unit</th>
                 <th className="py-3 px-4 font-semibold">Entitlement</th>
                 <th className="py-3 px-4 font-semibold">Status</th>
-                <th className="py-3 px-4 font-semibold text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
+                  <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                     No leave types found matching the criteria.
                   </td>
                 </tr>
@@ -404,26 +384,6 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                     />
                   </td>
 
-                  {/* Actions */}
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={handleCreate}
-                        className="hover:text-primary p-1 rounded"
-                        title="Edit Leave Type"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        className="hover:text-foreground p-1 rounded"
-                        title="More Options"
-                      >
-                        <MoreVertical className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               )))}
             </tbody>

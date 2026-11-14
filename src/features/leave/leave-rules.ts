@@ -440,3 +440,20 @@ export function compOffExpiry(workDate: Date): Date {
 export function compOffCredit(duration: "FULL_DAY" | "HALF_DAY" | "QUARTER_DAY"): number {
   return duration === "FULL_DAY" ? 1 : duration === "HALF_DAY" ? 0.5 : 0.25;
 }
+
+/**
+ * Minimum time worked to claim each comp-off duration — a full day needs 7 h (the same threshold the
+ * attendance comp-off uses), a half day half that, a quarter day a quarter.
+ */
+export const COMP_OFF_MIN_MINUTES = { FULL_DAY: 420, HALF_DAY: 210, QUARTER_DAY: 105 } as const;
+
+/** Why `minutes` worked can't be claimed as `duration`, or null when it can. */
+export function compOffDurationError(duration: keyof typeof COMP_OFF_MIN_MINUTES, minutes: number): string | null {
+  const need = COMP_OFF_MIN_MINUTES[duration];
+  if (minutes >= need) return null;
+  const label = duration === "FULL_DAY" ? "a full day" : duration === "HALF_DAY" ? "a half day" : "a quarter day";
+  const fmt = (m: number) => `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
+  return minutes < COMP_OFF_MIN_MINUTES.QUARTER_DAY
+    ? `${fmt(minutes)} worked is less than the ${fmt(COMP_OFF_MIN_MINUTES.QUARTER_DAY)} needed for any comp-off.`
+    : `Claiming ${label} needs at least ${fmt(need)} worked — you entered ${fmt(minutes)}. Pick a shorter duration.`;
+}

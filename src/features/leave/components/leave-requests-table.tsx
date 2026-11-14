@@ -1,19 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Ban,
-  FileText,
-} from "lucide-react";
-import { LeaveRequest, LeaveStatus, LeaveTypeCode } from "../types";
-import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { LeaveRequest, LeaveStatus } from "../types";
+import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "./period-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,7 +21,6 @@ interface LeaveRequestsTableProps {
   showFilters?: boolean;
   showDateRangeNav?: boolean;
   title?: string;
-  defaultDateRangeText?: string;
 }
 
 export function LeaveRequestsTable({
@@ -40,28 +29,30 @@ export function LeaveRequestsTable({
   showFilters = false,
   showDateRangeNav = true,
   title = "MY REQUESTS/HOLIDAYS",
-  defaultDateRangeText = "01/01/2026 - 31/01/2026",
 }: LeaveRequestsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [dateRangeIndex, setDateRangeIndex] = useState(0);
+  // Overview pages by month; the full Leave Request tab by year. Both start at the current one.
+  const [period, setPeriod] = useState<Period>(() => currentPeriod(showFilters ? "year" : "month"));
+  const changePeriod = (next: Period) => {
+    setPeriod(next);
+    setCurrentPage(1);
+  };
 
-  const dateRanges = [
-    defaultDateRangeText,
-    "01/02/2026 - 28/02/2026",
-    "01/03/2026 - 31/03/2026",
-    "01/04/2026 - 30/04/2026",
-    "01/05/2026 - 31/05/2026",
-  ];
-
-  const currentDateRange = dateRanges[dateRangeIndex % dateRanges.length];
+  // Leave types this person actually has requests for.
+  const typeOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of requests) if (!seen.has(r.leaveTypeCode)) seen.set(r.leaveTypeCode, r.leaveTypeName);
+    return [...seen].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [requests]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
+      if (!overlapsPeriod(req.fromDate, req.toDate, period)) return false;
       // Reason search
       if (
         searchTerm &&
@@ -80,7 +71,7 @@ export function LeaveRequestsTable({
       }
       return true;
     });
-  }, [requests, searchTerm, selectedType, selectedStatus]);
+  }, [requests, searchTerm, selectedType, selectedStatus, period]);
 
   // Pagination
   const totalRecords = filteredRequests.length;
@@ -130,30 +121,9 @@ export function LeaveRequestsTable({
         )}
 
         {/* Date Navigator */}
-        {showDateRangeNav && (
-          <div className="flex items-center gap-1.5 self-end md:self-auto">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => setDateRangeIndex((prev) => (prev > 0 ? prev - 1 : dateRanges.length - 1))}
-              className="h-8 w-8 rounded-lg border-border/80 text-muted-foreground hover:text-foreground"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border/80 rounded-lg text-xs font-medium text-foreground">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{currentDateRange}</span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => setDateRangeIndex((prev) => prev + 1)}
-              className="h-8 w-8 rounded-lg border-border/80 text-muted-foreground hover:text-foreground"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+        {showDateRangeNav && !showFilters && (
+          <div className="self-end md:self-auto">
+            <PeriodNav value={period} onChange={changePeriod} />
           </div>
         )}
       </div>
@@ -161,31 +131,37 @@ export function LeaveRequestsTable({
       {/* Advanced Filter Bar (For Leave Request Tab) */}
       {showFilters && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-          {/* Date range display */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-xl text-xs font-medium text-foreground">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span>01 Jan 2025 - 31 Dec 2025</span>
-          </div>
+          <PeriodNav value={period} onChange={changePeriod} />
 
           {/* Leave Type Select */}
-          <Select value={selectedType} onValueChange={setSelectedType}>
+          <Select
+            value={selectedType}
+            onValueChange={(v) => {
+              setSelectedType(v);
+              setCurrentPage(1);
+            }}
+          >
             <SelectTrigger className="h-9 rounded-xl text-xs">
               <SelectValue placeholder="All Leave Types" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Leave Types</SelectItem>
-              <SelectItem value="CL">Casual Leave (CL)</SelectItem>
-              <SelectItem value="SL">Sick Leave (SL)</SelectItem>
-              <SelectItem value="HD">Half Day (HD)</SelectItem>
-              <SelectItem value="EL">Early Leave (EL)</SelectItem>
-              <SelectItem value="PL">Paid Leave (PL)</SelectItem>
-              <SelectItem value="WFH">Work From Home (WFH)</SelectItem>
-              <SelectItem value="COMP">Comp Off</SelectItem>
+              {typeOptions.map(([code, name]) => (
+                <SelectItem key={code} value={code}>
+                  {name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
           {/* Status Select */}
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <Select
+            value={selectedStatus}
+            onValueChange={(v) => {
+              setSelectedStatus(v);
+              setCurrentPage(1);
+            }}
+          >
             <SelectTrigger className="h-9 rounded-xl text-xs">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
@@ -203,7 +179,10 @@ export function LeaveRequestsTable({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by reason"
               className="h-9 pl-9 rounded-xl text-xs"
             />

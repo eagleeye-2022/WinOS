@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { MANDATORY_HOLIDAY } from "../attendance-data";
 import { compOffCredit, compOffExpiry } from "@/features/leave/leave-rules";
 import { reverseGeocode } from "@/lib/reverse-geocode";
-import { canManageUser } from "../team-scope";
+import { canManageUser, isSelfAction } from "../team-scope";
 import { approverIdsFor, loadRequester, notify } from "@/features/leave/approval-flow";
 import {
   canManageAttendance,
@@ -81,16 +81,23 @@ const PHOTO_URL = /^\/api\/uploads\/[^/?#]+\.(jpe?g|png|webp)$/i;
  */
 const MAX_LOCATION_ACCURACY_M = 1000;
 
-/** Refusal message when a check-in/out capture is missing or too imprecise, else null. */
+/**
+ * Refusal message when a check-in/out capture is missing its photo, else null. Location is optional
+ * (the employee can check in/out without sharing it); one that is sent must be a precise GPS fix.
+ */
 function captureError(payload: { location?: CheckInLocation; photo?: string } | undefined, verb: string): string | null {
-  if (!validLocation(payload?.location)) return `Allow location access to ${verb}.`;
   if (!payload?.photo || !PHOTO_URL.test(payload.photo)) return `Take a photo to ${verb}.`;
+  if (payload.location == null) return null;
+  if (!validLocation(payload.location)) return `Your location couldn't be read. Try again, or ${verb} without it.`;
   // A missing accuracy fails this too (NaN <= n is false).
   if (!(Number(payload.location.accuracy) <= MAX_LOCATION_ACCURACY_M)) {
-    return `Your location isn't precise enough to ${verb}. Turn on device location and try again.`;
+    return `Your location isn't precise enough. Turn on device location, or ${verb} without it.`;
   }
   return null;
 }
+
+/** No location shared: nothing saved, so it shows as "Not recorded". */
+const NO_LOCATION = { place: null, locationName: null, address: null } as const;
 
 /**
  * Location name + address line for a GPS fix: the OpenStreetMap area name when found (coordinates
@@ -121,7 +128,7 @@ export async function lookupPlaceAction(loc: CheckInLocation) {
 export async function checkInAction(payload?: {
   workMode?: "OFFICE" | "REMOTE";
   source?: string;
-  /** Required: where the employee is when checking in. */
+  /** Optional: where the employee is when checking in (left out when they check in without it). */
   location?: CheckInLocation;
   /** Required: selfie URL from POST /api/uploads. */
   photo?: string;
@@ -130,7 +137,7 @@ export async function checkInAction(payload?: {
   if (!user) return fail("Unauthorized");
 
   const invalid = captureError(payload, "check in");
-  if (invalid || !payload?.location || !payload.photo) return fail(invalid ?? "Take a photo to check in.");
+  if (invalid || !payload?.photo) return fail(invalid ?? "Take a photo to check in.");
 
   // Taken before the address lookup, so the check-in time is when the employee confirmed.
   const now = new Date();
@@ -175,7 +182,9 @@ export async function checkInAction(payload?: {
   // Resuming the day keeps the first check-in's location, so no lookup is needed then — except a
   // first check-in saved before place names existed (coordinates only), which gets one now.
   const keepExisting = Boolean(existing?.checkInLocationName) && !COORDS_ONLY.test(existing!.checkInLocationName!);
-  const { place, locationName, address } = await describeLocation(payload.location, { lookup: !keepExisting });
+  const { place, locationName, address } = payload.location
+    ? await describeLocation(payload.location, { lookup: !keepExisting })
+    : NO_LOCATION;
 
   // Checking in again after a check-out resumes the day: the first check-in time is kept,
   // the check-out is cleared and the worked minutes so far are carried forward.
@@ -221,7 +230,7 @@ export async function checkInAction(payload?: {
 
 export async function checkOutAction(payload?: {
   source?: string;
-  /** Required: where the employee is when checking out. */
+  /** Optional: where the employee is when checking out (left out when they check out without it). */
   location?: CheckInLocation;
   /** Required: selfie URL from POST /api/uploads. */
   photo?: string;
@@ -230,7 +239,7 @@ export async function checkOutAction(payload?: {
   if (!user) return fail("Unauthorized");
 
   const invalid = captureError(payload, "check out");
-  if (invalid || !payload?.location || !payload.photo) return fail(invalid ?? "Take a photo to check out.");
+  if (invalid || !payload?.photo) return fail(invalid ?? "Take a photo to check out.");
 
   const now = new Date();
   const today = dateFromKey(istDateKey(now))!;
@@ -248,7 +257,7 @@ export async function checkOutAction(payload?: {
     ? Math.max(0, Math.floor((now.getTime() - existing.liveSince.getTime()) / 60_000))
     : workedMinutesBetween(existing.checkInTime, timeStr) ?? 0;
 
-  const { locationName, address } = await describeLocation(payload.location);
+  const { locationName, address } = payload.location ? await describeLocation(payload.location) : NO_LOCATION;
 
   const record = await db.dailyAttendance.update({
     where: { userId_date: { userId: user.id, date: today } },
@@ -440,7 +449,9 @@ export async function reviewRegularizationAction(payload: {
 
   const current = await db.attendanceRegularization.findUnique({ where: { id: payload.requestId } });
   if (!current) return fail("Regularization request not found.");
-  if (current.userId === reviewer.id) return fail("You can't review your own regularization.");
+  if (isSelfAction(reviewer, current.userId)) {
+    return fail("You can't review your own regularization — another manager or an admin has to.");
+  }
   if (!(await canManageUser(reviewer, current.userId))) {
     return fail("Only this person's reporting manager (or an admin) can review it.");
   }

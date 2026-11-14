@@ -65,7 +65,12 @@ export function toTitleCaseText(text: string, startsSentence = true, continuesWo
       return chunk;
     }
     let first = true;
-    const cased = chunk.replace(LETTER_RUN, (word) => {
+    const cased = chunk.replace(LETTER_RUN, (word, offset: number) => {
+      // A plural/optional suffix glued to a word — "Day(s)", "item(s)" — isn't a new word.
+      if (offset >= 2 && chunk[offset - 1] === "(" && /[A-Za-z]/.test(chunk[offset - 2]) && word.length <= 3) {
+        first = false;
+        return word;
+      }
       const out = caseWord(word, atSentenceStart && first);
       first = false;
       return out;

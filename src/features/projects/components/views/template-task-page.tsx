@@ -916,6 +916,8 @@ export function TemplateTaskPage({
                 otherTemplates={otherTemplates}
                 onMoveToList={onMoveToList}
                 onMoveToTemplate={onMoveToTemplate}
+                taskSeed={task}
+                templateName={templateName}
               />
             )}
 

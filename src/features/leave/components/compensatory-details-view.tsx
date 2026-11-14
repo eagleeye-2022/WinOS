@@ -141,7 +141,7 @@ export function CompensatoryDetailsView({
           type="button"
           variant="outline"
           onClick={handlePrint}
-          className="h-9 px-4 rounded-xl text-xs font-semibold gap-2 self-start sm:self-auto border-border"
+          className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto border-border"
         >
           <Printer className="w-4 h-4" />
           <span>Print</span>
@@ -282,7 +282,7 @@ export function CompensatoryDetailsView({
                 variant="outline"
                 disabled={isProcessing}
                 onClick={handleReject}
-                className="h-10 px-8 rounded-xl text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
+                className="h-10 px-8 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
               >
                 <X className="w-4 h-4 text-red-500" />
                 <span>{isProcessing ? "Processing..." : "Reject"}</span>
@@ -293,7 +293,7 @@ export function CompensatoryDetailsView({
                 variant="outline"
                 disabled={isProcessing}
                 onClick={handleApprove}
-                className="h-10 px-8 rounded-xl text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
+                className="h-10 px-8 rounded-lg text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4 text-emerald-500" />
                 <span>{isProcessing ? "Processing..." : "Approve"}</span>

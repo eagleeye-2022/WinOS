@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import {
   Calendar as CalendarIcon,
@@ -191,9 +192,6 @@ export function TeamCalendarView() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Team Calendar
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            View team leaves, public holidays, and important organization dates.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -203,7 +201,7 @@ export function TeamCalendarView() {
             variant="outline"
             size="sm"
             onClick={handleToday}
-            className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5 border-border"
+            className="h-9 px-3 rounded-lg text-xs font-semibold gap-1.5 border-border"
           >
             <CalendarIcon className="w-3.5 h-3.5 text-primary" />
             <span>Today</span>
@@ -332,7 +330,7 @@ export function TeamCalendarView() {
                     {/* Top Day Number */}
                     <div className="flex items-center justify-between">
                       {isToday ? (
-                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-2xs">
+                        <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs shadow-2xs">
                           {day}
                         </span>
                       ) : (
@@ -347,7 +345,7 @@ export function TeamCalendarView() {
                       )}
 
                       {isToday && (
-                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                        <span className="text-xs font-bold text-primary">
                           Today
                         </span>
                       )}
@@ -507,17 +505,13 @@ export function TeamCalendarView() {
                     key={leave.id}
                     className="flex items-start gap-3 p-3 rounded-xl border bg-background hover:bg-muted/30 transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
-                      {leave.avatarUrl ? (
-                        <img
-                          src={leave.avatarUrl}
-                          alt={leave.employeeName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span>{leave.avatarText}</span>
-                      )}
-                    </div>
+                    <UserAvatar
+                      name={leave.employeeName}
+                      image={leave.avatarUrl}
+                      className="w-8 h-8 bg-primary/10 border border-primary/20 text-primary font-bold text-xs"
+                    >
+                      {leave.avatarText}
+                    </UserAvatar>
 
                     <div className="space-y-0.5 flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">

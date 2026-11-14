@@ -1,13 +1,10 @@
 // Who a manager is responsible for in Pulse (team attendance, team leave, approvals).
 // Server-only (not a "use server" module) — imported by the attendance / leave queries and actions.
 //
-// Rule:
-//  - Admins (profileRole ADMIN / PORTAL_OWNER) manage everyone.
-//  - Other managers manage their reporting tree (primary or secondary reports, any depth)
-//    plus everyone who has no reporting manager set — so nobody is left without an approver,
-//    and an org that hasn't filled in reporting lines behaves as before (every manager sees all).
+// Rule: every manager (role MANAGER, or profileRole MANAGER / ADMIN / PORTAL_OWNER) manages every
+// employee except themselves. Leave steps routed to a Department Head or HR Admin keep their own
+// rules (see leave/approval-flow.ts).
 
-import { db } from "@/lib/db";
 import { canManageAttendance } from "./utils";
 
 export interface Viewer {
@@ -65,18 +62,20 @@ export function managedIdsFrom(viewerId: string, org: OrgRow[], includeUnassigne
 }
 
 /**
- * Ids of the people `viewer` manages, or null for "everyone" (admins).
- * Non-managers manage nobody.
+ * Ids of the people `viewer` manages, or null for "everyone".
+ * Every manager manages everyone (product decision, Nov 2026: any manager can see, approve and raise
+ * requests for any team member — not just their reporting tree). Non-managers manage nobody.
+ * Nobody manages themselves: canManageUser refuses the viewer's own id, so a manager's own
+ * requests still go to someone else. `managedIdsFrom` keeps the reporting-tree rule if it's needed again.
  */
 export async function managedUserIds(viewer: Viewer): Promise<Set<string> | null> {
   if (!canManageAttendance(viewer)) return new Set();
-  if (isPulseAdmin(viewer)) return null;
-  const org = await db.user.findMany({
-    where: { isActive: true, OR: [{ profileRole: null }, { profileRole: { not: "CLIENT" } }] },
-    select: { id: true, reportingToId: true, secondaryReportingToId: true, profileRole: true },
-  });
-  const hasAdmin = org.some((u) => ADMIN_PROFILE_ROLES.has(u.profileRole ?? ""));
-  return managedIdsFrom(viewer.id, org, !hasAdmin);
+  return null;
+}
+
+/** True when a reviewer would be approving / rejecting / adjusting their own record. */
+export function isSelfAction(viewer: Viewer, targetUserId: string): boolean {
+  return viewer.id === targetUserId;
 }
 
 /** Prisma `where` fragment limiting rows to the people the viewer manages. */
@@ -84,9 +83,13 @@ export function scopeWhere(ids: Set<string> | null, field = "userId") {
   return ids === null ? {} : { [field]: { in: [...ids] } };
 }
 
-/** Whether `viewer` may act on (approve, review, view) `targetUserId`'s Pulse records. */
+/**
+ * Whether `viewer` may view / act on `targetUserId`'s Pulse records. True for the viewer's own id when
+ * they're a manager, so approve / reject / adjust gates must also call `isSelfAction` — nobody approves
+ * their own request.
+ */
 export async function canManageUser(viewer: Viewer, targetUserId: string): Promise<boolean> {
-  if (!canManageAttendance(viewer) || viewer.id === targetUserId) return false;
+  if (!canManageAttendance(viewer)) return false;
   const ids = await managedUserIds(viewer);
   return ids === null || ids.has(targetUserId);
 }
