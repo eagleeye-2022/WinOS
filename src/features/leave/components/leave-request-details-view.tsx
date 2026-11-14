@@ -47,6 +47,10 @@ import { errorMessage, unwrap } from "../action-result";
 import { getLeaveRequestByIdAction } from "../queries/leave-queries";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
+
+const STATUS_TONE: Record<string, PulseTone> = { APPROVED: "green", REJECTED: "red", PENDING: "amber", CANCELLED: "gray" };
+const STATUS_LABEL: Record<string, string> = { APPROVED: "Approved", REJECTED: "Rejected", PENDING: "Pending", CANCELLED: "Cancelled" };
 import { UserAvatar } from "@/components/shared/user-avatar";
 
 interface LeaveRequestDetailsViewProps {
@@ -54,8 +58,10 @@ interface LeaveRequestDetailsViewProps {
   leaveTypes: LeaveTypeConfig[];
   onCancelRequest?: (id: string) => void;
   onBack?: () => void;
-  /** Someone else's request, opened by a manager: Approve / Reject show. Never on your own request. */
+  /** Someone else's request, opened by a manager: Approve / Reject show. */
   isManagerView?: boolean;
+  /** The viewer's own request and they're a manager: they may approve it themselves. */
+  canApproveOwn?: boolean;
 }
 
 export function LeaveRequestDetailsView({
@@ -64,8 +70,8 @@ export function LeaveRequestDetailsView({
   onCancelRequest,
   onBack,
   isManagerView = false,
+  canApproveOwn = false,
 }: LeaveRequestDetailsViewProps) {
-  // Nobody approves their own leave (the server refuses it too).
   const showReview = isManagerView;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"approval" | "balance">("approval");
@@ -78,7 +84,7 @@ export function LeaveRequestDetailsView({
       {
         id: "step-1",
         title: "Requested",
-        actorName: request.employee?.name || "Employee",
+        actorName: request.employee?.name || "Team Member",
         dateStr: request.appliedOnDateTime || request.appliedOn,
         status: "COMPLETED" as const,
       },
@@ -153,7 +159,7 @@ export function LeaveRequestDetailsView({
   };
 
   const employee = request.employee || {
-    name: "Employee",
+    name: "Team Member",
     empId: "—",
     role: "Team Member",
   };
@@ -277,15 +283,15 @@ export function LeaveRequestDetailsView({
   };
 
   return (
-    <div className="space-y-6 w-full pb-12">
+    <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <button
               type="button"
               onClick={() => (onBack ? onBack() : router.push("/pulse/leave"))}
-              className="text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+              className="cursor-pointer text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
             >
               Leave Requests
             </button>
@@ -293,27 +299,17 @@ export function LeaveRequestDetailsView({
             <span className="text-foreground">Leave Request Details</span>
           </nav>
 
-          <div className="pt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-lg font-semibold text-foreground">
               Leave Request Details
             </h1>
-            <span
-              className={cn(
-                "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                status === "CANCELLED"
-                  ? "bg-muted text-muted-foreground border-border"
-                  : status === "APPROVED"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : status === "REJECTED"
-                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
-                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
-              )}
-            >
-              {status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}
-            </span>
+            <StatusPill tone={STATUS_TONE[status] ?? "amber"}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[STATUS_TONE[status] ?? "amber"])} />
+              {STATUS_LABEL[status] ?? status}
+            </StatusPill>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground">
             Requested on {request.appliedOnDateTime || `${request.appliedOn} at 09:15 AM`}
           </p>
         </div>
@@ -323,7 +319,7 @@ export function LeaveRequestDetailsView({
           type="button"
           variant="outline"
           onClick={handlePrint}
-          className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto border-border"
+          className="h-8 gap-1.5 self-start rounded-md border-border/80 px-3 text-xs font-semibold sm:self-auto"
         >
           <Printer className="w-4 h-4" />
           <span>Print</span>
@@ -331,29 +327,29 @@ export function LeaveRequestDetailsView({
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Leave Information & Attachments */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-4 lg:col-span-8">
           {/* Leave Information Card */}
-          <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
-            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
-              <FileText className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Leave Information
-              </h3>
+          <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <FileText className="h-4 w-4" />
+              </span>
+              <h3 className="text-[15px] font-semibold text-foreground">Leave Information</h3>
             </div>
 
             {/* Information Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 border-t border-border/70 pt-5 text-xs sm:grid-cols-2">
               {/* Employee */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Employee</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Team Member</span>
                 <div className="flex items-center gap-3 pt-0.5">
                   <UserAvatar
                     userId={employee.id}
                     name={employee.name}
                     image={employee.avatarUrl}
-                    className="w-9 h-9 bg-primary/10 border border-primary/20 text-primary font-bold text-xs"
+                    className="h-9 w-9 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                   >
                     {employee.name.slice(0, 2).toUpperCase()}
                   </UserAvatar>
@@ -370,19 +366,19 @@ export function LeaveRequestDetailsView({
 
               {/* Applied On */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Applied On</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Applied On</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{request.appliedOnDateTime || `${request.appliedOn} at 09:15 AM`}</span>
                 </div>
               </div>
 
               {/* Leave Type */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Leave Type</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Leave Type</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
                   {React.createElement(getLeaveIcon(request.leaveTypeIcon || "Calendar"), {
-                    className: "w-4 h-4 text-primary",
+                    className: "w-4 h-4 text-muted-foreground",
                   })}
                   <span>{request.leaveTypeName}</span>
                 </div>
@@ -390,45 +386,45 @@ export function LeaveRequestDetailsView({
 
               {/* Status */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Status</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                  <span>{status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}</span>
+                  <span className={cn("inline-block h-2 w-2 rounded-full", TONE_DOT[STATUS_TONE[status] ?? "amber"])} />
+                  <span>{STATUS_LABEL[status] ?? status}</span>
                 </div>
               </div>
 
               {/* From Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">From Date</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{request.fromDateDisplay.replace("\n", " ")}</span>
                 </div>
               </div>
 
               {/* To Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">To Date</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{request.toDateDisplay.replace("\n", " ")}</span>
                 </div>
               </div>
 
               {/* Duration */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Duration</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Duration</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1.5">
-                  <Clock className="w-4 h-4 text-primary" />
+                  <Clock className="w-4 h-4 text-muted-foreground" />
                   <span>{request.durationText}</span>
                 </div>
               </div>
 
               {/* Reason */}
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="text-muted-foreground font-medium text-xs">Reason</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reason</span>
                 <div className="flex items-start gap-2 text-foreground font-medium pt-1.5">
-                  <MessageSquare className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>{request.reason}</span>
                 </div>
               </div>
@@ -436,10 +432,12 @@ export function LeaveRequestDetailsView({
           </div>
 
           {/* Attachments Card */}
-          <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <FileText className="h-4 w-4" />
+              </span>
+              <h3 className="text-[15px] font-semibold text-foreground">
                 Attachments ({request.attachments?.length ?? 0})
               </h3>
             </div>
@@ -449,7 +447,7 @@ export function LeaveRequestDetailsView({
               {request.attachments?.map((att) => (
                 <div
                   key={att.id}
-                  className="flex items-center justify-between p-3 bg-background border rounded-xl"
+                  className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3"
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
@@ -469,7 +467,7 @@ export function LeaveRequestDetailsView({
                       variant="ghost"
                       size="icon"
                       onClick={() => setPreviewAttachment(att)}
-                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-primary/10"
                       title="View Document"
                     >
                       <Eye className="w-4 h-4" />
@@ -492,7 +490,7 @@ export function LeaveRequestDetailsView({
 
           {/* Action Buttons: Manager Approve / Reject or Employee Cancel */}
           {status === "PENDING" && (
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
               {/* Employee Action: Cancel Request */}
               {onCancelRequest && !isManagerView && (
                 <Button
@@ -500,14 +498,27 @@ export function LeaveRequestDetailsView({
                   variant="outline"
                   disabled={isProcessing}
                   onClick={handleCancel}
-                  className="h-10 px-5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted border-border flex items-center gap-1.5"
+                  className="flex h-9 items-center gap-1.5 rounded-md border-border/80 px-4 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <X className="w-4 h-4" />
                   <span>Cancel Request</span>
                 </Button>
               )}
 
-              {/* Manager Actions: Reject / Approve (a manager's own request included) */}
+              {/* A manager's own request: they may approve it themselves (rejecting = cancelling). */}
+              {canApproveOwn && !isManagerView && (
+                <Button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={handleApprove}
+                  className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isProcessing ? "Processing..." : "Approve"}</span>
+                </Button>
+              )}
+
+              {/* Manager Actions on someone else's request: Reject / Approve */}
               {showReview && (
                 <>
                   <Button
@@ -515,7 +526,7 @@ export function LeaveRequestDetailsView({
                     variant="outline"
                     disabled={isProcessing}
                     onClick={handleReject}
-                    className="h-10 px-6 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
+                    className="flex h-9 items-center gap-1.5 rounded-md border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
                   >
                     <X className="w-4 h-4 text-red-500" />
                     <span>{isProcessing ? "Processing..." : "Reject"}</span>
@@ -523,12 +534,11 @@ export function LeaveRequestDetailsView({
 
                   <Button
                     type="button"
-                    variant="outline"
                     disabled={isProcessing}
                     onClick={handleApprove}
-                    className="h-10 px-6 rounded-lg text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
+                    className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
                   >
-                    <Check className="w-4 h-4 text-emerald-500" />
+                    <Check className="w-4 h-4" />
                     <span>{isProcessing ? "Processing..." : "Approve"}</span>
                   </Button>
                 </>
@@ -540,14 +550,14 @@ export function LeaveRequestDetailsView({
         {/* Right Column: Approval Flow vs Leave Balance Switcher */}
         <div className="lg:col-span-4 space-y-4">
           {/* Switcher Buttons */}
-          <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl border">
+          <div className="flex items-center gap-1 rounded-md border border-border/70 bg-card p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <button
               type="button"
               onClick={() => setActiveTab("approval")}
               className={cn(
-                "flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                "flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded py-2 text-xs font-semibold transition-colors",
                 activeTab === "approval"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-blue-600 text-white"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -559,9 +569,9 @@ export function LeaveRequestDetailsView({
               type="button"
               onClick={() => setActiveTab("balance")}
               className={cn(
-                "flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                "flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded py-2 text-xs font-semibold transition-colors",
                 activeTab === "balance"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-blue-600 text-white"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -572,10 +582,8 @@ export function LeaveRequestDetailsView({
 
           {/* Approval Flow Card */}
           {activeTab === "approval" && (
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-6">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Approval Flow
-              </h3>
+            <div className="space-y-6 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+              <h3 className="text-[15px] font-semibold text-foreground">Approval Flow</h3>
 
               <div className="relative pl-6 space-y-8 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
                 {(approvalFlow && approvalFlow.length > 0
@@ -611,7 +619,7 @@ export function LeaveRequestDetailsView({
                         className={cn(
                           "absolute -left-[27px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-card",
                           isCompleted
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-emerald-500 text-white"
                             : isRejected
                             ? "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 border border-red-300 dark:border-red-800"
                             : "bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800"
@@ -627,7 +635,7 @@ export function LeaveRequestDetailsView({
                       </div>
                       <div
                         className={cn(
-                          "p-3 rounded-xl border transition-all space-y-1",
+                          "p-3 rounded-md border transition-all space-y-1",
                           isPending && "border-amber-200/80 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/40",
                           isCompleted && "bg-card border-border/80",
                           isRejected && "border-red-200/80 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/40"
@@ -637,12 +645,12 @@ export function LeaveRequestDetailsView({
                           <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
                           <span
                             className={cn(
-                              "px-2 py-0.5 rounded-md text-xs font-semibold border",
+                              "rounded-full px-2 py-0.5 text-[11px] font-semibold",
                               isCompleted
-                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200"
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                                 : isRejected
-                                ? "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border-red-200"
-                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 border-amber-200"
+                                ? "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300"
+                                : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
                             )}
                           >
                             {isCompleted ? "Approved" : isRejected ? "Rejected" : "Pending"}
@@ -665,10 +673,8 @@ export function LeaveRequestDetailsView({
 
           {/* Leave Balance Card */}
           {activeTab === "balance" && (
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Remaining Leaves
-              </h3>
+            <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+              <h3 className="text-[15px] font-semibold text-foreground">Remaining Leaves</h3>
 
               {balances.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">
@@ -681,9 +687,9 @@ export function LeaveRequestDetailsView({
                     return (
                       <div
                         key={type.id || type.code}
-                        className="p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1 hover:border-primary/40 transition-colors"
+                        className="flex flex-col items-center justify-center space-y-1 rounded-md border border-border/70 bg-background p-3 text-center transition-colors hover:border-blue-300 dark:hover:border-blue-500/50"
                       >
-                        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center border shadow-2xs", type.iconBgColor, type.iconTextColor)}>
+                        <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", type.iconBgColor, type.iconTextColor)}>
                           <TypeIcon className="w-4 h-4" />
                         </div>
                         <div className="text-xs text-muted-foreground font-medium truncate max-w-[120px]" title={type.name}>
@@ -705,11 +711,11 @@ export function LeaveRequestDetailsView({
       {/* Document Preview Modal */}
       {previewAttachment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-card border border-border/80 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
+          <div className="bg-card border border-border/80 w-full max-w-2xl rounded-lg shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
               <div className="flex items-center gap-2.5 truncate pr-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div className="truncate">
@@ -768,7 +774,7 @@ export function LeaveRequestDetailsView({
                   <img
                     src={previewAttachment.url}
                     alt={previewAttachment.name}
-                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-xs"
+                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                   />
                 </div>
               ) : previewAttachment.url &&
@@ -783,7 +789,7 @@ export function LeaveRequestDetailsView({
                 </div>
               ) : (
                 <div className="text-center space-y-3 py-8 max-w-sm">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-2xs border border-primary/20">
+                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-primary/20">
                     <FileText className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">
@@ -799,7 +805,7 @@ export function LeaveRequestDetailsView({
                       type="button"
                       size="sm"
                       onClick={() => handleDownload(previewAttachment)}
-                      className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground"
+                      className="rounded-md text-xs gap-1.5 bg-primary text-primary-foreground"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download Document

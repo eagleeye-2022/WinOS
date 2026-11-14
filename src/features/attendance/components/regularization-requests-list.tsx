@@ -3,23 +3,18 @@
 import React, { useState, useEffect, useTransition } from "react";
 import {
   FileText,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Search,
   Plus,
   RotateCcw,
-  Calendar,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  HelpCircle,
   Loader2,
 } from "lucide-react";
 import { RegularizationRequest, RegularizationStatus } from "../types";
 import { getRegularizationRequestsData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { PersonAvatar } from "./person-avatar";
+import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface RegularizationRequestsListProps {
   onNewRequest?: () => void;
@@ -70,285 +65,209 @@ export function RegularizationRequestsList({
     setIssueFilter("All");
   };
 
-  return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Regularization Requests
-          </h1>
-        </div>
+  const STATUS_TONE: Record<RegularizationStatus, PulseTone> = { Pending: "amber", Approved: "green", Rejected: "red" };
+  const statusTabs: { value: string; label: string; count: number }[] = [
+    { value: "All", label: "All", count: counts.all },
+    { value: "Pending", label: "Pending", count: counts.pending },
+    { value: "Approved", label: "Approved", count: counts.approved },
+    { value: "Rejected", label: "Rejected", count: counts.rejected },
+  ];
+  const selectCls =
+    "h-8 rounded-md border border-border/80 bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30";
 
+  return (
+    <div className="flex w-full flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Regularization Requests</h1>
+        </div>
         <button
           onClick={onNewRequest}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs transition-colors"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
         >
-          <Plus className="w-4 h-4" />
-          <span>Regularize Attendance</span>
+          <Plus className="h-4 w-4" />
+          Regularize Attendance
         </button>
       </div>
 
-      {/* 4 Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-        {/* Total Requests */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <FileText className="w-6 h-6" />
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        {/* Status tabs with counts */}
+        <div className="flex gap-1 overflow-x-auto border-b border-border/70 px-2">
+          {statusTabs.map((t) => {
+            const active = statusFilter === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setStatusFilter(t.value)}
+                className={cn(
+                  "relative inline-flex shrink-0 items-center gap-1.5 px-3.5 py-3 text-[13px] font-medium transition-colors",
+                  "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full",
+                  active
+                    ? "font-semibold text-blue-600 after:bg-blue-600 dark:text-blue-400 dark:after:bg-blue-400"
+                    : "text-muted-foreground after:bg-transparent hover:text-foreground"
+                )}
+              >
+                {t.label}
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-px text-[10px] font-bold",
+                    active ? "bg-blue-600 text-white dark:bg-blue-500" : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {t.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={issueFilter} onChange={(e) => setIssueFilter(e.target.value)} className={selectCls}>
+              <option value="All">All Issues</option>
+              <option value="MISSING_CHECK_IN">Missing Check-in</option>
+              <option value="MISSING_CHECK_OUT">Missing Check-out</option>
+              <option value="OTHER">Other corrections</option>
+            </select>
+            <button
+              onClick={handleReset}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </button>
           </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Total Requests
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.all}
-            </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search request or team member..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8 w-full rounded-md border border-border/80 bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
           </div>
         </div>
 
-        {/* Pending */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Pending
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.pending}
-            </div>
-          </div>
-        </div>
-
-        {/* Approved */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Approved
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.approved}
-            </div>
-          </div>
-        </div>
-
-        {/* Rejected */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0">
-            <XCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Rejected
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.rejected}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-card border border-border flex flex-wrap items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-center flex-wrap gap-2.5">
-          {/* Status Dropdown */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
-          >
-            <option value="All">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-
-          {/* Issue Type Dropdown */}
-          <select
-            value={issueFilter}
-            onChange={(e) => setIssueFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
-          >
-            <option value="All">All Issues</option>
-            <option value="MISSING_CHECK_IN">Missing Check-in</option>
-            <option value="MISSING_CHECK_OUT">Missing Check-out</option>
-            <option value="OTHER">Other corrections</option>
-          </select>
-
-          {/* Reset Filters */}
-          <button
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-muted-foreground hover:bg-accent transition-colors shadow-2xs"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
-          </button>
-        </div>
-
-        {/* Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search request or employee..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-      </div>
-
-      {/* Requests Table */}
-      <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3.5 px-5">Employee</th>
-                <th className="py-3.5 px-5">Attendance Date</th>
-                <th className="py-3.5 px-5">Existing Timing</th>
-                <th className="py-3.5 px-5">Requested Timing</th>
-                <th className="py-3.5 px-5">Reason</th>
-                <th className="py-3.5 px-5">Status</th>
-                <th className="py-3.5 px-5 text-right">Action</th>
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-2.5">Team Member</th>
+                <th className="px-4 py-2.5">Attendance Date</th>
+                <th className="px-4 py-2.5">Existing Timing</th>
+                <th className="px-4 py-2.5">Requested Timing</th>
+                <th className="px-4 py-2.5">Reason</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
+            <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                    <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
                     Loading regularization requests...
                   </td>
                 </tr>
               ) : visibleRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                    <HelpCircle className="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                  <td colSpan={7} className="py-14 text-center text-muted-foreground">
+                    <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                     No regularization requests found
                   </td>
                 </tr>
               ) : (
-                visibleRequests.map((req) => (
-                  <tr
-                    key={req.id}
-                    onClick={() => onViewRequest?.(req)}
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                  >
-                    {/* Employee */}
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-3">
-                        <PersonAvatar name={req.employee.name} image={req.employee.avatarUrl} userId={req.employee.id} />
-                        <div>
-                          <div className="font-bold text-foreground">
-                            {req.employee.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {req.employee.designation} • ID: {req.employee.employeeId}
+                visibleRequests.map((req) => {
+                  const tone = STATUS_TONE[req.status];
+                  return (
+                    <tr key={req.id} onClick={() => onViewRequest?.(req)} className="cursor-pointer transition-colors hover:bg-muted/40">
+                      {/* Team member */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <PersonAvatar name={req.employee.name} image={req.employee.avatarUrl} userId={req.employee.id} />
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-semibold text-foreground">{req.employee.name}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {req.employee.designation}
+                              {/* Employee ID hidden for now: {" "}• ID: {req.employee.employeeId} */}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Attendance Date */}
-                    <td className="py-3.5 px-5">
-                      <div className="font-semibold text-foreground">
-                        {req.attendanceDate}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {req.attendanceDay}
-                      </div>
-                    </td>
+                      {/* Date */}
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">{req.attendanceDate}</div>
+                        <div className="text-[11px] text-muted-foreground">{req.attendanceDay}</div>
+                      </td>
 
-                    {/* Existing Timing */}
-                    <td className="py-3.5 px-5">
-                      <div className="font-medium text-muted-foreground">
-                        {req.existingAttendance.checkIn || "--:--"} →{" "}
-                        {req.existingAttendance.checkOut || "--:--"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {req.existingAttendance.workedDuration || "--"}
-                      </div>
-                    </td>
+                      {/* Existing */}
+                      <td className="px-4 py-3">
+                        <div className="text-muted-foreground line-through decoration-muted-foreground/40">
+                          {req.existingAttendance.checkIn || "--:--"} → {req.existingAttendance.checkOut || "--:--"}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">{req.existingAttendance.workedDuration || "--"}</div>
+                      </td>
 
-                    {/* Requested Timing */}
-                    <td className="py-3.5 px-5">
-                      <div className="font-bold text-primary">
-                        {req.requestedAttendance.checkIn} →{" "}
-                        {req.requestedAttendance.checkOut}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {req.requestedAttendance.workedDuration}
-                      </div>
-                    </td>
+                      {/* Requested */}
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-blue-600 dark:text-blue-400">
+                          {req.requestedAttendance.checkIn} → {req.requestedAttendance.checkOut}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">{req.requestedAttendance.workedDuration}</div>
+                      </td>
 
-                    {/* Reason */}
-                    <td className="py-3.5 px-5">
-                      <div className="font-medium text-foreground max-w-[180px] truncate">
-                        {req.reason}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate max-w-[180px]">
-                        {req.remarks || "No remarks"}
-                      </div>
-                    </td>
+                      {/* Reason */}
+                      <td className="px-4 py-3">
+                        <div className="max-w-[180px] truncate font-medium text-foreground">{req.reason}</div>
+                        <div className="max-w-[180px] truncate text-[11px] text-muted-foreground">{req.remarks || "No remarks"}</div>
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-5">
-                      {req.status === "Pending" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          Pending
-                        </span>
-                      )}
-                      {req.status === "Approved" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Approved
-                        </span>
-                      )}
-                      {req.status === "Rejected" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
-                          <XCircle className="w-3 h-3 text-rose-600" />
-                          Rejected
-                        </span>
-                      )}
-                    </td>
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        <StatusPill tone={tone}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone], req.status === "Pending" && "animate-pulse")} />
+                          {req.status}
+                        </StatusPill>
+                      </td>
 
-                    {/* Action */}
-                    <td className="py-3.5 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewRequest?.(req);
-                        }}
-                        className="text-xs font-bold text-primary hover:text-blue-700 hover:underline"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      {/* Action */}
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewRequest?.(req);
+                          }}
+                          className="text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Footer Pagination Bar */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
           <div>
-            Showing <span className="font-bold text-foreground">{visibleRequests.length}</span> results
+            Showing <span className="font-semibold text-foreground">{visibleRequests.length}</span> results
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
-              <ChevronLeft className="w-3.5 h-3.5" />
+            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="font-bold text-foreground">1</span>
-            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
-              <ChevronRight className="w-3.5 h-3.5" />
+            <span className="font-semibold text-foreground">1</span>
+            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

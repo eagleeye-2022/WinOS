@@ -1,4 +1,4 @@
-// Pure helpers for the Pulse home page (/people/home). DB-free so they can be unit-tested.
+// Pure helpers for the Pulse home page (/pulse/home). DB-free so they can be unit-tested.
 
 import { addDaysToKey, dateFromKey, type ResolvedDay } from "@/features/attendance/utils";
 

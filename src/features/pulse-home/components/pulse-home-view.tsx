@@ -1,25 +1,48 @@
 "use client";
 
 import React, { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Loader2, TreePalm, UserRoundCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CalendarDays,
+  Clock,
+  Loader2,
+  LogIn,
+  LogOut,
+  TreePalm,
+  Users,
+  WalletCards,
+} from "lucide-react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import {
+  PulseCard,
+  PulseCardLink,
+  PulsePage,
+  PulseTabs,
+  StatusPill,
+  TONE_DOT,
+  TONE_TEXT,
+  type PulseTone,
+} from "@/components/pulse/pulse-ui";
 import { checkInAction, checkOutAction } from "@/features/attendance/actions/attendance-actions";
 import { ApplyLeaveModal } from "@/features/attendance/components/apply-leave-modal";
 import { CheckInCaptureModal } from "@/features/attendance/components/check-in-capture-modal";
 import type { ActionRequiredItem } from "@/features/attendance/types";
+import { SHIFT_END, SHIFT_START } from "@/features/attendance/utils";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
 import type { PulseHomeData, PulsePerson } from "../queries";
 import type { DayTone } from "../utils";
 
-const TONE_CLASS: Record<DayTone, string> = {
-  success: "text-emerald-600 dark:text-emerald-400",
-  danger: "text-rose-600 dark:text-rose-400",
-  warning: "text-amber-600 dark:text-amber-400",
-  muted: "text-muted-foreground",
+const TONE: Record<DayTone, PulseTone> = {
+  success: "green",
+  danger: "red",
+  warning: "amber",
+  muted: "gray",
 };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function initials(name: string) {
   return name
@@ -71,18 +94,17 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
   const [captureMode, setCaptureMode] = useState<"check-in" | "check-out" | null>(null);
   const [isRefreshing, startRefresh] = useTransition();
   const [hh, mm, ss] = useWorkedClock(today.bankedMinutes, today.liveSince);
-
   const busy = isRefreshing;
 
   return (
-    <div className="relative rounded-2xl border bg-card px-5 pb-5 pt-16 text-center shadow-xs">
+    <section className="relative rounded-lg border border-border/70 bg-card px-5 pb-5 pt-14 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <UserAvatar
         userId={me.id}
         name={me.name}
         email={me.email}
         image={me.image}
         title=""
-        className="absolute -top-14 left-1/2 h-28 w-28 -translate-x-1/2 rounded-2xl border-4 border-card bg-primary/10 text-3xl font-bold text-primary shadow-md"
+        className="absolute -top-12 left-1/2 h-24 w-24 -translate-x-1/2 rounded-xl border-4 border-card bg-blue-50 text-2xl font-bold text-blue-700 shadow-md dark:bg-blue-500/15 dark:text-blue-300"
       >
         {initials(me.name)}
       </UserAvatar>
@@ -90,13 +112,28 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
       <p className="text-sm font-semibold text-foreground">{personLabel(me)}</p>
       {me.title && <p className="mt-0.5 text-xs text-muted-foreground">{me.title}</p>}
 
-      <p className={cn("mt-3 text-sm font-medium", TONE_CLASS[me.presence.tone])}>{me.presence.label}</p>
+      <div className="mt-3">
+        <StatusPill tone={TONE[me.presence.tone]}>
+          <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[TONE[me.presence.tone]])} />
+          {me.presence.label}
+        </StatusPill>
+      </div>
 
-      <div className="mt-3 flex items-center justify-center gap-1.5 font-mono text-lg font-semibold text-foreground">
-        {[hh, mm, ss].map((part, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <span className="text-muted-foreground">:</span>}
-            <span className="min-w-10 rounded-lg bg-muted px-2 py-1.5 tabular-nums">{part}</span>
+      {/* Worked time today */}
+      <div className="mt-4 flex items-start justify-center gap-1.5">
+        {[
+          [hh, "Hrs"],
+          [mm, "Min"],
+          [ss, "Sec"],
+        ].map(([value, unit], i) => (
+          <React.Fragment key={unit}>
+            {i > 0 && <span className="pt-1.5 text-lg font-semibold text-muted-foreground">:</span>}
+            <div className="flex flex-col items-center">
+              <span className="min-w-11 rounded-md border border-border/70 bg-muted/60 px-2 py-1.5 font-mono text-lg font-semibold tabular-nums text-foreground">
+                {value}
+              </span>
+              <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{unit}</span>
+            </div>
           </React.Fragment>
         ))}
       </div>
@@ -106,22 +143,22 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
           type="button"
           disabled={busy}
           onClick={() => setCaptureMode("check-out")}
-          className="mt-4 inline-flex min-w-32 items-center justify-center gap-2 rounded-lg border border-rose-500 px-5 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
         >
-          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
           Check-out
         </button>
       ) : (
-        <div className="mt-4 flex flex-col items-center gap-2.5">
+        <div className="mt-4 space-y-2.5">
           {!today.checkedIn && (
-            <div className="inline-flex rounded-lg border bg-muted/50 p-0.5 text-xs font-semibold">
+            <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
               {(["OFFICE", "REMOTE"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setWorkMode(mode)}
                   className={cn(
-                    "rounded-md px-3 py-1 transition-colors",
+                    "rounded px-3 py-1.5 transition-colors",
                     workMode === mode ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -134,9 +171,9 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
             type="button"
             disabled={busy}
             onClick={() => setCaptureMode("check-in")}
-            className="inline-flex min-w-32 items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
-            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
             {today.checkedOut ? "Check-in again" : "Check-in"}
           </button>
         </div>
@@ -160,26 +197,32 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
           return null;
         }}
       />
-    </div>
+    </section>
   );
 }
 
-function PersonRow({ person, caption }: { person: PulsePerson; caption?: string }) {
+function PersonRow({ person }: { person: PulsePerson }) {
+  const tone = TONE[person.presence.tone];
   return (
     <div className="flex items-center gap-3">
-      <UserAvatar
-        userId={person.id}
-        name={person.name}
-        email={person.email}
-        image={person.image}
-        className="h-12 w-12 rounded-lg bg-primary/10 text-sm font-bold text-primary"
-      >
-        {initials(person.name)}
-      </UserAvatar>
+      <div className="relative shrink-0">
+        <UserAvatar
+          userId={person.id}
+          name={person.name}
+          email={person.email}
+          image={person.image}
+          className="h-10 w-10 rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+        >
+          {initials(person.name)}
+        </UserAvatar>
+        <span
+          className={cn("absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card", TONE_DOT[tone])}
+          title={person.presence.label}
+        />
+      </div>
       <div className="min-w-0 text-sm">
-        {caption && <p className="text-xs text-muted-foreground">{caption}</p>}
-        <p className="truncate font-semibold text-foreground">{personLabel(person)}</p>
-        <p className={cn("text-xs font-medium", TONE_CLASS[person.presence.tone])}>{person.presence.label}</p>
+        <p className="truncate font-medium text-foreground">{personLabel(person)}</p>
+        <p className={cn("text-xs", TONE_TEXT[tone])}>{person.presence.label}</p>
       </div>
     </div>
   );
@@ -187,186 +230,205 @@ function PersonRow({ person, caption }: { person: PulsePerson; caption?: string 
 
 // ── Right column cards ───────────────────────────────────────────────────────
 
-function CardIcon({ children }: { children: React.ReactNode }) {
+/** Small sun-and-cloud illustration for the greeting card (inline SVG, no asset). */
+function GreetingArt() {
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground">
-      {children}
-    </div>
-  );
-}
-
-function Card({ icon, children, className }: { icon?: React.ReactNode; children: React.ReactNode; className?: string }) {
-  return (
-    <section className={cn("flex gap-4 rounded-2xl border bg-card p-5 shadow-xs", className)}>
-      {icon && <CardIcon>{icon}</CardIcon>}
-      <div className="min-w-0 flex-1">{children}</div>
-    </section>
+    <svg viewBox="0 0 120 80" className="hidden h-20 w-32 shrink-0 sm:block" aria-hidden="true">
+      <circle cx="74" cy="34" r="20" className="fill-amber-300 dark:fill-amber-400/80" />
+      <g className="stroke-amber-300 dark:stroke-amber-400/80" strokeWidth="3" strokeLinecap="round">
+        <line x1="74" y1="4" x2="74" y2="9" />
+        <line x1="96" y1="12" x2="92" y2="16" />
+        <line x1="104" y1="34" x2="99" y2="34" />
+        <line x1="52" y1="12" x2="56" y2="16" />
+      </g>
+      <path
+        d="M30 66 a14 14 0 0 1 4 -27 a18 18 0 0 1 34 4 a12 12 0 0 1 2 23 Z"
+        className="fill-blue-100 dark:fill-blue-500/25"
+      />
+    </svg>
   );
 }
 
 function GreetingCard({ data }: { data: PulseHomeData }) {
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-xs">
-      <p className="text-base font-semibold text-foreground">
-        {data.greeting} <span className="ml-1">{data.me.name}</span>
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">{data.todayLabel}</p>
-      <p className={cn("mt-1 text-sm font-medium", TONE_CLASS[data.me.presence.tone])}>{data.todaySummary}</p>
-    </section>
-  );
-}
-
-function LossOfPayCard({ lop }: { lop: PulseHomeData["lossOfPay"] }) {
-  return (
-    <Card icon={<TreePalm className="h-5 w-5" />}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Loss of Pay Summary</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{lop.rangeLabel}</p>
-        </div>
-        <span className="rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground">
-          Total loss of pay{" "}
-          <span className={cn("font-semibold", lop.totalDays > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground")}>
-            {lop.totalDays} {lop.totalDays === 1 ? "day" : "days"}
+    <PulseCard bodyClassName="flex items-center justify-between gap-4 p-5">
+      <div className="min-w-0">
+        <p className="text-lg font-semibold text-foreground">
+          {data.greeting}, <span className="text-blue-600 dark:text-blue-400">{data.me.name}</span>
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {data.todayLabel}
           </span>
-        </span>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-        {lop.breakdown.length > 0 ? (
-          <div className="flex flex-wrap gap-3">
-            {lop.breakdown.map((b) => (
-              <div key={b.label} className="rounded-lg border border-l-4 border-l-rose-500 px-4 py-2">
-                <p className="text-sm font-semibold text-foreground">{b.label}</p>
-                <p className="text-xs text-muted-foreground">
-                  {b.days} {b.days === 1 ? "day" : "days"}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No loss of pay for this period.</p>
-        )}
-        <Link
-          href={`${ROUTES.pulseReports}?report=my-payroll`}
-          className="text-sm font-semibold text-primary hover:underline"
-        >
-          View Details
-        </Link>
-      </div>
-    </Card>
-  );
-}
-
-function WorkScheduleCard({ schedule }: { schedule: PulseHomeData["schedule"] }) {
-  return (
-    <Card icon={<CalendarClock className="h-5 w-5" />}>
-      <h2 className="text-base font-semibold text-foreground">Work Schedule</h2>
-      <p className="mt-0.5 text-sm text-muted-foreground">{schedule.rangeLabel}</p>
-
-      <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[640px]">
-          <div className="relative grid grid-cols-7">
-            <div className="absolute left-0 right-0 top-[5px] h-px bg-border" />
-            {schedule.days.map((day) => (
-              <div key={day.key} className="relative pr-2">
-                <span
-                  className={cn(
-                    "relative block h-2.5 w-2.5 rounded-full",
-                    day.isToday ? "bg-primary ring-4 ring-primary/20" : "bg-muted-foreground/60"
-                  )}
-                />
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {day.dayShort}{" "}
-                  <span
-                    className={cn(
-                      "font-semibold text-foreground",
-                      day.isToday && "rounded bg-primary px-1 text-primary-foreground"
-                    )}
-                  >
-                    {day.dayNum}
-                  </span>
-                </p>
-                {day.status && (
-                  <p className={cn("mt-1 text-sm font-medium", TONE_CLASS[day.status.tone])}>{day.status.label}</p>
-                )}
-                {day.times && (
-                  <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                    <p className="whitespace-nowrap">
-                      <span className="inline-block w-7">In</span>
-                      {day.times.in}
-                    </p>
-                    <p className="whitespace-nowrap">
-                      <span className="inline-block w-7">Out</span>
-                      {day.times.out}
-                    </p>
-                  </div>
-                )}
-                {day.hours && <p className="mt-1 text-sm font-semibold text-foreground">{day.hours}</p>}
-              </div>
-            ))}
-          </div>
+          <StatusPill tone={TONE[data.me.presence.tone]}>{data.todaySummary}</StatusPill>
         </div>
       </div>
-    </Card>
-  );
-}
-
-function HolidaysCard({ holidays }: { holidays: PulseHomeData["holidays"] }) {
-  return (
-    <Card icon={<TreePalm className="h-5 w-5" />}>
-      <h2 className="text-base font-semibold text-foreground">Upcoming Holidays</h2>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        {holidays.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No upcoming holidays.</p>
-        ) : (
-          holidays.map((h) => (
-            <div key={h.id} className="rounded-lg border px-4 py-2">
-              <p className="text-sm font-semibold text-foreground">
-                {h.name}
-                {h.isOptional && <span className="ml-1 text-xs font-normal text-muted-foreground">(Optional)</span>}
-              </p>
-              <p className="text-xs text-muted-foreground">{h.dateLabel}</p>
-            </div>
-          ))
-        )}
-        <Link
-          href={`${ROUTES.pulseLeave}?tab=holidays`}
-          className="text-sm font-semibold text-primary hover:underline"
-        >
-          View all
-        </Link>
-      </div>
-    </Card>
+      <GreetingArt />
+    </PulseCard>
   );
 }
 
 function AbsentDaysCard({ days, onApply }: { days: PulseHomeData["absentDays"]; onApply: (d: ActionRequiredItem) => void }) {
   if (days.length === 0) return null;
   return (
-    <Card icon={<UserRoundCheck className="h-5 w-5" />}>
-      <h2 className="text-base font-semibold text-foreground">
-        Apply leave for the days on which attendance is marked as absent.
-      </h2>
-      <div className="mt-4 flex flex-wrap gap-3">
+    <PulseCard
+      icon={<AlertTriangle className="h-4 w-4" />}
+      iconTone="red"
+      title="Attendance needs your attention"
+    >
+      <div className="flex flex-wrap gap-2.5">
         {days.map((d) => (
           <button
             key={d.id}
             type="button"
             onClick={() => onApply(d)}
             title="Apply leave for this day"
-            className="rounded-lg border border-l-4 border-l-rose-500 px-4 py-2 text-left transition-colors hover:bg-muted/50"
+            className="rounded-md border border-l-4 border-border/70 border-l-rose-500 px-3.5 py-2 text-left transition-colors hover:bg-muted/60"
           >
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-[13px] font-semibold text-foreground">
               {d.date.split("-").reverse().join("/")}, {d.dayName}
             </p>
             <p className="text-xs text-muted-foreground">
-              {d.absentDays} {d.absentDays === 1 ? "day" : "days"} · {d.issue}
+              {d.absentDays} {d.absentDays === 1 ? "day" : "days"}
             </p>
           </button>
         ))}
       </div>
-    </Card>
+    </PulseCard>
+  );
+}
+
+function WorkScheduleCard({ schedule }: { schedule: PulseHomeData["schedule"] }) {
+  return (
+    <PulseCard
+      icon={<CalendarClock className="h-4 w-4" />}
+      title="Work Schedule"
+      subtitle={schedule.rangeLabel}
+      action={
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" />
+          <span className="font-semibold text-foreground">General</span>
+          {SHIFT_START} – {SHIFT_END}
+        </span>
+      }
+    >
+      <div className="overflow-x-auto">
+        <div className="relative grid min-w-[680px] grid-cols-7">
+          {/* Timeline through the date circles (day label 16px + gap 8px + half of the 32px circle). */}
+          <div className="absolute left-4 right-4 top-10 h-px bg-border" />
+          {schedule.days.map((day) => {
+            const tone = day.status ? TONE[day.status.tone] : "gray";
+            return (
+              <div key={day.key} className="relative flex flex-col items-start pr-3">
+                <p
+                  className={cn(
+                    "mb-2 h-4 text-[11px] font-semibold uppercase tracking-wide",
+                    day.isToday ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+                  )}
+                >
+                  {day.dayShort}
+                </p>
+                <span
+                  className={cn(
+                    "relative flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold",
+                    day.isToday
+                      ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"
+                      : cn("bg-card text-foreground", {
+                          "border-emerald-500": tone === "green",
+                          "border-rose-500": tone === "red",
+                          "border-amber-500": tone === "amber",
+                          "border-border": tone === "gray" || tone === "blue" || tone === "violet",
+                        })
+                  )}
+                >
+                  {day.dayNum}
+                </span>
+                {day.status && (
+                  <p className={cn("mt-2 text-xs font-semibold", TONE_TEXT[tone])}>{day.status.label}</p>
+                )}
+                {day.hours && <p className="mt-1 text-xs font-semibold text-foreground">{day.hours}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </PulseCard>
+  );
+}
+
+function HolidaysCard({ holidays }: { holidays: PulseHomeData["holidays"] }) {
+  return (
+    <PulseCard
+      icon={<TreePalm className="h-4 w-4" />}
+      iconTone="amber"
+      title="Upcoming Holidays"
+      action={<PulseCardLink href={`${ROUTES.pulseLeave}?tab=holidays`}>View all</PulseCardLink>}
+    >
+      {holidays.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No upcoming holidays.</p>
+      ) : (
+        <ul className="divide-y divide-border/70">
+          {holidays.map((h) => {
+            // dateLabel is "dd/mm/yyyy, Weekday".
+            const [dmy, weekday = ""] = h.dateLabel.split(", ");
+            const [d, m] = dmy.split("/");
+            return (
+              <li key={h.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center overflow-hidden rounded-md border border-border/70 text-center">
+                  <span className="w-full bg-amber-500 text-[9px] font-bold uppercase leading-4 text-white">
+                    {MONTHS[Number(m) - 1]}
+                  </span>
+                  <span className="text-sm font-bold leading-6 text-foreground">{d}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-foreground">{h.name}</p>
+                  <p className="text-xs text-muted-foreground">{weekday}</p>
+                </div>
+                {h.isOptional && <StatusPill tone="violet">Optional</StatusPill>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </PulseCard>
+  );
+}
+
+function LossOfPayCard({ lop }: { lop: PulseHomeData["lossOfPay"] }) {
+  const hasLop = lop.totalDays > 0;
+  return (
+    <PulseCard
+      icon={<WalletCards className="h-4 w-4" />}
+      iconTone="violet"
+      title="Loss of Pay"
+      subtitle={lop.rangeLabel}
+      action={<PulseCardLink href={`${ROUTES.pulseReports}?report=my-payroll`}>View Details</PulseCardLink>}
+    >
+      <div className="flex items-baseline gap-2">
+        <span className={cn("text-3xl font-bold tabular-nums", hasLop ? TONE_TEXT.red : "text-foreground")}>
+          {lop.totalDays}
+        </span>
+        <span className="text-sm text-muted-foreground">{lop.totalDays === 1 ? "day" : "days"} total</span>
+      </div>
+      {lop.breakdown.length > 0 ? (
+        <ul className="mt-3 space-y-1.5">
+          {lop.breakdown.map((b) => (
+            <li key={b.label} className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs">
+              <span className="inline-flex items-center gap-2 text-foreground">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                {b.label}
+              </span>
+              <span className="font-semibold text-foreground">
+                {b.days} {b.days === 1 ? "day" : "days"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">No loss of pay for this period.</p>
+      )}
+    </PulseCard>
   );
 }
 
@@ -376,7 +438,7 @@ const SUN_RAYS = Array.from({ length: 13 }, (_, i) => -90 + (i - 6) * 13);
 
 function SunriseBanner() {
   return (
-    <div className="relative h-36 shrink-0 overflow-hidden" aria-hidden="true">
+    <div className="relative h-32 shrink-0 overflow-hidden" aria-hidden="true">
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1600 200"
@@ -404,7 +466,6 @@ function SunriseBanner() {
         <rect width="1600" height="200" fill="url(#pulse-sky)" />
         <rect width="1600" height="200" fill="url(#pulse-glow)" />
 
-        {/* Rays */}
         <g stroke="#fef3c7" strokeOpacity="0.35" strokeWidth="6" strokeLinecap="round">
           {SUN_RAYS.map((deg) => {
             const rad = (deg * Math.PI) / 180;
@@ -420,10 +481,8 @@ function SunriseBanner() {
           })}
         </g>
 
-        {/* Sun, half above the horizon */}
         <circle cx="800" cy="185" r="95" fill="url(#pulse-sun)" />
 
-        {/* Clouds */}
         <g fill="#fff7ed" fillOpacity="0.55">
           <ellipse cx="330" cy="62" rx="90" ry="14" />
           <ellipse cx="380" cy="50" rx="55" ry="14" />
@@ -431,7 +490,6 @@ function SunriseBanner() {
           <ellipse cx="1300" cy="64" rx="60" ry="14" />
         </g>
 
-        {/* Hills */}
         <path d="M0 170 C 250 120, 450 150, 650 165 S 1050 125, 1300 150 S 1500 160, 1600 140 L1600 200 L0 200 Z" fill="#7c2d12" fillOpacity="0.55" />
         <path d="M0 185 C 300 150, 520 175, 800 180 S 1250 150, 1600 170 L1600 200 L0 200 Z" fill="#431407" fillOpacity="0.8" />
       </svg>
@@ -456,59 +514,47 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
   ];
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto bg-background">
+    <PulsePage>
       <SunriseBanner />
 
-      <div className="mx-auto -mt-16 grid w-full max-w-[1600px] grid-cols-1 gap-5 px-4 pb-8 sm:px-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="mx-auto -mt-14 grid w-full max-w-[1440px] grid-cols-1 gap-5 px-4 pb-8 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Left column */}
-        <aside className="space-y-4 pt-12 lg:pt-14">
+        <aside className="space-y-4 pt-12">
           <CheckInCard data={data} />
 
           {data.manager && (
-            <div className="rounded-2xl border bg-card p-4 shadow-xs">
-              <PersonRow person={data.manager} caption="Reporting Manager" />
-            </div>
+            <PulseCard title="Reporting To" bodyClassName="px-5 pb-4 pt-3">
+              <PersonRow person={data.manager} />
+            </PulseCard>
           )}
 
           {data.members.length > 0 && (
-            <div className="rounded-2xl border bg-card p-4 shadow-xs">
-              <h2 className="mb-3 text-base font-semibold text-foreground">{data.departmentLabel}</h2>
-              <div className="max-h-[420px] space-y-0 divide-y overflow-y-auto pr-1">
+            <PulseCard
+              icon={<Users className="h-4 w-4" />}
+              title={data.departmentLabel}
+              subtitle={`${data.members.length} ${data.members.length === 1 ? "member" : "members"}`}
+              bodyClassName="px-5 pb-4 pt-3"
+            >
+              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                 {data.members.map((m) => (
-                  <div key={m.id} className="py-3 first:pt-0 last:pb-0">
-                    <PersonRow person={m} />
-                  </div>
+                  <PersonRow key={m.id} person={m} />
                 ))}
               </div>
-            </div>
+            </PulseCard>
           )}
         </aside>
 
         {/* Right column */}
-        <main className="min-w-0 space-y-4">
-          <nav className="flex gap-1 overflow-x-auto rounded-2xl border bg-card px-3 shadow-xs">
-            {tabs.map((t) => (
-              <Link
-                key={t.label}
-                href={t.href}
-                aria-current={t.active ? "page" : undefined}
-                className={cn(
-                  "shrink-0 border-b-2 px-3 py-4 text-sm font-medium transition-colors",
-                  t.active
-                    ? "border-primary font-semibold text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.label}
-              </Link>
-            ))}
-          </nav>
-
+        {/* pt-16 drops the tab strip just below the banner instead of over it. */}
+        <main className="min-w-0 space-y-4 pt-16">
+          <PulseTabs tabs={tabs} />
           <GreetingCard data={data} />
-          <LossOfPayCard lop={data.lossOfPay} />
-          <WorkScheduleCard schedule={data.schedule} />
-          <HolidaysCard holidays={data.holidays} />
           <AbsentDaysCard days={data.absentDays} onApply={setApplyFor} />
+          <WorkScheduleCard schedule={data.schedule} />
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <HolidaysCard holidays={data.holidays} />
+            <LossOfPayCard lop={data.lossOfPay} />
+          </div>
         </main>
       </div>
 
@@ -518,6 +564,6 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
         onClose={() => setApplyFor(null)}
         onSubmitSuccess={() => router.refresh()}
       />
-    </div>
+    </PulsePage>
   );
 }

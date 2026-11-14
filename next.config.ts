@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
       { source: "/dsr/:path*", destination: "/report/:path*", permanent: false },
       // The "Sales" placeholder module became Setu (BNI networking CRM).
       { source: "/sales", destination: "/setu/meetings", permanent: false },
+      // Pulse opens on its Home page, which moved from /people/home.
+      { source: "/pulse", destination: "/pulse/home", permanent: false },
+      { source: "/people/home", destination: "/pulse/home", permanent: false },
     ];
   },
 };

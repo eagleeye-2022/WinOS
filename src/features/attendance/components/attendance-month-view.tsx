@@ -1,17 +1,10 @@
 "use client";
 
 import React from "react";
-import {
-  CheckCircle2,
-  AlertCircle,
-  Calendar,
-  Clock,
-  ArrowRightCircle,
-  Landmark,
-} from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { cn } from "@/lib/utils";
 import { addDaysToKey, istDateKey, monthKeys, weekKeysFor } from "../utils";
+import { TONE_DOT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface AttendanceMonthViewProps {
   records: Record<string, AttendanceRecord>;
@@ -23,6 +16,63 @@ interface AttendanceMonthViewProps {
   todayKey?: string;
 }
 
+/** Label + colour for a day cell; null when there's nothing to show (future workday). */
+function cellLook(record: AttendanceRecord, isToday: boolean): { label: string; sub?: string; tone: PulseTone } | null {
+  switch (record.status) {
+    case "WORKING_NOW":
+      return { label: "Working", sub: record.checkInTime, tone: "blue" };
+    case "PRESENT":
+      return { label: "Present", sub: record.workedDuration, tone: "green" };
+    case "EARLY_LEAVE":
+      return { label: "Early leave", sub: record.workedDuration, tone: "amber" };
+    case "HALF_DAY_LEAVE":
+      return { label: "Half day", sub: record.leaveInfo?.leaveType, tone: "amber" };
+    case "ON_LEAVE":
+      return {
+        label: record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave",
+        sub: record.leaveInfo?.leaveType,
+        tone: "amber",
+      };
+    case "ACTION_REQUIRED":
+      return record.actionRequiredType
+        ? { label: record.checkInTime ? "Check-out missing" : "Absent", tone: "red" }
+        : { label: "Pending review", tone: "amber" };
+    case "HOLIDAY":
+      return { label: "Holiday", sub: record.holidayInfo?.name, tone: "violet" };
+    case "WEEKEND":
+      return { label: "Weekend", tone: "gray" };
+    default:
+      return isToday ? { label: "Yet to check-in", tone: "gray" } : null;
+  }
+}
+
+const CELL_TINT: Record<PulseTone, string> = {
+  blue: "bg-blue-50/70 dark:bg-blue-500/10",
+  green: "bg-emerald-50/70 dark:bg-emerald-500/10",
+  red: "bg-rose-50/70 dark:bg-rose-500/10",
+  amber: "bg-amber-50/70 dark:bg-amber-500/10",
+  violet: "bg-violet-50/70 dark:bg-violet-500/10",
+  gray: "bg-muted/40",
+};
+
+const BAR: Record<PulseTone, string> = {
+  blue: "bg-blue-500",
+  green: "bg-emerald-500",
+  red: "bg-rose-500",
+  amber: "bg-amber-500",
+  violet: "bg-violet-500",
+  gray: "bg-muted-foreground/30",
+};
+
+const LEGEND: { label: string; tone: PulseTone }[] = [
+  { label: "Present", tone: "green" },
+  { label: "Working now", tone: "blue" },
+  { label: "Leave / Half day / Early leave", tone: "amber" },
+  { label: "Absent / Action required", tone: "red" },
+  { label: "Holiday", tone: "violet" },
+  { label: "Weekend", tone: "gray" },
+];
+
 export function AttendanceMonthView({
   records,
   selectedDate,
@@ -31,7 +81,7 @@ export function AttendanceMonthView({
   year,
   todayKey = istDateKey(),
 }: AttendanceMonthViewProps) {
-  const daysOfWeek = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   // Whole Mon–Sun weeks covering the month; edge days belong to the neighbouring months.
   const keys = monthKeys(monthIndex, year);
@@ -43,203 +93,75 @@ export function AttendanceMonthView({
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-      {/* Calendar Header Row */}
-      <div className="grid grid-cols-7 border-b border-border text-center bg-muted/40">
+    <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      {/* Weekday header */}
+      <div className="grid grid-cols-7 border-b border-border/70 bg-muted/40 text-center">
         {daysOfWeek.map((day) => (
-          <div
-            key={day}
-            className="py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground border-r border-border/60 last:border-r-0"
-          >
+          <div key={day} className="py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {day}
           </div>
         ))}
       </div>
 
-      {/* Calendar Grid Cells */}
-      <div className="grid grid-cols-7 divide-x divide-y divide-zinc-100 dark:divide-zinc-800">
+      {/* Day cells */}
+      <div className="grid grid-cols-7">
         {calendarCells.map((cell, idx) => {
           const record = records[cell.dateStr];
           const isSelected = cell.dateStr === selectedDate;
-          const isHoliday = record?.status === "HOLIDAY";
+          const isToday = cell.dateStr === todayKey;
+          const look = cell.isCurrentMonth && record ? cellLook(record, isToday) : null;
 
           return (
-            <div
+            <button
+              type="button"
               key={idx}
-              onClick={() => {
-                if (record) onSelectDate(record);
-              }}
+              onClick={() => record && onSelectDate(record)}
+              disabled={!record}
               className={cn(
-                "min-h-[105px] p-2.5 transition-colors cursor-pointer flex flex-col justify-between relative",
-                cell.isCurrentMonth
-                  ? "bg-card hover:bg-accent/60"
-                  : "bg-zinc-50/40 dark:bg-card/30 text-zinc-300 dark:text-zinc-600",
-                isHoliday && "bg-blue-50/40 dark:bg-accent",
-                isSelected &&
-                  "ring-2 ring-blue-600 dark:ring-blue-500 ring-inset z-10 rounded-lg"
+                "relative flex min-h-[96px] flex-col items-stretch border-b border-r border-border/60 p-2 text-left transition-colors [&:nth-child(7n)]:border-r-0",
+                cell.isCurrentMonth ? "hover:bg-muted/50" : "bg-muted/20",
+                look && CELL_TINT[look.tone],
+                isSelected && "z-10 ring-2 ring-inset ring-blue-500"
               )}
             >
-              {/* Day Number Header */}
-              <div className="flex items-center justify-between">
-                <span
-                  className={cn(
-                    "text-xs font-bold",
-                    cell.isCurrentMonth
-                      ? "text-foreground"
-                      : "text-zinc-300 dark:text-zinc-600"
-                  )}
-                >
-                  {cell.day}
-                </span>
-
-                {/* The filled badge marks today only; the selected day just gets the ring. */}
-                {cell.dateStr === todayKey && (
-                  <span className="px-1.5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
-                    Today
-                  </span>
+              <span
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
+                  isToday
+                    ? "bg-blue-600 text-white dark:bg-blue-500"
+                    : cell.isCurrentMonth
+                    ? "text-foreground"
+                    : "text-muted-foreground/50"
                 )}
-              </div>
+              >
+                {cell.day}
+              </span>
 
-              {/* Day Cell Content */}
-              {cell.isCurrentMonth && record && (
-                <div className="mt-1 space-y-1">
-                  {/* Working now */}
-                  {record.status === "WORKING_NOW" && (
-                    <div className="flex items-center gap-1 text-xs font-bold text-primary">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                      <span>Working</span>
-                    </div>
-                  )}
-
-                  {/* Present */}
-                  {record.status === "PRESENT" && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Present</span>
-                      </div>
-                      {record.workedDuration && (
-                        <div className="text-xs text-muted-foreground pl-4 font-medium">
-                          {record.workedDuration}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Half Day */}
-                  {record.status === "HALF_DAY_LEAVE" && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                        <span className="w-2.5 h-2.5 rounded-full border border-amber-500 bg-amber-500/30 flex items-center justify-center">
-                          <span className="w-1.2 h-2.5 bg-amber-500 rounded-l-full" />
-                        </span>
-                        <span>Half Day</span>
-                      </div>
-                      {record.workedDuration && (
-                        <div className="text-xs text-muted-foreground pl-3.5 font-medium">
-                          {record.workedDuration}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Early Leave */}
-                  {record.status === "EARLY_LEAVE" && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                        <Clock className="w-3 h-3" />
-                        <span>Early Leave</span>
-                      </div>
-                      {record.workedDuration && (
-                        <div className="text-xs text-muted-foreground pl-4 font-medium">
-                          {record.workedDuration}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Leave */}
-                  {record.status === "ON_LEAVE" && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                        <ArrowRightCircle className="w-3 h-3" />
-                        <span>{record.leaveInfo?.status === "PENDING" ? "Leave (pending)" : "Leave"}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground pl-4">
-                        {record.leaveInfo?.leaveType || "Leave"}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Required */}
-                  {record.status === "ACTION_REQUIRED" && (
-                    record.actionRequiredType ? (
-                      <div className="flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Action Required</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                        <Clock className="w-3 h-3" />
-                        <span>Pending review</span>
-                      </div>
-                    )
-                  )}
-
-                  {/* Holiday */}
-                  {record.status === "HOLIDAY" && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1 text-xs font-bold text-primary">
-                        <Calendar className="w-3 h-3" />
-                        <span>Holiday</span>
-                      </div>
-                      <div className="text-xs text-blue-500/90 dark:text-blue-300 pl-4 font-medium leading-tight">
-                        {record.holidayInfo?.name}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Weekend */}
-                  {record.status === "WEEKEND" && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                      <span>Weekend</span>
-                    </div>
-                  )}
+              {look && (
+                <div className="mt-auto min-w-0 space-y-0.5 pt-1">
+                  <p className={cn("flex items-center gap-1 truncate text-[11px] font-semibold", TONE_TEXT[look.tone])}>
+                    <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", TONE_DOT[look.tone], record?.status === "WORKING_NOW" && "animate-pulse")} />
+                    {look.label}
+                  </p>
+                  {look.sub && <p className="truncate pl-2.5 text-[11px] text-muted-foreground">{look.sub}</p>}
                 </div>
               )}
 
-            </div>
+              {/* Status strip along the bottom of the cell */}
+              {look && <span className={cn("absolute inset-x-0 bottom-0 h-0.5", BAR[look.tone])} />}
+            </button>
           );
         })}
       </div>
 
-      {/* Bottom Legend */}
-      <div className="px-6 py-4 border-t border-border bg-muted/40 flex flex-wrap items-center gap-6 text-xs font-semibold text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Present</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-500" />
-          <span>Leave / Half Day / Early Leave</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-rose-500" />
-          <span>Action Required / Absent</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5 text-blue-500" />
-          <span>Holiday</span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-zinc-400" />
-          <span>Weekend</span>
-        </div>
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/70 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        {LEGEND.map((l) => (
+          <span key={l.label} className="inline-flex items-center gap-1.5">
+            <span className={cn("h-2 w-2 rounded-full", TONE_DOT[l.tone])} />
+            {l.label}
+          </span>
+        ))}
       </div>
     </div>
   );

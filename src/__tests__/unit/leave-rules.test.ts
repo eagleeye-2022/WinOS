@@ -135,10 +135,15 @@ describe("validateLeaveRequest", () => {
     expect(validate({ policy: policy({ isActive: false }) })).toMatch(/not active/);
     expect(validate({ policy: policy({ allowHalfDay: false }), durationType: "HALF_DAY", days: 0.5 })).toMatch(/Half-day/);
   });
-  it("enforces the past-days window", () => {
+  it("allows past dates for every leave type, however far back", () => {
     expect(validate({ fromKey: "2026-10-22", toKey: "2026-10-22", workingKeys: ["2026-10-22"] })).toBeNull(); // 7 days back
-    expect(validate({ fromKey: "2026-10-21", toKey: "2026-10-21", workingKeys: ["2026-10-21"] })).toMatch(/at most 7 days after/);
-    expect(validate({ policy: policy({ allowPastDays: false }), fromKey: "2026-10-28", toKey: "2026-10-28", workingKeys: ["2026-10-28"] })).toMatch(/past dates/);
+    expect(validate({ fromKey: "2026-10-21", toKey: "2026-10-21", workingKeys: ["2026-10-21"] })).toBeNull(); // beyond the old 7-day window
+    expect(validate({ fromKey: "2026-01-05", toKey: "2026-01-05", workingKeys: ["2026-01-05"] })).toBeNull(); // months back
+    // The type's own "allow past days" setting no longer blocks it.
+    expect(validate({ policy: policy({ allowPastDays: false }), fromKey: "2026-10-28", toKey: "2026-10-28", workingKeys: ["2026-10-28"] })).toBeNull();
+  });
+  it("still refuses dates before the leave type's effective date", () => {
+    expect(validate({ fromKey: "2024-12-31", toKey: "2024-12-31", workingKeys: ["2024-12-31"] })).toMatch(/can only be taken from/);
   });
   it("enforces notice and the advance window for future leave only", () => {
     expect(validate({ fromKey: "2026-10-30", toKey: "2026-10-30", workingKeys: ["2026-10-30"] })).toMatch(/notice/);

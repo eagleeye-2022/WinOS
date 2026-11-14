@@ -150,13 +150,9 @@ export function validateLeaveRequest(args: {
     return `${DURATION_LABEL[durationType]} leave isn't allowed for ${policy.name}.`;
   }
 
-  // Past / advance window and notice period.
-  if (fromKey < todayKey) {
-    if (!policy.allowPastDays) return `${policy.name} can't be applied for past dates.`;
-    const back = keyDiff(todayKey, fromKey);
-    const limit = toDays(policy.pastDaysLimit, policy.pastDaysUnit);
-    if (back > limit) return `${policy.name} can be applied at most ${plural(round(limit))} after the date.`;
-  }
+  // Past dates: every leave type can be applied for any past date (back-dated leave is always
+  // allowed), so the leave type's allowPastDays / pastDaysLimit settings aren't enforced.
+  // Advance window and notice period still apply to future leave.
   if (fromKey > todayKey) {
     if (!policy.allowAdvanceDays) return `${policy.name} can't be applied in advance.`;
     const ahead = keyDiff(fromKey, todayKey);
@@ -280,18 +276,18 @@ export function checkEligibility(policy: EligibilityPolicy, emp: EmployeeFacts, 
     return `${policy.name} is only for ${policy.departments.join(", ")}.`;
   }
   if (policy.employmentTypes.length && emp.employmentType && !policy.employmentTypes.some((t) => same(t, emp.employmentType!))) {
-    return `${policy.name} is only for ${policy.employmentTypes.join(", ")} employees.`;
+    return `${policy.name} is only for ${policy.employmentTypes.join(", ")} team members.`;
   }
 
   const type = (emp.employmentType || "").toLowerCase();
   if (policy.applicableTo === "FULL_TIME_ONLY" && type && !/full|permanent/.test(type)) {
-    return `${policy.name} is only for full-time employees.`;
+    return `${policy.name} is only for full-time team members.`;
   }
   if (policy.applicableTo === "CONTRACTORS" && (type || emp.profileRole) && !/contract/.test(type) && emp.profileRole !== "CONTRACTOR") {
     return `${policy.name} is only for contractors.`;
   }
   if (policy.applicableTo === "PROBATIONARY" && emp.dateOfConfirmation && dateKey(emp.dateOfConfirmation) <= onKey) {
-    return `${policy.name} is only for employees on probation.`;
+    return `${policy.name} is only for team members on probation.`;
   }
 
   if (policy.minServicePeriod && policy.minServicePeriod > 0 && emp.dateOfJoining) {

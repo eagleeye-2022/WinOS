@@ -14,7 +14,7 @@ export async function ensureLeaveDataSeeded() {
           {
             name: "Paid Leave",
             code: "PL",
-            description: "General paid time off for employees",
+            description: "General paid time off for team members",
             icon: "Calendar",
             iconBgColor: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40",
             iconTextColor: "text-emerald-600",
@@ -78,7 +78,7 @@ export async function ensureLeaveDataSeeded() {
           {
             name: "Maternity Leave",
             code: "ML",
-            description: "For female employees",
+            description: "For female team members",
             icon: "Baby",
             iconBgColor: "bg-purple-50 text-purple-600 dark:bg-purple-950/40",
             iconTextColor: "text-purple-600",

@@ -159,7 +159,7 @@ const TAB_CLASS = (active: boolean) =>
   );
 
 const ICON_BTN =
-  "p-1 rounded text-zinc-500 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer";
+  "p-1 rounded text-zinc-500 hover:text-foreground hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer";
 
 function Avatar({ user, className }: { user: WhyfiUser; className?: string }) {
   return (
@@ -507,7 +507,7 @@ function LearningCard({
           href={`/pulse/whyfi-learning/${list.id}/tasks/${task.code}`}
           title={`Open ${task.code}`}
           className={cn(
-            "-mx-1 block cursor-pointer rounded-md px-1 text-xs font-semibold leading-snug transition-colors hover:underline group-hover:text-primary",
+            "-mx-1 block cursor-pointer rounded-md px-1 text-xs font-semibold leading-snug transition-colors hover:underline group-hover:text-foreground",
             isDone
               ? "text-zinc-400 line-through decoration-zinc-400/80 dark:text-neutral-500"
               : "text-zinc-800 dark:text-neutral-200"
@@ -864,7 +864,7 @@ function ListColumn({
                 dnd.onListDragStart(list.id);
               }}
               onDragEnd={dnd.onDragEnd}
-              className="shrink-0 cursor-grab text-zinc-400 hover:text-zinc-700 active:cursor-grabbing dark:hover:text-zinc-200"
+              className="shrink-0 cursor-grab text-zinc-400 hover:text-foreground active:cursor-grabbing"
               title="Drag to reorder task lists"
             >
               <GripVertical size={14} />
@@ -917,7 +917,7 @@ function ListColumn({
                 "cursor-pointer rounded p-1 transition-colors",
                 adding
                   ? "bg-primary text-primary-foreground"
-                  : "text-zinc-500 hover:bg-zinc-200/50 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-white"
+                  : "text-zinc-500 hover:bg-zinc-200/50 hover:text-foreground dark:hover:bg-zinc-800"
               )}
               title="Add Task"
             >

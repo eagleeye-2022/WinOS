@@ -29,7 +29,7 @@ function revalidateAttendance() {
   revalidatePath("/pulse/team-attendance");
   revalidatePath("/pulse/regularization");
   revalidatePath("/pulse/leave");
-  revalidatePath("/people/home");
+  revalidatePath("/pulse/home");
 }
 
 /** Session + a fresh User row (guards against a stale JWT after a DB reset). */
@@ -81,19 +81,20 @@ const PHOTO_URL = /^\/api\/uploads\/[^/?#]+\.(jpe?g|png|webp)$/i;
  */
 const MAX_LOCATION_ACCURACY_M = 1000;
 
-/**
- * Refusal message when a check-in/out capture is missing its photo, else null. Location is optional
- * (the employee can check in/out without sharing it); one that is sent must be a precise GPS fix.
- */
-function captureError(payload: { location?: CheckInLocation; photo?: string } | undefined, verb: string): string | null {
+/** Refusal message when a check-in/out capture is missing its photo, else null. Location is optional. */
+function captureError(payload: { photo?: string } | undefined, verb: string): string | null {
   if (!payload?.photo || !PHOTO_URL.test(payload.photo)) return `Take a photo to ${verb}.`;
-  if (payload.location == null) return null;
-  if (!validLocation(payload.location)) return `Your location couldn't be read. Try again, or ${verb} without it.`;
-  // A missing accuracy fails this too (NaN <= n is false).
-  if (!(Number(payload.location.accuracy) <= MAX_LOCATION_ACCURACY_M)) {
-    return `Your location isn't precise enough. Turn on device location, or ${verb} without it.`;
-  }
   return null;
+}
+
+/**
+ * The location to save, or undefined. Location is optional, so one that can't be read or isn't a
+ * precise GPS fix is dropped (saved as "Not recorded") instead of blocking the check-in/out.
+ */
+function usableLocation(loc: CheckInLocation | undefined): CheckInLocation | undefined {
+  if (!loc || !validLocation(loc)) return undefined;
+  // A missing accuracy fails this too (NaN <= n is false).
+  return Number(loc.accuracy) <= MAX_LOCATION_ACCURACY_M ? loc : undefined;
 }
 
 /** No location shared: nothing saved, so it shows as "Not recorded". */
@@ -182,8 +183,9 @@ export async function checkInAction(payload?: {
   // Resuming the day keeps the first check-in's location, so no lookup is needed then — except a
   // first check-in saved before place names existed (coordinates only), which gets one now.
   const keepExisting = Boolean(existing?.checkInLocationName) && !COORDS_ONLY.test(existing!.checkInLocationName!);
-  const { place, locationName, address } = payload.location
-    ? await describeLocation(payload.location, { lookup: !keepExisting })
+  const location = usableLocation(payload.location);
+  const { place, locationName, address } = location
+    ? await describeLocation(location, { lookup: !keepExisting })
     : NO_LOCATION;
 
   // Checking in again after a check-out resumes the day: the first check-in time is kept,
@@ -257,7 +259,8 @@ export async function checkOutAction(payload?: {
     ? Math.max(0, Math.floor((now.getTime() - existing.liveSince.getTime()) / 60_000))
     : workedMinutesBetween(existing.checkInTime, timeStr) ?? 0;
 
-  const { locationName, address } = payload.location ? await describeLocation(payload.location) : NO_LOCATION;
+  const location = usableLocation(payload.location);
+  const { locationName, address } = location ? await describeLocation(location) : NO_LOCATION;
 
   const record = await db.dailyAttendance.update({
     where: { userId_date: { userId: user.id, date: today } },
@@ -334,7 +337,7 @@ export async function submitRegularizationAction(payload: {
     }),
   ]);
 
-  if (!target?.isActive) return fail("Employee not found.");
+  if (!target?.isActive) return fail("Team member not found.");
   if (holiday) return fail(`${holiday.name} is a holiday — request a comp-off instead.`);
   if (openRequest) {
     return fail(
@@ -385,7 +388,7 @@ export async function submitRegularizationAction(payload: {
         approvers.map((id) => ({
           userId: id,
           title: "Regularization to review",
-          message: `${actor.name || "An employee"} asked to regularize ${key.split("-").reverse().join("/")} (${checkIn} – ${checkOut}).`,
+          message: `${actor.name || "A team member"} asked to regularize ${key.split("-").reverse().join("/")} (${checkIn} – ${checkOut}).`,
           relatedEntryId: request.id,
         }))
       );
@@ -559,7 +562,7 @@ export async function submitCompOffAction(payload: {
             stepOrder: 1,
             stepName: "Requested",
             approverId: user.id,
-            approverName: user.name || "Employee",
+            approverName: user.name || "Team Member",
             approverRole: "Applicant",
             status: "APPROVED",
             actionDate: new Date(),
@@ -578,7 +581,7 @@ export async function submitCompOffAction(payload: {
       approvers.map((id) => ({
         userId: id,
         title: "Comp-off request to review",
-        message: `${user.name || "An employee"} requested a comp-off for working on ${workKey.split("-").reverse().join("/")}.`,
+        message: `${user.name || "A team member"} requested a comp-off for working on ${workKey.split("-").reverse().join("/")}.`,
         relatedEntryId: compOff.id,
       }))
     );

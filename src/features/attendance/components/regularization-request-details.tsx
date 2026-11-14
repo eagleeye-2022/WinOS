@@ -20,6 +20,7 @@ import {
 import { RegularizationRequest } from "../types";
 import { reviewRegularizationAction, cancelRegularizationAction } from "../actions/attendance-actions";
 import { cn } from "@/lib/utils";
+import { PulseCard, StatusPill, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface RegularizationRequestDetailsProps {
   request: RegularizationRequest;
@@ -101,298 +102,214 @@ export function RegularizationRequestDetails({
       () => onCancelRequest?.(request.id)
     );
 
+  const STATUS_TONE: Record<string, PulseTone> = { Pending: "amber", Approved: "green", Rejected: "red" };
+  const statusIcon =
+    currentStatus === "Approved" ? (
+      <CheckCircle2 className="h-3.5 w-3.5" />
+    ) : currentStatus === "Rejected" ? (
+      <XCircle className="h-3.5 w-3.5" />
+    ) : (
+      <Hourglass className="h-3.5 w-3.5" />
+    );
+  const showActions = currentStatus === "Pending" && (isOwn || showReview);
+
+  const fields: { label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode }[] = [
+    { label: "Attendance Date", value: request.attendanceDate, sub: request.attendanceDay, icon: <Calendar className="h-3.5 w-3.5" /> },
+    { label: "Applied On", value: request.appliedOn, sub: request.appliedDay, icon: <FileText className="h-3.5 w-3.5" /> },
+    { label: "Reason", value: request.reason, icon: <Info className="h-3.5 w-3.5" /> },
+  ];
+
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Back Link */}
+    <div className="flex w-full flex-col gap-4">
+      {/* Back link */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline w-fit"
+        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
       >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to Regularization Requests</span>
+        <ArrowLeft className="h-4 w-4" />
+        Back to Regularization Requests
       </button>
 
-      {/* Main Content Layout (2 columns: Left details, Right timeline) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 Cols wide) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Employee Header Card */}
-          <div className="p-6 rounded-2xl bg-card border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <UserAvatar
-                userId={request.employee.id}
-                name={request.employee.name}
-                image={request.employee.avatarUrl}
-                className="w-14 h-14 bg-primary/10 text-primary dark:text-blue-300 border border-input text-base font-bold"
-              >
-                {request.employee.name.slice(0, 2).toUpperCase()}
-              </UserAvatar>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-base font-bold text-foreground">
-                    {request.employee.name}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                    {request.employee.status}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {request.employee.designation} • ID: {request.employee.employeeId} •{" "}
-                  {request.employee.department}
-                </div>
+      {/* Header: who + status + actions */}
+      <section className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              userId={request.employee.id}
+              name={request.employee.name}
+              image={request.employee.avatarUrl}
+              className="h-12 w-12 rounded-full bg-blue-50 text-sm font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+            >
+              {request.employee.name.slice(0, 2).toUpperCase()}
+            </UserAvatar>
+            <div className="min-w-0 space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regularization Request</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-foreground">{request.employee.name}</h2>
+                <StatusPill tone={STATUS_TONE[currentStatus] ?? "gray"}>
+                  {statusIcon}
+                  {currentStatus === "Pending" ? "Pending Approval" : currentStatus}
+                </StatusPill>
               </div>
-            </div>
-
-            {/* Status Pill Badge */}
-            <div>
-              {currentStatus === "Pending" && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-amber-300 bg-amber-50/60 dark:bg-amber-950/40 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-bold">
-                  <Hourglass className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Pending Approval</span>
-                </div>
-              )}
-              {currentStatus === "Approved" && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/40 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Approved</span>
-                </div>
-              )}
-              {currentStatus === "Rejected" && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-rose-300 bg-rose-50/60 dark:bg-rose-950/40 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold">
-                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Rejected</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 3 Summary Blocks */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Attendance Date */}
-            <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground font-medium">Attendance Date</div>
-                <div className="text-xs font-bold text-foreground mt-0.5">
-                  {request.attendanceDate}
-                </div>
-                <div className="text-xs text-muted-foreground">{request.attendanceDay}</div>
-              </div>
-            </div>
-
-            {/* Application Date */}
-            <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground font-medium">Applied On</div>
-                <div className="text-xs font-bold text-foreground mt-0.5">
-                  {request.appliedOn}
-                </div>
-                <div className="text-xs text-muted-foreground">{request.appliedDay}</div>
-              </div>
-            </div>
-
-            {/* Reason */}
-            <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 shrink-0">
-                <Info className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground font-medium">Reason</div>
-                <div className="text-xs font-bold text-foreground mt-0.5 truncate max-w-[130px]">
-                  {request.reason}
-                </div>
-                <div className="text-xs text-muted-foreground">Regularization</div>
+              <div className="text-xs text-muted-foreground">
+                {request.employee.designation} •{" "}
+                {/* Employee ID hidden for now: ID: {request.employee.employeeId} •{" "} */}
+                {request.employee.department}
               </div>
             </div>
           </div>
 
-          {/* Timings Comparison Card */}
-          <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Clock className="w-4 h-4 text-primary" />
-              <span>Timing Details Comparison</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Existing Timing */}
-              <div className="p-4 rounded-xl border border-border bg-muted/40 space-y-2 text-xs">
-                <div className="font-bold text-foreground pb-1 border-b border-zinc-200/60 dark:border-zinc-700">
-                  Existing Recorded Timing
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Check-in</span>
-                  <span className="font-bold text-foreground">
-                    {request.existingAttendance.checkIn || "--:--"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Check-out</span>
-                  <span className="font-bold text-foreground">
-                    {request.existingAttendance.checkOut || "--:--"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-border">
-                  <span className="text-muted-foreground">Worked Duration</span>
-                  <span className="font-bold text-foreground">
-                    {request.existingAttendance.workedDuration || "--"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Requested Timing */}
-              <div className="p-4 rounded-xl border border-blue-200 dark:border-zinc-700/60 bg-blue-50/30 dark:bg-accent space-y-2 text-xs">
-                <div className="font-bold text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-100 dark:border-zinc-700/40">
-                  Requested Correction Timing
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Check-in</span>
-                  <span className="font-bold text-foreground">
-                    {request.requestedAttendance.checkIn}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Check-out</span>
-                  <span className="font-bold text-foreground">
-                    {request.requestedAttendance.checkOut}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-border">
-                  <span className="text-muted-foreground">Worked Duration</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {request.requestedAttendance.workedDuration}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Employee Remarks Box */}
-          <div className="p-5 rounded-2xl bg-card border border-border shadow-xs space-y-2">
-            <div className="flex items-center gap-2.5 text-xs font-bold text-foreground">
-              <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                <MessageSquare className="w-3.5 h-3.5" />
-              </div>
-              <span>Employee Remarks</span>
-            </div>
-            <p className="text-xs text-muted-foreground pl-8 leading-relaxed">
-              {request.remarks || "No remarks provided."}
-            </p>
-          </div>
-
-          {error && (
-            <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
-              {error}
-            </div>
-          )}
-
-          {/* Bottom Actions: owner can withdraw, a manager can review other people's requests */}
-          {currentStatus === "Pending" && (isOwn || showReview) && (
-            <div className="p-4 rounded-2xl bg-card border border-border shadow-xs space-y-3">
-              {showReview && isRejecting && (
-                <textarea
-                  rows={2}
-                  maxLength={250}
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Reason for rejection (shared with the employee)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
-                />
+          {/* Owner can withdraw; a manager reviews other people's requests */}
+          {showActions && (
+            <div className="flex flex-wrap items-center gap-2">
+              {isOwn && (
+                <button
+                  disabled={isProcessing}
+                  onClick={handleCancel}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50/50 disabled:opacity-50 dark:border-rose-900/80 dark:bg-card dark:text-rose-400 dark:hover:bg-rose-950/40"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Withdraw Request
+                </button>
               )}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                {isOwn ? (
+              {showReview && (
+                <>
                   <button
                     disabled={isProcessing}
-                    onClick={handleCancel}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-white hover:bg-rose-50/50 dark:bg-card text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors shadow-2xs disabled:opacity-50"
+                    onClick={handleReject}
+                    className="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/80 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
                   >
-                    <XCircle className="w-4 h-4" />
-                    <span>Withdraw Request</span>
+                    {isRejecting ? "Confirm Reject" : "Reject"}
                   </button>
-                ) : (
-                  <span />
-                )}
-
-                {showReview && (
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      disabled={isProcessing}
-                      onClick={handleReject}
-                      className="px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-900/80 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold hover:bg-rose-100 transition-colors disabled:opacity-50"
-                    >
-                      {isRejecting ? "Confirm Reject" : "Reject"}
-                    </button>
-                    <button
-                      disabled={isProcessing}
-                      onClick={handleApprove}
-                      className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                    >
-                      {isProcessing ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5" />
-                      )}
-                      <span>Approve Request</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+                  <button
+                    disabled={isProcessing}
+                    onClick={handleApprove}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Approve
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right Column: Request Timeline */}
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-6">
-            <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span>Request Timeline</span>
-            </div>
+        {showActions && showReview && isRejecting && (
+          <div className="border-t border-border/70 px-5 py-3">
+            <textarea
+              rows={2}
+              maxLength={250}
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Reason for rejection (shared with the team member)"
+              className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-rose-400/40"
+            />
+          </div>
+        )}
 
-            {/* Timeline Steps */}
-            <div className="relative pl-6 border-l-2 border-border space-y-6 py-1">
-              {request.timeline.map((step, idx) => (
-                <div key={idx} className="relative">
-                  <div className={cn(
-                    "absolute -left-[31px] top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-xs",
-                    step.status === "completed" ? "bg-primary text-primary-foreground" :
-                    step.status === "current" ? "bg-amber-500 text-white" :
-                    "bg-zinc-200 dark:bg-zinc-700 text-muted-foreground"
-                  )}>
-                    {step.status === "completed" ? "✓" : "•"}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <h5 className={cn(
-                      "text-xs font-bold",
-                      step.status === "current" ? "text-amber-700 dark:text-amber-300" :
-                      "text-foreground"
-                    )}>
-                      {step.title}
-                    </h5>
-                    {step.timestamp && (
-                      <span className="text-xs text-muted-foreground">
-                        {step.timestamp}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {step.subtitle}
-                  </p>
+        {error && (
+          <div className="border-t border-border/70 px-5 py-3">
+            <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+              {error}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Left: details */}
+        <div className="space-y-4 lg:col-span-2">
+          <PulseCard title="Request Details" icon={<FileText className="h-4 w-4" />}>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+              {fields.map((f) => (
+                <div key={f.label} className="min-w-0">
+                  <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {f.icon}
+                    {f.label}
+                  </dt>
+                  <dd className="mt-1 truncate text-[13px] font-semibold text-foreground">{f.value}</dd>
+                  {f.sub && <dd className="text-xs text-muted-foreground">{f.sub}</dd>}
                 </div>
               ))}
+            </dl>
+            <div className="mt-4 border-t border-border/70 pt-4">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Team Member Remarks
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-foreground">{request.remarks || "No remarks provided."}</p>
             </div>
-          </div>
+          </PulseCard>
 
-          {/* Info Callout */}
-          <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-            <span>
-              Once approved, the requested timings replace the attendance record for that day.
-            </span>
+          <PulseCard title="Timing Details" icon={<Clock className="h-4 w-4" />} bodyClassName="px-0 pb-0 pt-3">
+            <table className="w-full border-t border-border/70 text-left text-xs">
+              <thead>
+                <tr className="bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-2.5" />
+                  <th className="px-5 py-2.5">Check-in</th>
+                  <th className="px-5 py-2.5">Check-out</th>
+                  <th className="px-5 py-2.5">Worked</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                <tr>
+                  <td className="px-5 py-3 font-semibold text-muted-foreground">Existing</td>
+                  <td className="px-5 py-3 text-foreground">{request.existingAttendance.checkIn || "--:--"}</td>
+                  <td className="px-5 py-3 text-foreground">{request.existingAttendance.checkOut || "--:--"}</td>
+                  <td className="px-5 py-3 text-foreground">{request.existingAttendance.workedDuration || "--"}</td>
+                </tr>
+                <tr className="bg-blue-50/50 dark:bg-blue-500/10">
+                  <td className="px-5 py-3 font-semibold text-blue-700 dark:text-blue-300">Requested</td>
+                  <td className="px-5 py-3 font-semibold text-foreground">{request.requestedAttendance.checkIn}</td>
+                  <td className="px-5 py-3 font-semibold text-foreground">{request.requestedAttendance.checkOut}</td>
+                  <td className="px-5 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                    {request.requestedAttendance.workedDuration}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </PulseCard>
+        </div>
+
+        {/* Right: approval timeline */}
+        <div className="space-y-4">
+          <PulseCard title="Approval Timeline" icon={<Hourglass className="h-4 w-4" />} iconTone="amber">
+            <ol className="relative space-y-5 border-l-2 border-border/70 pl-6">
+              {request.timeline.map((step, idx) => (
+                <li key={idx} className="relative">
+                  <span
+                    className={cn(
+                      "absolute -left-[33px] top-0 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-4 ring-card",
+                      step.status === "completed"
+                        ? "bg-emerald-500 text-white"
+                        : step.status === "current"
+                        ? "bg-amber-500 text-white"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {step.status === "completed" ? "✓" : idx + 1}
+                  </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <p
+                      className={cn(
+                        "text-[13px] font-semibold",
+                        step.status === "current" ? "text-amber-700 dark:text-amber-300" : "text-foreground"
+                      )}
+                    >
+                      {step.title}
+                    </p>
+                    {step.timestamp && <span className="shrink-0 text-[11px] text-muted-foreground">{step.timestamp}</span>}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{step.subtitle}</p>
+                </li>
+              ))}
+            </ol>
+          </PulseCard>
+
+          <div className="flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-xs text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Once approved, the requested timings replace the attendance record for that day.</span>
           </div>
         </div>
       </div>

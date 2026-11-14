@@ -1,4 +1,4 @@
-// Read side of the Pulse home page (/people/home). Not a "use server" module — it is called from the
+// Read side of the Pulse home page (/pulse/home). Not a "use server" module — it is called from the
 // page's Server Component. Everything is derived from the same loader as My Attendance / payroll
 // (`loadAttendanceRange` → `resolveDay`), so statuses and LOP numbers match those pages.
 

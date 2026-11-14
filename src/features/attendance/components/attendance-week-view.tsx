@@ -1,22 +1,10 @@
 "use client";
 
-import React from "react";
-import {
-  CheckCircle2,
-  Clock,
-  Building2,
-  Wifi,
-  AlertCircle,
-  Calendar,
-  LogIn,
-  LogOut,
-  Umbrella,
-  Hourglass,
-  Landmark,
-  ArrowRightCircle,
-  AlertTriangle,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Building2, Clock, LogIn, LogOut, Wifi } from "lucide-react";
 import { AttendanceRecord } from "../types";
+import { SHIFT_END, SHIFT_START, parseTime12h } from "../utils";
+import { TONE_DOT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { cn } from "@/lib/utils";
 
 interface AttendanceWeekViewProps {
@@ -25,12 +13,154 @@ interface AttendanceWeekViewProps {
   onCheckIn?: (record: AttendanceRecord) => void;
   onCheckOut?: (record: AttendanceRecord) => void;
   onRegularize?: (record: AttendanceRecord) => void;
-  /** "YYYY-MM-DD" in IST — today's card gets the check-in button. */
+  /** "YYYY-MM-DD" in IST — today's row gets the check-in button. */
   todayKey?: string;
   /** Disables check-in/out while a punch is in flight. */
   isPunching?: boolean;
 }
 
+// The timeline spans 7 AM – 9 PM; times outside it are pinned to the edges.
+const DAY_START = 7 * 60;
+const DAY_END = 21 * 60;
+const TICKS = [9, 12, 15, 18]; // hour labels along the axis
+
+function pct(minutes: number): number {
+  return Math.min(100, Math.max(0, ((minutes - DAY_START) / (DAY_END - DAY_START)) * 100));
+}
+
+function hourLabel(h: number) {
+  return `${((h + 11) % 12) + 1}${h < 12 ? "a" : "p"}`;
+}
+
+/** Current IST minutes since midnight, set after mount (so server and client renders agree). */
+function useIstMinutes(): number | null {
+  const [mins, setMins] = useState<number | null>(null);
+  useEffect(() => {
+    const read = () => setMins(Math.floor((Date.now() / 60_000 + 330) % 1440));
+    read();
+    const id = setInterval(read, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return mins;
+}
+
+interface DayLook {
+  label: string;
+  tone: PulseTone;
+  /** No punch to draw: show a full-width line instead (dashed for days off). */
+  line?: "solid" | "dashed";
+}
+
+function lookFor(record: AttendanceRecord, isToday: boolean): DayLook {
+  switch (record.status) {
+    case "WORKING_NOW":
+      return { label: record.workMode === "REMOTE" ? "Working remotely" : "Working now", tone: "blue" };
+    case "PRESENT":
+      return { label: "Present", tone: "green" };
+    case "EARLY_LEAVE":
+      return { label: "Early leave", tone: "amber" };
+    case "HALF_DAY_LEAVE": {
+      const type = record.leaveInfo?.leaveType || "Leave";
+      const session = record.leaveInfo?.session ? ` (${record.leaveInfo.session})` : "";
+      return { label: `Half day · ${type}${session}`, tone: "amber", line: record.checkInTime ? undefined : "solid" };
+    }
+    case "ON_LEAVE":
+      return {
+        label: `${record.leaveInfo?.leaveType || "Leave"}${record.leaveInfo?.status === "PENDING" ? " · Pending" : ""}`,
+        tone: "amber",
+        line: "solid",
+      };
+    case "ACTION_REQUIRED":
+      if (!record.actionRequiredType) {
+        return { label: record.actionRequiredReason || "Regularization pending", tone: "amber", line: record.checkInTime ? undefined : "solid" };
+      }
+      return record.checkInTime
+        ? { label: "Check-out missing", tone: "red" }
+        : { label: "Absent", tone: "red", line: "solid" };
+    case "WEEKEND":
+      return { label: "Weekend", tone: "amber", line: "dashed" };
+    case "HOLIDAY":
+      return { label: record.holidayInfo?.name || "Holiday", tone: "violet", line: "dashed" };
+    default:
+      return isToday ? { label: "Yet to check-in", tone: "gray", line: "dashed" } : { label: "Absent", tone: "red", line: "solid" };
+  }
+}
+
+const LINE_COLOR: Record<PulseTone, string> = {
+  blue: "border-blue-400",
+  green: "border-emerald-400",
+  red: "border-rose-400",
+  amber: "border-amber-400",
+  violet: "border-violet-400",
+  gray: "border-border",
+};
+
+const BAR_COLOR: Record<PulseTone, string> = {
+  blue: "bg-blue-500/80",
+  green: "bg-emerald-500/80",
+  red: "bg-rose-500/70",
+  amber: "bg-amber-500/80",
+  violet: "bg-violet-500/80",
+  gray: "bg-muted-foreground/40",
+};
+
+function Timeline({ record, look, nowMins, isToday }: { record: AttendanceRecord; look: DayLook; nowMins: number | null; isToday: boolean }) {
+  const shiftStart = parseTime12h(SHIFT_START);
+  const shiftEnd = parseTime12h(SHIFT_END);
+  const inMins = parseTime12h(record.checkInTime);
+  const outMins =
+    parseTime12h(record.checkOutTime) ?? (record.status === "WORKING_NOW" && isToday && nowMins !== null ? nowMins : null);
+
+  return (
+    <div className="relative h-9">
+      {/* Shift hours, shaded */}
+      {shiftStart !== null && shiftEnd !== null && (
+        <div
+          className="absolute top-1/2 h-5 -translate-y-1/2 rounded bg-muted/70"
+          style={{ left: `${pct(shiftStart)}%`, width: `${pct(shiftEnd) - pct(shiftStart)}%` }}
+        />
+      )}
+
+      {inMins !== null && !look.line ? (
+        <>
+          <div
+            className={cn("absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full", BAR_COLOR[look.tone])}
+            style={{ left: `${pct(inMins)}%`, width: `${Math.max(1, pct(outMins ?? inMins) - pct(inMins))}%` }}
+          />
+          <span
+            className={cn("absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card", TONE_DOT[look.tone])}
+            style={{ left: `${pct(inMins)}%` }}
+          />
+          {outMins !== null && (
+            <span
+              className={cn(
+                "absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card",
+                record.status === "WORKING_NOW" ? "animate-pulse bg-blue-500" : TONE_DOT[look.tone]
+              )}
+              style={{ left: `${pct(outMins)}%` }}
+            />
+          )}
+        </>
+      ) : (
+        <div
+          className={cn("absolute inset-x-0 top-1/2 -translate-y-1/2 border-t-2", LINE_COLOR[look.tone], look.line === "dashed" && "border-dashed")}
+        />
+      )}
+
+      {/* Status label sits on the line */}
+      <span
+        className={cn(
+          "absolute left-1/2 top-1/2 max-w-[80%] -translate-x-1/2 -translate-y-1/2 truncate rounded-full border border-border/70 bg-card px-2.5 py-0.5 text-[11px] font-semibold shadow-xs",
+          TONE_TEXT[look.tone]
+        )}
+      >
+        {look.label}
+      </span>
+    </div>
+  );
+}
+
+/** Zoho-style list view: one row per day with a check-in → check-out timeline. */
 export function AttendanceWeekView({
   records,
   onSelectDay,
@@ -40,374 +170,146 @@ export function AttendanceWeekView({
   todayKey,
   isPunching = false,
 }: AttendanceWeekViewProps) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-      {records.map((record) => {
-        const isWorkingNow = record.status === "WORKING_NOW";
-        const isPresent = record.status === "PRESENT" || record.status === "EARLY_LEAVE";
-        const isOnLeave = record.status === "ON_LEAVE";
-        const isHalfDay = record.status === "HALF_DAY_LEAVE";
-        const isActionRequired = record.status === "ACTION_REQUIRED";
-        const isWeekend = record.status === "WEEKEND";
-        const isHoliday = record.status === "HOLIDAY";
-        const isToday = record.date === todayKey;
-        // Weekends/holidays allow a check-in too, so comp-off work gets recorded.
-        const canCheckIn =
-          isToday && !record.checkInTime && (record.status === "ABSENT" || isWeekend || isHoliday);
-        const isLeavePending = isOnLeave && record.leaveInfo?.status === "PENDING";
-        const missingBoth = isActionRequired && !record.checkInTime;
+  const nowMins = useIstMinutes();
+  const btn = "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
-        return (
-          <div
-            key={record.id}
-            onClick={() => onSelectDay(record)}
-            className={cn(
-              "group relative bg-card rounded-2xl border transition-all duration-200 p-4 flex flex-col justify-between cursor-pointer min-h-[380px] shadow-xs hover:shadow-md",
-              isWorkingNow && "border-blue-300 dark:border-zinc-700/70 ring-1 ring-blue-400/30",
-              isHalfDay && "border-amber-200 dark:border-amber-900/50",
-              isActionRequired && "border-rose-200 dark:border-rose-900/50",
-              isPresent && "border-border hover:border-zinc-300 dark:hover:border-zinc-700",
-              canCheckIn && "border-blue-200 dark:border-zinc-700/60",
-              (isWeekend || isHoliday) && "border-zinc-200/70 dark:border-zinc-800/60 bg-zinc-50/40 dark:bg-card/40"
-            )}
-          >
-            {/* Top Date & Day Header */}
-            <div>
-              <div className="mb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+  return (
+    <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      {/* Column headings + hour axis */}
+      <div className="hidden grid-cols-[88px_92px_minmax(0,1fr)_92px_84px_132px] items-end gap-3 border-b border-border/70 bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+        <span>Date</span>
+        <span>Check-in</span>
+        <div className="relative h-4">
+          {TICKS.map((h) => (
+            <span key={h} className="absolute -translate-x-1/2 normal-case" style={{ left: `${pct(h * 60)}%` }}>
+              {hourLabel(h)}
+            </span>
+          ))}
+        </div>
+        <span>Check-out</span>
+        <span>Hours</span>
+        <span className="text-right">Action</span>
+      </div>
+
+      <ul className="divide-y divide-border/70">
+        {records.map((record) => {
+          const isToday = record.date === todayKey;
+          const look = lookFor(record, isToday);
+          const isWorkingNow = record.status === "WORKING_NOW";
+          const isPresent = record.status === "PRESENT" || record.status === "EARLY_LEAVE";
+          const isWeekend = record.status === "WEEKEND";
+          const isHoliday = record.status === "HOLIDAY";
+          // Weekends/holidays allow a check-in too, so comp-off work gets recorded.
+          const canCheckIn = isToday && !record.checkInTime && (record.status === "ABSENT" || isWeekend || isHoliday);
+          const canRegularize = record.status === "ACTION_REQUIRED" && Boolean(record.actionRequiredType);
+          const [dayNum, mon] = record.formattedDate.split(" ");
+
+          return (
+            <li
+              key={record.id}
+              onClick={() => onSelectDay(record)}
+              className={cn(
+                "grid cursor-pointer grid-cols-[64px_minmax(0,1fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40",
+                "md:grid-cols-[88px_92px_minmax(0,1fr)_92px_84px_132px]",
+                isToday && "bg-blue-50/50 shadow-[inset_3px_0_0_#3b82f6] dark:bg-blue-500/10",
+                (isWeekend || isHoliday) && !isToday && "bg-muted/20"
+              )}
+            >
+              {/* Date */}
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md border text-center leading-none",
+                    isToday ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500" : "border-border/70 bg-card text-foreground"
+                  )}
+                >
+                  <span className="text-sm font-bold">{dayNum}</span>
+                  <span className={cn("mt-0.5 text-[9px] font-semibold uppercase", isToday ? "text-white/80" : "text-muted-foreground")}>
+                    {mon?.slice(0, 3)}
+                  </span>
+                </div>
+                <span className={cn("hidden text-xs font-semibold uppercase md:inline", isToday ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
                   {record.dayOfWeek}
                 </span>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                  {record.formattedDate.split(" ").slice(0, 2).join(" ")}
+              </div>
+
+              {/* Check-in (desktop) */}
+              <div className="hidden text-[13px] md:block">
+                <p className="font-semibold text-foreground">{record.checkInTime || "--:--"}</p>
+                {record.checkInTime && (
+                  <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    {record.workMode === "REMOTE" ? <Wifi className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
+                    {record.workMode === "REMOTE" ? "Remote" : "Office"}
+                  </p>
+                )}
+              </div>
+
+              {/* Timeline (+ times and actions stacked on small screens) */}
+              <div className="min-w-0">
+                <Timeline record={record} look={look} nowMins={nowMins} isToday={isToday} />
+                <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground md:hidden">
+                  <span>
+                    {record.dayOfWeek} · {record.checkInTime || "--:--"} – {record.checkOutTime || (isWorkingNow ? "Now" : "--:--")}
+                  </span>
+                  {record.workedDuration && <span className="font-semibold text-foreground">{record.workedDuration}</span>}
+                </div>
+              </div>
+
+              {/* Check-out (desktop) */}
+              <div className="hidden text-[13px] md:block">
+                <p className={cn("font-semibold", isWorkingNow ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
+                  {record.checkOutTime || (isWorkingNow ? "Now" : "--:--")}
                 </p>
               </div>
 
-              {/* Status Header Badge */}
-              <div className="mb-4">
-                {isWorkingNow && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    Working Now
+              {/* Hours (desktop) */}
+              <div className="hidden text-[13px] md:block">
+                {record.workedDuration ? (
+                  <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    {record.workedDuration}
                   </span>
-                )}
-
-                {isPresent && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Present
-                  </span>
-                )}
-
-                {isOnLeave && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                    <ArrowRightCircle className="w-3.5 h-3.5" />
-                    {isLeavePending ? "Leave Pending" : "On Leave"}
-                  </span>
-                )}
-
-                {canCheckIn && record.status === "ABSENT" && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
-                    <span className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                    Not Checked In
-                  </span>
-                )}
-
-                {isHalfDay && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                    <span className="w-3 h-3 rounded-full border border-amber-500 bg-amber-500/30 flex items-center justify-center">
-                      <span className="w-1.5 h-3 bg-amber-500 rounded-l-full" />
-                    </span>
-                    Half Day Leave
-                  </span>
-                )}
-
-                {isActionRequired && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    Action Required
-                  </span>
-                )}
-
-                {isWeekend && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                    <span className="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                    Weekend
-                  </span>
-                )}
-
-                {isHoliday && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
-                    <Landmark className="w-3.5 h-3.5" />
-                    Holiday
-                  </span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
                 )}
               </div>
 
-              {/* Card Body by Status */}
-              {/* 1. Working Now / Present */}
-              {(isWorkingNow || isPresent) && (
-                <div className="space-y-4">
-                  {/* Timeline */}
-                  <div className="relative pl-5 border-l-2 border-border space-y-4 py-1">
-                    {/* Check In Dot & Time */}
-                    <div className="relative">
-                      <span
-                        className={cn(
-                          "absolute -left-[25px] top-1 w-2 h-2 rounded-full",
-                          isWorkingNow ? "bg-blue-500" : "bg-emerald-500"
-                        )}
-                      />
-                      <div className="text-sm font-bold text-foreground">
-                        {record.checkInTime}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-in</div>
-                    </div>
-
-                    {/* Check Out Dot & Time */}
-                    <div className="relative">
-                      <span
-                        className={cn(
-                          "absolute -left-[25px] top-1 w-2 h-2 rounded-full",
-                          isWorkingNow
-                            ? "bg-zinc-300 dark:bg-zinc-700"
-                            : "bg-emerald-500"
-                        )}
-                      />
-                      <div className="text-sm font-bold text-foreground">
-                        {record.checkOutTime || "--:--"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-out</div>
-                    </div>
-                  </div>
-
-                  {/* Mode tag */}
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {record.workMode === "REMOTE" ? (
-                      <>
-                        <Wifi className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Remote</span>
-                      </>
-                    ) : (
-                      <>
-                        <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Office</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. Half Day Leave */}
-              {isHalfDay && (
-                <div className="space-y-3">
-                  {/* Leave Badge Card */}
-                  <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-900/40">
-                    <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      {record.leaveInfo?.leaveType || "Leave"}
-                    </div>
-                    {record.leaveInfo?.session && (
-                      <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-200/70 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200">
-                        {record.leaveInfo.session}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Timeline for 2nd half */}
-                  <div className="relative pl-5 border-l-2 border-border space-y-3 py-1">
-                    <div className="relative">
-                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
-                      <div className="text-xs font-bold text-foreground">
-                        {record.checkInTime || "--:--"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-in</div>
-                    </div>
-
-                    <div className="relative">
-                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-amber-500" />
-                      <div className="text-xs font-bold text-foreground">
-                        {record.checkOutTime || "--:--"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-out</div>
-                    </div>
-                  </div>
-
-                  {record.checkInTime && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {record.workMode === "REMOTE" ? (
-                        <Wifi className="w-3.5 h-3.5 text-muted-foreground" />
-                      ) : (
-                        <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                      )}
-                      <span>{record.workMode === "REMOTE" ? "Remote" : "Office"}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 3. Action Required (e.g. Missing Checkout) */}
-              {isActionRequired && (
-                <div className="space-y-4">
-                  <div className="relative pl-5 border-l-2 border-border space-y-4 py-1">
-                    <div className="relative">
-                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-rose-500" />
-                      <div className="text-sm font-bold text-foreground">
-                        {record.checkInTime || "--:--"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-in</div>
-                    </div>
-
-                    <div className="relative">
-                      <span className="absolute -left-[25px] top-1 w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-                      <div className="text-sm font-bold text-zinc-400 dark:text-zinc-500">
-                        --:--
-                      </div>
-                      <div className="text-xs text-muted-foreground">Check-out</div>
-                    </div>
-                  </div>
-
-                  {record.actionRequiredType ? (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>{missingBoth ? "No attendance recorded" : "Check-out missing"}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      <Hourglass className="w-3.5 h-3.5" />
-                      <span>{record.actionRequiredReason || "Regularization pending approval"}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 4. On Leave Center Graphic */}
-              {isOnLeave && (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-amber-100/80 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground">
-                    {record.leaveInfo?.leaveType || "Leave"}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {isLeavePending ? "Awaiting approval" : record.leaveInfo?.duration || "Full Day"}
-                  </p>
-                </div>
-              )}
-
-              {/* 5. Weekend Center Graphic */}
-              {isWeekend && (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-3">
-                    <Umbrella className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground">
-                    Weekend
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">No working day</p>
-                </div>
-              )}
-
-              {/* 6. Holiday Center Graphic */}
-              {isHoliday && (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-accent text-primary flex items-center justify-center mb-3">
-                    <Landmark className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground">
-                    {record.holidayInfo?.name || "Holiday"}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {record.holidayInfo?.type || "National Holiday"}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Actions / Duration Footer */}
-            <div className="pt-3 border-t border-border/80 mt-2">
-              {isWorkingNow && (
-                <div className="space-y-2">
-                  <button
-                    disabled={isPunching}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCheckOut?.(record);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Check-out</span>
+              {/* Action */}
+              <div className="col-span-2 flex justify-end gap-2 md:col-span-1" onClick={(e) => e.stopPropagation()}>
+                {isWorkingNow && onCheckOut && (
+                  <button type="button" disabled={isPunching} onClick={() => onCheckOut(record)} className={cn(btn, "bg-rose-600 text-white hover:bg-rose-700")}>
+                    <LogOut className="h-3.5 w-3.5" /> Check-out
                   </button>
-                  <p className="text-xs text-muted-foreground text-center leading-tight">
-                    Working hours will update after check-out.
-                  </p>
-                </div>
-              )}
-
-              {canCheckIn && onCheckIn && (
-                <button
-                  disabled={isPunching}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCheckIn(record);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Check-in</span>
-                </button>
-              )}
-
-              {isPresent && isToday && onCheckIn && (
-                <button
-                  disabled={isPunching}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCheckIn(record);
-                  }}
-                  className="w-full mb-2 flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-blue-200 dark:border-zinc-700 text-primary text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Check-in again</span>
-                </button>
-              )}
-
-              {isPresent && record.workedDuration && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{record.workedDuration}</span>
-                </div>
-              )}
-
-              {isHalfDay && record.workedDuration && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{record.workedDuration}</span>
-                </div>
-              )}
-
-              {isActionRequired && record.actionRequiredType && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRegularize?.(record);
-                  }}
-                  className="w-full py-1.5 px-1 rounded-xl bg-blue-50 dark:bg-accent hover:bg-primary/15 text-primary text-xs font-bold transition-colors whitespace-nowrap overflow-hidden text-ellipsis"
-                  title="Regularize"
-                >
-                  Regularize
-                </button>
-              )}
-
-              {(isOnLeave || isWeekend || isHoliday) && !canCheckIn && (
-                <div className="text-center text-xs font-bold text-muted-foreground">
-                  -
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+                )}
+                {canCheckIn && onCheckIn && (
+                  <button type="button" disabled={isPunching} onClick={() => onCheckIn(record)} className={cn(btn, "bg-emerald-600 text-white hover:bg-emerald-700")}>
+                    <LogIn className="h-3.5 w-3.5" /> Check-in
+                  </button>
+                )}
+                {isPresent && isToday && onCheckIn && (
+                  <button
+                    type="button"
+                    disabled={isPunching}
+                    onClick={() => onCheckIn(record)}
+                    className={cn(btn, "border border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-500/10")}
+                  >
+                    <LogIn className="h-3.5 w-3.5" /> Check-in again
+                  </button>
+                )}
+                {canRegularize && (
+                  <button
+                    type="button"
+                    onClick={() => onRegularize?.(record)}
+                    className={cn(btn, "border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-500/10")}
+                  >
+                    Regularize
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

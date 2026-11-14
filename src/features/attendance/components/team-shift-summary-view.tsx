@@ -7,7 +7,6 @@ import {
   XCircle,
   Clock,
   Download,
-  Calendar,
   ChevronDown,
   Search,
   Building2,
@@ -22,9 +21,10 @@ import { getTeamShiftSummaryData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { formatShortDate, istDateKey } from "../utils";
 import { PersonAvatar } from "./person-avatar";
+import { PeriodNav } from "@/components/shared/period-nav";
 
 export function TeamShiftSummaryView() {
-  const [selectedDate, setSelectedDate] = useState(() => formatShortDate(istDateKey()));
+  const [selectedDate, setSelectedDate] = useState(() => istDateKey());
   const [workModeFilter, setWorkModeFilter] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [items, setItems] = useState<ShiftSummaryItem[]>([]);
@@ -35,7 +35,7 @@ export function TeamShiftSummaryView() {
     startTransition(async () => {
       setIsLoading(true);
       try {
-        const data = await getTeamShiftSummaryData();
+        const data = await getTeamShiftSummaryData(selectedDate);
         setItems(data);
       } catch (err) {
         console.error("Failed to load shift summary:", err);
@@ -64,16 +64,16 @@ export function TeamShiftSummaryView() {
   });
 
   return (
-    <div className="flex flex-col gap-6 w-full select-none">
+    <div className="flex w-full flex-col gap-4 select-none">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <h1 className="text-lg font-semibold text-foreground">
             Team Shift Summary
           </h1>
         </div>
 
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-xs">
+        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <Download className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Export</span>
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
@@ -81,20 +81,20 @@ export function TeamShiftSummaryView() {
       </div>
 
       {/* Filter Row */}
-      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
         <div className="flex items-center flex-wrap gap-2.5">
-          {/* Date Picker Button */}
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{selectedDate}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
+          <PeriodNav
+            modes={["day"]}
+            value={selectedDate}
+            label={selectedDate === istDateKey() ? `Today, ${formatShortDate(selectedDate)}` : formatShortDate(selectedDate)}
+            onChange={setSelectedDate}
+          />
 
           {/* Work Mode Dropdown */}
           <select
             value={workModeFilter}
             onChange={(e) => setWorkModeFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
+            className="px-3.5 py-2 rounded-md border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
           >
             <option value="All">All Modes</option>
             <option value="Office">Office</option>
@@ -108,21 +108,21 @@ export function TeamShiftSummaryView() {
           <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search employee or role..."
+            placeholder="Search team member or role..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full pl-9 pr-4 py-2 rounded-md border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
 
       {/* Shift Table */}
-      <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3.5 px-5">Employee</th>
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Status</th>
                 <th className="py-3.5 px-5">Attendance Time</th>
                 <th className="py-3.5 px-5">Total Hours</th>
@@ -132,7 +132,7 @@ export function TeamShiftSummaryView() {
                 <th className="py-3.5 px-5">Work Mode</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
+            <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-muted-foreground">

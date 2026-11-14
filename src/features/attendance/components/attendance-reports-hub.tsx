@@ -1,20 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  Clock,
-  User,
-  Users,
-  Briefcase,
-  FileSpreadsheet,
-  CalendarCheck,
-} from "lucide-react";
 import { TeamShiftSummaryView } from "./team-shift-summary-view";
 import { MyShiftSummaryView } from "./my-shift-summary-view";
 import { TeamPayrollReportView } from "./team-payroll-report-view";
 import { MyPayrollReportView } from "./my-payroll-report-view";
 import { TeamLeavePayrollView } from "./team-leave-payroll-view";
-import { cn } from "@/lib/utils";
+import { PulsePage, PulseStickyTabs } from "@/components/pulse/pulse-ui";
+import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 
 import type { ReportType } from "../types";
 
@@ -34,82 +27,29 @@ export function AttendanceReportsHub({
     !canManage && TEAM_REPORTS.includes(initialReport) ? "my-shift" : initialReport
   );
 
+  const tabs = [
+    ...(canManage ? [{ value: "team-shift" as const, label: "Team Shift Summary" }] : []),
+    { value: "my-shift" as const, label: "My Shift Summary" },
+    ...(canManage ? [{ value: "team-payroll" as const, label: "Team Payroll Data" }] : []),
+    ...(canManage ? [{ value: "team-leave-payroll" as const, label: "Team Leave for Payroll" }] : []),
+    { value: "my-payroll" as const, label: "My Payroll Data" },
+  ];
+
+  // Breadcrumb step after "Pulse › Reports": the open report.
+  const activeLabel = tabs.find((tab) => tab.value === activeReport)?.label;
+  usePulseCrumbs(activeLabel ? [{ label: activeLabel }] : []);
+
   return (
-    <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
-      <div className="max-w-[1600px] w-full mx-auto space-y-6">
-        {/* Top Report Type Nav Tabs */}
-        <div className="flex flex-wrap items-center border-b border-border gap-6">
-          {canManage && (
-            <button
-              onClick={() => setActiveReport("team-shift")}
-              className={cn(
-                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-                activeReport === "team-shift"
-                  ? "border-blue-600 text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-              )}
-            >
-              <Users className="w-4 h-4" />
-              <span>Team Shift Summary</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveReport("my-shift")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-              activeReport === "my-shift"
-                ? "border-blue-600 text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-            )}
-          >
-            <Clock className="w-4 h-4" />
-            <span>My Shift Summary</span>
-          </button>
-
-          {canManage && (
-            <button
-              onClick={() => setActiveReport("team-payroll")}
-              className={cn(
-                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-                activeReport === "team-payroll"
-                  ? "border-blue-600 text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-              )}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span>Team Payroll Data</span>
-            </button>
-          )}
-
-          {canManage && (
-            <button
-              onClick={() => setActiveReport("team-leave-payroll")}
-              className={cn(
-                "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-                activeReport === "team-leave-payroll"
-                  ? "border-blue-600 text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-              )}
-            >
-              <CalendarCheck className="w-4 h-4" />
-              <span>Team Leave for Payroll</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveReport("my-payroll")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative flex items-center gap-2",
-              activeReport === "my-payroll"
-                ? "border-blue-600 text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-            )}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>My Payroll Data</span>
-          </button>
-        </div>
+    <PulsePage className="select-none p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-[1600px] space-y-4">
+        {/* Report type tabs */}
+        <PulseStickyTabs
+          tabs={tabs.map((tab) => ({
+            label: tab.label,
+            active: activeReport === tab.value,
+            onClick: () => setActiveReport(tab.value),
+          }))}
+        />
 
         {/* Report Views */}
         {canManage && activeReport === "team-shift" && <TeamShiftSummaryView />}
@@ -118,6 +58,6 @@ export function AttendanceReportsHub({
         {canManage && activeReport === "team-leave-payroll" && <TeamLeavePayrollView />}
         {activeReport === "my-payroll" && <MyPayrollReportView />}
       </div>
-    </div>
+    </PulsePage>
   );
 }

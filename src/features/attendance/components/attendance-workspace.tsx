@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
+  CalendarDays,
+  List,
   Clock,
   Timer,
   CheckCircle2,
@@ -44,6 +43,9 @@ import {
   weekKeysFor,
 } from "../utils";
 import { cn } from "@/lib/utils";
+import { PeriodNav, periodKind } from "@/components/shared/period-nav";
+import { PulsePage, PulseStickyTabs } from "@/components/pulse/pulse-ui";
+import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
@@ -232,164 +234,148 @@ export function AttendanceWorkspace({
     setTeamSubView("employee-view");
   };
 
-  const shiftMonth = (delta: number) => {
-    const target = new Date(Date.UTC(currentYear, currentMonthIndex + delta, 1));
-    const sameMonthAsToday = todayKey.slice(0, 7) === target.toISOString().slice(0, 7);
-    goToDate(sameMonthAsToday ? todayKey : target.toISOString().slice(0, 10));
+  // Breadcrumb steps after "Pulse › Attendance": the tab, then the member / request being viewed.
+  const TAB_LABEL: Record<MainTab, string> = {
+    "my-attendance": "Attendance Records",
+    "team-attendance": "Team Attendance",
+    regularization: "Regularization Request",
   };
-
-  const handlePrev = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, -7)) : shiftMonth(-1));
-  const handleNext = () => (viewMode === "week" ? goToDate(addDaysToKey(selectedDate, 7)) : shiftMonth(1));
+  usePulseCrumbs([
+    {
+      label: TAB_LABEL[activeTab],
+      onClick: () => {
+        if (activeTab === "team-attendance") setTeamSubView("team-list");
+        if (activeTab === "regularization") setRegularizationSubView("list");
+        setActiveTab(activeTab);
+      },
+    },
+    ...(activeTab === "team-attendance" && teamSubView === "employee-view" && selectedEmployee
+      ? [{ label: selectedEmployee.name }]
+      : []),
+    ...(activeTab === "regularization" && regularizationSubView === "details" ? [{ label: "Request Details" }] : []),
+    ...(activeTab === "regularization" && regularizationSubView === "create"
+      ? [{ label: onBehalfEmployee ? `Regularize for ${onBehalfEmployee.name}` : "New Request" }]
+      : []),
+  ]);
 
   return (
-    <div className="flex flex-col h-full w-full overflow-y-auto bg-background/50 p-6 select-none">
-      <div className="max-w-[1600px] w-full mx-auto space-y-6">
-        {/* Top Main Navigation Tabs */}
-        <div className="flex items-center border-b border-border gap-8">
-          <button
-            onClick={() => setActiveTab("my-attendance")}
-            className={cn(
-              "pb-3 text-sm font-bold border-b-2 transition-colors relative",
-              activeTab === "my-attendance"
-                ? "border-blue-600 text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-            )}
-          >
-            Attendance Records
-          </button>
-
-          {canManage && (
-            <button
-              onClick={() => {
-                setActiveTab("team-attendance");
-                setTeamSubView("team-list");
-              }}
-              className={cn(
-                "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
-                activeTab === "team-attendance"
-                  ? "border-blue-600 text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-              )}
-            >
-              Team Attendance
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              setActiveTab("regularization");
-              setRegularizationSubView("list");
-            }}
-            className={cn(
-              "pb-3 text-sm font-semibold border-b-2 transition-colors relative",
-              activeTab === "regularization"
-                ? "border-blue-600 text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground dark:text-zinc-400"
-            )}
-          >
-            Regularization Request
-          </button>
-        </div>
+    <PulsePage className="select-none p-4 sm:p-6">
+      <div className="max-w-[1600px] w-full mx-auto space-y-4">
+        {/* Top Main Navigation Tabs — sticky (not fixed): pinned to the top while this page scrolls. */}
+        <PulseStickyTabs
+          tabs={[
+            { label: "Attendance Records", active: activeTab === "my-attendance", onClick: () => setActiveTab("my-attendance") },
+            ...(canManage
+              ? [
+                  {
+                    label: "Team Attendance",
+                    active: activeTab === "team-attendance",
+                    onClick: () => {
+                      setActiveTab("team-attendance");
+                      setTeamSubView("team-list");
+                    },
+                  },
+                ]
+              : []),
+            {
+              label: "Regularization Request",
+              active: activeTab === "regularization",
+              onClick: () => {
+                setActiveTab("regularization");
+                setRegularizationSubView("list");
+              },
+            },
+          ]}
+        />
 
         {/* ── 1. MY ATTENDANCE TAB ────────────────────────────────────────── */}
         {activeTab === "my-attendance" && (
           <>
-            {/* Header Row: Title & Controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Toolbar: title, view switcher & date navigation */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                  My Attendance
-                </h1>
+                <h1 className="text-lg font-semibold text-foreground">My Attendance</h1>
+                <p className="text-xs text-muted-foreground">
+                  {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
+                </p>
               </div>
 
-              {/* View Switcher & Date Navigation */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center p-1 rounded-xl bg-muted border border-input/60">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center rounded-md border border-border/70 bg-muted/50 p-0.5">
                   <button
                     onClick={() => setViewMode("week")}
+                    title="List view"
                     className={cn(
-                      "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition-colors",
                       viewMode === "week"
-                        ? "bg-card text-primary shadow-xs"
-                        : "text-muted-foreground hover:text-zinc-900"
+                        ? "bg-card text-blue-600 shadow-xs dark:text-blue-400"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
+                    <List className="h-3.5 w-3.5" />
                     Week
                   </button>
                   <button
                     onClick={() => setViewMode("month")}
+                    title="Calendar view"
                     className={cn(
-                      "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold transition-colors",
                       viewMode === "month"
-                        ? "bg-card text-primary shadow-xs"
-                        : "text-muted-foreground hover:text-zinc-900"
+                        ? "bg-card text-blue-600 shadow-xs dark:text-blue-400"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
+                    <CalendarDays className="h-3.5 w-3.5" />
                     Month
                   </button>
                 </div>
 
-                <button
-                  onClick={handlePrev}
-                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {/* The label opens a real month picker; "Today" jumps back. */}
-                <label
-                  title="Pick a month"
-                  className="relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs cursor-pointer whitespace-nowrap"
-                >
-                  <span>
-                    {viewMode === "week" ? weekLabel : `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`}
-                  </span>
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="month"
-                    aria-label="Pick a month"
-                    value={`${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`}
-                    onChange={(e) => {
-                      const month = e.target.value;
-                      if (!month) return;
-                      goToDate(todayKey.slice(0, 7) === month ? todayKey : `${month}-01`);
-                    }}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                </label>
+                {/* A picked date opens its week; a picked month opens the month view. */}
+                <PeriodNav
+                  modes={["day", "month"]}
+                  value={
+                    viewMode === "week"
+                      ? selectedDate
+                      : `${currentYear}-${String(currentMonthIndex + 1).padStart(2, "0")}`
+                  }
+                  stepDays={7}
+                  label={viewMode === "week" ? weekLabel : undefined}
+                  onChange={(period) => {
+                    if (periodKind(period) === "month") {
+                      setViewMode("month");
+                      goToDate(todayKey.slice(0, 7) === period ? todayKey : `${period}-01`);
+                    } else {
+                      setViewMode("week");
+                      goToDate(period);
+                    }
+                  }}
+                />
 
                 {selectedDate !== todayKey && (
                   <button
                     onClick={() => goToDate(todayKey)}
-                    className="px-3 py-1.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground shadow-xs hover:bg-accent"
+                    className="h-8 rounded-lg border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-accent"
                   >
                     Today
                   </button>
                 )}
-
-                <button
-                  onClick={handleNext}
-                  className="p-2 rounded-lg border border-input bg-background text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
             </div>
 
             {punchError && (
-              <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
                 {punchError}
               </div>
             )}
 
             {/* View Content */}
             {isLoading ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-muted-foreground">
+                <Loader2 className="h-7 w-7 animate-spin text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold">Loading attendance data...</span>
               </div>
             ) : viewMode === "week" ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <AttendanceWeekView
                   records={currentWeekRecords}
                   onSelectDay={handleOpenDrawer}
@@ -588,6 +574,6 @@ export function AttendanceWorkspace({
           }}
         />
       </div>
-    </div>
+    </PulsePage>
   );
 }

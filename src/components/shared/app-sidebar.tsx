@@ -49,7 +49,7 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
   if (href.startsWith(ROUTES.setu)) {
     return href === ROUTES.setu ? pathname === ROUTES.setu : pathname.startsWith(href);
   }
-  // Each module's "Home" is active on its own page (Standup → /dashboard, Pulse → /people/home).
+  // Each module's "Home" is active on its own page (Standup → /dashboard, Pulse → /pulse/home).
   if (label === "Home") {
     return pathname === href;
   }

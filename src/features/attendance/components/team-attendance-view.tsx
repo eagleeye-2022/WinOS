@@ -7,7 +7,6 @@ import {
   CalendarCheck,
   UserX,
   Search,
-  ChevronDown,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -15,9 +14,10 @@ import {
   Building2,
   Home as HomeIcon,
   Wifi,
-  Calendar,
   Loader2,
 } from "lucide-react";
+import { PeriodNav } from "@/components/shared/period-nav";
+import { StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
@@ -33,8 +33,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const [statusFilter, setStatusFilter] = useState("All");
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [workModeFilter, setWorkModeFilter] = useState("All");
-  const [selectedDate, setSelectedDate] = useState(() => `Today, ${formatShortDate(istDateKey())}`);
-  const [currentDateObj, setCurrentDateObj] = useState(() => new Date(istDateKey()));
+  const [dateKey, setDateKey] = useState(() => istDateKey());
+  const dateLabel = dateKey === istDateKey() ? `Today, ${formatShortDate(dateKey)}` : formatShortDate(dateKey);
   const [teamMembers, setTeamMembers] = useState<TeamMemberAttendance[]>([]);
   const [counts, setCounts] = useState({ total: 0, workingNow: 0, completed: 0, onLeave: 0, absent: 0, dayOff: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -45,8 +45,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
     startTransition(async () => {
       if (!quiet) setIsLoading(true);
       try {
-        const dateStr = currentDateObj.toISOString().split("T")[0];
-        const res = await getTeamAttendanceData(dateStr, {
+        const res = await getTeamAttendanceData(dateKey, {
           search: searchTerm,
           status: statusFilter,
           workMode: workModeFilter,
@@ -63,7 +62,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
 
   useEffect(() => {
     loadData();
-  }, [currentDateObj, statusFilter, workModeFilter, searchTerm]);
+  }, [dateKey, statusFilter, workModeFilter, searchTerm]);
 
   // Check-ins and check-outs happen on other people's devices: refresh every minute and when this
   // tab comes back into view, so the list stays live without a manual reload.
@@ -86,232 +85,121 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   const shownMembers =
     departmentFilter === "All" ? teamMembers : teamMembers.filter((m) => m.department === departmentFilter);
 
-  const handlePrevDay = () => {
-    const prev = new Date(currentDateObj);
-    prev.setDate(prev.getDate() - 1);
-    setCurrentDateObj(prev);
-    setSelectedDate(prev.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }));
+  const STATUS_TONE: Record<TeamMemberAttendance["status"], PulseTone> = {
+    "Working Now": "blue",
+    Completed: "green",
+    "On Leave": "amber",
+    Absent: "red",
+    "Day Off": "gray",
   };
 
-  const handleNextDay = () => {
-    const next = new Date(currentDateObj);
-    next.setDate(next.getDate() + 1);
-    setCurrentDateObj(next);
-    setSelectedDate(next.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }));
-  };
+  const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode; note?: string }[] = [
+    {
+      label: "Total Members",
+      value: counts.total,
+      tone: "blue",
+      icon: <Users className="h-4 w-4" />,
+      note: counts.dayOff > 0 ? `${counts.dayOff} on a day off` : undefined,
+    },
+    { label: "Working Now", value: counts.workingNow, tone: "blue", icon: <Clock className="h-4 w-4" /> },
+    { label: "Completed", value: counts.completed, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
+    { label: "On Leave", value: counts.onLeave, tone: "amber", icon: <CalendarCheck className="h-4 w-4" /> },
+    { label: "Absent", value: counts.absent, tone: "red", icon: <UserX className="h-4 w-4" /> },
+  ];
+
+  const selectCls =
+    "h-8 rounded-md border border-border/80 bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30";
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Header with Date Navigator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex w-full flex-col gap-4">
+      {/* Toolbar: title + date */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Team Attendance
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">Team Attendance</h1>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Opens the browser's date picker. */}
-          <label className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-xs cursor-pointer whitespace-nowrap">
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{selectedDate}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="date"
-              aria-label="Pick a date"
-              value={currentDateObj.toISOString().slice(0, 10)}
-              onChange={(e) => {
-                const key = e.target.value;
-                if (!key) return;
-                setCurrentDateObj(new Date(key));
-                setSelectedDate(key === istDateKey() ? `Today, ${formatShortDate(key)}` : formatShortDate(key));
-              }}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </label>
-
-          <button
-            onClick={handlePrevDay}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Previous</span>
-          </button>
-
-          <button
-            onClick={handleNextDay}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-muted-foreground hover:bg-accent shadow-xs transition-colors"
-          >
-            <span>Next</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <PeriodNav modes={["day"]} value={dateKey} label={dateLabel} onChange={setDateKey} />
       </div>
 
-      {/* 4 Summary Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
-        {/* Total Team */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Total Members
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.total}
-            </div>
-            {counts.dayOff > 0 && (
-              <div className="text-xs text-muted-foreground mt-0.5">{counts.dayOff} on a day off</div>
-            )}
-          </div>
-        </div>
-
-        {/* Working Now */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Working Now
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.workingNow}
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+          >
+            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
+            <div className="min-w-0">
+              <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
+              <p className="truncate text-xs text-muted-foreground">{s.label}</p>
+              {s.note && <p className="truncate text-[11px] text-muted-foreground">{s.note}</p>}
             </div>
           </div>
-        </div>
-
-        {/* Completed (checked in and out) */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Completed
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.completed}
-            </div>
-          </div>
-        </div>
-
-        {/* On Leave */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center shrink-0">
-            <CalendarCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              On Leave
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.onLeave}
-            </div>
-          </div>
-        </div>
-
-        {/* Absent */}
-        <div className="flex items-center gap-4 p-5 rounded-2xl bg-card border border-border shadow-xs">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center shrink-0">
-            <UserX className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Absent
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-foreground mt-0.5">
-              {counts.absent}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Filter Bar */}
-      <div className="p-4 rounded-2xl bg-card border border-border flex flex-wrap items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-center flex-wrap gap-2.5">
-          {/* Status Dropdown */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
-          >
-            <option value="All">All Status</option>
-            <option value="Working Now">Working Now</option>
-            <option value="Completed">Completed</option>
-            <option value="On Leave">On Leave</option>
-            <option value="Absent">Absent</option>
-            <option value="Day Off">Day Off (weekend / holiday)</option>
-          </select>
-
-          {/* Work Mode Dropdown */}
-          <select
-            value={workModeFilter}
-            onChange={(e) => setWorkModeFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
-          >
-            <option value="All">All Modes</option>
-            <option value="Office">Office</option>
-            <option value="Remote">Remote</option>
-          </select>
-
-          {/* Department Dropdown */}
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-3.5 py-2 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none"
-          >
-            <option value="All">All Departments</option>
-            {departments.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Search & Export Actions */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search team member..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-input bg-zinc-50 dark:bg-zinc-800/80 text-xs text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+      {/* Table card with its filter bar */}
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+              <option value="All">All Status</option>
+              <option value="Working Now">Working Now</option>
+              <option value="Completed">Completed</option>
+              <option value="On Leave">On Leave</option>
+              <option value="Absent">Absent</option>
+              <option value="Day Off">Day Off (weekend / holiday)</option>
+            </select>
+            <select value={workModeFilter} onChange={(e) => setWorkModeFilter(e.target.value)} className={selectCls}>
+              <option value="All">All Modes</option>
+              <option value="Office">Office</option>
+              <option value="Remote">Remote</option>
+            </select>
+            <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)} className={selectCls}>
+              <option value="All">All Departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-xs transition-colors shrink-0">
-            <Download className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-60">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search team member..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-8 w-full rounded-md border border-border/80 bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+            </div>
+            <button className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-accent">
+              <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Team Attendance Table */}
-      <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3.5 px-5">Team Member</th>
-                <th className="py-3.5 px-5">Status</th>
-                <th className="py-3.5 px-5">Check-in</th>
-                <th className="py-3.5 px-5">Check-out</th>
-                <th className="py-3.5 px-5">Worked Hours</th>
-                <th className="py-3.5 px-5">Work Mode</th>
-                <th className="py-3.5 px-5 text-right">Action</th>
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-2.5">Team Member</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Check-in</th>
+                <th className="px-4 py-2.5">Check-out</th>
+                <th className="px-4 py-2.5">Worked Hours</th>
+                <th className="px-4 py-2.5">Work Mode</th>
+                <th className="px-4 py-2.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
+            <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                    <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
                     Loading team attendance...
                   </td>
                 </tr>
@@ -322,156 +210,129 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                   </td>
                 </tr>
               ) : (
-                shownMembers.map((member) => (
-                  <tr
-                    key={member.id}
-                    onClick={() => onViewEmployee?.(member)}
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                  >
-                    {/* Member Profile */}
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-3">
-                        <PersonAvatar name={member.name} image={member.avatarUrl} userId={member.id} />
-                        <div>
-                          <div className="font-bold text-foreground">
-                            {member.name}
+                shownMembers.map((member) => {
+                  const tone = STATUS_TONE[member.status];
+                  return (
+                    <tr
+                      key={member.id}
+                      onClick={() => onViewEmployee?.(member)}
+                      className="cursor-pointer transition-colors hover:bg-muted/40"
+                    >
+                      {/* Member */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative shrink-0">
+                            <PersonAvatar name={member.name} image={member.avatarUrl} userId={member.id} />
+                            <span
+                              className={cn(
+                                "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card",
+                                TONE_DOT[tone],
+                                member.status === "Working Now" && "animate-pulse"
+                              )}
+                            />
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {member.designation} • ID: {member.employeeId}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="py-3.5 px-5">
-                      {member.status === "Working Now" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-accent dark:border-zinc-700/60 dark:text-blue-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                          Working Now
-                        </span>
-                      )}
-                      {member.status === "Completed" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900/60 dark:text-emerald-300">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Completed
-                        </span>
-                      )}
-                      {member.status === "On Leave" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:border-amber-900/60 dark:text-amber-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                          {member.leaveType || "On Leave"}
-                        </span>
-                      )}
-                      {member.status === "Absent" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-900/60 dark:text-rose-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                          Absent
-                        </span>
-                      )}
-                      {member.status === "Day Off" && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                          Day Off
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Check In */}
-                    <td className="py-3.5 px-5">
-                      {member.checkInTime ? (
-                        <div>
-                          <div className="font-semibold text-foreground">
-                            {member.checkInTime}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {member.checkInSource}
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-semibold text-foreground">{member.name}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {member.designation}
+                              {/* Employee ID hidden for now: {" "}• ID: {member.employeeId} */}
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Check Out */}
-                    <td className="py-3.5 px-5">
-                      {member.checkOutTime ? (
-                        <div>
-                          <div className="font-semibold text-foreground">
-                            {member.checkOutTime}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {member.checkOutSource}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                      {/* Status */}
+                      <td className="px-4 py-3">
+                        <StatusPill tone={tone}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />
+                          {member.status === "On Leave" ? member.leaveType || "On Leave" : member.status}
+                        </StatusPill>
+                      </td>
 
-                    {/* Worked Hours */}
-                    <td className="py-3.5 px-5">
-                      {member.workedHours ? (
-                        <div>
-                          <div className="font-bold text-foreground">
-                            {member.workedHours}
+                      {/* Check-in */}
+                      <td className="px-4 py-3">
+                        {member.checkInTime ? (
+                          <div>
+                            <div className="font-semibold text-foreground">{member.checkInTime}</div>
+                            <div className="text-[11px] text-muted-foreground">{member.checkInSource}</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {member.workedHoursSubtext}
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Check-out */}
+                      <td className="px-4 py-3">
+                        {member.checkOutTime ? (
+                          <div>
+                            <div className="font-semibold text-foreground">{member.checkOutTime}</div>
+                            <div className="text-[11px] text-muted-foreground">{member.checkOutSource}</div>
                           </div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
 
-                    {/* Work Mode */}
-                    <td className="py-3.5 px-5">
-                      {member.workMode ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                          {member.workMode === "Office" ? (
-                            <Building2 className="w-3 h-3 text-muted-foreground" />
-                          ) : (
-                            <Wifi className="w-3 h-3 text-muted-foreground" />
-                          )}
-                          <span>{member.workMode}</span>
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
+                      {/* Worked hours */}
+                      <td className="px-4 py-3">
+                        {member.workedHours ? (
+                          <div>
+                            <div className="font-semibold text-foreground">{member.workedHours}</div>
+                            <div className="text-[11px] text-muted-foreground">{member.workedHoursSubtext}</div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
 
-                    {/* Action */}
-                    <td className="py-3.5 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewEmployee?.(member);
-                        }}
-                        className="text-xs font-bold text-primary hover:text-blue-700 hover:underline"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      {/* Work mode */}
+                      <td className="px-4 py-3">
+                        {member.workMode ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                            {member.workMode === "Office" ? (
+                              <Building2 className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <Wifi className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            {member.workMode}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewEmployee?.(member);
+                          }}
+                          className="text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
           <div>
-            Showing <span className="font-bold text-foreground">{shownMembers.length}</span> members
+            Showing <span className="font-semibold text-foreground">{shownMembers.length}</span> members
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
-              <ChevronLeft className="w-3.5 h-3.5" />
+            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="font-bold text-foreground">1</span>
-            <button className="p-1.5 rounded-lg border border-input hover:bg-accent disabled:opacity-40">
-              <ChevronRight className="w-3.5 h-3.5" />
+            <span className="font-semibold text-foreground">1</span>
+            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

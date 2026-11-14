@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/pulse/pulse-ui";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
 import { adjustLeaveBalanceAction } from "../actions/leave-actions";
@@ -215,7 +216,7 @@ export function LeaveBalanceAdjustmentView({
   const totalDaysAdjustment = useMemo(() => rows.reduce((acc, r) => acc + signedDays(r), 0), [rows]);
 
   const formError = !currentEmployee
-    ? "Select an employee."
+    ? "Select a team member."
     : rows.length === 0
     ? "Add at least one leave type to adjust."
     : rows.some((r) => rowError(r))
@@ -275,35 +276,33 @@ export function LeaveBalanceAdjustmentView({
   };
 
   return (
-    <div className="space-y-6 w-full pb-12 select-none">
+    <div className="w-full select-none space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="space-y-1">
+      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave/team"
-            className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            className="text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
           >
-            Employee Leave
+            Team Member Leave
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
           <span className="text-foreground">Adjust Balance</span>
         </nav>
 
-        <div className="pt-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Leave Balance Adjustment
-          </h1>
-        </div>
+        <h1 className="text-lg font-semibold text-foreground">Leave Balance Adjustment</h1>
       </div>
 
       {/* Employee Banner / Selector Card */}
-      <div className="bg-card border rounded-2xl p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="h-1.5 bg-gradient-to-r from-blue-600 to-sky-500" />
+      <div className="flex flex-col justify-between gap-4 p-5 md:flex-row md:items-center">
         <div className="flex items-center gap-4">
           <UserAvatar
             userId={currentEmployee?.id}
             name={currentEmployee?.name}
             image={currentEmployee?.avatarUrl}
-            className="w-12 h-12 bg-primary/10 border border-primary/20 text-primary font-bold text-sm"
+            className="h-12 w-12 bg-blue-50 text-sm font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
           >
             {(currentEmployee?.name || "EM").slice(0, 2).toUpperCase()}
           </UserAvatar>
@@ -315,7 +314,7 @@ export function LeaveBalanceAdjustmentView({
               >
                 <SelectTrigger className="h-8 w-64 font-bold text-sm bg-background border-none p-0 focus:ring-0">
                   {/* Just the name here — the large avatar sits beside it. */}
-                  <SelectValue placeholder="Select Employee">{currentEmployee?.name}</SelectValue>
+                  <SelectValue placeholder="Select Team Member">{currentEmployee?.name}</SelectValue>
                 </SelectTrigger>
                 {/* Fixed size; the list scrolls inside it. */}
                 <SelectContent className="max-h-72 w-72">
@@ -326,7 +325,7 @@ export function LeaveBalanceAdjustmentView({
                           userId={e.id}
                           name={e.name}
                           image={e.avatarUrl}
-                          className="w-6 h-6 bg-primary/10 text-primary text-[10px] font-semibold"
+                          className="h-6 w-6 bg-blue-50 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                         >
                           {(e.name || "EM").slice(0, 2).toUpperCase()}
                         </UserAvatar>
@@ -346,11 +345,11 @@ export function LeaveBalanceAdjustmentView({
         <div className="flex items-center gap-6 text-xs">
           {/* Department */}
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-muted text-primary">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
               <Building className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-medium text-muted-foreground uppercase">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Department
               </div>
               <div className="font-bold text-foreground">
@@ -361,28 +360,33 @@ export function LeaveBalanceAdjustmentView({
 
           {/* Joining Date */}
           <div className="flex items-center gap-2.5 border-l pl-6">
-            <div className="p-2 rounded-xl bg-muted text-primary">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-medium text-muted-foreground uppercase">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Status
               </div>
-              <div className="font-bold text-emerald-600 dark:text-emerald-400">
+              <StatusPill tone="green" className="mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 Active
-              </div>
+              </StatusPill>
             </div>
           </div>
         </div>
       </div>
+      </div>
 
       {/* Leave Adjustments Table Card */}
-      <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
-        <div className="flex items-center justify-between pb-2 border-b">
-          <div>
-            <h3 className="text-sm font-bold text-foreground tracking-tight">
-              Leave Adjustments
-            </h3>
+      <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-6 pt-5 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+              <Scale className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-[15px] font-semibold text-foreground">Leave Adjustments</h3>
+            </div>
           </div>
 
           <Button
@@ -391,7 +395,7 @@ export function LeaveBalanceAdjustmentView({
             onClick={handleAddRow}
             disabled={unusedTypes.length === 0}
             title={unusedTypes.length === 0 ? "Every leave type is already in the list" : undefined}
-            className="text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 gap-1.5"
+            className="h-8 gap-1.5 rounded-md text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-foreground dark:text-blue-400 dark:hover:bg-blue-500/10"
           >
             <Plus className="w-4 h-4" />
             <span>Add Another Leave Type</span>
@@ -399,10 +403,10 @@ export function LeaveBalanceAdjustmentView({
         </div>
 
         {/* Adjustments Table */}
-        <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
+        <div className="overflow-hidden rounded-md border border-border/70 bg-background">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="py-3 px-4 font-semibold">LEAVE TYPE</th>
                 <th className="py-3 px-4 font-semibold">ADJUSTMENT TYPE</th>
                 <th className="py-3 px-4 font-semibold">DAYS *</th>
@@ -411,7 +415,7 @@ export function LeaveBalanceAdjustmentView({
                 <th className="py-3 px-4 font-semibold text-center">ACTION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-border/70">
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
@@ -424,7 +428,7 @@ export function LeaveBalanceAdjustmentView({
                 const error = rowError(row);
 
                 return (
-                  <tr key={row.id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={row.id} className="transition-colors hover:bg-muted/40">
                     {/* Leave Type Select */}
                     <td className="py-3 px-4">
                       <Select
@@ -433,7 +437,7 @@ export function LeaveBalanceAdjustmentView({
                           handleUpdateRow(row.id, { leaveTypeId: val })
                         }
                       >
-                        <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
+                        <SelectTrigger className="h-8 w-44 rounded-md bg-background text-xs">
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -461,7 +465,7 @@ export function LeaveBalanceAdjustmentView({
                             onChange={() =>
                               handleUpdateRow(row.id, { adjustmentType: "ADD" })
                             }
-                            className="text-primary accent-primary"
+                            className="accent-blue-600"
                           />
                           <span className="font-semibold text-foreground">Add Days</span>
                         </label>
@@ -473,7 +477,7 @@ export function LeaveBalanceAdjustmentView({
                             onChange={() =>
                               handleUpdateRow(row.id, { adjustmentType: "DEDUCT" })
                             }
-                            className="text-primary accent-primary"
+                            className="accent-blue-600"
                           />
                           <span className="text-muted-foreground">Deduct Days</span>
                         </label>
@@ -494,7 +498,7 @@ export function LeaveBalanceAdjustmentView({
                             handleUpdateRow(row.id, { days: e.target.value === "" ? NaN : Number(e.target.value) })
                           }
                           className={cn(
-                            "h-9 w-24 rounded-xl text-xs bg-background font-semibold",
+                            "h-8 w-24 rounded-md bg-background text-xs font-semibold",
                             error && "border-red-500 focus-visible:ring-red-500"
                           )}
                         />
@@ -554,7 +558,7 @@ export function LeaveBalanceAdjustmentView({
               type="date"
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
-              className="h-10 rounded-xl text-xs bg-background"
+              className="h-9 rounded-md bg-background text-xs"
               required
             />
           </div>
@@ -565,7 +569,7 @@ export function LeaveBalanceAdjustmentView({
               Reason <span className="text-red-500">*</span>
             </label>
             <Select value={reason} onValueChange={(val) => setReason(val as AdjustmentReason)}>
-              <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+              <SelectTrigger className="h-9 rounded-md bg-background text-xs">
                 <SelectValue placeholder="Select Reason" />
               </SelectTrigger>
               <SelectContent>
@@ -593,16 +597,16 @@ export function LeaveBalanceAdjustmentView({
               maxLength={300}
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="e.g. Outstanding performance in Q1"
-              className="h-10 rounded-xl text-xs bg-background"
+              className="h-9 rounded-md bg-background text-xs"
             />
           </div>
         </div>
 
         {/* Adjustment Summary Card */}
-        <div className="bg-muted/40 border rounded-2xl p-4 flex items-center justify-between text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-blue-100 bg-blue-50/60 p-4 text-xs dark:border-blue-500/20 dark:bg-blue-500/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <Scale className="w-5 h-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white">
+              <Scale className="h-4 w-4" />
             </div>
             <div>
               <div className="font-bold text-foreground">Adjustment Summary</div>
@@ -635,18 +639,18 @@ export function LeaveBalanceAdjustmentView({
         </div>
 
         {submitError && (
-          <div role="alert" className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
+          <div role="alert" className="px-4 py-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
             {submitError}
           </div>
         )}
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t">
+        <div className="-mx-6 -mb-6 flex items-center justify-end gap-2 border-t border-border/70 bg-muted/30 px-6 py-3">
           <Button
             type="button"
             variant="outline"
             onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
-            className="h-10 px-6 rounded-xl text-xs font-semibold cursor-pointer"
+            className="h-9 cursor-pointer rounded-md px-5 text-xs font-semibold"
           >
             Cancel
           </Button>
@@ -655,7 +659,7 @@ export function LeaveBalanceAdjustmentView({
             type="button"
             disabled={isSubmitting || rows.length === 0}
             onClick={handleReview}
-            className="h-10 px-6 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+            className="h-9 cursor-pointer rounded-md bg-blue-600 px-5 text-xs font-semibold text-white hover:bg-blue-700"
           >
             Review & Confirm
           </Button>
@@ -671,7 +675,7 @@ export function LeaveBalanceAdjustmentView({
           onKeyDown={(e) => e.key === "Escape" && !isSubmitting && setIsReviewOpen(false)}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
         >
-          <div className="bg-card border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="bg-card border rounded-lg shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
             <div className="space-y-1">
               <h3 id="adjust-review-title" className="text-lg font-bold text-foreground">
                 Review balance adjustment
@@ -682,7 +686,7 @@ export function LeaveBalanceAdjustmentView({
               </p>
             </div>
 
-            <table className="w-full text-xs border rounded-xl overflow-hidden">
+            <table className="w-full text-xs border rounded-md overflow-hidden">
               <thead>
                 <tr className="bg-muted/40 text-muted-foreground uppercase tracking-wider">
                   <th className="py-2 px-3 text-left font-semibold">Leave type</th>
@@ -690,7 +694,7 @@ export function LeaveBalanceAdjustmentView({
                   <th className="py-2 px-3 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border/70">
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className="py-2 px-3 font-medium text-foreground">{r.leaveTypeName}</td>
@@ -705,7 +709,7 @@ export function LeaveBalanceAdjustmentView({
               </tbody>
             </table>
 
-            <div className="bg-muted/40 rounded-xl p-3 text-xs space-y-1.5 border">
+            <div className="bg-muted/40 rounded-md p-3 text-xs space-y-1.5 border">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Reason:</span>
                 <span className="font-medium text-foreground">{reason ? REASON_LABELS[reason] : "—"}</span>
@@ -725,7 +729,7 @@ export function LeaveBalanceAdjustmentView({
                 autoFocus
                 disabled={isSubmitting}
                 onClick={() => setIsReviewOpen(false)}
-                className="flex-1 h-10 rounded-xl text-xs font-semibold cursor-pointer"
+                className="flex-1 h-10 rounded-md text-xs font-semibold cursor-pointer"
               >
                 Back to edit
               </Button>
@@ -733,7 +737,7 @@ export function LeaveBalanceAdjustmentView({
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleConfirm}
-                className="flex-1 h-10 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+                className="flex-1 h-10 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
               >
                 {isSubmitting ? (
                   <>
@@ -751,7 +755,7 @@ export function LeaveBalanceAdjustmentView({
       {/* Success Confirmation Modal */}
       {isSuccessModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-card border rounded-2xl shadow-2xl max-w-md w-full p-6 text-center space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="bg-card border rounded-lg shadow-2xl max-w-md w-full p-6 text-center space-y-5 animate-in zoom-in-95 duration-150">
             <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -768,7 +772,7 @@ export function LeaveBalanceAdjustmentView({
               </p>
             </div>
 
-            <div className="bg-muted/40 rounded-xl p-3 text-xs space-y-1.5 border text-left">
+            <div className="bg-muted/40 rounded-md p-3 text-xs space-y-1.5 border text-left">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Adjustment:</span>
                 <span className="font-bold text-foreground">
@@ -793,7 +797,7 @@ export function LeaveBalanceAdjustmentView({
                   setIsSuccessModalOpen(false);
                   if (currentEmployee) setupInitialRows(currentEmployee);
                 }}
-                className="flex-1 h-10 rounded-xl text-xs font-semibold cursor-pointer"
+                className="flex-1 h-10 rounded-md text-xs font-semibold cursor-pointer"
               >
                 Adjust Another
               </Button>
@@ -807,7 +811,7 @@ export function LeaveBalanceAdjustmentView({
                   setRemarks("");
                   onSuccess?.();
                 }}
-                className="flex-1 h-10 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+                className="flex-1 h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
               >
                 Done
               </Button>

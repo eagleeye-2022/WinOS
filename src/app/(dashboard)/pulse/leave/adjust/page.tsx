@@ -4,7 +4,7 @@ import { requirePulseManagerPage } from "@/features/attendance/page-guards";
 
 export const metadata: Metadata = {
   title: "Leave Balance Adjustment | WinOS",
-  description: "Adjust leave types for a single employee.",
+  description: "Adjust leave types for a single team member.",
 };
 
 export default async function LeaveAdjustPage() {

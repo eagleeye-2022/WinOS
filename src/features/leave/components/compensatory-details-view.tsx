@@ -25,6 +25,10 @@ import {
 import { errorMessage, unwrap } from "../action-result";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
+
+const STATUS_TONE: Record<string, PulseTone> = { APPROVED: "green", REJECTED: "red", PENDING: "amber", CANCELLED: "gray" };
+const STATUS_LABEL: Record<string, string> = { APPROVED: "Approved", REJECTED: "Rejected", PENDING: "Pending", CANCELLED: "Cancelled" };
 
 interface CompensatoryDetailsViewProps {
   request: CompensatoryRequest;
@@ -42,7 +46,7 @@ export function CompensatoryDetailsView({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const employee = {
-    name: request.employeeName || "Employee",
+    name: request.employeeName || "Team Member",
     empId: request.employeeCode,
     role: request.designation || "Team Member",
   };
@@ -96,15 +100,15 @@ export function CompensatoryDetailsView({
   };
 
   return (
-    <div className="space-y-6 w-full pb-12 select-none">
+    <div className="w-full select-none space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <button
               type="button"
               onClick={() => (onBack ? onBack() : router.push("/pulse/leave"))}
-              className="text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+              className="cursor-pointer text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
             >
               Compensatory Requests
             </button>
@@ -112,27 +116,17 @@ export function CompensatoryDetailsView({
             <span className="text-foreground">Compensatory Request Details</span>
           </nav>
 
-          <div className="pt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-lg font-semibold text-foreground">
               Compensatory Request Details
             </h1>
-            <span
-              className={cn(
-                "px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                status === "CANCELLED"
-                  ? "bg-muted text-muted-foreground border-border"
-                  : status === "APPROVED"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : status === "REJECTED"
-                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300"
-                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
-              )}
-            >
-              {status === "CANCELLED" ? "Cancelled" : status === "PENDING" ? "Pending" : status}
-            </span>
+            <StatusPill tone={STATUS_TONE[status] ?? "amber"}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[STATUS_TONE[status] ?? "amber"])} />
+              {STATUS_LABEL[status] ?? status}
+            </StatusPill>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground">
             Requested on {request.requestedOn}
           </p>
         </div>
@@ -141,7 +135,7 @@ export function CompensatoryDetailsView({
           type="button"
           variant="outline"
           onClick={handlePrint}
-          className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto border-border"
+          className="h-8 gap-1.5 self-start rounded-md border-border/80 px-3 text-xs font-semibold sm:self-auto"
         >
           <Printer className="w-4 h-4" />
           <span>Print</span>
@@ -149,20 +143,20 @@ export function CompensatoryDetailsView({
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Employee & Request Details */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
-            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
-              <FileText className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Employee & Request Details
-              </h3>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+        {/* Left Column: Team Member & Request Details */}
+        <div className="space-y-4 lg:col-span-8">
+          <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <FileText className="h-4 w-4" />
+              </span>
+              <h3 className="text-[15px] font-semibold text-foreground">Team Member & Request Details</h3>
             </div>
 
             {/* Employee Row */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <span>{request.avatarText}</span>
               </div>
               <div>
@@ -177,12 +171,12 @@ export function CompensatoryDetailsView({
             </div>
 
             {/* Information Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs pt-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 border-t border-border/70 pt-5 text-xs sm:grid-cols-2">
               {/* Work Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Work Date</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Work Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>
                     {request.workDate}
                     {request.workDayOfWeek ? ` (${request.workDayOfWeek})` : ""}
@@ -192,45 +186,45 @@ export function CompensatoryDetailsView({
 
               {/* Working Hours */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Working Hours</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Working Hours</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
-                  <Clock className="w-4 h-4 text-primary" />
+                  <Clock className="w-4 h-4 text-muted-foreground" />
                   <span>{workingHours || "—"}</span>
                 </div>
               </div>
 
               {/* Duration */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Duration</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Duration</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
-                  <CalendarDays className="w-4 h-4 text-emerald-500" />
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
                   <span>{request.durationText || request.duration || "—"}</span>
                 </div>
               </div>
 
               {/* Requested On */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Requested On</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Requested On</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
-                  <Calendar className="w-4 h-4 text-primary" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{request.requestedOn}</span>
                 </div>
               </div>
 
               {/* Expiry Date */}
               <div className="space-y-1.5">
-                <span className="text-muted-foreground font-medium text-xs">Expiry Date</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Expiry Date</span>
                 <div className="flex items-center gap-2 font-semibold text-foreground pt-1">
-                  <Calendar className="w-4 h-4 text-orange-500" />
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{request.expiryDate}</span>
                 </div>
               </div>
 
               {/* Reason */}
               <div className="space-y-1.5 sm:col-span-2">
-                <span className="text-muted-foreground font-medium text-xs">Reason</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reason</span>
                 <div className="flex items-start gap-2 text-foreground font-medium pt-1">
-                  <MessageSquare className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   <span>{request.reason}</span>
                 </div>
               </div>
@@ -238,17 +232,19 @@ export function CompensatoryDetailsView({
           </div>
 
           {/* Attachments Card */}
-          <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-border/60">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <FileText className="h-4 w-4" />
+              </span>
+              <h3 className="text-[15px] font-semibold text-foreground">
                 Attachments ({attachments.length})
               </h3>
             </div>
 
             {attachments.length === 0 && <p className="text-xs text-muted-foreground">No attachments.</p>}
             {attachments.map((att) => (
-              <div key={att.id} className="flex items-center justify-between p-3 bg-background border rounded-xl">
+              <div key={att.id} className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
                 <div className="flex items-center gap-2.5 truncate">
                   <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
                     <FileText className="w-4 h-4" />
@@ -276,13 +272,13 @@ export function CompensatoryDetailsView({
 
           {/* Action Buttons: Reject / Approve — only for a manager responsible for this person */}
           {status === "PENDING" && request.canReview && (
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
               <Button
                 type="button"
                 variant="outline"
                 disabled={isProcessing}
                 onClick={handleReject}
-                className="h-10 px-8 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900/50 flex items-center gap-1.5"
+                className="flex h-9 items-center gap-1.5 rounded-md border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
               >
                 <X className="w-4 h-4 text-red-500" />
                 <span>{isProcessing ? "Processing..." : "Reject"}</span>
@@ -290,12 +286,11 @@ export function CompensatoryDetailsView({
 
               <Button
                 type="button"
-                variant="outline"
                 disabled={isProcessing}
                 onClick={handleApprove}
-                className="h-10 px-8 rounded-lg text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
+                className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
               >
-                <Check className="w-4 h-4 text-emerald-500" />
+                <Check className="w-4 h-4" />
                 <span>{isProcessing ? "Processing..." : "Approve"}</span>
               </Button>
             </div>
@@ -304,13 +299,12 @@ export function CompensatoryDetailsView({
 
         {/* Right Column: Approval Flow */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="w-full py-2.5 px-3 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs">
-            <User className="w-4 h-4" />
-            <span>Approval Flow</span>
-          </div>
 
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-6">
-            <h3 className="text-sm font-bold text-foreground tracking-tight">
+          <div className="space-y-6 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <h3 className="flex items-center gap-2.5 text-[15px] font-semibold text-foreground">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <User className="h-4 w-4" />
+              </span>
               Approval Flow
             </h3>
 
@@ -322,7 +316,7 @@ export function CompensatoryDetailsView({
                     <div
                       className={cn(
                         "absolute -left-[27px] top-0.5 w-6 h-6 rounded-full flex items-center justify-center ring-4 ring-card",
-                        current === "APPROVED" && "bg-primary text-primary-foreground",
+                        current === "APPROVED" && "bg-emerald-500 text-white",
                         current === "REJECTED" && "bg-red-500 text-white",
                         current !== "APPROVED" && current !== "REJECTED" && "bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400"
                       )}
@@ -338,9 +332,9 @@ export function CompensatoryDetailsView({
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
                       {current !== "APPROVED" && (
-                        <span className="text-xs font-semibold text-muted-foreground">
+                        <StatusPill tone={current === "REJECTED" ? "red" : "amber"}>
                           {current === "REJECTED" ? "Rejected" : current === "PENDING" ? "Pending" : current}
-                        </span>
+                        </StatusPill>
                       )}
                     </div>
                     {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}

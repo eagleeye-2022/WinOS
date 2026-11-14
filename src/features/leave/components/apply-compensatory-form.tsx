@@ -39,6 +39,30 @@ interface ApplyCompensatoryFormProps {
   onCancel?: () => void;
 }
 
+/** Numbered section heading inside the form card. */
+function SectionTitle({ n, children }: { n?: number; children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
+      {n !== undefined && (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+          {n}
+        </span>
+      )}
+      {children}
+    </h3>
+  );
+}
+
+/** Icon + title for the side widgets. */
+function WidgetTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2.5 text-[15px] font-semibold text-foreground">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">{icon}</span>
+      <span className="min-w-0">{children}</span>
+    </h3>
+  );
+}
+
 export function ApplyCompensatoryForm({
   onSubmitCompensatory,
   onCancel,
@@ -188,13 +212,13 @@ export function ApplyCompensatoryForm({
   };
 
   return (
-    <div className="space-y-6 w-full pb-12">
+    <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="space-y-1">
+      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave"
-            className="text-primary hover:underline hover:text-primary/80 transition-colors"
+            className="text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
           >
             My Leave
           </Link>
@@ -202,23 +226,17 @@ export function ApplyCompensatoryForm({
           <span className="text-foreground">Compensatory Request</span>
         </nav>
 
-        <div className="pt-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Compensatory Request
-          </h1>
-        </div>
+        <h1 className="text-lg font-semibold text-foreground">Compensatory Request</h1>
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Form */}
-        <div className="lg:col-span-8 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="lg:col-span-8">
+          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {/* 1. Work Date & Time */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-4">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                1. Work Date & Time
-              </h3>
+            <div className="space-y-4 px-6 py-5">
+              <SectionTitle n={1}>Work Date & Time</SectionTitle>
 
               <div className="space-y-4">
                 <div className="max-w-md space-y-1.5">
@@ -231,7 +249,7 @@ export function ApplyCompensatoryForm({
                     max={todayKey}
                     aria-invalid={Boolean(dateError)}
                     onChange={(e) => setWorkDate(e.target.value)}
-                    className={cn("h-10 rounded-xl text-xs bg-background", dateError && "border-red-500")}
+                    className={cn("h-10 rounded-md text-xs bg-background", dateError && "border-red-500")}
                     required
                   />
                   {dateError && <p className="text-xs text-red-600 dark:text-red-400">{dateError}</p>}
@@ -247,7 +265,7 @@ export function ApplyCompensatoryForm({
                       <Input
                         value={fromTime}
                         onChange={(e) => setFromTime(e.target.value)}
-                        className="h-10 pl-9 rounded-xl text-xs bg-background"
+                        className="h-10 pl-9 rounded-md text-xs bg-background"
                         placeholder="09:00 AM"
                         required
                       />
@@ -263,7 +281,7 @@ export function ApplyCompensatoryForm({
                       <Input
                         value={toTime}
                         onChange={(e) => setToTime(e.target.value)}
-                        className="h-10 pl-9 rounded-xl text-xs bg-background"
+                        className="h-10 pl-9 rounded-md text-xs bg-background"
                         placeholder="06:00 PM"
                         required
                       />
@@ -281,10 +299,8 @@ export function ApplyCompensatoryForm({
             </div>
 
             {/* 2. Duration */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                2. Duration
-              </h3>
+            <div className="space-y-3 px-6 py-5">
+              <SectionTitle n={2}>Duration</SectionTitle>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">
@@ -296,9 +312,9 @@ export function ApplyCompensatoryForm({
                     type="button"
                     onClick={() => setDurationType("FULL_DAY")}
                     className={cn(
-                      "h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
+                      "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
                       durationType === "FULL_DAY"
-                        ? "border-primary bg-primary/10 text-primary shadow-2xs ring-1 ring-primary"
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
                         : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                     )}
                   >
@@ -306,7 +322,7 @@ export function ApplyCompensatoryForm({
                       className={cn(
                         "w-3 h-3 rounded-full border-2 flex items-center justify-center",
                         durationType === "FULL_DAY"
-                          ? "border-primary bg-primary"
+                          ? "border-blue-600 bg-blue-600"
                           : "border-muted-foreground"
                       )}
                     />
@@ -317,9 +333,9 @@ export function ApplyCompensatoryForm({
                     type="button"
                     onClick={() => setDurationType("HALF_DAY")}
                     className={cn(
-                      "h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
+                      "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
                       durationType === "HALF_DAY"
-                        ? "border-primary bg-primary/10 text-primary shadow-2xs ring-1 ring-primary"
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
                         : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                     )}
                   >
@@ -327,7 +343,7 @@ export function ApplyCompensatoryForm({
                       className={cn(
                         "w-3 h-3 rounded-full border-2 flex items-center justify-center",
                         durationType === "HALF_DAY"
-                          ? "border-primary bg-primary"
+                          ? "border-blue-600 bg-blue-600"
                           : "border-muted-foreground"
                       )}
                     />
@@ -338,9 +354,9 @@ export function ApplyCompensatoryForm({
                     type="button"
                     onClick={() => setDurationType("QUARTER_DAY")}
                     className={cn(
-                      "h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
+                      "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
                       durationType === "QUARTER_DAY"
-                        ? "border-primary bg-primary/10 text-primary shadow-2xs ring-1 ring-primary"
+                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
                         : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                     )}
                   >
@@ -348,7 +364,7 @@ export function ApplyCompensatoryForm({
                       className={cn(
                         "w-3 h-3 rounded-full border-2 flex items-center justify-center",
                         durationType === "QUARTER_DAY"
-                          ? "border-primary bg-primary"
+                          ? "border-blue-600 bg-blue-600"
                           : "border-muted-foreground"
                       )}
                     />
@@ -360,10 +376,8 @@ export function ApplyCompensatoryForm({
             </div>
 
             {/* 3. Reason */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                3. Reason
-              </h3>
+            <div className="space-y-3 px-6 py-5">
+              <SectionTitle n={3}>Reason</SectionTitle>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">
@@ -378,7 +392,7 @@ export function ApplyCompensatoryForm({
                       }
                     }}
                     placeholder="Describe the tasks completed during extra hours..."
-                    className="min-h-[100px] text-xs resize-none bg-background rounded-xl p-3"
+                    className="min-h-[100px] text-xs resize-none bg-background rounded-md p-3"
                     required
                   />
                   <div className="text-xs text-muted-foreground text-right mt-1 font-mono">
@@ -389,11 +403,9 @@ export function ApplyCompensatoryForm({
             </div>
 
             {/* 4. Attachments */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
+            <div className="space-y-3 px-6 py-5">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground tracking-tight">
-                  4. Attachments
-                </h3>
+                <SectionTitle n={4}>Attachments</SectionTitle>
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
               </div>
 
@@ -402,7 +414,7 @@ export function ApplyCompensatoryForm({
                   {attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center justify-between p-3 bg-background border rounded-xl"
+                      className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3"
                     >
                       <div className="flex items-center gap-2.5 truncate">
                         <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
@@ -458,34 +470,32 @@ export function ApplyCompensatoryForm({
             </div>
 
             {/* 5. Expiry Date */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                5. Expiry Date
-              </h3>
+            <div className="space-y-3 px-6 py-5">
+              <SectionTitle n={5}>Expiry Date</SectionTitle>
 
               <div className="space-y-1.5 max-w-md">
                 <label className="text-xs font-medium text-foreground">
                   Expiry Date (Auto calculated) <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-2.5 px-3 py-2.5 bg-muted/40 border rounded-xl text-xs text-foreground font-semibold">
+                <div className="flex items-center gap-2.5 rounded-md border border-border/70 bg-muted/40 px-3 py-2.5 text-xs font-semibold text-foreground">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>{expiryDateFormatted}</span>
                 </div>
               </div>
 
               {submitError && (
-                <div role="alert" className="px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
+                <div role="alert" className="px-4 py-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
                   {submitError}
                 </div>
               )}
 
               {/* Form Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t">
+              <div className="-mx-6 -mb-5 mt-4 flex items-center justify-between border-t border-border/70 bg-muted/30 px-6 py-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave"))}
-                  className="h-10 px-6 rounded-xl text-xs font-semibold"
+                  className="h-9 rounded-md px-5 text-xs font-semibold"
                 >
                   Cancel
                 </Button>
@@ -493,7 +503,7 @@ export function ApplyCompensatoryForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting || Boolean(inputError)}
-                  className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                  className="h-9 rounded-md bg-blue-600 px-6 text-xs font-semibold text-white hover:bg-blue-700"
                 >
                   {isSubmitting ? "Submitting..." : "Submit Request"}
                 </Button>
@@ -503,12 +513,10 @@ export function ApplyCompensatoryForm({
         </div>
 
         {/* Right Column: Request Summary & Duration Guide */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="space-y-4 lg:col-span-4">
           {/* Request Summary Card */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-foreground tracking-tight">
-              Request Summary
-            </h3>
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <WidgetTitle icon={<FileText className="h-4 w-4" />}>Request Summary</WidgetTitle>
 
             <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between">
@@ -549,14 +557,12 @@ export function ApplyCompensatoryForm({
           </div>
 
           {/* Duration Guide Card */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-foreground tracking-tight">
-              Duration Guide
-            </h3>
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <WidgetTitle icon={<Clock className="h-4 w-4" />}>Duration Guide</WidgetTitle>
 
             <div className="space-y-2.5">
               {/* Full Day */}
-              <div className="flex items-center justify-between p-3 rounded-xl border bg-background">
+              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-accent text-blue-500">
                     <Clock className="w-4 h-4" />
@@ -566,13 +572,13 @@ export function ApplyCompensatoryForm({
                     <div className="text-xs text-muted-foreground">More than 5 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                   1 Day
                 </span>
               </div>
 
               {/* Half Day */}
-              <div className="flex items-center justify-between p-3 rounded-xl border bg-background">
+              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500">
                     <Sliders className="w-4 h-4" />
@@ -582,13 +588,13 @@ export function ApplyCompensatoryForm({
                     <div className="text-xs text-muted-foreground">Up to 5 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300 border border-blue-200 dark:border-zinc-700">
+                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300">
                   0.5 Day
                 </span>
               </div>
 
               {/* Quarter Day */}
-              <div className="flex items-center justify-between p-3 rounded-xl border bg-background">
+              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-500">
                     <PieChart className="w-4 h-4" />
@@ -600,7 +606,7 @@ export function ApplyCompensatoryForm({
                     <div className="text-xs text-muted-foreground">Up to 4 hours</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                   0.25 Day
                 </span>
               </div>
@@ -608,7 +614,7 @@ export function ApplyCompensatoryForm({
           </div>
 
           {/* Note Card */}
-          <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 flex items-start gap-2.5 text-xs text-blue-700 dark:text-blue-300">
+          <div className="flex items-start gap-2.5 rounded-lg border border-blue-100 bg-blue-50/70 p-4 text-xs text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
             <span>You can use this compensatory leave before the expiry date.</span>
           </div>

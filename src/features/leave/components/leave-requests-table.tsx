@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { LeaveRequest, LeaveStatus } from "../types";
-import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "./period-nav";
+import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -81,41 +82,29 @@ export function LeaveRequestsTable({
     return filteredRequests.slice(start, start + pageSize);
   }, [filteredRequests, currentPage, pageSize]);
 
+  const STATUS_LOOK: Record<LeaveStatus, { label: string; tone: PulseTone }> = {
+    APPROVED: { label: "Approved", tone: "green" },
+    REJECTED: { label: "Rejected", tone: "red" },
+    PENDING: { label: "Pending", tone: "amber" },
+    CANCELLED: { label: "Cancelled", tone: "gray" },
+  };
   const getStatusBadge = (status: LeaveStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            Approved
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
-            Rejected
-          </span>
-        );
-      case "PENDING":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            Pending
-          </span>
-        );
-      case "CANCELLED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            Cancelled
-          </span>
-        );
-    }
+    const look = STATUS_LOOK[status];
+    if (!look) return null;
+    return (
+      <StatusPill tone={look.tone}>
+        <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[look.tone])} />
+        {look.label}
+      </StatusPill>
+    );
   };
 
   return (
-    <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+    <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Header bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {title && (
-          <h3 className="text-sm font-bold tracking-wider text-muted-foreground uppercase">
+          <h3 className="text-[15px] font-semibold text-foreground">
             {title}
           </h3>
         )}
@@ -141,7 +130,7 @@ export function LeaveRequestsTable({
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="h-9 rounded-xl text-xs">
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue placeholder="All Leave Types" />
             </SelectTrigger>
             <SelectContent>
@@ -162,7 +151,7 @@ export function LeaveRequestsTable({
               setCurrentPage(1);
             }}
           >
-            <SelectTrigger className="h-9 rounded-xl text-xs">
+            <SelectTrigger className="h-8 rounded-md text-xs">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -184,18 +173,18 @@ export function LeaveRequestsTable({
                 setCurrentPage(1);
               }}
               placeholder="Search by reason"
-              className="h-9 pl-9 rounded-xl text-xs"
+              className="h-8 pl-9 rounded-md text-xs"
             />
           </div>
         </div>
       )}
 
       {/* Requests Table */}
-      <div className="border border-border/80 rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-md border border-border/70">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="py-3 px-4 font-semibold">LEAVE TYPE</th>
                 <th className="py-3 px-4 font-semibold">FROM</th>
                 <th className="py-3 px-4 font-semibold">TO</th>
@@ -206,7 +195,7 @@ export function LeaveRequestsTable({
                 <th className="py-3 px-4 font-semibold text-center">ACTION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60 text-xs">
+            <tbody className="divide-y divide-border/70 text-xs">
               {paginatedRequests.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-muted-foreground">
@@ -217,11 +206,12 @@ export function LeaveRequestsTable({
                 paginatedRequests.map((req) => (
                   <tr
                     key={req.id}
-                    className="hover:bg-muted/30 transition-colors group"
+                    className="group transition-colors hover:bg-muted/40"
                   >
                     {/* Leave Type */}
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-foreground">
+                      <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
                         {req.leaveTypeName}
                       </div>
                     </td>
@@ -261,7 +251,7 @@ export function LeaveRequestsTable({
                       <button
                         type="button"
                         onClick={() => onViewRequest(req)}
-                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                        className="cursor-pointer text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
                       >
                         View
                       </button>
@@ -292,7 +282,7 @@ export function LeaveRequestsTable({
               size="icon"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="h-8 w-8 rounded-lg"
+              className="h-8 w-8 rounded-md"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -305,8 +295,8 @@ export function LeaveRequestsTable({
                 size="sm"
                 onClick={() => setCurrentPage(p)}
                 className={cn(
-                  "h-8 w-8 p-0 rounded-lg text-xs font-medium",
-                  currentPage === p ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                  "h-8 w-8 p-0 rounded-md text-xs font-medium",
+                  currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "text-muted-foreground"
                 )}
               >
                 {p}
@@ -319,7 +309,7 @@ export function LeaveRequestsTable({
               size="icon"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 w-8 rounded-lg"
+              className="h-8 w-8 rounded-md"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
