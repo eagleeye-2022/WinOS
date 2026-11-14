@@ -516,8 +516,12 @@ export async function approveLeaveRequestAction(
     // Requests created before routing existed have a single "Reporting Manager" step.
     const pending = await pendingStepOf(requestId);
     const role = pending?.step.approverRole ?? "Reporting Manager";
-    if (isSelfAction(approver, request.userId)) fail("You can't approve your own leave — another manager or an admin has to.");
-    if (!(await canActOnStep(approver, role, requester))) {
+    // Managers may approve their own leave (product decision, Nov 2026); everyone else needs someone
+    // above them. Rejecting your own request is still refused — cancel it instead.
+    const isOwn = isSelfAction(approver, request.userId);
+    if (isOwn) {
+      if (!canManageAttendance(approver)) fail("You can't approve your own leave — a manager or an admin has to.");
+    } else if (!(await canActOnStep(approver, role, requester))) {
       fail(`This step needs approval from the ${role.toLowerCase()}${role === "HR Admin" ? "" : " (or an admin)"}.`);
     }
     const dateLabel = leaveDateLabel(dateKeyFromUtc(request.fromDate), dateKeyFromUtc(request.toDate));

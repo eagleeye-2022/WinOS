@@ -147,13 +147,11 @@ export function TeamCalendarView() {
   };
 
   return (
-    <div className="space-y-6 select-none">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 select-none">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Team Calendar
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">Team Calendar</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -163,9 +161,9 @@ export function TeamCalendarView() {
             variant="outline"
             size="sm"
             onClick={handleToday}
-            className="h-9 px-3 rounded-lg text-xs font-semibold gap-1.5 border-border"
+            className="h-8 gap-1.5 rounded-md border-border/80 px-3 text-xs font-semibold"
           >
-            <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+            <CalendarIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             <span>Today</span>
           </Button>
 
@@ -183,13 +181,13 @@ export function TeamCalendarView() {
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Interactive Month Grid */}
-        <div className="lg:col-span-8 bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+        <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5 lg:col-span-8">
           {/* Legend & Month Title */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-foreground tracking-tight">
+              <span className="text-[15px] font-semibold text-foreground">
                 {monthName}
               </span>
               {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
@@ -205,16 +203,16 @@ export function TeamCalendarView() {
                 <span className="font-medium text-foreground">Holiday</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block" />
                 <span className="font-medium text-foreground">Optional Holiday</span>
               </div>
             </div>
           </div>
 
           {/* Calendar Grid */}
-          <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
+          <div className="overflow-hidden rounded-md border border-border/70 bg-background">
             {/* Days Header */}
-            <div className="grid grid-cols-7 text-center bg-muted/40 border-b text-xs font-semibold text-muted-foreground py-2.5">
+            <div className="grid grid-cols-7 border-b border-border/70 bg-muted/40 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <div>Sun</div>
               <div>Mon</div>
               <div>Tue</div>
@@ -250,21 +248,21 @@ export function TeamCalendarView() {
                     onClick={() => setSelectedDay(day)}
                     className={cn(
                       "min-h-[85px] p-1.5 text-xs transition-all cursor-pointer flex flex-col justify-between hover:bg-muted/30",
-                      isToday && "bg-blue-50/40 dark:bg-accent",
-                      isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
+                      isToday && "bg-blue-50/50 dark:bg-blue-500/10",
+                      isSelected && "ring-2 ring-inset ring-blue-500 bg-blue-50/40 dark:bg-blue-500/10"
                     )}
                   >
                     {/* Top Day Number */}
                     <div className="flex items-center justify-between">
                       {isToday ? (
-                        <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs shadow-2xs">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white dark:bg-blue-500">
                           {day}
                         </span>
                       ) : (
                         <span
                           className={cn(
                             "font-semibold pl-0.5",
-                            isSelected ? "text-primary font-bold" : "text-foreground"
+                            isSelected ? "font-bold text-blue-600 dark:text-blue-400" : "text-foreground"
                           )}
                         >
                           {day}
@@ -272,7 +270,7 @@ export function TeamCalendarView() {
                       )}
 
                       {isToday && (
-                        <span className="text-xs font-bold text-primary">
+                        <span className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400">
                           Today
                         </span>
                       )}
@@ -285,10 +283,10 @@ export function TeamCalendarView() {
                         <div
                           key={h.id}
                           className={cn(
-                            "px-1.5 py-0.5 rounded text-xs font-bold truncate",
+                            "truncate rounded border-l-2 px-1.5 py-0.5 text-[11px] font-semibold",
                             h.type === "PUBLIC"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                              : "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              : "border-violet-500 bg-violet-50 text-violet-800 dark:bg-violet-500/15 dark:text-violet-300"
                           )}
                           title={h.name}
                         >
@@ -299,7 +297,7 @@ export function TeamCalendarView() {
                       {/* Leaves */}
                       {dayLeaves.length === 1 && (
                         <div
-                          className="px-1.5 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-accent dark:text-blue-300 truncate"
+                          className="truncate rounded border-l-2 border-blue-500 bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-300"
                           title={`${dayLeaves[0].employeeName} - ${dayLeaves[0].leaveType}`}
                         >
                           {dayLeaves[0].employeeName.split(" ")[0]} ({dayLeaves[0].leaveTypeCode})
@@ -307,7 +305,7 @@ export function TeamCalendarView() {
                       )}
 
                       {dayLeaves.length > 1 && (
-                        <div className="inline-flex items-center gap-1 w-full px-1.5 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 dark:bg-accent dark:text-blue-300 truncate">
+                        <div className="inline-flex w-full items-center gap-1 truncate rounded border-l-2 border-blue-500 bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
                           <span>{dayLeaves.length} on leave</span>
                           <Users className="w-2.5 h-2.5 ml-auto shrink-0" />
                         </div>
@@ -344,7 +342,7 @@ export function TeamCalendarView() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500" />
               <span className="text-foreground">
                 <strong className="text-foreground">{metrics.totalSpecialHolidays}</strong> Special / Optional
               </span>
@@ -353,15 +351,17 @@ export function TeamCalendarView() {
         </div>
 
         {/* Right Column: Selected Day's Events Card */}
-        <div className="lg:col-span-4 bg-card border rounded-2xl p-5 shadow-2xs space-y-5">
+        <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5 lg:col-span-4">
           <div>
             <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-bold text-foreground">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <CalendarIcon className="h-4 w-4" />
+              </span>
+              <h3 className="text-[15px] font-semibold text-foreground">
                 {isTodayDate(selectedDay) ? "Today's Schedule" : "Scheduled Events"}
               </h3>
             </div>
-            <p className="text-xs text-primary font-semibold mt-1">
+            <p className="mt-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
               {selectedDateFormatted}
             </p>
           </div>
@@ -377,10 +377,10 @@ export function TeamCalendarView() {
                   <div
                     key={h.id}
                     className={cn(
-                      "p-3 rounded-xl border flex items-center justify-between gap-2",
+                      "flex items-center justify-between gap-2 rounded-md border border-l-4 p-3",
                       h.type === "PUBLIC"
-                        ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
-                        : "bg-purple-50/60 dark:bg-purple-950/30 border-purple-200 dark:border-purple-900/50"
+                        ? "border-border/70 border-l-emerald-500"
+                        : "border-border/70 border-l-violet-500"
                     )}
                   >
                     <div>
@@ -391,10 +391,10 @@ export function TeamCalendarView() {
                     </div>
                     <span
                       className={cn(
-                        "px-2 py-0.5 rounded-md text-xs font-bold border",
+                        "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
                         h.type === "PUBLIC"
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900 dark:text-emerald-200"
-                          : "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                          : "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
                       )}
                     >
                       {h.type === "PUBLIC" ? "Holiday" : "Optional"}
@@ -412,7 +412,7 @@ export function TeamCalendarView() {
             </div>
 
             {selectedDayLeaves.length === 0 && selectedDayHolidays.length === 0 ? (
-              <div className="p-8 text-center rounded-xl border border-dashed text-muted-foreground space-y-2 bg-muted/10">
+              <div className="space-y-2 rounded-md border border-dashed border-border/80 bg-muted/20 p-8 text-center text-muted-foreground">
                 <CalendarCheck className="w-8 h-8 mx-auto text-muted-foreground/60" />
                 <div className="text-xs font-semibold text-foreground">
                   No Team Leaves or Holidays
@@ -430,12 +430,12 @@ export function TeamCalendarView() {
                 {selectedDayLeaves.map((leave) => (
                   <div
                     key={leave.id}
-                    className="flex items-start gap-3 p-3 rounded-xl border bg-background hover:bg-muted/30 transition-colors"
+                    className="flex items-start gap-3 rounded-md border border-l-4 border-border/70 border-l-blue-500 bg-background p-3 transition-colors hover:bg-muted/40"
                   >
                     <UserAvatar
                       name={leave.employeeName}
                       image={leave.avatarUrl}
-                      className="w-8 h-8 bg-primary/10 border border-primary/20 text-primary font-bold text-xs"
+                      className="h-8 w-8 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                     >
                       {leave.avatarText}
                     </UserAvatar>
@@ -447,10 +447,10 @@ export function TeamCalendarView() {
                         </div>
                         <span
                           className={cn(
-                            "px-1.5 py-0.2 rounded text-xs font-semibold border shrink-0",
+                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
                             leave.status === "APPROVED"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
                           )}
                         >
                           {leave.status === "APPROVED" ? "Approved" : "Pending"}

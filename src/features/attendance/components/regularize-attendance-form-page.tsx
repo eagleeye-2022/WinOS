@@ -28,6 +28,24 @@ interface RegularizeAttendanceFormPageProps {
   onBehalfOf?: EmployeeProfile | null;
 }
 
+/** One form section: numbered title on the left (desktop), content on the right. */
+function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 border-b border-border/70 px-5 py-5 last:border-b-0 md:grid-cols-[200px_minmax(0,1fr)] md:gap-6">
+      <div className="flex items-start gap-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+          {n}
+        </span>
+        <div>
+          <h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
+          {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+        </div>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
 /** What's missing on a recorded day — drives the default reason. */
 function issueOf(rec: AttendanceRecord | null): string | undefined {
   if (!rec) return undefined;
@@ -114,206 +132,155 @@ export function RegularizeAttendanceFormPage({
   };
 
   const inputClass =
-    "w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+    "h-9 w-full rounded-md border border-border/80 bg-background pl-9 pr-3 text-[13px] font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30";
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Back Link */}
+    <div className="flex w-full flex-col gap-4">
+      {/* Back link */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline w-fit"
+        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
       >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back</span>
+        <ArrowLeft className="h-4 w-4" />
+        Back
       </button>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Regularize Attendance
-        </h1>
+      {/* Title bar */}
+      <div className="rounded-lg border border-border/70 bg-card px-5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <h1 className="text-lg font-semibold text-foreground">Regularize Attendance</h1>
+        {onBehalfOf && <p className="text-xs text-muted-foreground">On behalf of {onBehalfOf.name}</p>}
       </div>
 
-      {/* Form + Summary Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Form (2 cols) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Form */}
         <div className="lg:col-span-2">
           <form
             onSubmit={handleSubmit}
-            className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-8"
+            className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <div className="flex items-center gap-2 border-b border-rose-200 bg-rose-50 px-5 py-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            {/* Step 1: Select Date */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-muted text-foreground font-bold text-xs flex items-center justify-center">
-                  1
-                </span>
-                <h3 className="text-sm font-bold text-foreground">Select Date</h3>
+            <Section n={1} title="Select Date">
+              <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                Attendance Date <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative max-w-xs">
+                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="date"
+                  value={attendanceDate}
+                  max={maxDate}
+                  aria-invalid={Boolean(dateError)}
+                  onChange={(e) => setAttendanceDate(e.target.value)}
+                  className={`${inputClass} ${dateError ? "border-rose-500" : ""}`}
+                  required
+                />
               </div>
+              {dateError && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{dateError}</p>}
+            </Section>
 
-              <div className="pl-9">
-                <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Attendance Date <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="date"
-                    value={attendanceDate}
-                    max={maxDate}
-                    aria-invalid={Boolean(dateError)}
-                    onChange={(e) => setAttendanceDate(e.target.value)}
-                    className={`${inputClass} ${dateError ? "border-rose-500" : ""}`}
-                    required
-                  />
-                </div>
-                {dateError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{dateError}</p>}
-              </div>
-            </div>
-
-            {/* Step 2: Existing Attendance */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-muted text-foreground font-bold text-xs flex items-center justify-center">
-                  2
-                </span>
-                <h3 className="text-sm font-bold text-foreground">
-                  Existing Attendance{" "}
-                  <span className="text-xs font-normal text-muted-foreground">(Already Recorded)</span>
-                </h3>
-              </div>
-
-              <div className="pl-9 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-border bg-muted/40 flex items-center gap-3.5">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center shrink-0">
-                    <LogIn className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Check-in</div>
-                    <div className="text-sm font-bold text-foreground">
-                      {isLoadingExisting ? "…" : existing?.checkInTime || "-"}
+            <Section n={2} title="Existing Attendance">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {[
+                  { label: "Check-in", value: existing?.checkInTime, icon: <LogIn className="h-4 w-4" />, tone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300" },
+                  { label: "Check-out", value: existing?.checkOutTime, icon: <LogOut className="h-4 w-4" />, tone: "text-rose-600 bg-rose-50 dark:bg-rose-500/15 dark:text-rose-300" },
+                ].map((t) => (
+                  <div key={t.label} className="flex items-center gap-3 rounded-md border border-border/70 px-3.5 py-3">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${t.tone}`}>{t.icon}</span>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.label}</p>
+                      <p className="text-[13px] font-semibold text-foreground">{isLoadingExisting ? "…" : t.value || "—"}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-4 rounded-xl border border-border bg-muted/40 flex items-center gap-3.5">
-                  <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-500 flex items-center justify-center shrink-0">
-                    <LogOut className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Check-out</div>
-                    <div className="text-sm font-bold text-foreground">
-                      {isLoadingExisting ? "…" : existing?.checkOutTime || "-"}
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
               {existing?.leaveInfo && (
-                <p className="pl-9 text-xs text-amber-700 dark:text-amber-400">
-                  {existing.leaveInfo.leaveType} ({existing.leaveInfo.duration},{" "}
-                  {existing.leaveInfo.status.toLowerCase()}) is recorded for this day.
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                  {existing.leaveInfo.leaveType} ({existing.leaveInfo.duration}, {existing.leaveInfo.status.toLowerCase()}) is recorded for this day.
                 </p>
               )}
-            </div>
+            </Section>
 
-            {/* Step 3: Regularization Details */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-full bg-muted text-foreground font-bold text-xs flex items-center justify-center">
-                  3
-                </span>
-                <h3 className="text-sm font-bold text-foreground">Regularization Details</h3>
-              </div>
-
-              <div className="pl-9">
-                <RegularizationFields form={form} idPrefix="reg-page" />
-              </div>
-            </div>
+            <Section n={3} title="Regularization Details">
+              <RegularizationFields form={form} idPrefix="reg-page" />
+            </Section>
 
             {/* Actions */}
-            <div className="pt-4 flex items-center justify-end gap-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2 bg-muted/30 px-5 py-3">
               <button
                 type="button"
                 onClick={onBack}
-                className="px-5 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors"
+                className="h-9 rounded-md border border-border/80 bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || Boolean(dateError) || !form.isValid}
-                className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs flex items-center gap-2 transition-all disabled:bg-zinc-300 disabled:text-zinc-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-300 disabled:cursor-not-allowed"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Submitting...
                   </>
+                ) : onBehalfOf ? (
+                  "Regularize & Approve"
                 ) : (
-                  <span>{onBehalfOf ? "Regularize & Approve" : "Submit Regularization"}</span>
+                  "Submit Regularization"
                 )}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Right Summary Column */}
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-5">
-            <div className="flex items-center gap-2.5 text-sm font-bold text-foreground">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span>Attendance Summary</span>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
+        {/* Summary */}
+        <div className="space-y-4">
+          <section className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <header className="flex items-center gap-2.5 px-5 pt-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                <Calendar className="h-4 w-4" />
+              </span>
+              <h2 className="text-[15px] font-semibold text-foreground">Summary</h2>
+            </header>
+            <dl className="space-y-3 px-5 pb-5 pt-4 text-xs">
               {onBehalfOf && (
-                <div className="flex items-start justify-between">
-                  <span className="text-muted-foreground">Team Member</span>
-                  <span className="font-bold text-foreground text-right">{onBehalfOf.name}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-muted-foreground">Team Member</dt>
+                  <dd className="text-right font-semibold text-foreground">{onBehalfOf.name}</dd>
                 </div>
               )}
-              <div className="flex items-start justify-between">
-                <span className="text-muted-foreground">Attendance Date</span>
-                <span className="font-bold text-foreground text-right max-w-[150px]">
-                  {dateLabel}
-                </span>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-muted-foreground">Attendance Date</dt>
+                <dd className="max-w-[160px] text-right font-semibold text-foreground">{dateLabel}</dd>
               </div>
-
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Check-in</span>
-                <span className="font-bold text-primary">{checkInTime || "--"}</span>
+                <dt className="text-muted-foreground">Check-in</dt>
+                <dd className="font-semibold text-blue-600 dark:text-blue-400">{checkInTime || "--"}</dd>
               </div>
-
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Check-out</span>
-                <span className="font-bold text-primary">{checkOutTime || "--"}</span>
+                <dt className="text-muted-foreground">Check-out</dt>
+                <dd className="font-semibold text-blue-600 dark:text-blue-400">{checkOutTime || "--"}</dd>
               </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-border">
-                <span className="text-foreground font-semibold">Worked Duration</span>
-                <span className="font-bold text-foreground text-sm">{workedDuration}</span>
+              <div className="flex items-center justify-between border-t border-border/70 pt-3">
+                <dt className="font-semibold text-foreground">Worked Duration</dt>
+                <dd className="text-sm font-bold text-foreground">{workedDuration}</dd>
               </div>
-            </div>
+            </dl>
+          </section>
 
-            <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
-              {onBehalfOf ? (
-                <UserCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              )}
-              <span>
-                {onBehalfOf
-                  ? "As a manager, this regularization is approved and applied immediately."
-                  : "Your regularized attendance will be reviewed and updated after approval."}
-              </span>
-            </div>
+          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-100 bg-emerald-50/70 p-4 text-xs text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+            {onBehalfOf ? <UserCheck className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span>
+              {onBehalfOf
+                ? "As a manager, this regularization is approved and applied immediately."
+                : "Your regularized attendance will be reviewed and updated after approval."}
+            </span>
           </div>
         </div>
       </div>

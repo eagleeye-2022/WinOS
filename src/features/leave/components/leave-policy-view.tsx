@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_SOFT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { getLeaveTypesAction } from "../queries/leave-queries";
 import { toggleLeaveTypeStatusAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
@@ -182,101 +183,61 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
     }
   };
 
+  const CARD = "rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] = [
+    { label: "Total Leave Types", value: metrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
+    { label: "Active", value: metrics.active, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
+    { label: "Inactive", value: metrics.inactive, tone: "amber", icon: <PauseCircle className="h-4 w-4" /> },
+    { label: "Paid", value: metrics.paid, tone: "violet", icon: <Users className="h-4 w-4" /> },
+    { label: "Unpaid / LOP", value: metrics.unpaid, tone: "red", icon: <Home className="h-4 w-4" /> },
+  ];
+
   return (
-    <div className="space-y-6 select-none">
-      {/* Header Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 select-none">
+      {/* Toolbar */}
+      <div className={cn("flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between", CARD)}>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Leave Types
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">Leave Types</h1>
         </div>
 
         <Button
           type="button"
           onClick={handleCreate}
-          className="h-10 px-5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+          className="h-8 self-start rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
-          <span>Create Leave Type</span>
+          <Plus className="h-4 w-4" />
+          Create Leave Type
         </Button>
       </div>
 
-      {/* 5 Metric Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {/* Total Leave Types */}
-        <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
-            <Calendar className="w-4 h-4" />
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {stats.map((s) => (
+          <div key={s.label} className={cn("flex items-center gap-3 px-4 py-3", CARD)}>
+            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
+            <div>
+              <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+            </div>
           </div>
-          <div>
-            <div className="text-lg font-bold text-foreground">{metrics.total}</div>
-            <div className="text-xs font-semibold text-muted-foreground">Total Leave Types</div>
-          </div>
-        </div>
-
-        {/* Active Leave Types */}
-        <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500">
-            <CheckCircle2 className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-foreground">{metrics.active}</div>
-            <div className="text-xs font-semibold text-muted-foreground">Active Leave Types</div>
-          </div>
-        </div>
-
-        {/* Inactive Leave Types */}
-        <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500">
-            <PauseCircle className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-foreground">{metrics.inactive}</div>
-            <div className="text-xs font-semibold text-muted-foreground">Inactive Leave Types</div>
-          </div>
-        </div>
-
-        {/* Paid Leave Types */}
-        <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-500">
-            <Users className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-foreground">{metrics.paid}</div>
-            <div className="text-xs font-semibold text-muted-foreground">Paid Leave Types</div>
-          </div>
-        </div>
-
-        {/* Unpaid / LOP Types */}
-        <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500">
-            <Home className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-foreground">{metrics.unpaid}</div>
-            <div className="text-xs font-semibold text-muted-foreground">Unpaid / LOP Types</div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
-          {/* Search */}
-          <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      {/* Table card with filter bar */}
+      <div className={cn("overflow-hidden", CARD)}>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search leave types..."
-              className="h-9 pl-9 rounded-xl text-xs bg-background w-full"
+              className="h-8 w-full rounded-md bg-background pl-9 text-xs"
             />
           </div>
 
-          {/* Status */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+            <SelectTrigger className="h-8 w-36 rounded-md bg-background text-xs">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -286,9 +247,8 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
             </SelectContent>
           </Select>
 
-          {/* Category */}
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+            <SelectTrigger className="h-8 w-40 rounded-md bg-background text-xs">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
@@ -297,97 +257,91 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
               <SelectItem value="Unpaid Leave">Unpaid Leave</SelectItem>
             </SelectContent>
           </Select>
-
         </div>
 
-        {/* Leave Types Table */}
-        <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
-          <table className="w-full text-left border-collapse text-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3 px-5 font-semibold">Leave Type</th>
-                <th className="py-3 px-4 font-semibold">Code</th>
-                <th className="py-3 px-4 font-semibold">Category</th>
-                <th className="py-3 px-4 font-semibold">Leave Unit</th>
-                <th className="py-3 px-4 font-semibold">Entitlement</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="px-5 py-2.5">Leave Type</th>
+                <th className="px-4 py-2.5">Code</th>
+                <th className="px-4 py-2.5">Category</th>
+                <th className="px-4 py-2.5">Leave Unit</th>
+                <th className="px-4 py-2.5">Entitlement</th>
+                <th className="px-4 py-2.5">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
-              {filtered.length === 0 ? (
+            <tbody className="divide-y divide-border/70">
+              {isLoading && leavePolicies.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
+                    Loading leave types...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                     No leave types found matching the criteria.
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                  {/* Leave Type Name & Icon */}
-                  <td className="py-3 px-5">
-                    <div className="flex items-center gap-3">
-                      {(() => {
-                        const IconComponent = getLeaveIcon(item.icon);
-                        return (
-                          <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center border shadow-2xs shrink-0", item.iconBg)}>
-                            <IconComponent className="w-4 h-4" />
+                filtered.map((item) => {
+                  const IconComponent = getLeaveIcon(item.icon);
+                  const isPaid = item.category === "Paid Leave";
+                  return (
+                    <tr key={item.id} className={cn("transition-colors hover:bg-muted/40", !item.isActive && "opacity-70")}>
+                      {/* Leave type */}
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", item.iconBg)}>
+                            <IconComponent className="h-4 w-4" />
                           </div>
-                        );
-                      })()}
-                      <div>
-                        <div className="font-bold text-foreground leading-tight">
-                          {item.name}
+                          <div className="min-w-0">
+                            <div className="text-[13px] font-semibold leading-tight text-foreground">{item.name}</div>
+                            <div className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{item.description}</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {item.description}
+                      </td>
+
+                      {/* Code */}
+                      <td className="px-4 py-3">
+                        <span className="rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
+                          {item.code}
+                        </span>
+                      </td>
+
+                      {/* Category */}
+                      <td className="px-4 py-3">
+                        <StatusPill tone={isPaid ? "green" : "red"}>{item.category}</StatusPill>
+                      </td>
+
+                      {/* Unit */}
+                      <td className="px-4 py-3">
+                        <StatusPill tone="blue">{item.unit}</StatusPill>
+                      </td>
+
+                      {/* Entitlement */}
+                      <td className="px-4 py-3 font-medium text-foreground">{item.entitlement}</td>
+
+                      {/* Status toggle */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={item.isActive} onCheckedChange={() => togglePolicyStatus(item.id, item.isActive)} />
+                          <span className={cn("text-[11px] font-semibold", item.isActive ? TONE_TEXT.green : "text-muted-foreground")}>
+                            {item.isActive ? "Active" : "Inactive"}
+                          </span>
                         </div>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Code */}
-                  <td className="py-3 px-4 font-semibold text-foreground">
-                    {item.code}
-                  </td>
-
-                  {/* Category */}
-                  <td className="py-3 px-4">
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                        item.category === "Paid Leave"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                          : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
-                      )}
-                    >
-                      {item.category}
-                    </span>
-                  </td>
-
-                  {/* Unit */}
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-accent dark:text-blue-300">
-                      {item.unit}
-                    </span>
-                  </td>
-
-                  {/* Entitlement */}
-                  <td className="py-3 px-4 text-foreground font-medium">
-                    {item.entitlement}
-                  </td>
-
-                  {/* Status Toggle */}
-                  <td className="py-3 px-4">
-                    <Switch
-                      checked={item.isActive}
-                      onCheckedChange={() => togglePolicyStatus(item.id, item.isActive)}
-                    />
-                  </td>
-
-                </tr>
-              )))}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex items-center justify-end border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
+          Showing <strong className="mx-1 text-foreground">{filtered.length}</strong> of {leavePolicies.length} leave types
         </div>
       </div>
     </div>

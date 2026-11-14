@@ -564,7 +564,7 @@ export function CreateLeaveTypeWizard({
           </nav>
 
           <div className="pt-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-lg font-semibold text-foreground">
               Create New Leave Type
             </h1>
           </div>
@@ -574,7 +574,7 @@ export function CreateLeaveTypeWizard({
           type="button"
           variant="outline"
           onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
-          className="h-9 px-4 rounded-xl text-xs font-semibold gap-1.5 self-start sm:self-auto"
+          className="h-9 px-4 rounded-md text-xs font-semibold gap-1.5 self-start sm:self-auto"
         >
           <X className="w-4 h-4" />
           <span>Cancel</span>
@@ -582,7 +582,7 @@ export function CreateLeaveTypeWizard({
       </div>
 
       {/* 6-Step Stepper Bar */}
-      <div className="bg-card border rounded-2xl p-4 shadow-2xs">
+      <div className="bg-card border rounded-lg p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="flex items-center justify-between relative">
           {steps.map((step, idx) => {
             const isCompleted = currentStep > step.number;
@@ -596,7 +596,7 @@ export function CreateLeaveTypeWizard({
                 >
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-2xs",
+                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
                       isCompleted
                         ? "bg-primary text-primary-foreground"
                         : isCurrent
@@ -636,7 +636,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 1: BASIC INFORMATION (Image 2) */}
       {currentStep === 1 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Basic Information
@@ -659,11 +659,11 @@ export function CreateLeaveTypeWizard({
                     }}
                     onFocus={() => setIsNameDropdownOpen(true)}
                     placeholder="Type leave name (e.g. Casual Leave, Sick Leave)"
-                    className="h-10 rounded-xl text-xs bg-background font-medium"
+                    className="h-10 rounded-md text-xs bg-background font-medium"
                     required
                   />
                   {filteredPresets.length > 0 && isNameDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-popover border border-border/80 rounded-xl shadow-lg max-h-64 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
+                    <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-popover border border-border/80 rounded-md shadow-lg max-h-64 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
                       <div className="px-3 py-1.5 bg-muted/40 text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                         <Sparkles className="w-3 h-3 text-primary" />
                         <span>Suggested Leave Types (Click to auto-fill)</span>
@@ -714,7 +714,7 @@ export function CreateLeaveTypeWizard({
                   value={leaveCode}
                   onChange={(e) => setLeaveCode(e.target.value)}
                   placeholder="e.g. SL"
-                  className="h-10 rounded-xl text-xs bg-background font-medium"
+                  className="h-10 rounded-md text-xs bg-background font-medium"
                   required
                 />
               </div>
@@ -730,7 +730,7 @@ export function CreateLeaveTypeWizard({
                     onClick={() => setIsIconModalOpen(true)}
                     title="Click to change icon and color theme"
                     className={cn(
-                      "w-11 h-11 rounded-xl flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs shrink-0 group relative",
+                      "w-11 h-11 rounded-md flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-[0_1px_2px_rgba(15,23,42,0.04)] shrink-0 group relative",
                       currentColor.bg,
                       currentColor.text,
                       currentColor.border
@@ -742,7 +742,7 @@ export function CreateLeaveTypeWizard({
                     type="button"
                     variant="outline"
                     onClick={() => setIsIconModalOpen(true)}
-                    className="h-11 flex-1 rounded-xl text-xs font-semibold gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 cursor-pointer shadow-2xs"
+                    className="h-11 flex-1 rounded-md text-xs font-semibold gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Change Icon & Color</span>
@@ -757,7 +757,7 @@ export function CreateLeaveTypeWizard({
                 Status <span className="text-red-500">*</span>
               </label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                     <span>{status}</span>
@@ -779,7 +779,7 @@ export function CreateLeaveTypeWizard({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Provide a short description of this leave type..."
-                className="min-h-[80px] text-xs resize-none bg-background rounded-xl p-3"
+                className="min-h-[80px] text-xs resize-none bg-background rounded-md p-3"
               />
             </div>
 
@@ -793,7 +793,7 @@ export function CreateLeaveTypeWizard({
                   type="date"
                   value={effectiveDate}
                   onChange={(e) => setEffectiveDate(e.target.value)}
-                  className="h-10 rounded-xl text-xs bg-background"
+                  className="h-10 rounded-md text-xs bg-background"
                   required
                 />
               </div>
@@ -806,7 +806,7 @@ export function CreateLeaveTypeWizard({
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  className="h-10 rounded-xl text-xs bg-background"
+                  className="h-10 rounded-md text-xs bg-background"
                 />
               </div>
             </div>
@@ -816,7 +816,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 2: LEAVE & BALANCE SETUP (Image 3) */}
       {currentStep === 2 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Leave & Balance Setup
@@ -832,7 +832,7 @@ export function CreateLeaveTypeWizard({
                   Leave Category <span className="text-red-500">*</span>
                 </label>
                 <Select value={leaveCategory} onValueChange={setLeaveCategory}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -849,7 +849,7 @@ export function CreateLeaveTypeWizard({
                   Allocation Frequency <span className="text-red-500">*</span>
                 </label>
                 <Select value={allocationFreq} onValueChange={setAllocationFreq}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                     <SelectValue placeholder="Frequency" />
                   </SelectTrigger>
                   <SelectContent>
@@ -873,7 +873,7 @@ export function CreateLeaveTypeWizard({
                     max={365}
                     value={annualEntitlement}
                     onChange={(e) => setAnnualEntitlement(Number(e.target.value))}
-                    className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                    className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     required
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-xs">
@@ -912,7 +912,7 @@ export function CreateLeaveTypeWizard({
                     min={0}
                     value={carryForwardLimit}
                     onChange={(e) => setCarryForwardLimit(Number(e.target.value))}
-                    className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                    className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     disabled={!allowCarryForward}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-xs">
@@ -931,7 +931,7 @@ export function CreateLeaveTypeWizard({
                   onValueChange={setBalanceResetRule}
                   disabled={!allowCarryForward}
                 >
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                     <SelectValue placeholder="Reset rule" />
                   </SelectTrigger>
                   <SelectContent>
@@ -950,7 +950,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Exceeded Leave Entitlement Card */}
-            <div className="bg-muted/30 border rounded-2xl p-5 space-y-4">
+            <div className="bg-muted/30 border rounded-lg p-5 space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-foreground">
                   Exceeded Leave Entitlement
@@ -963,7 +963,7 @@ export function CreateLeaveTypeWizard({
                 <div
                   onClick={() => setExcessOption("DO_NOT_ALLOW")}
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     excessOption === "DO_NOT_ALLOW"
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -987,7 +987,7 @@ export function CreateLeaveTypeWizard({
                 <div
                   onClick={() => setExcessOption("WITHOUT_LIMIT")}
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     excessOption === "WITHOUT_LIMIT"
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1011,7 +1011,7 @@ export function CreateLeaveTypeWizard({
                 <div
                   onClick={() => setExcessOption("YEAR_END")}
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     excessOption === "YEAR_END"
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1035,7 +1035,7 @@ export function CreateLeaveTypeWizard({
                 <div
                   onClick={() => setExcessOption("LOP")}
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     excessOption === "LOP"
                       ? "ring-2 ring-primary border-primary bg-primary/5 shadow-2xs"
                       : "hover:border-primary/50"
@@ -1065,12 +1065,12 @@ export function CreateLeaveTypeWizard({
                   type="date"
                   value={yearEndDate}
                   onChange={(e) => setYearEndDate(e.target.value)}
-                  className="h-10 rounded-xl text-xs bg-background"
+                  className="h-10 rounded-md text-xs bg-background"
                 />
               </div>
 
               {/* Info Notice Banner */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-md text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
                   Team members can apply beyond their balance. Excess days will be marked as Loss of Pay.
@@ -1083,7 +1083,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 3: ELIGIBILITY & DURATION (New Image 1) */}
       {currentStep === 3 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Eligibility & Duration
@@ -1099,7 +1099,7 @@ export function CreateLeaveTypeWizard({
                   Applicable To <span className="text-red-500">*</span>
                 </label>
                 <Select value={applicableTo} onValueChange={setApplicableTo}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                     <SelectValue placeholder="Applicable to" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1117,7 +1117,7 @@ export function CreateLeaveTypeWizard({
                   Departments
                 </label>
                 <Select value={department} onValueChange={setDepartment}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                     <SelectValue placeholder="All Departments" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1138,7 +1138,7 @@ export function CreateLeaveTypeWizard({
                   Employment Type
                 </label>
                 <Select value={employmentType} onValueChange={setEmploymentType}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                     <SelectValue placeholder="All Employment Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1162,10 +1162,10 @@ export function CreateLeaveTypeWizard({
                   min={0}
                   value={minServicePeriod}
                   onChange={(e) => setMinServicePeriod(Number(e.target.value))}
-                  className="h-10 rounded-xl text-xs bg-background w-32 font-semibold"
+                  className="h-10 rounded-md text-xs bg-background w-32 font-semibold"
                 />
                 <Select value={minServiceUnit} onValueChange={setMinServiceUnit}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background w-32 font-medium">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background w-32 font-medium">
                     <SelectValue placeholder="Unit" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1193,7 +1193,7 @@ export function CreateLeaveTypeWizard({
                     setDurations((prev) => ({ ...prev, fullDay: !prev.fullDay }))
                   }
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     durations.fullDay
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1219,7 +1219,7 @@ export function CreateLeaveTypeWizard({
                     setDurations((prev) => ({ ...prev, halfDay: !prev.halfDay }))
                   }
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     durations.halfDay
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1245,7 +1245,7 @@ export function CreateLeaveTypeWizard({
                     setDurations((prev) => ({ ...prev, quarterDay: !prev.quarterDay }))
                   }
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     durations.quarterDay
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1271,7 +1271,7 @@ export function CreateLeaveTypeWizard({
                     setDurations((prev) => ({ ...prev, hourly: !prev.hourly }))
                   }
                   className={cn(
-                    "p-3.5 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                    "p-3.5 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                     durations.hourly
                       ? "ring-2 ring-primary border-primary bg-primary/5"
                       : "hover:border-primary/50"
@@ -1293,7 +1293,7 @@ export function CreateLeaveTypeWizard({
               </div>
 
               {/* Info Notice */}
-              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-md text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 shrink-0" />
                 <span>
                   Team members will be able to request leave only in the selected duration types.
@@ -1306,7 +1306,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 4: APPLICATION RULES (New Image 2) */}
       {currentStep === 4 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Application Rules
@@ -1315,7 +1315,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Application Date Rules */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
               <h4 className="text-xs font-bold text-foreground">
                 Application Date Rules
               </h4>
@@ -1339,7 +1339,7 @@ export function CreateLeaveTypeWizard({
                       min={0}
                       value={pastDaysLimit}
                       onChange={(e) => setPastDaysLimit(Number(e.target.value))}
-                      className="h-10 rounded-xl text-xs bg-background w-24 font-semibold"
+                      className="h-10 rounded-md text-xs bg-background w-24 font-semibold"
                       disabled={!allowPastDays}
                     />
                     <Select
@@ -1347,7 +1347,7 @@ export function CreateLeaveTypeWizard({
                       onValueChange={setPastDaysUnit}
                       disabled={!allowPastDays}
                     >
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background w-28 font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background w-28 font-medium">
                         <SelectValue placeholder="Days" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1376,7 +1376,7 @@ export function CreateLeaveTypeWizard({
                       min={0}
                       value={advanceDaysLimit}
                       onChange={(e) => setAdvanceDaysLimit(Number(e.target.value))}
-                      className="h-10 rounded-xl text-xs bg-background w-24 font-semibold"
+                      className="h-10 rounded-md text-xs bg-background w-24 font-semibold"
                       disabled={!allowAdvanceDays}
                     />
                     <Select
@@ -1384,7 +1384,7 @@ export function CreateLeaveTypeWizard({
                       onValueChange={setAdvanceDaysUnit}
                       disabled={!allowAdvanceDays}
                     >
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background w-28 font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background w-28 font-medium">
                         <SelectValue placeholder="Days" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1408,10 +1408,10 @@ export function CreateLeaveTypeWizard({
                       min={0}
                       value={minAdvanceNotice}
                       onChange={(e) => setMinAdvanceNotice(Number(e.target.value))}
-                      className="h-10 rounded-xl text-xs bg-background w-20 font-semibold"
+                      className="h-10 rounded-md text-xs bg-background w-20 font-semibold"
                     />
                     <Select value={minAdvanceUnit} onValueChange={setMinAdvanceUnit}>
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background w-28 font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background w-28 font-medium">
                         <SelectValue placeholder="Days" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1425,7 +1425,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Leave Request Limits */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
               <h4 className="text-xs font-bold text-foreground">
                 Leave Request Limits
               </h4>
@@ -1444,7 +1444,7 @@ export function CreateLeaveTypeWizard({
                       min={0}
                       value={minLeavePerRequest}
                       onChange={(e) => setMinLeavePerRequest(Number(e.target.value))}
-                      className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                      className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">
                       Days
@@ -1464,7 +1464,7 @@ export function CreateLeaveTypeWizard({
                       min={1}
                       value={maxLeavePerRequest}
                       onChange={(e) => setMaxLeavePerRequest(Number(e.target.value))}
-                      className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                      className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">
                       Days
@@ -1484,7 +1484,7 @@ export function CreateLeaveTypeWizard({
                       min={1}
                       value={maxConsecutiveDays}
                       onChange={(e) => setMaxConsecutiveDays(Number(e.target.value))}
-                      className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                      className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">
                       Days
@@ -1504,7 +1504,7 @@ export function CreateLeaveTypeWizard({
                       min={0}
                       value={minGapBetweenRequests}
                       onChange={(e) => setMinGapBetweenRequests(Number(e.target.value))}
-                      className="h-10 pr-12 rounded-xl text-xs bg-background font-semibold"
+                      className="h-10 pr-12 rounded-md text-xs bg-background font-semibold"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">
                       Days
@@ -1517,7 +1517,7 @@ export function CreateLeaveTypeWizard({
             {/* Card 3: Two Column Box */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Left: Maximum Number of Requests */}
-              <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-3">
+              <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
                   Maximum Number of Requests
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1532,7 +1532,7 @@ export function CreateLeaveTypeWizard({
                     min={1}
                     value={maxRequestsCount}
                     onChange={(e) => setMaxRequestsCount(Number(e.target.value))}
-                    className="h-10 rounded-xl text-xs bg-background w-16 text-center font-semibold"
+                    className="h-10 rounded-md text-xs bg-background w-16 text-center font-semibold"
                   />
                   <span className="text-muted-foreground text-xs font-medium">
                     request(s)
@@ -1547,7 +1547,7 @@ export function CreateLeaveTypeWizard({
                     value={maxRequestsPeriod}
                     onValueChange={setMaxRequestsPeriod}
                   >
-                    <SelectTrigger className="h-10 rounded-xl text-xs bg-background w-32 font-medium">
+                    <SelectTrigger className="h-10 rounded-md text-xs bg-background w-32 font-medium">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1561,7 +1561,7 @@ export function CreateLeaveTypeWizard({
               </div>
 
               {/* Right: Days chips */}
-              <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-3">
+              <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
                   This leave can be applied only on
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1576,7 +1576,7 @@ export function CreateLeaveTypeWizard({
                         type="button"
                         onClick={() => toggleDay(day)}
                         className={cn(
-                          "px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer",
+                          "px-3 py-1.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer",
                           isSelected
                             ? "bg-primary/5 border-primary text-primary shadow-2xs"
                             : "bg-background border-border text-muted-foreground hover:text-foreground"
@@ -1601,7 +1601,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 5: POLICIES & DOCUMENTS (New Image 4) */}
       {currentStep === 5 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Policies & Documents
@@ -1610,7 +1610,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Sandwich & Clubbing Policies */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Sandwich Leave Policy */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
@@ -1671,7 +1671,7 @@ export function CreateLeaveTypeWizard({
                     setClubbingLeaveTypes([...clubbingLeaveTypes, val]);
                   }
                 }}>
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                     <SelectValue placeholder="Select leave types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1706,7 +1706,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Supporting Documents & File Types */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Supporting Document Policy */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
@@ -1720,7 +1720,7 @@ export function CreateLeaveTypeWizard({
                   <div
                     onClick={() => setSupportingDocPolicy("NOT_REQUIRED")}
                     className={cn(
-                      "p-3 rounded-xl border bg-background cursor-pointer transition-all space-y-1",
+                      "p-3 rounded-md border bg-background cursor-pointer transition-all space-y-1",
                       supportingDocPolicy === "NOT_REQUIRED"
                         ? "ring-2 ring-primary border-primary bg-primary/5"
                         : "hover:border-primary/50"
@@ -1744,7 +1744,7 @@ export function CreateLeaveTypeWizard({
                   <div
                     onClick={() => setSupportingDocPolicy("ALWAYS")}
                     className={cn(
-                      "p-3 rounded-xl border bg-background cursor-pointer transition-all space-y-1",
+                      "p-3 rounded-md border bg-background cursor-pointer transition-all space-y-1",
                       supportingDocPolicy === "ALWAYS"
                         ? "ring-2 ring-primary border-primary bg-primary/5"
                         : "hover:border-primary/50"
@@ -1768,7 +1768,7 @@ export function CreateLeaveTypeWizard({
                   <div
                     onClick={() => setSupportingDocPolicy("EXCEEDS")}
                     className={cn(
-                      "p-3 rounded-xl border bg-background cursor-pointer transition-all space-y-1.5",
+                      "p-3 rounded-md border bg-background cursor-pointer transition-all space-y-1.5",
                       supportingDocPolicy === "EXCEEDS"
                         ? "ring-2 ring-primary border-primary bg-primary/5"
                         : "hover:border-primary/50"
@@ -1813,7 +1813,7 @@ export function CreateLeaveTypeWizard({
                 </div>
 
                 {/* Banner notice */}
-                <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+                <div className="flex items-center gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-md text-xs text-blue-700 dark:text-blue-300">
                   <Info className="w-4 h-4 shrink-0" />
                   <span>
                     Team members must upload a supporting document if the applied leave period exceeds the specified number of days.
@@ -1833,7 +1833,7 @@ export function CreateLeaveTypeWizard({
                   <span className="text-xs font-semibold text-muted-foreground">
                     File Types
                   </span>
-                  <div className="p-2 border rounded-xl bg-background flex flex-wrap items-center gap-2">
+                  <div className="p-2 border rounded-md bg-background flex flex-wrap items-center gap-2">
                     {acceptedFileTypes.map((type) => (
                       <span
                         key={type}
@@ -1858,7 +1858,7 @@ export function CreateLeaveTypeWizard({
                     Max File Size
                   </span>
                   <Select value={maxFileSize} onValueChange={setMaxFileSize}>
-                    <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                    <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                       <SelectValue placeholder="Size" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1877,7 +1877,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 6: APPROVAL & VISIBILITY / REVIEW & CREATE (New Image 3) */}
       {currentStep === 6 && (
-        <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-6">
+        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Approval & Visibility
@@ -1886,7 +1886,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Approval Settings & Allow Admin on Behalf */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Approval Settings */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground text-xs">
@@ -1909,7 +1909,7 @@ export function CreateLeaveTypeWizard({
                       Approval Flow
                     </span>
                     <Select value={approvalFlow} onValueChange={setApprovalFlow}>
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                         <SelectValue placeholder="Select approval flow" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1948,7 +1948,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Employee Leave Visibility */}
-            <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-foreground">
                   Team Member Leave Visibility
@@ -1967,7 +1967,7 @@ export function CreateLeaveTypeWizard({
                       value={employeeVisibility}
                       onValueChange={setEmployeeVisibility}
                     >
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                         <SelectValue placeholder="Visibility" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1993,7 +1993,7 @@ export function CreateLeaveTypeWizard({
                       value={balanceDisplayPreference}
                       onValueChange={setBalanceDisplayPreference}
                     >
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background font-medium">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
                         <SelectValue placeholder="Preference" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2010,7 +2010,7 @@ export function CreateLeaveTypeWizard({
                 </div>
 
                 {/* Right: Blue Callout Card */}
-                <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 space-y-2 flex flex-col justify-center">
+                <div className="p-4 rounded-md bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 space-y-2 flex flex-col justify-center">
                   <div className="flex items-center gap-2 text-primary font-bold text-xs">
                     <Info className="w-4 h-4 text-primary shrink-0" />
                     <span>About Balance Display</span>
@@ -2029,13 +2029,13 @@ export function CreateLeaveTypeWizard({
       )}
 
       {submitError && (
-        <div className="px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
+        <div className="px-4 py-3 rounded-md bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-700 dark:text-rose-300">
           {submitError}
         </div>
       )}
 
       {/* Footer Navigation Bar */}
-      <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+      <div className="bg-card border rounded-lg p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] flex items-center justify-between">
         <Button
           type="button"
           variant="outline"
@@ -2055,7 +2055,7 @@ export function CreateLeaveTypeWizard({
           type="button"
           disabled={isSubmitting}
           onClick={handleNext}
-          className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs gap-1.5"
+          className="h-10 px-8 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] gap-1.5"
         >
           <span>
             {isSubmitting
@@ -2074,7 +2074,7 @@ export function CreateLeaveTypeWizard({
           onClick={() => setIsIconModalOpen(false)}
         >
           <div
-            className="bg-card border rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 text-foreground"
+            className="bg-card border rounded-lg shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 text-foreground"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b">
@@ -2094,9 +2094,9 @@ export function CreateLeaveTypeWizard({
 
             <div className="space-y-4 pt-1 text-xs">
               {/* Live Preview Box */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl border bg-muted/30">
+              <div className="flex items-center justify-between p-3.5 rounded-md border bg-muted/30">
                 <div className="flex items-center gap-3">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center border shadow-2xs transition-all", currentColor.bg, currentColor.text, currentColor.border)}>
+                  <div className={cn("w-12 h-12 rounded-md flex items-center justify-center border shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all", currentColor.bg, currentColor.text, currentColor.border)}>
                     {renderIconComponent(selectedIcon, "w-6 h-6")}
                   </div>
                   <div>
@@ -2120,7 +2120,7 @@ export function CreateLeaveTypeWizard({
                     {selectedIcon}
                   </span>
                 </div>
-                <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1.5 scrollbar-thin border rounded-xl bg-background/50">
+                <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1.5 scrollbar-thin border rounded-md bg-background/50">
                   {AVAILABLE_ICONS.map((item) => {
                     const IconComp = item.component;
                     const isSelected = selectedIcon === item.name;
@@ -2130,7 +2130,7 @@ export function CreateLeaveTypeWizard({
                         type="button"
                         onClick={() => setSelectedIcon(item.name)}
                         className={cn(
-                          "h-12 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer",
+                          "h-12 rounded-md flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer",
                           isSelected
                             ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/40 shadow-xs"
                             : "border-border/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground"
@@ -2163,7 +2163,7 @@ export function CreateLeaveTypeWizard({
                         type="button"
                         onClick={() => setSelectedColorTheme(theme.id)}
                         className={cn(
-                          "flex items-center gap-1.5 p-2 rounded-xl border text-xs font-medium transition-all cursor-pointer",
+                          "flex items-center gap-1.5 p-2 rounded-md border text-xs font-medium transition-all cursor-pointer",
                           theme.bg,
                           theme.text,
                           isSelected
@@ -2183,7 +2183,7 @@ export function CreateLeaveTypeWizard({
                 <Button
                   type="button"
                   onClick={() => setIsIconModalOpen(false)}
-                  className="w-full h-10 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+                  className="w-full h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                 >
                   Apply & Done
                 </Button>

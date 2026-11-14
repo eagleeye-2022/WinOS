@@ -433,6 +433,8 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   return {
     currentUserId: userId,
     canReview: canManageAttendance(signedIn) && userId !== session.user.id,
+    /** The signed-in person is a manager — managers may approve their own pending leave. */
+    isManager: canManageAttendance(signedIn),
     balances,
     requests: formattedRequests,
     compensatoryRequests: formattedCompRequests,
@@ -453,7 +455,10 @@ export async function getTeamLeaveRequestsAction(filters?: {
   department?: string;
 }) {
   const { viewer, scope } = await requireLeaveManager();
-  const team = teamQueueWhere(viewer.id, scope);
+  // All Leave Requests lists everyone the manager can see *and* the manager's own requests, so the
+  // whole picture is in one place. Own rows come back flagged `isOwn`: a manager may approve their
+  // own leave, but not reject it (they cancel it instead).
+  const team = scope === null ? {} : { userId: { in: [...new Set([...scope, viewer.id])] } };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const whereClause: any = { ...team };
@@ -482,6 +487,8 @@ export async function getTeamLeaveRequestsAction(filters?: {
 
   const formattedRequests = requests.map((r) => ({
     id: r.id,
+    /** The viewer's own request — they may approve it, not reject it. */
+    isOwn: r.userId === viewer.id,
     employeeName: r.user.name || "Team Member",
     department: r.user.department || "General",
     avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),

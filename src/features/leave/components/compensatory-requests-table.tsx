@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface CompensatoryRequestsTableProps {
   requests: CompensatoryRequest[];
@@ -60,49 +61,35 @@ export function CompensatoryRequestsTable({
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage, pageSize]);
 
+  const STATUS_LOOK: Record<LeaveStatus, { label: string; tone: PulseTone }> = {
+    APPROVED: { label: "Approved", tone: "green" },
+    CANCELLED: { label: "Cancelled", tone: "gray" },
+    PENDING: { label: "Pending", tone: "amber" },
+    REJECTED: { label: "Rejected", tone: "red" },
+  };
   const getStatusBadge = (status: LeaveStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            Approved
-          </span>
-        );
-      case "CANCELLED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
-            Cancelled
-          </span>
-        );
-      case "PENDING":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-input">
-            Pending
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
-            Rejected
-          </span>
-        );
-    }
+    const look = STATUS_LOOK[status];
+    if (!look) return null;
+    return (
+      <StatusPill tone={look.tone}>
+        <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[look.tone])} />
+        {look.label}
+      </StatusPill>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with Title and Apply Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4">
+      {/* Toolbar: title + apply */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Compensatory Requests
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
         </div>
 
         <Button
           type="button"
           onClick={onApplyClick}
-          className="h-10 px-5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+          className="h-9 self-start rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Apply Compensatory Request</span>
@@ -110,17 +97,17 @@ export function CompensatoryRequestsTable({
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+      <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* Date range picker display */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-xl text-xs font-medium text-foreground">
+          <div className="flex h-8 items-center gap-2 rounded-md border border-border/80 bg-background px-3 text-xs font-medium text-foreground">
             <Calendar className="w-4 h-4 text-muted-foreground" />
             <span>01 Jan 2025 - 31 Dec 2025</span>
           </div>
 
           {/* Status Select */}
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+            <SelectTrigger className="h-8 rounded-md text-xs bg-background">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -139,17 +126,17 @@ export function CompensatoryRequestsTable({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by reason"
-              className="h-9 pl-9 rounded-xl text-xs bg-background"
+              className="h-8 pl-9 rounded-md text-xs bg-background"
             />
           </div>
         </div>
 
         {/* Requests Table */}
-        <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
+        <div className="overflow-hidden rounded-md border border-border/70 bg-background">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <th className="py-3 px-4 font-semibold">WORK DATE<br /><span className="text-xs font-normal lowercase">(date worked)</span></th>
                   <th className="py-3 px-4 font-semibold">HOURS WORKED</th>
                   <th className="py-3 px-4 font-semibold">DURATION</th>
@@ -159,7 +146,7 @@ export function CompensatoryRequestsTable({
                   <th className="py-3 px-4 font-semibold text-center">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border/70">
                 {paginated.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-muted-foreground">
@@ -170,7 +157,7 @@ export function CompensatoryRequestsTable({
                   paginated.map((r) => (
                     <tr
                       key={r.id}
-                      className="hover:bg-muted/30 transition-colors group"
+                      className="group transition-colors hover:bg-muted/40"
                     >
                       {/* Work Date */}
                       <td className="py-3 px-4">
@@ -208,7 +195,7 @@ export function CompensatoryRequestsTable({
                         <button
                           type="button"
                           onClick={() => onViewRequest(r)}
-                          className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                          className="cursor-pointer text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
                         >
                           View
                         </button>
@@ -252,7 +239,7 @@ export function CompensatoryRequestsTable({
                 onClick={() => setCurrentPage(p)}
                 className={cn(
                   "h-8 w-8 p-0 rounded-lg text-xs font-medium",
-                  currentPage === p ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                  currentPage === p ? "bg-blue-600 text-white hover:bg-blue-700" : "text-muted-foreground"
                 )}
               >
                 {p}

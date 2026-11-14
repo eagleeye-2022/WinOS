@@ -22,7 +22,9 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { useUrlState } from "@/lib/navigation/use-url-state";
+import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { toast } from "@/components/shared/toast";
 import {
   getCompensatoryRequestByIdAction,
@@ -75,6 +77,27 @@ export function LeaveWorkspace({
       setTransientTab(tab);
     }
   };
+
+  // Breadcrumb steps after "Pulse › My Leaves": the tab, then the open form / details view.
+  const LIST_LABEL: Record<ListTab, string> = {
+    overview: "Overview",
+    requests: "Leave Request",
+    compensatory: "Compensatory Request",
+    holidays: "Holidays",
+  };
+  const SUB_VIEW: Partial<Record<ActiveTab, { parent: ListTab; label: string }>> = {
+    apply: { parent: "overview", label: "Apply Leave" },
+    "apply-compensatory": { parent: "compensatory", label: "Apply Comp-off" },
+    "request-details": { parent: "requests", label: "Request Details" },
+    "compensatory-details": { parent: "compensatory", label: "Request Details" },
+  };
+  const subView = SUB_VIEW[activeTab];
+  const crumbTab: ListTab = subView ? subView.parent : (activeTab as ListTab);
+  usePulseCrumbs([
+    { label: LIST_LABEL[crumbTab], onClick: () => setActiveTab(crumbTab) },
+    ...(subView ? [{ label: subView.label }] : []),
+  ]);
+
   const [isPending, startTransition] = useTransition();
 
   // Data state from Database
@@ -92,6 +115,8 @@ export function LeaveWorkspace({
   const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
   const [prefilledApplyDate, setPrefilledApplyDate] = useState<string | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  /** Signed-in person is a manager (they may approve their own pending leave). */
+  const [isManager, setIsManager] = useState(false);
 
   // Load real data from DB
   const loadData = () => {
@@ -123,6 +148,7 @@ export function LeaveWorkspace({
         if (data.currentUserId) {
           setCurrentUserId(data.currentUserId);
         }
+        setIsManager(Boolean(data.isManager));
 
         if (initialSelectedRequestId) {
           let matched = data.requests.find((r) => r.id === initialSelectedRequestId);
@@ -230,7 +256,7 @@ export function LeaveWorkspace({
   }
 
   return (
-    <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
+    <div ref={scrollRef} className={cn("flex flex-col h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 select-none", PULSE_PAGE_BG)}>
       {/* 1. APPLY LEAVE VIEW */}
       {activeTab === "apply" && (
         <ApplyLeaveForm
@@ -271,6 +297,11 @@ export function LeaveWorkspace({
             currentUserId &&
             selectedRequest.employee.id !== currentUserId
           )}
+          canApproveOwn={Boolean(
+            isManager &&
+              currentUserId &&
+              (!selectedRequest.employee?.id || selectedRequest.employee.id === currentUserId)
+          )}
         />
       )}
 
@@ -288,99 +319,42 @@ export function LeaveWorkspace({
         activeTab !== "request-details" &&
         activeTab !== "compensatory-details" && (
           <>
-            {/* Top Navigation Tabs */}
-            <div className="border-b border-border/80 pb-0">
-              <nav className="flex items-center gap-8 -mb-px">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("overview")}
-                  className={cn(
-                    "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-                    activeTab === "overview"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Overview
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("requests")}
-                  className={cn(
-                    "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-                    activeTab === "requests"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Leave Request
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("compensatory")}
-                  className={cn(
-                    "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-                    activeTab === "compensatory"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Compensatory Request
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("holidays")}
-                  className={cn(
-                    "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-                    activeTab === "holidays"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Holidays
-                </button>
-              </nav>
-            </div>
+            {/* Top Navigation Tabs — sticky (not fixed): pinned to the top while this page scrolls. */}
+            <PulseStickyTabs
+              tabs={[
+                { label: "Overview", active: activeTab === "overview", onClick: () => setActiveTab("overview") },
+                { label: "Leave Request", active: activeTab === "requests", onClick: () => setActiveTab("requests") },
+                { label: "Compensatory Request", active: activeTab === "compensatory", onClick: () => setActiveTab("compensatory") },
+                { label: "Holidays", active: activeTab === "holidays", onClick: () => setActiveTab("holidays") },
+              ]}
+            />
 
             {/* OVERVIEW TAB */}
             {activeTab === "overview" && (
               <>
-                {/* Header Row: Title, Subtitle, and + Apply Leave button */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Leave Tracker
-                    </h1>
+                {/* Toolbar: title, yearly stats, Apply Leave */}
+                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1.5">
+                    <h1 className="text-lg font-semibold text-foreground">Leave Tracker</h1>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <StatusPill tone="blue">Booked this year · {stats.bookedThisYear} day(s)</StatusPill>
+                      <span title="Working days with no check-in and no leave — the same days Home counts as loss of pay">
+                        <StatusPill tone={stats.absentDays > 0 ? "red" : "gray"}>Absent this year · {stats.absentDays} day(s)</StatusPill>
+                      </span>
+                    </div>
                   </div>
 
                   <Button
                     type="button"
                     onClick={() => setActiveTab("apply")}
-                    className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                    className="h-9 self-start rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Apply Leave</span>
+                    <Plus className="h-4 w-4" />
+                    Apply Leave
                   </Button>
                 </div>
 
-                <div className="space-y-6">
-                  {/* Yearly Stat / Range Bar */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-6 font-medium text-foreground">
-                      <div>
-                        <span className="text-muted-foreground">Leave booked this year : </span>
-                        <span className="font-bold text-foreground">{stats.bookedThisYear} day(s)</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground" title="Working days with no check-in and no leave — the same days Home counts as loss of pay">Absent this year : </span>
-                        <span className="font-bold text-foreground">{stats.absentDays} day(s)</span>
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="space-y-4">
                   {/* 1. Leave Balance Grid */}
                   <LeaveBalanceGrid
                     leaveTypes={leaveTypes}
@@ -411,21 +385,19 @@ export function LeaveWorkspace({
 
             {/* LEAVE REQUEST TAB */}
             {activeTab === "requests" && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Leave Requests
-                    </h1>
+                    <h1 className="text-lg font-semibold text-foreground">Leave Requests</h1>
                   </div>
 
                   <Button
                     type="button"
                     onClick={() => setActiveTab("apply")}
-                    className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                    className="h-9 self-start rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Apply Leave</span>
+                    <Plus className="h-4 w-4" />
+                    Apply Leave
                   </Button>
                 </div>
 

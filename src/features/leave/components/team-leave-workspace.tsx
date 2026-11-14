@@ -39,6 +39,31 @@ import { TeamCalendarView } from "./team-calendar-view";
 import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
+import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+
+const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
+  APPROVED: { label: "Approved", tone: "green" },
+  REJECTED: { label: "Rejected", tone: "red" },
+  PENDING: { label: "Pending", tone: "amber" },
+  CANCELLED: { label: "Cancelled", tone: "gray" },
+};
+
+/** Row of compact stat tiles (icon circle · number · label). */
+function MetricTiles({ items }: { items: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {items.map((s) => (
+        <div key={s.label} className="flex items-center gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
+          <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
+          <div>
+            <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 import { useUrlState } from "@/lib/navigation/use-url-state";
 import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 
@@ -65,6 +90,8 @@ import {
 
 interface TeamLeaveItem {
   id: string;
+  /** The viewer's own request: they can approve it (managers only see this list) but not reject it. */
+  isOwn?: boolean;
   employeeName: string;
   department: string;
   avatarText: string;
@@ -307,7 +334,8 @@ export function TeamLeaveWorkspace({
   }, [inPeriodRequests, searchEmployee, selectedStatus, selectedType, selectedDept]);
 
   // Only pending rows can be acted on in bulk, so only they are selectable.
-  const selectableIdsInView = filteredTeamRequests.filter((r) => r.status === "PENDING").map((r) => r.id);
+  // Only other people's pending requests can be bulk-approved / rejected.
+  const selectableIdsInView = filteredTeamRequests.filter((r) => r.status === "PENDING" && !r.isOwn).map((r) => r.id);
   const allInViewSelected =
     selectableIdsInView.length > 0 && selectableIdsInView.every((id) => selectedRowIds.includes(id));
   const toggleSelectAll = () => setSelectedRowIds(allInViewSelected ? [] : selectableIdsInView);
@@ -332,199 +360,55 @@ export function TeamLeaveWorkspace({
   }, [inPeriodComp, searchEmployee, selectedStatus, selectedDept]);
 
   const getStatusBadge = (status: LeaveStatus) => {
-    switch (status) {
-      case "APPROVED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
-            Approved
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-300">
-            Rejected
-          </span>
-        );
-      case "PENDING":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
-            Pending
-          </span>
-        );
-      case "CANCELLED":
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            Cancelled
-          </span>
-        );
-    }
+    const look = STATUS_LOOK[status];
+    if (!look) return null;
+    return (
+      <StatusPill tone={look.tone}>
+        <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[look.tone])} />
+        {look.label}
+      </StatusPill>
+    );
   };
 
   return (
-    <div ref={scrollRef} className="flex flex-col h-full overflow-y-auto bg-background/50 px-6 py-6 space-y-6 select-none">
-      {/* Top Navigation Tabs */}
-      <div className="border-b border-border/80 pb-0">
-        <nav className="flex items-center gap-8 -mb-px">
-          <button
-            type="button"
-            onClick={() => switchTab("leave-requests")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "leave-requests"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Leave Requests
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("employee-leave")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "employee-leave"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Team Member Leave
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("compensatory-requests")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "compensatory-requests"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Compensatory Requests
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("team-calendar")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "team-calendar"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Team Calendar
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("holidays")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "holidays"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Holidays
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("leave-policy")}
-            className={cn(
-              "py-3 text-sm font-semibold transition-all border-b-2 cursor-pointer",
-              activeTab === "leave-policy"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Leave Policy
-          </button>
-        </nav>
-      </div>
+    <div ref={scrollRef} className={cn("flex flex-col h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 select-none", PULSE_PAGE_BG)}>
+      {/* Top Navigation Tabs — sticky, so they stay visible on every tab while the page scrolls. */}
+      <PulseStickyTabs
+        tabs={[
+          { label: "Leave Requests", active: activeTab === "leave-requests", onClick: () => switchTab("leave-requests"), count: metrics.pending },
+          { label: "Team Member Leave", active: activeTab === "employee-leave", onClick: () => switchTab("employee-leave") },
+          { label: "Compensatory Requests", active: activeTab === "compensatory-requests", onClick: () => switchTab("compensatory-requests"), count: compMetrics.pending },
+          { label: "Team Calendar", active: activeTab === "team-calendar", onClick: () => switchTab("team-calendar") },
+          { label: "Holidays", active: activeTab === "holidays", onClick: () => switchTab("holidays") },
+          {
+            label: "Leave Policy",
+            // The new-leave-type wizard is part of Leave Policy, so keep that tab highlighted.
+            active: activeTab === "leave-policy" || activeTab === "create-leave-type",
+            onClick: () => switchTab("leave-policy"),
+          },
+        ]}
+      />
 
       {/* 1. LEAVE REQUESTS TAB (IMAGE 3) */}
       {activeTab === "leave-requests" && (
-        <div className="space-y-6">
-          {/* Header */}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              All Leave Requests
-            </h1>
+        <div className="space-y-4">
+          {/* Toolbar */}
+          <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
+            <h1 className="text-lg font-semibold text-foreground">All Leave Requests</h1>
           </div>
 
-          {/* 5 Metric Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {/* Pending */}
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground">Pending</div>
-                <div className="text-lg font-bold text-foreground">
-                  {metrics.pending} <span className="text-xs font-normal text-muted-foreground">Requests</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Approved */}
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground">Approved</div>
-                <div className="text-lg font-bold text-foreground">
-                  {metrics.approved} <span className="text-xs font-normal text-muted-foreground">Requests</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rejected */}
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-500">
-                <XCircle className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground">Rejected</div>
-                <div className="text-lg font-bold text-foreground">
-                  {metrics.rejected} <span className="text-xs font-normal text-muted-foreground">Requests</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cancelled */}
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-muted text-muted-foreground">
-                <Ban className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground">Cancelled</div>
-                <div className="text-lg font-bold text-foreground">
-                  {metrics.cancelled} <span className="text-xs font-normal text-muted-foreground">Requests</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Total Requests */}
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground">Total Requests</div>
-                <div className="text-lg font-bold text-foreground">
-                  {metrics.total} <span className="text-xs font-normal text-muted-foreground">In Period</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <MetricTiles
+            items={[
+              { label: "Pending", value: metrics.pending, tone: "amber", icon: <Clock className="h-4 w-4" /> },
+              { label: "Approved", value: metrics.approved, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
+              { label: "Rejected", value: metrics.rejected, tone: "red", icon: <XCircle className="h-4 w-4" /> },
+              { label: "Cancelled", value: metrics.cancelled, tone: "gray", icon: <Ban className="h-4 w-4" /> },
+              { label: "Total In Period", value: metrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
+            ]}
+          />
 
           {/* Filter Bar */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px]">
@@ -533,13 +417,13 @@ export function TeamLeaveWorkspace({
                   value={searchEmployee}
                   onChange={(e) => setSearchEmployee(e.target.value)}
                   placeholder="Search by team member"
-                  className="h-9 pl-9 rounded-xl text-xs bg-background w-full"
+                  className="h-8 w-full rounded-md bg-background pl-9 text-xs"
                 />
               </div>
 
               {/* Status */}
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="h-9 w-36 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-8 w-36 rounded-md text-xs bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -553,7 +437,7 @@ export function TeamLeaveWorkspace({
 
               {/* Leave Type */}
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="h-9 w-48 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-8 w-48 rounded-md text-xs bg-background">
                   <SelectValue placeholder="All Leave Types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -568,7 +452,7 @@ export function TeamLeaveWorkspace({
 
               {/* Department */}
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-8 w-44 rounded-md text-xs bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
@@ -586,7 +470,7 @@ export function TeamLeaveWorkspace({
 
             {/* Bulk actions for the selected pending requests */}
             {selectedRowIds.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs dark:border-blue-500/30 dark:bg-blue-500/10">
                 <span className="font-semibold text-foreground">{selectedRowIds.length} pending request(s) selected</span>
                 <div className="flex items-center gap-2">
                   <Button
@@ -623,10 +507,10 @@ export function TeamLeaveWorkspace({
             )}
 
             {/* Table — scrolls sideways on narrow screens; the action column stays pinned */}
-            <div className="border border-border/80 rounded-xl overflow-x-auto bg-background">
+            <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
               <table className="w-full min-w-[960px] text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <th className="py-3 px-3 w-8">
                       <input
                         type="checkbox"
@@ -637,7 +521,7 @@ export function TeamLeaveWorkspace({
                         className="rounded"
                       />
                     </th>
-                    <th className="py-3 px-3 font-semibold">EMPLOYEE</th>
+                    <th className="py-3 px-3 font-semibold">TEAM MEMBER</th>
                     <th className="py-3 px-3 font-semibold">LEAVE TYPE</th>
                     <th className="py-3 px-3 font-semibold">DURATION</th>
                     <th className="py-3 px-3 font-semibold">DATE/TIME</th>
@@ -647,7 +531,7 @@ export function TeamLeaveWorkspace({
                     <th className="py-3 px-3 font-semibold text-center sticky right-0 bg-muted">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody className="divide-y divide-border/70">
                   {filteredTeamRequests.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-10 text-center text-xs text-muted-foreground">
@@ -656,13 +540,14 @@ export function TeamLeaveWorkspace({
                     </tr>
                   ) : (
                     filteredTeamRequests.map((req) => (
-                      <tr key={req.id} className="hover:bg-muted/30 transition-colors">
+                      <tr key={req.id} className="transition-colors hover:bg-muted/40">
                         {/* Checkbox */}
                         <td className="py-3 px-3">
                           <input
                             type="checkbox"
                             aria-label={`Select ${req.employeeName}'s request`}
-                            disabled={req.status !== "PENDING"}
+                            disabled={req.status !== "PENDING" || req.isOwn}
+                            title={req.isOwn ? "Your own request — approve it with the ✓ button" : undefined}
                             checked={selectedRowIds.includes(req.id)}
                             onChange={() => toggleSelectRow(req.id)}
                             className="rounded disabled:opacity-30"
@@ -672,12 +557,13 @@ export function TeamLeaveWorkspace({
                         {/* Employee */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                               {req.avatarText}
                             </div>
                             <div>
-                              <div className="font-semibold text-foreground leading-tight">
+                              <div className="flex items-center gap-1.5 font-semibold text-foreground leading-tight">
                                 {req.employeeName}
+                                {req.isOwn && <StatusPill tone="blue">You</StatusPill>}
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 {req.department}
@@ -721,7 +607,7 @@ export function TeamLeaveWorkspace({
                           <div className="flex items-center justify-center gap-1">
                             <Link
                               href={`/pulse/leave/requests/${req.id}`}
-                              className="p-1 rounded-lg hover:bg-muted text-primary hover:text-foreground"
+                              className="rounded-md p-1.5 text-blue-600 hover:bg-muted hover:text-foreground dark:text-blue-400"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
@@ -732,19 +618,22 @@ export function TeamLeaveWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickApprove(req.id)}
-                                  className="p-1 rounded-lg hover:bg-emerald-50 text-emerald-600 dark:hover:bg-emerald-950/40"
-                                  title="Quick Approve"
+                                  className="rounded-md p-1.5 hover:bg-emerald-50 text-emerald-600 dark:hover:bg-emerald-950/40"
+                                  title={req.isOwn ? "Approve your own request" : "Quick Approve"}
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
+                                {/* Your own request can't be rejected — cancel it from its details page instead. */}
+                                {!req.isOwn && (
                                 <button
                                   type="button"
                                   onClick={() => handleQuickReject(req.id)}
-                                  className="p-1 rounded-lg hover:bg-red-50 text-red-600 dark:hover:bg-red-950/40"
+                                  className="rounded-md p-1.5 hover:bg-red-50 text-red-600 dark:hover:bg-red-950/40"
                                   title="Quick Reject"
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -771,80 +660,35 @@ export function TeamLeaveWorkspace({
 
       {/* 3. COMPENSATORY REQUESTS TAB (IMAGE 5) */}
       {activeTab === "compensatory-requests" && (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-4">
+          {/* Toolbar */}
+          <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Compensatory Requests
-              </h1>
+              <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
             </div>
 
             <Button
               type="button"
               variant="outline"
-              className="h-9 px-4 rounded-lg text-xs font-semibold gap-2 self-start sm:self-auto"
+              className="h-8 gap-1.5 self-start rounded-md px-3 text-xs font-semibold sm:self-auto"
             >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
+              <Download className="h-3.5 w-3.5" />
+              Export
             </Button>
           </div>
 
-          {/* 5 Metric Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Pending</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.pending} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
-              </div>
-            </div>
-
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Approved</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.approved} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
-              </div>
-            </div>
-
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-500">
-                <XCircle className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Rejected</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.rejected} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
-              </div>
-            </div>
-
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-muted text-muted-foreground">
-                <Ban className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Cancelled</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.cancelled} <span className="text-xs font-normal text-muted-foreground">Requests</span></div>
-              </div>
-            </div>
-
-            <div className="bg-card border rounded-2xl p-4 shadow-2xs flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-accent text-blue-500">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Total Requests</div>
-                <div className="text-lg font-bold text-foreground">{compMetrics.total} <span className="text-xs font-normal text-muted-foreground">In Period</span></div>
-              </div>
-            </div>
-          </div>
+          <MetricTiles
+            items={[
+              { label: "Pending", value: compMetrics.pending, tone: "amber", icon: <Clock className="h-4 w-4" /> },
+              { label: "Approved", value: compMetrics.approved, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
+              { label: "Rejected", value: compMetrics.rejected, tone: "red", icon: <XCircle className="h-4 w-4" /> },
+              { label: "Cancelled", value: compMetrics.cancelled, tone: "gray", icon: <Ban className="h-4 w-4" /> },
+              { label: "Total In Period", value: compMetrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
+            ]}
+          />
 
           {/* Filter Bar */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -852,12 +696,12 @@ export function TeamLeaveWorkspace({
                   value={searchEmployee}
                   onChange={(e) => setSearchEmployee(e.target.value)}
                   placeholder="Search by team member name..."
-                  className="h-9 pl-9 rounded-xl text-xs bg-background"
+                  className="h-8 rounded-md bg-background pl-9 text-xs"
                 />
               </div>
 
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="h-9 w-36 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-8 w-36 rounded-md text-xs bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -870,7 +714,7 @@ export function TeamLeaveWorkspace({
               </Select>
 
               <Select value={selectedDept} onValueChange={setSelectedDept}>
-                <SelectTrigger className="h-9 w-44 rounded-xl text-xs bg-background">
+                <SelectTrigger className="h-8 w-44 rounded-md text-xs bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent>
@@ -887,11 +731,11 @@ export function TeamLeaveWorkspace({
             </div>
 
             {/* Table */}
-            <div className="border border-border/80 rounded-xl overflow-x-auto bg-background">
+            <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
               <table className="w-full min-w-[900px] text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <th className="py-3 px-4 font-semibold">EMPLOYEE</th>
+                  <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <th className="py-3 px-4 font-semibold">TEAM MEMBER</th>
                     <th className="py-3 px-4 font-semibold">WORK DATE</th>
                     <th className="py-3 px-4 font-semibold">HOURS WORKED</th>
                     <th className="py-3 px-4 font-semibold">DURATION</th>
@@ -901,7 +745,7 @@ export function TeamLeaveWorkspace({
                     <th className="py-3 px-4 font-semibold text-center sticky right-0 bg-muted">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody className="divide-y divide-border/70">
                   {filteredTeamCompRequests.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
@@ -910,10 +754,10 @@ export function TeamLeaveWorkspace({
                     </tr>
                   ) : (
                     filteredTeamCompRequests.map((comp) => (
-                      <tr key={comp.id} className="hover:bg-muted/30 transition-colors">
+                      <tr key={comp.id} className="transition-colors hover:bg-muted/40">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-accent text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                               {comp.avatarText}
                             </div>
                             <div>
@@ -956,7 +800,7 @@ export function TeamLeaveWorkspace({
                           <div className="flex items-center justify-center gap-1.5">
                             <Link
                               href={`/pulse/leave/compensatory/${comp.id}`}
-                              className="p-1 rounded-lg hover:bg-muted text-primary"
+                              className="rounded-md p-1.5 text-blue-600 hover:bg-muted hover:text-foreground dark:text-blue-400"
                               title="View Details"
                             >
                               <Eye className="w-4 h-4" />
@@ -967,7 +811,7 @@ export function TeamLeaveWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickCompApprove(comp.id)}
-                                  className="p-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                                  className="rounded-md p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
                                   title="Quick Approve"
                                 >
                                   <Check className="w-4 h-4" />
@@ -975,7 +819,7 @@ export function TeamLeaveWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => handleQuickCompReject(comp.id)}
-                                  className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
+                                  className="rounded-md p-1.5 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400"
                                   title="Quick Reject"
                                 >
                                   <X className="w-4 h-4" />
@@ -995,7 +839,7 @@ export function TeamLeaveWorkspace({
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>Showing: <strong className="text-foreground">{filteredTeamCompRequests.length}</strong> of {compMetrics.total} records</span>
               <div className="flex items-center gap-1">
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0 rounded-lg">1</Button>
+                <Button variant="outline" size="sm" className="h-7 w-7 rounded-md p-0">1</Button>
               </div>
             </div>
           </div>

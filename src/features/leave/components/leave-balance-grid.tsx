@@ -44,14 +44,16 @@ export function LeaveBalanceGrid({
   };
 
   return (
-    <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+    <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Header with Title and Scroll Controls */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-5 h-5 text-primary" />
-          <h3 className="text-base font-semibold text-foreground tracking-tight">
-            Leave Balance
-          </h3>
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+            <CalendarDays className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-[15px] font-semibold text-foreground">Leave Balance</h3>
+          </div>
         </div>
 
         <div className={overflows ? "flex items-center gap-1.5" : "hidden"}>
@@ -86,7 +88,7 @@ export function LeaveBalanceGrid({
       ) : (
         <div
           ref={scrollContainerRef}
-          className="flex items-center gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30 scroll-smooth"
+          className="flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30 scroll-smooth"
         >
           {leaveTypes.map((type) => (
             <LeaveBalanceCard

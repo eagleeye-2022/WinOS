@@ -150,13 +150,9 @@ export function validateLeaveRequest(args: {
     return `${DURATION_LABEL[durationType]} leave isn't allowed for ${policy.name}.`;
   }
 
-  // Past / advance window and notice period.
-  if (fromKey < todayKey) {
-    if (!policy.allowPastDays) return `${policy.name} can't be applied for past dates.`;
-    const back = keyDiff(todayKey, fromKey);
-    const limit = toDays(policy.pastDaysLimit, policy.pastDaysUnit);
-    if (back > limit) return `${policy.name} can be applied at most ${plural(round(limit))} after the date.`;
-  }
+  // Past dates: every leave type can be applied for any past date (back-dated leave is always
+  // allowed), so the leave type's allowPastDays / pastDaysLimit settings aren't enforced.
+  // Advance window and notice period still apply to future leave.
   if (fromKey > todayKey) {
     if (!policy.allowAdvanceDays) return `${policy.name} can't be applied in advance.`;
     const ahead = keyDiff(fromKey, todayKey);

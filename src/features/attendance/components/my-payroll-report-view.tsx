@@ -41,16 +41,16 @@ export function MyPayrollReportView() {
   }, [selectedYear]);
 
   return (
-    <div className="flex flex-col gap-6 w-full select-none">
+    <div className="flex w-full flex-col gap-4 select-none">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+          <h1 className="text-lg font-semibold text-foreground">
             My Payroll Report
           </h1>
         </div>
 
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-xs">
+        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <Download className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Export Report</span>
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
@@ -58,18 +58,18 @@ export function MyPayrollReportView() {
       </div>
 
       {/* Filter Row */}
-      <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
         <div className="flex items-center flex-wrap gap-2.5">
           <PeriodNav modes={["year"]} value={selectedYear} onChange={setSelectedYear} />
         </div>
       </div>
 
       {/* Payroll Table */}
-      <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="py-3.5 px-5">Month</th>
                 <th className="py-3.5 px-5">Company Working Days</th>
                 <th className="py-3.5 px-5">Expected Payable Days</th>
@@ -80,7 +80,7 @@ export function MyPayrollReportView() {
                 <th className="py-3.5 px-5">Total Days</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs">
+            <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-muted-foreground">

@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { StatusPill, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { getHolidaysAction } from "../queries/leave-queries";
 import {
   createHolidayAction,
@@ -131,87 +132,31 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
     }
   };
 
+  const TYPE_LOOK: Record<HolidayRecord["type"], { label: string; tone: PulseTone; strip: string }> = {
+    PUBLIC: { label: "Public Holiday", tone: "blue", strip: "bg-blue-500" },
+    COMPANY_SPECIAL: { label: "Special Holiday", tone: "violet", strip: "bg-violet-500" },
+    OPTIONAL: { label: "Optional Holiday", tone: "green", strip: "bg-emerald-500" },
+  };
+  const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] = [
+    { label: "Total Holidays", value: metrics.total, tone: "violet", icon: <Calendar className="h-4 w-4" /> },
+    { label: "Upcoming", value: metrics.upcoming, tone: "green", icon: <CalendarCheck className="h-4 w-4" /> },
+    { label: "Passed", value: metrics.passed, tone: "amber", icon: <CalendarClock className="h-4 w-4" /> },
+    { label: "Special / Optional", value: metrics.special, tone: "blue", icon: <Sparkles className="h-4 w-4" /> },
+  ];
+
   return (
-    <div className="space-y-6 select-none">
-      {/* Header with Title and + Add Holiday button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-4 select-none">
+      {/* Toolbar: title, year, add */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Holidays
-          </h1>
+          <h1 className="text-lg font-semibold text-foreground">Holidays</h1>
         </div>
-
-        {canManage && (
-          <Button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="h-10 px-5 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Holiday</span>
-          </Button>
-        )}
-      </div>
-
-      {/* 4 Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Holidays */}
-        <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.total}</div>
-            <div className="text-xs font-semibold text-foreground">Total Holidays</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
-          </div>
-        </div>
-
-        {/* Upcoming Holidays */}
-        <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-            <CalendarCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.upcoming}</div>
-            <div className="text-xs font-semibold text-foreground">Upcoming Holidays</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
-          </div>
-        </div>
-
-        {/* Holidays Passed */}
-        <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
-            <CalendarClock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.passed}</div>
-            <div className="text-xs font-semibold text-foreground">Holidays Passed</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
-          </div>
-        </div>
-
-        {/* Special Holiday */}
-        <div className="bg-card border rounded-2xl p-5 shadow-2xs flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-accent text-primary">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-foreground tracking-tight">{metrics.special}</div>
-            <div className="text-xs font-semibold text-foreground">Special / Optional</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{selectedYear}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Holidays Table Container */}
-      <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-        {/* Year Dropdown */}
-        <div className="w-36">
+        <div className="flex items-center gap-2">
           <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="h-9 rounded-xl text-xs bg-background">
+            <SelectTrigger className="h-8 w-32 rounded-md bg-background text-xs">
               <div className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{selectedYear}</span>
               </div>
             </SelectTrigger>
@@ -223,99 +168,124 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
               ))}
             </SelectContent>
           </Select>
+          {canManage && (
+            <Button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              className="h-8 rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add Holiday
+            </Button>
+          )}
         </div>
+      </div>
 
-        {/* Table */}
-        <div className="border border-border/80 rounded-xl overflow-hidden bg-background">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-muted/40 border-b border-border/80 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <th className="py-3 px-5 font-semibold">HOLIDAY NAME</th>
-                <th className="py-3 px-4 font-semibold">DATE ↕</th>
-                <th className="py-3 px-4 font-semibold">DAY</th>
-                <th className="py-3 px-4 font-semibold">TYPE</th>
-                <th className="py-3 px-5 font-semibold">DESCRIPTION</th>
-                {canManage && <th className="py-3 px-4 font-semibold text-center">ACTION</th>}
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+          >
+            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
+            <div>
+              <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Holiday list */}
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <table className="w-full border-collapse text-left text-xs">
+          <thead>
+            <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-5 py-2.5">Holiday</th>
+              <th className="px-4 py-2.5">Day</th>
+              <th className="px-4 py-2.5">Type</th>
+              <th className="px-5 py-2.5">Description</th>
+              {canManage && <th className="px-4 py-2.5 text-center">Action</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {isLoading && holidayList.length === 0 ? (
+              <tr>
+                <td colSpan={canManage ? 5 : 4} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+                  Loading holidays...
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {holidayList.length === 0 ? (
-                <tr>
-                  <td colSpan={canManage ? 6 : 5} className="py-8 text-center text-muted-foreground">
-                    No holidays listed for {selectedYear}
-                  </td>
-                </tr>
-              ) : (
-                holidayList.map((holiday) => (
-                  <tr key={holiday.id} className="hover:bg-muted/30 transition-colors">
-                    {/* Holiday Name */}
-                    <td className="py-3 px-5">
+            ) : holidayList.length === 0 ? (
+              <tr>
+                <td colSpan={canManage ? 5 : 4} className="py-10 text-center text-muted-foreground">
+                  No holidays listed for {selectedYear}
+                </td>
+              </tr>
+            ) : (
+              holidayList.map((holiday) => {
+                const look = TYPE_LOOK[holiday.type] ?? TYPE_LOOK.PUBLIC;
+                // holiday.date reads like "26 Jan 2026" or "2026-01-26"; show a day + month block when we can.
+                const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(holiday.date);
+                const parts = holiday.date.split(" ");
+                const dayNum = iso ? iso[3] : parts[0];
+                const mon = iso ? MONTHS_SHORT[Number(iso[2]) - 1] : parts[1]?.slice(0, 3);
+                return (
+                  <tr key={holiday.id} className="transition-colors hover:bg-muted/40">
+                    {/* Holiday + date block */}
+                    <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-base">{holiday.iconType || "🎉"}</span>
-                        <span className="font-semibold text-foreground">{holiday.name}</span>
+                        <div className="flex h-10 w-10 shrink-0 flex-col overflow-hidden rounded-md border border-border/70 text-center leading-none">
+                          <span className={cn("py-0.5 text-[9px] font-bold uppercase text-white", look.strip)}>{mon}</span>
+                          <span className="flex flex-1 items-center justify-center text-sm font-bold text-foreground">{dayNum}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                            <span>{holiday.iconType || "🎉"}</span>
+                            {holiday.name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{holiday.date}</p>
+                        </div>
                       </div>
-                    </td>
-
-                    {/* Date */}
-                    <td className="py-3 px-4 font-medium text-foreground">
-                      {holiday.date}
                     </td>
 
                     {/* Day */}
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {holiday.dayOfWeek}
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{holiday.dayOfWeek}</td>
 
                     {/* Type */}
-                    <td className="py-3 px-4">
-                      <span
-                        className={cn(
-                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border",
-                          holiday.type === "PUBLIC"
-                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-accent dark:text-blue-300"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        )}
-                      >
-                        {holiday.type === "PUBLIC"
-                          ? "Public Holiday"
-                          : holiday.type === "COMPANY_SPECIAL"
-                          ? "Special Holiday"
-                          : "Optional Holiday"}
-                      </span>
+                    <td className="px-4 py-3">
+                      <StatusPill tone={look.tone}>{look.label}</StatusPill>
                     </td>
 
                     {/* Description */}
-                    <td className="py-3 px-5">
-                      <div className="text-muted-foreground text-xs max-w-xs truncate">
-                        {holiday.description || "Company Holiday"}
-                      </div>
+                    <td className="px-5 py-3">
+                      <div className="max-w-xs truncate text-xs text-muted-foreground">{holiday.description || "Company Holiday"}</div>
                     </td>
 
                     {/* Actions */}
                     {canManage && (
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteHoliday(holiday.id)}
-                            className="hover:text-red-500 p-1 rounded"
-                            title="Delete Holiday"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-500/80 hover:text-red-600" />
-                          </button>
-                        </div>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteHoliday(holiday.id)}
+                          className="rounded p-1.5 text-red-500/80 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                          title="Delete Holiday"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </td>
                     )}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
 
-        {/* Showing Records Footer */}
-        <div className="flex items-center justify-end text-xs text-muted-foreground pt-1">
-          <span>Showing: <strong className="text-foreground">{holidayList.length}</strong> records</span>
+        {/* Footer */}
+        <div className="flex items-center justify-end border-t border-border/70 px-5 py-2.5 text-xs text-muted-foreground">
+          Showing <strong className="mx-1 text-foreground">{holidayList.length}</strong> records
         </div>
       </div>
 

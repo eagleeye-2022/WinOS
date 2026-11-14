@@ -31,6 +31,8 @@ import {
   History,
   Eye,
   ExternalLink,
+  CalendarDays,
+  Wallet,
 } from "lucide-react";
 import {
   DayType,
@@ -70,6 +72,32 @@ interface ApplyLeaveFormProps {
   onSubmitLeave: (newLeave: LeaveRequest) => void;
   onCancel?: () => void;
   initialDate?: string;
+}
+
+/** Numbered section heading inside the form card. */
+function SectionTitle({ n, children }: { n?: number; children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
+      {n !== undefined && (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+          {n}
+        </span>
+      )}
+      {children}
+    </h3>
+  );
+}
+
+/** Icon + title for the side widgets. */
+function WidgetTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2.5 text-[15px] font-semibold text-foreground">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+        {icon}
+      </span>
+      <span className="min-w-0">{children}</span>
+    </h3>
+  );
 }
 
 export function ApplyLeaveForm({
@@ -132,7 +160,8 @@ export function ApplyLeaveForm({
   // Empty until picked: the list can still be loading when the form mounts, and `selectedType`
   // falls back to the first leave type.
   const [selectedTypeCode, setSelectedTypeCode] = useState<string>("");
-  const [dayType, setDayType] = useState<DayType>("FULL_DAY");
+  // Full-day leave is always a From – To range (From = To for a single day), so it opens on that.
+  const [dayType, setDayType] = useState<DayType>("MULTIPLE_DAYS");
   const [date, setDate] = useState<string>(initialDate || defaultDate);
   const [fromDate, setFromDate] = useState<string>(initialDate || defaultDate);
   const [toDate, setToDate] = useState<string>(initialDate || defaultDate);
@@ -440,13 +469,13 @@ export function ApplyLeaveForm({
   };
 
   return (
-    <div className="space-y-6 w-full pb-12">
+    <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="space-y-1">
+      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
         <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Link
             href="/pulse/leave"
-            className="text-primary hover:underline hover:text-foreground transition-colors"
+            className="text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
           >
             My Leave
           </Link>
@@ -454,22 +483,18 @@ export function ApplyLeaveForm({
           <span className="text-foreground">Apply for Leave</span>
         </nav>
 
-        <div className="pt-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Apply for Leave
-          </h1>
-        </div>
+        <h1 className="text-lg font-semibold text-foreground">Apply for Leave</h1>
       </div>
 
       {/* Main 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Form */}
-        <div className="lg:col-span-8 space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="lg:col-span-8">
+          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {/* Managers only: whose leave this is */}
             {applicantOptions.length > 0 && (
-              <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-                <h3 className="text-sm font-bold text-foreground tracking-tight">Applying for</h3>
+              <div className="space-y-3 px-6 py-5">
+                <SectionTitle>Applying for</SectionTitle>
                 <div className="space-y-1.5 max-w-md">
                   <Select
                     value={forUserId || "__self"}
@@ -479,7 +504,7 @@ export function ApplyLeaveForm({
                       setSelectedTypeCode("");
                     }}
                   >
-                    <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                    <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-72">
@@ -505,10 +530,8 @@ export function ApplyLeaveForm({
             )}
 
             {/* 1. Leave Type Section */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                1. Leave Type
-              </h3>
+            <div className="space-y-3 px-6 py-5">
+              <SectionTitle n={1}>Leave Type</SectionTitle>
               <div className="space-y-1.5 max-w-md">
                 <label className="text-xs font-medium text-foreground">
                   Leave type <span className="text-red-500">*</span>
@@ -520,11 +543,11 @@ export function ApplyLeaveForm({
                     if (val === "EL") {
                       setDayType("EARLY_LEAVE");
                     } else if (dayType === "EARLY_LEAVE") {
-                      setDayType("HALF_DAY");
+                      setDayType("MULTIPLE_DAYS");
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                  <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                     <SelectValue placeholder="Select leave type" />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
@@ -550,10 +573,8 @@ export function ApplyLeaveForm({
             </div>
 
             {/* 2. Leave Dates / Sessions Section */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-4">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                {isEarlyLeave ? "2. Date & Time" : "2. Leave Dates/Sessions"}
-              </h3>
+            <div className="space-y-4 px-6 py-5">
+              <SectionTitle n={2}>{isEarlyLeave ? "Date & Time" : "Leave Dates/Sessions"}</SectionTitle>
 
               {!isEarlyLeave ? (
                 /* Standard Leave Date & Session Options */
@@ -566,19 +587,19 @@ export function ApplyLeaveForm({
                       value={dayType}
                       onValueChange={(val) => setDayType(val as DayType)}
                     >
-                      <SelectTrigger className="h-10 rounded-xl text-xs bg-background">
+                      <SelectTrigger className="h-10 rounded-md text-xs bg-background">
                         <SelectValue placeholder="Select day type" />
                       </SelectTrigger>
                       <SelectContent>
+                        {/* Full Day = a From – To range (same date for one day); both are sent as FULL_DAY. */}
+                        <SelectItem value="MULTIPLE_DAYS">Full Day (From – To)</SelectItem>
                         <SelectItem value="HALF_DAY">Half Day</SelectItem>
-                        <SelectItem value="FULL_DAY">Full Day</SelectItem>
-                        <SelectItem value="MULTIPLE_DAYS">Multiple Days</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {dayType === "MULTIPLE_DAYS" ? (
-                    /* Multiple Days: From Date & To Date */
+                    /* Full Day: From Date & To Date */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                       <div className="space-y-1.5">
                         <label className="text-xs font-medium text-foreground">
@@ -594,7 +615,7 @@ export function ApplyLeaveForm({
                             // Keep the range valid: a later start moves the end with it.
                             if (next && toDate && toDate < next) setToDate(next);
                           }}
-                          className="h-10 rounded-xl text-xs bg-background"
+                          className="h-10 rounded-md text-xs bg-background"
                           required
                         />
                       </div>
@@ -609,7 +630,7 @@ export function ApplyLeaveForm({
                           min={fromDate || undefined}
                           aria-invalid={Boolean(rangeError)}
                           onChange={(e) => setToDate(e.target.value)}
-                          className={cn("h-10 rounded-xl text-xs bg-background", rangeError && "border-red-500")}
+                          className={cn("h-10 rounded-md text-xs bg-background", rangeError && "border-red-500")}
                           required
                         />
                         {rangeError && <p className="text-xs text-red-600 dark:text-red-400">{rangeError}</p>}
@@ -632,7 +653,7 @@ export function ApplyLeaveForm({
                               setFromDate(e.target.value);
                               setToDate(e.target.value);
                             }}
-                            className="h-10 rounded-xl text-xs bg-background"
+                            className="h-10 rounded-md text-xs bg-background"
                             required
                           />
                         </div>
@@ -649,9 +670,9 @@ export function ApplyLeaveForm({
                               type="button"
                               onClick={() => setSession("FIRST_HALF")}
                               className={cn(
-                                "h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
+                                "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
                                 session === "FIRST_HALF"
-                                  ? "border-primary bg-primary/10 text-primary shadow-2xs ring-1 ring-primary"
+                                  ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
                                   : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                               )}
                             >
@@ -659,7 +680,7 @@ export function ApplyLeaveForm({
                                 className={cn(
                                   "w-3 h-3 rounded-full border-2 flex items-center justify-center",
                                   session === "FIRST_HALF"
-                                    ? "border-primary bg-primary"
+                                    ? "border-blue-600 bg-blue-600"
                                     : "border-muted-foreground"
                                 )}
                               />
@@ -670,9 +691,9 @@ export function ApplyLeaveForm({
                               type="button"
                               onClick={() => setSession("SECOND_HALF")}
                               className={cn(
-                                "h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
+                                "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
                                 session === "SECOND_HALF"
-                                  ? "border-primary bg-primary/10 text-primary shadow-2xs ring-1 ring-primary"
+                                  ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
                                   : "border-border bg-background text-muted-foreground hover:bg-muted/40"
                               )}
                             >
@@ -680,7 +701,7 @@ export function ApplyLeaveForm({
                                 className={cn(
                                   "w-3 h-3 rounded-full border-2 flex items-center justify-center",
                                   session === "SECOND_HALF"
-                                    ? "border-primary bg-primary"
+                                    ? "border-blue-600 bg-blue-600"
                                     : "border-muted-foreground"
                                 )}
                               />
@@ -703,7 +724,7 @@ export function ApplyLeaveForm({
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="h-10 rounded-xl text-xs bg-background max-w-md"
+                      className="h-10 rounded-md text-xs bg-background max-w-md"
                       required
                     />
                   </div>
@@ -718,7 +739,7 @@ export function ApplyLeaveForm({
                         <Input
                           value={fromTime}
                           onChange={(e) => setFromTime(e.target.value)}
-                          className="h-10 pl-9 rounded-xl text-xs bg-background"
+                          className="h-10 pl-9 rounded-md text-xs bg-background"
                           placeholder="03:30 PM"
                           required
                         />
@@ -734,7 +755,7 @@ export function ApplyLeaveForm({
                         <Input
                           value={toTime}
                           onChange={(e) => setToTime(e.target.value)}
-                          className="h-10 pl-9 rounded-xl text-xs bg-background"
+                          className="h-10 pl-9 rounded-md text-xs bg-background"
                           placeholder="06:00 PM"
                           required
                         />
@@ -747,7 +768,7 @@ export function ApplyLeaveForm({
               {/* Selection info banner — red when the dates can't be taken as leave */}
               <div
                 className={cn(
-                  "flex items-center gap-2 p-3 border rounded-xl text-xs",
+                  "flex items-center gap-2 p-3 border rounded-md text-xs",
                   rangeError || preview.state === "error"
                     ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300"
                     : "bg-blue-50/80 dark:bg-accent border-blue-100 dark:border-zinc-700/40 text-blue-700 dark:text-blue-300"
@@ -759,10 +780,8 @@ export function ApplyLeaveForm({
             </div>
 
             {/* 3. Reason Section */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                3. Reason
-              </h3>
+            <div className="space-y-3 px-6 py-5">
+              <SectionTitle n={3}>Reason</SectionTitle>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-foreground">
                   Reason for leave <span className="text-red-500">*</span>
@@ -776,7 +795,7 @@ export function ApplyLeaveForm({
                       }
                     }}
                     placeholder="Provide a clear explanation for taking leave..."
-                    className="min-h-[100px] text-xs resize-none bg-background rounded-xl p-3"
+                    className="min-h-[100px] text-xs resize-none bg-background rounded-md p-3"
                     required
                   />
                   <div className="text-xs text-muted-foreground text-right mt-1 font-mono">
@@ -787,11 +806,9 @@ export function ApplyLeaveForm({
             </div>
 
             {/* 4. Attachments Section */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-3">
+            <div className="space-y-3 px-6 py-5">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground tracking-tight">
-                  4. Attachments
-                </h3>
+                <SectionTitle n={4}>Attachments</SectionTitle>
                 <Paperclip className="w-4 h-4 text-muted-foreground" />
               </div>
 
@@ -801,7 +818,7 @@ export function ApplyLeaveForm({
                   {attachments.map((att) => (
                     <div
                       key={att.id}
-                      className="flex items-center justify-between p-3 bg-background border rounded-xl"
+                      className="flex items-center justify-between p-3 bg-background border rounded-md"
                     >
                       <div className="flex items-center gap-2.5 truncate">
                         <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-500">
@@ -869,15 +886,13 @@ export function ApplyLeaveForm({
             </div>
 
             {/* 5. Leave Summary Section */}
-            <div className="bg-card border rounded-2xl p-6 shadow-2xs space-y-4">
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                5. Leave Summary
-              </h3>
+            <div className="space-y-4 px-6 py-5">
+              <SectionTitle n={5}>Leave Summary</SectionTitle>
 
-              <div className="border border-border rounded-xl overflow-hidden bg-background">
+              <div className="overflow-hidden rounded-md border border-border/70 bg-background">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-muted/40 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <th className="py-2.5 px-4 font-semibold">LEAVE TYPE</th>
                       {isEarlyLeave ? (
                         <>
@@ -955,19 +970,19 @@ export function ApplyLeaveForm({
               </div>
 
               {formError && (
-                <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
+                <div role="alert" className="flex items-center gap-2 px-4 py-3 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-xs font-medium text-red-700 dark:text-red-300">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{formError}</span>
                 </div>
               )}
 
               {/* Form Action Buttons */}
-              <div className="flex items-center justify-between pt-2">
+              <div className="-mx-6 -mb-5 mt-2 flex items-center justify-between border-t border-border/70 bg-muted/30 px-6 py-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave"))}
-                  className="h-10 px-6 rounded-xl text-xs font-semibold"
+                  className="h-9 rounded-md px-5 text-xs font-semibold"
                 >
                   Cancel
                 </Button>
@@ -980,7 +995,7 @@ export function ApplyLeaveForm({
                     Boolean(rangeError) ||
                     (!isEarlyLeave && (preview.state === "loading" || preview.state === "error"))
                   }
-                  className="h-10 px-8 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                  className="h-9 rounded-md bg-blue-600 px-6 text-xs font-semibold text-white hover:bg-blue-700"
                 >
                   {isSubmitting ? "Applying..." : "Apply Leave"}
                 </Button>
@@ -990,12 +1005,10 @@ export function ApplyLeaveForm({
         </div>
 
         {/* Right Column: Remaining Leaves & Balance Summary Widgets */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="space-y-4 lg:col-span-4">
           {/* Remaining Leaves Card */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-foreground tracking-tight">
-              Remaining Leaves
-            </h3>
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <WidgetTitle icon={<CalendarDays className="h-4 w-4" />}>Remaining Leaves</WidgetTitle>
 
             {/* The employee's real balance for each leave type they can apply for; click one to pick it. */}
             {leaveTypes.length === 0 ? (
@@ -1012,8 +1025,8 @@ export function ApplyLeaveForm({
                       onClick={() => setSelectedTypeCode(lt.code)}
                       title={`Apply for ${lt.name}`}
                       className={cn(
-                        "p-3 rounded-xl border bg-background flex flex-col items-center justify-center text-center space-y-1 transition-colors cursor-pointer hover:border-primary/60",
-                        isSelected && "border-primary ring-1 ring-primary/40"
+                        "flex cursor-pointer flex-col items-center justify-center space-y-1 rounded-md border border-border/70 bg-background p-3 text-center transition-colors hover:border-blue-300 dark:hover:border-blue-500/50",
+                        isSelected && "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500/40 dark:bg-blue-500/10"
                       )}
                     >
                       <div className={cn("p-1.5 rounded-full", lt.iconBgColor, lt.iconTextColor)}>
@@ -1031,12 +1044,11 @@ export function ApplyLeaveForm({
           </div>
 
           {/* Balance Summary Card */}
-          <div className="bg-card border rounded-2xl p-5 shadow-2xs space-y-4">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
             <div>
-              <h3 className="text-sm font-bold text-foreground tracking-tight">
-                Balance Summary –{" "}
-                <span className="text-primary">{selectedType?.name ?? "—"}</span>
-              </h3>
+              <WidgetTitle icon={<Wallet className="h-4 w-4" />}>
+                Balance Summary – <span className="text-blue-600 dark:text-blue-400">{selectedType?.name ?? "—"}</span>
+              </WidgetTitle>
             </div>
 
             <div className="space-y-2.5 text-xs">
@@ -1076,7 +1088,7 @@ export function ApplyLeaveForm({
 
             {/* Only when this booking goes past the balance; the leave type's policy decides what happens. */}
             {balanceAfterBooking < 0 && (
-              <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-xl text-xs text-blue-700 dark:text-blue-300">
+              <div className="flex items-start gap-2 p-3 bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 rounded-md text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>
                   This is more than your available balance. The extra is handled by this leave type&apos;s policy
@@ -1091,11 +1103,11 @@ export function ApplyLeaveForm({
       {/* Document Preview Modal */}
       {previewAttachment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-card border border-border/80 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
+          <div className="bg-card border border-border/80 w-full max-w-2xl rounded-lg shadow-2xl flex flex-col overflow-hidden max-h-[85vh]">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-muted/20">
               <div className="flex items-center gap-2.5 truncate pr-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+                <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div className="truncate">
@@ -1154,7 +1166,7 @@ export function ApplyLeaveForm({
                   <img
                     src={previewAttachment.url}
                     alt={previewAttachment.name}
-                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-xs"
+                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                   />
                 </div>
               ) : previewAttachment.url &&
@@ -1169,7 +1181,7 @@ export function ApplyLeaveForm({
                 </div>
               ) : (
                 <div className="text-center space-y-3 py-8 max-w-sm">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-2xs border border-primary/20">
+                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-primary/20">
                     <FileText className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">
@@ -1185,7 +1197,7 @@ export function ApplyLeaveForm({
                       type="button"
                       size="sm"
                       onClick={() => handleDownload(previewAttachment)}
-                      className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground"
+                      className="rounded-md text-xs gap-1.5 bg-primary text-primary-foreground"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download Document
