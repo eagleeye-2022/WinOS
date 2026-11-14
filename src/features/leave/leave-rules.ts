@@ -152,15 +152,18 @@ export function validateLeaveRequest(args: {
 
   // Past dates: every leave type can be applied for any past date (back-dated leave is always
   // allowed), so the leave type's allowPastDays / pastDaysLimit settings aren't enforced.
-  // Advance window and notice period still apply to future leave.
-  if (fromKey > todayKey) {
-    if (!policy.allowAdvanceDays) return `${policy.name} can't be applied in advance.`;
+  // From today on: the advance window (future dates) and the notice period (today counts as
+  // 0 days' notice, so "3 days before" refuses today, tomorrow and the day after).
+  if (fromKey >= todayKey) {
     const ahead = keyDiff(fromKey, todayKey);
-    const limit = toDays(policy.advanceDaysLimit, policy.advanceDaysUnit);
-    if (ahead > limit) return `${policy.name} can be applied at most ${plural(round(limit))} in advance.`;
+    if (fromKey > todayKey) {
+      if (!policy.allowAdvanceDays) return `${policy.name} can't be applied in advance.`;
+      const limit = toDays(policy.advanceDaysLimit, policy.advanceDaysUnit);
+      if (ahead > limit) return `${policy.name} can be applied at most ${plural(round(limit))} in advance.`;
+    }
     const notice = toDays(policy.minAdvanceNotice, policy.minAdvanceNoticeUnit);
     if (notice > 0 && ahead < notice) {
-      return `${policy.name} needs at least ${plural(Math.ceil(notice))} notice.`;
+      return `${policy.name} needs at least ${plural(Math.ceil(notice))} notice — apply on or before ${addDaysToKey(fromKey, -Math.ceil(notice))}.`;
     }
   }
 
@@ -216,6 +219,10 @@ export function applyExceededRule(args: {
   policy: Pick<LeavePolicy, "name" | "exceededRule">;
   days: number;
   available: number;
+  /** Last day of the request ("YYYY-MM-DD") — needed for ALLOW_UNTIL_YEAR_END. */
+  toKey?: string;
+  /** The leave type's "year end" date ("YYYY-MM-DD"); defaults to 31 Dec of the request's year. */
+  yearEndKey?: string | null;
 }): BalanceOutcome | { error: string } {
   const { policy, days } = args;
   const available = round(args.available);
@@ -228,8 +235,18 @@ export function applyExceededRule(args: {
       };
     case "MARK_AS_LOP":
       return { isLossOfPay: true, lopDays: round(days - Math.max(0, available)) };
+    case "ALLOW_UNTIL_YEAR_END": {
+      // Going over the balance is allowed, but only for leave that ends by the year-end date.
+      const yearEnd = args.yearEndKey || (args.toKey ? `${args.toKey.slice(0, 4)}-12-31` : null);
+      if (args.toKey && yearEnd && args.toKey > yearEnd) {
+        return {
+          error: `Not enough ${policy.name} balance: ${plural(Math.max(0, available))} available. Going over it is only allowed until ${yearEnd}.`,
+        };
+      }
+      return { isLossOfPay: false, lopDays: 0 };
+    }
     default:
-      // ALLOW_WITHOUT_LIMIT / ALLOW_UNTIL_YEAR_END — the balance goes negative, no LOP.
+      // ALLOW_WITHOUT_LIMIT — the balance goes negative, no LOP.
       return { isLossOfPay: false, lopDays: 0 };
   }
 }
@@ -268,8 +285,11 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 
 /**
  * Whether the employee may use this leave type on `onKey`. Returns an error message or null.
- * Rules are only enforced on facts the profile actually has — a missing department / employment
- * type / joining date never blocks (an incomplete profile isn't the employee's fault).
+ * The member's department / employment type come from User Management. A leave type limited to
+ * certain departments / employment types is only for members whose profile has one of them — but a
+ * member whose department or employment type isn't set yet gets every leave type (product decision,
+ * Nov 2026: an incomplete profile shouldn't lock someone out of leave). Same for a missing joining
+ * date and the service-period rule.
  */
 export function checkEligibility(policy: EligibilityPolicy, emp: EmployeeFacts, onKey: string): string | null {
   if (policy.departments.length && emp.department && !policy.departments.some((d) => same(d, emp.department!))) {

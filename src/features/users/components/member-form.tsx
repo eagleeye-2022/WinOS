@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { calculateAge } from "@/lib/fmt";
-import { DEPARTMENTS, LOCATIONS } from "@/features/users/constants";
+import { DEPARTMENTS, EMPLOYMENT_TYPES, LOCATIONS } from "@/features/users/constants";
 import { ROUTES } from "@/constants/routes";
 import type { ManagerOption, MemberDetails } from "@/features/users/actions/user-actions";
 import {
@@ -530,10 +530,14 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
           </Field>
           <Field label="Employment Type">
             <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v)} disabled={isReadOnlyNonPersonal}>
-              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select (Permanent/Trainee)" /></SelectTrigger>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select employment type" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Permanent">Permanent</SelectItem>
-                <SelectItem value="Trainee">Trainee</SelectItem>
+                {/* Same list the leave-type wizard filters on. */}
+                {EMPLOYMENT_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Field>

@@ -154,6 +154,8 @@ export function TeamLeaveWorkspace({
     { allowed: TEAM_LEAVE_LIST_TABS, history: "push" }
   );
   const [isCreatingLeaveType, setIsCreatingLeaveType] = useState(initialTab === "create-leave-type");
+  /** Set while the wizard is editing an existing leave type (null = creating a new one). */
+  const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
   const activeTab: TeamLeaveListTab | "create-leave-type" = isCreatingLeaveType ? "create-leave-type" : listTab;
   const setActiveTab = (tab: TeamLeaveListTab | "create-leave-type") => {
     if (tab === "create-leave-type") {
@@ -854,14 +856,32 @@ export function TeamLeaveWorkspace({
 
       {/* 6. LEAVE POLICY TAB (IMAGE 4) */}
       {activeTab === "leave-policy" && (
-        <LeavePolicyView onCreateNew={() => setActiveTab("create-leave-type")} />
+        <LeavePolicyView
+          onCreateNew={() => {
+            setEditingLeaveTypeId(null);
+            setActiveTab("create-leave-type");
+          }}
+          onEdit={(id) => {
+            setEditingLeaveTypeId(id);
+            setActiveTab("create-leave-type");
+          }}
+        />
       )}
 
-      {/* 7. CREATE LEAVE TYPE WIZARD (IMAGE 2 & 3) */}
+      {/* 7. CREATE / EDIT LEAVE TYPE WIZARD */}
       {activeTab === "create-leave-type" && (
         <CreateLeaveTypeWizard
-          onCancel={() => setActiveTab("leave-policy")}
-          onSuccess={() => setActiveTab("leave-policy")}
+          // A new key per leave type so switching between edits always reloads the form.
+          key={editingLeaveTypeId ?? "new"}
+          editId={editingLeaveTypeId ?? undefined}
+          onCancel={() => {
+            setEditingLeaveTypeId(null);
+            setActiveTab("leave-policy");
+          }}
+          onSuccess={() => {
+            setEditingLeaveTypeId(null);
+            setActiveTab("leave-policy");
+          }}
         />
       )}
     </div>

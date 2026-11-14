@@ -45,6 +45,33 @@ describe("formatNominatimAddress", () => {
     ).toEqual({ name: "Rajwada Square, Indore", address: "Rajwada Square, Indore, Madhya Pradesh 452001" });
   });
 
+  it("puts the exact spot (building, house number + road) first in the full address", () => {
+    expect(
+      formatNominatimAddress(
+        {
+          amenity: "Eagle Eye Digital",
+          house_number: "12",
+          road: "MG Road",
+          neighbourhood: "Vijay Nagar",
+          city: "Indore",
+          state: "Madhya Pradesh",
+          postcode: "452010",
+        },
+        undefined,
+        "Eagle Eye Digital"
+      )
+    ).toEqual({
+      name: "Vijay Nagar, Indore",
+      address: "Eagle Eye Digital, 12 MG Road, Vijay Nagar, Indore, Madhya Pradesh 452010",
+    });
+  });
+
+  it("adds the road to the address even without a building", () => {
+    expect(
+      formatNominatimAddress({ road: "Nagar Road", suburb: "Ubale Nagar", village: "Wagholi", state: "Maharashtra" })
+    ).toEqual({ name: "Ubale Nagar, Wagholi", address: "Nagar Road, Ubale Nagar, Wagholi, Maharashtra" });
+  });
+
   it("returns null when there is nothing to name", () => {
     expect(formatNominatimAddress({})).toBeNull();
   });

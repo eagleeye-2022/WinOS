@@ -136,6 +136,7 @@ export function LeaveWorkspace({
             iconName: b.iconName,
             iconBgColor: b.iconBgColor,
             iconTextColor: b.iconTextColor,
+            hideBooked: b.hideBooked,
           }))
         );
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

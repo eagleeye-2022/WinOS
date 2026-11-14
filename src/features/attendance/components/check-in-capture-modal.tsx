@@ -33,8 +33,18 @@ type LocationState =
   /** The employee chose to go ahead without sharing their location. */
   | { status: "skipped" };
 
-/** Stop waiting as soon as a reading is this good (metres). */
-const GOOD_ACCURACY_M = 100;
+/**
+ * Location capture at check-in / check-out is switched OFF for now (desktop browsers often only give a
+ * ±200 km IP guess). While false: no location is requested, the location box is hidden and punches are
+ * saved without a location. Set back to true to turn it on again — everything else is still in place.
+ */
+const CAPTURE_LOCATION = false;
+
+/**
+ * Stop waiting as soon as a reading is this good (metres) — real GPS quality. Anything rougher keeps
+ * the watch running (the first readings are usually Wi-Fi / IP guesses) and the best one is used.
+ */
+const GOOD_ACCURACY_M = 30;
 /** Worst reading accepted — keep in sync with MAX_LOCATION_ACCURACY_M in checkInAction. */
 const MAX_ACCURACY_M = 1000;
 /** How long to wait for the device to improve its fix. */
@@ -196,7 +206,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     setPhoto(null);
     setSubmitError(null);
     startCamera();
-    locate();
+    if (CAPTURE_LOCATION) locate();
     return () => {
       stopCamera();
       stopLocating();
@@ -258,7 +268,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
   // Location never blocks the punch: confirming while it's still locating goes ahead without it.
   const confirm = async () => {
     if (!photo) return;
-    const location = locationState.status === "ready" ? locationState.location : undefined;
+    const location = CAPTURE_LOCATION && locationState.status === "ready" ? locationState.location : undefined;
     if (locationState.status === "locating") skipLocation();
     setIsSubmitting(true);
     setSubmitError(null);
@@ -283,7 +293,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           <div>
             <h3 className="text-base font-bold text-foreground">{heading}</h3>
             <p className="text-xs text-muted-foreground">
-              A photo is required. Sharing your location is optional.
+              {CAPTURE_LOCATION ? "A photo is required. Sharing your location is optional." : "A photo is required."}
             </p>
           </div>
           <button
@@ -347,7 +357,8 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
             )}
           </div>
 
-          {/* Location */}
+          {/* Location — hidden while CAPTURE_LOCATION is off. */}
+          {CAPTURE_LOCATION && (
           <div
             className={cn(
               "flex items-start gap-3 rounded-xl border px-4 py-3 text-xs",
@@ -410,14 +421,25 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
                     {locationState.location.accuracy !== undefined &&
                       ` · ±${formatDistance(locationState.location.accuracy)}`}
                   </p>
-                  <button
-                    type="button"
-                    onClick={skipLocation}
-                    disabled={isSubmitting}
-                    className="mt-1 font-semibold text-muted-foreground underline hover:text-foreground disabled:opacity-50"
-                  >
-                    Don&apos;t share location
-                  </button>
+                  <div className="mt-1 flex flex-wrap gap-x-3">
+                    {/* Wrong place shown? Take a fresh reading (GPS often sharpens after a few seconds). */}
+                    <button
+                      type="button"
+                      onClick={locate}
+                      disabled={isSubmitting}
+                      className="font-semibold text-blue-600 underline hover:text-foreground disabled:opacity-50 dark:text-blue-400"
+                    >
+                      Refresh location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={skipLocation}
+                      disabled={isSubmitting}
+                      className="font-semibold text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                    >
+                      Don&apos;t share location
+                    </button>
+                  </div>
                 </>
               )}
               {locationState.status === "error" && (
@@ -431,6 +453,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
               )}
             </div>
           </div>
+          )}
 
           {submitError && <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{submitError}</p>}
         </div>

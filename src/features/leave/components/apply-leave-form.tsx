@@ -222,6 +222,7 @@ export function ApplyLeaveForm({
         durationType: dayType === "HALF_DAY" ? "HALF_DAY" : "FULL_DAY",
         fromDate: rangeFrom,
         toDate: rangeTo,
+        forUserId: forUserId || undefined,
       })
         .then((res) => {
           if (cancelled) return;
@@ -233,7 +234,7 @@ export function ApplyLeaveForm({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [isEarlyLeave, selectedCode, dayType, rangeFrom, rangeTo, rangeError]);
+  }, [isEarlyLeave, selectedCode, dayType, rangeFrom, rangeTo, rangeError, forUserId]);
 
   // Calculate duration & summary text
   const durationInfo = useMemo(() => {

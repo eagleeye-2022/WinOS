@@ -51,8 +51,15 @@ describe("checkEligibility", () => {
     expect(checkEligibility(eligibility({ departments: ["HR"] }), emp(), "2026-10-29")).toMatch(/only for HR/);
     expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp(), "2026-10-29")).toMatch(/Intern/);
   });
-  it("never blocks on facts the profile doesn't have", () => {
+  it("a member with a set employment type / department only gets the types meant for it", () => {
+    expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp({ employmentType: "Permanent" }), "2026-10-29")).toMatch(/Intern/);
+    expect(checkEligibility(eligibility({ employmentTypes: ["intern"] }), emp({ employmentType: "Intern" }), "2026-10-29")).toBeNull();
+  });
+  it("a member whose employment type / department isn't set gets every leave type", () => {
     expect(checkEligibility(eligibility({ departments: ["HR"] }), emp({ department: null }), "2026-10-29")).toBeNull();
+    expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp({ employmentType: null }), "2026-10-29")).toBeNull();
+  });
+  it("doesn't block the service-period rule when the joining date is missing", () => {
     expect(checkEligibility(eligibility({ minServicePeriod: 6 }), emp({ dateOfJoining: null }), "2026-10-29")).toBeNull();
   });
   it("enforces the minimum service period", () => {
