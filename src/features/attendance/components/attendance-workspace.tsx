@@ -428,7 +428,6 @@ export function AttendanceWorkspace({
                   setActiveTab("regularization");
                   setRegularizationSubView("create");
                 }}
-                onBackToTeam={() => setTeamSubView("team-list")}
               />
             ) : null}
           </>
@@ -453,7 +452,6 @@ export function AttendanceWorkspace({
             {regularizationSubView === "details" && selectedRequest && (
               <RegularizationRequestDetails
                 request={selectedRequest}
-                onBack={() => setRegularizationSubView("list")}
                 canReview={canManage}
                 currentUserId={currentUserId}
                 onCancelRequest={() => {

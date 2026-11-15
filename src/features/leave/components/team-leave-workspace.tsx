@@ -40,6 +40,7 @@ import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
 import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 
 const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
   APPROVED: { label: "Approved", tone: "green" },
@@ -165,6 +166,21 @@ export function TeamLeaveWorkspace({
       setListTab(tab);
     }
   };
+
+  // Breadcrumb steps after "Pulse › Team Leave": the tab, then the leave-type wizard when open.
+  const TAB_LABEL: Record<TeamLeaveListTab, string> = {
+    "leave-requests": "Leave Requests",
+    "employee-leave": "Team Member Leave",
+    "compensatory-requests": "Compensatory Requests",
+    "team-calendar": "Team Calendar",
+    holidays: "Holidays",
+    "leave-policy": "Leave Policy",
+  };
+  const crumbTab: TeamLeaveListTab = isCreatingLeaveType ? "leave-policy" : listTab;
+  usePulseCrumbs([
+    { label: TAB_LABEL[crumbTab], onClick: () => setActiveTab(crumbTab) },
+    ...(isCreatingLeaveType ? [{ label: editingLeaveTypeId ? "Edit Leave Type" : "Create Leave Type" }] : []),
+  ]);
 
   const [teamRequests, setTeamRequests] = useState<TeamLeaveItem[]>([]);
   const [teamCompRequests, setTeamCompRequests] = useState<TeamCompItem[]>([]);

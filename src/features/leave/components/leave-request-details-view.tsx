@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -10,7 +9,6 @@ import {
   Download,
   X,
   Printer,
-  ChevronRight,
   User,
   MessageSquare,
   Plane,
@@ -57,7 +55,6 @@ interface LeaveRequestDetailsViewProps {
   request: LeaveRequest;
   leaveTypes: LeaveTypeConfig[];
   onCancelRequest?: (id: string) => void;
-  onBack?: () => void;
   /** Someone else's request, opened by a manager: Approve / Reject show. */
   isManagerView?: boolean;
   /** The viewer's own request and they're a manager: they may approve it themselves. */
@@ -68,7 +65,6 @@ export function LeaveRequestDetailsView({
   request,
   leaveTypes,
   onCancelRequest,
-  onBack,
   isManagerView = false,
   canApproveOwn = false,
 }: LeaveRequestDetailsViewProps) {
@@ -287,17 +283,6 @@ export function LeaveRequestDetailsView({
       {/* Breadcrumb Header */}
       <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => (onBack ? onBack() : router.push("/pulse/leave"))}
-              className="cursor-pointer text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
-            >
-              Leave Requests
-            </button>
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-            <span className="text-foreground">Leave Request Details</span>
-          </nav>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-lg font-semibold text-foreground">

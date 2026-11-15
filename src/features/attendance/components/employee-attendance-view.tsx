@@ -6,7 +6,6 @@ import {
   UserPlus,
   Mail,
   Phone,
-  ChevronLeft,
   CalendarDays,
   List,
 } from "lucide-react";
@@ -31,13 +30,11 @@ import { cn } from "@/lib/utils";
 interface EmployeeAttendanceViewProps {
   employee: EmployeeProfile;
   onApplyRegularizationOnBehalf?: () => void;
-  onBackToTeam?: () => void;
 }
 
 export function EmployeeAttendanceView({
   employee,
   onApplyRegularizationOnBehalf,
-  onBackToTeam,
 }: EmployeeAttendanceViewProps) {
   const today = istDateKey();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
@@ -102,15 +99,6 @@ export function EmployeeAttendanceView({
 
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Back link */}
-      <button
-        onClick={onBackToTeam}
-        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Team Attendance
-      </button>
-
       {/* Profile card */}
       <section className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="h-14 bg-gradient-to-r from-blue-600 to-sky-500 dark:from-blue-700 dark:to-sky-700" />

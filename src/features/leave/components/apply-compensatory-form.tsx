@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -12,7 +11,6 @@ import {
   X,
   Plus,
   Info,
-  ChevronRight,
   Sliders,
   PieChart,
 } from "lucide-react";
@@ -215,17 +213,6 @@ export function ApplyCompensatoryForm({
     <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
       <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
-        <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Link
-            href="/pulse/leave"
-            className="text-blue-600 transition-colors hover:text-foreground hover:underline dark:text-blue-400"
-          >
-            My Leave
-          </Link>
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-          <span className="text-foreground">Compensatory Request</span>
-        </nav>
-
         <h1 className="text-lg font-semibold text-foreground">Compensatory Request</h1>
       </div>
 

@@ -3,7 +3,6 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState } from "react";
 import {
-  ArrowLeft,
   Calendar,
   Clock,
   FileText,
@@ -24,7 +23,6 @@ import { PulseCard, StatusPill, type PulseTone } from "@/components/pulse/pulse-
 
 interface RegularizationRequestDetailsProps {
   request: RegularizationRequest;
-  onBack: () => void;
   onCancelRequest?: (id: string) => void;
   onStatusUpdated?: () => void;
   /** Managers may approve / reject requests that aren't their own. */
@@ -34,7 +32,6 @@ interface RegularizationRequestDetailsProps {
 
 export function RegularizationRequestDetails({
   request,
-  onBack,
   onCancelRequest,
   onStatusUpdated,
   canReview = false,
@@ -121,15 +118,6 @@ export function RegularizationRequestDetails({
 
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Back link */}
-      <button
-        onClick={onBack}
-        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Regularization Requests
-      </button>
-
       {/* Header: who + status + actions */}
       <section className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
