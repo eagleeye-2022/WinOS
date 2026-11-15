@@ -29,6 +29,8 @@ import {
   Sun,
   Briefcase,
   TimerReset,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,13 +45,15 @@ import {
 import { cn } from "@/lib/utils";
 import { StatusPill, TONE_SOFT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { getLeaveTypesAction } from "../queries/leave-queries";
-import { toggleLeaveTypeStatusAction } from "../actions/leave-actions";
+import { deleteLeaveTypeAction, toggleLeaveTypeStatusAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 
 export interface LeaveTypePolicyItem {
   id: string;
   name: string;
   description: string;
+  /** Who it's for, as saved (employment type, department, audience…); empty = everyone. */
+  appliesTo?: string[];
   code: string;
   category: "Paid Leave" | "Unpaid Leave" | "Partially Paid";
   /** Always "Day(s)" — balances are kept in days. */
@@ -64,10 +68,28 @@ export interface LeaveTypePolicyItem {
 
 interface LeavePolicyViewProps {
   onCreateNew?: () => void;
+  /** Open the wizard for this leave type (edit mode). */
+  onEdit?: (id: string) => void;
 }
 
-export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
+export function LeavePolicyView({ onCreateNew, onEdit }: LeavePolicyViewProps) {
   const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Deletes only never-used types; the server refuses (with the reason) if it has any history.
+  const deletePolicy = async (item: LeaveTypePolicyItem) => {
+    if (!window.confirm(`Delete the leave type "${item.name}" (${item.code})? This can't be undone.`)) return;
+    setDeletingId(item.id);
+    try {
+      unwrap(await deleteLeaveTypeAction(item.id));
+      setLeavePolicies((prev) => prev.filter((p) => p.id !== item.id));
+      loadPolicies();
+    } catch (err) {
+      alert(errorMessage(err, "Couldn't delete this leave type."));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const [leavePolicies, setLeavePolicies] = useState<LeaveTypePolicyItem[]>([]);
   const [metrics, setMetrics] = useState({
@@ -269,18 +291,19 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                 <th className="px-4 py-2.5">Leave Unit</th>
                 <th className="px-4 py-2.5">Entitlement</th>
                 <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70">
               {isLoading && leavePolicies.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
+                  <td colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
                     Loading leave types...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
+                  <td colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
                     No leave types found matching the criteria.
                   </td>
                 </tr>
@@ -299,6 +322,14 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                           <div className="min-w-0">
                             <div className="text-[13px] font-semibold leading-tight text-foreground">{item.name}</div>
                             <div className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">{item.description}</div>
+                            {/* Who this type is for — checked against each member's profile in User Management. */}
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {(item.appliesTo?.length ? item.appliesTo : ["Everyone"]).map((rule) => (
+                                <StatusPill key={rule} tone={item.appliesTo?.length ? "violet" : "gray"}>
+                                  {rule}
+                                </StatusPill>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -330,6 +361,31 @@ export function LeavePolicyView({ onCreateNew }: LeavePolicyViewProps) {
                           <span className={cn("text-[11px] font-semibold", item.isActive ? TONE_TEXT.green : "text-muted-foreground")}>
                             {item.isActive ? "Active" : "Inactive"}
                           </span>
+                        </div>
+                      </td>
+
+                      {/* Edit / delete */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {onEdit && (
+                            <button
+                              type="button"
+                              onClick={() => onEdit(item.id)}
+                              title={`Edit ${item.name}`}
+                              className="rounded-md p-1.5 text-blue-600 transition-colors hover:bg-muted hover:text-foreground dark:text-blue-400"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => deletePolicy(item)}
+                            disabled={deletingId === item.id}
+                            title={`Delete ${item.name}`}
+                            className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40"
+                          >
+                            {deletingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -162,13 +162,17 @@ export async function previewLeaveDaysAction(data: {
   durationType: "FULL_DAY" | "HALF_DAY";
   fromDate: string;
   toDate: string;
+  /** Manager applying for someone: check that person's eligibility and other requests. */
+  forUserId?: string;
 }): Promise<ActionResult<{ days: number; workingDays: number; sandwichedDays: number; holidayNames: string[] }>> {
   return run("previewLeaveDays", async () => {
-    await requireUser();
-    const leaveType = await db.leaveType.findUnique({
-      where: { code: data.leaveTypeCode },
-      select: { sandwichPolicy: true, sandwichWeekends: true, sandwichHolidays: true },
-    });
+    const actor = await requireUser();
+    let userId = actor.id;
+    if (data.forUserId && data.forUserId !== actor.id) {
+      if (!(await canManageUser(actor, data.forUserId))) fail("Only managers can apply leave for someone else.");
+      userId = data.forUserId;
+    }
+    const leaveType = await db.leaveType.findUnique({ where: { code: data.leaveTypeCode } });
     if (!leaveType) fail("Invalid leave type.");
     const fromKey = parseKey(data.fromDate, "start date");
     const toKey = parseKey(data.toDate, "end date");
@@ -192,6 +196,40 @@ export async function previewLeaveDaysAction(data: {
       policy: leaveType,
     });
     if ("error" in count) fail(count.error);
+
+    // Same leave-type rules applyLeaveAction checks, so the form shows a problem while it's being
+    // filled in rather than only after Apply. (Documents are checked on Apply — files upload then.)
+    const ruleError = validateLeaveRequest({
+      policy: leaveType,
+      fromKey,
+      toKey,
+      todayKey: istDateKey(),
+      durationType: data.durationType,
+      days: count.days,
+      workingKeys: count.workingKeys,
+      hasAttachment: true,
+    });
+    if (ruleError) fail(ruleError);
+    const facts = await db.user.findUnique({
+      where: { id: userId },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+    });
+    const eligibilityError = facts ? checkEligibility(leaveType, facts, fromKey) : null;
+    if (eligibilityError) fail(eligibilityError);
+    const windowStart = dateFromKey(fromKey)!;
+    windowStart.setUTCDate(windowStart.getUTCDate() - 400);
+    const others = await db.leaveRequest.findMany({
+      where: { userId, status: { in: ["PENDING", "APPROVED"] }, toDate: { gte: windowStart } },
+      select: { fromDate: true, toDate: true, leaveType: { select: { code: true } } },
+    });
+    const limitError = checkRequestLimits(
+      leaveType,
+      fromKey,
+      toKey,
+      others.map((o) => ({ code: o.leaveType.code, fromKey: dateKeyFromUtc(o.fromDate), toKey: dateKeyFromUtc(o.toDate) }))
+    );
+    if (limitError) fail(limitError);
+
     const workingDays = data.durationType === "HALF_DAY" ? count.days : count.workingKeys.length;
     return {
       days: count.days,
@@ -239,6 +277,13 @@ export async function applyLeaveAction(formData: {
 
     const leaveType = await db.leaveType.findUnique({ where: { code: formData.leaveTypeCode } });
     if (!leaveType) fail("Invalid leave type.");
+    // Leave-type visibility settings from the wizard's last step.
+    if (onBehalf && !leaveType.allowAdminApplyOnBehalf) {
+      fail(`${leaveType.name} can't be applied on someone's behalf — they need to apply for it themselves.`);
+    }
+    if (!onBehalf && leaveType.employeeVisibility === "HIDE_IN_SELF_SERVICE") {
+      fail(`${leaveType.name} can only be applied by a manager on your behalf.`);
+    }
 
     const fromKey = parseKey(formData.fromDate, "start date");
     const toKey = parseKey(formData.toDate, "end date");
@@ -338,7 +383,13 @@ export async function applyLeaveAction(formData: {
       // Pending requests already hold part of the balance; monthly types only offer what's accrued;
       // comp-off only counts credits that haven't expired.
       const available = await effectiveAvailable(tx, { userId, type: leaveType, balance, onKey: fromKey });
-      const outcome = applyExceededRule({ policy: leaveType, days: count.days, available });
+      const outcome = applyExceededRule({
+        policy: leaveType,
+        days: count.days,
+        available,
+        toKey,
+        yearEndKey: leaveType.yearEndDate ? dateKeyFromUtc(leaveType.yearEndDate) : null,
+      });
       if ("error" in outcome) fail(outcome.error);
 
       // No approval steps (manager approval not required) → approved on submit and booked at once.
@@ -962,7 +1013,7 @@ export async function adjustLeaveBalanceAction(data: {
 
 type TimeUnitInput = "DAYS" | "WEEKS" | "MONTHS" | "YEARS" | "HOURS";
 
-export async function createLeaveTypeAction(data: {
+export interface LeaveTypeInput {
   name: string;
   code: string;
   description?: string;
@@ -1017,84 +1068,93 @@ export async function createLeaveTypeAction(data: {
   allowAdminApplyOnBehalf?: boolean;
   employeeVisibility?: "COMPLETE_LEAVE_SUMMARY" | "REMAINING_BALANCE_ONLY" | "HIDE_IN_SELF_SERVICE";
   balanceDisplayPref?: "LEAVE_REQUEST_START_DATE" | "CURRENT_DATE" | "YEAR_END_PROJECTION";
-}): Promise<ActionResult<{ id: string }>> {
+}
+
+/**
+ * Validates wizard input and turns it into the LeaveType columns. Shared by create and update, so
+ * both apply the same rules and defaults. (Code uniqueness is checked by the callers.)
+ */
+function leaveTypeFields(data: LeaveTypeInput) {
+  const name = (data.name || "").trim();
+  const code = (data.code || "").trim().toUpperCase();
+  if (!name) fail("Enter a leave type name.");
+  if (!/^[A-Z0-9_]{1,10}$/.test(code)) fail("The leave code must be 1–10 letters or digits.");
+  const effectiveDate = dateFromKey(parseKey(data.effectiveDate, "effective date"))!;
+  const expiryDate = data.expiryDate ? dateFromKey(parseKey(data.expiryDate, "expiry date"))! : null;
+  if (expiryDate && expiryDate < effectiveDate) fail("The expiry date can't be before the effective date.");
+  const yearEndDate = data.yearEndDate ? dateFromKey(parseKey(data.yearEndDate, "year end date")) : null;
+  if (!(Number(data.annualEntitlement) >= 0)) fail("The entitlement can't be negative.");
+  if (!(data.allowFullDay ?? true) && !(data.allowHalfDay ?? true) && !data.allowQuarterDay && !(data.allowHourly ?? true)) {
+    fail("Allow at least one leave duration.");
+  }
+
+  return {
+    name,
+    code,
+    description: data.description,
+    icon: data.icon || "Thermometer",
+    iconBgColor: data.iconBgColor || "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40",
+    iconTextColor: data.iconTextColor || "text-emerald-600",
+    isActive: data.isActive ?? true,
+    effectiveDate,
+    expiryDate,
+    category: data.category || "PAID",
+    allocationFrequency: data.allocationFrequency || "YEARLY",
+    annualEntitlement: data.annualEntitlement,
+    allowCarryForward: data.allowCarryForward ?? true,
+    carryForwardLimit: data.carryForwardLimit ?? 5,
+    balanceResetRule: data.balanceResetRule || "CARRY_FORWARD_UP_TO_LIMIT",
+    exceededRule: data.exceededRule || "MARK_AS_LOP",
+    yearEndDate,
+    applicableTo: data.applicableTo || "ALL_EMPLOYEES",
+    departments: data.departments || [],
+    employmentTypes: data.employmentTypes || [],
+    minServicePeriod: data.minServicePeriod ?? 6,
+    minServiceUnit: data.minServiceUnit || "MONTHS",
+    allowFullDay: data.allowFullDay ?? true,
+    allowHalfDay: data.allowHalfDay ?? true,
+    allowQuarterDay: data.allowQuarterDay ?? false,
+    allowHourly: data.allowHourly ?? true,
+    allowPastDays: data.allowPastDays ?? true,
+    pastDaysLimit: data.pastDaysLimit ?? 7,
+    pastDaysUnit: data.pastDaysUnit || "DAYS",
+    allowAdvanceDays: data.allowAdvanceDays ?? true,
+    advanceDaysLimit: data.advanceDaysLimit ?? 90,
+    advanceDaysUnit: data.advanceDaysUnit || "DAYS",
+    minAdvanceNotice: data.minAdvanceNotice ?? 2,
+    minAdvanceNoticeUnit: data.minAdvanceNoticeUnit || "DAYS",
+    minLeavePerRequest: data.minLeavePerRequest ?? 0.5,
+    maxLeavePerRequest: data.maxLeavePerRequest ?? 10,
+    maxConsecutiveDays: data.maxConsecutiveDays ?? 15,
+    minGapBetweenRequests: data.minGapBetweenRequests ?? 2,
+    maxRequestsCount: data.maxRequestsCount ?? 3,
+    maxRequestsPeriod: data.maxRequestsPeriod || "MONTHS",
+    applicableDays: data.applicableDays || ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    sandwichPolicy: data.sandwichPolicy ?? true,
+    sandwichWeekends: data.sandwichWeekends ?? true,
+    sandwichHolidays: data.sandwichHolidays ?? true,
+    clubbingRestrictedCodes: data.clubbingRestrictedCodes || [],
+    supportingDocPolicy: data.supportingDocPolicy || "REQUIRED_WHEN_EXCEEDS",
+    docExceedsDays: data.docExceedsDays ?? 3,
+    acceptedFileTypes: data.acceptedFileTypes || ["PDF", "JPG", "PNG"],
+    maxFileSizeMb: data.maxFileSizeMb ?? 5,
+    managerApprovalRequired: data.managerApprovalRequired ?? true,
+    approvalFlow: data.approvalFlow || "DIRECT_MANAGER",
+    allowAdminApplyOnBehalf: data.allowAdminApplyOnBehalf ?? true,
+    employeeVisibility: data.employeeVisibility || "COMPLETE_LEAVE_SUMMARY",
+    balanceDisplayPref: data.balanceDisplayPref || "LEAVE_REQUEST_START_DATE",
+  } as const;
+}
+
+export async function createLeaveTypeAction(data: LeaveTypeInput): Promise<ActionResult<{ id: string }>> {
   return run("createLeaveType", async () => {
     await requireManager();
+    const fields = leaveTypeFields(data);
 
-    const name = (data.name || "").trim();
-    const code = (data.code || "").trim().toUpperCase();
-    if (!name) fail("Enter a leave type name.");
-    if (!/^[A-Z0-9_]{1,10}$/.test(code)) fail("The leave code must be 1–10 letters or digits.");
-    const effectiveDate = dateFromKey(parseKey(data.effectiveDate, "effective date"))!;
-    const expiryDate = data.expiryDate ? dateFromKey(parseKey(data.expiryDate, "expiry date"))! : null;
-    if (expiryDate && expiryDate < effectiveDate) fail("The expiry date can't be before the effective date.");
-    const yearEndDate = data.yearEndDate ? dateFromKey(parseKey(data.yearEndDate, "year end date")) : null;
-    if (!(Number(data.annualEntitlement) >= 0)) fail("The entitlement can't be negative.");
-    if (!(data.allowFullDay ?? true) && !(data.allowHalfDay ?? true) && !data.allowQuarterDay && !(data.allowHourly ?? true)) {
-      fail("Allow at least one leave duration.");
-    }
+    const taken = await db.leaveType.findUnique({ where: { code: fields.code }, select: { name: true } });
+    if (taken) fail(`The code ${fields.code} is already used by ${taken.name}.`);
 
-    const taken = await db.leaveType.findUnique({ where: { code }, select: { name: true } });
-    if (taken) fail(`The code ${code} is already used by ${taken.name}.`);
-
-    const newType = await db.leaveType.create({
-      data: {
-        name,
-        code,
-        description: data.description,
-        icon: data.icon || "Thermometer",
-        iconBgColor: data.iconBgColor || "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40",
-        iconTextColor: data.iconTextColor || "text-emerald-600",
-        isActive: data.isActive ?? true,
-        effectiveDate,
-        expiryDate,
-        category: data.category || "PAID",
-        allocationFrequency: data.allocationFrequency || "YEARLY",
-        annualEntitlement: data.annualEntitlement,
-        allowCarryForward: data.allowCarryForward ?? true,
-        carryForwardLimit: data.carryForwardLimit ?? 5,
-        balanceResetRule: data.balanceResetRule || "CARRY_FORWARD_UP_TO_LIMIT",
-        exceededRule: data.exceededRule || "MARK_AS_LOP",
-        yearEndDate,
-        applicableTo: data.applicableTo || "ALL_EMPLOYEES",
-        departments: data.departments || [],
-        employmentTypes: data.employmentTypes || [],
-        minServicePeriod: data.minServicePeriod ?? 6,
-        minServiceUnit: data.minServiceUnit || "MONTHS",
-        allowFullDay: data.allowFullDay ?? true,
-        allowHalfDay: data.allowHalfDay ?? true,
-        allowQuarterDay: data.allowQuarterDay ?? false,
-        allowHourly: data.allowHourly ?? true,
-        allowPastDays: data.allowPastDays ?? true,
-        pastDaysLimit: data.pastDaysLimit ?? 7,
-        pastDaysUnit: data.pastDaysUnit || "DAYS",
-        allowAdvanceDays: data.allowAdvanceDays ?? true,
-        advanceDaysLimit: data.advanceDaysLimit ?? 90,
-        advanceDaysUnit: data.advanceDaysUnit || "DAYS",
-        minAdvanceNotice: data.minAdvanceNotice ?? 2,
-        minAdvanceNoticeUnit: data.minAdvanceNoticeUnit || "DAYS",
-        minLeavePerRequest: data.minLeavePerRequest ?? 0.5,
-        maxLeavePerRequest: data.maxLeavePerRequest ?? 10,
-        maxConsecutiveDays: data.maxConsecutiveDays ?? 15,
-        minGapBetweenRequests: data.minGapBetweenRequests ?? 2,
-        maxRequestsCount: data.maxRequestsCount ?? 3,
-        maxRequestsPeriod: data.maxRequestsPeriod || "MONTHS",
-        applicableDays: data.applicableDays || ["Mon", "Tue", "Wed", "Thu", "Fri"],
-        sandwichPolicy: data.sandwichPolicy ?? true,
-        sandwichWeekends: data.sandwichWeekends ?? true,
-        sandwichHolidays: data.sandwichHolidays ?? true,
-        clubbingRestrictedCodes: data.clubbingRestrictedCodes || [],
-        supportingDocPolicy: data.supportingDocPolicy || "REQUIRED_WHEN_EXCEEDS",
-        docExceedsDays: data.docExceedsDays ?? 3,
-        acceptedFileTypes: data.acceptedFileTypes || ["PDF", "JPG", "PNG"],
-        maxFileSizeMb: data.maxFileSizeMb ?? 5,
-        managerApprovalRequired: data.managerApprovalRequired ?? true,
-        approvalFlow: data.approvalFlow || "DIRECT_MANAGER",
-        allowAdminApplyOnBehalf: data.allowAdminApplyOnBehalf ?? true,
-        employeeVisibility: data.employeeVisibility || "COMPLETE_LEAVE_SUMMARY",
-        balanceDisplayPref: data.balanceDisplayPref || "LEAVE_REQUEST_START_DATE",
-      },
-    });
+    const newType = await db.leaveType.create({ data: fields });
 
     // Provision this year's balance for active internal staff (project clients don't take leave).
     const users = await db.user.findMany({
@@ -1109,6 +1169,82 @@ export async function createLeaveTypeAction(data: {
 
     revalidateLeaveAndAttendance();
     return { id: newType.id };
+  });
+}
+
+// ── 9b. EDIT / DELETE A LEAVE TYPE ───────────────────────────────────────────
+
+/** Everything the wizard needs to open a leave type for editing (dates as "YYYY-MM-DD"). */
+export async function getLeaveTypeForEditAction(id: string) {
+  await requireManager();
+  const t = await db.leaveType.findUnique({ where: { id } });
+  if (!t) throw new Error("Leave type not found.");
+  return {
+    ...t,
+    effectiveDate: dateKeyFromUtc(t.effectiveDate),
+    expiryDate: t.expiryDate ? dateKeyFromUtc(t.expiryDate) : null,
+    yearEndDate: t.yearEndDate ? dateKeyFromUtc(t.yearEndDate) : null,
+    createdAt: undefined,
+    updatedAt: undefined,
+  };
+}
+
+export async function updateLeaveTypeAction(id: string, data: LeaveTypeInput): Promise<ActionResult> {
+  return run("updateLeaveType", async () => {
+    await requireManager();
+    const existing = await db.leaveType.findUnique({ where: { id }, select: { id: true, annualEntitlement: true } });
+    if (!existing) fail("Leave type not found.");
+    const fields = leaveTypeFields(data);
+
+    const taken = await db.leaveType.findFirst({ where: { code: fields.code, id: { not: id } }, select: { name: true } });
+    if (taken) fail(`The code ${fields.code} is already used by ${taken.name}.`);
+
+    await db.$transaction(async (tx) => {
+      await tx.leaveType.update({ where: { id }, data: fields });
+      // A new yearly entitlement applies to this year's balances. Manual adjustments live in
+      // adjustedDays and booked / pending days are untouched, so nobody loses what they've taken.
+      if (fields.annualEntitlement !== existing.annualEntitlement) {
+        await tx.userLeaveBalance.updateMany({
+          where: { leaveTypeId: id, year: Number(istDateKey().slice(0, 4)) },
+          data: { allocatedDays: fields.annualEntitlement },
+        });
+      }
+    });
+
+    revalidateLeaveAndAttendance();
+    return {};
+  });
+}
+
+/**
+ * Deletes a leave type that has never been used. Deleting cascades to every leave request and balance
+ * of the type, so a type with any request or adjustment can't be deleted — deactivate it instead
+ * (it disappears from apply forms but its history stays).
+ */
+export async function deleteLeaveTypeAction(id: string): Promise<ActionResult> {
+  return run("deleteLeaveType", async () => {
+    await requireManager();
+    const type = await db.leaveType.findUnique({
+      where: { id },
+      select: { name: true, _count: { select: { leaveRequests: true, adjustments: true } } },
+    });
+    if (!type) fail("Leave type not found.");
+    const used = type._count.leaveRequests + type._count.adjustments;
+    if (used > 0) {
+      fail(
+        `${type.name} can't be deleted — it has ${type._count.leaveRequests} leave request(s)` +
+          `${type._count.adjustments ? ` and ${type._count.adjustments} balance adjustment(s)` : ""}. ` +
+          `Switch it to Inactive instead to keep that history.`
+      );
+    }
+
+    await db.$transaction([
+      db.userLeaveBalance.deleteMany({ where: { leaveTypeId: id } }),
+      db.leaveType.delete({ where: { id } }),
+    ]);
+
+    revalidateLeaveAndAttendance();
+    return {};
   });
 }
 

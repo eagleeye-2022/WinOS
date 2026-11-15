@@ -83,6 +83,8 @@ export interface FormattedBalance {
   iconTextColor: string;
   category: string;
   lossOfPayDays: number;
+  /** Leave type set to "Remaining balance only": the person sees what's left, not what's booked. */
+  hideBooked?: boolean;
 }
 
 export interface FormattedLeaveRequest {
@@ -183,16 +185,30 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     userId = forUserId;
   }
 
-  // 1. Fetch balances
-  const userBalances = await db.userLeaveBalance.findMany({
-    where: { userId, year },
-    include: { leaveType: true },
-    orderBy: { leaveType: { name: "asc" } },
-  });
-
   // Balances as of today for the current year, as of year end for a past year.
   const nowKey = istDateKey();
   const asOfKey = String(year) === nowKey.slice(0, 4) ? nowKey : `${year}-12-31`;
+
+  // Who this is — leave types are only shown to the people they're for (department, employment
+  // type, service period…), and "Hide in self service" types only when a manager applies for them.
+  const facts = await db.user.findUnique({
+    where: { id: userId },
+    select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+  });
+  const selfView = userId === session.user.id;
+  const visibleTo = (t: { employeeVisibility: string }) => !(selfView && t.employeeVisibility === "HIDE_IN_SELF_SERVICE");
+  const eligible = (t: Parameters<typeof checkEligibility>[0]) => !facts || checkEligibility(t, facts, asOfKey) === null;
+
+  // 1. Fetch balances. A balance row exists for every type at creation, so filter here too: a person
+  // only sees (and can apply for) the leave types that apply to them. Requests already made on a type
+  // that no longer applies still show in their request list below, where they can be viewed / cancelled.
+  const userBalances = (
+    await db.userLeaveBalance.findMany({
+      where: { userId, year },
+      include: { leaveType: true },
+      orderBy: { leaveType: { name: "asc" } },
+    })
+  ).filter((b) => eligible(b.leaveType) && visibleTo(b.leaveType));
   const available = await Promise.all(
     userBalances.map((b) => effectiveAvailable(db, { userId, type: b.leaveType, balance: b, onKey: asOfKey }))
   );
@@ -212,21 +228,18 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     iconTextColor: b.leaveType.iconTextColor || "text-primary",
     category: b.leaveType.category,
     lossOfPayDays: b.lossOfPayDays,
+    // "Remaining balance only" leave types don't show the booked figure to the person themselves.
+    hideBooked: selfView && b.leaveType.employeeVisibility === "REMAINING_BALANCE_ONLY",
   }));
 
   // Balance rows are only created on first use, so also list the active leave types this person can
   // use but hasn't touched this year — otherwise a new user has nothing to apply for.
-  const [unopenedTypes, facts] = await Promise.all([
-    db.leaveType.findMany({
-      where: { isActive: true, id: { notIn: userBalances.map((b) => b.leaveTypeId) } },
-    }),
-    db.user.findUnique({
-      where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
-    }),
-  ]);
+  const unopenedTypes = await db.leaveType.findMany({
+    where: { isActive: true, id: { notIn: userBalances.map((b) => b.leaveTypeId) } },
+  });
   for (const t of unopenedTypes) {
-    if (facts && checkEligibility(t, facts, asOfKey) !== null) continue;
+    // Types filtered out of userBalances above come back in this list too; the same check skips them.
+    if (!eligible(t) || !visibleTo(t)) continue;
     const isComp = t.code === "COMP"; // only credited by approved comp-offs
     balances.push({
       id: `type-${t.id}`,
@@ -242,6 +255,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       iconTextColor: t.iconTextColor || "text-primary",
       category: t.category,
       lossOfPayDays: 0,
+      hideBooked: selfView && t.employeeVisibility === "REMAINING_BALANCE_ONLY",
     });
   }
   balances.sort((a, b) => a.name.localeCompare(b.name));
@@ -682,8 +696,12 @@ export async function getApplicableLeaveTypesAction(dateKey: string) {
   ]);
   const byType = new Map(balances.map((b) => [b.leaveTypeId, b]));
 
+  // The person's own quick-apply list: eligible types only, minus "Hide in self service" ones.
   const usable = types.filter(
-    (t) => (t.allowFullDay || t.allowHalfDay) && (!facts || checkEligibility(t, facts, onKey) === null)
+    (t) =>
+      (t.allowFullDay || t.allowHalfDay) &&
+      t.employeeVisibility !== "HIDE_IN_SELF_SERVICE" &&
+      (!facts || checkEligibility(t, facts, onKey) === null)
   );
   return Promise.all(
     usable.map(async (t) => {
@@ -729,6 +747,20 @@ export async function getLeaveTypesAction() {
       unit: "Day(s)",
       entitlement: `${t.annualEntitlement} days / ${t.allocationFrequency === "MONTHLY" ? "month" : t.allocationFrequency === "QUARTERLY" ? "quarter" : "year"}`,
       isActive: t.isActive,
+      /** Who this type is for, as saved — e.g. ["Employment: Intern", "Dept: Sales"]; empty = everyone. */
+      appliesTo: [
+        ...(t.employmentTypes.length ? [`Employment: ${t.employmentTypes.join(", ")}`] : []),
+        ...(t.departments.length ? [`Dept: ${t.departments.join(", ")}`] : []),
+        ...(t.applicableTo === "FULL_TIME_ONLY"
+          ? ["Full-time only"]
+          : t.applicableTo === "PROBATIONARY"
+          ? ["On probation"]
+          : t.applicableTo === "CONTRACTORS"
+          ? ["Contractors"]
+          : []),
+        ...(t.minServicePeriod ? [`After ${t.minServicePeriod} ${t.minServiceUnit.toLowerCase()} of service`] : []),
+        ...(t.employeeVisibility === "HIDE_IN_SELF_SERVICE" ? ["Manager applies on their behalf"] : []),
+      ],
       icon: t.icon,
       iconBg: t.iconBgColor || "bg-primary/10 text-primary",
       iconText: t.iconTextColor || "text-primary",

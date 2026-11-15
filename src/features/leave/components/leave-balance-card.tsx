@@ -132,6 +132,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
             {type.remainingDays}
           </span>
         </div>
+        {!type.hideBooked && (
         <div className="flex items-center justify-between">
           <span className="text-foreground">Booked</span>
           <span className="flex items-center gap-1.5 font-semibold tabular-nums text-foreground" title={`${type.bookedDays} ${type.unit}`}>
@@ -142,6 +143,7 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
             />
           </span>
         </div>
+        )}
       </div>
     </div>
   );

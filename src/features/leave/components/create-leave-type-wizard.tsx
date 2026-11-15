@@ -55,7 +55,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { createLeaveTypeAction } from "../actions/leave-actions";
+import { DEPARTMENTS, EMPLOYMENT_TYPES } from "@/features/users/constants";
+import { createLeaveTypeAction, getLeaveTypeForEditAction, updateLeaveTypeAction } from "../actions/leave-actions";
 import { getLeaveTypesAction } from "../queries/leave-queries";
 import { istDateKey } from "@/features/attendance/utils";
 import { errorMessage, unwrap } from "../action-result";
@@ -176,17 +177,31 @@ const PRESET_LEAVE_TYPES = [
   { name: "Work From Home", code: "WFH", category: "Paid", entitlement: 24, desc: "Remote work authorization request." },
 ];
 
+/** The wizard label whose stored value is `value` (reverse of the *_MAP lookups above). */
+function labelOf<T extends string>(map: Record<string, T | undefined>, value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  return Object.keys(map).find((k) => map[k] === value);
+}
+
 interface CreateLeaveTypeWizardProps {
   onCancel?: () => void;
   onSuccess?: () => void;
+  /** Open an existing leave type for editing (its settings are loaded into every step). */
+  editId?: string;
 }
 
 export function CreateLeaveTypeWizard({
   onCancel,
   onSuccess,
+  editId,
 }: CreateLeaveTypeWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
+  const isEdit = Boolean(editId);
+  /** Code of the type being edited — it's allowed to keep its own code. */
+  const [originalCode, setOriginalCode] = useState("");
+  const [isLoadingEdit, setIsLoadingEdit] = useState(isEdit);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // STEP 1: Basic Information — starts empty (pick a preset from the name suggestions to prefill).
   const [leaveTypeName, setLeaveTypeName] = useState("");
@@ -208,7 +223,7 @@ export function CreateLeaveTypeWizard({
     ? "Enter a leave type name."
     : !/^[A-Z0-9_]{1,10}$/.test(normalizedCode)
     ? "The leave code must be 1–10 letters or digits."
-    : takenCodes.has(normalizedCode)
+    : takenCodes.has(normalizedCode) && normalizedCode !== originalCode
     ? `The code ${normalizedCode} is already used by ${takenCodes.get(normalizedCode)}.`
     : !effectiveDate
     ? "Pick an effective date."
@@ -415,13 +430,87 @@ export function CreateLeaveTypeWizard({
     "Leave request's start date"
   );
 
+  // Edit mode: load the saved leave type into every step.
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    setIsLoadingEdit(true);
+    getLeaveTypeForEditAction(editId)
+      .then((t) => {
+        if (cancelled) return;
+        setOriginalCode(t.code.toUpperCase());
+        // Step 1
+        setLeaveTypeName(t.name);
+        setLeaveCode(t.code);
+        setStatus(t.isActive ? "Active" : "Inactive");
+        setDescription(t.description || "");
+        setEffectiveDate(t.effectiveDate);
+        setExpiryDate(t.expiryDate || "");
+        setSelectedIcon(t.icon || "Thermometer");
+        setSelectedColorTheme(COLOR_THEMES.find((c) => c.bg === t.iconBgColor)?.id ?? "emerald");
+        // Step 2
+        setLeaveCategory(labelOf(CATEGORY_MAP, t.category) ?? "Paid");
+        setAllocationFreq(labelOf(ALLOCATION_MAP, t.allocationFrequency) ?? "Yearly");
+        setAnnualEntitlement(t.annualEntitlement);
+        setAllowCarryForward(t.allowCarryForward);
+        setCarryForwardLimit(t.carryForwardLimit ?? 5);
+        setBalanceResetRule(labelOf(RESET_RULE_MAP, t.balanceResetRule) ?? "Carry forward up to a limit");
+        setExcessOption(labelOf(EXCESS_MAP, t.exceededRule) ?? "LOP");
+        if (t.yearEndDate) setYearEndDate(t.yearEndDate);
+        // Step 3
+        setApplicableTo(labelOf(AUDIENCE_MAP, t.applicableTo) ?? "All Team Members");
+        setDepartment(t.departments[0] ?? "All Departments");
+        setEmploymentType(t.employmentTypes[0] ?? "All Employment Types");
+        setMinServicePeriod(t.minServicePeriod ?? 6);
+        setMinServiceUnit(labelOf(UNIT_MAP, t.minServiceUnit) ?? "Months");
+        setDurations({ fullDay: t.allowFullDay, halfDay: t.allowHalfDay, quarterDay: t.allowQuarterDay, hourly: t.allowHourly });
+        // Step 4
+        setAllowPastDays(t.allowPastDays);
+        setPastDaysLimit(t.pastDaysLimit);
+        setPastDaysUnit(labelOf(UNIT_MAP, t.pastDaysUnit) ?? "Days");
+        setAllowAdvanceDays(t.allowAdvanceDays);
+        setAdvanceDaysLimit(t.advanceDaysLimit);
+        setAdvanceDaysUnit(labelOf(UNIT_MAP, t.advanceDaysUnit) ?? "Days");
+        setMinAdvanceNotice(t.minAdvanceNotice);
+        setMinAdvanceUnit(labelOf(UNIT_MAP, t.minAdvanceNoticeUnit) ?? "Days");
+        setMinLeavePerRequest(t.minLeavePerRequest);
+        setMaxLeavePerRequest(t.maxLeavePerRequest);
+        setMaxConsecutiveDays(t.maxConsecutiveDays);
+        setMinGapBetweenRequests(t.minGapBetweenRequests ?? 2);
+        setMaxRequestsCount(t.maxRequestsCount ?? 3);
+        setMaxRequestsPeriod(labelOf(REQUEST_PERIOD_MAP, t.maxRequestsPeriod) ?? "Month");
+        setApplicableDays(t.applicableDays);
+        // Step 5
+        setSandwichPolicy(t.sandwichPolicy);
+        setSandwichWeekends(t.sandwichWeekends);
+        setSandwichHolidays(t.sandwichHolidays);
+        setClubbingLeaveTypes(t.clubbingRestrictedCodes.map((c) => labelOf(CLUBBING_CODE_MAP, c) ?? c));
+        setSupportingDocPolicy((labelOf(DOC_POLICY_MAP, t.supportingDocPolicy) as "NOT_REQUIRED" | "ALWAYS" | "EXCEEDS") ?? "EXCEEDS");
+        setDocExceedsDays(t.docExceedsDays ?? 3);
+        setDocExceedsUnit("Days");
+        setAcceptedFileTypes(t.acceptedFileTypes);
+        setMaxFileSize(`${t.maxFileSizeMb ?? 5} MB`);
+        // Step 6
+        setManagerApprovalRequired(t.managerApprovalRequired);
+        setApprovalFlow(labelOf(APPROVAL_FLOW_MAP, t.approvalFlow) ?? "Team Member's Direct Manager");
+        setAllowAdminApplyOnBehalf(t.allowAdminApplyOnBehalf);
+        setEmployeeVisibility(labelOf(VISIBILITY_MAP, t.employeeVisibility) ?? "Complete Leave Summary");
+        setBalanceDisplayPreference(labelOf(BALANCE_DISPLAY_MAP, t.balanceDisplayPref) ?? "Leave request's start date");
+      })
+      .catch((err) => !cancelled && setLoadError(errorMessage(err, "Couldn't load this leave type.")))
+      .finally(() => !cancelled && setIsLoadingEdit(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [editId]);
+
   const steps = [
     { number: 1, title: "Basic Information" },
     { number: 2, title: "Leave & Balance Setup" },
     { number: 3, title: "Eligibility & Duration" },
     { number: 4, title: "Application Rules" },
     { number: 5, title: "Policies & Documents" },
-    { number: 6, title: "Review & Create" },
+    { number: 6, title: isEdit ? "Review & Save" : "Review & Create" },
   ];
 
   const toggleDay = (day: string) => {
@@ -453,9 +542,12 @@ export function CreateLeaveTypeWizard({
     } else {
       setIsSubmitting(true);
       setSubmitError(null);
+      // Same payload either way: edit saves over the existing type, create adds a new one.
+      const save = (payload: Parameters<typeof createLeaveTypeAction>[0]) =>
+        editId ? updateLeaveTypeAction(editId, payload) : createLeaveTypeAction(payload);
       try {
         unwrap(
-          await createLeaveTypeAction({
+          await save({
             name: leaveTypeName.trim(),
             code: normalizedCode,
             description: description.trim() || undefined,
@@ -495,7 +587,6 @@ export function CreateLeaveTypeWizard({
             maxConsecutiveDays,
             minGapBetweenRequests,
             maxRequestsCount,
-            // TimeUnit has no quarter, so a per-quarter limit keeps the default period.
             maxRequestsPeriod: REQUEST_PERIOD_MAP[maxRequestsPeriod],
             applicableDays,
             sandwichPolicy,
@@ -521,7 +612,7 @@ export function CreateLeaveTypeWizard({
           router.push("/pulse/leave/team");
         }
       } catch (err) {
-        setSubmitError(errorMessage(err, "Failed to create leave type."));
+        setSubmitError(errorMessage(err, isEdit ? "Failed to save the leave type." : "Failed to create leave type."));
       } finally {
         setIsSubmitting(false);
       }
@@ -539,6 +630,24 @@ export function CreateLeaveTypeWizard({
       }
     }
   };
+
+  // Edit mode waits for the saved settings so no step briefly shows the create defaults.
+  if (isEdit && (isLoadingEdit || loadError)) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-sm text-muted-foreground">
+        {loadError ? (
+          <>
+            <p className="text-rose-600 dark:text-rose-400">{loadError}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}>
+              Back to Leave Policy
+            </Button>
+          </>
+        ) : (
+          <p>Loading leave type…</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full pb-16 select-none">
@@ -560,12 +669,12 @@ export function CreateLeaveTypeWizard({
               Leave Types
             </Link>
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-            <span className="text-foreground">Create New Leave Type</span>
+            <span className="text-foreground">{isEdit ? "Edit Leave Type" : "Create New Leave Type"}</span>
           </nav>
 
           <div className="pt-2">
             <h1 className="text-lg font-semibold text-foreground">
-              Create New Leave Type
+              {isEdit ? `Edit Leave Type${leaveTypeName ? ` — ${leaveTypeName}` : ""}` : "Create New Leave Type"}
             </h1>
           </div>
         </div>
@@ -1122,12 +1231,12 @@ export function CreateLeaveTypeWizard({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All Departments">All Departments</SelectItem>
-                    <SelectItem value="Engineering">Engineering</SelectItem>
-                    <SelectItem value="Product">Product</SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
+                    {/* The app's departments (same list as User Management / member profiles). */}
+                    {DEPARTMENTS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1143,9 +1252,12 @@ export function CreateLeaveTypeWizard({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All Employment Types">All Employment Types</SelectItem>
-                    <SelectItem value="Permanent">Permanent</SelectItem>
-                    <SelectItem value="Intern">Intern</SelectItem>
-                    <SelectItem value="Contract">Contract</SelectItem>
+                    {/* Same list as a member's Employment Type in User Management. */}
+                    {EMPLOYMENT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1552,7 +1664,7 @@ export function CreateLeaveTypeWizard({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Month">Month</SelectItem>
-                      <SelectItem value="Quarter">Quarter</SelectItem>
+                      {/* No "Quarter": the database has no quarter unit, so it used to save as Month. */}
                       <SelectItem value="Year">Year</SelectItem>
                     </SelectContent>
                   </Select>
@@ -2059,9 +2171,13 @@ export function CreateLeaveTypeWizard({
         >
           <span>
             {isSubmitting
-              ? "Creating..."
+              ? isEdit
+                ? "Saving..."
+                : "Creating..."
               : currentStep === 6
-              ? "Review & Create"
+              ? isEdit
+                ? "Save Changes"
+                : "Review & Create"
               : "Save & Next"}
           </span>
           <ArrowRight className="w-3.5 h-3.5" />

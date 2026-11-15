@@ -31,7 +31,8 @@ function policy(over: Partial<LeavePolicy> = {}): LeavePolicy {
     allowAdvanceDays: true,
     advanceDaysLimit: 90,
     advanceDaysUnit: "DAYS",
-    minAdvanceNotice: 2,
+    // No notice by default so the other rules can be tested on "today"; the notice tests set it.
+    minAdvanceNotice: 0,
     minAdvanceNoticeUnit: "DAYS",
     minLeavePerRequest: 0.5,
     maxLeavePerRequest: 10,
@@ -145,10 +146,17 @@ describe("validateLeaveRequest", () => {
   it("still refuses dates before the leave type's effective date", () => {
     expect(validate({ fromKey: "2024-12-31", toKey: "2024-12-31", workingKeys: ["2024-12-31"] })).toMatch(/can only be taken from/);
   });
-  it("enforces notice and the advance window for future leave only", () => {
-    expect(validate({ fromKey: "2026-10-30", toKey: "2026-10-30", workingKeys: ["2026-10-30"] })).toMatch(/notice/);
-    expect(validate({ fromKey: "2026-11-02", toKey: "2026-11-02", workingKeys: ["2026-11-02"] })).toBeNull();
+  it("enforces the notice period — including leave that starts today", () => {
+    const p = policy({ minAdvanceNotice: 3 }); // "apply at least 3 days before"
+    expect(validate({ policy: p })).toMatch(/at least 3 days notice/); // today (0 days ahead)
+    expect(validate({ policy: p, fromKey: "2026-10-30", toKey: "2026-10-30", workingKeys: ["2026-10-30"] })).toMatch(/notice/); // 1 day ahead
+    expect(validate({ policy: p, fromKey: "2026-11-02", toKey: "2026-11-02", workingKeys: ["2026-11-02"] })).toBeNull(); // 4 days ahead
+    // The message says the last day you could have applied.
+    expect(validate({ policy: p, fromKey: "2026-10-30", toKey: "2026-10-30", workingKeys: ["2026-10-30"] })).toMatch(/on or before 2026-10-27/);
+  });
+  it("enforces the advance window for future leave", () => {
     expect(validate({ policy: policy({ advanceDaysLimit: 3 }), fromKey: "2026-11-05", toKey: "2026-11-05", workingKeys: ["2026-11-05"] })).toMatch(/in advance/);
+    expect(validate({ policy: policy({ allowAdvanceDays: false }), fromKey: "2026-11-02", toKey: "2026-11-02", workingKeys: ["2026-11-02"] })).toMatch(/can't be applied in advance/);
   });
   it("converts notice in hours", () => {
     const p = policy({ minAdvanceNotice: 24, minAdvanceNoticeUnit: "HOURS" });
@@ -185,6 +193,18 @@ describe("applyExceededRule", () => {
       isLossOfPay: false,
       lopDays: 0,
     });
+  });
+  it("allows going over only until the year-end date", () => {
+    const p = policy({ exceededRule: "ALLOW_UNTIL_YEAR_END" });
+    // Before the leave type's year end → allowed.
+    expect(applyExceededRule({ policy: p, days: 3, available: 1, toKey: "2026-11-20", yearEndKey: "2026-11-30" })).toEqual({
+      isLossOfPay: false,
+      lopDays: 0,
+    });
+    // After it → refused.
+    expect(applyExceededRule({ policy: p, days: 3, available: 1, toKey: "2026-12-05", yearEndKey: "2026-11-30" })).toHaveProperty("error");
+    // No year-end date set → 31 Dec of that year.
+    expect(applyExceededRule({ policy: p, days: 3, available: 1, toKey: "2026-12-31" })).toEqual({ isLossOfPay: false, lopDays: 0 });
   });
 });
 

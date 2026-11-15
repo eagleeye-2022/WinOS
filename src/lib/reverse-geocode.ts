@@ -17,6 +17,13 @@ export interface ReverseGeocodeResult {
 
 /** The parts of Nominatim's `address` object we use. */
 export interface NominatimAddress {
+  /** Point-of-interest / building level — the most exact parts of the address. */
+  amenity?: string;
+  building?: string;
+  office?: string;
+  shop?: string;
+  house_name?: string;
+  house_number?: string;
   neighbourhood?: string;
   suburb?: string;
   quarter?: string;
@@ -46,8 +53,15 @@ function unique(parts: (string | undefined)[]): string[] {
   return out;
 }
 
-/** Turns a Nominatim address into our short name + full address. Pure, so it can be unit-tested. */
-export function formatNominatimAddress(a: NominatimAddress, displayName?: string): ReverseGeocodeResult | null {
+/**
+ * Turns a Nominatim address into our short name + full address. Pure, so it can be unit-tested.
+ * `placeName` is Nominatim's top-level `name` (the building / business at the point, when there is one).
+ */
+export function formatNominatimAddress(
+  a: NominatimAddress,
+  displayName?: string,
+  placeName?: string
+): ReverseGeocodeResult | null {
   // Road is the last resort for the area: city centres often have no neighbourhood/suburb tag.
   const area = a.neighbourhood || a.suburb || a.quarter || a.residential || a.hamlet || a.road;
   const locality = a.village || a.town || a.city || a.municipality || a.city_district;
@@ -59,8 +73,13 @@ export function formatNominatimAddress(a: NominatimAddress, displayName?: string
     : unique((displayName || "").split(",").slice(0, 2)).join(", ");
   if (!name) return null;
 
+  // The exact spot: the building / business, then "house number + road".
+  const poi = placeName || a.amenity || a.office || a.shop || a.building || a.house_name;
+  const street = a.road ? (a.house_number ? `${a.house_number} ${a.road}` : a.road) : undefined;
+
   // De-duplicated part by part, so "Indore" (city) and "Indore" (district) appear once.
-  const address = unique([...nameParts, district, a.state]).join(", ") + (a.postcode ? ` ${a.postcode}` : "");
+  const address =
+    unique([poi, street, ...nameParts, district, a.state]).join(", ") + (a.postcode ? ` ${a.postcode}` : "");
   return { name, address: address.trim() || name };
 }
 
@@ -111,11 +130,11 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`Nominatim responded ${res.status}`);
-      return (await res.json()) as { address?: NominatimAddress; display_name?: string; error?: string };
+      return (await res.json()) as { address?: NominatimAddress; display_name?: string; name?: string; error?: string };
     });
 
     if (!json || json.error || !json.address) return null;
-    const result = formatNominatimAddress(json.address, json.display_name);
+    const result = formatNominatimAddress(json.address, json.display_name, json.name || undefined);
     if (!result) return null;
 
     if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value!);

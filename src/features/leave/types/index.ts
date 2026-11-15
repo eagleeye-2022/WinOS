@@ -30,6 +30,8 @@ export interface LeaveTypeConfig {
   bookedDays: number;
   unit: "Days" | "Hours" | string;
   allowNegative?: boolean;
+  /** "Remaining balance only" visibility: don't show the booked figure. */
+  hideBooked?: boolean;
 }
 
 export type LeaveStatus = "APPROVED" | "PENDING" | "REJECTED" | "CANCELLED";
