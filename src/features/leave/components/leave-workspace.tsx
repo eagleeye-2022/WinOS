@@ -292,7 +292,6 @@ export function LeaveWorkspace({
           request={selectedRequest}
           leaveTypes={leaveTypes}
           onCancelRequest={handleCancelRequest}
-          onBack={() => setActiveTab("requests")}
           isManagerView={Boolean(
             selectedRequest.employee?.id &&
             currentUserId &&
@@ -310,7 +309,6 @@ export function LeaveWorkspace({
       {activeTab === "compensatory-details" && selectedCompRequest && (
         <CompensatoryDetailsView
           request={selectedCompRequest}
-          onBack={() => setActiveTab("compensatory")}
         />
       )}
 

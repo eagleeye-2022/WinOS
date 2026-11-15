@@ -4,7 +4,6 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   User,
   Mail,
   Phone,
@@ -19,10 +18,6 @@ import { getMyProfileData } from "../queries/attendance-queries";
 import { logoutAction } from "@/features/auth/actions/logout";
 import { ROUTES } from "@/constants/routes";
 import { PulseCard, StatusPill } from "@/components/pulse/pulse-ui";
-
-interface MyProfileViewProps {
-  onBack?: () => void;
-}
 
 type Profile = Awaited<ReturnType<typeof getMyProfileData>>;
 
@@ -48,7 +43,7 @@ function Field({ label, icon, value }: { label: string; icon?: React.ReactNode; 
   );
 }
 
-export function MyProfileView({ onBack }: MyProfileViewProps) {
+export function MyProfileView() {
   const [userProfile, setUserProfile] = useState<Profile>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, startTransition] = useTransition();
@@ -76,14 +71,6 @@ export function MyProfileView({ onBack }: MyProfileViewProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl select-none flex-col gap-4">
-      {/* Back Link */}
-      <button
-        onClick={onBack}
-        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        My Profile
-      </button>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-muted-foreground">

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  ArrowLeft,
   Calendar,
   LogIn,
   LogOut,
@@ -136,15 +135,6 @@ export function RegularizeAttendanceFormPage({
 
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Back link */}
-      <button
-        onClick={onBack}
-        className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-foreground hover:underline dark:text-blue-400"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
-
       {/* Title bar */}
       <div className="rounded-lg border border-border/70 bg-card px-5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <h1 className="text-lg font-semibold text-foreground">Regularize Attendance</h1>

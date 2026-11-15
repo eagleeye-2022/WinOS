@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
-  ChevronRight,
   X,
   Edit2,
   Calendar,
@@ -654,25 +652,7 @@ export function CreateLeaveTypeWizard({
       {/* Top Header & Breadcrumbs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <nav className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            <Link
-              href="/pulse/leave/team"
-              className="text-primary hover:underline hover:text-foreground transition-colors"
-            >
-              Leave Tracker
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-            <Link
-              href="/pulse/leave/team"
-              className="text-primary hover:underline hover:text-foreground transition-colors"
-            >
-              Leave Types
-            </Link>
-            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-            <span className="text-foreground">{isEdit ? "Edit Leave Type" : "Create New Leave Type"}</span>
-          </nav>
-
-          <div className="pt-2">
+          <div>
             <h1 className="text-lg font-semibold text-foreground">
               {isEdit ? `Edit Leave Type${leaveTypeName ? ` — ${leaveTypeName}` : ""}` : "Create New Leave Type"}
             </h1>
