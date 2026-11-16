@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { getTeamLeavePayrollData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { istDateKey } from "../utils";
 import { PeriodNav } from "@/components/shared/period-nav";
 
@@ -125,17 +127,16 @@ export function TeamLeavePayrollView() {
                       {/* Employee Cell */}
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <div
+                          <UserAvatar
+                            name={rec.name}
                             className={cn(
-                              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-linear-to-tr",
+                              "w-8 h-8 text-xs font-bold text-white bg-linear-to-tr",
                               rec.avatarGradient || "from-blue-500 to-indigo-600"
                             )}
                           >
                             {rec.name.charAt(0)}
-                          </div>
-                          <span className="font-semibold text-foreground">
-                            {rec.name}
-                          </span>
+                          </UserAvatar>
+                          <UserName name={rec.name} className="font-semibold text-foreground" />
                         </div>
                       </td>
 

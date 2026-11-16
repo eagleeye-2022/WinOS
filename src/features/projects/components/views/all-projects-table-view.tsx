@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useRef } from "react";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 
@@ -1730,7 +1731,9 @@ export function AllProjectsTableView({
                       {project.owner.initials}
                     </UserAvatar>
                     <span className="font-medium text-foreground truncate max-w-[100px]" title={project.owner.name}>
-                      {firstName(project.owner.name)}
+                      <UserName userId={project.owner.id} name={project.owner.name}>
+                        {firstName(project.owner.name)}
+                      </UserName>
                     </span>
                   </div>
 

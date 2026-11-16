@@ -14,6 +14,7 @@ import { RegularizationRequest, RegularizationStatus } from "../types";
 import { getRegularizationRequestsData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { PersonAvatar } from "./person-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface RegularizationRequestsListProps {
@@ -191,7 +192,9 @@ export function RegularizationRequestsList({
                         <div className="flex items-center gap-3">
                           <PersonAvatar name={req.employee.name} image={req.employee.avatarUrl} userId={req.employee.id} />
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-semibold text-foreground">{req.employee.name}</div>
+                            <div className="truncate text-[13px] font-semibold text-foreground">
+                              <UserName userId={req.employee.id} name={req.employee.name} />
+                            </div>
                             <div className="truncate text-xs text-muted-foreground">
                               {req.employee.designation}
                               {/* Employee ID hidden for now: {" "}• ID: {req.employee.employeeId} */}

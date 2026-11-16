@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useUserCardTrigger } from "./user-card";
 
 export type AvatarUser = { id: string; name: string | null; email: string; image: string | null };
 
@@ -64,11 +65,19 @@ export function UserAvatar({
   const src = image || looked;
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const showImage = Boolean(src) && src !== failedSrc;
+  // Click opens the person's user card (no-op inside buttons/links, which keep their own action).
+  const cardTrigger = useUserCardTrigger({ userId, name, email });
 
   return (
     <span
-      className={cn("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full", className)}
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full",
+        cardTrigger && "cursor-pointer",
+        className,
+      )}
       title={title ?? name ?? undefined}
+      onClick={cardTrigger?.onClick}
+      onKeyDown={cardTrigger?.onKeyDown}
     >
       {children}
       {showImage && (

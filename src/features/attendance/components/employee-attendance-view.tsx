@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect } from "react";
 import {
   UserPlus,
@@ -114,7 +115,9 @@ export function EmployeeAttendanceView({
             </UserAvatar>
             <div className="min-w-0 space-y-1 pb-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-foreground">{employee.name}</h2>
+                <h2 className="text-base font-semibold text-foreground">
+                  <UserName userId={employee.id} name={employee.name} />
+                </h2>
                 <StatusPill tone={employee.status === "ACTIVE" ? "green" : "gray"}>
                   {employee.status === "ACTIVE" ? "Active" : "Inactive"}
                 </StatusPill>

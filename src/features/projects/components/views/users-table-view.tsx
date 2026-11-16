@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState } from "react";
 import {
   UserPlus,
@@ -300,7 +301,7 @@ export function UsersTableView({
                           {user.initials}
                         </UserAvatar>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">{user.name}</span>
+                          <UserName userId={user.id} name={user.name} className="font-semibold text-foreground" />
                           <span className="text-xs text-muted-foreground">
                             {user.userType === "CLIENT" ? "Client Partner" : user.title}
                           </span>

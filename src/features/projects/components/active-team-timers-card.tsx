@@ -7,6 +7,8 @@ import { createTimeLogAction } from "../actions/project-actions";
 import { formatTimePeriodRange } from "../utils/time-helpers";
 import { TimerStoppedModal } from "./modals/timer-stopped-modal";
 import { toast } from "@/components/shared/toast";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import type { TimeLogEntry } from "../types";
 import {
   clearPendingTimerLog,
@@ -276,21 +278,21 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
                       {/* Team Member Column */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-xs flex items-center justify-center shrink-0 border border-primary/20">
-                            {item.user?.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={item.user.image}
-                                alt={userName}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              initials || <UserIcon className="w-4 h-4" />
-                            )}
-                          </div>
+                          <UserAvatar
+                            userId={item.user?.id}
+                            name={item.user?.name}
+                            email={item.user?.email}
+                            image={item.user?.image}
+                            title=""
+                            className="w-8 h-8 bg-primary/10 text-primary font-semibold text-xs border border-primary/20"
+                          >
+                            {initials || <UserIcon className="w-4 h-4" />}
+                          </UserAvatar>
                           <div>
                             <p className="font-semibold text-foreground text-xs flex items-center gap-1.5">
-                              {userName}
+                              <UserName userId={item.user?.id} name={item.user?.name} email={item.user?.email}>
+                                {userName}
+                              </UserName>
                               {isOwnTimer && (
                                 <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                                   You

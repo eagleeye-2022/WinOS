@@ -15,6 +15,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { NotesTopNav } from "./notes-top-nav";
 
 export type SharedNoteItem = {
@@ -269,10 +271,17 @@ export function SharedNotesView({ title, description, notes, type }: Props) {
                     <div className="flex items-center justify-between text-xs">
                       {type === "with-me" ? (
                         <div className="flex items-center gap-1.5 font-medium text-foreground">
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary shrink-0">
+                          <UserAvatar
+                            name={note.author?.name}
+                            email={note.author?.email}
+                            title=""
+                            className="h-5 w-5 bg-primary/15 text-xs font-bold text-primary"
+                          >
                             {authorInitial}
-                          </div>
-                          <span className="truncate text-xs font-semibold">{authorName}</span>
+                          </UserAvatar>
+                          <UserName name={note.author?.name} email={note.author?.email} className="truncate text-xs font-semibold">
+                            {authorName}
+                          </UserName>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full text-xs">

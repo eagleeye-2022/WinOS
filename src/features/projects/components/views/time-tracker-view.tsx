@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { RemarksPopupCell } from "../remarks-popup-cell";
 import { shortProjectName } from "../../utils/project-name";
 import { WHYFI_PROJECT_LABEL, WHYFI_SHORT_LABEL, normalizeDueDate } from "@/features/whyfi/constants";
@@ -2110,7 +2111,7 @@ export function TimeTrackerView({
                         >
                           {group.userInitials || "US"}
                         </UserAvatar>
-                        <span className="text-foreground font-bold text-xs">{group.userName}</span>
+                        <UserName userId={group.userId} name={group.userName} className="text-foreground font-bold text-xs" />
                         <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
                           {group.timeLogs.length} log{group.timeLogs.length !== 1 ? "s" : ""}
                         </span>

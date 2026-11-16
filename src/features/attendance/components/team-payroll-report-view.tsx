@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { istDateKey } from "../utils";
 import { PeriodNav } from "@/components/shared/period-nav";
 import { PersonAvatar } from "./person-avatar";
+import { UserName } from "@/components/shared/user-card";
 
 export function TeamPayrollReportView() {
   const [selectedMonth, setSelectedMonth] = useState(() => istDateKey().slice(0, 7));
@@ -132,7 +133,7 @@ export function TeamPayrollReportView() {
                         <PersonAvatar name={item.name} image={item.avatarUrl} />
                         <div>
                           <div className="font-bold text-foreground">
-                            {item.name}
+                            <UserName name={item.name} />
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {item.designation}

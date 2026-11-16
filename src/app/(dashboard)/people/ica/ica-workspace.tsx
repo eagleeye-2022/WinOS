@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
   FileText,
@@ -644,7 +645,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                       >
                         {getInitials(profile.userName)}
                       </UserAvatar>
-                      <span className="text-xs font-semibold text-foreground truncate">{profile.userName}</span>
+                      <UserName name={profile.userName} className="text-xs font-semibold text-foreground truncate" />
                     </div>
                   </div>
                 </div>
@@ -1166,7 +1167,7 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
                   >
                     {getInitials(profile.userName)}
                   </UserAvatar>
-                  <span className="text-xs font-bold text-foreground truncate">{profile.userName}</span>
+                  <UserName name={profile.userName} className="text-xs font-bold text-foreground truncate" />
                 </div>
               </div>
             </div>

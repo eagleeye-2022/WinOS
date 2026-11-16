@@ -23,6 +23,9 @@ import { getMyModuleAccessAction } from "@/features/users/actions/permission-act
 import { PendingTimerLogRecovery } from "@/features/projects/components/pending-timer-log-recovery";
 import { ChecklistGateHost } from "@/features/sop-checklists/components/checklist-gate";
 import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
+import { UserCardProvider } from "@/components/shared/user-card";
+import { presenceFrom, type UserCardUser } from "@/features/users/user-card-data";
+import { dateFromKey, istDateKey } from "@/features/attendance/utils";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { db } from "@/lib/db";
 import { MobileNavDrawer, MobileNavProvider, MobileNavToggle } from "@/components/shared/mobile-nav";
@@ -85,19 +88,43 @@ export default async function DashboardLayout({
 
   const isManager = userRole === "MANAGER";
 
-  const [unreadCount, recentNotifications, myModuleAccess, avatarUsers] = await Promise.all([
+  const today = dateFromKey(istDateKey())!;
+  const [unreadCount, recentNotifications, myModuleAccess, directory] = await Promise.all([
     getUnreadCount(),
     getNotifications(20),
     getMyModuleAccessAction(),
-    // Only users with a photo — everyone else falls back to initials.
+    // Everyone's photo (for avatars) plus what the user card shows — one query, so opening a
+    // card never fetches anything.
     db.user.findMany({
-      where: { image: { not: null } },
-      select: { id: true, name: true, email: true, image: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        title: true,
+        department: true,
+        isActive: true,
+        dailyAttendances: {
+          where: { date: today },
+          select: { isLive: true, workMode: true, checkInTime: true, checkOutTime: true },
+          take: 1,
+        },
+        leaveRequests: {
+          where: { status: "APPROVED", fromDate: { lte: today }, toDate: { gte: today } },
+          select: { id: true },
+          take: 1,
+        },
+      },
     }),
   ]);
+  const cardUsers: UserCardUser[] = directory.map(({ dailyAttendances, leaveRequests, ...u }) => ({
+    ...u,
+    presence: presenceFrom(dailyAttendances[0], leaveRequests.length > 0),
+  }));
 
   return (
-    <UserAvatarProvider users={avatarUsers}>
+    <UserAvatarProvider users={cardUsers}>
+    <UserCardProvider users={cardUsers} viewerId={userId} viewerIsManager={isManager}>
     <MobileNavProvider>
     {/* 100dvh, not 100vh: on phones the browser's address bar would otherwise hide the bottom. */}
     <div className="flex h-[100dvh] w-screen flex-col overflow-hidden">
@@ -152,6 +179,7 @@ export default async function DashboardLayout({
             <Link
               href={`/settings/users/member/${session.user.id}/edit`}
               title={`Profile: ${userName}`}
+              data-no-user-card
               className="rounded-full hover:opacity-90 transition-opacity"
             >
               <UserAvatar
@@ -196,6 +224,7 @@ export default async function DashboardLayout({
 
     </div>
     </MobileNavProvider>
+    </UserCardProvider>
     </UserAvatarProvider>
   );
 }

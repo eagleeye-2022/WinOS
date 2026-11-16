@@ -15,6 +15,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import {
   PulseCard,
   PulseCardLink,
@@ -221,7 +222,11 @@ function PersonRow({ person }: { person: PulsePerson }) {
         />
       </div>
       <div className="min-w-0 text-sm">
-        <p className="truncate font-medium text-foreground">{personLabel(person)}</p>
+        <p className="truncate font-medium text-foreground">
+          <UserName userId={person.id} name={person.name} email={person.email}>
+            {personLabel(person)}
+          </UserName>
+        </p>
         <p className={cn("text-xs", TONE_TEXT[tone])}>{person.presence.label}</p>
       </div>
     </div>

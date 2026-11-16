@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Pencil, Trash2, Clock, Crown, User as UserIcon, Loader2, Repeat } from "lucide-react";
@@ -221,7 +222,7 @@ export function EventDetailPopover({ event, currentUserEmail, onClose, onEdit, o
 
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-foreground truncate">
-                            {nameStr}
+                            <UserName email={a.email}>{nameStr}</UserName>
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {a.email}

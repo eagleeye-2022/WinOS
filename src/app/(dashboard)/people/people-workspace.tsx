@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { uploadRtdFileAction, getRtdDocumentsAction, saveRtdManagerNotesAction, type RTDDocument } from "./actions";
 import {
@@ -325,7 +326,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                             {doc.submittedBy.initials}
                           </UserAvatar>
                           <div>
-                            <span className="font-medium text-foreground">{doc.submittedBy.name}</span>
+                            <UserName name={doc.submittedBy.name} email={doc.submittedBy.email} className="font-medium text-foreground" />
                             <span className="block text-xs text-muted-foreground leading-none mt-0.5">{doc.submittedBy.email}</span>
                           </div>
                         </div>
@@ -570,7 +571,7 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
                         >
                           {activeDoc.submittedBy.initials}
                         </UserAvatar>
-                        <span className="text-xs font-semibold text-foreground truncate">{activeDoc.submittedBy.name}</span>
+                        <UserName name={activeDoc.submittedBy.name} email={activeDoc.submittedBy.email} className="text-xs font-semibold text-foreground truncate" />
                       </div>
                     </div>
                   </div>

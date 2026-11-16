@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import {
   Clock,
   Calendar,
@@ -179,10 +181,14 @@ export function ProjectStatusTimelineView({ projectId, projectName }: ProjectSta
                   )}
 
                   <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
-                    <div className={`h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold ${ev.actorAvatarColor || "bg-primary text-primary-foreground"}`}>
+                    <UserAvatar
+                      name={ev.actorName}
+                      title=""
+                      className={`h-5 w-5 text-xs font-bold ${ev.actorAvatarColor || "bg-primary text-primary-foreground"}`}
+                    >
                       {ev.actorName[0]?.toUpperCase()}
-                    </div>
-                    <span>By <strong className="text-foreground">{ev.actorName}</strong></span>
+                    </UserAvatar>
+                    <span>By <strong className="text-foreground"><UserName name={ev.actorName} /></strong></span>
                   </div>
                 </div>
               </div>

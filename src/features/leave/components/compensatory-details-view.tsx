@@ -22,6 +22,8 @@ import {
 import { errorMessage, unwrap } from "../action-result";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 const STATUS_TONE: Record<string, PulseTone> = { APPROVED: "green", REJECTED: "red", PENDING: "amber", CANCELLED: "gray" };
@@ -138,12 +140,15 @@ export function CompensatoryDetailsView({
 
             {/* Employee Row */}
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                <span>{request.avatarText}</span>
-              </div>
+              <UserAvatar
+                name={employee.name}
+                className="h-10 w-10 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+              >
+                {request.avatarText}
+              </UserAvatar>
               <div>
                 <div className="font-bold text-foreground text-sm">
-                  {employee.name}
+                  <UserName name={employee.name} />
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {employee.empId ? `${employee.empId} • ` : ""}

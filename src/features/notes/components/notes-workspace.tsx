@@ -24,6 +24,8 @@ import {
   Search,
 } from "lucide-react";
 import { cn, toTitleText } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 import dynamic from "next/dynamic";
 
@@ -1288,16 +1290,18 @@ export function NotesWorkspace({
                     const displayName = s.user?.name || s.user?.email?.split("@")[0] || "?";
                     const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                     return (
-                      <div
-                        key={s.userId}
-                        title={displayName}
-                        className="w-7 h-7 rounded-full border-2 border-white/30 bg-primary flex items-center justify-center text-xs font-bold text-white -ml-2 first:ml-0 shadow"
-                        style={{ zIndex: 10 - i }}
-                      >
-                        {s.user?.image ? (
-                          <img src={s.user.image} alt={initials} className="w-full h-full rounded-full object-cover" />
-                        ) : initials}
-                      </div>
+                      <span key={s.userId} className="-ml-2 first:ml-0 inline-flex" style={{ zIndex: 10 - i }}>
+                        <UserAvatar
+                          userId={s.userId}
+                          name={s.user?.name}
+                          email={s.user?.email}
+                          image={s.user?.image}
+                          title={displayName}
+                          className="w-7 h-7 border-2 border-white/30 bg-primary text-xs font-bold text-white shadow"
+                        >
+                          {initials}
+                        </UserAvatar>
+                      </span>
                     );
                   })}
                   {activeBoard.shares.length > 4 && (
@@ -1666,11 +1670,20 @@ export function NotesWorkspace({
                 const ownerInitials = ownerName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                 return (
                   <div className="flex items-center gap-3 px-5 py-3 border-b bg-muted/30">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white shrink-0 ring-2 ring-primary/30">
-                      {owner?.image ? <img src={owner.image} alt={ownerInitials} className="w-full h-full rounded-full object-cover" /> : ownerInitials}
-                    </div>
+                    <UserAvatar
+                      userId={owner?.id}
+                      name={owner?.name}
+                      email={owner?.email}
+                      image={owner?.image}
+                      title=""
+                      className="w-8 h-8 bg-primary text-xs font-bold text-white ring-2 ring-primary/30"
+                    >
+                      {ownerInitials}
+                    </UserAvatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-foreground truncate">{ownerName}</p>
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {owner ? <UserName userId={owner.id} name={owner.name} email={owner.email}>{ownerName}</UserName> : ownerName}
+                      </p>
                       <p className="text-xs text-muted-foreground/70 truncate">{owner?.title || owner?.email}</p>
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full shrink-0">Owner</span>
@@ -1690,11 +1703,20 @@ export function NotesWorkspace({
                     const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
                     return (
                       <div key={s.userId} className="flex items-center gap-3 px-5 py-2.5 hover:bg-accent/40 transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground shrink-0">
-                          {u.image ? <img src={u.image} alt={initials} className="w-full h-full rounded-full object-cover" /> : initials}
-                        </div>
+                        <UserAvatar
+                          userId={u.id}
+                          name={u.name}
+                          email={u.email}
+                          image={u.image}
+                          title=""
+                          className="w-8 h-8 bg-muted text-xs font-semibold text-foreground"
+                        >
+                          {initials}
+                        </UserAvatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            <UserName userId={u.id} name={u.name} email={u.email}>{displayName}</UserName>
+                          </p>
                           <p className="text-xs text-muted-foreground/70 truncate">{u.title || u.email}</p>
                         </div>
                         {/* Can Edit toggle */}

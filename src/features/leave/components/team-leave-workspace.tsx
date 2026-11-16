@@ -39,6 +39,8 @@ import { TeamCalendarView } from "./team-calendar-view";
 import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 
@@ -575,12 +577,15 @@ export function TeamLeaveWorkspace({
                         {/* Employee */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                            <UserAvatar
+                              name={req.employeeName}
+                              className="h-8 w-8 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                            >
                               {req.avatarText}
-                            </div>
+                            </UserAvatar>
                             <div>
                               <div className="flex items-center gap-1.5 font-semibold text-foreground leading-tight">
-                                {req.employeeName}
+                                <UserName name={req.employeeName} />
                                 {req.isOwn && <StatusPill tone="blue">You</StatusPill>}
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
@@ -775,12 +780,15 @@ export function TeamLeaveWorkspace({
                       <tr key={comp.id} className="transition-colors hover:bg-muted/40">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                            <UserAvatar
+                              name={comp.employeeName}
+                              className="h-8 w-8 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                            >
                               {comp.avatarText}
-                            </div>
+                            </UserAvatar>
                             <div>
                               <div className="font-semibold text-foreground leading-tight">
-                                {comp.employeeName}
+                                <UserName name={comp.employeeName} />
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 {comp.designation}

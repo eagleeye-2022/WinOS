@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import {
   Calendar as CalendarIcon,
@@ -444,7 +445,7 @@ export function TeamCalendarView() {
                     <div className="space-y-0.5 flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <div className="font-semibold text-foreground text-xs leading-tight truncate">
-                          {leave.employeeName}
+                          <UserName name={leave.employeeName} />
                         </div>
                         <span
                           className={cn(

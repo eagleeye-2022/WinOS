@@ -21,6 +21,7 @@ import { getTeamShiftSummaryData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { formatShortDate, istDateKey } from "../utils";
 import { PersonAvatar } from "./person-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { PeriodNav } from "@/components/shared/period-nav";
 
 export function TeamShiftSummaryView() {
@@ -158,7 +159,7 @@ export function TeamShiftSummaryView() {
                         <PersonAvatar name={item.employeeName} image={item.avatarUrl} />
                         <div>
                           <div className="font-bold text-foreground">
-                            {item.employeeName}
+                            <UserName name={item.employeeName} />
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {item.designation}

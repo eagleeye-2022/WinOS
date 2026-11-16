@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState } from "react";
 import {
   Calendar,
@@ -133,7 +134,9 @@ export function RegularizationRequestDetails({
             <div className="min-w-0 space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regularization Request</p>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-foreground">{request.employee.name}</h2>
+                <h2 className="text-base font-semibold text-foreground">
+                  <UserName userId={request.employee.id} name={request.employee.name} />
+                </h2>
                 <StatusPill tone={STATUS_TONE[currentStatus] ?? "gray"}>
                   {statusIcon}
                   {currentStatus === "Pending" ? "Pending Approval" : currentStatus}

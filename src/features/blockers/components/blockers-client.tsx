@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare, Clock, Clock3, Users, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterBlockers, type BlockerStatusFilter, type BlockerPriorityFilter } from "../utils";
@@ -347,9 +349,9 @@ function DetailPanel({
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   <span className="text-xs font-medium text-muted-foreground">Mentioned:</span>
                   {item.mentionedUsers.map((m) => (
-                    <span key={m.id} className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    <UserName key={m.id} userId={m.id} name={m.name} email={m.email} className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
                       @{m.name?.split(" ")[0]?.toLowerCase() ?? m.email.split("@")[0]}
-                    </span>
+                    </UserName>
                   ))}
                 </div>
               )}
@@ -929,13 +931,24 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
                           onClick={(e) => e.stopPropagation()}
                           className="group/member flex items-center gap-2.5 hover:opacity-90"
                         >
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary group-hover/member:bg-primary/20">
+                          <UserAvatar
+                            userId={item.raisedBy.id}
+                            name={item.raisedBy.name}
+                            email={item.raisedBy.email}
+                            title=""
+                            className="h-7 w-7 bg-primary/10 text-xs font-bold text-primary group-hover/member:bg-primary/20"
+                          >
                             {(item.raisedBy.name ?? item.raisedBy.email).slice(0, 2).toUpperCase()}
-                          </span>
+                          </UserAvatar>
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium leading-none text-foreground group-hover/member:underline">
+                            <UserName
+                              userId={item.raisedBy.id}
+                              name={item.raisedBy.name}
+                              email={item.raisedBy.email}
+                              className="text-sm font-medium leading-none text-foreground group-hover/member:underline"
+                            >
                               {item.raisedBy.name ?? item.raisedBy.email.split("@")[0]}
-                            </span>
+                            </UserName>
                             <span className="mt-1 text-xs text-muted-foreground leading-none">
                               {item.raisedBy.title ?? (item.raisedBy.role === "MANAGER" ? "Manager" : "Team Member")}
                             </span>
@@ -946,9 +959,9 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
                         {item.mentionedUsers && item.mentionedUsers.length > 0 ? (
                           <div className="flex flex-wrap items-center gap-1">
                             {item.mentionedUsers.map((m) => (
-                              <span key={m.id} className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                              <UserName key={m.id} userId={m.id} name={m.name} email={m.email} className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
                                 @{m.name?.split(" ")[0] ?? m.email.split("@")[0]}
-                              </span>
+                              </UserName>
                             ))}
                           </div>
                         ) : (

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
@@ -1112,11 +1114,21 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
         {/* Member header */}
         <div className="flex items-center justify-between rounded-xl border bg-card p-5">
           <div className="flex items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+            <UserAvatar
+              userId={user.id}
+              name={user.name}
+              email={user.email}
+              title=""
+              className="h-16 w-16 bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10"
+            >
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-            </span>
+            </UserAvatar>
             <div>
-              <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
+              <h2 className="text-2xl font-bold">
+                <UserName userId={user.id} name={user.name} email={user.email}>
+                  {toTitleCase(user.name ?? user.email.split("@")[0])}
+                </UserName>
+              </h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
             </div>
           </div>

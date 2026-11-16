@@ -50,6 +50,7 @@ import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-u
 const STATUS_TONE: Record<string, PulseTone> = { APPROVED: "green", REJECTED: "red", PENDING: "amber", CANCELLED: "gray" };
 const STATUS_LABEL: Record<string, string> = { APPROVED: "Approved", REJECTED: "Rejected", PENDING: "Pending", CANCELLED: "Cancelled" };
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 
 interface LeaveRequestDetailsViewProps {
   request: LeaveRequest;
@@ -340,7 +341,7 @@ export function LeaveRequestDetailsView({
                   </UserAvatar>
                   <div>
                     <div className="font-bold text-foreground text-sm leading-tight">
-                      {employee.name}
+                      <UserName userId={employee.id} name={employee.name} />
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {employee.empId} • {employee.role}

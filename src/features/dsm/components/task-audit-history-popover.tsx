@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState } from "react";
 import {
   History,
@@ -235,7 +236,7 @@ export function TaskAuditHistoryPopover({
                   {row.who && (
                     <p className="flex items-center gap-1.5 truncate text-xs font-semibold text-foreground" title={row.who}>
                       {row.avatar ? (
-                        <img src={row.avatar} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+                        <UserAvatar name={row.who} image={row.avatar} title="" className="h-4 w-4 bg-muted" />
                       ) : (
                         <UserAvatar
                           name={row.who}
@@ -245,7 +246,7 @@ export function TaskAuditHistoryPopover({
                           {getInitials(row.who)}
                         </UserAvatar>
                       )}
-                      <span className="truncate">{row.who}</span>
+                      <UserName name={row.who} className="truncate" />
                     </p>
                   )}
                   {row.when && <p className="text-xs text-muted-foreground">{row.when}</p>}
