@@ -16,6 +16,19 @@ export function formatTime12h(date: Date): string {
 }
 
 /**
+ * formatTime12h in Indian Standard Time, whatever time zone the process runs in. Use this in
+ * server code: deployed servers run in UTC, where formatTime12h gives times 5h30m early.
+ */
+export function formatTime12hIST(date: Date): string {
+  return formatTime12h(new Date(date.getTime() + 330 * 60000 + date.getTimezoneOffset() * 60000));
+}
+
+/** True when both instants fall on the same IST calendar day (server-safe isSameLocalDay). */
+export function isSameISTDay(a: Date, b: Date): boolean {
+  return toISTDateString(a) === toISTDateString(b);
+}
+
+/**
  * A time log's calendar day as YYYY-MM-DD in IST. Log dates are stored as
  * instants (imported logs at midnight IST), so taking the UTC date shows them
  * one day early.
@@ -303,7 +316,9 @@ export function decodeDescriptionWithTimePeriod(description?: string | null): {
   if (!description) {
     return { timePeriod: "", remarks: "" };
   }
-  const match = description.match(/^\[([^\]]+)\]\s*(.*)$/);
+  // [\s\S]* rather than .*: notes can span several lines, and `.` stops at a newline — the match
+  // then failed, the time period was lost, and the log showed a range guessed from createdAt.
+  const match = description.match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
   if (match) {
     return {
       timePeriod: match[1].trim(),
@@ -344,5 +359,6 @@ export function resolveLogTimePeriod(
   }
 
   const start = new Date(end.getTime() - durationMinutes * 60000);
-  return `${formatTime12h(start)} – ${formatTime12h(end)}`;
+  // Runs on the server (UTC when deployed), so format in IST, not the process's local time.
+  return `${formatTime12hIST(start)} – ${formatTime12hIST(end)}`;
 }

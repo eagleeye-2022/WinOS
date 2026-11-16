@@ -248,7 +248,7 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
       const minutes = Math.max(1, Math.round((now.getTime() - startedAt.getTime()) / 60000));
       // Safety net (stale screen / other tab), so it's logged without asking. Keep the range when
       // it stayed within one day; a timer left running past midnight is logged duration-only.
-      const timePeriod = isSameLocalDay(startedAt, now) ? `${formatTime12h(startedAt)} – ${formatTime12h(now)}` : "";
+      const timePeriod = isSameISTDay(startedAt, now) ? `${formatTime12hIST(startedAt)} – ${formatTime12hIST(now)}` : "";
       await d.projectTimeLog.create({
         data: {
           projectId: existing.projectId,
@@ -315,13 +315,13 @@ export async function createActiveTimerAction(params: StartActiveTimerParams | a
  *  - Deletes the ActiveTimer record
  */
 import {
-  formatTime12h,
+  formatTime12hIST,
   parseDurationMinutes,
   encodeDescriptionWithTimePeriod,
   calculateMinutesFromTimeRange,
   formatTimePeriodRange,
   parseDateAndTimeToDate,
-  isSameLocalDay,
+  isSameISTDay,
 } from "../utils/time-helpers";
 
 export async function stopActiveTimerAction(params?: StopActiveTimerParams | any) {
@@ -359,8 +359,8 @@ export async function stopActiveTimerAction(params?: StopActiveTimerParams | any
     if (rangeMins && rangeMins > 0) {
       durationMinutes = rangeMins;
     }
-  } else if (isSameLocalDay(startedAt, now)) {
-    timePeriodStr = `${formatTime12h(startedAt)} – ${formatTime12h(now)}`;
+  } else if (isSameISTDay(startedAt, now)) {
+    timePeriodStr = `${formatTime12hIST(startedAt)} – ${formatTime12hIST(now)}`;
   }
 
   if (params?.duration) {
