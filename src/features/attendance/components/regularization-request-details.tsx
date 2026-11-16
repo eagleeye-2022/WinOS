@@ -230,7 +230,7 @@ export function RegularizationRequestDetails({
             </div>
           </PulseCard>
 
-          <PulseCard title="Timing Details" icon={<Clock className="h-4 w-4" />} bodyClassName="px-0 pb-0 pt-3">
+          <PulseCard title="Timing Details" icon={<Clock className="h-4 w-4" />} bodyClassName="overflow-x-auto px-0 pb-0 pt-3">
             <table className="w-full border-t border-border/70 text-left text-xs">
               <thead>
                 <tr className="bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

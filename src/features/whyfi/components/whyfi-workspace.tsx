@@ -842,7 +842,8 @@ function ListColumn({
       aria-busy={isSavingList || undefined}
       {...listDropProps}
       className={cn(
-        "flex h-full w-[360px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
+        // Never wider than a phone screen (minus the board padding); 360px everywhere else.
+        "flex h-full w-[min(360px,calc(100vw-3rem))] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-100/70 p-3.5 shadow-2xs transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-900/40",
         // A list being created: visible straight away, usable once the server has saved it.
         isSavingList && "pointer-events-none opacity-60",
         dnd.dragListId === list.id && "opacity-40",
@@ -1513,7 +1514,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
     <ActiveTimerProvider>
       <div className="flex h-full w-full flex-col overflow-hidden bg-background">
         {/* Header */}
-        <div className="flex flex-col justify-between gap-3 border-b bg-card px-6 py-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-3 border-b bg-card px-4 py-3 sm:flex-row sm:items-center sm:px-6">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
               <GraduationCap size={18} />
@@ -1554,7 +1555,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
           {tab === "TASKS" && (
             <div className="flex h-full flex-col">
               {/* Toolbar */}
-              <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-6 py-2.5">
+              <div className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 sm:px-6">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -1590,7 +1591,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               </div>
 
               {/* Board */}
-              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-4.5 dark:bg-background/40">
+              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-3 sm:p-4.5 dark:bg-background/40">
                 <div data-col-scope className="flex h-full items-stretch gap-3.5">
                   {orderedLists.map((list) => (
                     <ListColumn
@@ -1614,7 +1615,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   ))}
 
                   {workspace.lists.length === 0 && !workspace.isManager && (
-                    <div className="flex h-36 w-[360px] shrink-0 items-center justify-center rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
+                    <div className="flex h-36 w-[min(360px,calc(100vw-3rem))] shrink-0 items-center justify-center rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
                       No learning task lists have been shared with you yet.
                     </div>
                   )}
@@ -1622,7 +1623,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   {/* Create Task List column (managers) */}
                   {workspace.isManager &&
                     (!isAddingList ? (
-                      <div className="flex h-full w-[300px] shrink-0 flex-col justify-start rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/60 p-3.5 shadow-2xs transition-all duration-200 hover:border-primary/50 dark:border-neutral-800 dark:bg-neutral-900/30">
+                      <div className="flex h-full w-[min(300px,calc(100vw-3rem))] shrink-0 flex-col justify-start rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/60 p-3.5 shadow-2xs transition-all duration-200 hover:border-primary/50 dark:border-neutral-800 dark:bg-neutral-900/30">
                         <button
                           type="button"
                           onClick={() => setIsAddingList(true)}
@@ -1632,7 +1633,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex h-full w-[340px] shrink-0 flex-col space-y-3 rounded-2xl border border-zinc-300 bg-card p-4 shadow-md transition-all duration-200 dark:border-neutral-700 dark:bg-[#16181d]">
+                      <div className="flex h-full w-[min(340px,calc(100vw-3rem))] shrink-0 flex-col space-y-3 rounded-2xl border border-zinc-300 bg-card p-4 shadow-md transition-all duration-200 dark:border-neutral-700 dark:bg-[#16181d]">
                         <div className="flex items-center justify-between border-b border-border pb-2.5 dark:border-neutral-800">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                             <Layers size={14} className="text-[#0088ff]" />

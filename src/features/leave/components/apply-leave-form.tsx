@@ -877,7 +877,7 @@ export function ApplyLeaveForm({
             <div className="space-y-4 px-6 py-5">
               <SectionTitle n={5}>Leave Summary</SectionTitle>
 
-              <div className="overflow-hidden rounded-md border border-border/70 bg-background">
+              <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

@@ -93,9 +93,10 @@ export function AttendanceMonthView({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    // Phones: the month keeps a readable width and scrolls sideways.
+    <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Weekday header */}
-      <div className="grid grid-cols-7 border-b border-border/70 bg-muted/40 text-center">
+      <div className="grid min-w-[640px] grid-cols-7 border-b border-border/70 bg-muted/40 text-center">
         {daysOfWeek.map((day) => (
           <div key={day} className="py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {day}
@@ -104,7 +105,7 @@ export function AttendanceMonthView({
       </div>
 
       {/* Day cells */}
-      <div className="grid grid-cols-7">
+      <div className="grid min-w-[640px] grid-cols-7">
         {calendarCells.map((cell, idx) => {
           const record = records[cell.dateStr];
           const isSelected = cell.dateStr === selectedDate;

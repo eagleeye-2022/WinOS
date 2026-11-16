@@ -210,9 +210,10 @@ export function TeamCalendarView() {
           </div>
 
           {/* Calendar Grid */}
-          <div className="overflow-hidden rounded-md border border-border/70 bg-background">
+          {/* Phones: the month keeps a readable width and scrolls sideways. */}
+          <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
             {/* Days Header */}
-            <div className="grid grid-cols-7 border-b border-border/70 bg-muted/40 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="grid min-w-[640px] grid-cols-7 border-b border-border/70 bg-muted/40 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <div>Sun</div>
               <div>Mon</div>
               <div>Tue</div>
@@ -223,7 +224,7 @@ export function TeamCalendarView() {
             </div>
 
             {/* Days Body */}
-            <div className="grid grid-cols-7 divide-x divide-y divide-border/60">
+            <div className="grid min-w-[640px] grid-cols-7 divide-x divide-y divide-border/60">
               {/* Previous month grey days */}
               {calendarData.prevDays.map((d, idx) => (
                 <div

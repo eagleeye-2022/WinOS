@@ -25,6 +25,7 @@ import { ChecklistGateHost } from "@/features/sop-checklists/components/checklis
 import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { db } from "@/lib/db";
+import { MobileNavDrawer, MobileNavProvider, MobileNavToggle } from "@/components/shared/mobile-nav";
 
 // ── WinOS brand mark ─────────────────────────────────────────────────────────
 
@@ -97,7 +98,9 @@ export default async function DashboardLayout({
 
   return (
     <UserAvatarProvider users={avatarUsers}>
-    <div className="flex h-screen w-screen flex-col overflow-hidden">
+    <MobileNavProvider>
+    {/* 100dvh, not 100vh: on phones the browser's address bar would otherwise hide the bottom. */}
+    <div className="flex h-[100dvh] w-screen flex-col overflow-hidden">
       <SessionGuard />
       {/* Per-module "where you left off": last URL + scroll, restored on module re-entry. */}
       <NavigationStateTracker />
@@ -110,22 +113,27 @@ export default async function DashboardLayout({
       {/* ── Full-width top bar ──────────────────────────────────────────────── */}
       <RouteDarkScope match="/dsm">
         <header className="relative flex h-14 shrink-0 items-center border-b bg-card z-50 mb-2">
-          {/* Brand — same visual width as the sidebar */}
-          <div className="flex h-full w-56 shrink-0 items-center border-r px-4">
+          {/* Phones: ☰ opens the sidebar drawer */}
+          <MobileNavToggle className="ml-2" />
+
+          {/* Brand — same visual width as the sidebar (hidden on phones to make room) */}
+          <div className="hidden h-full w-56 shrink-0 items-center border-r px-4 md:flex">
             <WinOSBrand />
           </div>
 
-          {/* Clock & Switcher */}
-          <div className="flex items-center gap-3 px-4 shrink-0">
-            <ClockChip />
+          {/* Clock & Switcher — on phones the switcher takes the free width and scrolls sideways */}
+          <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto px-2 [scrollbar-width:none] md:flex-none md:shrink-0 md:overflow-visible md:px-4">
+            <div className="hidden lg:block">
+              <ClockChip />
+            </div>
             <ModuleSwitcher access={myModuleAccess.access} isManager={isManager} />
           </div>
 
           {/* Spacer — keeps right icons pinned while leaving room for future content */}
-          <div className="flex-1" />
+          <div className="hidden flex-1 md:block" />
 
           {/* Right icons */}
-          <div className="flex items-center gap-2 px-4">
+          <div className="flex shrink-0 items-center gap-1 px-2 md:gap-2 md:px-4">
             <NotificationBell
               initialUnread={unreadCount}
               initialNotifications={recentNotifications}
@@ -137,7 +145,7 @@ export default async function DashboardLayout({
               size="icon"
               aria-label="Help"
               title="Help"
-              className="h-8 w-8 rounded-full text-muted-foreground"
+              className="hidden h-8 w-8 rounded-full text-muted-foreground sm:inline-flex"
             >
               <HelpCircle size={16} />
             </Button>
@@ -173,13 +181,13 @@ export default async function DashboardLayout({
       {/* ── Sidebar + content row ───────────────────────────────────────────── */}
       <div className="flex flex-1 justify-start w-full min-h-0">
         <RouteDarkScope match="/dsm">
-          <div className="h-full w-56 shrink-0">
+          <MobileNavDrawer>
             <AppSidebar
               userRole={userRole}
               userId={session?.user?.id}
               canManagePulse={canManageAttendance(session?.user)}
             />
-          </div>
+          </MobileNavDrawer>
         </RouteDarkScope>
 
         <main data-nav-root className="flex-1 min-w-0 h-full overflow-hidden">{children}</main>
@@ -187,6 +195,7 @@ export default async function DashboardLayout({
       </div>
 
     </div>
+    </MobileNavProvider>
     </UserAvatarProvider>
   );
 }
