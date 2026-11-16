@@ -390,7 +390,7 @@ export function LeaveBalanceAdjustmentView({
         </div>
 
         {/* Adjustments Table */}
-        <div className="overflow-hidden rounded-md border border-border/70 bg-background">
+        <div className="overflow-x-auto rounded-md border border-border/70 bg-background">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

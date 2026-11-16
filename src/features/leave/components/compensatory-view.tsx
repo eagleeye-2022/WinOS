@@ -98,7 +98,7 @@ export function CompensatoryView() {
       </div>
 
       <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
-        <div className="border border-border/80 rounded-md overflow-hidden">
+        <div className="border border-border/80 rounded-md overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-muted/40 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">

@@ -198,7 +198,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
       </div>
 
       {/* Holiday list */}
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
