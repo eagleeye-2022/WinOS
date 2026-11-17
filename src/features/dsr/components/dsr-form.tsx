@@ -13,6 +13,7 @@ import { projectTaskHref } from "@/lib/project-task-href";
 import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-task-timer-badge";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
+import { AdditionalWorkDash, AdditionalWorkDoneToggle } from "@/features/dsm/components/yesterday-additional-work";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -427,58 +428,71 @@ function AdditionalWorkSection({
         )}
       </div>
       <div className="flex flex-col gap-3">
-        {items.map((item, i) => (
-          <div key={i} className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              {taskLabels[i] ? `T${i + 1}` : `T${i + 1}`}
-            </span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() => toggle(i)}
-                className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                  item.completed
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background",
-                  readOnly && "cursor-not-allowed opacity-80"
-                )}
-              >
-                {item.completed && (
-                  <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-                    <polyline points="1,4 3,6 7,2" />
-                  </svg>
-                )}
-              </button>
-              <input
-                type="text"
-                disabled={readOnly}
-                value={item.text}
-                onChange={(e) => update(i, e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (!readOnly && i === items.length - 1 && item.text.trim()) {
-                      add();
-                    }
-                  }
-                }}
-                placeholder={`Additional Work for T${i + 1}...`}
-                className={cn(
-                  "flex-1 rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
-                  readOnly && "cursor-not-allowed bg-muted/20 text-foreground",
-                  !item.completed && "opacity-70"
-                )}
-              />
-              {!readOnly && (
-                <button type="button" onClick={() => remove(i)} className="shrink-0 text-muted-foreground hover:text-destructive">
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+        {/* Same columns as the task tables; additional work has no project / ID / priority / due
+            date / effort, so those cells show "—". */}
+        {items.length > 0 && (
+          <div className={TASK_TABLE_SCROLL}>
+            <table className={cn("w-full min-w-[900px] border-collapse", STICKY_PROJECT_COL_3)}>
+              <TaskTableHead withCheckbox withAction={!readOnly} />
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={i} className="border-b last:border-b-0 transition-colors hover:bg-muted/40">
+                    <td className="py-2 pr-2 align-top">
+                      <AdditionalWorkDoneToggle
+                        completed={item.completed}
+                        disabled={readOnly}
+                        onClick={readOnly ? undefined : () => toggle(i)}
+                      />
+                    </td>
+                    <td className="py-2 pr-2 align-top text-xs font-semibold text-muted-foreground" title={taskLabels[i]}>
+                      A{i + 1}
+                    </td>
+                    <td className="py-2 pr-3 align-top"><AdditionalWorkDash /></td>
+                    <td className="py-2 pr-3 align-top"><AdditionalWorkDash /></td>
+                    <td className="py-1.5 pr-3 align-top">
+                      <input
+                        type="text"
+                        disabled={readOnly}
+                        value={item.text}
+                        onChange={(e) => update(i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (!readOnly && i === items.length - 1 && item.text.trim()) {
+                              add();
+                            }
+                          }
+                        }}
+                        placeholder={`Additional Work A${i + 1}...`}
+                        className={cn(
+                          "w-full min-w-60 rounded-md border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary placeholder:text-muted-foreground/50",
+                          readOnly && "cursor-not-allowed bg-muted/20 text-foreground",
+                          !item.completed && "opacity-70"
+                        )}
+                      />
+                    </td>
+                    <td className="w-20 py-2 pr-3 align-top"><AdditionalWorkDash /></td>
+                    <td className="py-2 pr-3 align-top"><AdditionalWorkDash /></td>
+                    <td className="py-2 pr-3 align-top"><AdditionalWorkDash /></td>
+                    {!readOnly && (
+                      <td className="py-2 pr-2 align-top text-center">
+                        <button
+                          type="button"
+                          onClick={() => remove(i)}
+                          title="Remove"
+                          aria-label={`Remove additional work A${i + 1}`}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                        >
+                          <X size={13} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
+        )}
         {items.length === 0 && (
           <p className="text-sm text-muted-foreground/50 italic">
             {readOnly ? "No Additional Work Recorded." : "Click + to Add Any Extra Work Completed Outside the Planned Tasks."}
@@ -820,12 +834,14 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
 
       {timeSummary && <ReportTimeSection summary={timeSummary} />}
 
+      {/* "Additional Work Done Today" hidden by request — restore to let members record extra work.
+          Existing items are still submitted unchanged (additionalWorksJson).
       <AdditionalWorkSection
         items={additionalWorks}
         taskLabels={tasks.map((t) => t.text)}
         onChange={setAdditionalWorks}
         readOnly={readOnly}
-      />
+      /> */}
 
       <CheckSection
         title="Blockers (Dependencies) Resolved"

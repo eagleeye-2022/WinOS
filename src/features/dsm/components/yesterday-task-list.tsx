@@ -186,9 +186,9 @@ export function YesterdayTaskList({
                 {!t.isCompleted && (
                   <span
                     className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400"
-                    title="Not done yesterday — carried into today's tasks"
+                    title="Carried Over — not done yesterday, carried into today's tasks"
                   >
-                    Carried
+                    CO
                   </span>
                 )}
                 {t.isCompleted && t.loggedMinutes === null && (

@@ -22,7 +22,7 @@ import {
   User,
   Users2,
 } from "lucide-react";
-import { LeaveStatus, LeaveTypeCode } from "../types";
+import { LeaveStatus, LeaveTypeCode, isListedRequestType } from "../types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -216,8 +216,11 @@ export function TeamLeaveWorkspace({
   const loadData = async () => {
     try {
       const [res, compRes] = await Promise.all([getTeamLeaveRequestsAction(), getTeamCompensatoryRequestsAction()]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setTeamRequests(res.requests as any);
+      // Absent (ABS) entries aren't listed as requests (so they're left out of the counts too).
+      setTeamRequests(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (res.requests as any[]).filter((r) => isListedRequestType(r.leaveTypeCode))
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamCompRequests(compRes.requests as any);
     } catch (err) {

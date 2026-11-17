@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { ROUTES } from "@/constants/routes";
 import { AppSidebar } from "@/components/shared/app-sidebar";
 import { ClockChip } from "@/components/shared/clock-chip";
+import { CheckInChip } from "@/features/attendance/components/check-in-chip";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { logoutAction } from "@/features/auth/actions/logout";
 import {
@@ -161,6 +162,8 @@ export default async function DashboardLayout({
 
           {/* Right icons */}
           <div className="flex shrink-0 items-center gap-1 px-2 md:gap-2 md:px-4">
+            {/* Check-in / check-out (and the 5-minute check-in reminder) on every module. */}
+            <CheckInChip />
             <NotificationBell
               initialUnread={unreadCount}
               initialNotifications={recentNotifications}

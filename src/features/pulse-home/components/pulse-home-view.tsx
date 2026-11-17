@@ -113,7 +113,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
       <p className="text-sm font-semibold text-foreground">{personLabel(me)}</p>
       {me.title && <p className="mt-0.5 text-xs text-muted-foreground">{me.title}</p>}
 
-      <div className="mt-3">
+      <div className="mt-2">
         <StatusPill tone={TONE[me.presence.tone]}>
           <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[TONE[me.presence.tone]])} />
           {me.presence.label}
@@ -121,7 +121,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
       </div>
 
       {/* Worked time today */}
-      <div className="mt-4 flex items-start justify-center gap-1.5">
+      <div className="mt-2.5 flex items-start justify-center gap-1.5">
         {[
           [hh, "Hrs"],
           [mm, "Min"],
@@ -133,7 +133,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
               <span className="min-w-11 rounded-md border border-border/70 bg-muted/60 px-2 py-1.5 font-mono text-lg font-semibold tabular-nums text-foreground">
                 {value}
               </span>
-              <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{unit}</span>
+              <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{unit}</span>
             </div>
           </React.Fragment>
         ))}
@@ -144,13 +144,13 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
           type="button"
           disabled={busy}
           onClick={() => setCaptureMode("check-out")}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
           Check-out
         </button>
       ) : (
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-3 space-y-2">
           {!today.checkedIn && (
             <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
               {(["OFFICE", "REMOTE"] as const).map((mode) => (

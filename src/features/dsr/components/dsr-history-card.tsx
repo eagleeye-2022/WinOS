@@ -15,6 +15,7 @@ import { TaskDetailRow, TaskDetailToggle, toggleDetailOnRowClick } from "@/featu
 
 import { renderTextWithMentions } from "./dsr-form";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
+import { AdditionalWorkTable } from "@/features/dsm/components/yesterday-additional-work";
 import { LearnedTick, ReportLearningTable } from "./report-learning-table";
 import { formatMinutes, projectLinkKeys, usableRecordingUrl } from "../reporting";
 
@@ -392,31 +393,17 @@ export function DsrHistoryCard({
             </div>
           )}
 
-          {/* Additional work done */}
+          {/* Additional work done — hidden by request.
           {entry.additionalWorks && entry.additionalWorks.length > 0 && (
             <div className="mb-4">
               <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Additional Work Done Today
               </p>
-              <div className="flex flex-col gap-1.5">
-                {entry.additionalWorks.map((work, i) => (
-                  <div key={work.id || i} className="flex items-center gap-2 text-sm">
-                    <span className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold",
-                      work.completed !== false
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      {work.completed !== false ? "✓" : "+"}
-                    </span>
-                    <span className={cn(work.completed === false && "text-muted-foreground")}>
-                      {renderTextWithMentions(work.text)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <AdditionalWorkTable
+                items={entry.additionalWorks.map((w) => ({ id: w.id, text: w.text, completed: w.completed !== false }))}
+              />
             </div>
-          )}
+          )} */}
 
           {/* Learning — above Support Needed / Blockers */}
           {(entry.learningItems ?? []).length > 0 && (

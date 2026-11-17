@@ -27,6 +27,7 @@ import {
   isCustomTemplatePhaseCode,
   moveTemplateSubtask,
   moveTemplateTask,
+  reorderSubtaskAtPath,
   newTemplateDraft,
   newTemplatePhase,
   newTemplateTask,
@@ -491,6 +492,48 @@ describe("moveTemplateTask", () => {
       ["a1", "a3"],
       ["b1", "a2"],
     ]);
+  });
+});
+
+describe("reorderSubtaskAtPath (drag to reorder template subtasks)", () => {
+  it("moves a top-level subtask before or after a sibling", () => {
+    const subtasks = ["A", "B", "C", "D"];
+    expect(reorderSubtaskAtPath(subtasks, [0], [2], false)).toEqual(["B", "A", "C", "D"]);
+    expect(reorderSubtaskAtPath(subtasks, [0], [2], true)).toEqual(["B", "C", "A", "D"]);
+    expect(reorderSubtaskAtPath(subtasks, [3], [0], false)).toEqual(["D", "A", "B", "C"]);
+    expect(reorderSubtaskAtPath(subtasks, [3], [1], true)).toEqual(["A", "B", "D", "C"]);
+  });
+
+  it("returns the same array when nothing moves", () => {
+    const subtasks = ["A", "B", "C"];
+    expect(reorderSubtaskAtPath(subtasks, [1], [1], false)).toBe(subtasks);
+    expect(reorderSubtaskAtPath(subtasks, [1], [0], true)).toBe(subtasks); // just after A = where it is
+    expect(reorderSubtaskAtPath(subtasks, [1], [2], false)).toBe(subtasks); // just before C = where it is
+  });
+
+  it("handles subtasks with the same title by position", () => {
+    expect(reorderSubtaskAtPath(["X", "Y", "X"], [0], [2], true)).toEqual(["Y", "X", "X"]);
+    expect(reorderSubtaskAtPath(["X", "X", "Y"], [1], [2], true)).toEqual(["X", "Y", "X"]);
+  });
+
+  it("reorders nested subtasks and keeps the parent's details and children", () => {
+    const subtasks = [
+      { title: "Parent", status: "In Progress" as const, dueDate: "2026-12-01", subtasks: ["One", { title: "Two", subtasks: ["Deep"] }, "Three"] },
+      "Sibling",
+    ];
+    const next = reorderSubtaskAtPath(subtasks, [0, 2], [0, 0], false);
+    expect(getSubtaskAtPath(next, [0])).toMatchObject({ title: "Parent", status: "In Progress", dueDate: "2026-12-01" });
+    expect(getSubtaskAtPath(next, [0, 0])).toBe("Three");
+    expect(getSubtaskAtPath(next, [0, 1])).toBe("One");
+    expect(getSubtaskAtPath(next, [0, 2, 0])).toBe("Deep");
+    expect(next[1]).toBe("Sibling");
+  });
+
+  it("refuses moves between different parents or levels", () => {
+    const subtasks = [{ title: "P1", subtasks: ["a", "b"] }, { title: "P2", subtasks: ["c"] }];
+    expect(reorderSubtaskAtPath(subtasks, [0, 0], [1, 0], false)).toBe(subtasks);
+    expect(reorderSubtaskAtPath(subtasks, [0, 0], [1], false)).toBe(subtasks);
+    expect(reorderSubtaskAtPath(subtasks, [], [], false)).toBe(subtasks);
   });
 });
 

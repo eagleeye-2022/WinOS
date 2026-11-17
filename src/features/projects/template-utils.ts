@@ -403,6 +403,63 @@ export function deleteSubtaskAtPath(
   });
 }
 
+/**
+ * Moves the subtask at `fromPath` just before (or `after`) its sibling at `toPath` — drag-to-reorder
+ * in the template's Subtasks table. Only within the same parent (both paths share all but the last
+ * index); anything else, or a move that changes nothing, returns `subtasks` unchanged (same array).
+ */
+export function reorderSubtaskAtPath(
+  subtasks: SOPSubtaskSeed[],
+  fromPath: number[],
+  toPath: number[],
+  after: boolean
+): SOPSubtaskSeed[] {
+  const parentPath = fromPath.slice(0, -1);
+  if (
+    fromPath.length === 0 ||
+    toPath.length !== fromPath.length ||
+    toPath.slice(0, -1).join(".") !== parentPath.join(".")
+  ) {
+    return subtasks;
+  }
+  const from = fromPath[fromPath.length - 1];
+  const target = toPath[toPath.length - 1];
+
+  const reorder = (siblings: SOPSubtaskSeed[]): SOPSubtaskSeed[] | null => {
+    if (from === target || siblings[from] === undefined || siblings[target] === undefined) return null;
+    const moving = siblings[from];
+    const without = siblings.filter((_, i) => i !== from);
+    // By index, not value: plain-string subtasks with the same title compare equal.
+    const at = (target > from ? target - 1 : target) + (after ? 1 : 0);
+    if (at === from) return null; // dropped back where it was
+    return [...without.slice(0, at), moving, ...without.slice(at)];
+  };
+
+  if (parentPath.length === 0) return reorder(subtasks) ?? subtasks;
+
+  const parent = getSubtaskAtPath(subtasks, parentPath);
+  const reordered = parent === undefined ? null : reorder(subtaskChildren(parent));
+  if (!reordered) return subtasks;
+  return updateSubtaskAtPath(subtasks, parentPath, (s) =>
+    makeSubtask(
+      subtaskTitle(s),
+      reordered,
+      typeof s === "object" && s !== null
+        ? {
+            description: s.description,
+            status: s.status,
+            sopChecklists: s.sopChecklists,
+            defaultOwners: s.defaultOwners,
+            startDate: s.startDate,
+            dueDate: s.dueDate,
+            priority: s.priority,
+            duration: s.duration,
+          }
+        : undefined
+    )
+  );
+}
+
 export function duplicateSubtaskAtPath(
   subtasks: SOPSubtaskSeed[],
   path: number[]

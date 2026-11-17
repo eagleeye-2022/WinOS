@@ -2498,7 +2498,8 @@ function YesterdayTasksSection({
         <p className="text-xs text-muted-foreground italic">No tasks logged for the previous day.</p>
       )}
 
-      <YesterdayAdditionalWork items={dsr?.additionalWorks ?? []} onToggle={toggleAdditionalWork} />
+      {/* "Additional Work" hidden by request.
+      <YesterdayAdditionalWork items={dsr?.additionalWorks ?? []} onToggle={toggleAdditionalWork} /> */}
 
       {/* {adding ? (
         <div className="mt-3">

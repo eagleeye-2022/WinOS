@@ -30,6 +30,7 @@ import {
   Activity,
   MessageSquare,
   History,
+  GripVertical,
 } from "lucide-react";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -71,6 +72,7 @@ import {
   getSubtaskAtPath,
   updateSubtaskAtPath,
   getSubtaskBreadcrumbs,
+  reorderSubtaskAtPath,
 } from "../../template-utils";
 import { toast } from "@/components/shared/toast";
 
@@ -518,6 +520,10 @@ export function TemplateTaskPage({
   const [newSubtask, setNewSubtask] = useState("");
   // Subtask rows whose own subtasks are folded away in the table.
   const [collapsedSubtasks, setCollapsedSubtasks] = useState<Set<string>>(new Set());
+  // Drag to reorder: the row whose grip is held, the row being dragged, and where it would land.
+  const [dragReadyCode, setDragReadyCode] = useState<string | null>(null);
+  const [draggingSubtaskCode, setDraggingSubtaskCode] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ code: string; after: boolean } | null>(null);
   const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
 
   // Menus
@@ -689,6 +695,28 @@ export function TemplateTaskPage({
   const subtaskRows = flattenSubtasksTree(currentChildren, currentCode, subtaskPath)
     .filter((item) => ![...collapsedSubtasks].some((c) => item.code.startsWith(`${c}.`)))
     .map((item) => ({ item, hasChildren: subtaskChildren(item.seed).length > 0 }));
+
+  // Drag to reorder subtasks (same as a project task's Subtasks table): only among siblings —
+  // a subtask can move above / below another subtask of the same parent.
+  const relPathOf = (path: number[]) => path.slice(subtaskPath.length);
+  const sameParent = (a: number[], b: number[]) =>
+    a.length === b.length && a.slice(0, -1).join(".") === b.slice(0, -1).join(".");
+  const draggingRow = subtaskRows.find((r) => r.item.code === draggingSubtaskCode);
+  const endSubtaskDrag = () => {
+    setDragReadyCode(null);
+    setDraggingSubtaskCode(null);
+    setDropTarget(null);
+  };
+  const handleSubtaskDrop = (targetPath: number[], after: boolean) => {
+    const src = draggingRow;
+    endSubtaskDrag();
+    if (!src) return;
+    const next = reorderSubtaskAtPath(currentChildren, relPathOf(src.item.path), relPathOf(targetPath), after);
+    if (next === currentChildren) return;
+    // Codes follow position, so folded rows would point at different subtasks — unfold them all.
+    setCollapsedSubtasks(new Set());
+    onChange({ subtasks: next });
+  };
 
   const primaryOwnerName = currentOwners.length > 0 ? currentOwners.map((o) => o.name).join(", ") : "Unassigned";
 
@@ -1409,12 +1437,54 @@ export function TemplateTaskPage({
                             return (
                               <tr
                                 key={item.code}
+                                draggable={canManage && dragReadyCode === item.code}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.dataTransfer.setData("text/plain", item.code);
+                                  setDraggingSubtaskCode(item.code);
+                                }}
+                                onDragEnd={endSubtaskDrag}
+                                onDragOver={(e) => {
+                                  if (!draggingRow || draggingRow.item.code === item.code) return;
+                                  if (!sameParent(draggingRow.item.path, item.path)) return;
+                                  e.preventDefault();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const after = e.clientY > rect.top + rect.height / 2;
+                                  setDropTarget((prev) =>
+                                    prev?.code === item.code && prev.after === after ? prev : { code: item.code, after }
+                                  );
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (dropTarget?.code === item.code) handleSubtaskDrop(item.path, dropTarget.after);
+                                  else endSubtaskDrag();
+                                }}
                                 onClick={() => onNavigateSubtask?.(item.path)}
-                                className="hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30"
+                                className={cn(
+                                  "hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30",
+                                  draggingSubtaskCode === item.code && "opacity-40",
+                                  dropTarget?.code === item.code &&
+                                    (dropTarget.after
+                                      ? "[&>td]:shadow-[inset_0_-2px_0_0_var(--color-primary)]"
+                                      : "[&>td]:shadow-[inset_0_2px_0_0_var(--color-primary)]")
+                                )}
                                 title="Open this subtask"
                               >
                                 <td className="py-2 px-3 border-r border-border font-mono text-xs text-muted-foreground font-semibold dark:border-zinc-800 dark:text-zinc-400">
-                                  {item.code}
+                                  <div className="flex items-center gap-1">
+                                    {canManage && (
+                                      <span
+                                        onMouseDown={() => setDragReadyCode(item.code)}
+                                        onMouseUp={() => setDragReadyCode(null)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        title="Drag to reorder"
+                                        className="-ml-1 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 active:cursor-grabbing"
+                                      >
+                                        <GripVertical size={13} />
+                                      </span>
+                                    )}
+                                    <span>{item.code}</span>
+                                  </div>
                                 </td>
                                 <td className="py-2 px-4 border-r border-border font-medium text-foreground dark:border-zinc-800 dark:text-zinc-200">
                                   <div className="flex items-center gap-2" style={{ paddingLeft: (relPath.length - 1) * 22 }}>

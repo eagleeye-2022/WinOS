@@ -228,6 +228,55 @@ export async function checkInAction(payload?: {
   return { success: true as const, record };
 }
 
+// ── 1b. TODAY'S CHECK-IN STATUS (top-bar button + reminder) ──────────────────
+
+export interface MyCheckInStatus {
+  /** Checked in at some point today. */
+  checkedIn: boolean;
+  /** Checked in right now (not checked out since). */
+  isLive: boolean;
+  /** Checked out at least once today and not checked in again. */
+  checkedOut: boolean;
+  workMode: "OFFICE" | "REMOTE";
+  /** Minutes worked in earlier sessions today (the live session is added on the client). */
+  bankedMinutes: number;
+  /** ISO start of the live session, when live. */
+  liveSince: string | null;
+  /** A day the person is expected to check in: not a weekend, holiday or full-day approved leave. */
+  isWorkday: boolean;
+}
+
+/** The signed-in user's check-in state today; null when signed out. Read-only. */
+export async function getMyCheckInStatusAction(): Promise<MyCheckInStatus | null> {
+  const user = await currentUser();
+  if (!user) return null;
+
+  const todayKey = istDateKey();
+  const today = dateFromKey(todayKey)!;
+  const [att, holiday, fullDayLeave] = await Promise.all([
+    db.dailyAttendance.findUnique({
+      where: { userId_date: { userId: user.id, date: today } },
+      select: { checkInTime: true, checkOutTime: true, isLive: true, workMode: true, workedMinutes: true, liveSince: true },
+    }),
+    db.holiday.findFirst({ where: { date: today, ...MANDATORY_HOLIDAY }, select: { id: true } }),
+    db.leaveRequest.findFirst({
+      where: { userId: user.id, status: "APPROVED", durationType: "FULL_DAY", fromDate: { lte: today }, toDate: { gte: today } },
+      select: { id: true },
+    }),
+  ]);
+
+  const isLive = Boolean(att?.isLive);
+  return {
+    checkedIn: Boolean(att?.checkInTime),
+    isLive,
+    checkedOut: Boolean(att?.checkOutTime) && !isLive,
+    workMode: att?.workMode === "REMOTE" ? "REMOTE" : "OFFICE",
+    bankedMinutes: att?.workedMinutes ?? 0,
+    liveSince: isLive && att?.liveSince ? att.liveSince.toISOString() : null,
+    isWorkday: !isWeekendKey(todayKey) && !holiday && !fullDayLeave,
+  };
+}
+
 // ── 2. CHECK-OUT ACTION ───────────────────────────────────────────────────────
 
 export async function checkOutAction(payload?: {

@@ -20,6 +20,8 @@ interface CheckInCaptureModalProps {
   title?: string;
   /** Wording only — both capture the same photo + location. */
   mode?: "check-in" | "check-out";
+  /** Shown above the camera, e.g. the Office / Remote choice when checking in from the top bar. */
+  extra?: React.ReactNode;
 }
 
 type Place = { name: string; address: string };
@@ -96,7 +98,7 @@ async function uploadSelfie(blob: Blob): Promise<string> {
  * then saved as not recorded).
  * Camera and location only work on HTTPS (or localhost).
  */
-export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = "check-in" }: CheckInCaptureModalProps) {
+export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = "check-in", extra }: CheckInCaptureModalProps) {
   const verb = mode === "check-out" ? "check-out" : "check-in";
   const heading = title ?? (mode === "check-out" ? "Check-out" : "Check-in");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -307,6 +309,8 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
         </div>
 
         <div className="space-y-4 p-5">
+          {extra}
+
           {/* Camera / captured photo */}
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
             {photo ? (

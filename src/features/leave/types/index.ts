@@ -16,6 +16,14 @@ export type LeaveTypeCode =
   | "MAT" // Maternity Leave
   | "COMP"; // Compensatory Off
 
+/**
+ * Leave types never listed among requests in the UI (My Leaves, a team member's leave, Team Leave).
+ * Absent (ABS) records an absence rather than a request someone made, so it's left out of request
+ * lists — it still counts in balances, attendance and reports.
+ */
+const HIDDEN_REQUEST_TYPES: ReadonlySet<string> = new Set(["ABS"]);
+export const isListedRequestType = (code: string) => !HIDDEN_REQUEST_TYPES.has(code);
+
 export interface LeaveTypeConfig {
   id: string;
   code: LeaveTypeCode;
