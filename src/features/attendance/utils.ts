@@ -6,7 +6,8 @@ import type { ActionRequiredType, AttendanceStatus } from "./types";
 // ── Shift configuration ───────────────────────────────────────────────────────
 
 // Configurable per deployment (there is no shift table): NEXT_PUBLIC_ so client components agree.
-export const SHIFT_START = process.env.NEXT_PUBLIC_SHIFT_START?.trim() || "09:30 AM";
+// "General" shift, as in Zoho People: 10:00 AM – 06:30 PM.
+export const SHIFT_START = process.env.NEXT_PUBLIC_SHIFT_START?.trim() || "10:00 AM";
 export const SHIFT_END = process.env.NEXT_PUBLIC_SHIFT_END?.trim() || "06:30 PM";
 
 const IST_OFFSET_MINUTES = 330;
@@ -107,6 +108,30 @@ export function formatShortDate(key: string): string {
 export function fullDayName(key: string): string {
   const d = dateFromKey(key);
   return d ? FULL_DAY_NAMES[d.getUTCDay()] : "";
+}
+
+/** The current year in IST (not the server's or browser's year). */
+export function istYear(now: Date = new Date()): number {
+  return Number(istDateKey(now).slice(0, 4));
+}
+
+/** "05 Aug 2026" for a calendar-date field (leave dates, holidays, work dates — stored as UTC midnight). */
+export function formatDayDate(d: Date | string): string {
+  const key = dateKeyFromUtc(d);
+  const day = dateFromKey(key);
+  if (!day) return "";
+  return `${pad(day.getUTCDate())} ${MONTH_NAMES[day.getUTCMonth()].slice(0, 3)} ${day.getUTCFullYear()}`;
+}
+
+/** "05 Aug 2026" — the IST calendar day of an instant (createdAt, actionDate, now). */
+export function formatIstDate(at: Date | string = new Date()): string {
+  return formatDayDate(istDateKey(new Date(at)));
+}
+
+/** "05 Aug 2026 at 02:30 PM" in IST for an instant. */
+export function formatIstDateTime(at: Date | string = new Date()): string {
+  const d = new Date(at);
+  return `${formatIstDate(d)} at ${istTimeString(d)}`;
 }
 
 // ── Times ("09:30 AM" strings, as stored on DailyAttendance) ─────────────────

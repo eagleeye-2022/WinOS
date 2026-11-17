@@ -14,7 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { ROUTES } from "@/constants/routes";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 
@@ -147,22 +148,19 @@ export function TeamTable({ members, moduleColumns, onSelectUser }: TeamTablePro
               filtered.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell className="text-center">
-                    <button
-                      type="button"
-                      onClick={() => onSelectUser(member.id)}
-                      className="mx-auto flex hover:opacity-80"
-                    >
-                      <Avatar className="h-11 w-11 border shadow-2xs">
-                        <AvatarImage
-                          src={getAvatarUrl(member.image, member.id, member.name)}
-                          alt={member.name}
-                          className="object-cover"
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                          <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
+                    <div className="mx-auto flex w-fit hover:opacity-80">
+                      <UserAvatar
+                        userId={member.id}
+                        name={member.name}
+                        email={member.email}
+                        image={getAvatarUrl(member.image, member.id, member.name)}
+                        title=""
+                        className="h-11 w-11 border shadow-2xs bg-primary/10"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/default-avatar.png" alt="" className="h-full w-full object-cover" />
+                      </UserAvatar>
+                    </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <button
@@ -170,7 +168,7 @@ export function TeamTable({ members, moduleColumns, onSelectUser }: TeamTablePro
                       onClick={() => onSelectUser(member.id)}
                       className="mx-auto flex flex-col items-center text-center hover:opacity-80"
                     >
-                      <span className="font-medium text-foreground">{member.name}</span>
+                      <UserName userId={member.id} name={member.name} email={member.email} className="font-medium text-foreground" />
                       <span className="text-xs text-muted-foreground">{member.email}</span>
                     </button>
                   </TableCell>

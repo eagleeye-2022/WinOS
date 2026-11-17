@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, History, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { getSopTimelineAction, type SopTimelineQuery } from "../actions/timeline-actions";
@@ -308,7 +309,9 @@ function TimelineRow({ event: e, sopScope }: { event: SopEventView; sopScope: bo
         </UserAvatar>
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[13px] font-semibold text-foreground">{e.actorName ?? "Someone"}</span>
+            <UserName userId={e.actorId} name={e.actorName} className="truncate text-[13px] font-semibold text-foreground">
+              {e.actorName ?? "Someone"}
+            </UserName>
             <span className="shrink-0 text-[11px] text-muted-foreground" title={time.toLocaleString()}>
               {time.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
             </span>

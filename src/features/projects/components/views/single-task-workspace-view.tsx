@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -2753,7 +2754,7 @@ export function SingleTaskWorkspaceView({
                           </UserAvatar>
                           <div className="min-w-0">
                             <p className="text-foreground dark:text-zinc-200">
-                              <span className="font-semibold">{act.userName}</span>{" "}
+                              <UserName name={act.userName} className="font-semibold" />{" "}
                               {act.actionText}
                             </p>
                             <span className="text-xs text-muted-foreground dark:text-zinc-500">

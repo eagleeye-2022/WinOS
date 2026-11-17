@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import {
   Calendar as CalendarIcon,
@@ -18,6 +19,13 @@ import { Button } from "@/components/ui/button";
 import { PeriodNav } from "@/components/shared/period-nav";
 import { cn } from "@/lib/utils";
 import { getTeamCalendarEventsAction } from "../queries/leave-queries";
+import { istDateKey } from "@/features/attendance/utils";
+
+/** Today's calendar date in IST, as a local Date (the grid below does plain calendar math on it). */
+function istToday(): Date {
+  const [y, m, d] = istDateKey().split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 interface LeaveCalendarItem {
   id: string;
@@ -54,8 +62,8 @@ interface HolidayCalendarItem {
 }
 
 export function TeamCalendarView() {
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
+  const [currentDate, setCurrentDate] = useState(istToday);
+  const [selectedDay, setSelectedDay] = useState(() => istToday().getDate());
   const [isPending, startTransition] = useTransition();
 
   const [leavesByDate, setLeavesByDate] = useState<Record<string, LeaveCalendarItem[]>>({});
@@ -119,7 +127,7 @@ export function TeamCalendarView() {
   });
 
   const handleToday = () => {
-    const now = new Date();
+    const now = istToday();
     setCurrentDate(now);
     setSelectedDay(now.getDate());
   };
@@ -138,7 +146,7 @@ export function TeamCalendarView() {
   });
 
   const isTodayDate = (day: number) => {
-    const now = new Date();
+    const now = istToday();
     return (
       now.getFullYear() === year &&
       now.getMonth() === month &&
@@ -444,7 +452,7 @@ export function TeamCalendarView() {
                     <div className="space-y-0.5 flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <div className="font-semibold text-foreground text-xs leading-tight truncate">
-                          {leave.employeeName}
+                          <UserName name={leave.employeeName} />
                         </div>
                         <span
                           className={cn(

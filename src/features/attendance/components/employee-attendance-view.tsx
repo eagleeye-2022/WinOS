@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect } from "react";
 import {
   UserPlus,
@@ -30,11 +31,14 @@ import { cn } from "@/lib/utils";
 interface EmployeeAttendanceViewProps {
   employee: EmployeeProfile;
   onApplyRegularizationOnBehalf?: () => void;
+  /** The page already shows who this is (per-employee header): skip the profile card. */
+  hideProfile?: boolean;
 }
 
 export function EmployeeAttendanceView({
   employee,
   onApplyRegularizationOnBehalf,
+  hideProfile = false,
 }: EmployeeAttendanceViewProps) {
   const today = istDateKey();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
@@ -100,6 +104,7 @@ export function EmployeeAttendanceView({
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Profile card */}
+      {!hideProfile && (
       <section className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="h-14 bg-gradient-to-r from-blue-600 to-sky-500 dark:from-blue-700 dark:to-sky-700" />
         <div className="flex flex-col gap-4 px-5 pb-4 sm:flex-row sm:items-end sm:justify-between">
@@ -114,7 +119,9 @@ export function EmployeeAttendanceView({
             </UserAvatar>
             <div className="min-w-0 space-y-1 pb-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-foreground">{employee.name}</h2>
+                <h2 className="text-base font-semibold text-foreground">
+                  <UserName userId={employee.id} name={employee.name} />
+                </h2>
                 <StatusPill tone={employee.status === "ACTIVE" ? "green" : "gray"}>
                   {employee.status === "ACTIVE" ? "Active" : "Inactive"}
                 </StatusPill>
@@ -155,6 +162,7 @@ export function EmployeeAttendanceView({
           </div>
         </div>
       </section>
+      )}
 
       {/* Toolbar: title, view switcher & date navigation */}
       <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">

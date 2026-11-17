@@ -10,5 +10,6 @@ export const metadata: Metadata = {
 
 export default async function AttendancePage() {
   const session = await auth();
-  return <AttendanceWorkspace canManage={canManageAttendance(session?.user)} currentUserId={session?.user?.id} />;
+  // My Attendance: personal tabs only — the team view is its own page (Team Attendance).
+  return <AttendanceWorkspace view="my" canManage={canManageAttendance(session?.user)} currentUserId={session?.user?.id} />;
 }

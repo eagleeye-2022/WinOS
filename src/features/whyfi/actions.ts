@@ -443,8 +443,9 @@ export async function getWhyfiTimelineAction(params: {
   const actor = await getActor();
   if (!actor) return [];
 
-  const from = new Date(`${params.from}T00:00:00.000Z`);
-  const to = new Date(`${params.to}T23:59:59.999Z`);
+  // Whole IST days (log dates are instants; imported logs sit at midnight IST).
+  const from = new Date(`${params.from}T00:00:00.000+05:30`);
+  const to = new Date(`${params.to}T23:59:59.999+05:30`);
   if (isNaN(from.getTime()) || isNaN(to.getTime())) return [];
 
   const userFilter = actor.isManager ? params.userId || undefined : actor.id;

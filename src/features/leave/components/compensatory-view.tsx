@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { formatIstDate } from "@/features/attendance/utils";
 
 export function CompensatoryView() {
   const [requests, setRequests] = useState<CompensatoryRequest[]>([
@@ -63,11 +64,7 @@ export function CompensatoryView() {
       durationText: "Full Day",
       reason,
       status: "PENDING",
-      requestedOn: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
+      requestedOn: formatIstDate(),
       expiryDate: "90 Days from approval",
     };
     setRequests([newReq, ...requests]);

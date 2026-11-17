@@ -66,6 +66,7 @@ import {
   withTaskMoved,
 } from "../board-utils";
 import { isTaskDone } from "@/features/projects/types";
+import { toISTDateString } from "@/features/projects/utils/time-helpers";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -106,15 +107,14 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+/** The IST calendar day ("YYYY-MM-DD") of an instant. */
 function isoDay(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toISTDateString(date);
 }
 
+/** "Mon, 16 Nov" in IST. */
 function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
 }
 
 /** Same pill colours as the project board's status select. */
@@ -1203,8 +1203,7 @@ function LearningTimeline({ workspace }: { workspace: WhyfiWorkspaceData }) {
   useEffect(() => {
     let cancelled = false;
     const to = new Date();
-    const from = new Date();
-    from.setDate(from.getDate() - (days - 1));
+    const from = new Date(to.getTime() - (days - 1) * 86_400_000); // IST has no DST, so days are 24h
     setLoading(true);
     getWhyfiTimelineAction({ from: isoDay(from), to: isoDay(to), userId: memberId || undefined })
       .then((res) => {
@@ -1318,7 +1317,7 @@ function LearningTimeline({ workspace }: { workspace: WhyfiWorkspaceData }) {
               <li key={day} className="relative">
                 <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-background bg-primary" />
                 <div className="mb-2 flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-foreground">{formatDay(`${day}T12:00:00`)}</span>
+                  <span className="text-sm font-semibold text-foreground">{formatDay(`${day}T12:00:00+05:30`)}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatMinutes(items.reduce((s, e) => s + e.minutes, 0))}
                   </span>

@@ -212,8 +212,10 @@ describe("balances and comp-off", () => {
   it("counts pending days against the balance", () => {
     expect(availableToApply({ allocatedDays: 12, carriedForward: 2, adjustedDays: 1, bookedDays: 5, pendingDays: 3 })).toBe(7);
   });
-  it("expires a comp-off one month after the work date", () => {
-    expect(compOffExpiry(dateFromKey("2026-10-25")!).toISOString().slice(0, 10)).toBe("2026-11-25");
+  it("expires a comp-off on 31 December of the work date's year", () => {
+    expect(compOffExpiry(dateFromKey("2026-10-25")!).toISOString().slice(0, 10)).toBe("2026-12-31");
+    expect(compOffExpiry(dateFromKey("2026-01-01")!).toISOString().slice(0, 10)).toBe("2026-12-31");
+    expect(compOffExpiry(dateFromKey("2026-12-31")!).toISOString().slice(0, 10)).toBe("2026-12-31");
   });
   it("credits by duration", () => {
     expect([compOffCredit("FULL_DAY"), compOffCredit("HALF_DAY"), compOffCredit("QUARTER_DAY")]).toEqual([1, 0.5, 0.25]);

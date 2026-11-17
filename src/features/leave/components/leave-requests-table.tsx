@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { LeaveRequest, LeaveStatus } from "../types";
+import { LeaveRequest, LeaveStatus, isListedRequestType } from "../types";
 import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,14 @@ interface LeaveRequestsTableProps {
 }
 
 export function LeaveRequestsTable({
-  requests,
+  requests: allRequests,
   onViewRequest,
   showFilters = false,
   showDateRangeNav = true,
   title = "MY REQUESTS/HOLIDAYS",
 }: LeaveRequestsTableProps) {
+  // Absent (ABS) entries aren't shown as requests.
+  const requests = useMemo(() => allRequests.filter((r) => isListedRequestType(r.leaveTypeCode)), [allRequests]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");

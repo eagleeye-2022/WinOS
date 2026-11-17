@@ -1315,13 +1315,24 @@ export function SubmitDsmForm({
   const restoredFromDraftRef = useRef(savedDraft !== null);
   const baselineRef = useRef<string | null>(null);
 
+  // Yesterday's tasks that are done now (ticked in yesterday's Report). A draft or DSM put together
+  // before that Report was submitted carried them in as unfinished — see the clean-up below.
+  const doneYesterdayTexts = new Set(
+    yesterday.tasks.filter((t) => t.isCompleted).map((t) => t.text.trim().toLowerCase())
+  );
+
   const [tasks, setTasks] = useState<Task[]>(() => {
-    if (savedDraft?.tasks?.length) {
+    // A browser draft started before yesterday's Report was submitted holds every one of yesterday's
+    // tasks as carried. Drop the ones the Report has since ticked done (the draft was never saved).
+    const draftTasks = ((savedDraft?.tasks ?? []) as Task[]).filter(
+      (t) => !(t.carried && doneYesterdayTexts.has(t.text.trim().toLowerCase()))
+    );
+    if (draftTasks.length) {
       // Drafts saved before carry-over kept project links have none — fill them in from yesterday.
       const linkByText = new Map(
         yesterday.tasks.filter((t) => t.projectTaskId).map((t) => [t.text.trim().toLowerCase(), t.projectTaskId as string])
       );
-      return (savedDraft.tasks as Task[]).map((t) =>
+      return draftTasks.map((t) =>
         t.projectTaskId || !t.carried ? t : { ...t, projectTaskId: linkByText.get(t.text.trim().toLowerCase()) ?? "" }
       );
     }
@@ -1354,6 +1365,29 @@ export function SubmitDsmForm({
     }
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }, { id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
   });
+
+  // Today's DSM was first saved before yesterday's Report was (last) submitted, so tasks it carried
+  // in as unfinished may be done now. List those so they can be removed — never silently: a saved
+  // DSM may keep a task on purpose. A DSM first saved after the Report used the final ticks already.
+  const [staleCarriedDismissed, setStaleCarriedDismissed] = useState(false);
+  const savedBeforeReport = Boolean(
+    entry?.createdAt &&
+      yesterday.reportSavedAt &&
+      new Date(entry.createdAt).getTime() < new Date(yesterday.reportSavedAt).getTime()
+  );
+  const staleCarriedTasks = savedBeforeReport
+    ? tasks.filter((t) => t.text.trim() && doneYesterdayTexts.has(t.text.trim().toLowerCase()))
+    : [];
+  const removeStaleCarriedTasks = () => {
+    setTasks((prev) => {
+      const next = prev.filter((t) => !doneYesterdayTexts.has(t.text.trim().toLowerCase()));
+      return next.length ? next : [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
+    });
+    setStaleCarriedDismissed(true);
+  };
+  // Yesterday's Report isn't submitted yet: nothing from yesterday is ticked done, so all of it is
+  // carried in. Used by the "submit the Report first" hint, which is commented out for now.
+  // const reportPending = Boolean(yesterday.date && yesterday.tasks.length > 0 && !yesterday.reportSubmitted);
 
   // Tasks a manager adds from /dsm/member/[userId] land on the entry after this form has mounted
   // (or are hidden behind a saved local draft). Merge any that are missing so they show up here —
@@ -1778,6 +1812,51 @@ export function SubmitDsmForm({
             </div>
           }
         >
+          {/* Hidden for now (by request) — "submit yesterday's Report first" hint.
+          {reportPending && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-700 dark:text-amber-300">
+              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <p>
+                Your Report for your last DSM day isn&apos;t submitted yet, so all of that day&apos;s tasks
+                are carried in here.{" "}
+                <a href="/report" className="font-semibold underline hover:no-underline">
+                  Submit the Report
+                </a>{" "}
+                first so finished tasks aren&apos;t carried forward.
+              </p>
+            </div>
+          )} */}
+
+          {staleCarriedTasks.length > 0 && !staleCarriedDismissed && (
+            <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-2.5 text-xs text-foreground sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-primary" />
+                <p>
+                  {staleCarriedTasks.length === 1 ? "1 task" : `${staleCarriedTasks.length} tasks`} carried from{" "}
+                  yesterday {staleCarriedTasks.length === 1 ? "is" : "are"} now marked done in your Report:{" "}
+                  <span className="font-semibold">{staleCarriedTasks.map((t) => t.text.trim()).join(", ")}</span>.
+                  Remove {staleCarriedTasks.length === 1 ? "it" : "them"} from today?
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2 pl-6 sm:pl-0">
+                <button
+                  type="button"
+                  onClick={() => setStaleCarriedDismissed(true)}
+                  className="rounded-md px-2.5 py-1 font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  onClick={removeStaleCarriedTasks}
+                  className="rounded-md bg-primary px-3 py-1 font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Scrolls sideways (scrollbar) instead of squeezing the task rows on narrow screens. */}
           <div className="dsm-columns-scrollbar overflow-x-auto pb-1">
             <div className="min-w-[720px]">

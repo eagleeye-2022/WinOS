@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   List,
@@ -50,6 +51,16 @@ import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state"
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
 const MAIN_TABS = ["my-attendance", "team-attendance", "regularization"] as const;
+/**
+ * Which tabs a page shows: My Attendance never shows the team tab and Team Attendance never shows
+ * the personal one (each has its own sidebar item). Regularization is on both — it lists the
+ * person's own requests and, for managers, the team's to approve.
+ */
+const TABS_FOR_VIEW = {
+  my: ["my-attendance", "regularization"],
+  team: ["team-attendance", "regularization"],
+  all: MAIN_TABS,
+} as const satisfies Record<string, readonly MainTab[]>;
 const VIEW_MODES = ["week", "month"] as const;
 
 const EMPTY_SUMMARY: MonthlySummary = {
@@ -66,19 +77,25 @@ interface AttendanceWorkspaceProps {
   currentUserId?: string;
   /** Tab this route opens on (Team Attendance and Regularization are separate sidebar links). */
   initialTab?: MainTab;
+  /** "my" (My Attendance) hides the team tab, "team" (Team Attendance) hides the personal one. */
+  view?: keyof typeof TABS_FOR_VIEW;
 }
 
 export function AttendanceWorkspace({
   canManage = false,
   currentUserId,
   initialTab = "my-attendance",
+  view = "all",
 }: AttendanceWorkspaceProps) {
+  const router = useRouter();
   const initialToday = istDateKey();
   const initialDate = dateFromKey(initialToday)!;
+  const shownTabs: readonly MainTab[] = TABS_FOR_VIEW[view];
   // Tab + week/month in the URL; the open sub-view / selected member / request in the Pulse
-  // navigation slice — so all of it is restored when coming back to the module.
+  // navigation slice — so all of it is restored when coming back to the module. A tab this page
+  // doesn't show (e.g. ?tab=my-attendance on Team Attendance) falls back to the page's own tab.
   const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", initialTab, {
-    allowed: MAIN_TABS,
+    allowed: shownTabs,
     history: "push",
   });
   const [viewMode, setViewMode] = useUrlState<"week" | "month">("view", "week", { allowed: VIEW_MODES });
@@ -94,13 +111,14 @@ export function AttendanceWorkspace({
   const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Sub-pages for Regularization
+  // Sub-pages for Regularization — remembered per page (My / Team Attendance), so a team member's
+  // request opened on Team Attendance never reopens under My Attendance.
   const [regularizationSubView, setRegularizationSubView] = useModuleViewState<"list" | "details" | "create">(
-    "attendance:regularization-sub-view",
+    `attendance:${view}:regularization-sub-view`,
     "list"
   );
   const [selectedRequest, setSelectedRequest] = useModuleViewState<RegularizationRequest | null>(
-    "attendance:selected-request",
+    `attendance:${view}:selected-request`,
     null
   );
 
@@ -109,7 +127,8 @@ export function AttendanceWorkspace({
     "attendance:team-sub-view",
     "team-list"
   );
-  const [selectedEmployee, setSelectedEmployee] = useModuleViewState<EmployeeProfile | null>(
+  // Team members now open on their own page; this only restores an older in-page view.
+  const [selectedEmployee] = useModuleViewState<EmployeeProfile | null>(
     "attendance:selected-employee",
     null
   );
@@ -219,19 +238,9 @@ export function AttendanceWorkspace({
     setIsCompOffModalOpen(true);
   };
 
+  // A team member opens on their own page (attendance + a link to their leave), like Zoho People.
   const handleViewTeamMember = (member: TeamMemberAttendance) => {
-    setSelectedEmployee({
-      id: member.id,
-      employeeId: member.employeeId,
-      name: member.name,
-      avatarUrl: member.avatarUrl,
-      status: "ACTIVE",
-      designation: member.designation,
-      department: member.department,
-      email: member.email || "",
-      phone: "—",
-    });
-    setTeamSubView("employee-view");
+    router.push(`/pulse/team-attendance/${member.id}`);
   };
 
   // Breadcrumb steps after "Pulse › Attendance": the tab, then the member / request being viewed.
@@ -264,8 +273,10 @@ export function AttendanceWorkspace({
         {/* Top Main Navigation Tabs — sticky (not fixed): pinned to the top while this page scrolls. */}
         <PulseStickyTabs
           tabs={[
-            { label: "Attendance Records", active: activeTab === "my-attendance", onClick: () => setActiveTab("my-attendance") },
-            ...(canManage
+            ...(shownTabs.includes("my-attendance")
+              ? [{ label: "Attendance Records", active: activeTab === "my-attendance", onClick: () => setActiveTab("my-attendance") }]
+              : []),
+            ...(canManage && shownTabs.includes("team-attendance")
               ? [
                   {
                     label: "Team Attendance",

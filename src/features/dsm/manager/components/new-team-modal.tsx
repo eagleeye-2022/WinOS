@@ -6,6 +6,7 @@ import {
   Paintbrush, Code2, TrendingUp, Hash, Layers, ShoppingBag, HeartHandshake, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { createTeam, type CreateTeamState } from "../actions/create-team";
 import { updateTeam, type UpdateTeamState } from "../actions/update-team";
 import { updateMemberName } from "../actions/update-member-name";
@@ -497,12 +498,15 @@ export function NewTeamModal({ teams, allUsers, onClose }: Props) {
                 {t.members.length > 0 && (
                   <div className="mt-2 flex pl-11">
                     {t.members.slice(0, 3).map((m) => (
-                      <span
-                        key={m.id}
-                        title={m.user.name ?? m.user.email}
-                        className="-ml-1.5 first:ml-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary/20 text-xs font-bold text-primary"
-                      >
-                        {(m.user.name ?? m.user.email).slice(0, 2).toUpperCase()}
+                      <span key={m.id} className="-ml-1.5 first:ml-0 inline-flex">
+                        <UserAvatar
+                          name={m.user.name}
+                          email={m.user.email}
+                          title={m.user.name ?? m.user.email}
+                          className="h-6 w-6 border-2 border-background bg-primary/20 text-xs font-bold text-primary"
+                        >
+                          {(m.user.name ?? m.user.email).slice(0, 2).toUpperCase()}
+                        </UserAvatar>
                       </span>
                     ))}
                     {t.members.length > 3 && (

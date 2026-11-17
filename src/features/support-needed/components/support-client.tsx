@@ -4,6 +4,8 @@ import { useActionState, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PlusCircle, Search, X, ChevronLeft, ChevronRight, ChevronDown, Play, CheckCircle2, Pencil, MessageSquare, Clock, Clock3, User, HelpCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar as SharedUserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterSupport, type SupportStatusFilter } from "../utils";
@@ -152,12 +154,16 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
   if (!user) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+      <SharedUserAvatar
+        name={user.name}
+        email={user.email}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+      >
         {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-      </span>
-      <span className="text-sm">
+      </SharedUserAvatar>
+      <UserName name={user.name} email={user.email} className="text-sm">
         {user.name?.split(" ")[0] ?? user.email.split("@")[0]}
-      </span>
+      </UserName>
     </div>
   );
 }

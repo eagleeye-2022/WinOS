@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { ROUTES } from "@/constants/routes";
 import { reviewDsr, type ReviewDsrState } from "../actions/review-dsr";
 import { toggleDsrTask, type ToggleDsrTaskState } from "../actions/toggle-dsr-task";
@@ -22,7 +24,6 @@ import { ReportTimeSection } from "@/features/dsr/components/dsr-form";
 import type { ReportTimeSummary } from "@/features/dsr/queries";
 import type { DsrEntryData } from "@/features/dsr/queries";
 import type { MemberDsrReview } from "../queries";
-import { renderTextWithMentions } from "@/features/dsr/components/dsr-form";
 import { fetchDsrProjectTaskLinksAction } from "@/features/dsr/actions/get-project-task-links";
 import { projectLinkKeys } from "@/features/dsr/reporting";
 import type { ProjectLinkSummary } from "@/features/dsr/queries";
@@ -35,6 +36,7 @@ import { fetchUserProjectsWithTasksAction } from "@/features/dsm/actions/get-use
 import { projectSelectOptions } from "@/features/dsm/components/project-task-selectors";
 import type { CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
 import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
+import { AdditionalWorkTable } from "@/features/dsm/components/yesterday-additional-work";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -580,45 +582,23 @@ function TaskProgressCard({ entry, locked, memberId }: { entry: DsrEntryData; lo
 
 // ── Additional work card ───────────────────────────────────────────────────────
 
-function AdditionalWorkItemRow({ work, locked }: { work: DsrEntryData["additionalWorks"][number]; locked?: boolean }) {
-  const [, action, pending] = useActionState<ToggleDsrAdditionalWorkState, FormData>(toggleDsrAdditionalWork, {});
-  const [, startTransition] = useTransition();
-
-  return (
-    <form
-      action={(fd) => {
-        startTransition(() => action(fd));
-      }}
-      className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-2.5"
-    >
-      <input type="hidden" name="itemId" value={work.id} />
-      <button
-        type="submit"
-        disabled={pending || locked}
-        title={locked ? "Waiting on DSM review" : work.completed ? "Mark as uncompleted" : "Mark as completed"}
-        className={cn(
-          "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer disabled:opacity-50",
-          work.completed ? "bg-success text-success-foreground hover:bg-success/90" : "bg-muted border border-border hover:border-success"
-        )}
-      >
-        {pending ? (
-          <Loader2 size={10} className="animate-spin" />
-        ) : work.completed ? (
-          <svg viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="2" className="h-2.5 w-2.5">
-            <polyline points="1,4 3,6 7,2" />
-          </svg>
-        ) : null}
-      </button>
-      <span className={cn("flex-1 text-sm leading-snug select-none", work.completed ? "line-through text-muted-foreground" : "text-foreground")}>
-        {renderTextWithMentions(work.text)}
-      </span>
-    </form>
-  );
-}
-
 function AdditionalWorkCard({ entry, locked }: { entry: DsrEntryData; locked?: boolean }) {
-  const { additionalWorks } = entry;
-  if (!additionalWorks || additionalWorks.length === 0) return null;
+  // Local copy so a tick shows as soon as it's saved; re-synced when the page data refreshes.
+  const [additionalWorks, setAdditionalWorks] = useState(entry.additionalWorks ?? []);
+  useEffect(() => {
+    setAdditionalWorks(entry.additionalWorks ?? []);
+  }, [entry.additionalWorks]);
+
+  if (additionalWorks.length === 0) return null;
+  const doneCount = additionalWorks.filter((w) => w.completed).length;
+
+  const toggle = async (item: { id: string }) => {
+    const fd = new FormData();
+    fd.set("itemId", item.id);
+    const res: ToggleDsrAdditionalWorkState = await toggleDsrAdditionalWork({}, fd);
+    if (res.message !== "toggled") return;
+    setAdditionalWorks((prev) => prev.map((w) => (w.id === item.id ? { ...w, completed: !w.completed } : w)));
+  };
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -629,15 +609,16 @@ function AdditionalWorkCard({ entry, locked }: { entry: DsrEntryData; locked?: b
           </span>
           Additional Work Done Today
         </h3>
-        <span className="text-xs font-bold text-primary">
-          {additionalWorks.length} Item{additionalWorks.length > 1 ? "s" : ""}
+        <span className="text-sm font-bold text-primary">
+          {doneCount}/{additionalWorks.length}
         </span>
       </div>
-      <div className="flex flex-col gap-2">
-        {additionalWorks.map((work, i) => (
-          <AdditionalWorkItemRow key={work.id || i} work={work} locked={locked} />
-        ))}
-      </div>
+      <AdditionalWorkTable
+        items={additionalWorks}
+        onToggle={toggle}
+        disabled={locked}
+        disabledTitle="Waiting on DSM review"
+      />
     </div>
   );
 }
@@ -1112,11 +1093,21 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
         {/* Member header */}
         <div className="flex items-center justify-between rounded-xl border bg-card p-5">
           <div className="flex items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10">
+            <UserAvatar
+              userId={user.id}
+              name={user.name}
+              email={user.email}
+              title=""
+              className="h-16 w-16 bg-primary/15 text-xl font-bold text-primary ring-2 ring-background ring-offset-2 ring-offset-primary/10"
+            >
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-            </span>
+            </UserAvatar>
             <div>
-              <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
+              <h2 className="text-2xl font-bold">
+                <UserName userId={user.id} name={user.name} email={user.email}>
+                  {toTitleCase(user.name ?? user.email.split("@")[0])}
+                </UserName>
+              </h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
             </div>
           </div>
@@ -1162,7 +1153,8 @@ export function DsrMemberReview({ review, weekOffset, showHistory, selectedDateS
             />
             {/* "Time Logged Today" hidden here by request (the member's own report still shows it).
             {timeSummary && <ReportTimeSection summary={timeSummary} />} */}
-            <AdditionalWorkCard entry={activeEntry} />
+            {/* "Additional Work Done Today" hidden by request.
+            <AdditionalWorkCard entry={activeEntry} /> */}
             {/* Learning sits above Support Needed / meetings. */}
             <LearningCard entry={activeEntry} memberId={user.id} />
             <BlockersSupportCard entry={activeEntry} />

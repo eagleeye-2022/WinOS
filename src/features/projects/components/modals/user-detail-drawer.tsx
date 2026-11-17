@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect } from "react";
 import {
   X,
@@ -165,7 +166,7 @@ export function UserDetailDrawer({
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-bold text-foreground leading-tight">
-                        {details.user.name}
+                        <UserName userId={details.user.id} name={details.user.name} />
                       </h2>
                       {details.user.isOwner && (
                         <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">

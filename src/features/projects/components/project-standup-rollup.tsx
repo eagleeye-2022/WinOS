@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ClipboardList, AlertCircle, Calendar, User, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { fetchProjectStandupRollupAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { ProjectStandupRollupItem } from "@/features/dsm/queries";
 
@@ -78,10 +80,17 @@ export function ProjectStandupRollup({ projectId }: { projectId: string }) {
               >
                 <div className="flex items-center justify-between text-muted-foreground">
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    <UserAvatar
+                      name={item.user?.name}
+                      email={item.user?.email}
+                      title=""
+                      className="h-5 w-5 bg-primary/10 text-xs font-bold text-primary"
+                    >
                       {item.user?.name ? item.user.name.charAt(0).toUpperCase() : "U"}
-                    </span>
-                    <span className="font-semibold text-xs">{item.user?.name || item.user?.email}</span>
+                    </UserAvatar>
+                    <UserName name={item.user?.name} email={item.user?.email} className="font-semibold text-xs">
+                      {item.user?.name || item.user?.email}
+                    </UserName>
                   </div>
                   <div className="flex items-center gap-2">
                     {item.taskCode && (

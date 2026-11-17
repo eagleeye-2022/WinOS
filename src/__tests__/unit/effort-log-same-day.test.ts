@@ -4,6 +4,9 @@ import {
   isSameLocalDay,
   toLocalDateString,
   resolveLogTimePeriod,
+  decodeDescriptionWithTimePeriod,
+  formatTime12hIST,
+  isSameISTDay,
   MAX_LOG_MINUTES,
 } from "@/features/projects/utils/time-helpers";
 
@@ -48,5 +51,28 @@ describe("resolveLogTimePeriod", () => {
 
   it("still doesn't invent a range for long logs saved without one", () => {
     expect(resolveLogTimePeriod("", 780, new Date(2026, 9, 10, 20, 0))).toBe("");
+  });
+
+  it("derives a missing range in IST whatever the process time zone", () => {
+    // 03:44 UTC = 9:14 AM IST
+    expect(resolveLogTimePeriod("", 7, new Date(Date.UTC(2026, 10, 13, 3, 44)))).toBe("9:07 AM – 9:14 AM");
+  });
+});
+
+describe("decodeDescriptionWithTimePeriod", () => {
+  it("keeps the time period when the notes span several lines", () => {
+    expect(decodeDescriptionWithTimePeriod("[9:06 AM – 9:13 AM] - Brainstorming\nmore notes")).toEqual({
+      timePeriod: "9:06 AM – 9:13 AM",
+      remarks: "- Brainstorming\nmore notes",
+    });
+  });
+});
+
+describe("formatTime12hIST / isSameISTDay", () => {
+  it("formats and compares days in IST", () => {
+    expect(formatTime12hIST(new Date(Date.UTC(2026, 10, 13, 11, 22)))).toBe("4:52 PM");
+    // 18:00 UTC 13 Nov = 11:30 PM IST; 19:00 UTC = 12:30 AM IST on 14 Nov
+    expect(isSameISTDay(new Date(Date.UTC(2026, 10, 13, 17, 0)), new Date(Date.UTC(2026, 10, 13, 18, 0)))).toBe(true);
+    expect(isSameISTDay(new Date(Date.UTC(2026, 10, 13, 18, 0)), new Date(Date.UTC(2026, 10, 13, 19, 0)))).toBe(false);
   });
 });

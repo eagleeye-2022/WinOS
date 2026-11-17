@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { istDateKey } from "@/features/attendance/utils";
 import { StatusPill } from "@/components/pulse/pulse-ui";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
@@ -43,6 +44,8 @@ interface LeaveBalanceAdjustmentViewProps {
   /** After "Done" in the success dialog; defaults to staying here with a fresh form. */
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** Fixes the form to this team member (per-employee page): no picker. */
+  employeeId?: string;
 }
 
 type AdjustmentReason =
@@ -80,6 +83,7 @@ function rowError(r: AdjustmentRow): string | null {
 export function LeaveBalanceAdjustmentView({
   onSuccess,
   onCancel,
+  employeeId,
 }: LeaveBalanceAdjustmentViewProps) {
   const router = useRouter();
 
@@ -90,9 +94,7 @@ export function LeaveBalanceAdjustmentView({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [rows, setRows] = useState<AdjustmentRow[]>([]);
-  const [effectiveDate, setEffectiveDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [effectiveDate, setEffectiveDate] = useState(() => istDateKey());
   const [reason, setReason] = useState<AdjustmentReason | "">("");
   const [remarks, setRemarks] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -123,7 +125,9 @@ export function LeaveBalanceAdjustmentView({
   useEffect(() => {
     async function load() {
       try {
-        const emps = await getEmployeesForAdjustmentAction();
+        const all = await getEmployeesForAdjustmentAction();
+        // Fixed to one person: only they are offered (and nobody else if they're out of scope).
+        const emps = employeeId ? all.filter((e) => e.id === employeeId) : all;
         setEmployees(emps);
         if (emps.length > 0) {
           const firstEmp = emps[0];
@@ -267,7 +271,7 @@ export function LeaveBalanceAdjustmentView({
       // Balances changed (fully or partly) — show the real figures.
       if (saved.length) {
         getEmployeesForAdjustmentAction()
-          .then(setEmployees)
+          .then((all) => setEmployees(employeeId ? all.filter((e) => e.id === employeeId) : all))
           .catch(() => {});
       }
     }
@@ -275,6 +279,9 @@ export function LeaveBalanceAdjustmentView({
 
   return (
     <div className="w-full select-none space-y-4 pb-12">
+      {/* Fixed to one person (per-employee page): its header already shows who this is. */}
+      {!employeeId && (
+      <>
       {/* Breadcrumb Header */}
       <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
         <h1 className="text-lg font-semibold text-foreground">Leave Balance Adjustment</h1>
@@ -363,6 +370,8 @@ export function LeaveBalanceAdjustmentView({
         </div>
       </div>
       </div>
+      </>
+      )}
 
       {/* Leave Adjustments Table Card */}
       <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-6 pt-5 pb-6">

@@ -44,6 +44,10 @@ const SIDEBAR_ACTIVE = "bg-black/[0.07] text-foreground font-semibold dark:bg-wh
 
 // ── Active route helper ───────────────────────────────────────────────────────
 
+/** Manager pages under /pulse/leave that belong to Team Leave (same grouping as the breadcrumbs). */
+const TEAM_LEAVE_PREFIXES = ["/pulse/leave/team", "/pulse/leave/employee", "/pulse/leave/policy", "/pulse/leave/adjust"];
+const isTeamLeavePath = (pathname: string) => TEAM_LEAVE_PREFIXES.some((p) => pathname.startsWith(p));
+
 function isSubItemActive(pathname: string, href: string, label: string): boolean {
   // Setu first — its "Dashboard" label would otherwise hit the Standup Dashboard rule below.
   if (href.startsWith(ROUTES.setu)) {
@@ -90,19 +94,17 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
     return pathname === "/people";
   }
   if (label === "My Leaves" || label === "Leave Tracker") {
-    return (
-      (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) &&
-      !pathname.startsWith("/pulse/leave/team")
-    );
+    return (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) && !isTeamLeavePath(pathname);
   }
   if (label === "Team Leave") {
-    return pathname.startsWith("/pulse/leave/team");
+    return isTeamLeavePath(pathname);
   }
   if (label === "Users" && pathname.startsWith("/settings")) {
     return pathname.startsWith(ROUTES.settingsUsers);
   }
   if (label === "Attendance" || label === "My Attendance") {
-    return pathname.startsWith("/pulse/attendance");
+    // /pulse/regularization has no sidebar item of its own (it's a tab on My Attendance).
+    return pathname.startsWith("/pulse/attendance") || pathname.startsWith("/pulse/regularization");
   }
   if (label === "Team Attendance") {
     return pathname.startsWith("/pulse/team-attendance");
@@ -196,7 +198,8 @@ export function AppSidebar({
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
-          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          // Hidden for now — Regularization is a tab on My / Team Attendance.
+          // { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           {
             label: "WhyFi School",
             href: "/pulse/whyfi-learning",
@@ -212,7 +215,8 @@ export function AppSidebar({
           { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
-          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          // Hidden for now — Regularization is a tab on My Attendance.
+          // { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           {
             label: "WhyFi School",
             href: "/pulse/whyfi-learning",

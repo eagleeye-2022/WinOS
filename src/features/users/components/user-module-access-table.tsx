@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
@@ -119,7 +120,9 @@ export function UserModuleAccessTable({ data }: UserModuleAccessTableProps) {
                   {initialsOf(u.name)[0]}
                 </UserAvatar>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{u.name}</p>
+                  <p className="truncate text-sm font-medium text-foreground">
+                    <UserName userId={u.userId} name={u.name} email={u.email} />
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">{u.email}</p>
                 </div>
               </div>

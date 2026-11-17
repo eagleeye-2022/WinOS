@@ -3,7 +3,10 @@
 // notified. Notifications reuse the generic DSM_REMINDER type (as Support Needed does) — there is no
 // leave-specific NotificationType in the schema.
 
+import { after } from "next/server";
 import { db } from "@/lib/db";
+import { sendRequestUpdateEmail } from "@/lib/email";
+import { getAppBaseUrl } from "@/lib/zoho-cliq";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { canManageUser, isPulseAdmin, type Viewer } from "@/features/attendance/team-scope";
 
@@ -107,18 +110,120 @@ export async function canActOnStep(viewer: Viewer, role: ApproverRole | string |
   return canManageUser(viewer, r.id);
 }
 
-/** Best-effort in-app notifications; never blocks the action. */
+type NotifyRow = { userId: string; title: string; message: string; relatedEntryId?: string };
+
+/**
+ * Best-effort in-app notifications plus an email to each recipient; never blocks the action.
+ * `options.link` is the app path the email's "Open in WinOS" button goes to; `options.actorLabel`
+ * overrides the "Approved by" / "Requested by" line the email works out from the title.
+ */
 export async function notify(
   createdById: string,
-  rows: { userId: string; title: string; message: string; relatedEntryId?: string }[]
+  rows: NotifyRow[],
+  options?: { link?: string; actorLabel?: string }
 ): Promise<void> {
-  const data = rows
-    .filter((r) => r.userId && r.userId !== createdById)
-    .map((r) => ({ type: "DSM_REMINDER" as const, createdById, ...r }));
-  if (!data.length) return;
+  const recipients = rows.filter((r) => r.userId && r.userId !== createdById);
+  if (!recipients.length) return;
   try {
-    await db.notification.createMany({ data });
+    await db.notification.createMany({
+      data: recipients.map((r) => ({ type: "DSM_REMINDER" as const, createdById, ...r })),
+    });
   } catch (err) {
     console.warn("[leave] notification failed:", err instanceof Error ? err.message : err);
+  }
+  scheduleEmails(createdById, recipients, options ?? {});
+}
+
+/** "Approved by" / "Rejected by" / … for the email, from the notification title. */
+function actorLabelFor(title: string): string {
+  if (/rejected/i.test(title)) return "Rejected by";
+  if (/approved|regularized/i.test(title)) return "Approved by";
+  if (/cancelled/i.test(title)) return "Cancelled by";
+  if (/applied for you/i.test(title)) return "Applied by";
+  if (/to review/i.test(title)) return "Requested by";
+  return "By";
+}
+
+// TEMPORARY: every email meant for an approver (leave / comp-off / regularization "to review") goes
+// to this one address instead of the real reporting manager(s). Set to null to use the real managers.
+const MANAGER_EMAIL_OVERRIDE: string | null = "m.thakre@eagleeyedigital.io";
+
+/** Approver-bound notifications ("Leave request to review", "Regularization to review", …). */
+const isForApprover = (title: string) => /to review/i.test(title);
+
+/** "/pulse/leave/requests/x" → "/pulse/leave/team/requests/x" (same for compensatory); others unchanged. */
+const teamLeaveLink = (link: string) => link.replace(/^\/pulse\/leave\/(requests|compensatory)\//, "/pulse/leave/team/$1/");
+
+const PRODUCTION_BASE_URL = "https://winos.eagleeyedigital.io";
+
+/**
+ * Base URL for the email buttons: APP_BASE_URL / NEXTAUTH_URL / AUTH_URL when set, else localhost
+ * in development and the live WinOS site in production.
+ */
+function emailBaseUrl(): string {
+  const configured = getAppBaseUrl();
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") return `http://localhost:${process.env.PORT || 3000}`;
+  return PRODUCTION_BASE_URL;
+}
+
+/** Emails go out after the response is sent, so a slow SMTP server never delays the action. */
+function scheduleEmails(createdById: string, rows: NotifyRow[], options: { link?: string; actorLabel?: string }) {
+  const send = () => sendNotificationEmails(createdById, rows, options);
+  try {
+    after(send);
+  } catch {
+    // Outside a request (scripts, tests): send now, still best-effort.
+    void send();
+  }
+}
+
+async function sendNotificationEmails(
+  createdById: string,
+  rows: NotifyRow[],
+  { link, actorLabel }: { link?: string; actorLabel?: string }
+) {
+  try {
+    const users = await db.user.findMany({
+      where: { id: { in: [createdById, ...rows.map((r) => r.userId)] } },
+      select: { id: true, name: true, email: true, isActive: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    const actorName = byId.get(createdById)?.name ?? null;
+    const base = emailBaseUrl();
+
+    // With the override, several approvers collapse into one address — send that email once.
+    const sent = new Set<string>();
+    const results = await Promise.allSettled(
+      rows.map((r) => {
+        const to = byId.get(r.userId);
+        if (!to?.email || !to.isActive) return Promise.resolve();
+        const overridden = MANAGER_EMAIL_OVERRIDE !== null && isForApprover(r.title);
+        const address = overridden ? MANAGER_EMAIL_OVERRIDE! : to.email;
+        const dedupeKey = `${address}\n${r.title}\n${r.message}`;
+        if (sent.has(dedupeKey)) return Promise.resolve();
+        sent.add(dedupeKey);
+        // Approvers open the request under Team Leave; the member under My Leaves.
+        const path = link && isForApprover(r.title) ? teamLeaveLink(link) : link;
+        const url = path ? `${base}${path}` : null;
+        return sendRequestUpdateEmail({
+          to: address,
+          recipientName: overridden ? null : to.name,
+          title: r.title,
+          message: r.message,
+          actorName,
+          actorLabel: actorLabel ?? actorLabelFor(r.title),
+          actions: isForApprover(r.title) ? "review" : "view",
+          url,
+        });
+      })
+    );
+    for (const res of results) {
+      if (res.status === "rejected") {
+        console.warn("[leave] email failed:", res.reason instanceof Error ? res.reason.message : res.reason);
+      }
+    }
+  } catch (err) {
+    console.warn("[leave] email failed:", err instanceof Error ? err.message : err);
   }
 }

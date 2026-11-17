@@ -28,7 +28,6 @@ import {
   applyExceededRule,
   checkEligibility,
   checkRequestLimits,
-  COMP_OFF_MIN_MINUTES,
   compOffCredit,
   compOffDurationError,
   compOffExpiry,
@@ -97,6 +96,18 @@ function leaveDateLabel(fromKey: string, toKey: string): string {
 }
 
 const REASON_MAX = 1000;
+/** Keep in sync with APPROVAL_NOTE_MAX in components/approve-note-dialog. */
+const APPROVAL_NOTE_MAX = 500;
+
+/** The approver's optional note (null when empty). */
+function approvalNote(value: string | undefined): string | null {
+  const note = (value || "").trim();
+  if (note.length > APPROVAL_NOTE_MAX) fail(`Note must be under ${APPROVAL_NOTE_MAX} characters.`);
+  return note || null;
+}
+
+/** " Note: “…”" appended to the member's notification / email when the approver left one. */
+const withNote = (note: string | null) => (note ? ` Note: “${note}”` : "");
 
 function requireReason(value: string | undefined): string {
   const reason = (value || "").trim();
@@ -465,7 +476,8 @@ export async function applyLeaveAction(formData: {
             ? `${actor.name || "A manager"} applied ${leaveType.name} for ${user.name || "a team member"}: ${days}.`
             : `${user.name || "A team member"} applied for ${leaveType.name}: ${days}.`,
           relatedEntryId: result.requestId,
-        }))
+        })),
+        { link: `/pulse/leave/requests/${result.requestId}` }
       );
     }
     // The employee hears about leave applied for them.
@@ -477,7 +489,7 @@ export async function applyLeaveAction(formData: {
           message: `${actor.name || "Your manager"} applied ${leaveType.name} for you: ${days}${result.autoApproved ? " — approved" : ""}.`,
           relatedEntryId: result.requestId,
         },
-      ]);
+      ], { link: `/pulse/leave/requests/${result.requestId}` });
     }
 
     revalidateLeaveAndAttendance();
@@ -530,7 +542,7 @@ export async function cancelLeaveRequestAction(requestId: string): Promise<Actio
           message: `${user.name || "Your manager"} cancelled your ${request.leaveType.name} (${leaveDateLabel(dateKeyFromUtc(request.fromDate), dateKeyFromUtc(request.toDate))}).`,
           relatedEntryId: request.id,
         },
-      ]);
+      ], { link: `/pulse/leave/requests/${request.id}` });
     }
 
     revalidateLeaveAndAttendance();
@@ -557,6 +569,7 @@ export async function approveLeaveRequestAction(
 ): Promise<ActionResult<{ isLossOfPay: boolean; lopDays: number; completed: boolean; nextStep?: string }>> {
   return run("approveLeave", async () => {
     const approver = await requireUser();
+    const note = approvalNote(comments);
 
     const request = await db.leaveRequest.findUnique({ where: { id: requestId }, include: { leaveType: true } });
     if (!request) fail("Request not found.");
@@ -586,7 +599,7 @@ export async function approveLeaveRequestAction(
           actionDate: new Date(),
           approverId: approver.id,
           approverName: approver.name || "Approver",
-          comments: comments || "Approved",
+          comments: note,
         },
       });
       if (count === 0) fail("This request was just reviewed by someone else.");
@@ -602,10 +615,10 @@ export async function approveLeaveRequestAction(
         {
           userId: request.userId,
           title: "Leave approved — next step pending",
-          message: `${approver.name || "Your manager"} approved your ${request.leaveType.name} (${dateLabel}). Waiting for ${pending.next.stepName}.`,
+          message: `${approver.name || "Your manager"} approved your ${request.leaveType.name} (${dateLabel}). Waiting for ${pending.next.stepName}.${withNote(note)}`,
           relatedEntryId: request.id,
         },
-      ]);
+      ], { link: `/pulse/leave/requests/${request.id}`, actorLabel: "Approved by" });
 
       revalidateLeaveAndAttendance();
       return { isLossOfPay: request.isLossOfPay, lopDays: request.lopDaysCount, completed: false, nextStep: pending.next.stepName };
@@ -649,7 +662,7 @@ export async function approveLeaveRequestAction(
           actionDate: new Date(),
           approverId: approver.id,
           approverName: approver.name || "Approver",
-          comments: comments || "Approved",
+          comments: note,
         },
       });
 
@@ -671,10 +684,10 @@ export async function approveLeaveRequestAction(
         title: "Leave approved",
         message: `${approver.name || "Your manager"} approved your ${request.leaveType.name} (${dateLabel})${
           outcome.isLossOfPay ? `. ${outcome.lopDays} day(s) are loss of pay.` : "."
-        }`,
+        }${withNote(note)}`,
         relatedEntryId: request.id,
       },
-    ]);
+    ], { link: `/pulse/leave/requests/${request.id}` });
 
     revalidateLeaveAndAttendance();
     return { ...outcome, completed: true };
@@ -686,6 +699,7 @@ export async function approveLeaveRequestAction(
 export async function rejectLeaveRequestAction(requestId: string, rejectionReason?: string): Promise<ActionResult> {
   return run("rejectLeave", async () => {
     const approver = await requireUser();
+    approvalNote(rejectionReason); // length check
 
     const request = await db.leaveRequest.findUnique({ where: { id: requestId }, include: { leaveType: true } });
     if (!request) fail("Request not found.");
@@ -735,7 +749,7 @@ export async function rejectLeaveRequestAction(requestId: string, rejectionReaso
         )})${rejectionReason ? `: ${rejectionReason}` : "."}`,
         relatedEntryId: request.id,
       },
-    ]);
+    ], { link: `/pulse/leave/requests/${request.id}` });
 
     revalidateLeaveAndAttendance();
     return {};
@@ -765,7 +779,8 @@ export async function applyCompensatoryAction(data: {
     if (!fromTime || !toTime) fail("Enter the start and end time as e.g. 09:30 AM.");
     const minutes = workedMinutesBetween(fromTime, toTime);
     if (!minutes) fail("The end time must be after the start time.");
-    if (!(data.duration in COMP_OFF_MIN_MINUTES)) fail("Pick a duration.");
+    // Quarter day is no longer offered.
+    if (data.duration !== "FULL_DAY" && data.duration !== "HALF_DAY") fail("Pick a full or half day.");
     const durationError = compOffDurationError(data.duration, minutes);
     if (durationError) fail(durationError);
     const reason = requireReason(data.reason);
@@ -830,7 +845,8 @@ export async function applyCompensatoryAction(data: {
           title: "Comp-off request to review",
           message: `${user.name || "A team member"} requested a comp-off for working on ${leaveDateLabel(workKey, workKey)}.`,
           relatedEntryId: comp.id,
-        }))
+        })),
+        { link: `/pulse/leave/compensatory/${comp.id}` }
       );
     }
 
@@ -841,9 +857,10 @@ export async function applyCompensatoryAction(data: {
 
 // ── 6. APPROVE COMPENSATORY OFF ──────────────────────────────────────────────
 
-export async function approveCompensatoryAction(requestId: string): Promise<ActionResult> {
+export async function approveCompensatoryAction(requestId: string, comments?: string): Promise<ActionResult> {
   return run("approveCompensatory", async () => {
     const manager = await requireManager();
+    const note = approvalNote(comments);
 
     const comp = await db.compensatoryRequest.findUnique({ where: { id: requestId } });
     if (!comp) fail("Compensatory request not found.");
@@ -872,7 +889,7 @@ export async function approveCompensatoryAction(requestId: string): Promise<Acti
           actionDate: new Date(),
           approverId: manager.id,
           approverName: manager.name || "Manager",
-          comments: "Approved by manager",
+          comments: note,
         },
       });
 
@@ -888,10 +905,10 @@ export async function approveCompensatoryAction(requestId: string): Promise<Acti
       {
         userId: comp.userId,
         title: "Comp-off approved",
-        message: `${manager.name || "Your manager"} approved your comp-off for ${leaveDateLabel(dateKeyFromUtc(comp.workDate), dateKeyFromUtc(comp.workDate))}: ${comp.creditedDays} day(s) added to your balance.`,
+        message: `${manager.name || "Your manager"} approved your comp-off for ${leaveDateLabel(dateKeyFromUtc(comp.workDate), dateKeyFromUtc(comp.workDate))}: ${comp.creditedDays} day(s) added to your balance.${withNote(note)}`,
         relatedEntryId: comp.id,
       },
-    ]);
+    ], { link: `/pulse/leave/compensatory/${comp.id}` });
 
     revalidateLeaveAndAttendance();
     return {};
@@ -903,6 +920,7 @@ export async function approveCompensatoryAction(requestId: string): Promise<Acti
 export async function rejectCompensatoryAction(requestId: string, reason?: string): Promise<ActionResult> {
   return run("rejectCompensatory", async () => {
     const manager = await requireManager();
+    approvalNote(reason); // length check
 
     const comp = await db.compensatoryRequest.findUnique({ where: { id: requestId } });
     if (!comp) fail("Compensatory request not found.");
@@ -936,7 +954,7 @@ export async function rejectCompensatoryAction(requestId: string, reason?: strin
         message: `${manager.name || "Your manager"} rejected your comp-off for ${leaveDateLabel(dateKeyFromUtc(comp.workDate), dateKeyFromUtc(comp.workDate))}${reason ? `: ${reason}` : "."}`,
         relatedEntryId: comp.id,
       },
-    ]);
+    ], { link: `/pulse/leave/compensatory/${comp.id}` });
 
     revalidateLeaveAndAttendance();
     return {};

@@ -27,11 +27,11 @@ interface RegularizeAttendanceFormPageProps {
   onBehalfOf?: EmployeeProfile | null;
 }
 
-/** One form section: numbered title on the left (desktop), content on the right. */
+/** One form section: numbered title on top, content below (same as the Apply Leave / Comp-off forms). */
 function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-3 border-b border-border/70 px-5 py-5 last:border-b-0 md:grid-cols-[200px_minmax(0,1fr)] md:gap-6">
-      <div className="flex items-start gap-2.5">
+    <div className="space-y-3 border-b border-border/70 px-5 py-5 last:border-b-0">
+      <div className="flex items-center gap-2.5">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
           {n}
         </span>

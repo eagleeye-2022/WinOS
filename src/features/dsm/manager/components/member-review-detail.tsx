@@ -14,6 +14,7 @@ import {
 import { cn, toTitleCase } from "@/lib/utils";
 import { TaskDetailRow, TaskDetailToggle, toggleDetailOnRowClick } from "./task-detail-panel";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { ROUTES } from "@/constants/routes";
 import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -2497,7 +2498,8 @@ function YesterdayTasksSection({
         <p className="text-xs text-muted-foreground italic">No tasks logged for the previous day.</p>
       )}
 
-      <YesterdayAdditionalWork items={dsr?.additionalWorks ?? []} onToggle={toggleAdditionalWork} />
+      {/* "Additional Work" hidden by request.
+      <YesterdayAdditionalWork items={dsr?.additionalWorks ?? []} onToggle={toggleAdditionalWork} /> */}
 
       {/* {adding ? (
         <div className="mt-3">
@@ -3815,7 +3817,11 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
               {(user.name ?? user.email).slice(0, 2).toUpperCase()}
             </UserAvatar>
             <div>
-              <h2 className="text-2xl font-bold">{toTitleCase(user.name ?? user.email.split("@")[0])}</h2>
+              <h2 className="text-2xl font-bold">
+                <UserName userId={user.id} name={user.name} email={user.email}>
+                  {toTitleCase(user.name ?? user.email.split("@")[0])}
+                </UserName>
+              </h2>
               <p className="text-sm text-muted-foreground">{user.title ?? "Team Member"}</p>
             </div>
           </div>

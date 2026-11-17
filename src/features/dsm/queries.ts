@@ -113,6 +113,8 @@ export type EntryWithDetails = {
   date: Date;
   status: "DRAFT" | "SUBMITTED" | "PENDING_REVIEW" | "REVIEWED" | "MISSED";
   submittedAt: Date | null;
+  /** When the entry was first saved. */
+  createdAt?: Date;
   reviewedAt: Date | null;
   reviewedBy: { name: string | null; email: string } | null;
   user?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
@@ -471,6 +473,16 @@ export type YesterdaySummary = {
   tasks: YesterdayTaskItem[];
   /** Time logged that day on tasks outside the DSM (WhyFi School, other project tasks). */
   loggedTasks: YesterdayLoggedTask[];
+  /**
+   * Whether that day's Report was submitted. Until it is, none of the day's tasks are ticked done,
+   * so every one of them looks unfinished and would be carried into today.
+   */
+  reportSubmitted: boolean;
+  /**
+   * ISO time that day's submitted Report was last saved (its ticks may change on later edits), or
+   * null while it isn't submitted.
+   */
+  reportSavedAt: string | null;
 };
 
 /**
@@ -479,7 +491,7 @@ export type YesterdaySummary = {
  */
 export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   const session = await auth();
-  const empty: YesterdaySummary = { date: null, tasks: [], loggedTasks: [] };
+  const empty: YesterdaySummary = { date: null, tasks: [], loggedTasks: [], reportSubmitted: true, reportSavedAt: null };
   if (!session?.user?.id) return empty;
   const userId = session.user.id;
 
@@ -515,9 +527,11 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   const dateStr = new Date(entry.date).toISOString().slice(0, 10);
   const dsr = await d.dsrEntry.findUnique({
     where: { userId_date: { userId, date: entry.date } },
-    select: { plannedTasks: { select: { text: true, completed: true } } },
+    select: { status: true, updatedAt: true, plannedTasks: { select: { text: true, completed: true } } },
   });
   const dsrDone = dsrCompletionMap(dsr?.plannedTasks);
+  const reportSubmitted = Boolean(dsr && dsr.status !== "DRAFT" && dsr.status !== "MISSED");
+  const reportSavedAt: string | null = reportSubmitted && dsr?.updatedAt ? new Date(dsr.updatedAt).toISOString() : null;
 
   const linkedIds = [...new Set(entry.tasks.map((t: { projectTaskId: string | null }) => t.projectTaskId).filter(Boolean))] as string[];
   const [effort, loggedTasks] = await Promise.all([
@@ -528,6 +542,8 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
   return {
     date: dateStr,
     loggedTasks,
+    reportSubmitted,
+    reportSavedAt,
     tasks: entry.tasks.map(
       (t: {
         id: string;

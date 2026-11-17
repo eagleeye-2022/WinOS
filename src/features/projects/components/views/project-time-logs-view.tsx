@@ -1,6 +1,7 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { RemarksPopupCell } from "../remarks-popup-cell";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -402,7 +403,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                       >
                         {u.userInitials}
                       </UserAvatar>
-                      <span className="font-semibold text-foreground truncate">{u.userName}</span>
+                      <UserName userId={u.userId} name={u.userName} className="font-semibold text-foreground truncate" />
                     </div>
                     <span className="font-mono font-bold text-primary shrink-0 ml-2">
                       {u.totalHoursStr}
@@ -569,9 +570,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
                       </UserAvatar>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-foreground">
-                            {userGroup.userName}
-                          </span>
+                          <UserName userId={userGroup.userId} name={userGroup.userName} className="font-bold text-sm text-foreground" />
                           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                             {userGroup.timeLogs.length} log{userGroup.timeLogs.length !== 1 ? "s" : ""}
                           </span>

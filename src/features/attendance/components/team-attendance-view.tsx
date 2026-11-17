@@ -23,6 +23,7 @@ import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { formatShortDate, istDateKey } from "../utils";
 import { PersonAvatar } from "./person-avatar";
+import { UserName } from "@/components/shared/user-card";
 
 interface TeamAttendanceViewProps {
   onViewEmployee?: (member: TeamMemberAttendance) => void;
@@ -232,7 +233,9 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                             />
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate text-[13px] font-semibold text-foreground">{member.name}</div>
+                            <div className="truncate text-[13px] font-semibold text-foreground">
+                              <UserName userId={member.id} name={member.name} />
+                            </div>
                             <div className="truncate text-xs text-muted-foreground">
                               {member.designation}
                               {/* Employee ID hidden for now: {" "}• ID: {member.employeeId} */}

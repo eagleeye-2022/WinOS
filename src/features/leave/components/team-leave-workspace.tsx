@@ -22,7 +22,7 @@ import {
   User,
   Users2,
 } from "lucide-react";
-import { LeaveStatus, LeaveTypeCode } from "../types";
+import { LeaveStatus, LeaveTypeCode, isListedRequestType } from "../types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,11 +34,14 @@ import {
 } from "@/components/ui/select";
 import { errorMessage, unwrap } from "../action-result";
 import { HolidaysView } from "./holidays-view";
-import { LeaveBalanceAdjustmentView } from "./leave-balance-adjustment-view";
+import { TeamMemberLeaveList } from "./team-member-leave-list";
+import { ApproveNoteDialog } from "./approve-note-dialog";
 import { TeamCalendarView } from "./team-calendar-view";
 import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 
@@ -93,6 +96,8 @@ interface TeamLeaveItem {
   id: string;
   /** The viewer's own request: they can approve it (managers only see this list) but not reject it. */
   isOwn?: boolean;
+  /** Opens this person's leave page. */
+  userId?: string;
   employeeName: string;
   department: string;
   avatarText: string;
@@ -193,6 +198,8 @@ export function TeamLeaveWorkspace({
   const [period, setPeriod] = useUrlState<Period>("month", currentPeriod("month"));
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  /** The request the approve-with-note dialog is open for. */
+  const [approveTarget, setApproveTarget] = useState<{ kind: "leave" | "comp"; id: string; label: string } | null>(null);
 
   /** Switching tabs starts each list with clean filters (they're shared URL params). */
   const switchTab = (tab: TeamLeaveListTab | "create-leave-type") => {
@@ -209,8 +216,11 @@ export function TeamLeaveWorkspace({
   const loadData = async () => {
     try {
       const [res, compRes] = await Promise.all([getTeamLeaveRequestsAction(), getTeamCompensatoryRequestsAction()]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setTeamRequests(res.requests as any);
+      // Absent (ABS) entries aren't listed as requests (so they're left out of the counts too).
+      setTeamRequests(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (res.requests as any[]).filter((r) => isListedRequestType(r.leaveTypeCode))
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setTeamCompRequests(compRes.requests as any);
     } catch (err) {
@@ -228,7 +238,7 @@ export function TeamLeaveWorkspace({
     scrollRef.current?.scrollTo({ top: 0 });
     const titles: Record<TeamLeaveListTab | "create-leave-type", string> = {
       "leave-requests": "Team Leave Requests",
-      "employee-leave": "Leave Balance Adjustment",
+      "employee-leave": "Team Member Leave",
       "compensatory-requests": "Team Compensatory Requests",
       "team-calendar": "Team Calendar",
       holidays: "Holidays",
@@ -265,9 +275,9 @@ export function TeamLeaveWorkspace({
   );
 
   // Actions
-  const handleQuickApprove = async (id: string) => {
+  const handleQuickApprove = async (id: string, note?: string) => {
     try {
-      const res = unwrap(await approveLeaveRequestAction(id));
+      const res = unwrap(await approveLeaveRequestAction(id, note));
       if (!res.completed) alert(`Approved. It now needs ${res.nextStep ?? "the next approval"}.`);
       else if (res.isLossOfPay) alert(`Approved. ${res.lopDays} day(s) exceed the balance and are marked as loss of pay.`);
       loadData();
@@ -296,18 +306,9 @@ export function TeamLeaveWorkspace({
     if (failures.length) alert(`Some requests weren't updated:\n${failures.join("\n")}`);
   };
 
-  const handleQuickReject = async (id: string) => {
+  const handleQuickCompApprove = async (id: string, note?: string) => {
     try {
-      unwrap(await rejectLeaveRequestAction(id));
-      loadData();
-    } catch (err) {
-      alert(errorMessage(err));
-    }
-  };
-
-  const handleQuickCompApprove = async (id: string) => {
-    try {
-      unwrap(await approveCompensatoryAction(id));
+      unwrap(await approveCompensatoryAction(id, note));
       loadData();
     } catch (err) {
       alert(errorMessage(err));
@@ -390,6 +391,17 @@ export function TeamLeaveWorkspace({
 
   return (
     <div ref={scrollRef} className={cn("flex flex-col h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 select-none", PULSE_PAGE_BG)}>
+      <ApproveNoteDialog
+        open={approveTarget !== null}
+        onOpenChange={(open) => !open && setApproveTarget(null)}
+        title={approveTarget?.kind === "comp" ? "Approve comp-off request" : "Approve leave request"}
+        description={approveTarget?.label}
+        onConfirm={async (note) => {
+          if (!approveTarget) return;
+          if (approveTarget.kind === "comp") await handleQuickCompApprove(approveTarget.id, note);
+          else await handleQuickApprove(approveTarget.id, note);
+        }}
+      />
       {/* Top Navigation Tabs — sticky, so they stay visible on every tab while the page scrolls. */}
       <PulseStickyTabs
         tabs={[
@@ -546,26 +558,30 @@ export function TeamLeaveWorkspace({
                     <th className="py-3 px-3 font-semibold">REASON</th>
                     <th className="py-3 px-3 font-semibold">STATUS</th>
                     <th className="py-3 px-3 font-semibold">APPLIED ON</th>
-                    <th className="py-3 px-3 font-semibold text-center sticky right-0 bg-muted">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/70">
                   {filteredTeamRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-xs text-muted-foreground">
+                      <td colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
                         No leave records found matching the filter criteria.
                       </td>
                     </tr>
                   ) : (
                     filteredTeamRequests.map((req) => (
-                      <tr key={req.id} className="transition-colors hover:bg-muted/40">
-                        {/* Checkbox */}
-                        <td className="py-3 px-3">
+                      <tr
+                        key={req.id}
+                        onClick={() => router.push(`/pulse/leave/team/requests/${req.id}`)}
+                        title="Open request"
+                        className="cursor-pointer transition-colors hover:bg-muted/40"
+                      >
+                        {/* Checkbox — selecting a row doesn't open it */}
+                        <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             aria-label={`Select ${req.employeeName}'s request`}
                             disabled={req.status !== "PENDING" || req.isOwn}
-                            title={req.isOwn ? "Your own request — approve it with the ✓ button" : undefined}
+                            title={req.isOwn ? "Your own request — open it to approve" : undefined}
                             checked={selectedRowIds.includes(req.id)}
                             onChange={() => toggleSelectRow(req.id)}
                             className="rounded disabled:opacity-30"
@@ -575,12 +591,26 @@ export function TeamLeaveWorkspace({
                         {/* Employee */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                            <UserAvatar
+                              name={req.employeeName}
+                              className="h-8 w-8 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                            >
                               {req.avatarText}
-                            </div>
+                            </UserAvatar>
                             <div>
                               <div className="flex items-center gap-1.5 font-semibold text-foreground leading-tight">
-                                {req.employeeName}
+                                {req.userId && !req.isOwn ? (
+                                  <Link
+                                    href={`/pulse/leave/employee/${req.userId}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={`Open ${req.employeeName}'s leave`}
+                                    className="hover:text-blue-600 hover:underline dark:hover:text-blue-400"
+                                  >
+                                    {req.employeeName}
+                                  </Link>
+                                ) : (
+                                  <UserName name={req.employeeName} />
+                                )}
                                 {req.isOwn && <StatusPill tone="blue">You</StatusPill>}
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
@@ -619,43 +649,6 @@ export function TeamLeaveWorkspace({
                         <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">
                           {req.appliedOn}
                         </td>
-
-                        {/* Actions */}
-                        <td className="py-3 px-3 text-center sticky right-0 bg-background">
-                          <div className="flex items-center justify-center gap-1">
-                            <Link
-                              href={`/pulse/leave/requests/${req.id}`}
-                              className="rounded-md p-1.5 text-blue-600 hover:bg-muted hover:text-foreground dark:text-blue-400"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
-
-                            {req.status === "PENDING" && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickApprove(req.id)}
-                                  className="rounded-md p-1.5 hover:bg-emerald-50 text-emerald-600 dark:hover:bg-emerald-950/40"
-                                  title={req.isOwn ? "Approve your own request" : "Quick Approve"}
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                {/* Your own request can't be rejected — cancel it from its details page instead. */}
-                                {!req.isOwn && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickReject(req.id)}
-                                  className="rounded-md p-1.5 hover:bg-red-50 text-red-600 dark:hover:bg-red-950/40"
-                                  title="Quick Reject"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </td>
                       </tr>
                     ))
                   )}
@@ -672,9 +665,7 @@ export function TeamLeaveWorkspace({
       )}
 
       {/* 2. EMPLOYEE LEAVE TAB */}
-      {activeTab === "employee-leave" && (
-        <LeaveBalanceAdjustmentView onCancel={() => switchTab("leave-requests")} />
-      )}
+      {activeTab === "employee-leave" && <TeamMemberLeaveList />}
 
       {/* 3. COMPENSATORY REQUESTS TAB (IMAGE 5) */}
       {activeTab === "compensatory-requests" && (
@@ -775,12 +766,15 @@ export function TeamLeaveWorkspace({
                       <tr key={comp.id} className="transition-colors hover:bg-muted/40">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+                            <UserAvatar
+                              name={comp.employeeName}
+                              className="h-8 w-8 bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                            >
                               {comp.avatarText}
-                            </div>
+                            </UserAvatar>
                             <div>
                               <div className="font-semibold text-foreground leading-tight">
-                                {comp.employeeName}
+                                <UserName name={comp.employeeName} />
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
                                 {comp.designation}
@@ -817,7 +811,7 @@ export function TeamLeaveWorkspace({
                         <td className="py-3 px-4 text-center sticky right-0 bg-background">
                           <div className="flex items-center justify-center gap-1.5">
                             <Link
-                              href={`/pulse/leave/compensatory/${comp.id}`}
+                              href={`/pulse/leave/team/compensatory/${comp.id}`}
                               className="rounded-md p-1.5 text-blue-600 hover:bg-muted hover:text-foreground dark:text-blue-400"
                               title="View Details"
                             >
@@ -828,7 +822,9 @@ export function TeamLeaveWorkspace({
                               <>
                                 <button
                                   type="button"
-                                  onClick={() => handleQuickCompApprove(comp.id)}
+                                  onClick={() =>
+                                    setApproveTarget({ kind: "comp", id: comp.id, label: `${comp.employeeName} · comp-off` })
+                                  }
                                   className="rounded-md p-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
                                   title="Quick Approve"
                                 >

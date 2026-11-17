@@ -7,6 +7,8 @@ import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "@/features/dsm/manager/components/send-reminder-button";
 import type { DsrTeamGroup, DsrMemberCard } from "../queries";
 import { formatMinutes } from "../../reporting";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 
 
 // Deterministic avatar gradient per user, cycling through a small palette
@@ -68,22 +70,25 @@ function DsrSubmittedCard({ card, selectedDateStr }: { card: DsrMemberCard; sele
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div
+          <UserAvatar
+            userId={card.userId}
+            name={card.name}
+            email={card.email}
+            image={card.image}
+            title=""
             className={cn(
-              "flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-1 ring-border dark:ring-white/10 overflow-hidden",
+              "h-8.5 w-8.5 text-xs font-bold ring-1 ring-border dark:ring-white/10",
               !card.image && "bg-gradient-to-br",
               !card.image && gradient
             )}
           >
-            {card.image ? (
-              <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
-            ) : (
-              initials
-            )}
-          </div>
+            {initials}
+          </UserAvatar>
           <div className="flex flex-col min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground">
-              {displayName}
+              <UserName userId={card.userId} name={card.name} email={card.email}>
+                {displayName}
+              </UserName>
             </p>
             {card.submittedAt && (
               <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -148,16 +153,21 @@ function DsrPendingMemberCard({ card, teamId, selectedDateStr }: { card: DsrMemb
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold ring-1 ring-border overflow-hidden">
-            {card.image ? (
-              <img src={card.image} alt={displayName} className="h-full w-full object-cover" />
-            ) : (
-              initials
-            )}
-          </div>
+          <UserAvatar
+            userId={card.userId}
+            name={card.name}
+            email={card.email}
+            image={card.image}
+            title=""
+            className="h-8.5 w-8.5 bg-muted text-muted-foreground text-xs font-bold ring-1 ring-border"
+          >
+            {initials}
+          </UserAvatar>
           <div className="flex flex-col min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground group-hover:text-primary transition-colors">
-              {displayName}
+              <UserName userId={card.userId} name={card.name} email={card.email}>
+                {displayName}
+              </UserName>
             </p>
             <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}

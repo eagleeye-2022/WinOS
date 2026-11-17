@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import type {
   DepartmentTreeGroup,
   DepartmentTreeMember,
@@ -252,16 +253,20 @@ const DepartmentMemberCard = React.forwardRef<
       onClick={() => onSelectUser(member.id)}
       className="w-64 cursor-pointer rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-card p-3.5 shadow-xs hover:shadow-md hover:border-blue-400/80 dark:hover:border-blue-500/80 transition-all duration-200 flex items-center gap-3.5 group shrink-0"
     >
-      <Avatar className="h-11 w-11 shrink-0 border border-slate-200 dark:border-slate-700 shadow-2xs">
-        <AvatarImage src={avatarUrl} alt={member.name} className="object-cover" />
-        <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
-          <img src="/default-avatar.png" alt="Default Avatar" className="h-full w-full object-cover" />
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        userId={member.id}
+        name={member.name}
+        image={avatarUrl}
+        title=""
+        className="h-11 w-11 border border-slate-200 dark:border-slate-700 shadow-2xs bg-slate-100 dark:bg-slate-800"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/default-avatar.png" alt="" className="h-full w-full object-cover" />
+      </UserAvatar>
 
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate leading-tight tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-          {member.name}
+          <UserName userId={member.id} name={member.name} />
         </span>
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
           {member.title || "Team Member"}

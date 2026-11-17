@@ -1,8 +1,10 @@
 "use client";
 
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect } from "react";
 import {
+  Info,
   Users,
   UserPlus,
   Search,
@@ -442,25 +444,29 @@ export function ProjectUsersView({
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => setSelectedDrawerUserId(member.id)} className="rounded-full">
-                      <UserAvatar
-                        userId={member.id}
-                        name={member.name}
-                        className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-xs cursor-pointer ${getAvatarColor(
-                          member.name
-                        )}`}
-                      >
-                        {getInitials(member.name)}
-                      </UserAvatar>
-                    </button>
+                    <UserAvatar
+                      userId={member.id}
+                      name={member.name}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold shadow-xs cursor-pointer ${getAvatarColor(
+                        member.name
+                      )}`}
+                    >
+                      {getInitials(member.name)}
+                    </UserAvatar>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h4
-                          onClick={() => setSelectedDrawerUserId(member.id)}
-                          className="text-sm font-bold text-foreground leading-tight hover:text-primary cursor-pointer transition-colors"
-                        >
-                          {member.name}
+                        <h4 className="text-sm font-bold text-foreground leading-tight hover:text-primary transition-colors">
+                          <UserName userId={member.id} name={member.name} />
                         </h4>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDrawerUserId(member.id)}
+                          title="Project details"
+                          aria-label="Project details"
+                          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
                         {member.isOwner && (
                           <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
                             Owner
@@ -604,25 +610,31 @@ export function ProjectUsersView({
                     {/* User Name */}
                     <td className="py-3 px-4 border-r whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <button type="button" onClick={() => setSelectedDrawerUserId(member.id)} className="rounded-full">
-                          <UserAvatar
-                            userId={member.id}
-                            name={member.name}
-                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-xs cursor-pointer ${getAvatarColor(
-                              member.name
-                            )}`}
-                          >
-                            {getInitials(member.name)}
-                          </UserAvatar>
-                        </button>
+                        <UserAvatar
+                          userId={member.id}
+                          name={member.name}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shadow-xs cursor-pointer ${getAvatarColor(
+                            member.name
+                          )}`}
+                        >
+                          {getInitials(member.name)}
+                        </UserAvatar>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span
+                            <UserName
+                              userId={member.id}
+                              name={member.name}
+                              className="font-bold text-foreground hover:text-primary transition-colors"
+                            />
+                            <button
+                              type="button"
                               onClick={() => setSelectedDrawerUserId(member.id)}
-                              className="font-bold text-foreground hover:text-primary cursor-pointer transition-colors"
+                              title="Project details"
+                              aria-label="Project details"
+                              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                             >
-                              {member.name}
-                            </span>
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
                             {member.isOwner && (
                               <span className="rounded bg-amber-500/10 px-1.5 py-0.2 text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
                                 Owner

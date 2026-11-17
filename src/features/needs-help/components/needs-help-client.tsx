@@ -4,6 +4,8 @@ import { useActionState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar as SharedUserAvatar } from "@/components/shared/user-avatar";
+import { UserName } from "@/components/shared/user-card";
 import { formatShortDate } from "@/features/dsm/utils";
 import { daysOpen, filterHelpRequests, type HelpStatusFilter } from "../utils";
 import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
@@ -48,12 +50,16 @@ function UserAvatar({ user }: { user: { name: string | null; email: string } | n
   if (!user) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+      <SharedUserAvatar
+        name={user.name}
+        email={user.email}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+      >
         {(user.name ?? user.email).slice(0, 2).toUpperCase()}
-      </span>
-      <span className="text-sm">
+      </SharedUserAvatar>
+      <UserName name={user.name} email={user.email} className="text-sm">
         {user.name?.split(" ")[0] ?? user.email.split("@")[0]}
-      </span>
+      </UserName>
     </div>
   );
 }

@@ -12,5 +12,6 @@ export const metadata: Metadata = {
 export default async function TeamAttendancePage() {
   await requirePulseManagerPage(ROUTES.pulseAttendance);
   const session = await auth();
-  return <AttendanceWorkspace canManage initialTab="team-attendance" currentUserId={session?.user?.id} />;
+  // Team Attendance: team tabs only — "Attendance Records" (my own) lives on My Attendance.
+  return <AttendanceWorkspace view="team" canManage initialTab="team-attendance" currentUserId={session?.user?.id} />;
 }

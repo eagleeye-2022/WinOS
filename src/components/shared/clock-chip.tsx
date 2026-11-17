@@ -28,9 +28,10 @@ export function ClockChip() {
       <div className="flex items-center gap-2">
         {/* Fixed width, so the chip (and the module tabs beside it) don't shift as the digits change
             each second; it's also reserved before the first tick instead of popping in. */}
-        <div className="flex w-[124px] shrink-0 items-center justify-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium tabular-nums shadow-xs">
+        <div className="flex w-[136px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full border bg-card px-3 py-1.5 text-xs font-medium tabular-nums shadow-xs">
           <Clock size={13} className="shrink-0 text-sky-400" />
-          <span className="whitespace-nowrap">{time || "--:--:-- --"}</span>
+          {/* Fixed box: Poppins digits differ in width, so the text alone would still wobble. */}
+          <span className="inline-block w-[88px] shrink-0 whitespace-nowrap text-center">{time || "--:--:-- --"}</span>
         </div>
 
         {/* <button

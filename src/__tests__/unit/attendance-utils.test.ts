@@ -2,8 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   canManageAttendance,
   dateFromKey,
+  formatDayDate,
+  formatIstDate,
+  formatIstDateTime,
   istDateKey,
   istTimeString,
+  istYear,
   leaveFractionOnDay,
   netHours,
   normalizeTime,
@@ -100,8 +104,9 @@ describe("time parsing", () => {
     expect(shiftDiff("09:26 AM", "09:30 AM")).toEqual({ type: "early", label: "04 min Early" });
     expect(shiftDiff("10:45 AM", "09:30 AM")).toEqual({ type: "late", label: "1h 15m Late" });
     expect(shiftDiff("09:30 AM", "09:30 AM")?.type).toBe("on-time");
-    expect(netHours(9 * 60 + 15)).toEqual({ type: "positive", label: "+00:15" });
-    expect(netHours(8 * 60)).toEqual({ type: "negative", label: "-01:00" });
+    // General shift 10:00 AM – 06:30 PM = 8h 30m expected.
+    expect(netHours(9 * 60 + 15)).toEqual({ type: "positive", label: "+00:45" });
+    expect(netHours(8 * 60)).toEqual({ type: "negative", label: "-00:30" });
   });
 });
 
@@ -253,5 +258,25 @@ describe("resolveDay before joining", () => {
     const r = rollupMonth([before, after]);
     expect(r.companyWorkingDays).toBe(1);
     expect(r.absentDays).toBe(1);
+  });
+});
+
+describe("IST display helpers", () => {
+  // 31 Dec 2026, 20:00 UTC = 1 Jan 2027, 01:30 IST
+  const lateNightUtc = new Date("2026-12-31T20:00:00.000Z");
+
+  it("formatIstDateTime shows the IST day and time, not UTC", () => {
+    expect(formatIstDateTime(lateNightUtc)).toBe("01 Jan 2027 at 01:30 AM");
+    expect(formatIstDate(lateNightUtc)).toBe("01 Jan 2027");
+  });
+
+  it("istYear rolls over at IST midnight", () => {
+    expect(istYear(lateNightUtc)).toBe(2027);
+    expect(istYear(new Date("2026-12-31T18:29:00.000Z"))).toBe(2026);
+  });
+
+  it("formatDayDate keeps a stored calendar date as-is", () => {
+    expect(formatDayDate(d("2026-08-05"))).toBe("05 Aug 2026");
+    expect(formatDayDate("2026-11-16T00:00:00.000Z")).toBe("16 Nov 2026");
   });
 });
