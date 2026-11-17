@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { LeaveTypeConfig } from "../types";
 import { LeaveBalanceCard } from "./leave-balance-card";
@@ -18,6 +18,11 @@ export function LeaveBalanceGrid({
   onSelectType,
 }: LeaveBalanceGridProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Highest available balance first; ties keep their original order (sort is stable).
+  const sortedTypes = useMemo(
+    () => [...leaveTypes].sort((a, b) => b.remainingDays - a.remainingDays),
+    [leaveTypes]
+  );
   // Scroll arrows only when the cards don't all fit.
   const [overflows, setOverflows] = useState(false);
   useEffect(() => {
@@ -90,7 +95,7 @@ export function LeaveBalanceGrid({
           ref={scrollContainerRef}
           className="flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30 scroll-smooth"
         >
-          {leaveTypes.map((type) => (
+          {sortedTypes.map((type) => (
             <LeaveBalanceCard
               key={type.id}
               type={type}

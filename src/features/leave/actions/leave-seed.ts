@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { istYear } from "@/features/attendance/utils";
 
 export async function ensureLeaveDataSeeded() {
   try {
@@ -208,7 +209,7 @@ export async function ensureLeaveDataSeeded() {
     // Ensure logged-in user has leave balance records for the current year
     const session = await auth();
     if (session?.user?.id) {
-      await ensureUserBalances(session.user.id, new Date().getFullYear());
+      await ensureUserBalances(session.user.id, istYear());
     }
   } catch (error) {
     console.error("[Leave Seed] Error seeding initial data:", error);

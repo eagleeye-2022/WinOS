@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { errorMessage, unwrap } from "../action-result";
 import { HolidaysView } from "./holidays-view";
-import { LeaveBalanceAdjustmentView } from "./leave-balance-adjustment-view";
+import { TeamMemberLeaveList } from "./team-member-leave-list";
 import { TeamCalendarView } from "./team-calendar-view";
 import { LeavePolicyView } from "./leave-policy-view";
 import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
@@ -95,6 +95,8 @@ interface TeamLeaveItem {
   id: string;
   /** The viewer's own request: they can approve it (managers only see this list) but not reject it. */
   isOwn?: boolean;
+  /** Opens this person's leave page. */
+  userId?: string;
   employeeName: string;
   department: string;
   avatarText: string;
@@ -230,7 +232,7 @@ export function TeamLeaveWorkspace({
     scrollRef.current?.scrollTo({ top: 0 });
     const titles: Record<TeamLeaveListTab | "create-leave-type", string> = {
       "leave-requests": "Team Leave Requests",
-      "employee-leave": "Leave Balance Adjustment",
+      "employee-leave": "Team Member Leave",
       "compensatory-requests": "Team Compensatory Requests",
       "team-calendar": "Team Calendar",
       holidays: "Holidays",
@@ -585,7 +587,18 @@ export function TeamLeaveWorkspace({
                             </UserAvatar>
                             <div>
                               <div className="flex items-center gap-1.5 font-semibold text-foreground leading-tight">
-                                <UserName name={req.employeeName} />
+                                {req.userId && !req.isOwn ? (
+                                  <Link
+                                    href={`/pulse/leave/employee/${req.userId}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={`Open ${req.employeeName}'s leave`}
+                                    className="hover:text-blue-600 hover:underline dark:hover:text-blue-400"
+                                  >
+                                    {req.employeeName}
+                                  </Link>
+                                ) : (
+                                  <UserName name={req.employeeName} />
+                                )}
                                 {req.isOwn && <StatusPill tone="blue">You</StatusPill>}
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
@@ -677,9 +690,7 @@ export function TeamLeaveWorkspace({
       )}
 
       {/* 2. EMPLOYEE LEAVE TAB */}
-      {activeTab === "employee-leave" && (
-        <LeaveBalanceAdjustmentView onCancel={() => switchTab("leave-requests")} />
-      )}
+      {activeTab === "employee-leave" && <TeamMemberLeaveList />}
 
       {/* 3. COMPENSATORY REQUESTS TAB (IMAGE 5) */}
       {activeTab === "compensatory-requests" && (

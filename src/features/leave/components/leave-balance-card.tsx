@@ -18,7 +18,6 @@ import {
   CalendarDays,
   CalendarCheck,
   History,
-  Info,
   Thermometer,
   Plane,
   Baby,
@@ -36,8 +35,9 @@ interface LeaveBalanceCardProps {
   onClick?: () => void;
 }
 
-export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCardProps) {
-  const getIcon = (name: string) => {
+/** The Lucide icon for a leave type's stored icon name (Calendar when unknown). */
+export function leaveTypeIcon(name: string) {
+  {
     switch (name) {
       case "Thermometer":
         return Thermometer;
@@ -88,9 +88,11 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
       default:
         return Calendar;
     }
-  };
+  }
+}
 
-  const icon = React.createElement(getIcon(type.iconName || "Calendar"), { className: "h-6 w-6" });
+export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCardProps) {
+  const icon = React.createElement(leaveTypeIcon(type.iconName || "Calendar"), { className: "h-6 w-6" });
 
   return (
     <div
@@ -135,12 +137,8 @@ export function LeaveBalanceCard({ type, isSelected, onClick }: LeaveBalanceCard
         {!type.hideBooked && (
         <div className="flex items-center justify-between">
           <span className="text-foreground">Booked</span>
-          <span className="flex items-center gap-1.5 font-semibold tabular-nums text-foreground" title={`${type.bookedDays} ${type.unit}`}>
+          <span className="font-semibold tabular-nums text-foreground" title={`${type.bookedDays} ${type.unit}`}>
             {type.bookedDays}
-            <Info
-              className="h-4 w-4 text-muted-foreground"
-              aria-label={`${type.bookedDays} ${type.unit} booked this year`}
-            />
           </span>
         </div>
         )}

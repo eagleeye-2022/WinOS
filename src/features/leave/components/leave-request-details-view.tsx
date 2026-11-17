@@ -45,6 +45,7 @@ import { errorMessage, unwrap } from "../action-result";
 import { getLeaveRequestByIdAction } from "../queries/leave-queries";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatIstDateTime } from "@/features/attendance/utils";
 import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 const STATUS_TONE: Record<string, PulseTone> = { APPROVED: "green", REJECTED: "red", PENDING: "amber", CANCELLED: "gray" };
@@ -178,11 +179,7 @@ export function LeaveRequestDetailsView({
 
   const handleApprove = async () => {
     setIsProcessing(true);
-    const nowStr = `${new Date().toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+    const nowStr = formatIstDateTime();
 
     // Instant optimistic update
     setStatus("APPROVED");
@@ -221,11 +218,7 @@ export function LeaveRequestDetailsView({
 
   const handleReject = async () => {
     setIsProcessing(true);
-    const nowStr = `${new Date().toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+    const nowStr = formatIstDateTime();
 
     // Instant optimistic update
     setStatus("REJECTED");

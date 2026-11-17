@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { getMyProfileData } from "../queries/attendance-queries";
+import { formatDayDate } from "../utils";
 import { logoutAction } from "@/features/auth/actions/logout";
 import { ROUTES } from "@/constants/routes";
 import { PulseCard, StatusPill } from "@/components/pulse/pulse-ui";
@@ -62,11 +63,7 @@ export function MyProfileView() {
   }, []);
 
   const joined = userProfile?.dateOfJoining
-    ? new Date(userProfile.dateOfJoining).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
+    ? formatDayDate(userProfile.dateOfJoining)
     : null;
 
   return (

@@ -50,6 +50,8 @@ import {
   EXPECTED_SHIFT_MINUTES,
   SHIFT_END,
   addDaysToKey,
+  formatIstDate,
+  formatIstDateTime,
   formatTime12h,
   isWeekendKey,
   istDateKey,
@@ -70,6 +72,8 @@ interface ApplyLeaveFormProps {
   onSubmitLeave: (newLeave: LeaveRequest) => void;
   onCancel?: () => void;
   initialDate?: string;
+  /** Managers: open the form already applying for this team member. */
+  initialForUserId?: string;
 }
 
 /** Numbered section heading inside the form card. */
@@ -103,12 +107,13 @@ export function ApplyLeaveForm({
   onSubmitLeave,
   onCancel,
   initialDate,
+  initialForUserId,
 }: ApplyLeaveFormProps) {
   const router = useRouter();
 
   // Managers can apply for a team member: the leave types and balances are then that person's.
   const [applicantOptions, setApplicantOptions] = useState<{ id: string; name: string }[]>([]);
-  const [forUserId, setForUserId] = useState("");
+  const [forUserId, setForUserId] = useState(initialForUserId ?? "");
   const [otherTypes, setOtherTypes] = useState<LeaveTypeConfig[] | null>(null);
   useEffect(() => {
     getLeaveApplicantOptionsAction()
@@ -391,16 +396,8 @@ export function ApplyLeaveForm({
         status: "PENDING",
         leaveTypeIcon: selectedType.iconName || "Calendar",
         leaveTypeColor: selectedType.iconBgColor,
-        appliedOn: new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-        appliedOnDateTime: `${new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+        appliedOn: formatIstDate(),
+        appliedOnDateTime: formatIstDateTime(),
         attachments: attachments.length > 0 ? attachments : undefined,
         approvalFlow: [
           {
@@ -408,7 +405,7 @@ export function ApplyLeaveForm({
             title: "Requested",
             actorName: "Applicant",
             actorRole: "Applicant",
-            dateStr: `${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+            dateStr: formatIstDateTime(),
             status: "COMPLETED",
           },
           {
@@ -1044,11 +1041,7 @@ export function ApplyLeaveForm({
                 <span>
                   As on{" "}
                   <span className="text-primary font-semibold underline">
-                    {new Date().toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
+                    {istDateKey().split("-").reverse().join("/")}
                   </span>
                 </span>
                 <span className="font-medium text-foreground">Day(s)</span>

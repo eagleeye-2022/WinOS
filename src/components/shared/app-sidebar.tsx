@@ -196,7 +196,8 @@ export function AppSidebar({
           { label: "Team Leave", href: "/pulse/leave/team", icon: Users2 },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
           { label: "Team Attendance", href: "/pulse/team-attendance", icon: Users2 },
-          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          // Hidden for now — Regularization is a tab on My / Team Attendance.
+          // { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           {
             label: "WhyFi School",
             href: "/pulse/whyfi-learning",
@@ -212,7 +213,8 @@ export function AppSidebar({
           { label: "Home", href: ROUTES.pulseHome, icon: Home },
           { label: "My Leaves", href: "/pulse/leave", icon: Calendar },
           { label: "My Attendance", href: "/pulse/attendance", icon: Clock },
-          { label: "Regularization", href: "/pulse/regularization", icon: Timer },
+          // Hidden for now — Regularization is a tab on My Attendance.
+          // { label: "Regularization", href: "/pulse/regularization", icon: Timer },
           {
             label: "WhyFi School",
             href: "/pulse/whyfi-learning",

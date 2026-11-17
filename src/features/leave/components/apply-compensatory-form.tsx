@@ -18,7 +18,7 @@ import { CompDurationType, CompensatoryRequest, LeaveAttachment } from "../types
 import { applyCompensatoryAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 import { uploadAttachment } from "../upload-attachment";
-import { addDaysToKey, istDateKey, normalizeTime, workedMinutesBetween } from "@/features/attendance/utils";
+import { addDaysToKey, formatIstDate, istDateKey, normalizeTime, workedMinutesBetween } from "@/features/attendance/utils";
 import { compOffDurationError } from "../leave-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,11 +187,7 @@ export function ApplyCompensatoryForm({
         durationText: durationDetails.label,
         reason,
         status: "PENDING",
-        requestedOn: new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
+        requestedOn: formatIstDate(),
         expiryDate: expiryDateFormatted,
         attachments: attachments.length > 0 ? attachments : undefined,
       };

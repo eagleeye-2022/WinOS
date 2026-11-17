@@ -19,6 +19,13 @@ import { Button } from "@/components/ui/button";
 import { PeriodNav } from "@/components/shared/period-nav";
 import { cn } from "@/lib/utils";
 import { getTeamCalendarEventsAction } from "../queries/leave-queries";
+import { istDateKey } from "@/features/attendance/utils";
+
+/** Today's calendar date in IST, as a local Date (the grid below does plain calendar math on it). */
+function istToday(): Date {
+  const [y, m, d] = istDateKey().split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 interface LeaveCalendarItem {
   id: string;
@@ -55,8 +62,8 @@ interface HolidayCalendarItem {
 }
 
 export function TeamCalendarView() {
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
+  const [currentDate, setCurrentDate] = useState(istToday);
+  const [selectedDay, setSelectedDay] = useState(() => istToday().getDate());
   const [isPending, startTransition] = useTransition();
 
   const [leavesByDate, setLeavesByDate] = useState<Record<string, LeaveCalendarItem[]>>({});
@@ -120,7 +127,7 @@ export function TeamCalendarView() {
   });
 
   const handleToday = () => {
-    const now = new Date();
+    const now = istToday();
     setCurrentDate(now);
     setSelectedDay(now.getDate());
   };
@@ -139,7 +146,7 @@ export function TeamCalendarView() {
   });
 
   const isTodayDate = (day: number) => {
-    const now = new Date();
+    const now = istToday();
     return (
       now.getFullYear() === year &&
       now.getMonth() === month &&

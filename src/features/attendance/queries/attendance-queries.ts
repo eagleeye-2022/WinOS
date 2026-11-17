@@ -30,6 +30,7 @@ import {
 import type {
   AttendanceRecord,
   ActionRequiredItem,
+  EmployeeProfile,
   MonthlySummary,
   TeamMemberAttendance,
   RegularizationRequest,
@@ -215,6 +216,29 @@ export async function getMyAttendanceData(monthIndex?: number, year?: number, fo
   const liveRecord = records.find((r) => r.date === range.todayKey);
 
   return { records, actionRequired, summary, liveRecord, todayKey: range.todayKey };
+}
+
+/** A team member's profile for the per-employee Attendance page (managers only, same rule as viewing). */
+export async function getTeamMemberProfileAction(userId: string): Promise<EmployeeProfile | null> {
+  const session = await requireSession();
+  const viewer = await viewerOf(session.user.id!);
+  if (!viewer || !canManageAttendance(viewer)) throw new Error("Forbidden");
+  const u = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, employeeId: true, title: true, department: true, image: true, workMobile: true, isActive: true },
+  });
+  if (!u) return null;
+  return {
+    id: u.id,
+    employeeId: employeeCode(u.employeeId, u.id),
+    name: u.name || u.email,
+    avatarUrl: u.image || undefined,
+    status: u.isActive ? "ACTIVE" : "INACTIVE",
+    designation: u.title || "Team Member",
+    department: u.department || "General",
+    email: u.email,
+    phone: u.workMobile || "—",
+  };
 }
 
 // ── 2. GET TEAM ATTENDANCE DATA ──────────────────────────────────────────────

@@ -23,7 +23,8 @@ import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-u
 
 interface CompensatoryRequestsTableProps {
   requests: CompensatoryRequest[];
-  onApplyClick: () => void;
+  /** Omit to hide "Apply Compensatory Request" (e.g. a manager viewing someone else). */
+  onApplyClick?: () => void;
   onViewRequest: (request: CompensatoryRequest) => void;
 }
 
@@ -86,14 +87,16 @@ export function CompensatoryRequestsTable({
           <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
         </div>
 
-        <Button
-          type="button"
-          onClick={onApplyClick}
-          className="h-9 self-start rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Apply Compensatory Request</span>
-        </Button>
+        {onApplyClick && (
+          <Button
+            type="button"
+            onClick={onApplyClick}
+            className="h-9 self-start rounded-md bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Apply Compensatory Request</span>
+          </Button>
+        )}
       </div>
 
       {/* Filter Bar */}

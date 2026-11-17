@@ -3,7 +3,19 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange } from "@/features/attendance/attendance-data";
-import { addDaysToKey, employeeCode, formatShortDate, fullDayName, istDateKey } from "@/features/attendance/utils";
+import {
+  addDaysToKey,
+  dateFromKey,
+  dateKeyFromUtc,
+  employeeCode,
+  formatDayDate,
+  formatIstDate,
+  formatIstDateTime,
+  formatShortDate,
+  fullDayName,
+  istDateKey,
+  istYear,
+} from "@/features/attendance/utils";
 import { accruedAllocation, checkEligibility } from "../leave-rules";
 import { effectiveAvailable } from "../balance";
 import { canManageAttendance } from "@/features/attendance/utils";
@@ -175,7 +187,7 @@ export async function getLeaveApplicantOptionsAction(): Promise<{ id: string; na
 }
 
 /** `forUserId` (managers only): another employee's balances and requests, to apply leave on their behalf. */
-export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(), forUserId?: string) {
+export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: string) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   let userId = session.user.id;
@@ -193,7 +205,19 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   // type, service period…), and "Hide in self service" types only when a manager applies for them.
   const facts = await db.user.findUnique({
     where: { id: userId },
-    select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+    select: {
+      department: true,
+      employmentType: true,
+      profileRole: true,
+      dateOfJoining: true,
+      dateOfConfirmation: true,
+      // For the per-employee header.
+      name: true,
+      email: true,
+      image: true,
+      title: true,
+      employeeId: true,
+    },
   });
   const selfView = userId === session.user.id;
   const visibleTo = (t: { employeeVisibility: string }) => !(selfView && t.employeeVisibility === "HIDE_IN_SELF_SERVICE");
@@ -284,24 +308,16 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   const pendingNames = new Map(await Promise.all(pendingRoles.map(async (role) => [role, await namesFor(role)] as const)));
 
   const formattedRequests: FormattedLeaveRequest[] = requests.map((r) => {
-    const fromStr = r.fromDate.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const toStr = r.toDate.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const fromStr = formatDayDate(r.fromDate);
+    const toStr = formatDayDate(r.toDate);
 
     return {
       id: r.id,
       leaveTypeCode: r.leaveType.code,
       leaveTypeName: `${r.leaveType.name} (${r.leaveType.code})`,
       leaveTypeIcon: r.leaveType.icon,
-      fromDate: r.fromDate.toISOString().split("T")[0],
-      toDate: r.toDate.toISOString().split("T")[0],
+      fromDate: dateKeyFromUtc(r.fromDate),
+      toDate: dateKeyFromUtc(r.toDate),
       fromDateDisplay: fromStr,
       toDateDisplay: toStr,
       durationText:
@@ -315,16 +331,8 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       reason: r.reason,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: r.status as any,
-      appliedOn: r.createdAt.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      appliedOnDateTime: `${r.createdAt.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })} at ${r.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+      appliedOn: formatIstDate(r.createdAt),
+      appliedOnDateTime: formatIstDateTime(r.createdAt),
       employee: {
         id: r.user.id,
         name: r.user.name || "Team Member",
@@ -350,9 +358,7 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
               ? r.user.name || "Team Member"
               : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
           actorRole: s.approverRole || undefined,
-          dateStr: s.actionDate
-            ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
-            : undefined,
+          dateStr: s.actionDate ? formatIstDateTime(s.actionDate) : undefined,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           status: s.status as any,
         })),
@@ -366,38 +372,26 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
     orderBy: { createdAt: "desc" },
   });
 
+  const todayStart = dateFromKey(istDateKey())!.getTime();
   const formattedCompRequests: FormattedCompensatoryRequest[] = compRequests.map((c) => {
-    const diffDays = Math.ceil(
-      (c.expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-    );
+    // Whole IST days from today to the expiry date.
+    const diffDays = Math.round((dateFromKey(dateKeyFromUtc(c.expiryDate))!.getTime() - todayStart) / 86_400_000);
     return {
       id: c.id,
       employeeName: c.user.name || "Team Member",
       designation: c.user.title || "Team Member",
       avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
-      workDate: c.workDate.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      workDay: c.workDate.toLocaleDateString("en-US", { weekday: "short" }),
+      workDate: formatDayDate(c.workDate),
+      workDay: fullDayName(dateKeyFromUtc(c.workDate)).slice(0, 3),
       hoursWorked: `${c.fromTime} - ${c.toTime}\n${c.hoursWorked} Hours`,
       duration: c.duration === "FULL_DAY" ? "Full Day" : c.duration === "HALF_DAY" ? "Half Day" : "Quarter Day",
       creditedDays: c.creditedDays,
       reason: c.reason,
-      expiryDate: c.expiryDate.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
+      expiryDate: formatDayDate(c.expiryDate),
       daysRemainingText: diffDays > 0 ? `(in ${diffDays} days)` : "(Expired)",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       status: c.status as any,
-      requestedOn: c.createdAt.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
+      requestedOn: formatIstDate(c.createdAt),
       attachments: realAttachments(c.attachments).map((a) => ({
         id: a.id,
         name: a.fileName,
@@ -439,8 +433,13 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
   // Absent = working days with no attendance and no leave, from the same day resolver Home's
   // "Loss of pay" card and payroll use (balance lossOfPayDays only covers leave over the balance,
   // so it read 0 for plain absences).
-  const totalAbsentDays =
-    Math.round(attendanceRange.daysFor(userId, yearKeys).reduce((acc, d) => acc + d.resolved.absent, 0) * 100) / 100;
+  const yearDays = attendanceRange.daysFor(userId, yearKeys);
+  const totalAbsentDays = Math.round(yearDays.reduce((acc, d) => acc + d.resolved.absent, 0) * 100) / 100;
+  // Each absent day of the year, latest first — for the per-employee Leave Summary.
+  const absentList = yearDays
+    .filter((d) => d.resolved.absent > 0)
+    .reverse()
+    .map((d) => ({ dateKey: d.key, dayName: fullDayName(d.key), days: d.resolved.absent }));
 
   // A manager may review someone else's requests here (applying on their behalf) — never their own.
   const signedIn = await currentViewer(session.user.id);
@@ -457,6 +456,82 @@ export async function getMyLeaveTrackerDataAction(year = new Date().getFullYear(
       bookedThisYear: totalBookedThisYear,
       absentDays: totalAbsentDays,
     },
+    absentList,
+    profile: {
+      id: userId,
+      name: facts?.name || facts?.email || "Team Member",
+      email: facts?.email || "",
+      image: facts?.image || undefined,
+      title: facts?.title || "",
+      department: facts?.department || "",
+      employeeCode: employeeCode(facts?.employeeId, userId),
+    },
+  };
+}
+
+// ── 1b. ONE EMPLOYEE'S LEAVE POLICIES (MANAGER VIEW, READ-ONLY) ──────────────
+
+/**
+ * Every active leave type and whether it applies to this employee today, with the rule that
+ * decides it. Rules are set per leave type (Leave Policy); nothing here is per-person.
+ */
+export async function getEmployeeLeavePolicyAction(userId: string) {
+  const { viewer } = await requireLeaveManager();
+  if (userId !== viewer.id && !(await canManageUser(viewer, userId))) throw new Error("Forbidden");
+
+  const todayKey = istDateKey();
+  const [facts, types] = await Promise.all([
+    db.user.findUnique({
+      where: { id: userId },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+    }),
+    db.leaveType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+  ]);
+  if (!facts) throw new Error("Not found");
+
+  const unitLabel = (n: number, unit: string) => `${n} ${unit.toLowerCase().replace(/s$/, "")}${n === 1 ? "" : "s"}`;
+
+  return {
+    employee: {
+      department: facts.department || "",
+      employmentType: facts.employmentType || "",
+      dateOfJoining: facts.dateOfJoining ? formatDayDate(facts.dateOfJoining) : "",
+      confirmed: facts.dateOfConfirmation ? dateKeyFromUtc(facts.dateOfConfirmation) <= todayKey : false,
+    },
+    policies: types.map((t) => {
+      const blockedBy = checkEligibility(t, facts, todayKey);
+      return {
+        id: t.id,
+        name: t.name,
+        code: t.code,
+        icon: t.icon,
+        iconBg: t.iconBgColor || "bg-primary/10",
+        iconText: t.iconTextColor || "text-primary",
+        category: t.category === "PAID" ? "Paid" : t.category === "UNPAID" ? "Unpaid" : "Partially paid",
+        applies: blockedBy === null,
+        blockedBy,
+        entitlement: `${t.annualEntitlement} day(s) / ${
+          t.allocationFrequency === "MONTHLY" ? "month" : t.allocationFrequency === "QUARTERLY" ? "quarter" : t.allocationFrequency === "ON_DEMAND" ? "on demand" : "year"
+        }`,
+        rules: [
+          t.applicableTo === "FULL_TIME_ONLY"
+            ? "Full-time only"
+            : t.applicableTo === "PROBATIONARY"
+            ? "On probation only"
+            : t.applicableTo === "CONTRACTORS"
+            ? "Contractors only"
+            : "All employees",
+          ...(t.employmentTypes.length ? [`Employment: ${t.employmentTypes.join(", ")}`] : []),
+          ...(t.departments.length ? [`Department: ${t.departments.join(", ")}`] : []),
+          ...(t.minServicePeriod ? [`After ${unitLabel(t.minServicePeriod, t.minServiceUnit)} of service`] : []),
+          [t.allowFullDay && "Full day", t.allowHalfDay && "Half day", t.allowQuarterDay && "Quarter day", t.allowHourly && "Hourly"]
+            .filter(Boolean)
+            .join(" · "),
+          ...(t.allowCarryForward ? [`Carry forward up to ${t.carryForwardLimit ?? 0} day(s)`] : []),
+          ...(t.managerApprovalRequired ? [] : ["No approval needed"]),
+        ].filter(Boolean),
+      };
+    }),
   };
 }
 
@@ -503,14 +578,15 @@ export async function getTeamLeaveRequestsAction(filters?: {
     id: r.id,
     /** The viewer's own request — they may approve it, not reject it. */
     isOwn: r.userId === viewer.id,
+    userId: r.userId,
     employeeName: r.user.name || "Team Member",
     department: r.user.department || "General",
     avatarText: (r.user.name || "EM").slice(0, 2).toUpperCase(),
     leaveType: `${r.leaveType.name} (${r.leaveType.code})`,
     leaveTypeCode: r.leaveType.code,
     /** "YYYY-MM-DD" — for the month filter. */
-    fromKey: r.fromDate.toISOString().slice(0, 10),
-    toKey: r.toDate.toISOString().slice(0, 10),
+    fromKey: dateKeyFromUtc(r.fromDate),
+    toKey: dateKeyFromUtc(r.toDate),
     duration:
       r.durationType === "HALF_DAY"
         ? `${r.durationDays} Day`
@@ -520,15 +596,11 @@ export async function getTeamLeaveRequestsAction(filters?: {
     dateTime:
       r.durationType === "EARLY_LEAVE"
         ? `${r.fromTime || "04:30 PM"} - ${r.toTime || "06:30 PM"}`
-        : `${r.fromDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} - ${r.toDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`,
+        : `${formatDayDate(r.fromDate)} - ${formatDayDate(r.toDate)}`,
     reason: r.reason,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: r.status as any,
-    appliedOn: r.createdAt.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
+    appliedOn: formatIstDate(r.createdAt),
   }));
 
   // Counts for metric cards
@@ -581,25 +653,17 @@ export async function getTeamCompensatoryRequestsAction(filters?: {
     employeeName: c.user.name || "Team Member",
     designation: c.user.title || "Team Member",
     avatarText: (c.user.name || "EM").slice(0, 2).toUpperCase(),
-    workDate: c.workDate.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
-    workDay: c.workDate.toLocaleDateString("en-US", { weekday: "short" }),
+    workDate: formatDayDate(c.workDate),
+    workDay: fullDayName(dateKeyFromUtc(c.workDate)).slice(0, 3),
     /** "YYYY-MM-DD" — for the month filter. */
-    workKey: c.workDate.toISOString().slice(0, 10),
+    workKey: dateKeyFromUtc(c.workDate),
     department: c.user.department || "General",
     hoursWorked: `${c.fromTime} - ${c.toTime}\n${c.hoursWorked} Hours`,
     duration: c.duration === "FULL_DAY" ? "Full Day" : c.duration === "HALF_DAY" ? "Half Day" : "Quarter Day",
     reason: c.reason,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: c.status as any,
-    requestedOn: c.createdAt.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
+    requestedOn: formatIstDate(c.createdAt),
   }));
 
   const pending = await db.compensatoryRequest.count({ where: { ...team, status: "PENDING" } });
@@ -639,10 +703,11 @@ export async function getCompensatoryRequestByIdAction(requestId: string) {
   if (!own && !canReview) return null;
 
   // Calendar dates are stored as UTC midnight; timestamps are shown in IST.
-  const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
-  const stamp = (d: Date) =>
-    `${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })} at ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}`;
-  const daysLeft = Math.ceil((c.expiryDate.getTime() - Date.now()) / 86_400_000);
+  const day = formatDayDate;
+  const stamp = formatIstDateTime;
+  const daysLeft = Math.round(
+    (dateFromKey(dateKeyFromUtc(c.expiryDate))!.getTime() - dateFromKey(istDateKey())!.getTime()) / 86_400_000
+  );
 
   return {
     id: c.id,
@@ -781,7 +846,7 @@ export async function getHolidaysAction(year = Number(istDateKey().slice(0, 4)))
     orderBy: { date: "asc" },
   });
 
-  const now = new Date();
+  const now = dateFromKey(istDateKey())!; // today in IST — a holiday today still counts as upcoming
   const total = holidays.length;
   const upcoming = holidays.filter((h) => h.date >= now).length;
   const passed = holidays.filter((h) => h.date < now).length;
@@ -791,11 +856,7 @@ export async function getHolidaysAction(year = Number(istDateKey().slice(0, 4)))
     holidays: holidays.map((h) => ({
       id: h.id,
       name: h.name,
-      date: h.date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
+      date: formatDayDate(h.date),
       dayOfWeek: h.dayOfWeek,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: h.type as any,
@@ -898,7 +959,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
       user: {
         include: {
           userLeaveBalances: {
-            where: { year: new Date().getFullYear() },
+            where: { year: istYear() },
             include: { leaveType: true },
           },
         },
@@ -917,16 +978,8 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     if (!viewer || !(await canManageUser(viewer, request.userId))) return null;
   }
 
-  const fromStr = request.fromDate.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-  const toStr = request.toDate.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const fromStr = formatDayDate(request.fromDate);
+  const toStr = formatDayDate(request.toDate);
 
   const namesFor = pendingApproverNames(request.userId);
   const pendingRoles = [
@@ -943,8 +996,8 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     leaveTypeCode: request.leaveType.code,
     leaveTypeName: `${request.leaveType.name} (${request.leaveType.code})`,
     leaveTypeIcon: request.leaveType.icon,
-    fromDate: request.fromDate.toISOString().split("T")[0],
-    toDate: request.toDate.toISOString().split("T")[0],
+    fromDate: dateKeyFromUtc(request.fromDate),
+    toDate: dateKeyFromUtc(request.toDate),
     fromDateDisplay: fromStr,
     toDateDisplay: toStr,
     durationText:
@@ -958,16 +1011,8 @@ export async function getLeaveRequestByIdAction(requestId: string) {
     reason: request.reason,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     status: request.status as any,
-    appliedOn: request.createdAt.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
-    appliedOnDateTime: `${request.createdAt.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })} at ${request.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`,
+    appliedOn: formatIstDate(request.createdAt),
+    appliedOnDateTime: formatIstDateTime(request.createdAt),
     employee: {
       id: request.user.id,
       name: request.user.name || "Team Member",
@@ -993,9 +1038,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
             ? request.user.name || "Team Member"
             : pendingNames.get(s.approverRole || "Reporting Manager") || s.approverRole || "Approver"),
         actorRole: s.approverRole || undefined,
-        dateStr: s.actionDate
-          ? `${s.actionDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} at ${s.actionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
-          : undefined,
+        dateStr: s.actionDate ? formatIstDateTime(s.actionDate) : undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: s.status as any,
       })),
@@ -1026,9 +1069,9 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
   // Shows leave reasons, so it's limited to the manager's own team.
   const { scope } = await requireLeaveManager();
 
-  // Calculate start and end of month
-  const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
-  const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  // Month bounds as calendar dates (stored as UTC midnight of the IST day), independent of server time zone.
+  const startOfMonth = new Date(Date.UTC(year, month, 1));
+  const endOfMonth = new Date(Date.UTC(year, month + 1, 0));
 
   // Fetch all leave requests that overlap with this month
   const leaveRequests = await db.leaveRequest.findMany({
@@ -1049,8 +1092,8 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
   const holidays = await db.holiday.findMany({
     where: {
       date: {
-        gte: new Date(year, month - 1, 1),
-        lte: new Date(year, month + 2, 0),
+        gte: new Date(Date.UTC(year, month - 1, 1)),
+        lte: new Date(Date.UTC(year, month + 2, 0)),
       },
     },
     orderBy: { date: "asc" },
@@ -1085,16 +1128,14 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
   }[]> = {};
 
   for (const r of leaveRequests) {
-    const from = new Date(Math.max(r.fromDate.getTime(), startOfMonth.getTime()));
-    const to = new Date(Math.min(r.toDate.getTime(), endOfMonth.getTime()));
+    const fromKey = dateKeyFromUtc(new Date(Math.max(r.fromDate.getTime(), startOfMonth.getTime())));
+    const toKey = dateKeyFromUtc(new Date(Math.min(r.toDate.getTime(), endOfMonth.getTime())));
 
-    const cur = new Date(from);
-    while (cur <= to) {
-      const dateKey = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+    for (let dateKey = fromKey; dateKey <= toKey; dateKey = addDaysToKey(dateKey, 1)) {
       if (!leavesByDate[dateKey]) leavesByDate[dateKey] = [];
 
-      const fromStr = r.fromDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-      const toStr = r.toDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      const fromStr = formatDayDate(r.fromDate);
+      const toStr = formatDayDate(r.toDate);
       const dateRangeDisplay = r.durationType === "HALF_DAY"
         ? `${fromStr} (${r.halfDayType === "FIRST_HALF" ? "First Half" : "Second Half"})`
         : r.durationType === "EARLY_LEAVE"
@@ -1119,8 +1160,8 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
         duration: `${r.durationDays} Day${r.durationDays > 1 ? "s" : ""}`,
         durationDays: r.durationDays,
         durationType: r.durationType,
-        fromDateStr: r.fromDate.toISOString().split("T")[0],
-        toDateStr: r.toDate.toISOString().split("T")[0],
+        fromDateStr: dateKeyFromUtc(r.fromDate),
+        toDateStr: dateKeyFromUtc(r.toDate),
         dateRangeDisplay,
         reason: r.reason,
         isHalfDay: r.durationType === "HALF_DAY",
@@ -1128,8 +1169,6 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
         fromTime: r.fromTime || undefined,
         toTime: r.toTime || undefined,
       });
-
-      cur.setDate(cur.getDate() + 1);
     }
   }
 
@@ -1142,8 +1181,7 @@ export async function getTeamCalendarEventsAction(year: number, month: number) {
   }[]> = {};
 
   for (const h of holidays) {
-    const d = new Date(h.date);
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const dateKey = dateKeyFromUtc(h.date);
     if (!holidaysByDate[dateKey]) holidaysByDate[dateKey] = [];
     holidaysByDate[dateKey].push({
       id: h.id,
