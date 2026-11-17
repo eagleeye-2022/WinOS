@@ -44,6 +44,7 @@ import {
 import { errorMessage, unwrap } from "../action-result";
 import { getLeaveRequestByIdAction } from "../queries/leave-queries";
 import { Button } from "@/components/ui/button";
+import { ApprovalNoteField, StepNote } from "./approve-note-dialog";
 import { cn } from "@/lib/utils";
 import { formatIstDateTime } from "@/features/attendance/utils";
 import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
@@ -102,6 +103,8 @@ export function LeaveRequestDetailsView({
   const [balances, setBalances] = useState<LeaveTypeConfig[]>(leaveTypes);
   const [previewAttachment, setPreviewAttachment] = useState<LeaveAttachment | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  /** The reviewer's optional note — sent with Approve, or as the reason with Reject. */
+  const [note, setNote] = useState("");
 
   // Synchronize local state whenever props update
   React.useEffect(() => {
@@ -177,7 +180,7 @@ export function LeaveRequestDetailsView({
     }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (note: string) => {
     setIsProcessing(true);
     const nowStr = formatIstDateTime();
 
@@ -186,7 +189,7 @@ export function LeaveRequestDetailsView({
     setApprovalFlow((prev) =>
       prev.map((step) =>
         step.title.includes("Manager") || step.id === "step-2" || step.id.includes("2")
-          ? { ...step, status: "APPROVED", dateStr: nowStr }
+          ? { ...step, status: "APPROVED", dateStr: nowStr, note: note || undefined }
           : step
       )
     );
@@ -203,7 +206,7 @@ export function LeaveRequestDetailsView({
     );
 
     try {
-      const res = unwrap(await approveLeaveRequestAction(request.id));
+      const res = unwrap(await approveLeaveRequestAction(request.id, note));
       if (!res.completed) alert(`Approved. It now needs ${res.nextStep ?? "the next approval"}.`);
       else if (res.isLossOfPay) alert(`Approved. ${res.lopDays} day(s) exceed the balance and are marked as loss of pay.`);
       await syncFromServer();
@@ -216,7 +219,7 @@ export function LeaveRequestDetailsView({
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = async (reason: string) => {
     setIsProcessing(true);
     const nowStr = formatIstDateTime();
 
@@ -225,13 +228,13 @@ export function LeaveRequestDetailsView({
     setApprovalFlow((prev) =>
       prev.map((step) =>
         step.title.includes("Manager") || step.id === "step-2" || step.id.includes("2")
-          ? { ...step, status: "REJECTED", dateStr: nowStr }
+          ? { ...step, status: "REJECTED", dateStr: nowStr, note: reason || undefined }
           : step
       )
     );
 
     try {
-      unwrap(await rejectLeaveRequestAction(request.id));
+      unwrap(await rejectLeaveRequestAction(request.id, reason || undefined));
       await syncFromServer();
       router.refresh();
     } catch (err) {
@@ -469,7 +472,9 @@ export function LeaveRequestDetailsView({
 
           {/* Action Buttons: Manager Approve / Reject or Employee Cancel */}
           {status === "PENDING" && (
-            <div className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            <div className="space-y-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            {showReview && <ApprovalNoteField value={note} onChange={setNote} disabled={isProcessing} />}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {/* Employee Action: Cancel Request */}
               {onCancelRequest && !isManagerView && (
                 <Button
@@ -489,7 +494,7 @@ export function LeaveRequestDetailsView({
                 <Button
                   type="button"
                   disabled={isProcessing}
-                  onClick={handleApprove}
+                  onClick={() => handleApprove("")}
                   className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   <Check className="w-4 h-4" />
@@ -504,7 +509,7 @@ export function LeaveRequestDetailsView({
                     type="button"
                     variant="outline"
                     disabled={isProcessing}
-                    onClick={handleReject}
+                    onClick={() => handleReject(note.trim())}
                     className="flex h-9 items-center gap-1.5 rounded-md border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
                   >
                     <X className="w-4 h-4 text-red-500" />
@@ -514,7 +519,7 @@ export function LeaveRequestDetailsView({
                   <Button
                     type="button"
                     disabled={isProcessing}
-                    onClick={handleApprove}
+                    onClick={() => handleApprove(note.trim())}
                     className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
                   >
                     <Check className="w-4 h-4" />
@@ -522,6 +527,7 @@ export function LeaveRequestDetailsView({
                   </Button>
                 </>
               )}
+            </div>
             </div>
           )}
         </div>
@@ -642,6 +648,7 @@ export function LeaveRequestDetailsView({
                         {step.dateStr && (
                           <p className="text-xs text-muted-foreground/80">{step.dateStr}</p>
                         )}
+                        {step.note && <StepNote note={step.note} />}
                       </div>
                     </div>
                   );

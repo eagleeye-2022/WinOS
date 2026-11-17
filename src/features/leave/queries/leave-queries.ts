@@ -81,6 +81,16 @@ function realAttachments<T extends { fileUrl: string }>(attachments: T[]): T[] {
   return attachments.filter((a) => !a.fileUrl.startsWith("/placeholder-"));
 }
 
+/** Filler older approvals stored in place of a note. */
+const STOCK_STEP_COMMENTS = new Set(["approved", "rejected", "approved by manager", "rejected by manager"]);
+
+/** The approver's note (or rejection reason) on a step; none for the applicant's own step. */
+function stepNote(step: { approverRole: string | null; comments: string | null }): string | undefined {
+  const text = step.comments?.trim();
+  if (!text || step.approverRole === "Applicant" || STOCK_STEP_COMMENTS.has(text.toLowerCase())) return undefined;
+  return text;
+}
+
 export interface FormattedBalance {
   id: string;
   leaveTypeId: string;
@@ -136,6 +146,7 @@ export interface FormattedLeaveRequest {
     actorRole?: string;
     dateStr?: string;
     status: "COMPLETED" | "PENDING" | "REJECTED";
+    note?: string;
   }[];
 }
 
@@ -361,6 +372,7 @@ export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: 
           dateStr: s.actionDate ? formatIstDateTime(s.actionDate) : undefined,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           status: s.status as any,
+          note: stepNote(s),
         })),
     };
   });
@@ -734,6 +746,7 @@ export async function getCompensatoryRequestByIdAction(requestId: string) {
       actorName: s.approverName || s.approverRole || "",
       dateStr: s.actionDate ? stamp(s.actionDate) : undefined,
       status: s.status as string,
+      note: stepNote(s),
     })),
   };
 }
@@ -1041,6 +1054,7 @@ export async function getLeaveRequestByIdAction(requestId: string) {
         dateStr: s.actionDate ? formatIstDateTime(s.actionDate) : undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         status: s.status as any,
+        note: stepNote(s),
       })),
   };
 

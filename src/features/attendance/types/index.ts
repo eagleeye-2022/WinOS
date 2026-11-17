@@ -169,6 +169,8 @@ export interface RegularizationRequest {
     subtitle: string;
     timestamp?: string;
     status: "completed" | "current" | "upcoming";
+    /** The approver's note, shown to the member. */
+    note?: string;
   }[];
 }
 

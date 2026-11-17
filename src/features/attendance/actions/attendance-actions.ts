@@ -287,6 +287,11 @@ export async function checkOutAction(payload?: {
 
 const REASON_MAX = 500;
 const REMARKS_MAX = 250;
+/** Email links: the member's own requests, and the manager's team requests to review. */
+const MY_REGULARIZATION_LINK = "/pulse/attendance?tab=regularization";
+const TEAM_REGULARIZATION_LINK = "/pulse/team-attendance?tab=regularization";
+/** Keep in sync with APPROVAL_NOTE_MAX in leave/components/approve-note-dialog. */
+const APPROVAL_NOTE_MAX = 500;
 
 export async function submitRegularizationAction(payload: {
   /** "YYYY-MM-DD" */
@@ -378,7 +383,7 @@ export async function submitRegularizationAction(payload: {
         message: `${actor.name || "Your manager"} regularized your attendance for ${key.split("-").reverse().join("/")} (${checkIn} – ${checkOut}).`,
         relatedEntryId: request.id,
       },
-    ]);
+    ], { link: MY_REGULARIZATION_LINK });
   } else {
     const requester = await loadRequester(userId);
     if (requester) {
@@ -390,7 +395,8 @@ export async function submitRegularizationAction(payload: {
           title: "Regularization to review",
           message: `${actor.name || "A team member"} asked to regularize ${key.split("-").reverse().join("/")} (${checkIn} – ${checkOut}).`,
           relatedEntryId: request.id,
-        }))
+        })),
+        { link: TEAM_REGULARIZATION_LINK }
       );
     }
   }
@@ -400,7 +406,7 @@ export async function submitRegularizationAction(payload: {
 }
 
 /** Marks a regularization approved and writes the requested times onto DailyAttendance. */
-async function applyApprovedRegularization(requestId: string, reviewerId: string) {
+async function applyApprovedRegularization(requestId: string, reviewerId: string, reviewNote: string | null = null) {
   const current = await db.attendanceRegularization.findUniqueOrThrow({ where: { id: requestId } });
   const date = dateFromKey(dateKeyFromUtc(current.missingDate))!;
   const worked = workedMinutesBetween(current.checkInTime, current.checkOutTime) ?? 0;
@@ -408,7 +414,7 @@ async function applyApprovedRegularization(requestId: string, reviewerId: string
   await db.$transaction([
     db.attendanceRegularization.update({
       where: { id: requestId },
-      data: { status: "APPROVED", rejectionReason: null, reviewedById: reviewerId, reviewedAt: new Date() },
+      data: { status: "APPROVED", rejectionReason: null, reviewNote, reviewedById: reviewerId, reviewedAt: new Date() },
     }),
     db.dailyAttendance.upsert({
       where: { userId_date: { userId: current.userId, date } },
@@ -445,10 +451,16 @@ export async function reviewRegularizationAction(payload: {
   requestId: string;
   status: "APPROVED" | "REJECTED";
   rejectionReason?: string;
+  /** Optional note when approving, shown to the member. */
+  note?: string;
 }): Promise<ActionResult> {
   const reviewer = await currentUser();
   if (!reviewer) return fail("Unauthorized");
   if (!canManageAttendance(reviewer)) return fail("Only managers can review regularizations.");
+  const note = (payload.note || "").trim();
+  if (note.length > APPROVAL_NOTE_MAX || (payload.rejectionReason || "").trim().length > APPROVAL_NOTE_MAX) {
+    return fail(`Note must be under ${APPROVAL_NOTE_MAX} characters.`);
+  }
 
   const current = await db.attendanceRegularization.findUnique({ where: { id: payload.requestId } });
   if (!current) return fail("Regularization request not found.");
@@ -461,7 +473,7 @@ export async function reviewRegularizationAction(payload: {
   if (current.status !== "PENDING") return fail(`This request is already ${current.status.toLowerCase()}.`);
 
   if (payload.status === "APPROVED") {
-    await applyApprovedRegularization(current.id, reviewer.id);
+    await applyApprovedRegularization(current.id, reviewer.id, note || null);
   } else {
     await db.attendanceRegularization.update({
       where: { id: current.id },
@@ -481,13 +493,13 @@ export async function reviewRegularizationAction(payload: {
       title: payload.status === "APPROVED" ? "Regularization approved" : "Regularization rejected",
       message:
         payload.status === "APPROVED"
-          ? `${reviewer.name || "Your manager"} approved your regularization for ${day}.`
+          ? `${reviewer.name || "Your manager"} approved your regularization for ${day}.${note ? ` Note: “${note}”` : ""}`
           : `${reviewer.name || "Your manager"} rejected your regularization for ${day}${
               payload.rejectionReason?.trim() ? `: ${payload.rejectionReason.trim()}` : "."
             }`,
       relatedEntryId: current.id,
     },
-  ]);
+  ], { link: MY_REGULARIZATION_LINK });
 
   revalidateAttendance();
   return { success: true };
@@ -583,7 +595,8 @@ export async function submitCompOffAction(payload: {
         title: "Comp-off request to review",
         message: `${user.name || "A team member"} requested a comp-off for working on ${workKey.split("-").reverse().join("/")}.`,
         relatedEntryId: compOff.id,
-      }))
+      })),
+      { link: `/pulse/leave/compensatory/${compOff.id}` }
     );
   }
 

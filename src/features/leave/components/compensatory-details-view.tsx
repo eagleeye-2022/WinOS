@@ -21,6 +21,7 @@ import {
 } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 import { Button } from "@/components/ui/button";
+import { ApprovalNoteField, StepNote } from "./approve-note-dialog";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
@@ -40,6 +41,10 @@ export function CompensatoryDetailsView({
 }: CompensatoryDetailsViewProps) {
   const [status, setStatus] = useState(request.status);
   const [isProcessing, setIsProcessing] = useState(false);
+  /** The reviewer's optional note — sent with Approve, or as the reason with Reject. */
+  const [note, setNote] = useState("");
+  /** The note just sent from here, shown on the step it decided. */
+  const [approvalNote, setApprovalNote] = useState<string | undefined>();
 
   const employee = {
     name: request.employeeName || "Team Member",
@@ -64,11 +69,12 @@ export function CompensatoryDetailsView({
     window.print();
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (note: string) => {
     setIsProcessing(true);
     try {
-      unwrap(await approveCompensatoryAction(request.id));
+      unwrap(await approveCompensatoryAction(request.id, note));
       setStatus("APPROVED");
+      setApprovalNote(note || undefined);
     } catch (err) {
       alert(errorMessage(err));
     } finally {
@@ -76,11 +82,12 @@ export function CompensatoryDetailsView({
     }
   };
 
-  const handleReject = async () => {
+  const handleReject = async (reason: string) => {
     setIsProcessing(true);
     try {
-      unwrap(await rejectCompensatoryAction(request.id));
+      unwrap(await rejectCompensatoryAction(request.id, reason || undefined));
       setStatus("REJECTED");
+      setApprovalNote(reason || undefined);
     } catch (err) {
       alert(errorMessage(err));
     } finally {
@@ -259,12 +266,14 @@ export function CompensatoryDetailsView({
 
           {/* Action Buttons: Reject / Approve — only for a manager responsible for this person */}
           {status === "PENDING" && request.canReview && (
-            <div className="flex items-center justify-end gap-2 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            <div className="space-y-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            <ApprovalNoteField value={note} onChange={setNote} disabled={isProcessing} />
+            <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 disabled={isProcessing}
-                onClick={handleReject}
+                onClick={() => handleReject(note.trim())}
                 className="flex h-9 items-center gap-1.5 rounded-md border-red-200 px-4 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/30"
               >
                 <X className="w-4 h-4 text-red-500" />
@@ -274,12 +283,13 @@ export function CompensatoryDetailsView({
               <Button
                 type="button"
                 disabled={isProcessing}
-                onClick={handleApprove}
+                onClick={() => handleApprove(note.trim())}
                 className="flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-5 text-xs font-semibold text-white hover:bg-emerald-700"
               >
                 <Check className="w-4 h-4" />
                 <span>{isProcessing ? "Processing..." : "Approve"}</span>
               </Button>
+            </div>
             </div>
           )}
         </div>
@@ -326,6 +336,10 @@ export function CompensatoryDetailsView({
                     </div>
                     {step.actorName && <p className="text-xs text-muted-foreground mt-0.5">{step.actorName}</p>}
                     {step.dateStr && <p className="text-xs text-muted-foreground/80 mt-0.5">{step.dateStr}</p>}
+                    {(() => {
+                      const note = step.note ?? (step.status === "PENDING" ? approvalNote : undefined);
+                      return note ? <StepNote note={note} /> : null;
+                    })()}
                   </div>
                 );
               })}

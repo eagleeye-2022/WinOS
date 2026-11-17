@@ -1913,6 +1913,8 @@ model AttendanceRegularization {
   reason           String
   remarks          String?
   rejectionReason  String?
+  /// The approver's optional note when approving, shown to the member.
+  reviewNote       String?
   existingCheckIn  String?
   existingCheckOut String?
   

@@ -55,6 +55,8 @@ export interface ApprovalStep {
   actorRole?: string;
   dateStr?: string;
   status: "COMPLETED" | "PENDING" | "REJECTED" | "APPROVED";
+  /** The approver's note (or rejection reason), shown to the member. */
+  note?: string;
 }
 
 export interface EmployeeInfo {
@@ -134,5 +136,5 @@ export interface CompensatoryRequest {
   employeeCode?: string;
   /** Set by the server when the viewer is a manager responsible for this person. */
   canReview?: boolean;
-  approvalSteps?: { id: string; title: string; actorName: string; dateStr?: string; status: string }[];
+  approvalSteps?: { id: string; title: string; actorName: string; dateStr?: string; status: string; note?: string }[];
 }

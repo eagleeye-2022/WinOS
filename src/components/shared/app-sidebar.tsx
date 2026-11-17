@@ -44,6 +44,10 @@ const SIDEBAR_ACTIVE = "bg-black/[0.07] text-foreground font-semibold dark:bg-wh
 
 // ── Active route helper ───────────────────────────────────────────────────────
 
+/** Manager pages under /pulse/leave that belong to Team Leave (same grouping as the breadcrumbs). */
+const TEAM_LEAVE_PREFIXES = ["/pulse/leave/team", "/pulse/leave/employee", "/pulse/leave/policy", "/pulse/leave/adjust"];
+const isTeamLeavePath = (pathname: string) => TEAM_LEAVE_PREFIXES.some((p) => pathname.startsWith(p));
+
 function isSubItemActive(pathname: string, href: string, label: string): boolean {
   // Setu first — its "Dashboard" label would otherwise hit the Standup Dashboard rule below.
   if (href.startsWith(ROUTES.setu)) {
@@ -90,19 +94,17 @@ function isSubItemActive(pathname: string, href: string, label: string): boolean
     return pathname === "/people";
   }
   if (label === "My Leaves" || label === "Leave Tracker") {
-    return (
-      (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) &&
-      !pathname.startsWith("/pulse/leave/team")
-    );
+    return (pathname.startsWith("/pulse/leave") || pathname.startsWith("/leave")) && !isTeamLeavePath(pathname);
   }
   if (label === "Team Leave") {
-    return pathname.startsWith("/pulse/leave/team");
+    return isTeamLeavePath(pathname);
   }
   if (label === "Users" && pathname.startsWith("/settings")) {
     return pathname.startsWith(ROUTES.settingsUsers);
   }
   if (label === "Attendance" || label === "My Attendance") {
-    return pathname.startsWith("/pulse/attendance");
+    // /pulse/regularization has no sidebar item of its own (it's a tab on My Attendance).
+    return pathname.startsWith("/pulse/attendance") || pathname.startsWith("/pulse/regularization");
   }
   if (label === "Team Attendance") {
     return pathname.startsWith("/pulse/team-attendance");

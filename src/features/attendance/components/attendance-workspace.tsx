@@ -111,13 +111,14 @@ export function AttendanceWorkspace({
   const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Sub-pages for Regularization
+  // Sub-pages for Regularization — remembered per page (My / Team Attendance), so a team member's
+  // request opened on Team Attendance never reopens under My Attendance.
   const [regularizationSubView, setRegularizationSubView] = useModuleViewState<"list" | "details" | "create">(
-    "attendance:regularization-sub-view",
+    `attendance:${view}:regularization-sub-view`,
     "list"
   );
   const [selectedRequest, setSelectedRequest] = useModuleViewState<RegularizationRequest | null>(
-    "attendance:selected-request",
+    `attendance:${view}:selected-request`,
     null
   );
 

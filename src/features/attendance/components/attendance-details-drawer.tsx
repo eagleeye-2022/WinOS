@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   X,
@@ -20,11 +20,12 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   ChevronRight,
-  RotateCcw,
   CornerDownRight,
   Award,
   CalendarPlus,
   Radio,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 import { AttendanceRecord, ActionRequiredItem } from "../types";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,75 @@ function LocationValue({ location }: { location?: { name: string; address: strin
   );
 }
 
+/** "Captured Image" row: the selfie thumbnail plus a View photo button that opens it full size. */
+function CapturedPhoto({ src, alt, onView }: { src: string; alt: string; onView: () => void }) {
+  return (
+    <div className="flex items-start justify-between pt-1">
+      <span className="flex items-center gap-2 text-muted-foreground pt-1">
+        <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" /> Captured Image
+      </span>
+      <div className="flex flex-col items-end gap-1.5">
+        <button
+          type="button"
+          onClick={onView}
+          title="View photo"
+          className="relative block h-16 w-20 cursor-zoom-in overflow-hidden rounded-lg border border-border shadow-sm transition-opacity hover:opacity-90"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={alt} className="h-full w-full object-cover" />
+        </button>
+        <button
+          type="button"
+          onClick={onView}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline dark:text-blue-400"
+        >
+          <Eye className="h-3.5 w-3.5" /> View photo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Full-size photo over the drawer; click outside, ✕ or Esc closes it. */
+function PhotoViewer({ photo, onClose }: { photo: { src: string; label: string }; onClose: () => void }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={photo.label}
+      onClick={onClose}
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+    >
+      <div onClick={(e) => e.stopPropagation()} className="relative flex max-h-full max-w-3xl flex-col items-center gap-3">
+        <div className="flex w-full items-center justify-between gap-3 text-white">
+          <p className="text-sm font-semibold">{photo.label}</p>
+          <div className="flex items-center gap-1">
+            <a
+              href={photo.src}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open in a new tab"
+              className="rounded-md p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              title="Close"
+              className="rounded-md p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo.src} alt={photo.label} className="max-h-[80vh] max-w-full rounded-xl object-contain shadow-2xl" />
+      </div>
+    </div>
+  );
+}
+
 interface AttendanceDetailsDrawerProps {
   record: AttendanceRecord | null;
   isOpen: boolean;
@@ -74,13 +144,25 @@ export function AttendanceDetailsDrawer({
   onApplyLeave,
   onRequestCompOff,
 }: AttendanceDetailsDrawerProps) {
-  // Esc closes the drawer.
+  /** The check-in / check-out selfie open full size, if any. */
+  const [photo, setPhoto] = useState<{ src: string; label: string } | null>(null);
+
+  // A photo left open on one day shouldn't reappear on the next record or after closing.
+  useEffect(() => {
+    setPhoto(null);
+  }, [record?.id, isOpen]);
+
+  // Esc closes the open photo first, then the drawer.
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (photo) setPhoto(null);
+      else onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, photo]);
 
   if (!isOpen || !record) return null;
 
@@ -140,24 +222,6 @@ export function AttendanceDetailsDrawer({
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <span>{record.formattedDate}</span>
             </div>
-
-            {/* 1. Still Working Top Banner (Batch 2 Image 2) */}
-            {isWorkingNow && (
-              <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-accent text-primary flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping absolute" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                    Still Working
-                  </h4>
-                  <p className="text-xs text-blue-600/90 dark:text-blue-400 mt-0.5">
-                    You are currently checked-in.
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* 2. Early Leave Top Banner (Batch 2 Image 3) */}
             {isEarlyLeave && (
@@ -334,24 +398,13 @@ export function AttendanceDetailsDrawer({
                       </div>
 
                       {record.checkInPhoto && (
-                        <div className="flex items-start justify-between pt-1">
-                          <span className="flex items-center gap-2 text-muted-foreground pt-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" /> Captured Image
-                          </span>
-                          <a
-                            href={record.checkInPhoto}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-20 h-16 rounded-lg overflow-hidden border border-zinc-200 shadow-sm relative block"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={record.checkInPhoto}
-                              alt="Captured check-in photo"
-                              className="w-full h-full object-cover"
-                            />
-                          </a>
-                        </div>
+                        <CapturedPhoto
+                          src={record.checkInPhoto}
+                          alt="Captured check-in photo"
+                          onView={() =>
+                            setPhoto({ src: record.checkInPhoto!, label: `Check-in photo · ${record.checkInTime}` })
+                          }
+                        />
                       )}
                     </div>
                   </div>
@@ -389,53 +442,17 @@ export function AttendanceDetailsDrawer({
 
                       {/* Captured Image if available */}
                       {record.checkOutPhoto && (
-                        <div className="flex items-start justify-between pt-1">
-                          <span className="flex items-center gap-2 text-muted-foreground pt-1">
-                            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" /> Captured Image
-                          </span>
-                          <div className="w-20 h-12 rounded-lg overflow-hidden border border-zinc-200 shadow-sm relative">
-                            <img
-                              src={record.checkOutPhoto}
-                              alt="Captured check-out selfie"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        </div>
+                        <CapturedPhoto
+                          src={record.checkOutPhoto}
+                          alt="Captured check-out photo"
+                          onView={() =>
+                            setPhoto({ src: record.checkOutPhoto!, label: `Check-out photo · ${record.checkOutTime}` })
+                          }
+                        />
                       )}
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* ── SECTION: Still Working Active Live Card (Batch 2 Image 2) ── */}
-            {isWorkingNow && (
-              <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-accent border border-blue-100 dark:border-zinc-700/50 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-accent text-primary flex items-center justify-center shrink-0">
-                    <RotateCcw className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                      STILL WORKING
-                    </h5>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      You are currently checked-in and working.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-blue-100 dark:border-zinc-700/60">
-                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>Live Duration</span>
-                  </div>
-                  <div className="text-2xl font-black text-primary mt-0.5">
-                    {record.workedDuration || "—"}
-                  </div>
-                  {/* liveSince is an ISO timestamp; the check-in time is what people read. */}
-                  {record.checkInTime && <p className="text-xs text-muted-foreground mt-0.5">Since {record.checkInTime}</p>}
-                </div>
               </div>
             )}
 
@@ -727,6 +744,8 @@ export function AttendanceDetailsDrawer({
           </div>
         </div>
       </div>
+
+      {photo && <PhotoViewer photo={photo} onClose={() => setPhoto(null)} />}
     </div>
   );
 }

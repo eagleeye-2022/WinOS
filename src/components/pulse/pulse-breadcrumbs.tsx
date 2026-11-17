@@ -54,13 +54,16 @@ function routeCrumbs(pathname: string): PulseCrumb[] {
   let m: RegExpExecArray | null;
 
   if (p === "/pulse/home" || p === "/pulse") return [PULSE, { label: "Home", href: "/pulse/home" }];
-  if (/^\/pulse\/(attendance|team-attendance|regularization)$/.test(p)) return [PULSE, { label: "Attendance", href: "/pulse/attendance" }];
+  if (p === "/pulse/team-attendance") return [PULSE, { label: "Team Attendance", href: "/pulse/team-attendance" }];
+  if (/^\/pulse\/(attendance|regularization)$/.test(p)) return [PULSE, { label: "My Attendance", href: "/pulse/attendance" }];
   // One team member (manager views): the page adds their name and tab.
   if (/^\/pulse\/team-attendance\/[^/]+$/.test(p))
     return [PULSE, { label: "Team Attendance", href: "/pulse/team-attendance" }];
   if (/^\/pulse\/leave\/employee\/[^/]+$/.test(p))
     return [PULSE, TEAM_LEAVE, { label: "Team Member Leave", href: "/pulse/leave/team?tab=employee-leave" }];
   if (p === "/pulse/leave/team" || p === "/pulse/leave/policy") return [PULSE, TEAM_LEAVE];
+  // A team member's request opened by a manager (the page adds its own trail after this).
+  if (/^\/pulse\/leave\/team\/(requests|compensatory)\/[^/]+$/.test(p)) return [PULSE, TEAM_LEAVE];
   if (p === "/pulse/leave/policy/new")
     return [PULSE, TEAM_LEAVE, { label: "Leave Policy", href: "/pulse/leave/policy" }, { label: "New Leave Type" }];
   if (p === "/pulse/leave/adjust") return [PULSE, TEAM_LEAVE, { label: "Adjust Balance" }];

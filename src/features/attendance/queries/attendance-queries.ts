@@ -415,6 +415,7 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
             : `Rejected by ${r.reviewedBy?.name || "Manager"}${r.rejectionReason ? `: ${r.rejectionReason}` : ""}`,
         timestamp: r.reviewedAt ? formatAppliedDate(r.reviewedAt) : undefined,
         status: r.status === "PENDING" ? "current" : "completed",
+        note: r.status === "APPROVED" ? r.reviewNote || undefined : undefined,
       },
       {
         title: "Attendance Updated",

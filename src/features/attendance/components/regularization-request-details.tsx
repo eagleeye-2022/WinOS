@@ -21,6 +21,7 @@ import { RegularizationRequest } from "../types";
 import { reviewRegularizationAction, cancelRegularizationAction } from "../actions/attendance-actions";
 import { cn } from "@/lib/utils";
 import { PulseCard, StatusPill, type PulseTone } from "@/components/pulse/pulse-ui";
+import { ApprovalNoteField, StepNote } from "@/features/leave/components/approve-note-dialog";
 
 interface RegularizationRequestDetailsProps {
   request: RegularizationRequest;
@@ -41,8 +42,10 @@ export function RegularizationRequestDetails({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(request.status);
   const [error, setError] = useState<string | null>(null);
-  const [isRejecting, setIsRejecting] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  /** The reviewer's optional note — sent with Approve, or as the reason with Reject. */
+  const [note, setNote] = useState("");
+  /** The note just sent from here, shown on the review step before the page reloads. */
+  const [approvalNote, setApprovalNote] = useState<string | undefined>();
 
   const isOwn = request.employee.id === currentUserId;
   // Managers review other people's requests — never their own (the server refuses that too).
@@ -66,33 +69,30 @@ export function RegularizationRequestDetails({
     }
   };
 
-  const handleApprove = () =>
+  const handleApprove = (note: string) =>
     run(
-      () => reviewRegularizationAction({ requestId: request.id, status: "APPROVED" }),
+      () => reviewRegularizationAction({ requestId: request.id, status: "APPROVED", note }),
       () => {
         setCurrentStatus("Approved");
+        setApprovalNote(note || undefined);
         onStatusUpdated?.();
       }
     );
 
-  const handleReject = () => {
-    if (!isRejecting) {
-      setIsRejecting(true);
-      return;
-    }
-    return run(
+  const handleReject = (reason: string) =>
+    run(
       () =>
         reviewRegularizationAction({
           requestId: request.id,
           status: "REJECTED",
-          rejectionReason: rejectionReason.trim() || undefined,
+          rejectionReason: reason || undefined,
         }),
       () => {
         setCurrentStatus("Rejected");
+        setApprovalNote(reason || undefined);
         onStatusUpdated?.();
       }
     );
-  };
 
   const handleCancel = () =>
     run(
@@ -167,14 +167,14 @@ export function RegularizationRequestDetails({
                 <>
                   <button
                     disabled={isProcessing}
-                    onClick={handleReject}
+                    onClick={() => handleReject(note.trim())}
                     className="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/80 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
                   >
-                    {isRejecting ? "Confirm Reject" : "Reject"}
+                    Reject
                   </button>
                   <button
                     disabled={isProcessing}
-                    onClick={handleApprove}
+                    onClick={() => handleApprove(note.trim())}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -186,16 +186,9 @@ export function RegularizationRequestDetails({
           )}
         </div>
 
-        {showActions && showReview && isRejecting && (
+        {showActions && showReview && (
           <div className="border-t border-border/70 px-5 py-3">
-            <textarea
-              rows={2}
-              maxLength={250}
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Reason for rejection (shared with the team member)"
-              className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-rose-400/40"
-            />
+            <ApprovalNoteField value={note} onChange={setNote} disabled={isProcessing} />
           </div>
         )}
 
@@ -293,6 +286,10 @@ export function RegularizationRequestDetails({
                     {step.timestamp && <span className="shrink-0 text-[11px] text-muted-foreground">{step.timestamp}</span>}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{step.subtitle}</p>
+                  {(() => {
+                    const note = step.note ?? (idx === 1 && currentStatus !== "Pending" ? approvalNote : undefined);
+                    return note ? <StepNote note={note} /> : null;
+                  })()}
                 </li>
               ))}
             </ol>

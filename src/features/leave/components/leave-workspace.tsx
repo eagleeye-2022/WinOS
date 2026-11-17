@@ -51,12 +51,24 @@ interface LeaveWorkspaceProps {
   initialTab?: ActiveTab;
   initialSelectedRequestId?: string;
   initialSelectedCompRequestId?: string;
+  /**
+   * A team member's request opened by a manager (/pulse/leave/team/…): the breadcrumb and the
+   * not-found fallback go back to the Team Leave lists instead of the manager's own leave.
+   */
+  teamView?: boolean;
 }
+
+/** The Team Leave tab each detail view belongs to. */
+const TEAM_LIST = {
+  requests: { label: "Leave Requests", href: "/pulse/leave/team?tab=leave-requests" },
+  compensatory: { label: "Compensatory Requests", href: "/pulse/leave/team?tab=compensatory-requests" },
+} as const;
 
 export function LeaveWorkspace({
   initialTab = "overview",
   initialSelectedRequestId,
   initialSelectedCompRequestId,
+  teamView = false,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
   // List tabs live in the URL (restored on return, Back/Forward-able). Form / detail views depend
@@ -93,8 +105,11 @@ export function LeaveWorkspace({
   };
   const subView = SUB_VIEW[activeTab];
   const crumbTab: ListTab = subView ? subView.parent : (activeTab as ListTab);
+  const teamList = teamView && (crumbTab === "requests" || crumbTab === "compensatory") ? TEAM_LIST[crumbTab] : null;
   usePulseCrumbs([
-    { label: LIST_LABEL[crumbTab], onClick: () => setActiveTab(crumbTab) },
+    teamList
+      ? { label: teamList.label, href: teamList.href }
+      : { label: LIST_LABEL[crumbTab], onClick: () => setActiveTab(crumbTab) },
     ...(subView ? [{ label: subView.label }] : []),
   ]);
 
@@ -167,6 +182,9 @@ export function LeaveWorkspace({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setSelectedRequest(matched as any);
             setActiveTab("request-details");
+          } else if (teamView) {
+            // Not found, or not theirs to review — back to the team's list, not the manager's own.
+            router.replace(TEAM_LIST.requests.href);
           } else {
             // Not found, or not theirs to open — back to the list instead of a blank page.
             setActiveTab("requests");
@@ -179,6 +197,8 @@ export function LeaveWorkspace({
           if (comp) {
             setSelectedCompRequest(comp);
             setActiveTab("compensatory-details");
+          } else if (teamView) {
+            router.replace(TEAM_LIST.compensatory.href);
           } else {
             setActiveTab("compensatory");
           }

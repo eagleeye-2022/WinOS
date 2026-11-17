@@ -11,15 +11,13 @@ import {
   X,
   Plus,
   Info,
-  Sliders,
-  PieChart,
 } from "lucide-react";
 import { CompDurationType, CompensatoryRequest, LeaveAttachment } from "../types";
 import { applyCompensatoryAction } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 import { uploadAttachment } from "../upload-attachment";
 import { addDaysToKey, formatIstDate, istDateKey, normalizeTime, workedMinutesBetween } from "@/features/attendance/utils";
-import { compOffDurationError } from "../leave-rules";
+import { compOffDurationError, compOffExpiry } from "../leave-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,7 +68,8 @@ export function ApplyCompensatoryForm({
   const [workDate, setWorkDate] = useState(() => addDaysToKey(istDateKey(), -1));
   const [fromTime, setFromTime] = useState("09:00 AM");
   const [toTime, setToTime] = useState("06:00 PM");
-  const [durationType, setDurationType] = useState<CompDurationType>("FULL_DAY");
+  // Quarter day is no longer offered (old quarter-day comp-offs still display).
+  const [durationType, setDurationType] = useState<Exclude<CompDurationType, "QUARTER_DAY">>("FULL_DAY");
   const [reason, setReason] = useState("");
   const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
   /** The picked files, by attachment id — uploaded on submit. */
@@ -88,12 +87,11 @@ export function ApplyCompensatoryForm({
     return `${d.getUTCDate()} ${month} ${d.getUTCFullYear()} (${weekday})`;
   };
 
-  // Expiry: one month after the work date (same rule as the server's compOffExpiry).
+  // Expiry: 31 December of the work date's year (the server's compOffExpiry).
   const expiryDateFormatted = useMemo(() => {
     const d = new Date(`${workDate}T00:00:00Z`);
     if (isNaN(d.getTime())) return "—";
-    d.setUTCMonth(d.getUTCMonth() + 1);
-    return formatDateWithWeekday(d.toISOString().slice(0, 10));
+    return formatDateWithWeekday(compOffExpiry(d).toISOString().slice(0, 10));
   }, [workDate]);
 
   // Checked as you type, with the same rules the server applies.
@@ -122,8 +120,6 @@ export function ApplyCompensatoryForm({
         return { label: "Full Day", badgeText: "1 Day" };
       case "HALF_DAY":
         return { label: "Half Day", badgeText: "0.5 Day" };
-      case "QUARTER_DAY":
-        return { label: "Quarter Day", badgeText: "0.25 Day" };
     }
   }, [durationType]);
 
@@ -290,7 +286,7 @@ export function ApplyCompensatoryForm({
                   Duration Type <span className="text-red-500">*</span>
                 </label>
 
-                <div className="grid grid-cols-3 gap-3 pt-1">
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => setDurationType("FULL_DAY")}
@@ -333,26 +329,6 @@ export function ApplyCompensatoryForm({
                     <span>Half Day</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setDurationType("QUARTER_DAY")}
-                    className={cn(
-                      "h-10 px-3 rounded-md border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer",
-                      durationType === "QUARTER_DAY"
-                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
-                        : "border-border bg-background text-muted-foreground hover:bg-muted/40"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-3 h-3 rounded-full border-2 flex items-center justify-center",
-                        durationType === "QUARTER_DAY"
-                          ? "border-blue-600 bg-blue-600"
-                          : "border-muted-foreground"
-                      )}
-                    />
-                    <span>Quarter Day</span>
-                  </button>
                 </div>
                 {durationError && <p className="text-xs text-red-600 dark:text-red-400 pt-1">{durationError}</p>}
               </div>
@@ -534,63 +510,6 @@ export function ApplyCompensatoryForm({
                 <span className="text-muted-foreground">Expiry Date</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
                   {expiryDateFormatted}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Duration Guide Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
-            <WidgetTitle icon={<Clock className="h-4 w-4" />}>Duration Guide</WidgetTitle>
-
-            <div className="space-y-2.5">
-              {/* Full Day */}
-              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-accent text-blue-500">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-foreground">Full Day</div>
-                    <div className="text-xs text-muted-foreground">More than 5 hours</div>
-                  </div>
-                </div>
-                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                  1 Day
-                </span>
-              </div>
-
-              {/* Half Day */}
-              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-500">
-                    <Sliders className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-foreground">Half Day</div>
-                    <div className="text-xs text-muted-foreground">Up to 5 hours</div>
-                  </div>
-                </div>
-                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-accent dark:text-blue-300">
-                  0.5 Day
-                </span>
-              </div>
-
-              {/* Quarter Day */}
-              <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-500">
-                    <PieChart className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-foreground">
-                      Quarter Day (4 Hours)
-                    </div>
-                    <div className="text-xs text-muted-foreground">Up to 4 hours</div>
-                  </div>
-                </div>
-                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                  0.25 Day
                 </span>
               </div>
             </div>

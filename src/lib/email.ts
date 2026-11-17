@@ -1,3 +1,4 @@
+import path from "node:path";
 import nodemailer from "nodemailer";
 
 // ── Zoho SMTP configuration ───────────────────────────────────────────────────
@@ -162,6 +163,170 @@ export async function sendCalendarInviteEmail(params: CalendarInviteEmailParams)
   const fromEmail = getFromEmail();
   await transport.sendMail({ from: fromEmail, to, subject, text, html });
   console.log(`\n[EMAIL SENT] From: ${fromEmail} | To: ${to} | Subject: ${subject}\n`);
+}
+
+export type RequestUpdateEmailParams = {
+  to: string;
+  recipientName?: string | null;
+  /** Short headline, e.g. "Leave approved" — also the subject. */
+  title: string;
+  /** One-line body, same text as the in-app notification. */
+  message: string;
+  /** Who did it, shown as "<actorLabel>: <actorName>", e.g. "Approved by: Priya". */
+  actorName?: string | null;
+  actorLabel?: string;
+  /** Absolute link to the request in WinOS (optional). */
+  url?: string | null;
+  /** "review": the approver's email (adds an "open it to approve or reject" hint). "view": everyone else. */
+  actions?: "review" | "view";
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Email for leave / comp-off / regularization requests and their decisions (sent alongside the
+ * in-app notification). Without SMTP_HOST outside production it's printed to the console instead,
+ * so local runs against a shared database never mail real people.
+ */
+export async function sendRequestUpdateEmail(params: RequestUpdateEmailParams): Promise<void> {
+  const { to } = params;
+  const { subject, text, html } = renderRequestUpdateEmail(params, `cid:${EMAIL_LOGO_CID}`);
+
+  if (!process.env.SMTP_HOST && !IS_PROD) {
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`[REQUEST EMAIL] To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(text);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    return;
+  }
+
+  const transport = buildTransport();
+  if (!transport) {
+    console.error("SMTP not configured for request update email");
+    return;
+  }
+
+  const fromEmail = getFromEmail();
+  await transport.sendMail({
+    from: fromEmail,
+    to,
+    subject,
+    text,
+    html,
+    // Embedded (not a hosted URL) so the logo shows even when the app runs on localhost.
+    attachments: [{ filename: "winos-logo.png", path: EMAIL_LOGO_PATH, cid: EMAIL_LOGO_CID }],
+  });
+  console.log(`\n[EMAIL SENT] From: ${fromEmail} | To: ${to} | Subject: ${subject}\n`);
+}
+
+const EMAIL_LOGO_CID = "winos-logo@winos";
+/** Cropped copy of public/winos-logo.png, sized for email headers. */
+const EMAIL_LOGO_PATH = path.join(process.cwd(), "public", "winos-email-logo.png");
+
+// Light theme matching the app: primary blue, slate text, soft grey page, 10px radius, Poppins.
+const THEME = {
+  page: "#f4f6fb",
+  card: "#ffffff",
+  border: "#e4e7ec",
+  text: "#0f172a",
+  muted: "#64748b",
+  primary: "#2563eb",
+  font: "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif",
+};
+
+/** Status pill colours, picked from the "<x> by" label. */
+function statusFor(actorLabel: string): { label: string; fg: string; bg: string } {
+  if (actorLabel.startsWith("Approved")) return { label: "Approved", fg: "#047857", bg: "#ecfdf5" };
+  if (actorLabel.startsWith("Rejected")) return { label: "Rejected", fg: "#be123c", bg: "#fff1f2" };
+  if (actorLabel.startsWith("Cancelled")) return { label: "Cancelled", fg: "#475569", bg: "#f1f5f9" };
+  if (actorLabel.startsWith("Requested")) return { label: "Pending approval", fg: "#b45309", bg: "#fffbeb" };
+  return { label: "Update", fg: THEME.primary, bg: "#eff6ff" };
+}
+
+function button(href: string, label: string, variant: "primary" | "outline"): string {
+  const style =
+    variant === "primary"
+      ? `background:${THEME.primary};color:#ffffff;border:1px solid ${THEME.primary};`
+      : `background:#ffffff;color:${THEME.text};border:1px solid ${THEME.border};`;
+  return `<a href="${escapeHtml(href)}" style="${style}display:inline-block;font-family:${THEME.font};font-size:14px;font-weight:600;line-height:20px;padding:10px 22px;border-radius:10px;text-decoration:none;">${escapeHtml(label)}</a>`;
+}
+
+/** Subject, plain text and HTML for a request email (pure, so it can be previewed). */
+export function renderRequestUpdateEmail(
+  params: RequestUpdateEmailParams,
+  logoSrc: string
+): { subject: string; text: string; html: string } {
+  const { recipientName, title, message, actorName, actorLabel = "By", url, actions = "view" } = params;
+  const subject = `WinOS: ${title}`;
+  const review = actions === "review";
+  const status = statusFor(actorLabel);
+
+  const text = [
+    `Hi ${recipientName || "there"},`,
+    ``,
+    message,
+    ...(actorName ? [`${actorLabel}: ${actorName}`] : []),
+    ...(url ? [``, `View request: ${url}`] : []),
+  ].join("\n");
+
+  const buttons = url ? button(url, "View request", "primary") : "";
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:${THEME.page};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${THEME.page};padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;font-family:${THEME.font};color:${THEME.text};">
+        <tr><td align="center" style="padding:0 0 20px;">
+          <img src="${escapeHtml(logoSrc)}" width="150" height="52" alt="WinOS" style="display:block;border:0;">
+        </td></tr>
+        <tr><td style="background:${THEME.card};border:1px solid ${THEME.border};border-radius:12px;padding:28px;">
+          <span style="display:inline-block;background:${status.bg};color:${status.fg};font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;">${escapeHtml(status.label)}</span>
+          <h1 style="margin:14px 0 6px;font-size:20px;line-height:28px;font-weight:600;color:${THEME.text};">${escapeHtml(title)}</h1>
+          <p style="margin:0 0 18px;font-size:14px;line-height:22px;color:${THEME.muted};">Hi ${escapeHtml(recipientName || "there")},</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:24px;color:${THEME.text};">${escapeHtml(message)}</p>
+          ${
+            actorName
+              ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${THEME.page};border:1px solid ${THEME.border};border-radius:10px;">
+            <tr>
+              <td style="padding:12px 16px;font-size:13px;color:${THEME.muted};">${escapeHtml(actorLabel)}</td>
+              <td align="right" style="padding:12px 16px;font-size:14px;font-weight:600;color:${THEME.text};">${escapeHtml(actorName)}</td>
+            </tr>
+          </table>`
+              : ""
+          }
+          ${buttons ? `<div style="margin:24px 0 0;">${buttons}</div>` : ""}
+          ${
+            review && url
+              ? `<p style="margin:14px 0 0;font-size:12px;line-height:18px;color:${THEME.muted};">Open the request in WinOS to approve or reject it.</p>`
+              : ""
+          }
+        </td></tr>
+        <tr><td align="center" style="padding:20px 0 0;font-size:12px;line-height:18px;color:${THEME.muted};">
+          Sent by WinOS Pulse · Eagle Eye Digital<br>You're receiving this because a request involves you.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, text, html };
 }
 
 export type ClientInvitationEmailParams = {

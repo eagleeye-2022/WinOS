@@ -185,7 +185,7 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
               leaveTypes={leaveTypes}
               requests={yearRequests}
               onApply={(date) => setApplyFor({ date })}
-              onViewRequest={(r) => router.push(`/pulse/leave/requests/${r.id}`)}
+              onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
             />
           )}
 
@@ -197,7 +197,7 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
               </div>
               <LeaveRequestsTable
                 requests={requests}
-                onViewRequest={(r) => router.push(`/pulse/leave/requests/${r.id}`)}
+                onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
                 showFilters
                 showDateRangeNav={false}
                 title=""
@@ -208,7 +208,7 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
           {tab === "compensatory" && (
             <CompensatoryRequestsTable
               requests={(data.compensatoryRequests ?? []) as unknown as CompensatoryRequest[]}
-              onViewRequest={(r) => router.push(`/pulse/leave/compensatory/${r.id}`)}
+              onViewRequest={(r) => router.push(`/pulse/leave/team/compensatory/${r.id}`)}
             />
           )}
 
